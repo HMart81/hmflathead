@@ -43,9 +43,11 @@ KERNEL32_LIB := $(MSVC_SDK_PATH)\kernel32.lib
 USER32_LIB := $(MSVC_SDK_PATH)\user32.lib
 #######################################################################################################
 #                       !!WARNING!! 
+# make will not work with space based "tab" it requires real tab
 # Wildcards require unix style forward slash's.
-# Also do not use wildcards directly on the rules itself, 
+# Also do not use wildcards directly on the rules itself,
 # always use them through a variable, aparantly they don't always work as expected when used on a rule.
+# Make sure there's no space after all '\' in ENGINE_CHILD_SOURCES :=
 #######################################################################################################
 # engine folders
 ENGINE_ROOT_SOURCES := $(wildcard $(ENGINE_FOLDER)*.c3 $(ENGINE_FOLDER)*.c3i)
@@ -77,6 +79,15 @@ comand_debug_compile := c3c.exe -O0 $(DEBUG_DEFINES) -L $(LIBRARY_ROOT_PATH) -l 
 comand_release_run := cd ${CURDIR}/build/ & start $(APPLICATION_RELEASE_NAME).exe $(GAME_ARGUMENTS)
 comand_debug_run := cd ${CURDIR}/build/ & start $(APPLICATION_DEBUG_NAME).exe $(GAME_ARGUMENTS)
 
+################################### LOGGING #########################################################
+# uncoment one of them in case you need error log, warning or just info log, 
+# to see what comand was run.
+
+#$(error   $(comand_release_compile) )
+#$(warning cmd is $(comand_release_compile) )
+#$(info    cmd is $(comand_debug_compile) )
+#####################################################################################################
+
 ################################### NOTE ############################################################
 # the "all" rule is required to force rules "buildtype(name)" to be the only rules that run
 # when calling "make" with no parameters in the console, otherwise make will run the rules automatically 
@@ -100,7 +111,7 @@ release($(APPLICATION_RELEASE_NAME)) : $(GAME_ROOT_SOURCES) $(ENGINE_ROOT_SOURCE
 	$(comand_release_compile)
 	$(comand_release_run)
 
-debug($(APPLICATION_DEBUG_NAME)) : (GAME_ROOT_SOURCES) $(ENGINE_ROOT_SOURCES) $(ENGINE_CHILD_SOURCES)
+debug($(APPLICATION_DEBUG_NAME)) : $(GAME_ROOT_SOURCES) $(ENGINE_ROOT_SOURCES) $(ENGINE_CHILD_SOURCES)
 	$(info   work_dir ${CURDIR} )
 	$(comand_debug_compile)
 	$(comand_debug_run)

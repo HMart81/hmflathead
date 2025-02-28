@@ -37,7 +37,7 @@ import std::collections::list;
 // end_region
 
 // region custom modules
-import game::misc::hm;
+import engine::misc;
 import game::serialize::svs; // save system
 import game::main;
 //import ent;
@@ -45,7 +45,7 @@ import raylib5::rl;
 // end_region
 
 const float DEFAULT_PROJECTILE_SPEED    = 1.0f;
-const Vec2f DEFAULT_PROJECTILE_MOVE_DIR = hm::VEC_UP;
+const Vec2f DEFAULT_PROJECTILE_MOVE_DIR = misc::VEC_UP;
 
 def ProjectileList    = List(<Projectile>);
 def ProjectilePtrList = List(<Projectile*>);
@@ -141,7 +141,7 @@ import raylib5::rl;
 import game::projectiles::ammo;
 import game::serialize::svs; // save system
 //import game::actors::ent;
-import game::misc::hm;
+import engine::misc;
 import game::main;
 // end_region
 
@@ -273,7 +273,7 @@ fn void Player.updateInteraction(&self, float dt)
         self.projectiles.push(ammo::create(self.getPosition()));
     }
     
-    Vec2f new_origin = self.getPosition() + hm::dir_mul(self.move_dir, speed);
+    Vec2f new_origin = self.getPosition() + misc::dir_mul(self.move_dir, speed);
     self.setPositionV(new_origin);
 }
 

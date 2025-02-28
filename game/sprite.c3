@@ -37,9 +37,9 @@ import std::collections::map;
 
 // region other modules
 import game::main;
-import game::misc::hm;
-import game::assets::astmng; // asset manager
-import game::assets::asst; // for the asset 
+import engine::misc;
+import engine::assets::astmng; // asset manager
+import engine::assets_api::asapi; // for the asset 
 import game::serialize::svs; // save system
 import game::actors::ent;
 import raylib5::rl;
@@ -339,8 +339,8 @@ import game::main;
 import game::assets::sprt;
 import std::math::vector;
 import game::actors::ent;
-import game::assets::astmng;
-import game::misc::hm;
+import engine::assets::astmng;
+import engine::misc;
 // end_region
 
 const int DEFAULT_PARTICLE_LIFETIME   = 1000; // ms
@@ -363,7 +363,7 @@ fn void Particle.create(&self, Vec2f pos, Vec2f size, RColor color = rl::WHITE, 
     self.initV(pos, size, color);
     self.tex          = assetManager.getAssetExt(tex_name, Texture2D.typeid);
     self.lifetime     = main::gpGame.time_ms + lifetime_ms;
-    self.dir          = hm::VEC_UP;
+    self.dir          = misc::VEC_UP;
     self.velocity     = self.dir;
     self.acceleration = 1.0f;
 }
@@ -406,7 +406,7 @@ struct ParticleSpawner {
 
 fn void ParticleSpawner.init(&self, Vec2f pos, int delay = 0) {
     String name = string::tformat("%s%s", "ParticleSpawner_", main::gpGame.time_ms);
-    RColor color = hm::INVISIBLE_COLOR;
+    RColor color = misc::INVISIBLE_COLOR;
 $if $feature(_DEBUG):
     color = rl::RED;
 $endif

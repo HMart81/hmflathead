@@ -42,7 +42,7 @@ import game::misc::hm;
 import game::main;
 import raylib5::rl;
 //import ent;
-//import hm::dyarray;
+//import misc::dyarray;
 // end_region
 
 // region defines
@@ -67,8 +67,8 @@ fn Desktop* create(int screenWidth, int screenHeight) {
     start_button.setSizeV(default_button_size);
     button_width  = start_button.rect.width;
     button_height = start_button.rect.height;
-    offset += hm::VEC_RIGHT * (((float)screenWidth / 2.0f) - (button_width / 2.0f));
-    offset += hm::VEC_DOWN * button_height;
+    offset += misc::VEC_RIGHT * (((float)screenWidth / 2.0f) - (button_width / 2.0f));
+    offset += misc::VEC_DOWN * button_height;
     start_button.setPositionV(offset);
     start_button.setDefaultColor(rl::YELLOW);
     start_button.setOverColor(rl::RED);
@@ -81,7 +81,7 @@ fn Desktop* create(int screenWidth, int screenHeight) {
     quit_button.init(menu);
     defer { menu.addWidget(quit_button); }
     quit_button.setSizeV(default_button_size);
-    offset += hm::VEC_DOWN * (0.10f*default_button_size.y);
+    offset += misc::VEC_DOWN * (0.10f*default_button_size.y);
     start_button.setPositionV(offset);
     start_button.setDefaultColor(rl::YELLOW);
     start_button.setOverColor(rl::RED);

@@ -241,7 +241,7 @@ fn void eat_until_space(String* str) @inline
 // char* reminder;
 // const char* text = "namespace this shoud be the rest.";
 
-// tString result = hm::Cut_By_Spaces(text, &reminder);
+// tString result = misc::Cut_By_Spaces(text, &reminder);
 // hplFree(reminder);
 /////////////////
 

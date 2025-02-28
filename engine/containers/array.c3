@@ -36,7 +36,7 @@
 ===============================================================================
 */
 
-module hm::dyarray(<Type>);
+module misc::dyarray(<Type>);
 
 import std::io, std::core::mem;
 

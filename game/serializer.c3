@@ -26,23 +26,745 @@
 # 
 *********************************************************************************************************************************************/
 
-module game::serialization::sl;
+module game::serialize::svs;
 
+// region C3 modules
 import std::io;
+import std::bits;
 import std::core::mem; // for malloc
-import std::math;
+//import std::math;
+import std::collections::list;
+// end_region
 
+// region custom modules
 import game::main;
+//import game::actors::ent;
 import raylib5::rl;
+//import raygui;
+import engine::misc;
+import engine::assets_api::asapi;
+// end_region
 
-//#######################################################################################
+// region defines
+//def assetManager = astmng::assetManager @private;
+//def WidgetQueue  = List(<Widget*>) {}
+//def DesktopList  = List(<Action*>) {}
+//def ActionQueue    = List(<Action*>) {}
+//def ActionCallBack = fn void(args...) {}
+// end_region
+
+
+// region constants
+const int MAX_ACTION_COUNT  = 1024;
+const int INITIAL_RELEASE_BUILD_NUMBER = 1262;
+const int SAVE_FILE_VERSION = 1; // update this version if the save file structure is modified to much!!!
+// NOTE(HM) I'm not using the '\0' null terminator 
+// or 0x00 for the null symbol to not confuse with null terminated strings 
+const char NULL_CHARACTER = 'º'; 
+
+fault SaveFileFault {
+    MISSING_FILE_PATH,
+    FAILED_OPEN_FILE,
+    FAILED_READ_FILE,
+    FAILED_CLOSE_FILE,
+    FAILED_GET_FILE_SIZE
+}
+// end_region
+
+// region Globals
+// end_region
+
+struct SaveFile {
+    io::File file   @tag("version", 1);
+    String path     @tag("version", 1);
+    int version     @tag("version", 1);
+    int buildNumber @tag("version", 1);
+}
+
+interface SaveSystemInterface {
+	fn void save(SaveFile*);
+	fn void reload(SaveFile*);
+}
+
+<*
+* @require SaveFile.tagof("version") == SAVE_FILE_VERSION
+*>
+fn SaveFile! open(String filepath, int file_version = SAVE_FILE_VERSION) {
+    if(filepath == "") {
+        return SaveFileFault.MISSING_FILE_PATH?;
+    }
+    
+    SaveFile file_data;
+    file_data.version = file_version;
+    file_data.path    = filepath;
+    io::File! file    = file::open(filepath, "rb");
+    if(catch excuse = file) {
+        return SaveFileFault.FAILED_OPEN_FILE?;
+    } else {
+        file_data.file = file;
+        return file_data;
+    }
+}
+
+<*
+* @require SaveFile.tagof("version") == SAVE_FILE_VERSION
+*>
+fn SaveFile! make_new(String filepath, int file_version = SAVE_FILE_VERSION) {
+    if(filepath == "") {
+        return SaveFileFault.MISSING_FILE_PATH?;
+    }
+    
+    io::File! file  = file::open(filepath, "wb");
+    if(catch excuse = file) {
+        return SaveFileFault.FAILED_OPEN_FILE?;
+    } else {
+        SaveFile file_data;
+        file_data.version = file_version;
+        file_data.path    = filepath;
+        file_data.file    = file;
+        
+        return file_data;
+    }
+}
+
+fn void! close(SaveFile* save) @inline {
+    save.file.close()!;
+}
+
+////////////////////////////// Writting /////////////////////////////////
+<*
+* @param in savefile "the file to write the data to"
+* @require savefile != null @if $feature(_DEBUG)
+*>
+fn void	write(SaveFile* savefile, void* buffer, int bytes_len ) {
+    char[] _buffer = ((char*)buffer)[:bytes_len];
+    if(@catch(savefile.file.write(_buffer))) {
+        main::gameWarning("failed to write data to file %s! : %s:%s", savefile.path, $$FUNC, $$LINE);
+    }
+}
+<*
+* @param in savefile "the file to write the data to"
+* @require savefile != null @if $feature(_DEBUG)
+*>
+fn void	writeUInt(SaveFile* savefile, uint value ) {
+    write(savefile, &value, uint.sizeof);
+}
+<*
+* @param in savefile "the file to write the data to"
+* @require savefile != null @if $feature(_DEBUG)
+*>
+fn void	writeInt(SaveFile* savefile, int value ) {
+    write(savefile, &value, int.sizeof);
+}
+<*
+* @param in savefile "the file to write the data to"
+* @require savefile != null @if $feature(_DEBUG)
+*>
+fn void	writeShort(SaveFile* savefile, short value ) {
+    write(savefile, &value, short.sizeof);
+}
+<*
+* @param in savefile "the file to write the data to"
+* @param value 
+* @require savefile != null && value >= 0 && value <= 255 @if $feature(_DEBUG)
+*>
+fn void	writeChar(SaveFile* savefile, char value ) {
+    if(@catch(savefile.file.write_byte(value))) {
+        main::gameWarning("failed to write char to file %s! : %s:%s", savefile.path, $$FUNC, $$LINE);
+    }
+}
+<*
+* @param in savefile "the file to write the data to"
+* @require savefile != null @if $feature(_DEBUG)
+*>
+fn void	writeNull(SaveFile* savefile) {
+   writeChar(savefile, NULL_CHARACTER);
+}
+<*
+* @param in savefile "the file to write the data to"
+* @param value 
+* @require savefile != null && value >= -128 && value <= 127 @if $feature(_DEBUG)
+*>
+fn void	writeIChar(SaveFile* savefile, ichar value ) {
+   write(savefile, &value, ichar.sizeof);
+}
+<*
+* @param in savefile "the file to write the data to"
+* @require savefile != null @if $feature(_DEBUG)
+*>
+fn void	writeFloat(SaveFile* savefile, float value ) {
+    write(savefile, &value, float.sizeof);
+}
+<*
+* @param in savefile "the file to write the data to"
+* @require savefile != null @if $feature(_DEBUG)
+*>
+fn void	writeBool(SaveFile* savefile, bool value ) {
+   writeChar(savefile, (value == true) ? '1' : '0');
+}
+<*
+* @param in savefile "the file to write the data to"
+* @require savefile != null @if $feature(_DEBUG)
+*>
+fn void	writeString(SaveFile* savefile, String str) {
+    if(@catch(savefile.file.write(str))) {
+        main::gameWarning("failed to write string to file %s! : %s:%s", savefile.path, $$FUNC, $$LINE);
+    }
+}
+<*
+* @param in savefile "the file to write the data to"
+* @require savefile != null @if $feature(_DEBUG)
+*>
+fn void	writeZString(SaveFile* savefile, ZString str) {
+   writeString(savefile, str.str_view());
+}
+
+<*
+* @param in savefile "the file to write the data to"
+* @param in asset    "the data to save"
+* @require savefile != null && asset != null @if $feature(_DEBUG)
+*>
+fn void	writeAsset(SaveFile* savefile, Asset* asset) {
+    if(asset.name == "") {
+        //char[] d = {'"','"'};
+        //write(savefile, &d, 2);
+        writeString(savefile, "");
+        return;
+    }
+    
+    writeString(savefile, asset.name);
+}
+
+// raylib structures
+<*
+* @param in savefile "the file to write the data to"
+* @param in tex      "the data to save"
+* @require savefile != null && tex != null @if $feature(_DEBUG)
+*>
+fn void	writeTexture2D(SaveFile* savefile, Texture2D* tex) {
+// TODO(HM) I need to rethink the textures stuff
+// right now i'm using the raylib texture data directly 
+// I should really wrap it in my own texture data structure...   
+    if(tex == null) {
+        writeNull(savefile);
+        return;
+    }
+    
+    writeUInt(savefile, (*tex).id);
+    writeInt(savefile, (*tex).width);
+    writeInt(savefile, (*tex).height);
+    writeInt(savefile, (*tex).mipmaps);
+    writeInt(savefile, (*tex).format.ordinal);
+}
+<*
+* @param in savefile "the file to write the data to"
+* @param in shd      "the data to save"
+* @require savefile != null && shd != null @if $feature(_DEBUG)
+*>
+fn void	writeShader(SaveFile* savefile, Shader* shd) {
+    if(shd == null) {
+        writeNull(savefile);
+        return;
+    }
+    
+    writeInt(savefile, shd.id);
+    for(int i = 0; i < rl::ShaderLocationIndex.elements; i++) {
+        writeInt(savefile, shd.locs[i]);
+    }
+}
+fn void	writeSound(SaveFile* savefile, Sound* snd) {}
+fn void	writeMusic(SaveFile* savefile, Music* music) {}
+fn void	writeFont(SaveFile* savefile, Font* font) {}
 //
-//						Handles game serialization (saving and reloading)
+//fn void	writeVec2(rl::Vec2* vec ) {}
+//fn void	writeVec3(rl::Vec3* vec ) {}
+//fn void	writeVec4(rl::Vec4* vec ) {}
+//fn void	writeMat3( const idMat3 &mat ) {}
+//fn void	writeMaterial( const idMaterial *material ) {}
+//fn void	writeSoundShader( const idSoundShader *shader ) {}
+//fn void	writeModel( const idRenderModel *model ) {}
+//fn void	writeUserInterface( const idUserInterface *ui, bool unique ) {}
+//fn void	writeRenderView( const renderView_t &view ) {}
+//fn void	writeUsercmd( const usercmd_t &usercmd ) {}
+//fn void	writeBuildNumber( int value ) {}
+
+
+/////////////////////////////// READ ///////////////////////////////
+
+<*
+* @param n
+* @require n > 0
+*>
+fn void swapBytes(void *pv, usz n) @inline @local
+{
+    CChar *p = pv;
+    usz lo, hi;
+    for(lo=0, hi=n-1; hi>lo; lo++, hi--)
+    {
+        CChar tmp=p[lo];
+        p[lo] = p[hi];
+        p[hi] = tmp;
+    }
+}
+macro swap(x) => swapBytes(&x, $sizeof(x));
+
+<*
+* @param in savefile
+* @require savefile != null @if $feature(_DEBUG)
+*>
+fn void advance_reading_position(SaveFile* f, usz n) @inline @local {
+    // aparently this is already done automatically by fread function
+	//f.file.seek(n);
+}
+
+fn void read(SaveFile* savefile, void *buffer, usz bytes_len) {
+    if(@catch(savefile.file.read(((char*)buffer)[:bytes_len]))) {
+        main::gameWarning("failed to write data to file %s! : %s:%s", savefile.path, $$FUNC, $$LINE);
+        return;
+    }
+    advance_reading_position(savefile, bytes_len);
+}
+
+fn void readInt(SaveFile* file, int* value) {
+    read(file, (void*)value, int.sizeof);
+}
+
+fn void readShort(SaveFile* file, short* value) {
+    read(file, (void*)value, short.sizeof);
+}
+
+fn void readChar(SaveFile* file, char* value) {
+    read(file, (void*)value, char.sizeof);
+}
+
+fn void readIChar(SaveFile* file, ichar* value) {
+    read(file, (void*)value, ichar.sizeof);
+}
+
+fn void readFloat(SaveFile* file, float* value) {
+    read(file, (void*)value, float.sizeof);
+}
+
+fn void readBool(SaveFile* file, bool* value) {
+    char result;
+    read(file, (void*)&result, char.sizeof);
+    if(result >= (char)1) {
+        *value = true; 
+    } else {
+        *value = false;
+    }
+	// *value = bits::bswap(*(int*)result); 
+}
+
+fn void readString(SaveFile* savefile, String* string) {
+    if(@catch(savefile.file.read(*string))) {
+        main::gameWarning("failed to write data to file %s! : %s:%s", savefile.path, $$FUNC, $$LINE);
+        return;
+    }
+     advance_reading_position(savefile, string.len);
+}
+
+fn void readZString(SaveFile* savefile, ZString* string) {
+    String result;
+    if(@catch(savefile.file.read(result))) {
+        main::gameWarning("failed to write data to file %s! : %s:%s", savefile.path, $$FUNC, $$LINE);
+        return;
+    }
+    *string = result.zstr_copy();
+}
+
+<*
+* @param in savefile
+* @param in asset
+* @require savefile != null && asset != null @if $feature(_DEBUG)
+*>
+fn void readAsset(SaveFile* savefile, Asset* asset, typeid type) {
+    String name;
+    readString(savefile, &name);
+    if(name == "") {
+        asset = null;
+        // todo need to make a default ASSET for each asset type
+        // right now I'm just doing default assets using the direct raylib structs
+        //asset = main::asstManager.getAssetExt("default.png", type);
+        return;
+    }
+    
+    asset = main::asstManager.getAssetExt(name, type);
+}
+
+
+fn void readTexture2D(SaveFile* file, Texture2D* tex ) {}
+
+//fn void readVec2( idVec2 &vec ) {}
+//fn void readVec3( idVec3 &vec ) {}
+//fn void readVec4( idVec4 &vec ) {}
+//fn void readBounds( idBounds &bounds ) {}
+//fn void readMat3( idMat3 &mat ) {}
+//fn void readAngles( idAngles &angles ) {}
+//fn void readObject( idClass *&obj ) {}
+//fn void readStaticObject( idClass &obj ) {}
+//fn void readDict( idDict *dict ) {}
+//fn void readMaterial( const idMaterial *&material ) {}
+//fn void readSkin( const idDeclSkin *&skin ) {}
+//fn void readParticle( const idDeclParticle *&particle ) {}
+//fn void readFX( const idDeclFX *&fx ) {}
+//fn void readSoundShader( const idSoundShader *&shader ) {}
+//fn void readModelDef( const idDeclModelDef *&modelDef ) {}
+//fn void readModel( idRenderModel *&model ) {}
+//fn void readUserInterface( idUserInterface *&ui ) {}
+//fn void readRenderEntity( renderEntity_t &renderEntity ) {}
+//fn void readRenderLight( renderLight_t &renderLight ) {}
+//fn void readRefSound( refSound_t &refSound ) {}
+//fn void readRenderView( renderView_t &view ) {}
+//fn void readUsercmd( usercmd_t &usercmd ) {}
+//fn void readContactInfo( contactInfo_t &contactInfo ) {}
+//fn void readTrace( trace_t &trace ) {}
+//fn void readTraceModel( idTraceModel &trace ) {}
+//fn void readClipModel( idClipModel *&clipModel ) {}
+//fn void readSoundCommands( void ) {}
+
+fn void readBuildNumber(SaveFile* savefile) {
+    readInt(savefile, &savefile.buildNumber);
+}
+
+// Used to retrieve the saved game buildNumber from within class Restore methods
+fn int getBuildNumber(SaveFile* savefile) @inline => savefile.buildNumber;
+
+
+/*
+
+fn bool Action.fnIsTriggerd(&self) @dynamic
+{
+    switch (self.kind) {
+        case KEYBOARD:
+            if (rl::isKeyPressed(self.keyboard.key1)) 
+            {
+                if(self.keyboard.key2 != rl::KEY_NULL) 
+                {
+                    if (rl::isKeyPressed(self.keyboard.key2)) {
+                        return true;
+                    }
+                    
+                    return false;
+                }
+                
+                return true;
+            }
+        case MOUSE:
+            if (rl::isMouseButtonPressed(self.mouse.btn))
+            {
+                if(self.keyboard.key2 != rl::KEY_NULL) 
+                {
+                    if (rl::isKeyPressed(self.keyboard.key2)) {
+                        return true;
+                    }
+                    
+                    return false;
+                }
+                
+                return true;
+            }
+        case GAMEPAD:
+        case MOBILE:
+        default:
+            return false;
+    }
+}
+
+/**
+ *
+ * \return returns true if the action just was triggered, else false
+ */
+fn bool Action.wasTriggerd(&self) @inline
+{
+    if(self.becameTriggerd && !self.isTriggerd()){
+        self.becameTriggerd = false;
+        return true;
+    }
+
+    return false;
+}
+
+/**
+ *
+ * \return true if the action just became triggered, else false
+ */
+fn bool Action.fnBecameTriggerd(&self)
+{
+    if(!self.isTriggerd && self.isTriggerd()){
+        self.isTriggerd = true;
+        return true;
+    }
+
+    return false;
+}
+
+/**
+*
+* \return true if the action just was double triggered (double clicked), else false
+*/
+fn bool Action.doubleTriggerd(&self, float limit)
+{
+    if(!self.triggerDown && self.isTriggerd())
+    {
+        self.triggerDown = true;
+
+        if(self.timeCount < 0 || self.timeCount > limit) {
+            self.timeCount = 0;
+            return false;
+        } else {
+            self.timeCount  = 0;
+            self.isTriggerd = true;
+            return true;
+        }
+    }
+
+    return false;
+}
+
+
+/**
+*Update the Action, called by action manager
+*/
+fn void Action.update(&self, float timeStep)
+{
+    self.updateLogic(timeStep) {}
+
+    if(!self.isTriggerd()) {
+        self.isTriggerd  = false;
+        self.triggerDown = false;
+
+        if(self.timeCount >= 0) self.timeCount += timeStep;
+    } else {
+        self.becameTriggerd = true;
+    }
+}
+
+	//-----------------------------------------------------------------------
+
+fn void Action.updateLogic(&self, float timeStep) @dynamic
+{
+ //
+}
+
+fn String Action.getName(&self) => self.name;
+
+
+<*
+* @param [in] func "pointer to function to call"
+* @require func != null "A action requires a function to do anything"
+*>
+fn void makeKeyboardAction(String name, ActionCallBack func, KeyboardKey key1, KeyboardKey key2 = rl::KEY_NULL)  @inline
+{
+    Action* action       = mem::new(Action) {}
+    action.type          = Action.typeid;
+    action.name          = name;
+    action.kind          = ActionKind.KEYBOARD;
+    action.callback      = func;
+    action.keyboard.key1 = key1;
+    if(key2 != rl::KEY_NULL) action.keyboard.key2 = key2;
+    local_manager.actions.push(action) {}
+}
+
+<*
+* @param [in] func "pointer to function to call"
+* @require func != null "A action requires a function to do anything"
+*>
+fn void makeMouseAction(String name, ActionCallBack func, MouseButton btn, KeyboardKey key = rl::KEY_NULL)  @inline
+{
+    Action* action       = mem::new(Action) {}
+    action.type          = Action.typeid;
+    action.name          = name;
+    action.kind          = ActionKind.MOUSE;
+    action.mouse.btn     = btn;
+    if(key2 != rl::KEY_NULL) action.keyboard.key2 = key;
+    action.callback      = func;
+    local_manager.actions.push(action) {}
+}
+
+<*
+* @param [in] func "pointer to function to call"
+* @require func != null "A action requires a function to do anything"
+*>
+fn void makeGamepadAction(String name, ActionCallBack func, GamepadButton btn, GamepadAxis axis)  @inline
+{
+    Action* action      = mem::new(Action) {}
+    action.type         = Action.typeid;
+    action.name         = name;
+    action.kind         = ActionKind.GAMEPAD;
+    action.gamepad.btn  = btn;
+    action.gamepad.axis = axis;
+    action.callback     = func;
+    local_manager.actions.push(action) {}
+}
+
+struct ActionManager {
+    ActionQueue actions;
+}
+
+ActionManager local_manager @local;
+ActionManager* gpActnMnagr = &local_manager;
+
+<*
+* @param in action "the action to register"
+* @require action != null
+*>
+fn void ActionManager.register(&self, Action* action) @inline {
+    foreach(act : self.actions) {
+        if(act.name == action.name) {
+            main::gameWarning("Cannot register \"%s\" because is already registered.", action.name) {}
+            return;
+        }
+    }
+    
+    self.actions.push(action) {}
+}
+
+fn void ActionManager.unregister(&self, Action* action) @inline {
+    if(action == null) return;
+    
+    foreach(act : self.actions) {
+        if(act.name == action.name) {
+            self.actions.remove_item(act) {}
+            act = null;
+            return;
+        }
+    }
+}
+
+fn void ActionManager.update(&self, float dt) @inline {
+
+$if $defined(ACTION_PROFILE):
+    ProfileInfo* info = @start_profile_zone("Actions update") {}
+    defer @end_profile_zone(*info) {}
+$endif
+
+    usz count = self.actions.len() {}
+    if(count >= 1) {
+        foreach(act: self.actions) {
+            act.update(dt) {}
+        }
+    }
+}
+
+fn void ActionManager.free(&self) {
+    if(self.actions.len()) foreach(act: self.actions) act.deinit() {}
+    
+    self.actions.free() {}
+}
+
+/////////////////
+/*
+
+Save game related helper classes.
+
+*/
+
+const int INITIAL_RELEASE_BUILD_NUMBER = 0000;
+
+struct SaveFile {
+    io::File* data;
+    String name;
+}
+
+interface SaveGameInterface {
+	fn void					Close() {}
+	fn void					write( void *buffer, int len ) {}
+	fn void					writeInt( int value ) {}
+    fn void					writeUInt( uint value ) {}
+	fn void					writeShort( short value ) {}
+	fn void					writeChar( char value ) {}
+    fn void					writeIChar( ichar value ) {}
+	fn void					writeFloat( float value ) {}
+	fn void					writeBool( bool value ) {}
+    fn void					writeString( String* string ) {}
+	fn void					writeZString( ZString* string ) {}
+	fn void					writeVec2f( Vec2f* vec ) {}
+	fn void					writeVec3f( Vec3f* vec ) {}
+	//fn void					writeVec4( Vec4f* vec ) {}
+	//fn void					writeVec6( Vec6f* vec ) {}
+	fn void					writeMat3( Matrix3f* mat ) {}
+	//fn void					writeAngles( const idAngles &angles ) {}
+	fn void					writeMaterial( Material* material ) {}
+    fn void					writeEntity( ent::Entity* model ) {}
+	//fn void					writeParticle( const idDeclParticle *particle ) {}
+	//fn void					writeSoundShader( const idSoundShader *shader ) {}
+	//fn void					writeModelDef( const class idDeclModelDef *modelDef ) {}
+	//fn void					writeModel( const idRenderModel *model ) {}
+	//fn void					writeUserInterface( const idUserInterface *ui, bool unique ) {}
+	//fn void					writeRenderEntity( const renderEntity_t &renderEntity ) {}
+	//fn void					writeRenderLight( const renderLight_t &renderLight ) {}
+	//fn void					writeRefSound( const refSound_t &refSound ) {}
+	//fn void					writeRenderView( const renderView_t &view ) {}
+	//fn void					writeUsercmd( const usercmd_t &usercmd ) {}
+	//fn void					writeContactInfo( const contactInfo_t &contactInfo ) {}
+	//fn void					writeTrace( const trace_t &trace ) {}
+	//fn void					writeTraceModel( const idTraceModel &trace ) {}
+	//fn void					writeClipModel( const class idClipModel *clipModel ) {}
+	//fn void					writeSoundCommands( void ) {}
+
+	fn void					writeBuildNumber( int value ) {}
+	//fn void					callSave( const idTypeInfo *cls, const idClass *obj ) {}
+	fn void					callSave( any class ) {}
+
+}
+
+struct SaveGame (SaveGameInterface) {
+    SaveFile* file;
+}
+
+interface RestoreGameInterface {
+	fn void					read( void *buffer, int len ) {}
+	fn void					readInt( int value ) {}
+    fn void					readUInt( uint value ) {}
+	fn void					readShort( short value ) {}
+	fn void					readChar( char value ) {}
+	fn void					readIChar( ichar value ) {}
+	fn void					readFloat( float value ) {}
+	fn void					readBool( bool value ) {}
+	fn void					readString( String* string ) {}
+    fn void					readZString( ZString* string ) {}
+	fn void					readVec2f( Vec2f* vec ) {}
+	fn void					readVec3f( Vec3f* vec ) {}
+	//fn void					readVec4( idVec4 &vec ) {}
+	//fn void					readVec6( idVec6 &vec ) {}
+	//fn void					readMat3( idMat3 &mat ) {}
+	//fn void					readAngles( idAngles &angles ) {}
+	//fn void					readMaterial( const idMaterial *&material ) {}
+	//fn void					readParticle( const idDeclParticle *&particle ) {}
+	//fn void					readSoundShader( const idSoundShader *&shader ) {}
+	//fn void					readModelDef( const idDeclModelDef *&modelDef ) {}
+	//fn void					readModel( idRenderModel *&model ) {}
+	//fn void					readUserInterface( idUserInterface *&ui ) {}
+	//fn void					readRenderEntity( renderEntity_t &renderEntity ) {}
+	//fn void					readRenderLight( renderLight_t &renderLight ) {}
+	//fn void					readRefSound( refSound_t &refSound ) {}
+	//fn void					readRenderView( renderView_t &view ) {}
+	//fn void					readUsercmd( usercmd_t &usercmd ) {}
+	//fn void					readContactInfo( contactInfo_t &contactInfo ) {}
+	//fn void					readTrace( trace_t &trace ) {}
+	//fn void					readTraceModel( idTraceModel &trace ) {}
+	//fn void					readClipModel( idClipModel *&clipModel ) {}
+	//fn void					readSoundCommands( void ) {}
+
+	fn void					readBuildNumber() {}
+
+	//						Used to retrieve the saved game buildNumber from within class Restore methods
+	fn int					getBuildNumber() {}
+    
+    fn void					callRestore( any class ) {}
+}
+
+struct RestoreGame (RestoreGameInterface) {
+	int	 buildNumber;
+
+	SaveFile* file;
+}
 
 /*
 Save game related helper classes.
 
-Save games are implemented in two classes, hmSaveGame and hmRestoreGame, that implement write/read functions for
+Save games are implemented in two classes, SaveGame and idRestoreGame, that implement write/read functions for
 common types.  They're passed in to each entity and object for them to archive themselves.  Each class
 implements save/restore functions for it's own data.  When restoring, all the objects are instantiated,
 then the restore function is called on each, superclass first, then subclasses.
@@ -66,1284 +788,1169 @@ At the head of the save game is enough information to restore the player to the 
 file be unloadable in some way (for example, due to script changes).
 */
 
-//
-//
-// bool file_exists(char *fileName) 				 // Check if file exists
-// bool directory_exists(char *dirPath)				 // Check if a directory path exists
-// bool is_file_extension(char *fileName, char *ext) // Check file extension (including point: .png, .wav)
-// int get_file_length(char *fileName)				 // Get file length in bytes (NOTE: GetFileSize() conflicts with windows.h)
-// char *get_file_extension(char *fileName)			 // Get pointer to extension for a filename string (includes dot: '.png')
-// char *get_file_name(char *filePath)				 // Get pointer to filename for a path string
-// char *get_file_name_without_ext(char *filePath) 	 // Get filename string without extension (uses static string)
-// char *get_directory_path(char *filePath)			 // Get full path for a given fileName with path (uses static string)
-// char *get_prev_directory_path(char *dirPath) 	 // Get previous directory path for a given path (uses static string)
-// char *get_working_directory() 					 // Get current working directory (uses static string)
-// char *get_application_directory()				 // Get the directory of the running application (uses static string)
-// bool change_directory(char *dir)					 // Change working directory, return true on success
-// bool is_path_file(char *path) 					 // Check if a given path is a file or a directory
-// FilePathList load_directory_files(char *dirPath) 	// Load directory filepaths
-// FilePathList load_directory_files_ex(char *basePath, char *filter, bool scanSubdirs) // Load directory filepaths with extension filtering and recursive directory scan
-// void unload_directory_files(FilePathList files) 	 // Unload filepaths
-// bool is_file_dropped() 							 // Check if a file has been dropped into window
-// FilePathList load_dropped_files()  				 // Load dropped filepaths
-// void unload_dropped_files(FilePathList files) 	 // Unload dropped filepaths
-// long get_file_mod_time(char *fileName) 			 // Get file modification time (last write time)
 
-// char *load_file_data( char *fileName, int *dataSize) 			   // Load file data as byte array (read)
-// void unload_file_data( char *data) 				  				   // Unload file data allocated by LoadFileData()
-// bool save_file_data( char *fileName, void *data, int dataSize) 	   // Save data to file from byte array (write), returns true on success
-// bool export_data_ascode( char *data, int dataSize,  char *fileName) // Export data to code (.h), returns true on success
-// char *load_file_text( char *fileName) 							   // Load text data from file (read), returns a '\0' terminated string
-// void unload_file_text(char *text) 								   // Unload file text data allocated by LoadFileText()
-// bool save_file_text( char *fileName, char *text) 				   // Save text data to file (write), string must be '\0' terminated, returns true on success
-	
-
-//#######################################################################################
-
-/*
-
-struct hmSaveGame {
-	idFile *				file;
-
-	idList<const idClass *>	objects;
-};
-
-struct hmRestoreGame {
-	//						Used to retrieve the saved game buildNumber from within class Restore methods
-	int						GetBuildNumber( void );
-
-	// DG: added these methods, internalSavegameVersion makes us independent of the global BUILD_NUMBER
-	void					ReadInternalSavegameVersion( void )
-	{
-		ReadInt( internalSavegameVersion );
-	}
-
-	// if it's 0, this is from a GetBuildNumber() < 1305 savegame
-	// otherwise, compare it to idGameLocal::INTERNAL_SAVEGAME_VERSION
-	int						GetInternalSavegameVersion( void ) const
-	{
-		return internalSavegameVersion;
-	}
-	// DG end
-
-	int						buildNumber;
-	int						internalSavegameVersion; // DG added this
-
-	idFile *				file;
-
-	idList<idClass *>		objects;
-};
-
-
-/*
-================
-hmSaveGame.hmSaveGame()
-================
-*/
-hmSaveGame.constructor( idFile *savefile ) {
-
-	file = savefile;
-
-	// Put NULL at the start of the list so we can skip over it.
-	objects.Clear();
-	objects.Append( NULL );
+fn void SaveGame.init(&self, String filename, io::File *savefile ){
+	self.file      = mem::new(SaveFile) {}
+    self.file.data = savefile;
+    self.file.name = filename;
 }
 
-/*
-================
-hmSaveGame::~hmSaveGame()
-================
-*/
-hmSaveGame::~hmSaveGame() {
-	if ( objects.Num() ) {
-		Close();
-	}
+fn void SaveGame.deinit(&self) {
+    if(self.file != null) {
+        self.close() {}
+        mem::free(self.file) {}
+    }
 }
 
-/*
-================
-hmSaveGame.Close
-================
-*/
-void hmSaveGame.Close( void ) {
-	int i;
-
-	WriteSoundCommands();
-
-	// read trace models
-	idClipModel::SaveTraceModels( this );
-
-	for( i = 1; i < objects.Num(); i++ ) {
-		CallSave_r( objects[ i ]->GetType(), objects[ i ] );
-	}
-
-	objects.Clear();
-
-#ifdef ID_DEBUG_MEMORY
-	idStr gameState = file->GetName();
-	gameState.StripFileExtension();
-	WriteGameState_f( idCmdArgs( va( "test %s_save", gameState.c_str() ), false ) );
-#endif
+<*
+* @require self.file != null
+*>
+fn void SaveGame.close(&self) @dynamic {
+    file::close(self.file.data) {}
+    self.file.name = "";
 }
 
-/*
-================
-hmSaveGame.WriteObjectList
-================
-*/
-void hmSaveGame.WriteObjectList( void ) {
-	int i;
-
-	WriteInt( objects.Num() - 1 );
-	for( i = 1; i < objects.Num(); i++ ) {
-		WriteString( objects[ i ]->GetClassname() );
-	}
-}
-
-/*
-================
-hmSaveGame.CallSave_r
-================
-*/
-void hmSaveGame.CallSave_r( const idTypeInfo *cls, const idClass *obj ) {
-	if ( cls->super ) {
-		CallSave_r( cls->super, obj );
+fn void SaveGame.callSave(&self, any cls) @dynamic {
+    // if this is a type with a inline struct
+    // call the inline class save function as well
+	if ( cls.ptr.membersof[1].nameof == "super" ) {
+		cls.ptr.super;
 		if ( cls->super->Save == cls->Save ) {
 			// don't call save on this inheritance level since the function was called in the super class
 			return;
 		}
 	}
 
-	( obj->*cls->Save )( this );
+	( obj->*cls->Save )( this ) {}
 }
 
 /*
 ================
-hmSaveGame.AddObject
+SaveGame.AddObject
 ================
 */
-void hmSaveGame.AddObject( const idClass *obj ) {
-	objects.AddUnique( obj );
+void SaveGame.AddObject( const idClass *obj ) {
+	objects.AddUnique( obj ) {}
 }
 
 /*
 ================
-hmSaveGame.Write
+SaveGame.Write
 ================
 */
-void hmSaveGame.Write( const void *buffer, int len ) {
-	file->Write( buffer, len );
+void SaveGame.Write( const void *buffer, int len ) {
+	file->Write( buffer, len ) {}
 }
 
 /*
 ================
-hmSaveGame.WriteInt
+SaveGame.WriteInt
 ================
 */
-void hmSaveGame.WriteInt( const int value ) {
-	file->WriteInt( value );
+void SaveGame.WriteInt( const int value ) {
+	file->WriteInt( value ) {}
 }
 
 /*
 ================
-hmSaveGame.WriteJoint
+SaveGame.WriteJoint
 ================
 */
-void hmSaveGame.WriteJoint( const jointHandle_t value ) {
-	file->WriteInt( (int&)value );
+void SaveGame.WriteJoint( const jointHandle_t value ) {
+	file->WriteInt( (int&)value ) {}
 }
 
 /*
 ================
-hmSaveGame.WriteShort
+SaveGame.WriteShort
 ================
 */
-void hmSaveGame.WriteShort( const short value ) {
-	file->WriteShort( value );
+void SaveGame.WriteShort( const short value ) {
+	file->WriteShort( value ) {}
 }
 
 /*
 ================
-hmSaveGame.WriteByte
+SaveGame.WriteByte
 ================
 */
-void hmSaveGame.WriteByte( const byte value ) {
-	file->Write( &value, sizeof( value ) );
+void SaveGame.WriteByte( const byte value ) {
+	file->Write( &value, sizeof( value ) ) {}
 }
 
 /*
 ================
-hmSaveGame.WriteSignedChar
+SaveGame.WriteSignedChar
 ================
 */
-void hmSaveGame.WriteSignedChar( const signed char value ) {
-	file->Write( &value, sizeof( value ) );
+void SaveGame.WriteSignedChar( const signed char value ) {
+	file->Write( &value, sizeof( value ) ) {}
 }
 
 /*
 ================
-hmSaveGame.WriteFloat
+SaveGame.WriteFloat
 ================
 */
-void hmSaveGame.WriteFloat( const float value ) {
-	file->WriteFloat( value );
+void SaveGame.WriteFloat( const float value ) {
+	file->WriteFloat( value ) {}
 }
 
 /*
 ================
-hmSaveGame.WriteBool
+SaveGame.WriteBool
 ================
 */
-void hmSaveGame.WriteBool( const bool value ) {
-	file->WriteBool( value );
+void SaveGame.WriteBool( const bool value ) {
+	file->WriteBool( value ) {}
 }
 
-void hmSaveGame.WriteBool(const b32 value)
+void SaveGame.WriteBool(const b32 value)
 {
-	file->WriteInt(value);
+	file->WriteInt(value) {}
 }
 
 /*
 ================
-hmSaveGame.WriteString
+SaveGame.WriteString
 ================
 */
-void hmSaveGame.WriteString( const char *string ) {
+void SaveGame.WriteString( const char *string ) {
 	int len;
 
-	len = strlen( string );
-	WriteInt( len );
-	file->Write( string, len );
+	len = strlen( string ) {}
+	WriteInt( len ) {}
+	file->Write( string, len ) {}
 }
 
 /*
 ================
-hmSaveGame.WriteVec2
+SaveGame.WriteVec2
 ================
 */
-void hmSaveGame.WriteVec2( const idVec2 &vec ) {
-	file->WriteVec2( vec );
+void SaveGame.WriteVec2( const idVec2 &vec ) {
+	file->WriteVec2( vec ) {}
 }
 
 /*
 ================
-hmSaveGame.WriteVec3
+SaveGame.WriteVec3
 ================
 */
-void hmSaveGame.WriteVec3( const idVec3 &vec ) {
-	file->WriteVec3( vec );
+void SaveGame.WriteVec3( const idVec3 &vec ) {
+	file->WriteVec3( vec ) {}
 }
 
 /*
 ================
-hmSaveGame.WriteVec4
+SaveGame.WriteVec4
 ================
 */
-void hmSaveGame.WriteVec4( const idVec4 &vec ) {
-	file->WriteVec4( vec );
+void SaveGame.WriteVec4( const idVec4 &vec ) {
+	file->WriteVec4( vec ) {}
 }
 
 /*
 ================
-hmSaveGame.WriteVec6
+SaveGame.WriteVec6
 ================
 */
-void hmSaveGame.WriteVec6( const idVec6 &vec ) {
-	file->WriteVec6( vec );
+void SaveGame.WriteVec6( const idVec6 &vec ) {
+	file->WriteVec6( vec ) {}
 }
 
 /*
 ================
-hmSaveGame.WriteBounds
+SaveGame.WriteBounds
 ================
 */
-void hmSaveGame.WriteBounds( const idBounds &bounds ) {
+void SaveGame.WriteBounds( const idBounds &bounds ) {
 	idBounds b = bounds;
-	LittleRevBytes( &b, sizeof(float), sizeof(b)/sizeof(float) );
-	file->Write( &b, sizeof( b ) );
+	LittleRevBytes( &b, sizeof(float), sizeof(b)/sizeof(float) ) {}
+	file->Write( &b, sizeof( b ) ) {}
 }
 
 /*
 ================
-hmSaveGame.WriteBounds
+SaveGame.WriteBounds
 ================
 */
-void hmSaveGame.WriteWinding( const idWinding &w )
+void SaveGame.WriteWinding( const idWinding &w )
 {
 	int i, num;
-	num = w.GetNumPoints();
-	file->WriteInt( num );
+	num = w.GetNumPoints() {}
+	file->WriteInt( num ) {}
 	for ( i = 0; i < num; i++ ) {
 		idVec5 v = w[i];
-		LittleRevBytes(&v, sizeof(float), sizeof(v)/sizeof(float) );
-		file->Write( &v, sizeof(v) );
+		LittleRevBytes(&v, sizeof(float), sizeof(v)/sizeof(float) ) {}
+		file->Write( &v, sizeof(v) ) {}
 	}
 }
 
 
 /*
 ================
-hmSaveGame.WriteMat3
+SaveGame.WriteMat3
 ================
 */
-void hmSaveGame.WriteMat3( const idMat3 &mat ) {
-	file->WriteMat3( mat );
+void SaveGame.WriteMat3( const idMat3 &mat ) {
+	file->WriteMat3( mat ) {}
 }
 
 /*
 ================
-hmSaveGame.WriteAngles
+SaveGame.WriteAngles
 ================
 */
-void hmSaveGame.WriteAngles( const idAngles &angles ) {
+void SaveGame.WriteAngles( const idAngles &angles ) {
 	idAngles v = angles;
-	LittleRevBytes(&v, sizeof(float), sizeof(v)/sizeof(float) );
-	file->Write( &v, sizeof( v ) );
+	LittleRevBytes(&v, sizeof(float), sizeof(v)/sizeof(float) ) {}
+	file->Write( &v, sizeof( v ) ) {}
 }
 
 /*
 ================
-hmSaveGame.WriteObject
+SaveGame.WriteObject
 ================
 */
-void hmSaveGame.WriteObject( const idClass *obj ) {
+void SaveGame.WriteObject( const idClass *obj ) {
 	int index;
 
-	index = objects.FindIndex( obj );
+	index = objects.FindIndex( obj ) {}
 	if ( index < 0 ) {
-		gameLocal.DPrintf( "hmSaveGame.WriteObject - WriteObject FindIndex failed\n" );
+		gameLocal.DPrintf( "SaveGame.WriteObject - WriteObject FindIndex failed\n" ) {}
 
 		// Use the NULL index
 		index = 0;
 	}
 
-	WriteInt( index );
+	WriteInt( index ) {}
 }
 
 /*
 ================
-hmSaveGame.WriteStaticObject
+SaveGame.WriteStaticObject
 ================
 */
-void hmSaveGame.WriteStaticObject( const idClass &obj ) {
-	CallSave_r( obj.GetType(), &obj );
+void SaveGame.WriteStaticObject( const idClass &obj ) {
+	CallSave_r( obj.GetType(), &obj ) {}
 }
 
 /*
 ================
-hmSaveGame.WriteDict
+SaveGame.WriteDict
 ================
 */
-void hmSaveGame.WriteDict( const idDict *dict ) {
+void SaveGame.WriteDict( const idDict *dict ) {
 	int num;
 	int i;
 	const idKeyValue *kv;
 
 	if ( !dict ) {
-		WriteInt( -1 );
+		WriteInt( -1 ) {}
 	} else {
-		num = dict->GetNumKeyVals();
-		WriteInt( num );
+		num = dict->GetNumKeyVals() {}
+		WriteInt( num ) {}
 		for( i = 0; i < num; i++ ) {
-			kv = dict->GetKeyVal( i );
-			WriteString( kv->GetKey() );
-			WriteString( kv->GetValue() );
+			kv = dict->GetKeyVal( i ) {}
+			WriteString( kv->GetKey() ) {}
+			WriteString( kv->GetValue() ) {}
 		}
 	}
 }
 
 /*
 ================
-hmSaveGame.WriteMaterial
+SaveGame.WriteMaterial
 ================
 */
-void hmSaveGame.WriteMaterial( const idMaterial *material ) {
+void SaveGame.WriteMaterial( const idMaterial *material ) {
 	if ( !material ) {
-		WriteString( "" );
+		WriteString( "" ) {}
 	} else {
-		WriteString( material->GetName() );
+		WriteString( material->GetName() ) {}
 	}
 }
 
 /*
 ================
-hmSaveGame.WriteSkin
+SaveGame.WriteSkin
 ================
 */
-void hmSaveGame.WriteSkin( const idDeclSkin *skin ) {
+void SaveGame.WriteSkin( const idDeclSkin *skin ) {
 	if ( !skin ) {
-		WriteString( "" );
+		WriteString( "" ) {}
 	} else {
-		WriteString( skin->GetName() );
+		WriteString( skin->GetName() ) {}
 	}
 }
 
 /*
 ================
-hmSaveGame.WriteParticle
+SaveGame.WriteParticle
 ================
 */
-void hmSaveGame.WriteParticle( const idDeclParticle *particle ) {
+void SaveGame.WriteParticle( const idDeclParticle *particle ) {
 	if ( !particle ) {
-		WriteString( "" );
+		WriteString( "" ) {}
 	} else {
-		WriteString( particle->GetName() );
+		WriteString( particle->GetName() ) {}
 	}
 }
 
 /*
 ================
-hmSaveGame.WriteFX
+SaveGame.WriteFX
 ================
 */
-void hmSaveGame.WriteFX( const idDeclFX *fx ) {
+void SaveGame.WriteFX( const idDeclFX *fx ) {
 	if ( !fx ) {
-		WriteString( "" );
+		WriteString( "" ) {}
 	} else {
-		WriteString( fx->GetName() );
+		WriteString( fx->GetName() ) {}
 	}
 }
 
 /*
 ================
-hmSaveGame.WriteModelDef
+SaveGame.WriteModelDef
 ================
 */
-void hmSaveGame.WriteModelDef( const idDeclModelDef *modelDef ) {
+void SaveGame.WriteModelDef( const idDeclModelDef *modelDef ) {
 	if ( !modelDef ) {
-		WriteString( "" );
+		WriteString( "" ) {}
 	} else {
-		WriteString( modelDef->GetName() );
+		WriteString( modelDef->GetName() ) {}
 	}
 }
 
 /*
 ================
-hmSaveGame.WriteSoundShader
+SaveGame.WriteSoundShader
 ================
 */
-void hmSaveGame.WriteSoundShader( const idSoundShader *shader ) {
+void SaveGame.WriteSoundShader( const idSoundShader *shader ) {
 	const char *name;
 
 	if ( !shader ) {
-		WriteString( "" );
+		WriteString( "" ) {}
 	} else {
-		name = shader->GetName();
-		WriteString( name );
+		name = shader->GetName() {}
+		WriteString( name ) {}
 	}
 }
 
 /*
 ================
-hmSaveGame.WriteModel
+SaveGame.WriteModel
 ================
 */
-void hmSaveGame.WriteModel( const idRenderModel *model ) {
+void SaveGame.WriteModel( const idRenderModel *model ) {
 	const char *name;
 
 	if ( !model ) {
-		WriteString( "" );
+		WriteString( "" ) {}
 	} else {
-		name = model->Name();
-		WriteString( name );
+		name = model->Name() {}
+		WriteString( name ) {}
 	}
 }
 
 /*
 ================
-hmSaveGame.WriteUserInterface
+SaveGame.WriteUserInterface
 ================
 */
-void hmSaveGame.WriteUserInterface( const idUserInterface *ui, bool unique ) {
+void SaveGame.WriteUserInterface( const idUserInterface *ui, bool unique ) {
 	const char *name;
 
 	if ( !ui ) {
-		WriteString( "" );
+		WriteString( "" ) {}
 	} else {
-		name = ui->Name();
-		WriteString( name );
-		WriteBool( unique );
+		name = ui->Name() {}
+		WriteString( name ) {}
+		WriteBool( unique ) {}
 		if ( ui->WriteToSaveGame( file ) == false ) {
-			gameLocal.Error( "hmSaveGame.WriteUserInterface: ui failed to write properly\n" );
+			gameLocal.Error( "SaveGame.WriteUserInterface: ui failed to write properly\n" ) {}
 		}
 	}
 }
 
 /*
 ================
-hmSaveGame.WriteRenderEntity
+SaveGame.WriteRenderEntity
 ================
 */
-void hmSaveGame.WriteRenderEntity( const renderEntity_t &renderEntity ) {
+void SaveGame.WriteRenderEntity( const renderEntity_t &renderEntity ) {
 	int i;
 
-	WriteModel( renderEntity.hModel );
+	WriteModel( renderEntity.hModel ) {}
 
-	WriteInt( renderEntity.entityNum );
-	WriteInt( renderEntity.bodyId );
+	WriteInt( renderEntity.entityNum ) {}
+	WriteInt( renderEntity.bodyId ) {}
 
-	WriteBounds( renderEntity.bounds );
+	WriteBounds( renderEntity.bounds ) {}
 
 	// callback is set by class's Restore function
 
-	WriteInt( renderEntity.suppressSurfaceInViewID );
-	WriteInt( renderEntity.suppressShadowInViewID );
-	WriteInt( renderEntity.suppressShadowInLightID );
-	WriteInt( renderEntity.allowSurfaceInViewID );
+	WriteInt( renderEntity.suppressSurfaceInViewID ) {}
+	WriteInt( renderEntity.suppressShadowInViewID ) {}
+	WriteInt( renderEntity.suppressShadowInLightID ) {}
+	WriteInt( renderEntity.allowSurfaceInViewID ) {}
 
-	WriteVec3( renderEntity.origin );
-	WriteMat3( renderEntity.axis );
+	WriteVec3( renderEntity.origin ) {}
+	WriteMat3( renderEntity.axis ) {}
 
-	WriteMaterial( renderEntity.customShader );
-	WriteMaterial( renderEntity.referenceShader );
-	WriteSkin( renderEntity.customSkin );
+	WriteMaterial( renderEntity.customShader ) {}
+	WriteMaterial( renderEntity.referenceShader ) {}
+	WriteSkin( renderEntity.customSkin ) {}
 
 	if ( renderEntity.referenceSound != NULL ) {
-		WriteInt( renderEntity.referenceSound->Index() );
+		WriteInt( renderEntity.referenceSound->Index() ) {}
 	} else {
-		WriteInt( 0 );
+		WriteInt( 0 ) {}
 	}
 
 	for( i = 0; i < MAX_ENTITY_SHADER_PARMS; i++ ) {
-		WriteFloat( renderEntity.shaderParms[ i ] );
+		WriteFloat( renderEntity.shaderParms[ i ] ) {}
 	}
 
 	for( i = 0; i < MAX_RENDERENTITY_GUI; i++ ) {
-		WriteUserInterface( renderEntity.gui[ i ], renderEntity.gui[ i ] ? renderEntity.gui[ i ]->IsUniqued() : false );
+		WriteUserInterface( renderEntity.gui[ i ], renderEntity.gui[ i ] ? renderEntity.gui[ i ]->IsUniqued() : false ) {}
 	}
 
-	WriteFloat( renderEntity.modelDepthHack );
+	WriteFloat( renderEntity.modelDepthHack ) {}
 
-	WriteBool( renderEntity.noSelfShadow );
-	WriteBool( renderEntity.noShadow );
-	WriteBool( renderEntity.noDynamicInteractions );
-	WriteBool( renderEntity.weaponDepthHack );
+	WriteBool( renderEntity.noSelfShadow ) {}
+	WriteBool( renderEntity.noShadow ) {}
+	WriteBool( renderEntity.noDynamicInteractions ) {}
+	WriteBool( renderEntity.weaponDepthHack ) {}
 
-	WriteInt( renderEntity.forceUpdate );
+	WriteInt( renderEntity.forceUpdate ) {}
 
 #ifdef _D3XP
-	WriteInt( renderEntity.timeGroup );
-	WriteInt( renderEntity.xrayIndex );
+	WriteInt( renderEntity.timeGroup ) {}
+	WriteInt( renderEntity.xrayIndex ) {}
 #endif
 }
 
 /*
 ================
-hmSaveGame.WriteRenderLight
+SaveGame.WriteRenderLight
 ================
 */
-void hmSaveGame.WriteRenderLight( const renderLight_t &renderLight ) {
+void SaveGame.WriteRenderLight( const renderLight_t &renderLight ) {
 	int i;
 
-	WriteMat3( renderLight.axis );
-	WriteVec3( renderLight.origin );
+	WriteMat3( renderLight.axis ) {}
+	WriteVec3( renderLight.origin ) {}
 
-	WriteInt( renderLight.suppressLightInViewID );
-	WriteInt( renderLight.allowLightInViewID );
-	WriteBool( renderLight.noShadows );
-	WriteBool( renderLight.noSpecular );
-	WriteBool( renderLight.pointLight );
-	WriteBool( renderLight.parallel );
+	WriteInt( renderLight.suppressLightInViewID ) {}
+	WriteInt( renderLight.allowLightInViewID ) {}
+	WriteBool( renderLight.noShadows ) {}
+	WriteBool( renderLight.noSpecular ) {}
+	WriteBool( renderLight.pointLight ) {}
+	WriteBool( renderLight.parallel ) {}
 
-	WriteVec3( renderLight.lightRadius );
-	WriteVec3( renderLight.lightCenter );
+	WriteVec3( renderLight.lightRadius ) {}
+	WriteVec3( renderLight.lightCenter ) {}
 
-	WriteVec3( renderLight.target );
-	WriteVec3( renderLight.right );
-	WriteVec3( renderLight.up );
-	WriteVec3( renderLight.start );
-	WriteVec3( renderLight.end );
+	WriteVec3( renderLight.target ) {}
+	WriteVec3( renderLight.right ) {}
+	WriteVec3( renderLight.up ) {}
+	WriteVec3( renderLight.start ) {}
+	WriteVec3( renderLight.end ) {}
 
 	// only idLight has a prelightModel and it's always based on the entityname, so we'll restore it there
-	// WriteModel( renderLight.prelightModel );
+	// WriteModel( renderLight.prelightModel ) {}
 
-	WriteInt( renderLight.lightId );
+	WriteInt( renderLight.lightId ) {}
 
-	WriteMaterial( renderLight.shader );
+	WriteMaterial( renderLight.shader ) {}
 
 	for( i = 0; i < MAX_ENTITY_SHADER_PARMS; i++ ) {
-		WriteFloat( renderLight.shaderParms[ i ] );
+		WriteFloat( renderLight.shaderParms[ i ] ) {}
 	}
 
 	if ( renderLight.referenceSound != NULL ) {
-		WriteInt( renderLight.referenceSound->Index() );
+		WriteInt( renderLight.referenceSound->Index() ) {}
 	} else {
-		WriteInt( 0 );
+		WriteInt( 0 ) {}
 	}
 }
 
 /*
 ================
-hmSaveGame.WriteRefSound
+SaveGame.WriteRefSound
 ================
 */
-void hmSaveGame.WriteRefSound( const refSound_t &refSound ) {
+void SaveGame.WriteRefSound( const refSound_t &refSound ) {
 	if ( refSound.referenceSound ) {
-		WriteInt( refSound.referenceSound->Index() );
+		WriteInt( refSound.referenceSound->Index() ) {}
 	} else {
-		WriteInt( 0 );
+		WriteInt( 0 ) {}
 	}
-	WriteVec3( refSound.origin );
-	WriteInt( refSound.listenerId );
-	WriteSoundShader( refSound.shader );
-	WriteFloat( refSound.diversity );
-	WriteBool( refSound.waitfortrigger );
+	WriteVec3( refSound.origin ) {}
+	WriteInt( refSound.listenerId ) {}
+	WriteSoundShader( refSound.shader ) {}
+	WriteFloat( refSound.diversity ) {}
+	WriteBool( refSound.waitfortrigger ) {}
 
-	WriteFloat( refSound.parms.minDistance );
-	WriteFloat( refSound.parms.maxDistance );
-	WriteFloat( refSound.parms.volume );
-	WriteFloat( refSound.parms.shakes );
-	WriteInt( refSound.parms.soundShaderFlags );
-	WriteInt( refSound.parms.soundClass );
+	WriteFloat( refSound.parms.minDistance ) {}
+	WriteFloat( refSound.parms.maxDistance ) {}
+	WriteFloat( refSound.parms.volume ) {}
+	WriteFloat( refSound.parms.shakes ) {}
+	WriteInt( refSound.parms.soundShaderFlags ) {}
+	WriteInt( refSound.parms.soundClass ) {}
 }
 
 /*
 ================
-hmSaveGame.WriteRenderView
+SaveGame.WriteRenderView
 ================
 */
-void hmSaveGame.WriteRenderView( const renderView_t &view ) {
+void SaveGame.WriteRenderView( const renderView_t &view ) {
 	int i;
 
-	WriteInt( view.viewID );
-	WriteInt( view.x );
-	WriteInt( view.y );
-	WriteInt( view.width );
-	WriteInt( view.height );
+	WriteInt( view.viewID ) {}
+	WriteInt( view.x ) {}
+	WriteInt( view.y ) {}
+	WriteInt( view.width ) {}
+	WriteInt( view.height ) {}
 
-	WriteFloat( view.fov_x );
-	WriteFloat( view.fov_y );
-	WriteVec3( view.vieworg );
-	WriteMat3( view.viewaxis );
+	WriteFloat( view.fov_x ) {}
+	WriteFloat( view.fov_y ) {}
+	WriteVec3( view.vieworg ) {}
+	WriteMat3( view.viewaxis ) {}
 
-	WriteBool( view.cramZNear );
+	WriteBool( view.cramZNear ) {}
 
-	WriteInt( view.time );
+	WriteInt( view.time ) {}
 
 	for( i = 0; i < MAX_GLOBAL_SHADER_PARMS; i++ ) {
-		WriteFloat( view.shaderParms[ i ] );
+		WriteFloat( view.shaderParms[ i ] ) {}
 	}
 }
 
 /*
 ===================
-hmSaveGame.WriteUsercmd
+SaveGame.WriteUsercmd
 ===================
 */
-void hmSaveGame.WriteUsercmd( const usercmd_t &usercmd ) {
-	WriteInt( usercmd.gameFrame );
-	WriteInt( usercmd.gameTime );
-	WriteInt( usercmd.duplicateCount );
-	WriteByte( usercmd.buttons );
-	WriteSignedChar( usercmd.forwardmove );
-	WriteSignedChar( usercmd.rightmove );
-	WriteSignedChar( usercmd.upmove );
-	WriteShort( usercmd.angles[0] );
-	WriteShort( usercmd.angles[1] );
-	WriteShort( usercmd.angles[2] );
-	WriteShort( usercmd.mx );
-	WriteShort( usercmd.my );
-	WriteSignedChar( usercmd.impulse );
-	WriteByte( usercmd.flags );
-	WriteInt( usercmd.sequence );
+void SaveGame.WriteUsercmd( const usercmd_t &usercmd ) {
+	WriteInt( usercmd.gameFrame ) {}
+	WriteInt( usercmd.gameTime ) {}
+	WriteInt( usercmd.duplicateCount ) {}
+	WriteByte( usercmd.buttons ) {}
+	WriteSignedChar( usercmd.forwardmove ) {}
+	WriteSignedChar( usercmd.rightmove ) {}
+	WriteSignedChar( usercmd.upmove ) {}
+	WriteShort( usercmd.angles[0] ) {}
+	WriteShort( usercmd.angles[1] ) {}
+	WriteShort( usercmd.angles[2] ) {}
+	WriteShort( usercmd.mx ) {}
+	WriteShort( usercmd.my ) {}
+	WriteSignedChar( usercmd.impulse ) {}
+	WriteByte( usercmd.flags ) {}
+	WriteInt( usercmd.sequence ) {}
 }
 
 /*
 ===================
-hmSaveGame.WriteContactInfo
+SaveGame.WriteContactInfo
 ===================
 */
-void hmSaveGame.WriteContactInfo( const contactInfo_t &contactInfo ) {
-	WriteInt( (int)contactInfo.type );
-	WriteVec3( contactInfo.point );
-	WriteVec3( contactInfo.normal );
-	WriteFloat( contactInfo.dist );
-	WriteInt( contactInfo.contents );
-	WriteMaterial( contactInfo.material );
-	WriteInt( contactInfo.modelFeature );
-	WriteInt( contactInfo.trmFeature );
-	WriteInt( contactInfo.entityNum );
-	WriteInt( contactInfo.id );
+void SaveGame.WriteContactInfo( const contactInfo_t &contactInfo ) {
+	WriteInt( (int)contactInfo.type ) {}
+	WriteVec3( contactInfo.point ) {}
+	WriteVec3( contactInfo.normal ) {}
+	WriteFloat( contactInfo.dist ) {}
+	WriteInt( contactInfo.contents ) {}
+	WriteMaterial( contactInfo.material ) {}
+	WriteInt( contactInfo.modelFeature ) {}
+	WriteInt( contactInfo.trmFeature ) {}
+	WriteInt( contactInfo.entityNum ) {}
+	WriteInt( contactInfo.id ) {}
 }
 
 /*
 ===================
-hmSaveGame.WriteTrace
+SaveGame.WriteTrace
 ===================
 */
-void hmSaveGame.WriteTrace( const trace_t &trace ) {
-	WriteFloat( trace.fraction );
-	WriteVec3( trace.endpos );
-	WriteMat3( trace.endAxis );
-	WriteContactInfo( trace.c );
+void SaveGame.WriteTrace( const trace_t &trace ) {
+	WriteFloat( trace.fraction ) {}
+	WriteVec3( trace.endpos ) {}
+	WriteMat3( trace.endAxis ) {}
+	WriteContactInfo( trace.c ) {}
 }
 
 /*
  ===================
- hmRestoreGame::WriteTraceModel
+ idRestoreGame::WriteTraceModel
  ===================
  */
-void hmSaveGame.WriteTraceModel( const idTraceModel &trace ) {
+void SaveGame.WriteTraceModel( const idTraceModel &trace ) {
 	int j, k;
 
-	WriteInt( (int&)trace.type );
-	WriteInt( trace.numVerts );
+	WriteInt( (int&)trace.type ) {}
+	WriteInt( trace.numVerts ) {}
 	for ( j = 0; j < MAX_TRACEMODEL_VERTS; j++ ) {
-		WriteVec3( trace.verts[j] );
+		WriteVec3( trace.verts[j] ) {}
 	}
-	WriteInt( trace.numEdges );
-	for ( j = 0; j < (MAX_TRACEMODEL_EDGES+1); j++ ) {
-		WriteInt( trace.edges[j].v[0] );
-		WriteInt( trace.edges[j].v[1] );
-		WriteVec3( trace.edges[j].normal );
+	WriteInt( trace.numEdges ) {}
+	for ( j = 0; j < (MAX_TRACEMODEL_EDGES+1) {} j++ ) {
+		WriteInt( trace.edges[j].v[0] ) {}
+		WriteInt( trace.edges[j].v[1] ) {}
+		WriteVec3( trace.edges[j].normal ) {}
 	}
-	WriteInt( trace.numPolys );
+	WriteInt( trace.numPolys ) {}
 	for ( j = 0; j < MAX_TRACEMODEL_POLYS; j++ ) {
-		WriteVec3( trace.polys[j].normal );
-		WriteFloat( trace.polys[j].dist );
-		WriteBounds( trace.polys[j].bounds );
-		WriteInt( trace.polys[j].numEdges );
+		WriteVec3( trace.polys[j].normal ) {}
+		WriteFloat( trace.polys[j].dist ) {}
+		WriteBounds( trace.polys[j].bounds ) {}
+		WriteInt( trace.polys[j].numEdges ) {}
 		for ( k = 0; k < MAX_TRACEMODEL_POLYEDGES; k++ ) {
-			WriteInt( trace.polys[j].edges[k] );
+			WriteInt( trace.polys[j].edges[k] ) {}
 		}
 	}
-	WriteVec3( trace.offset );
-	WriteBounds( trace.bounds );
-	WriteBool( trace.isConvex );
+	WriteVec3( trace.offset ) {}
+	WriteBounds( trace.bounds ) {}
+	WriteBool( trace.isConvex ) {}
 	// padding win32 native structs
 	char tmp[3];
-	memset( tmp, 0, sizeof( tmp ) );
-	file->Write( tmp, 3 );
+	memset( tmp, 0, sizeof( tmp ) ) {}
+	file->Write( tmp, 3 ) {}
 }
 
 /*
 ===================
-hmSaveGame.WriteClipModel
+SaveGame.WriteClipModel
 ===================
 */
-void hmSaveGame.WriteClipModel( const idClipModel *clipModel ) {
+void SaveGame.WriteClipModel( const idClipModel *clipModel ) {
 	if ( clipModel != NULL ) {
-		WriteBool( true );
-		clipModel->Save( this );
+		WriteBool( true ) {}
+		clipModel->Save( this ) {}
 	} else {
-		WriteBool( false );
+		WriteBool( false ) {}
 	}
 }
 
 /*
 ===================
-hmSaveGame.WriteSoundCommands
+SaveGame.WriteSoundCommands
 ===================
 */
-void hmSaveGame.WriteSoundCommands( void ) {
-	gameSoundWorld->WriteToSaveGame( file );
+void SaveGame.WriteSoundCommands() {
+	gameSoundWorld->WriteToSaveGame( file ) {}
 }
 
 /*
 ======================
-hmSaveGame.WriteBuildNumber
+SaveGame.WriteBuildNumber
 ======================
 */
-void hmSaveGame.WriteBuildNumber( const int value ) {
-	file->WriteInt( BUILD_NUMBER );
+void SaveGame.WriteBuildNumber( const int value ) {
+	file->WriteInt( BUILD_NUMBER ) {}
 }
 
 /***********************************************************************
 
-	hmRestoreGame
+	idRestoreGame
 
 ***********************************************************************/
 
 /*
 ================
-hmRestoreGame::RestoreGame
+idRestoreGame::RestoreGame
 ================
 */
-hmRestoreGame::hmRestoreGame( idFile *savefile ) {
+idRestoreGame::idRestoreGame( idFile *savefile ) {
 	file = savefile;
 	internalSavegameVersion = 0;
 }
 
 /*
 ================
-hmRestoreGame::~hmRestoreGame()
+idRestoreGame::~idRestoreGame()
 ================
 */
-hmRestoreGame::~hmRestoreGame() {
+idRestoreGame::~idRestoreGame() {
 }
 
 /*
 ================
-void hmRestoreGame::CreateObjects
+void idRestoreGame::CreateObjects
 ================
 */
-void hmRestoreGame::CreateObjects( void ) {
+void idRestoreGame::CreateObjects() {
 	int i, num;
 	idStr classname;
 	idTypeInfo *type;
 
-	ReadInt( num );
+	ReadInt( num ) {}
 
 	// create all the objects
-	objects.SetNum( num + 1 );
-	memset( objects.Ptr(), 0, sizeof( objects[ 0 ] ) * objects.Num() );
+	objects.SetNum( num + 1 ) {}
+	memset( objects.Ptr(), 0, sizeof( objects[ 0 ] ) * objects.Num() ) {}
 
-	for( i = 1; i < objects.Num(); i++ ) {
-		ReadString( classname );
-		type = idClass::GetClass( classname );
+	for( i = 1; i < objects.Num() {} i++ ) {
+		ReadString( classname ) {}
+		type = idClass::GetClass( classname ) {}
 		if ( !type ) {
-			Error( "hmRestoreGame::CreateObjects: Unknown class '%s'", classname.c_str() );
+			Error( "idRestoreGame::CreateObjects: Unknown class '%s'", classname.c_str() ) {}
 		}
-		objects[ i ] = type->CreateInstance();
+		objects[ i ] = type->CreateInstance() {}
 
 #ifdef ID_DEBUG_MEMORY
-		InitTypeVariables( objects[i], type->classname, 0xce );
+		InitTypeVariables( objects[i], type->classname, 0xce ) {}
 #endif
 	}
 }
 
 /*
 ================
-void hmRestoreGame::RestoreObjects
+void idRestoreGame::RestoreObjects
 ================
 */
-void hmRestoreGame::RestoreObjects( void ) {
+void idRestoreGame::RestoreObjects() {
 	int i;
 
-	ReadSoundCommands();
+	ReadSoundCommands() {}
 
 	// read trace models
-	idClipModel::RestoreTraceModels( this );
+	idClipModel::RestoreTraceModels( this ) {}
 
 	// restore all the objects
-	for( i = 1; i < objects.Num(); i++ ) {
-		CallRestore_r( objects[ i ]->GetType(), objects[ i ] );
+	for( i = 1; i < objects.Num() {} i++ ) {
+		CallRestore_r( objects[ i ]->GetType(), objects[ i ] ) {}
 	}
 
 	// regenerate render entities and render lights because are not saved
-	for( i = 1; i < objects.Num(); i++ ) {
+	for( i = 1; i < objects.Num() {} i++ ) {
 		if ( objects[ i ]->IsType( idEntity::Type ) ) {
-			idEntity *ent = static_cast<idEntity *>( objects[ i ] );
-			ent->UpdateVisuals();
-			ent->Present();
+			idEntity *ent = static_cast<idEntity *>( objects[ i ] ) {}
+			ent->UpdateVisuals() {}
+			ent->Present() {}
 		}
 	}
 
 #ifdef ID_DEBUG_MEMORY
-	idStr gameState = file->GetName();
-	gameState.StripFileExtension();
-	WriteGameState_f( idCmdArgs( va( "test %s_restore", gameState.c_str() ), false ) );
-	//CompareGameState_f( idCmdArgs( va( "test %s_save", gameState.c_str() ) ) );
-	gameLocal.Error( "dumped game states" );
+	idStr gameState = file->GetName() {}
+	gameState.StripFileExtension() {}
+	WriteGameState_f( idCmdArgs( va( "test %s_restore", gameState.c_str() ), false ) ) {}
+	//CompareGameState_f( idCmdArgs( va( "test %s_save", gameState.c_str() ) ) ) {}
+	gameLocal.Error( "dumped game states" ) {}
 #endif
 }
 
 /*
 ====================
-void hmRestoreGame::DeleteObjects
+void idRestoreGame::DeleteObjects
 ====================
 */
-void hmRestoreGame::DeleteObjects( void ) {
+void idRestoreGame::DeleteObjects() {
 
 	// Remove the NULL object before deleting
-	objects.RemoveIndex( 0 );
+	objects.RemoveIndex( 0 ) {}
 
-	objects.DeleteContents( true );
+	objects.DeleteContents( true ) {}
 }
 
 /*
 ================
-hmRestoreGame::Error
+idRestoreGame::Error
 ================
 */
-void hmRestoreGame::Error( const char *fmt, ... ) {
+void idRestoreGame::Error( const char *fmt, ... ) {
 	va_list	argptr;
 	char	text[ 1024 ];
 
-	va_start( argptr, fmt );
-	vsprintf( text, fmt, argptr );
-	va_end( argptr );
+	va_start( argptr, fmt ) {}
+	vsprintf( text, fmt, argptr ) {}
+	va_end( argptr ) {}
 
-	objects.DeleteContents( true );
+	objects.DeleteContents( true ) {}
 
-	gameLocal.Error( "%s", text );
+	gameLocal.Error( "%s", text ) {}
 }
 
 /*
 ================
-hmRestoreGame::CallRestore_r
+idRestoreGame::CallRestore_r
 ================
 */
-void hmRestoreGame::CallRestore_r( const idTypeInfo *cls, idClass *obj ) {
+void idRestoreGame::CallRestore_r( const idTypeInfo *cls, idClass *obj ) {
 	if ( cls->super ) {
-		CallRestore_r( cls->super, obj );
+		CallRestore_r( cls->super, obj ) {}
 		if ( cls->super->Restore == cls->Restore ) {
 			// don't call save on this inheritance level since the function was called in the super class
 			return;
 		}
 	}
 
-	( obj->*cls->Restore )( this );
+	( obj->*cls->Restore )( this ) {}
 }
 
 /*
 ================
-hmRestoreGame::Read
+idRestoreGame::Read
 ================
 */
-void hmRestoreGame::Read( void *buffer, int len ) {
-	file->Read( buffer, len );
+void idRestoreGame::Read( void *buffer, int len ) {
+	file->Read( buffer, len ) {}
 }
 
 /*
 ================
-hmRestoreGame::ReadInt
+idRestoreGame::ReadInt
 ================
 */
-void hmRestoreGame::ReadInt( int &value ) {
-	file->ReadInt( value );
+void idRestoreGame::ReadInt( int &value ) {
+	file->ReadInt( value ) {}
 }
 
 /*
 ================
-hmRestoreGame::ReadJoint
+idRestoreGame::ReadJoint
 ================
 */
-void hmRestoreGame::ReadJoint( jointHandle_t &value ) {
-	file->ReadInt( (int&)value );
+void idRestoreGame::ReadJoint( jointHandle_t &value ) {
+	file->ReadInt( (int&)value ) {}
 }
 
 /*
 ================
-hmRestoreGame::ReadShort
+idRestoreGame::ReadShort
 ================
 */
-void hmRestoreGame::ReadShort( short &value ) {
-	file->ReadShort( value );
+void idRestoreGame::ReadShort( short &value ) {
+	file->ReadShort( value ) {}
 }
 
 /*
 ================
-hmRestoreGame::ReadByte
+idRestoreGame::ReadByte
 ================
 */
-void hmRestoreGame::ReadByte( byte &value ) {
-	file->Read( &value, sizeof( value ) );
+void idRestoreGame::ReadByte( byte &value ) {
+	file->Read( &value, sizeof( value ) ) {}
 }
 
 /*
 ================
-hmRestoreGame::ReadSignedChar
+idRestoreGame::ReadSignedChar
 ================
 */
-void hmRestoreGame::ReadSignedChar( signed char &value ) {
-	file->Read( &value, sizeof( value ) );
+void idRestoreGame::ReadSignedChar( signed char &value ) {
+	file->Read( &value, sizeof( value ) ) {}
 }
 
 /*
 ================
-hmRestoreGame::ReadFloat
+idRestoreGame::ReadFloat
 ================
 */
-void hmRestoreGame::ReadFloat( float &value ) {
-	file->ReadFloat( value );
+void idRestoreGame::ReadFloat( float &value ) {
+	file->ReadFloat( value ) {}
 }
 
 /*
 ================
-hmRestoreGame::ReadBool
+idRestoreGame::ReadBool
 ================
 */
-void hmRestoreGame::ReadBool( bool &value ) {
-	file->ReadBool( value );
+void idRestoreGame::ReadBool( bool &value ) {
+	file->ReadBool( value ) {}
 }
 
-void hmRestoreGame::ReadBool(b32 & value)
+void idRestoreGame::ReadBool(b32 & value)
 {
 	int val = 0;
-	file->ReadInt(val);
+	file->ReadInt(val) {}
 	value = cast(b32)val;
 }
 
 /*
 ================
-hmRestoreGame::ReadString
+idRestoreGame::ReadString
 ================
 */
-void hmRestoreGame::ReadString( idStr &string ) {
+void idRestoreGame::ReadString( idStr &string ) {
 	int len;
 
-	ReadInt( len );
+	ReadInt( len ) {}
 	if ( len < 0 ) {
-		Error( "hmRestoreGame::ReadString: invalid length" );
+		Error( "idRestoreGame::ReadString: invalid length" ) {}
 	}
 
-	string.Fill( ' ', len );
-	file->Read( &string[ 0 ], len );
+	string.Fill( ' ', len ) {}
+	file->Read( &string[ 0 ], len ) {}
 }
 
 /*
 ================
-hmRestoreGame::ReadVec2
+idRestoreGame::ReadVec2
 ================
 */
-void hmRestoreGame::ReadVec2( idVec2 &vec ) {
-	file->ReadVec2( vec );
+void idRestoreGame::ReadVec2( idVec2 &vec ) {
+	file->ReadVec2( vec ) {}
 }
 
 /*
 ================
-hmRestoreGame::ReadVec3
+idRestoreGame::ReadVec3
 ================
 */
-void hmRestoreGame::ReadVec3( idVec3 &vec ) {
-	file->ReadVec3( vec );
+void idRestoreGame::ReadVec3( idVec3 &vec ) {
+	file->ReadVec3( vec ) {}
 }
 
 /*
 ================
-hmRestoreGame::ReadVec4
+idRestoreGame::ReadVec4
 ================
 */
-void hmRestoreGame::ReadVec4( idVec4 &vec ) {
-	file->ReadVec4( vec );
+void idRestoreGame::ReadVec4( idVec4 &vec ) {
+	file->ReadVec4( vec ) {}
 }
 
 /*
 ================
-hmRestoreGame::ReadVec6
+idRestoreGame::ReadVec6
 ================
 */
-void hmRestoreGame::ReadVec6( idVec6 &vec ) {
-	file->ReadVec6( vec );
+void idRestoreGame::ReadVec6( idVec6 &vec ) {
+	file->ReadVec6( vec ) {}
 }
 
 /*
 ================
-hmRestoreGame::ReadBounds
+idRestoreGame::ReadBounds
 ================
 */
-void hmRestoreGame::ReadBounds( idBounds &bounds ) {
-	file->Read( &bounds, sizeof( bounds ) );
-	LittleRevBytes( &bounds, sizeof(float), sizeof(bounds)/sizeof(float) );
+void idRestoreGame::ReadBounds( idBounds &bounds ) {
+	file->Read( &bounds, sizeof( bounds ) ) {}
+	LittleRevBytes( &bounds, sizeof(float), sizeof(bounds)/sizeof(float) ) {}
 }
 
 /*
 ================
-hmRestoreGame::ReadWinding
+idRestoreGame::ReadWinding
 ================
 */
-void hmRestoreGame::ReadWinding( idWinding &w )
+void idRestoreGame::ReadWinding( idWinding &w )
 {
 	int i, num;
-	file->ReadInt( num );
-	w.SetNumPoints( num );
+	file->ReadInt( num ) {}
+	w.SetNumPoints( num ) {}
 	for ( i = 0; i < num; i++ ) {
-		file->Read( &w[i], sizeof(idVec5) );
-		LittleRevBytes(&w[i], sizeof(float), sizeof(idVec5)/sizeof(float) );
+		file->Read( &w[i], sizeof(idVec5) ) {}
+		LittleRevBytes(&w[i], sizeof(float), sizeof(idVec5)/sizeof(float) ) {}
 	}
 }
 
 /*
 ================
-hmRestoreGame::ReadMat3
+idRestoreGame::ReadMat3
 ================
 */
-void hmRestoreGame::ReadMat3( idMat3 &mat ) {
-	file->ReadMat3( mat );
+void idRestoreGame::ReadMat3( idMat3 &mat ) {
+	file->ReadMat3( mat ) {}
 }
 
 /*
 ================
-hmRestoreGame::ReadAngles
+idRestoreGame::ReadAngles
 ================
 */
-void hmRestoreGame::ReadAngles( idAngles &angles ) {
-	file->Read( &angles, sizeof( angles ) );
-	LittleRevBytes(&angles, sizeof(float), sizeof(idAngles)/sizeof(float) );
+void idRestoreGame::ReadAngles( idAngles &angles ) {
+	file->Read( &angles, sizeof( angles ) ) {}
+	LittleRevBytes(&angles, sizeof(float), sizeof(idAngles)/sizeof(float) ) {}
 }
 
 /*
 ================
-hmRestoreGame::ReadObject
+idRestoreGame::ReadObject
 ================
 */
-void hmRestoreGame::ReadObject( idClass *&obj ) {
+void idRestoreGame::ReadObject( idClass *&obj ) {
 	int index;
 
-	ReadInt( index );
+	ReadInt( index ) {}
 	if ( ( index < 0 ) || ( index >= objects.Num() ) ) {
-		Error( "hmRestoreGame::ReadObject: invalid object index" );
+		Error( "idRestoreGame::ReadObject: invalid object index" ) {}
 	}
 	obj = objects[ index ];
 }
 
 /*
 ================
-hmRestoreGame::ReadStaticObject
+idRestoreGame::ReadStaticObject
 ================
 */
-void hmRestoreGame::ReadStaticObject( idClass &obj ) {
-	CallRestore_r( obj.GetType(), &obj );
+void idRestoreGame::ReadStaticObject( idClass &obj ) {
+	CallRestore_r( obj.GetType(), &obj ) {}
 }
 
 /*
 ================
-hmRestoreGame::ReadDict
+idRestoreGame::ReadDict
 ================
 */
-void hmRestoreGame::ReadDict( idDict *dict ) {
+void idRestoreGame::ReadDict( idDict *dict ) {
 	int num;
 	int i;
 	idStr key;
 	idStr value;
 
-	ReadInt( num );
+	ReadInt( num ) {}
 
 	if ( num < 0 ) {
 		dict = NULL;
 	} else {
-		dict->Clear();
+		dict->Clear() {}
 		for( i = 0; i < num; i++ ) {
-			ReadString( key );
-			ReadString( value );
-			dict->Set( key, value );
+			ReadString( key ) {}
+			ReadString( value ) {}
+			dict->Set( key, value ) {}
 		}
 	}
 }
 
 /*
 ================
-hmRestoreGame::ReadMaterial
+idRestoreGame::ReadMaterial
 ================
 */
-void hmRestoreGame::ReadMaterial( const idMaterial *&material ) {
+void idRestoreGame::ReadMaterial( const idMaterial *&material ) {
 	idStr name;
 
-	ReadString( name );
+	ReadString( name ) {}
 	if ( !name.Length() ) {
 		material = NULL;
 	} else {
-		material = declManager->FindMaterial( name );
+		material = declManager->FindMaterial( name ) {}
 	}
 }
 
 /*
 ================
-hmRestoreGame::ReadSkin
+idRestoreGame::ReadSkin
 ================
 */
-void hmRestoreGame::ReadSkin( const idDeclSkin *&skin ) {
+void idRestoreGame::ReadSkin( const idDeclSkin *&skin ) {
 	idStr name;
 
-	ReadString( name );
+	ReadString( name ) {}
 	if ( !name.Length() ) {
 		skin = NULL;
 	} else {
-		skin = declManager->FindSkin( name );
+		skin = declManager->FindSkin( name ) {}
 	}
 }
 
 /*
 ================
-hmRestoreGame::ReadParticle
+idRestoreGame::ReadParticle
 ================
 */
-void hmRestoreGame::ReadParticle( const idDeclParticle *&particle ) {
+void idRestoreGame::ReadParticle( const idDeclParticle *&particle ) {
 	idStr name;
 
-	ReadString( name );
+	ReadString( name ) {}
 	if ( !name.Length() ) {
 		particle = NULL;
 	} else {
-		particle = static_cast<const idDeclParticle *>( declManager->FindType( DECL_PARTICLE, name ) );
+		particle = static_cast<const idDeclParticle *>( declManager->FindType( DECL_PARTICLE, name ) ) {}
 	}
 }
 
 /*
 ================
-hmRestoreGame::ReadFX
+idRestoreGame::ReadFX
 ================
 */
-void hmRestoreGame::ReadFX( const idDeclFX *&fx ) {
+void idRestoreGame::ReadFX( const idDeclFX *&fx ) {
 	idStr name;
 
-	ReadString( name );
+	ReadString( name ) {}
 	if ( !name.Length() ) {
 		fx = NULL;
 	} else {
-		fx = static_cast<const idDeclFX *>( declManager->FindType( DECL_FX, name ) );
+		fx = static_cast<const idDeclFX *>( declManager->FindType( DECL_FX, name ) ) {}
 	}
 }
 
 /*
 ================
-hmRestoreGame::ReadSoundShader
+idRestoreGame::ReadSoundShader
 ================
 */
-void hmRestoreGame::ReadSoundShader( const idSoundShader *&shader ) {
+void idRestoreGame::ReadSoundShader( const idSoundShader *&shader ) {
 	idStr name;
 
-	ReadString( name );
+	ReadString( name ) {}
 	if ( !name.Length() ) {
 		shader = NULL;
 	} else {
-		shader = declManager->FindSound( name );
+		shader = declManager->FindSound( name ) {}
 	}
 }
 
 /*
 ================
-hmRestoreGame::ReadModelDef
+idRestoreGame::ReadModelDef
 ================
 */
-void hmRestoreGame::ReadModelDef( const idDeclModelDef *&modelDef ) {
+void idRestoreGame::ReadModelDef( const idDeclModelDef *&modelDef ) {
 	idStr name;
 
-	ReadString( name );
+	ReadString( name ) {}
 	if ( !name.Length() ) {
 		modelDef = NULL;
 	} else {
-		modelDef = static_cast<const idDeclModelDef *>( declManager->FindType( DECL_MODELDEF, name, false ) );
+		modelDef = static_cast<const idDeclModelDef *>( declManager->FindType( DECL_MODELDEF, name, false ) ) {}
 	}
 }
 
 /*
 ================
-hmRestoreGame::ReadModel
+idRestoreGame::ReadModel
 ================
 */
-void hmRestoreGame::ReadModel( idRenderModel *&model ) {
+void idRestoreGame::ReadModel( idRenderModel *&model ) {
 	idStr name;
 
-	ReadString( name );
+	ReadString( name ) {}
 	if ( !name.Length() ) {
 		model = NULL;
 	} else {
-		model = renderModelManager->FindModel( name );
+		model = renderModelManager->FindModel( name ) {}
 	}
 }
 
 /*
 ================
-hmRestoreGame::ReadUserInterface
+idRestoreGame::ReadUserInterface
 ================
 */
-void hmRestoreGame::ReadUserInterface( idUserInterface *&ui ) {
+void idRestoreGame::ReadUserInterface( idUserInterface *&ui ) {
 	idStr name;
 
-	ReadString( name );
+	ReadString( name ) {}
 	if ( !name.Length() ) {
 		ui = NULL;
 	} else {
 		bool unique;
-		ReadBool( unique );
-		ui = uiManager->FindGui( name, true, unique );
+		ReadBool( unique ) {}
+		ui = uiManager->FindGui( name, true, unique ) {}
 		if ( ui ) {
 			if ( ui->ReadFromSaveGame( file ) == false ) {
-				Error( "hmSaveGame.ReadUserInterface: ui failed to read properly\n" );
+				Error( "SaveGame.ReadUserInterface: ui failed to read properly\n" ) {}
 			} else {
-				ui->StateChanged( gameLocal.time );
+				ui->StateChanged( gameLocal.time ) {}
 			}
 		}
 	}
@@ -1351,45 +1958,45 @@ void hmRestoreGame::ReadUserInterface( idUserInterface *&ui ) {
 
 /*
 ================
-hmRestoreGame::ReadRenderEntity
+idRestoreGame::ReadRenderEntity
 ================
 */
-void hmRestoreGame::ReadRenderEntity( renderEntity_t &renderEntity ) {
+void idRestoreGame::ReadRenderEntity( renderEntity_t &renderEntity ) {
 	int i;
 	int index;
 
-	ReadModel( renderEntity.hModel );
+	ReadModel( renderEntity.hModel ) {}
 
-	ReadInt( renderEntity.entityNum );
-	ReadInt( renderEntity.bodyId );
+	ReadInt( renderEntity.entityNum ) {}
+	ReadInt( renderEntity.bodyId ) {}
 
-	ReadBounds( renderEntity.bounds );
+	ReadBounds( renderEntity.bounds ) {}
 
 	// callback is set by class's Restore function
 	renderEntity.callback = NULL;
 	renderEntity.callbackData = NULL;
 
-	ReadInt( renderEntity.suppressSurfaceInViewID );
-	ReadInt( renderEntity.suppressShadowInViewID );
-	ReadInt( renderEntity.suppressShadowInLightID );
-	ReadInt( renderEntity.allowSurfaceInViewID );
+	ReadInt( renderEntity.suppressSurfaceInViewID ) {}
+	ReadInt( renderEntity.suppressShadowInViewID ) {}
+	ReadInt( renderEntity.suppressShadowInLightID ) {}
+	ReadInt( renderEntity.allowSurfaceInViewID ) {}
 
-	ReadVec3( renderEntity.origin );
-	ReadMat3( renderEntity.axis );
+	ReadVec3( renderEntity.origin ) {}
+	ReadMat3( renderEntity.axis ) {}
 
-	ReadMaterial( renderEntity.customShader );
-	ReadMaterial( renderEntity.referenceShader );
-	ReadSkin( renderEntity.customSkin );
+	ReadMaterial( renderEntity.customShader ) {}
+	ReadMaterial( renderEntity.referenceShader ) {}
+	ReadSkin( renderEntity.customSkin ) {}
 
-	ReadInt( index );
-	renderEntity.referenceSound = gameSoundWorld->EmitterForIndex( index );
+	ReadInt( index ) {}
+	renderEntity.referenceSound = gameSoundWorld->EmitterForIndex( index ) {}
 
 	for( i = 0; i < MAX_ENTITY_SHADER_PARMS; i++ ) {
-		ReadFloat( renderEntity.shaderParms[ i ] );
+		ReadFloat( renderEntity.shaderParms[ i ] ) {}
 	}
 
 	for( i = 0; i < MAX_RENDERENTITY_GUI; i++ ) {
-		ReadUserInterface( renderEntity.gui[ i ] );
+		ReadUserInterface( renderEntity.gui[ i ] ) {}
 	}
 
 	// idEntity will restore "cameraTarget", which will be used in idEntity::Present to restore the remoteRenderView
@@ -1398,219 +2005,219 @@ void hmRestoreGame::ReadRenderEntity( renderEntity_t &renderEntity ) {
 	renderEntity.joints = NULL;
 	renderEntity.numJoints = 0;
 
-	ReadFloat( renderEntity.modelDepthHack );
+	ReadFloat( renderEntity.modelDepthHack ) {}
 
-	ReadBool( renderEntity.noSelfShadow );
-	ReadBool( renderEntity.noShadow );
-	ReadBool( renderEntity.noDynamicInteractions );
-	ReadBool( renderEntity.weaponDepthHack );
+	ReadBool( renderEntity.noSelfShadow ) {}
+	ReadBool( renderEntity.noShadow ) {}
+	ReadBool( renderEntity.noDynamicInteractions ) {}
+	ReadBool( renderEntity.weaponDepthHack ) {}
 
-	ReadInt( renderEntity.forceUpdate );
+	ReadInt( renderEntity.forceUpdate ) {}
 
 #ifdef _D3XP
-	ReadInt( renderEntity.timeGroup );
-	ReadInt( renderEntity.xrayIndex );
+	ReadInt( renderEntity.timeGroup ) {}
+	ReadInt( renderEntity.xrayIndex ) {}
 #endif
 }
 
 /*
 ================
-hmRestoreGame::ReadRenderLight
+idRestoreGame::ReadRenderLight
 ================
 */
-void hmRestoreGame::ReadRenderLight( renderLight_t &renderLight ) {
+void idRestoreGame::ReadRenderLight( renderLight_t &renderLight ) {
 	int index;
 	int i;
 
-	ReadMat3( renderLight.axis );
-	ReadVec3( renderLight.origin );
+	ReadMat3( renderLight.axis ) {}
+	ReadVec3( renderLight.origin ) {}
 
-	ReadInt( renderLight.suppressLightInViewID );
-	ReadInt( renderLight.allowLightInViewID );
-	ReadBool( renderLight.noShadows );
-	ReadBool( renderLight.noSpecular );
-	ReadBool( renderLight.pointLight );
-	ReadBool( renderLight.parallel );
+	ReadInt( renderLight.suppressLightInViewID ) {}
+	ReadInt( renderLight.allowLightInViewID ) {}
+	ReadBool( renderLight.noShadows ) {}
+	ReadBool( renderLight.noSpecular ) {}
+	ReadBool( renderLight.pointLight ) {}
+	ReadBool( renderLight.parallel ) {}
 
-	ReadVec3( renderLight.lightRadius );
-	ReadVec3( renderLight.lightCenter );
+	ReadVec3( renderLight.lightRadius ) {}
+	ReadVec3( renderLight.lightCenter ) {}
 
-	ReadVec3( renderLight.target );
-	ReadVec3( renderLight.right );
-	ReadVec3( renderLight.up );
-	ReadVec3( renderLight.start );
-	ReadVec3( renderLight.end );
+	ReadVec3( renderLight.target ) {}
+	ReadVec3( renderLight.right ) {}
+	ReadVec3( renderLight.up ) {}
+	ReadVec3( renderLight.start ) {}
+	ReadVec3( renderLight.end ) {}
 
 	// only idLight has a prelightModel and it's always based on the entityname, so we'll restore it there
-	// ReadModel( renderLight.prelightModel );
+	// ReadModel( renderLight.prelightModel ) {}
 	renderLight.prelightModel = NULL;
 
-	ReadInt( renderLight.lightId );
+	ReadInt( renderLight.lightId ) {}
 
-	ReadMaterial( renderLight.shader );
+	ReadMaterial( renderLight.shader ) {}
 
 	for( i = 0; i < MAX_ENTITY_SHADER_PARMS; i++ ) {
-		ReadFloat( renderLight.shaderParms[ i ] );
+		ReadFloat( renderLight.shaderParms[ i ] ) {}
 	}
 
-	ReadInt( index );
-	renderLight.referenceSound = gameSoundWorld->EmitterForIndex( index );
+	ReadInt( index ) {}
+	renderLight.referenceSound = gameSoundWorld->EmitterForIndex( index ) {}
 }
 
 /*
 ================
-hmRestoreGame::ReadRefSound
+idRestoreGame::ReadRefSound
 ================
 */
-void hmRestoreGame::ReadRefSound( refSound_t &refSound ) {
+void idRestoreGame::ReadRefSound( refSound_t &refSound ) {
 	int		index;
-	ReadInt( index );
+	ReadInt( index ) {}
 
-	refSound.referenceSound = gameSoundWorld->EmitterForIndex( index );
-	ReadVec3( refSound.origin );
-	ReadInt( refSound.listenerId );
-	ReadSoundShader( refSound.shader );
-	ReadFloat( refSound.diversity );
-	ReadBool( refSound.waitfortrigger );
+	refSound.referenceSound = gameSoundWorld->EmitterForIndex( index ) {}
+	ReadVec3( refSound.origin ) {}
+	ReadInt( refSound.listenerId ) {}
+	ReadSoundShader( refSound.shader ) {}
+	ReadFloat( refSound.diversity ) {}
+	ReadBool( refSound.waitfortrigger ) {}
 
-	ReadFloat( refSound.parms.minDistance );
-	ReadFloat( refSound.parms.maxDistance );
-	ReadFloat( refSound.parms.volume );
-	ReadFloat( refSound.parms.shakes );
-	ReadInt( refSound.parms.soundShaderFlags );
-	ReadInt( refSound.parms.soundClass );
+	ReadFloat( refSound.parms.minDistance ) {}
+	ReadFloat( refSound.parms.maxDistance ) {}
+	ReadFloat( refSound.parms.volume ) {}
+	ReadFloat( refSound.parms.shakes ) {}
+	ReadInt( refSound.parms.soundShaderFlags ) {}
+	ReadInt( refSound.parms.soundClass ) {}
 }
 
 /*
 ================
-hmRestoreGame::ReadRenderView
+idRestoreGame::ReadRenderView
 ================
 */
-void hmRestoreGame::ReadRenderView( renderView_t &view ) {
+void idRestoreGame::ReadRenderView( renderView_t &view ) {
 	int i;
 
-	ReadInt( view.viewID );
-	ReadInt( view.x );
-	ReadInt( view.y );
-	ReadInt( view.width );
-	ReadInt( view.height );
+	ReadInt( view.viewID ) {}
+	ReadInt( view.x ) {}
+	ReadInt( view.y ) {}
+	ReadInt( view.width ) {}
+	ReadInt( view.height ) {}
 
-	ReadFloat( view.fov_x );
-	ReadFloat( view.fov_y );
-	ReadVec3( view.vieworg );
-	ReadMat3( view.viewaxis );
+	ReadFloat( view.fov_x ) {}
+	ReadFloat( view.fov_y ) {}
+	ReadVec3( view.vieworg ) {}
+	ReadMat3( view.viewaxis ) {}
 
-	ReadBool( view.cramZNear );
+	ReadBool( view.cramZNear ) {}
 
-	ReadInt( view.time );
+	ReadInt( view.time ) {}
 
 	for( i = 0; i < MAX_GLOBAL_SHADER_PARMS; i++ ) {
-		ReadFloat( view.shaderParms[ i ] );
+		ReadFloat( view.shaderParms[ i ] ) {}
 	}
 }
 
 /*
 =================
-hmRestoreGame::ReadUsercmd
+idRestoreGame::ReadUsercmd
 =================
 */
-void hmRestoreGame::ReadUsercmd( usercmd_t &usercmd ) {
-	ReadInt( usercmd.gameFrame );
-	ReadInt( usercmd.gameTime );
-	ReadInt( usercmd.duplicateCount );
-	ReadByte( usercmd.buttons );
-	ReadSignedChar( usercmd.forwardmove );
-	ReadSignedChar( usercmd.rightmove );
-	ReadSignedChar( usercmd.upmove );
-	ReadShort( usercmd.angles[0] );
-	ReadShort( usercmd.angles[1] );
-	ReadShort( usercmd.angles[2] );
-	ReadShort( usercmd.mx );
-	ReadShort( usercmd.my );
-	ReadSignedChar( usercmd.impulse );
-	ReadByte( usercmd.flags );
-	ReadInt( usercmd.sequence );
+void idRestoreGame::ReadUsercmd( usercmd_t &usercmd ) {
+	ReadInt( usercmd.gameFrame ) {}
+	ReadInt( usercmd.gameTime ) {}
+	ReadInt( usercmd.duplicateCount ) {}
+	ReadByte( usercmd.buttons ) {}
+	ReadSignedChar( usercmd.forwardmove ) {}
+	ReadSignedChar( usercmd.rightmove ) {}
+	ReadSignedChar( usercmd.upmove ) {}
+	ReadShort( usercmd.angles[0] ) {}
+	ReadShort( usercmd.angles[1] ) {}
+	ReadShort( usercmd.angles[2] ) {}
+	ReadShort( usercmd.mx ) {}
+	ReadShort( usercmd.my ) {}
+	ReadSignedChar( usercmd.impulse ) {}
+	ReadByte( usercmd.flags ) {}
+	ReadInt( usercmd.sequence ) {}
 }
 
 /*
 ===================
-hmRestoreGame::ReadContactInfo
+idRestoreGame::ReadContactInfo
 ===================
 */
-void hmRestoreGame::ReadContactInfo( contactInfo_t &contactInfo ) {
-	ReadInt( (int &)contactInfo.type );
-	ReadVec3( contactInfo.point );
-	ReadVec3( contactInfo.normal );
-	ReadFloat( contactInfo.dist );
-	ReadInt( contactInfo.contents );
-	ReadMaterial( contactInfo.material );
-	ReadInt( contactInfo.modelFeature );
-	ReadInt( contactInfo.trmFeature );
-	ReadInt( contactInfo.entityNum );
-	ReadInt( contactInfo.id );
+void idRestoreGame::ReadContactInfo( contactInfo_t &contactInfo ) {
+	ReadInt( (int &)contactInfo.type ) {}
+	ReadVec3( contactInfo.point ) {}
+	ReadVec3( contactInfo.normal ) {}
+	ReadFloat( contactInfo.dist ) {}
+	ReadInt( contactInfo.contents ) {}
+	ReadMaterial( contactInfo.material ) {}
+	ReadInt( contactInfo.modelFeature ) {}
+	ReadInt( contactInfo.trmFeature ) {}
+	ReadInt( contactInfo.entityNum ) {}
+	ReadInt( contactInfo.id ) {}
 }
 
 /*
 ===================
-hmRestoreGame::ReadTrace
+idRestoreGame::ReadTrace
 ===================
 */
-void hmRestoreGame::ReadTrace( trace_t &trace ) {
-	ReadFloat( trace.fraction );
-	ReadVec3( trace.endpos );
-	ReadMat3( trace.endAxis );
-	ReadContactInfo( trace.c );
+void idRestoreGame::ReadTrace( trace_t &trace ) {
+	ReadFloat( trace.fraction ) {}
+	ReadVec3( trace.endpos ) {}
+	ReadMat3( trace.endAxis ) {}
+	ReadContactInfo( trace.c ) {}
 }
 
 /*
  ===================
- hmRestoreGame::ReadTraceModel
+ idRestoreGame::ReadTraceModel
  ===================
  */
-void hmRestoreGame::ReadTraceModel( idTraceModel &trace ) {
+void idRestoreGame::ReadTraceModel( idTraceModel &trace ) {
 	int j, k;
 
-	ReadInt( (int&)trace.type );
-	ReadInt( trace.numVerts );
+	ReadInt( (int&)trace.type ) {}
+	ReadInt( trace.numVerts ) {}
 	for ( j = 0; j < MAX_TRACEMODEL_VERTS; j++ ) {
-		ReadVec3( trace.verts[j] );
+		ReadVec3( trace.verts[j] ) {}
 	}
-	ReadInt( trace.numEdges );
-	for ( j = 0; j < (MAX_TRACEMODEL_EDGES+1); j++ ) {
-		ReadInt( trace.edges[j].v[0] );
-		ReadInt( trace.edges[j].v[1] );
-		ReadVec3( trace.edges[j].normal );
+	ReadInt( trace.numEdges ) {}
+	for ( j = 0; j < (MAX_TRACEMODEL_EDGES+1) {} j++ ) {
+		ReadInt( trace.edges[j].v[0] ) {}
+		ReadInt( trace.edges[j].v[1] ) {}
+		ReadVec3( trace.edges[j].normal ) {}
 	}
-	ReadInt( trace.numPolys );
+	ReadInt( trace.numPolys ) {}
 	for ( j = 0; j < MAX_TRACEMODEL_POLYS; j++ ) {
-		ReadVec3( trace.polys[j].normal );
-		ReadFloat( trace.polys[j].dist );
-		ReadBounds( trace.polys[j].bounds );
-		ReadInt( trace.polys[j].numEdges );
+		ReadVec3( trace.polys[j].normal ) {}
+		ReadFloat( trace.polys[j].dist ) {}
+		ReadBounds( trace.polys[j].bounds ) {}
+		ReadInt( trace.polys[j].numEdges ) {}
 		for ( k = 0; k < MAX_TRACEMODEL_POLYEDGES; k++ ) {
-			ReadInt( trace.polys[j].edges[k] );
+			ReadInt( trace.polys[j].edges[k] ) {}
 		}
 	}
-	ReadVec3( trace.offset );
-	ReadBounds( trace.bounds );
-	ReadBool( trace.isConvex );
+	ReadVec3( trace.offset ) {}
+	ReadBounds( trace.bounds ) {}
+	ReadBool( trace.isConvex ) {}
 	// padding win32 native structs
 	char tmp[3];
-	file->Read( tmp, 3 );
+	file->Read( tmp, 3 ) {}
 }
 
 /*
 =====================
-hmRestoreGame::ReadClipModel
+idRestoreGame::ReadClipModel
 =====================
 */
-void hmRestoreGame::ReadClipModel( idClipModel *&clipModel ) {
+void idRestoreGame::ReadClipModel( idClipModel *&clipModel ) {
 	bool restoreClipModel;
 
-	ReadBool( restoreClipModel );
+	ReadBool( restoreClipModel ) {}
 	if ( restoreClipModel ) {
-		clipModel = new idClipModel();
-		clipModel->Restore( this );
+		clipModel = new idClipModel() {}
+		clipModel->Restore( this ) {}
 	} else {
 		clipModel = NULL;
 	}
@@ -1618,221 +2225,35 @@ void hmRestoreGame::ReadClipModel( idClipModel *&clipModel ) {
 
 /*
 =====================
-hmRestoreGame::ReadSoundCommands
+idRestoreGame::ReadSoundCommands
 =====================
 */
-void hmRestoreGame::ReadSoundCommands( void ) {
-	gameSoundWorld->StopAllSounds();
-	gameSoundWorld->ReadFromSaveGame( file );
+void idRestoreGame::ReadSoundCommands() {
+	gameSoundWorld->StopAllSounds() {}
+	gameSoundWorld->ReadFromSaveGame( file ) {}
 }
 
 /*
 =====================
-hmRestoreGame::ReadBuildNumber
+idRestoreGame::ReadBuildNumber
 =====================
 */
-void hmRestoreGame::ReadBuildNumber( void ) {
-	file->ReadInt( buildNumber );
+void idRestoreGame::ReadBuildNumber() {
+	file->ReadInt( buildNumber ) {}
 }
 
 /*
 =====================
-hmRestoreGame::GetBuildNumber
+idRestoreGame::GetBuildNumber
 =====================
 */
-int hmRestoreGame::GetBuildNumber( void ) {
+int idRestoreGame::GetBuildNumber() {
 	return buildNumber;
 }
 
 
-/*
-fn SaveFile* SaveFile.new(&self) @inline => std::mem::new(SaveFile);
 
-fn void SaveFile.delete(&self) @inline {
-	if() {
-		std::mem::delete(self);
-	}
-}
 
-fn  SaveFile* SaveFile.open(&self, String* file) @inline {
-	
-}
 
-fn void SaveFile.setOrigin(&self, float x, float y) @inline
-{
-	self.origin = Vec2f {x, y};
-}
 
-fn void SaveFile.setOriginV(&self, Vec2f newpos) @inline
-{
-	self.origin = newpos;
-}
 
-fn void SaveFile.setname(&self, String* aname) @inline
-{
-	if(aname)
-	{
-		self.name = aname.copy();
-	} else {
-		unreachable("Failed to give name to SaveFile.");
-	}
-}
-
-fn void create(String aname, int x, int y, int w, int h, Color color) @public 
-{
-	SaveFile* ent = mem::new(SaveFile);
-	
-	if(main::gpGame.SaveFileList.len() > main::MAX_SaveFile_COUNT) {
-		io::printf("Warning skipping SaveFile: '%s' creation, max count of '%s' reached!", 
-		aname, main::MAX_SaveFile_COUNT);
-		return;
-	}
-	
-	int SaveFile_count = (int)main::gpGame.SaveFileList.len();
-	if( SaveFile_count <= 0 ) {
-		ent.id = 1;
-	} else {
-		ent.id = SaveFile_count + 1;
-	}
-	if(aname == "") {
-		ent.name = "<undefined>";
-		
-		if(try bool value = main::developer.getBool() == true) {
-			unreachable("SaveFile without name found.");
-		}
-	} else {
-		ent.name = aname.copy();
-	}
-	//
-	ent.setOriginV(Vec2f {x, y});
-	ent.scale((float)w, (float)h);
-	ent.color = color;
-	ent.alive = true;
-	ent.startThinking();
-	SaveFile.register(ent);
-}
-
-fn void create_ex(String aname, Vec2f origin, Matrix2f axis, Color color) @public 
-{
-	SaveFile* ent = mem::new(SaveFile);
-	
-	if(main::gpGame.SaveFileList.len() > main::MAX_SaveFile_COUNT) {
-		io::printf("Warning skipping SaveFile: '%s' creation, max count of '%s' reached!", 
-		aname, main::MAX_SaveFile_COUNT);
-		return;
-	}
-	
-	int SaveFile_count = (int)main::gpGame.SaveFileList.len();
-	if( SaveFile_count <= 0 ) {
-		ent.id = 1;
-	} else {
-		ent.id = SaveFile_count + 1;
-	}
-	if(aname == "") {
-		ent.name = "<undefined>";
-		
-		if(try bool value = main::developer.getBool() == true) {
-			unreachable("SaveFile without name found.");
-		}
-	} else {
-		ent.name = aname.copy();
-	}
-	//
-	ent.setOriginV(origin);
-	ent.setAxis(axis);
-	ent.color = color;
-	ent.alive = true;
-	ent.startThinking();
-	SaveFile.register(ent);
-}
-
-fn void SaveFile.register(SaveFile* ent) @inline
-{
-	if(!ent) return;
-	
-	// NOTE(HM) shouldn't never happen, but who knows...
-	assert(ent.is_valid(), "error cannot register SaveFile because is not valid!");
-	
-	// else
-	main::gpGame.SaveFileList.push(ent);
-	
-	if(!ent.alive) ent.alive = true;
-}
-
-fn void SaveFile.draw(&self) 
-{
-	@profile_zone("SaveFile Draw");
-	
-	Vec2f scale = Vec2f {self.axis.m00, self.axis.m11};
-	raylib::draw_rectangle_v(self.origin, scale, self.color);
-}
-
-fn void SaveFile.startThinking(&self) @inline {
-	self.flags = 0;
-	self.flags |= ent::TH_THINK;
-}
-
-fn void SaveFile.stopThinking(&self) @inline {
-	if (self.flags) {
-		self.flags &= ~ent::TH_THINK;
-		// if (!self.flags && IsActive()) {
-			// gameLocal.numEntitiesToDeactivate++;
-		// }
-	}
-}
-
-fn void SaveFile.think(&self, float dt) // update in other engines
-{
-	@profile_zone("SaveFile think");
-	
-	//io::printf("SaveFile '%s' has flag %s!!!\n", self.name, self.flags);
-	
-	if(self.flags & TH_THINK)
-	{
-		//io::printf("SaveFile '%s' is thinking\n", self.name);
-	}
-}
-
-// fn void SaveFile.becomeActive(&self, int flags) {
-	
-	// int oldFlags = self.flags;
-	// self.flags |= flags;
-	// if (self.flags) {
-		// if (!isActive()) {
-			// activeNode.AddToEnd(gameLocal.activeEntities);
-		// }
-		// else if (!oldFlags) {
-			// // we became inactive this frame, so we have to decrease the count of entities to deactivate
-			// gameLocal.numEntitiesToDeactivate--;
-		// }
-	// }
-// }
-
-fn void SaveFile.reset(&self) @inline {
-	//self.mGame = null; // make sure we don't accidently kill the game singleton!!
-	io::printfn("Reseting SaveFile '%s'!!!", self.name);
-	self.id    = 0; 
-	self.name  = "";
-	self.origin = {0.0f, 0.0f};
-	self.setAxis(math::MATRIX2F_IDSaveFile); 
-	self.stopThinking();
-	//self.flags = 0;
-	self.color = {0, 0, 0, 0};
-	self.alive = false;
-}
-
-fn void SaveFile.kill(&self) => self.reset();
-
-fn bool SaveFile.is_valid(SaveFile* ent) 
-{
-	// TODO(HM) find why this is returning false
-	if(ent.alive && 
-	ent.id >= 1 && 
-	ent.origin.len >= 1 
-	&& (ent.axis.m00 + ent.axis.m11) >= 2) 
-	{
-		return true;
-	}
-	
-	return false;
-}

@@ -36,7 +36,7 @@ import std::collections::list;
 // end_region
 
 // region custom modules
-import game::misc::hm;
+import engine::misc;
 import game::main;
 import game::assets::sprt; // sprite
 import game::actors::ent::pl;
@@ -310,16 +310,16 @@ fn void RenderView.showAxis(&self) {
     axis_org = self.getOrigin();
     start    = axis_org;
     // +X coord
-    end = start + hm::VEC_RIGHT * (0.10f * gameptr.screen.w);
-    hm::draw_arrow(start, end, rl::RED);
+    end = start + misc::VEC_RIGHT * (0.10f * gameptr.screen.w);
+    misc::draw_arrow(start, end, rl::RED);
     // -X coord
-    end = start + hm::VEC_LEFT * (0.10f * gameptr.screen.w);
+    end = start + misc::VEC_LEFT * (0.10f * gameptr.screen.w);
     rl::drawLineV(start.toVector2(), end.toVector2(), {255, 50, 15, 127});
     // +Y coord arrow
-    end = start + hm::VEC_DOWN * (0.10f * gameptr.screen.h);
-    hm::draw_arrow(start, end, rl::GREEN);
+    end = start + misc::VEC_DOWN * (0.10f * gameptr.screen.h);
+    misc::draw_arrow(start, end, rl::GREEN);
     // -Y coord
-    end = start + hm::VEC_UP * (0.10f * gameptr.screen.h);
+    end = start + misc::VEC_UP * (0.10f * gameptr.screen.h);
     rl::drawLineV(start.toVector2(), end.toVector2(), {10, 255, 15, 127});
 }
 
@@ -562,10 +562,10 @@ fn Vec2f RenderView.toCanonicalViewSpace(&self, Vec2i vec) {
     int height = self.currentRender.texture.height;
     
     // map the coords to -1 to 1
-    //x = hm::@mapValueRangeToOtherX(vec.x, 0, width, -1, 1);
-    //y = hm::@mapValueRangeToOtherX(vec.y, 0, height,-1, 1);
-    x = hm::@clampfBinormalMapToRange(vec.x, 0, width);
-    y = hm::@clampfBinormalMapToRange(vec.y, 0, height);
+    //x = misc::@mapValueRangeToOtherX(vec.x, 0, width, -1, 1);
+    //y = misc::@mapValueRangeToOtherX(vec.y, 0, height,-1, 1);
+    x = misc::@clampfBinormalMapToRange(vec.x, 0, width);
+    y = misc::@clampfBinormalMapToRange(vec.y, 0, height);
     // io::printfn("[");
     // io::printfn("{%s, %s}", vec.x, vec.y);
     // io::printfn("Canonical X = %s", x);
@@ -591,17 +591,17 @@ fn void RenderView.drawWorldSpaceCoords(&self, int screenWidth, int screenHeight
     start.x += (0.010 * rec.width);
     start.y += (0.010 * rec.height);
     // x coord arrow
-    end = start + hm::VEC_RIGHT * (0.10 * rec.width);
-    hm::draw_arrow(start, end, rl::RED);
+    end = start + misc::VEC_RIGHT * (0.10 * rec.width);
+    misc::draw_arrow(start, end, rl::RED);
     // label x coords
     pox = end;
-    pox.translateV(hm::VEC_RIGHT * (0.010f * rec.width) + 3);
+    pox.translateV(misc::VEC_RIGHT * (0.010f * rec.width) + 3);
     // Y coord arrow
-    end = start + hm::VEC_DOWN * (0.10 * rec.height);
-    hm::draw_arrow(start, end, rl::GREEN);
+    end = start + misc::VEC_DOWN * (0.10 * rec.height);
+    misc::draw_arrow(start, end, rl::GREEN);
     // label y coords
     poy = end;
-    poy.translateV(hm::VEC_DOWN  * (0.010f * rec.height) + 3);
+    poy.translateV(misc::VEC_DOWN  * (0.010f * rec.height) + 3);
     //
     String x_coord, y_coord;
     x_coord = string::tformat("[%s]", rec.width);

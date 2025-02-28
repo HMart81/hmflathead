@@ -25,13 +25,12 @@
 # Hilario Martins, Rua de Sanguinhedo 1010 4850-545 Vieira Do Minho Portugal.
 # 
 *********************************************************************************************************************************************/
+
+// region module
 module engine::assets_api::asapi;
 
-// region c3 modules
+// region imports
 import std::io;
-// end_region
-
-// region user module
 import raylib5::rl;
 import engine::misc;
 import engine::filesystem::fs;
@@ -125,12 +124,13 @@ fn void Asset.unload(&self) @dynamic {
 	}
 	mem::free(self);
 }
+// end_region module
 
 //////////////////////// ASSET MANAGER /////////////////////////////////
-
+// region module
 module engine::assets::astmng;
 
-// region modules
+// region imports
 import std::io::path;
 import std::collections::list;
 import raylib5::rl;
@@ -376,6 +376,8 @@ fn Font* Manager.getFont(&self, String name) @inline {
     main::filelgr.log(TraceLogLevel.WARNING, "[Asset Manager]: Requesting font asset but returning default font, because no asset name was provided.");
 	return &main::gpGame.default_font;
 }
+
+// end_region module
 
 // NOTE(HM) If this bugs out, consider using rl::getFileNameWithoutExt
 // TODO(HM) Test this in speed versus rl::getFileNameWithoutExt

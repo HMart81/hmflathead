@@ -59,8 +59,8 @@ import engine::filesystem::fs;
 import game::gui;
 import game::gui::intro;
 //import game::gui::mainmenu;
-import game::assets::asst; // for the asset system
-import game::assets::astmng; // asset manager
+import engine::assets_api::asapi; // for the asset system
+import engine::assets::astmng; // asset manager
 import game::serialize::svs; // save system
 import game::logic::timer;
 import game::assets::sprt; // sprites
@@ -68,7 +68,7 @@ import game::assets::part; // particles
 //import game::assets::mtr; // materials
 import game::logger::lgr; // for file logging or console logging
 import game::actors::ent::pl;  // player module
-import game::misc::hm; // misc code
+import engine::misc; // misc code
 import game::camview;
 //import tok; // custom tokanizer lib
 import game::low_level::cvar;
@@ -671,7 +671,7 @@ fn void update_game_cursor(int screen_w, int screen_h) @public {
     int h = rl::getRenderHeight();
     //Vec2f cursor_size = getCursorSize();
     Vec2f maxc = {0, 0};
-    Vec2f minc = maxc + hm::VEC_DOWN * h + hm::VEC_LEFT * w;
+    Vec2f minc = maxc + misc::VEC_DOWN * h + misc::VEC_LEFT * w;
     Vec2f hyp  = minc - maxc;
     set_game_cursor_size(
     8 * 0.007f * hyp.length(),
@@ -749,7 +749,7 @@ fn void drawGUIDebugInfo(int screen_w, int screen_h) @local
     slot5 = string::tformat_zstr("Mouse delta Y: %.2f ", rl::getMouseDelta().y);
     slot6 = string::tformat_zstr("Mouse Y: %.2f ", rl::getMousePosition().y); // same as rl::getMouseY()
     slot7 = string::tformat_zstr("Mouse X: %.2f ", rl::getMousePosition().x); // same as rl::getMouseX()
-    slot8 = string::tformat_zstr("Debug Lines count: %d", hm::g_debugLines.len());
+    slot8 = string::tformat_zstr("Debug Lines count: %d", misc::g_debugLines.len());
     //slot8 = string::tformat_zstr("Window Focus State: %s", (rl::isWindowFocused()) ? "focused" : "unfocused");
     slot9 = string::tformat_zstr("Key Press: %s", local_game.last_key_pressed);
     slot10 = string::tformat_zstr("Canonical mouse coords = %s", local_game.view.toCanonicalViewSpace(rl::getMousePosition().toVec2i()));
@@ -812,7 +812,7 @@ fn void drawGUIDebugInfo(int screen_w, int screen_h) @local
     );
     */
     // TODO(HM) make this work
-    // hm::draw_arrow({0.0f, 0.0f}, {0.85f*screen_w, 0.0f}, rl::RED);
+    // misc::draw_arrow({0.0f, 0.0f}, {0.85f*screen_w, 0.0f}, rl::RED);
 }
 
 // local Game functions NOTE(HM) local cannot be overriden when importing modules
@@ -1027,8 +1027,8 @@ fn void gameUpdate() @local
         local_game.main_menu.update();
     }*/
     
-    if(hm::g_debugLines.len()) {
-        foreach(line : hm::g_debugLines) {
+    if(misc::g_debugLines.len()) {
+        foreach(line : misc::g_debugLines) {
             line.update();
         }
     }
@@ -1074,8 +1074,8 @@ fn void gameOnPostGUIDraw(int screenWidth, int screenHeight) @public
         }
         
         // debug_lines
-        if(hm::g_debugLines.len()) {
-            foreach(line : hm::g_debugLines) {
+        if(misc::g_debugLines.len()) {
+            foreach(line : misc::g_debugLines) {
                 line.draw();
             }
         }
@@ -1619,7 +1619,7 @@ fn void! gameOnStart(String[]* args) @local
     
     // NOTE(HM) timing, is always counted since initWindow above;
     local_game.time_sec = (float)rl::getTime();
-    local_game.time_ms  = hm::sec2ms(local_game.time_sec);
+    local_game.time_ms  = misc::sec2ms(local_game.time_sec);
     
 $if $feature(_DEBUG):
     // TODO(HM) On release version remove the ability to quit, but using the main menu? 
@@ -1854,7 +1854,7 @@ $endif
     filelgr.log(TraceLogLevel.INFO, "** Creating test entities. **");
     for(int i = 1; i <= 2; i++) {
         Vec2f origin = local_game.view.camera.target.toVec2f();
-        origin.translateV(hm::VEC_UP * 100 * i);
+        origin.translateV(misc::VEC_UP * 100 * i);
         
         Entity* test_ent = ent::create_ex("", origin, rl::WHITE);
         test_ent.scaleV({16.0f, 16.0f});
@@ -1874,9 +1874,9 @@ $endif
             Vec2f end   = ent.getPosition();
             assert(start != end);
             if(ent.type != Player.typeid) {
-                hm::makeDebugLine(start, end, rl::BLUE, 10000);
+                misc::makeDebugLine(start, end, rl::BLUE, 10000);
             } else {
-                hm::makeDebugLine(start, end, rl::YELLOW, 10000);
+                misc::makeDebugLine(start, end, rl::YELLOW, 10000);
             }
         }
         // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1914,8 +1914,8 @@ fn void gameOnExit() @local
     rl::closeWindow();
     local_game.unload();
     // debug_lines
-    if(hm::g_debugLines.len()) {
-        hm::freeDebugLines();
+    if(misc::g_debugLines.len()) {
+        misc::freeDebugLines();
     }
     //rl::memFree(memory_pool);
     filelgr.log(TraceLogLevel.INFO, "clearing game singletons and log system!\n\t** Printing done on console from this point on **");
@@ -2062,7 +2062,7 @@ fn void gameDoOneFrame() @local
         // update game timing
         local_game.dt       = rl::getFrameTime(); // last frame time
         local_game.time_sec = (float)rl::getTime();
-        local_game.time_ms  = hm::sec2ms(local_game.time_sec);
+        local_game.time_ms  = misc::sec2ms(local_game.time_sec);
 
         int screen_w = rl::getScreenWidth();
         int screen_h = rl::getScreenHeight();
@@ -2081,7 +2081,7 @@ fn void pre_InitFunc() @init {
     io::printfn("This should run BEFORE main entry function!\n");
     io::printfn("*******************************************\\\n");
     
-    //uint value = hm::megaBytes2Bytes(1024);
+    //uint value = misc::megaBytes2Bytes(1024);
     //memory_pool = (usz*)rl::memAlloc( value * uint.sizeof);
     gameArena.init(GAME_ARENA_PAGE_SIZE, allocator::heap());
     

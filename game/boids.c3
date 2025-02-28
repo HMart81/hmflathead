@@ -28,19 +28,19 @@
 
 module game::effects::boid;
 
-// C3 modules
+// region modules
 import std::core::mem::allocator; // arena allocator
 import std::collections::list;
 import std::io;
 import std::math;
 import std::sort;
 import std::time;
-//
 import game::main;
-import game::misc::hm;
+import engine::misc;
 import game::assets::sprt;
 import game::serialize::svs; // save system
 import raylib5::rl;
+// end_region
 
 const float VISUAL_RANGE                = 100;
 const float COHERENCE_FACTOR            = 0.005;

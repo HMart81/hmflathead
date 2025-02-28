@@ -40,8 +40,8 @@ import game::main;
 import game::actors::ent;
 import raylib5::rl;
 //import raygui;
-import game::misc::hm;
-import game::assets::astmng; // asset manager
+import engine::misc;
+import engine::assets::astmng; // asset manager
 import game::serialize::svs; // save system
 // end_region
 
@@ -176,7 +176,7 @@ fn void drawPanel(any panel) {
                 $endif
                 
                 if(box.visual.shape == BOX) {
-                    hm::@drawRect(box.visual.rect, box.visual.color);
+                    misc::@drawRect(box.visual.rect, box.visual.color);
                 } else if(box.visual.shape == ROUNDED_BOX) {
                     rl::drawRectangleRounded(box.visual.rect, 0.65f, 6, box.visual.color);
                 }
@@ -198,7 +198,7 @@ fn void drawPanel(any panel) {
                     $endif
                 } else {
                     if(box.visual.shape == BOX) {
-                        hm::@drawRect(box.visual.rect, box.visual.color);
+                        misc::@drawRect(box.visual.rect, box.visual.color);
                     } else if(box.visual.shape == ROUNDED_BOX) {
                         rl::drawRectangleRounded(box.visual.rect, 0.65f, 6, box.visual.color);
                     }
@@ -259,7 +259,7 @@ fn bool isMouseOver(Panel* panel)  @local
     
     // a small 32x32 pixels box
     Vec2f mouse_size      = main::getGameCursorSize();
-    Rectangle mouseRect   = hm::@recFromVecs(mouseWorldPos, mouse_size);
+    Rectangle mouseRect   = misc::@recFromVecs(mouseWorldPos, mouse_size);
     
     //rl::drawRectangleRec(mouseRect, rl::COLOR_RED);
     //rl::drawRectangleRec((*panel).rect, rl::COLOR_GREEN);
@@ -273,13 +273,13 @@ fn bool isMouseOver(Rectangle* widget)  @local
 {
     Camera2D* view        = &main::gpGame.cameraView;
     // Vec2f mouseWorldPos   = rl::getMousePosition();
-    // Vec2f mouseScreenPos  = hm::worldToScreen(mouseWorldPos);
-    // Vec2f widgetWorldPos  = hm::getRecPos(*widget);
-    // Vec2f widgetScreenPos = hm::worldToScreen(widgetWorldPos);
+    // Vec2f mouseScreenPos  = misc::worldToScreen(mouseWorldPos);
+    // Vec2f widgetWorldPos  = misc::getRecPos(*widget);
+    // Vec2f widgetScreenPos = misc::worldToScreen(widgetWorldPos);
     
     Vec2f pos = rl::getMousePosition();
-    Vec2f mouseScreenPos  = hm::worldToScreen(pos);
-    Vec2f widgetScreenPos = hm::getRecScreenPos(*widget);
+    Vec2f mouseScreenPos  = misc::worldToScreen(pos);
+    Vec2f widgetScreenPos = misc::getRecScreenPos(*widget);
     
     Rectangle* mouseRect  = mem::temp_new(Rectangle, {mouseScreenPos.x, mouseScreenPos.y, 40, 40});
     Rectangle* widgetRect = mem::temp_new(Rectangle);
@@ -485,9 +485,9 @@ fn void Panel.draw(&self) @inline {
         rl::drawTexture(*self.visual.tex, (int)self.visual.rect.x, (int)self.visual.rect.y, self.visual.color);
     } else {
         //Texture2D* tex = assetManager.getTexture("white.png");
-        //if(tex) rl::drawTextureRec(*tex, self.visual.rect, hm::getRecPos(self.visual.rect), self.visual.color);
+        //if(tex) rl::drawTextureRec(*tex, self.visual.rect, misc::getRecPos(self.visual.rect), self.visual.color);
         if(self.visual.shape == BOX) {
-            hm::@drawRect(self.visual.rect, self.visual.color);
+            misc::@drawRect(self.visual.rect, self.visual.color);
         } else if(self.visual.shape == ROUNDED_BOX) {
             rl::drawRectangleRounded(self.visual.rect, 0.65f, 6, self.visual.color);
         }
@@ -947,7 +947,7 @@ fn void Desktop.draw(&self)  {
         assert(rl::isTextureValid(*self.tex));
         rl::drawTexture(*self.tex, (int)self.rect.x, (int)self.rect.y, self.color);
     } else {
-        hm::@drawRect(self.rect, self.color);
+        misc::@drawRect(self.rect, self.color);
     }
     
     // now handle our data

@@ -39,7 +39,7 @@ import std::collections::tuple;
 // region custom imports
 import game::main;
 import raylib5::rl;
-import game::misc::hm;
+import engine::misc;
 import game::low_level::cvar;
 // end_region
 
@@ -373,14 +373,14 @@ fn String[]! cutIniFileByLines(String filepath, bool isrelative) @local {
         // return IniFault.FAILED_OPEN_FILE?;
     // }
     
-    String! entire_file = hm::readEntireFile(filepath);
+    String! entire_file = misc::readEntireFile(filepath);
     if(catch excuse = entire_file) {
         main::filelgr.log(TraceLogLevel.WARNING, "Unable to read data from file: %s with excuse: %s", filepath, excuse);
         return IniFault.FAILED_READ_FILE?;
     }
     
     // cut the data into individual string slices
-    String[] lines = hm::cut_by_newline(entire_file);
+    String[] lines = misc::cut_by_newline(entire_file);
     // remove any empty char for the start or end of each line
     foreach( &line : lines) {
         (*line) = line.trim();
@@ -476,7 +476,7 @@ fn void parse_section_cmd(String line, FileData* file) @local {
 
     IniCMD_TempData cmdTempData;
     
-    String[] tokens = hm::cut_by_spaces(line);
+    String[] tokens = misc::cut_by_spaces(line);
     
     foreach(int i, word : tokens)
     {
@@ -587,11 +587,11 @@ fn FileData*! _load(String filepath, bool isrelative = true) @deprecated {
     if(isrelative) filepath = main::gpGame.app_base_folder.tconcat(filepath);
     
     // first get the file raw data WARNING(HM) (comes with garbage at the end)
-    String entire_data = hm::readEntireFile(filepath)!;
+    String entire_data = misc::readEntireFile(filepath)!;
     if(entire_data.len)
     {
         // cut the data into individual strings
-        String[] lines = hm::cut_by_newline(entire_data);
+        String[] lines = misc::cut_by_newline(entire_data);
         
         if(lines.len == 0) {
             return IniFault.MALFORMED_INI_FILE?;
@@ -786,7 +786,7 @@ fn bool! populate(FileData* file_data, String path) @deprecated {
     if(entire_data.len)
     {
         // now cut the data into individual strings
-        String[] lines = hm::cut_by_newline(entire_data);
+        String[] lines = misc::cut_by_newline(entire_data);
         
         if(lines.len == 0) {
             return IniFault.MALFORMED_INI_FILE?;

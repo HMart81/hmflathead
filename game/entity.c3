@@ -38,7 +38,7 @@ import std::collections::map;
 // region custom modules
 import game::main;
 import raylib5::rl;
-import game::misc::hm;
+import engine::misc;
 import game::assets::sprt;
 import game::serialize::svs; // save system
 // end_region
@@ -243,7 +243,7 @@ within a spherical area around us
 fn Entity* Entity.find_other_in_radius(self, float radius )
 {
 	// square the radius, so that we don't have to do a square root
-	float r2 = hm::square(radius);
+	float r2 = misc::square(radius);
 	
 	foreach(int index, Entity* other : main::gpGame.entityList)
 	{
@@ -286,7 +286,7 @@ fn Entity* findradius(Entity *startent, Vec2f* org, float rad )
 	assert( startent.alive == true);
 	
 	// square the radius so that we don't have to do a square root
-	float r2 = hm::square(rad);
+	float r2 = misc::square(rad);
 	
 	foreach(int index, Entity* other : main::gpGame.entityList) 
 	{
