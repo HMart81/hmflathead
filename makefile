@@ -84,7 +84,10 @@ comand_debug_run := cd ${CURDIR}/build/ & start $(APPLICATION_DEBUG_NAME).exe $(
 # to see what comand was run.
 
 #$(error   $(comand_release_compile) )
+#$(error   $(comand_debug_compile) )
 #$(warning cmd is $(comand_release_compile) )
+#$(warning cmd is $(comand_debug_compile) )
+#$(info    cmd is $(comand_release_compile) )
 #$(info    cmd is $(comand_debug_compile) )
 #####################################################################################################
 
