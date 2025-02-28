@@ -4,7 +4,7 @@
 
 `hmflathead` Is my first, from scratch, custom game engine ever, so expect some questionable design choices, but I did take inspiration from other engines/frameworks, so it is not entirely arbitrary.
 
-`hmflathead` is intended for ** education **; it can be used to create simple 2D games but most things will have to be implemented by you ** there's no dedicated tools **.
+`hmflathead` is intended for **education**; it can be used to create simple 2D games but most things will have to be implemented by you **there's no dedicated tools**.
 
 <br>
 
