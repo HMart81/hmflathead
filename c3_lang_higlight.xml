@@ -1,0 +1,64 @@
+<NotepadPlus>
+    <UserLang name="C3" ext="c3" udlVersion="2.1">
+        <Settings>
+            <Global caseIgnored="no" allowFoldOfComments="yes" foldCompact="no" forcePureLC="0" decimalSeparator="0" />
+            <Prefix Keywords1="yes" Keywords2="no" Keywords3="no" Keywords4="no" Keywords5="no" Keywords6="no" Keywords7="no" Keywords8="yes" />
+        </Settings>
+        <KeywordLists>
+            <Keywords name="Comments">00// 01 02 03/* 04*/</Keywords>
+            <Keywords name="Numbers, prefix1">0o</Keywords>
+            <Keywords name="Numbers, prefix2">0x</Keywords>
+            <Keywords name="Numbers, extras1">A B C D E F a b c d e f u</Keywords>
+            <Keywords name="Numbers, extras2"></Keywords>
+            <Keywords name="Numbers, suffix1">f f32 f64 u64</Keywords>
+            <Keywords name="Numbers, suffix2"></Keywords>
+            <Keywords name="Numbers, range"></Keywords>
+            <Keywords name="Operators1">- ! % &amp; ( ) * , . : ; ? [ ] ^ | ~ + &lt; = &gt; $$</Keywords>
+            <Keywords name="Operators2">in out inout</Keywords>
+            <Keywords name="Folders in code1, open">{</Keywords>
+            <Keywords name="Folders in code1, middle"></Keywords>
+            <Keywords name="Folders in code1, close">}</Keywords>
+            <Keywords name="Folders in code2, open">$if</Keywords>
+            <Keywords name="Folders in code2, middle">$elif $else</Keywords>
+            <Keywords name="Folders in code2, close">$endif</Keywords>
+            <Keywords name="Folders in comment, open">region</Keywords>
+            <Keywords name="Folders in comment, middle"></Keywords>
+            <Keywords name="Folders in comment, close">end_region</Keywords>
+            <Keywords name="Keywords1">$alignof $assignable $alignment $assert $case $default&#x000D;&#x000A;$defined $echo $embed $exec&#x000D;&#x000A;$else $endfor $endforeach $endif&#x000D;&#x000A;$endswitch $eval $evaltype $error&#x000D;&#x000A;$extnameof $for $foreach $if&#x000D;&#x000A;$include $nameof $offsetof $qnameof&#x000D;&#x000A;$sizeof $stringify $switch $typefrom&#x000D;&#x000A;$typeof $vacount $vatype $vaconst&#x000D;&#x000A;$varef $vaarg $vaexpr $vasplat</Keywords>
+            <Keywords name="Keywords2">void bool String DString ZString char double&#x000D;&#x000A;float float16 int128 ichar&#x000D;&#x000A;int iptr isz long&#x000D;&#x000A;short uint128 uint ulong&#x000D;&#x000A;uptr ushort usz float128&#x000D;&#x000A;any anyfault typeid assert&#x000D;&#x000A;asm bitstruct break case&#x000D;&#x000A;catch const continue def&#x000D;&#x000A;default defer distinct do&#x000D;&#x000A;else enum extern false&#x000D;&#x000A;fault for foreach foreach_r&#x000D;&#x000A;fn tlocal if inline&#x000D;&#x000A;import macro module nextcase&#x000D;&#x000A;null return static struct&#x000D;&#x000A;switch true try union&#x000D;&#x000A;var while interface</Keywords>
+            <Keywords name="Keywords3">$$BENCHMARK_FNS $$BENCHMARK_NAMES $$DATE&#x000D;&#x000A;$$FILE $$FILEPATH $$FUNC&#x000D;&#x000A;$$FUNCTION $$LINE $$LINE_RAW&#x000D;&#x000A;$$MODULE $$TEST_FNS $$TEST_NAMES&#x000D;&#x000A;$$TIME</Keywords>
+            <Keywords name="Keywords4">radians degrees sin cos tan asin acos atan sinh cosh tanh unreachable asinh acosh atanh pow exp exp2 log2 sqrt abs sign floor trunc round ceil mod min max clamp mix step length distance dot cross normalize reflect refract transpose determinant inverse equal tformat_zstr printfn puts print printf</Keywords>
+            <Keywords name="Keywords5"></Keywords>
+            <Keywords name="Keywords6">@Hardcode @Performance @Todo NOTE(HM) WARNING(HM) DOC(HM)</Keywords>
+            <Keywords name="Keywords7"></Keywords>
+            <Keywords name="Keywords8">@param @require @ensure @return @typekind @align @benchmark @bigendian @builtin&#x000D;&#x000A;@cdecl @deprecated @dynamic @export&#x000D;&#x000A;@extern @extname @inline @interface&#x000D;&#x000A;@littleendian @local @maydiscard @naked&#x000D;&#x000A;@nodiscard @noinit @noinline @noreturn&#x000D;&#x000A;@nostrip @obfuscate @operator @overlap&#x000D;&#x000A;@packed @priority @private @public&#x000D;&#x000A;@pure @reflect @section @stdcall&#x000D;&#x000A;@test @unused @used @veccall&#x000D;&#x000A;@wasm @weak @winmain</Keywords>
+            <Keywords name="Delimiters">00&quot; 01\ 02&quot; 03` 04\ 05` 06&apos; 07 08&apos; 09{| 10 11|} 12(0): 13 14$endif 15 16 17 18/* 19 20*/ 21 22 23</Keywords>
+        </KeywordLists>
+        <Styles>
+            <WordsStyle name="DEFAULT" fgColor="FFFFFF" bgColor="3F3F3F" fontName="Courier New" fontStyle="0" fontSize="10" nesting="0" />
+            <WordsStyle name="COMMENTS" fgColor="7F9F73" bgColor="3F3F3F" colorStyle="1" fontName="Courier New" fontStyle="1" fontSize="10" nesting="64" />
+            <WordsStyle name="LINE COMMENTS" fgColor="7F9F73" bgColor="3F3F3F" fontName="Courier New" fontStyle="0" fontSize="10" nesting="114784" />
+            <WordsStyle name="NUMBERS" fgColor="FF8000" bgColor="3F3F3F" fontName="Courier New" fontStyle="0" fontSize="10" nesting="0" />
+            <WordsStyle name="KEYWORDS1" fgColor="9F9D6D" bgColor="3F3F3F" fontName="Courier New" fontStyle="0" fontSize="10" nesting="0" />
+            <WordsStyle name="KEYWORDS2" fgColor="DFC47D" bgColor="3F3F3F" fontName="Courier New" fontStyle="1" fontSize="10" nesting="0" />
+            <WordsStyle name="KEYWORDS3" fgColor="FF8040" bgColor="3F3F3F" colorStyle="1" fontName="Courier New" fontStyle="0" fontSize="10" nesting="0" />
+            <WordsStyle name="KEYWORDS4" fgColor="00FFFF" bgColor="3F3F3F" fontName="Courier New" fontStyle="1" fontSize="10" nesting="0" />
+            <WordsStyle name="KEYWORDS5" fgColor="808000" bgColor="3F3F3F" colorStyle="1" fontStyle="1" fontSize="10" nesting="0" />
+            <WordsStyle name="KEYWORDS6" fgColor="919100" bgColor="3F3F3F" fontStyle="5" fontSize="10" nesting="0" />
+            <WordsStyle name="KEYWORDS7" fgColor="FFFF00" bgColor="3F3F3F" fontStyle="1" fontSize="10" nesting="0" />
+            <WordsStyle name="KEYWORDS8" fgColor="408080" bgColor="FFFFFF" colorStyle="1" fontStyle="1" fontSize="10" nesting="0" />
+            <WordsStyle name="OPERATORS" fgColor="FF8080" bgColor="3F3F3F" fontName="Courier New" fontStyle="0" fontSize="10" nesting="0" />
+            <WordsStyle name="FOLDER IN CODE1" fgColor="9F9D6D" bgColor="3F3F3F" colorStyle="1" fontName="Cascadia Code" fontStyle="1" fontSize="10" nesting="0" />
+            <WordsStyle name="FOLDER IN CODE2" fgColor="C0C0C0" bgColor="FFFFFF" colorStyle="1" fontName="Cascadia Code" fontStyle="1" fontSize="10" nesting="0" />
+            <WordsStyle name="FOLDER IN COMMENT" fgColor="008000" bgColor="FFFFFF" colorStyle="1" fontName="Consolas" fontStyle="1" fontSize="10" nesting="0" />
+            <WordsStyle name="DELIMITERS1" fgColor="BFBF00" bgColor="2A211C" colorStyle="1" fontName="Courier New" fontStyle="0" fontSize="10" nesting="0" />
+            <WordsStyle name="DELIMITERS2" fgColor="00AE00" bgColor="FFFFFF" colorStyle="1" fontStyle="1" fontSize="10" nesting="0" />
+            <WordsStyle name="DELIMITERS3" fgColor="00FF40" bgColor="FFFFFF" colorStyle="1" fontName="Courier New" fontStyle="0" fontSize="10" nesting="0" />
+            <WordsStyle name="DELIMITERS4" fgColor="FDD844" bgColor="FFFFFF" colorStyle="1" fontStyle="0" nesting="83892999" />
+            <WordsStyle name="DELIMITERS5" fgColor="5C5C5C" bgColor="FFFFFF" colorStyle="1" fontStyle="2" nesting="0" />
+            <WordsStyle name="DELIMITERS6" fgColor="006F00" bgColor="FFFFFF" colorStyle="1" fontStyle="1" fontSize="10" nesting="16908291" />
+            <WordsStyle name="DELIMITERS7" fgColor="579D77" bgColor="FFFFFF" colorStyle="1" fontStyle="1" fontSize="10" nesting="256" />
+            <WordsStyle name="DELIMITERS8" fgColor="FF9B9B" bgColor="FFFFFF" colorStyle="1" fontStyle="0" nesting="83886080" />
+        </Styles>
+    </UserLang>
+</NotepadPlus>

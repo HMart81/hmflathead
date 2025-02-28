@@ -1,0 +1,108 @@
+######## LICENSE ################################
+# hmflathead GPL Source Code
+# Copyright (C) 2025 Hilario Martins.
+# 
+# This file is part of the hmflathead GPL Source Code ("hmflathead Source Code")
+# 
+# hmflathead Source Code is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# hmflathead Source Code is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with hmflathead Source Code.  If not, see <http://www.gnu.org/licenses/>.
+# 
+# In addition, the hmflathead Source Code is also subject to certain additional terms. 
+# You should have received a copy of these additional terms immediately following the terms and conditions of the GNU General Public License 
+# which accompanied the hmflathead Source Code.  If not, please request a copy in writing from me at the address below.
+# 
+# If you have questions concerning this license or the applicable additional terms, you may contact in writing 
+# Hilario Martins, Rua de Sanguinhedo 1010 4850-545 Vieira Do Minho Portugal.
+# 
+##########################################################################################
+
+$(info $(SHELL))
+
+APPLICATION_RELEASE_NAME := main
+APPLICATION_DEBUG_NAME := dmain
+BUILD_DIR := build
+BUILD_PATH := ${CURDIR}/$(BUILD_DIR)
+LIBRARY_ROOT_PATH := .\thirdparty\include\libs\\
+RAYLIB := raylib55\lib\raylibdll.lib
+RAYGUI := raygui\raygui.obj
+ENGINE_FOLDER := engine/
+GAME_FOLDER   := game/
+MSVC_SDK_PATH := windows\kit\8.1\Lib\winv6.3\um\x64
+FULL_MSVC_SDK_PATH := $(LIBRARY_ROOT_PATH)$(MSVC_SDK_PATH)
+KERNEL32_LIB := $(MSVC_SDK_PATH)\kernel32.lib
+USER32_LIB := $(MSVC_SDK_PATH)\user32.lib
+#######################################################################################################
+#                       !!WARNING!! 
+# Wildcards require unix style forward slash's.
+# Also do not use wildcards directly on the rules itself, 
+# always use them through a variable, aparantly they don't always work as expected when used on a rule.
+#######################################################################################################
+# engine folders
+ENGINE_ROOT_SOURCES := $(wildcard $(ENGINE_FOLDER)*.c3 $(ENGINE_FOLDER)*.c3i)
+GAME_ROOT_SOURCES := $(wildcard $(GAME_FOLDER)*.c3)
+ENGINE_CHILD_SOURCES := \
+	$(ENGINE_FOLDER)$(wildcard containers/*.c3 containers/*.c3i) \
+	$(ENGINE_FOLDER)$(wildcard thirdparty/*.c3 thirdparty/*.c3i) \
+	$(ENGINE_FOLDER)$(wildcard xml/*.c3 xml/*.c3i)
+##
+
+OBJS_TO_CLEAN := $(wildcard $(BUILD_PATH)/temp/*.obj)
+LIBS_TO_CLEAN := $(wildcard $(BUILD_PATH)/*.lib)
+PDBS_TO_CLEAN := $(wildcard $(BUILD_PATH)/*.pdb)
+EXES_TO_CLEAN := $(wildcard $(BUILD_PATH)/*.exe)
+
+# arguments to set at game start
+GAME_ARGUMENTS := +developer +g_log 1 +r_mode 9
+
+# you need to use $feature(_DEBUG) to check for this defines, in C3 $define is used for something else...
+DEBUG_DEFINES   := -D _DEBUG
+# current release defines aren't really usefull... 
+RELEASE_DEFINES := -D _RELEASE 
+
+# release
+comand_release_compile := c3c.exe -O3 $(RELEASE_DEFINES) -L $(LIBRARY_ROOT_PATH) -l $(RAYLIB) -z $(RAYGUI) -o $(APPLICATION_RELEASE_NAME) --output-dir $(BUILD_PATH) compile --target windows-x64 --threads 8 $(GAME_ROOT_SOURCES) $(ENGINE_ROOT_SOURCES) $(ENGINE_CHILD_SOURCES)
+# debug
+comand_debug_compile := c3c.exe -O0 $(DEBUG_DEFINES) -L $(LIBRARY_ROOT_PATH) -l $(RAYLIB) -l kernel32.lib -z $(RAYGUI) -o $(APPLICATION_DEBUG_NAME) --output-dir $(BUILD_PATH) compile --target windows-x64 --threads 8 $(GAME_ROOT_SOURCES) $(ENGINE_ROOT_SOURCES) $(ENGINE_CHILD_SOURCES)
+#
+comand_release_run := cd ${CURDIR}/build/ & start $(APPLICATION_RELEASE_NAME).exe $(GAME_ARGUMENTS)
+comand_debug_run := cd ${CURDIR}/build/ & start $(APPLICATION_DEBUG_NAME).exe $(GAME_ARGUMENTS)
+
+################################### NOTE ############################################################
+# the "all" rule is required to force rules "buildtype(name)" to be the only rules that run
+# when calling "make" with no parameters in the console, otherwise make will run the rules automatically 
+# from top to bottom and so, run clean rule first and it will break everything, if there's nothing to clean 
+# at clean time, if that happens make will error out and stop, and no other rules will be done.
+# Right now you need to explicitly run the clean rule in the console by doing "make clean".
+####################################################################################################
+
+#################################### RULES ###################################################
+
+all: release($(APPLICATION_RELEASE_NAME)) debug($(APPLICATION_DEBUG_NAME))
+
+clean: func_clean
+
+func_clean:
+	cmd /c clean.sh
+ 
+# main rule to make the executable
+release($(APPLICATION_RELEASE_NAME)) : $(GAME_ROOT_SOURCES) $(ENGINE_ROOT_SOURCES) $(ENGINE_CHILD_SOURCES)
+	$(info   work_dir ${CURDIR} )
+	$(comand_release_compile)
+	$(comand_release_run)
+
+debug($(APPLICATION_DEBUG_NAME)) : (GAME_ROOT_SOURCES) $(ENGINE_ROOT_SOURCES) $(ENGINE_CHILD_SOURCES)
+	$(info   work_dir ${CURDIR} )
+	$(comand_debug_compile)
+	$(comand_debug_run)
+
+################################## END RULES ################################################

@@ -1,0 +1,49 @@
+**hmflathead is a simple 2D game engine made using Raygui and C3 language.**
+
+`hmflathead` IS NOT in a finished state nor a complete 2D game engine, not recomended for use. 
+
+`hmflathead` is my first, from scratch, custom game engine ever, so expect some questionable design decicions but I did took inspiration from other engines/frameworks so is not entirelly arbitrary.
+
+`hmflathead` is intended for ** education **; it can be used to create simple 2D games but most things will have to be implemented by you.
+
+<br>
+
+**WARNING: The game code is not entirelly in compilable/runnable state because I add to remove the game data.**
+
+## features
+
+ ## Engine
+ - Rendering, sound and input using Raylib functions
+ - **Complex Immediate-mode gui system, using raygui** mostly for tools.
+ - XML file reading and writting (using a third party C3 simple xml parser)
+ - Very basic INI file parsing
+ - A Tokanizer to make it easy to parse custom files languages
+ - Boids system
+ - Particle System (very basic and simplistic) ** not working for now **
+ ## Game
+ - Ability to create game menus using **Basic Custom Immediate-mode GUI system**
+ - Import all fonts, textures, sounds and music in the game base folder at game loading time
+ - Entity System inspired by older engines like idTech4 and Source Engine (no component system)
+
+## compiling
+
+`hmflathead` is written using C3 language version (0.6.8 (Pre-release, Feb 26 2025 00:56:12)) so you need the C3 compiler, go to (https://c3-lang.org/) and setup it for your OS of choice.
+             To make things easy to compile make c3c.exe compilar globaly accessable to all users, by putting it in the OS path. 
+
+## building
+
+    ## debug
+`` in a console write `make debug(dmain)`
+
+    ## Release
+`` in a console write `make release(main)`
+
+Open `makefile` in the main folder to see how the project is set up, I recomend reading about makefiles syntax and rules before
+changing things inside.  
+Theres also a very simple and basic C3 language highlight for notepad++ in there as well.
+
+  
+## license
+
+# hmflathead GPL Source Code
+Copyright (C) 2025 Hilario Martins.

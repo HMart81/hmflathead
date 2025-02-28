@@ -1,0 +1,917 @@
+/************************************ LICENSE *******************************************
+# hmflathead GPL Source Code
+# Copyright (C) 2025 Hilario Martins.
+# 
+# This file is part of the hmflathead GPL Source Code ("hmflathead Source Code")
+# 
+# hmflathead Source Code is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# hmflathead Source Code is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with hmflathead Source Code.  If not, see <http://www.gnu.org/licenses/>.
+# 
+# In addition, the hmflathead Source Code is also subject to certain additional terms. 
+# You should have received a copy of these additional terms immediately following the terms and conditions of the GNU General Public License 
+# which accompanied the hmflathead Source Code.  If not, please request a copy in writing from me at the address below.
+# 
+# If you have questions concerning this license or the applicable additional terms, you may contact in writing 
+# Hilario Martins, Rua de Sanguinhedo 1010 4850-545 Vieira Do Minho Portugal.
+# 
+*********************************************************************************************************************************************/
+
+module game::files::ini;
+
+// region C3 imports
+import std::io;
+import std::ascii;
+import std::io::file;
+import std::collections::list;
+import std::collections::tuple;
+// end_region
+
+// region custom imports
+import game::main;
+import raylib5::rl;
+import game::misc::hm;
+import game::low_level::cvar;
+// end_region
+
+/*
+// File system functions
+fn bool fileExists(ZString fileName)
+fn bool directoryExists(ZString dirPath)
+fn bool isFileExtension(ZString fileName, ZString ext)   // Check file extension (including point: .png, .wav)
+fn int getFileLength(ZString fileName)                   // Get file length in bytes (NOTE: GetFileSize() conflicts with windows.h)
+fn ZString getFileExtension(ZString fileName)            // Get pointer to extension for a filename string (includes dot: '.png')
+fn ZString getFileName(ZString filePath)                 // Get pointer to filename for a path string
+fn ZString getFileNameWithoutExt(ZString filePath)       // Get filename string without extension (uses static string)
+fn ZString getDirectoryPath(ZString filePath)            // Get full path for a given fileName with path (uses static string)
+fn ZString getPrevDirectoryPath(ZString dirPath)         // Get previous directory path for a given path (uses static string)
+fn ZString getWorkingDirectory()                         // Get current working directory (uses static string)
+fn ZString getApplicationDirectory()                     // Get the directory of the running application (uses static string)
+fn bool changeDirectory(ZString dir)                     // Change working directory, return true on success
+fn bool isPathFile(ZString path)                         // Check if a given path is a file or a directory
+fn FilePathList loadDirectoryFiles(ZString dirPath)      // Load directory filepaths
+fn FilePathList loadDirectoryFilesEx(char *basePath, char *filter, bool scanSubdirs) // Load directory filepaths with extension filtering and recursive directory scan
+fn void unloadDirectoryFiles(FilePathList files)         // Unload filepaths
+fn bool isFileDropped()                                  // Check if a file has been dropped into window
+fn FilePathList loadDroppedFiles()                       // Load dropped filepaths
+fn void unloadDroppedFiles(FilePathList files)           // Unload dropped filepaths
+fn long getFileModTime(char *fileName)                   // Get file modification time (last write time)
+*/
+
+distinct INIFile   = inline io::File;
+
+def SectionListPtr = List(<IniSection>)*;
+
+<*
+* @param [in] key `The cmd name`
+* @param [in] inifile `The ini file data`
+* @ensure key != "" && inifile != null
+* @deprecated
+*>
+fn String getIniKey(String key, FileData* inifile) {
+    foreach(section : inifile.sections) {
+        foreach(inicmd : section.cmds) {
+            if(inicmd.cmd.first == key) {
+                return inicmd.cmd.second;
+            }
+        }
+    }
+    
+    return "";
+}
+
+fault IniFault {
+    MISSING_FILE_PATH,
+    INI_FILE_LOAD_FAILED,
+    FAILED_OPEN_FILE,
+    FAILED_READ_FILE,
+    FAILED_CLOSE,
+    FAILED_GET_FILE_SIZE,
+    MALFORMED_INI_FILE,
+    MISSING_DATA_BUFFER,
+    INVALID_TOKEN
+}
+
+enum ParseLineType : char  {
+    NAME,
+    COMMAND,
+    COMMENT
+}
+
+// data types
+const int BOOLEAN @private = 1;
+const int INT     @private = 2;
+const int FLOAT   @private = 3;
+const int STRING  @private = 4;
+
+// syntax main characters
+const String COMMENT_CHAR       @local = ";";
+const String SECTION_NAME_START @local = "[";
+const String SECTION_NAME_END   @local = "]";
+const String ASSIGNMENT_CHAR    @local = "=";
+const String SPACE_CHAR         @local = " ";
+const String EMPTY_STR          @local = "";
+const String STR_CHAR           @local = "\"";
+
+
+def ListIniSectionPrts = List(<IniSection*>)      @local;
+def ListIniCMDPrts     = List(<IniCMD*>)          @local;
+def IniCmdData         = Tuple(<String, String>)  @local;
+def game               = main::gpGame             @local;
+
+<*
+* DOC Final parsed data used by the engine
+*>
+struct FileData {
+    ListIniSectionPrts sections;
+}
+
+<*
+ * @param [in] section "a new section adress to save into the section adresses list"
+ * @require section != null 
+*>
+fn void FileData.register(&self, IniSection* section) @local @inline {
+    self.sections.push(section);
+}
+
+<*
+ * @ensure return != null @if $feature(_DEBUG)
+*>
+fn IniSection* FileData.getSection(&self, String name) @local {
+    foreach(section : self.sections) {
+        if(section.name == name) {
+            return section;
+        } else if(section.isLinked()) { // first section name didn't match see if it's child is the one
+            if(section.next.name == name) {
+                return section.next;
+            }
+        }
+    }
+    return null;
+}
+
+fn bool FileData.hasSection(&self, String name) @local {
+    foreach(section : self.sections) {
+        if(section.name == name) {
+            return true;
+        } else if(section.isLinked()) { // first section name didn't match see if it's child is the one
+            if(section.next.name == name) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+<*
+* @param key `The cmd name`
+* @require key != "" @if $feature(_DEBUG)
+*>
+fn String FileData.getValue(&self, String key) {
+    foreach(section : self.sections) {
+        if(section.isLinked()) { // first section name didn't match see if it's child is the one
+            foreach(inicmd : section.next.cmds) {
+                if(inicmd.cmd.first == key) {
+                    return inicmd.cmd.second;
+                }
+            }
+        } else {
+            foreach(inicmd : section.cmds) {
+                if(inicmd.cmd.first == key) {
+                    return inicmd.cmd.second;
+                }
+            }
+        }
+    }
+    
+    return "";
+}
+
+<*
+* @param [in] key `The cmd name`
+* @require key != "" @if $feature(_DEBUG)
+*>
+fn float! FileData.getFloatValue(&self, String key) {
+    foreach(section : self.sections) {
+        if(section.isLinked()) { // first section name didn't match see if it's child is the one
+            foreach(inicmd : section.next.cmds) {
+                if(inicmd.cmd.first == key) {
+                    assert(inicmd.type == FLOAT);
+                    return inicmd.cmd.second.to_float()!;
+                }
+            }
+        } else {
+            foreach(inicmd : section.cmds) {
+                if(inicmd.cmd.first == key) {
+                    assert(inicmd.type == FLOAT);
+                    return inicmd.cmd.second.to_float()!;
+                }
+            }
+        }
+    }
+    
+    return 0.0f;
+}
+
+<*
+* @param [in] key `The cmd name`
+* @require key != "" @if $feature(_DEBUG)
+*>
+fn int! FileData.getIntValue(&self, String key) {
+    foreach(section : self.sections) {
+        if(section.isLinked()) { // first section name didn't match see if it's child is the one
+            foreach(inicmd : section.next.cmds) {
+                if(inicmd.cmd.first == key) {
+                    assert(inicmd.type == INT);
+                    return inicmd.cmd.second.to_int()!;
+                }
+            }
+        } else {
+            foreach(inicmd : section.cmds) {
+                if(inicmd.cmd.first == key) {
+                    assert(inicmd.type == INT);
+                    return inicmd.cmd.second.to_int()!;
+                }
+            }
+        }
+    }
+    
+    return 0;
+}
+
+<*
+* @param [in] key `The cmd name`
+* @require key != "" @if $feature(_DEBUG)
+*>
+fn bool! FileData.getBoolValue(&self, String key) {
+    foreach(section : self.sections) {
+        if(section.isLinked()) { // first section name didn't match see if it's child is the one
+            foreach(inicmd : section.next.cmds) {
+                if(inicmd.cmd.first == key) {
+                    assert(inicmd.type == BOOLEAN);
+                    String value = inicmd.cmd.second;
+                    return (value == "true") ? true : false;
+                }
+            }
+        } else {
+            foreach(inicmd : section.cmds) {
+                if(inicmd.cmd.first == key) {
+                    assert(inicmd.type == BOOLEAN);
+                    String value = inicmd.cmd.second;
+                    return (value == "true") ? true : false;
+                }
+            }
+        }
+    }
+    
+    return false;
+}
+
+struct IniSection { // everything after a [name]
+    String name;
+    ListIniCMDPrts cmds;
+    
+    bool linked;
+    IniSection* next;
+}
+
+<*
+ * @param [in] cmd "a new cmd adress to save into the cmd adresses list"
+ * @require cmd != null 
+ *>
+fn void IniSection.register(&self, IniCMD* cmd) @local @inline {
+    self.cmds.push(cmd);
+}
+
+<*
+ * @param [in] other "pointer to another section"
+ * @require other != null
+ *>
+fn void IniSection.link(&self, IniSection* other) @local @inline {
+    self.next   = other;
+    self.linked = true;
+}
+
+fn bool IniSection.isLinked(&self) @local @inline {
+    return self.linked;
+}
+
+fn bool IniSection.hasChild(&self) @local @inline {
+    return self.isLinked();
+}
+
+fn void IniSection.freeChild(&self) @local @inline {
+    if(!self.isLinked()) return;
+    
+    // first free the child section cmds data if any
+    if(self.next.cmds.len()) {
+        foreach(cmd : self.next.cmds) {
+            mem::free(cmd);
+        }
+    }
+    // then free the child section data itself
+    mem::free(self.next);
+}
+
+struct IniCMD {
+    int type;
+    IniCmdData cmd;
+}
+
+<*
+* DOC where_index is the index in the string where the comment starts
+*>
+fn bool detect_comment_char_in_line(String str, usz where_index = 0) @local @inline {
+    if(string::char_in_set(';', str)) {
+        where_index = str.index_of_char(';')!!;
+        return true;
+    }
+    
+    return false;
+}
+
+<*
+* DOC where_index is the index in the string where the next section starts
+*>
+fn bool detect_child_section_in_name(String str, usz where_index = 0) @local @inline {
+    if(string::char_in_set('.', str)) {
+        where_index = str.index_of_char('.')!!;
+        // skip the dot
+        where_index += 1;
+        return true;
+    }
+    
+    return false;
+}
+
+/*
+* DOC String is a "slice" and as such is just a struct with a pointer and a len.
+* Slices and Array's ARE NOT exactly the same
+* String[] is a slice (a pointer and a len) 
+* String[*] is a C like array (a pointer to the first data in the array, with no len). 
+*/
+fn String[]! cutIniFileByLines(String filepath, bool isrelative) @local {
+    if(filepath == "") {
+        return IniFault.MISSING_FILE_PATH?; // does this even happens when we have a contract in place?
+    }
+    
+    if(isrelative) filepath = game.app_base_folder.tconcat(filepath);
+    
+    INIFile file_data = (INIFile)file::open(filepath, "r")!;
+    defer (void)file_data.close();
+    // if(catch excuse = file_data) {
+        // filelgr.log(TraceLogLevel.WARNING, "Unable to open ini file: %s with excuse: %s", filepath, excuse);
+        // return IniFault.FAILED_OPEN_FILE?;
+    // }
+    
+    String! entire_file = hm::readEntireFile(filepath);
+    if(catch excuse = entire_file) {
+        main::filelgr.log(TraceLogLevel.WARNING, "Unable to read data from file: %s with excuse: %s", filepath, excuse);
+        return IniFault.FAILED_READ_FILE?;
+    }
+    
+    // cut the data into individual string slices
+    String[] lines = hm::cut_by_newline(entire_file);
+    // remove any empty char for the start or end of each line
+    foreach( &line : lines) {
+        (*line) = line.trim();
+    }
+    
+    if(lines.len) {
+        return lines;
+    }  else {
+        return IniFault.FAILED_READ_FILE?;
+    }
+}
+
+fn FileData*! parse_file(String[] lines) @local {
+    FileData* file_data = mem::new(FileData);
+    
+    foreach(line : lines) {
+        if(!line.len) continue;
+        if(line.starts_with(COMMENT_CHAR)) continue; // to next line
+        
+        //
+        bool has_comment = detect_comment_char_in_line(line);
+        if(has_comment) {
+            // split line by the comment char
+            String[] split = line.tsplit(COMMENT_CHAR);
+            // now clean the start and end of line ignoring the comment section
+            split[0] = split[0].trim();
+            line = split[0].copy();
+        }
+        
+        if(line.starts_with(SECTION_NAME_START)) {
+            parse_section_name(line, file_data);
+        } else {
+            parse_section_cmd(line, file_data);
+        }
+        
+    }
+    
+    return file_data;
+}
+
+fn void parse_section_name(String line, FileData* file) @local @inline {
+    assert(file != null);
+    
+    // create a new section
+    // IniSection* section = mem::new(IniSection);
+    // section.name = line[1..line.index_of_char(SECTION_NAME_END[0])!! - 1];//(*line).strip(SECTION_NAME_START).strip_end(SECTION_NAME_END).copy();
+    // file.register(section);
+    
+    usz char_index;
+    if(detect_child_section_in_name(line, char_index)) {
+        // WARNING(HM) 
+        // child sections ARE NOT registered by the main file 
+        // they are only acessible thought their parent section.
+        // Also any cmds define in the ini section, are not registered 
+        // to the parent section but the child, the parent section cmds
+        // stay empty and it serves only has a link/path to the real section
+        // where the cmds are saved.
+        String main_section_name = line[1:char_index-1];
+        IniSection* section1;
+        
+        if(file.hasSection(main_section_name)) {
+            section1 = file.getSection(main_section_name);
+        } else {
+            // create a new main section 
+            section1      = mem::new(IniSection);
+            section1.name = main_section_name;
+            file.register(section1);
+        }
+        
+        // create the child section to link to
+        IniSection* section2 = mem::new(IniSection);
+        section2.name        = line[char_index..line.index_of_char(']')!! - 1];
+        section1.link(section2);
+    } else {
+        // create the single main section
+        IniSection* section = mem::new(IniSection);
+        section.name = line[1..line.index_of_char(']')!! - 1];
+        file.register(section);
+    }
+}
+
+struct IniCMD_TempData @local {
+    int type;
+    String key;
+    String value;
+}
+
+<*
+ * @param [in] file
+ * @require file   != null
+ *>
+fn void parse_section_cmd(String line, FileData* file) @local {
+
+    IniCMD_TempData cmdTempData;
+    
+    String[] tokens = hm::cut_by_spaces(line);
+    
+    foreach(int i, word : tokens)
+    {
+        if(word == ASSIGNMENT_CHAR || word == SPACE_CHAR || word.len == 0) continue;
+        
+        //if(token == '\n') break;
+        
+        // key is always the first word
+        if(i == 0) {  cmdTempData.key = word;
+            continue; // to next word
+        }
+        
+        // data is always the word after the ASSIGNMENT_CHAR '=' ignored above
+        // so shouldn't be part of the data
+        cmdTempData.value = word.trim();
+        
+        // this shouldn't happen but just in case... 
+        // if we think we are writting C/C++ or C3 code
+        // and put a semicolon at the end of the line...
+        if(word.ends_with(COMMENT_CHAR)) {
+            main::gameWarning("Ini File: A Semicolon was found at end of cmd: %s\n\t-> In ini files, \';\' is for single line comments.", cmdTempData.key);
+            cmdTempData.value = cmdTempData.value.strip_end(COMMENT_CHAR);
+        }
+        
+        break; // NOTE(HM) this should ignore any data after the cmd_value (like comments...)
+    }
+    
+    // from here we are dealing with the cmd value
+    get_cmd_type_from_value(&cmdTempData);
+    
+    // just in case assert the cmd data is valid
+    assert(cmdTempData.type >= 1 && cmdTempData.type <= 4);
+    assert(cmdTempData.key != "");
+    // cmds are allowed to have empty values
+    
+    // register the cmd here
+    IniCMD* cd    = mem::new(IniCMD);
+    cd.type       = cmdTempData.type;
+    cd.cmd.first  = cmdTempData.key;
+    cd.cmd.second = cmdTempData.value;
+    usz len = (*file).sections.len();
+    IniSection* last_section_ptr = (*file).sections[len-1];
+    if(last_section_ptr.isLinked()) {
+        last_section_ptr.next.register(cd);
+    } else {
+        last_section_ptr.register(cd);
+    }
+}
+
+fn void get_cmd_type_from_value(IniCMD_TempData* cmd_data) @local {
+    assert(cmd_data != null);
+    
+    String* value = &cmd_data.value;
+    
+    // default type is integer
+    cmd_data.type = INT;
+    
+    if(*value == "" || *value == "true" || *value == "false") {
+        cmd_data.type = BOOLEAN;
+        return;
+    }
+    else if((*value).len >= 2) {
+         // see if is a float and ovarride the type if necessary
+        if(string::char_in_set('.', *value))  cmd_data.type = FLOAT;
+    }
+    else if((*value).starts_with(STR_CHAR)) {
+        cmd_data.type = STRING;
+        // just in case
+        testCmdValueStringValidity(*value, "");
+    }
+}
+
+<*
+ * DOC Create a init file data structure for easy parsing
+ *
+ * @param [in] filepath
+ * @require filepath.len >= 3 "The file path must be at least 3 characters long"
+ *>
+fn FileData*! load(String filepath, bool isrelative = true) {
+    if(filepath == "") {
+        return IniFault.MISSING_FILE_PATH?;
+    }
+    
+    String[]! data = cutIniFileByLines(filepath, isrelative);
+    if(catch excuse = data) {
+        main::filelgr.log(TraceLogLevel.WARNING, "Unable to load file %s with excuse: %s", filepath, excuse);
+        return IniFault.INI_FILE_LOAD_FAILED?;
+    }
+    
+    //data is valid from here
+    return parse_file(data);
+}
+
+
+
+
+<*
+ * Create a init file data structure for easy parsing
+ *
+ * @param [in] filepath
+ * @require filepath.len >= 3 "The file path must be at least 3 characters long"
+ *>
+fn FileData*! _load(String filepath, bool isrelative = true) @deprecated {
+    if(filepath == "") {
+        return IniFault.MISSING_FILE_PATH?; // does this even happens when we have a contract in place?
+    }
+    
+    if(isrelative) filepath = main::gpGame.app_base_folder.tconcat(filepath);
+    
+    // first get the file raw data WARNING(HM) (comes with garbage at the end)
+    String entire_data = hm::readEntireFile(filepath)!;
+    if(entire_data.len)
+    {
+        // cut the data into individual strings
+        String[] lines = hm::cut_by_newline(entire_data);
+        
+        if(lines.len == 0) {
+            return IniFault.MALFORMED_INI_FILE?;
+        }
+        
+        FileData* ini_file = mem::new(FileData);
+        
+        int section_index = -1; // NOTE: used to indentify sections
+        
+        foreach(&line : lines) {
+        
+            // ignore empty lines or comments
+            if(line.len == 0 || line.starts_with(COMMENT_CHAR)) continue;
+            
+            // found a section name/start
+            if(line.starts_with(SECTION_NAME_START))
+            {
+                // create the section
+                IniSection* section = mem::new(IniSection);
+                section.name = (*line)[1..(*line).index_of_char(SECTION_NAME_END[0])! - 1];//(*line).strip(SECTION_NAME_START).strip_end(SECTION_NAME_END).copy();
+                section_index += 1; // sets its "id" using the index
+                // register it's adress into the File
+                ini_file.register(section);
+                
+                continue; // to next line
+            }
+            
+            // now handle the section comands
+            // we have a previous section to assign values too
+            if(ini_file.sections[section_index] != null)
+            {
+                int        cmd_type;
+                String     cmd_id;
+                String     cmd_value;
+                
+                // divide each cmd into small peaces for easy parsing
+                String[] tokens = (*line).split(SPACE_CHAR);
+                
+                assert(tokens.len >= 1);
+                
+                // Get cmd ID and value
+                foreach(int i, String token : tokens)
+                {
+                    if(token == ASSIGNMENT_CHAR || token == SPACE_CHAR || token.len == 0) continue;
+                    
+                    // cmd_id is always the first token in the array
+                    if(i == 0) { 
+                        cmd_id = token;
+                        
+                        continue; // to next token in the line
+                    }
+                    
+                    // data is always the token after the '='
+                    cmd_value = token;
+                    
+                    // just in case, we think we are writting C/C++ or C3 code
+                    // and put a semicolon at the end of the line...
+                    if(cmd_value.ends_with(COMMENT_CHAR)) {
+                        main::gameWarning("Ini File: A Semicolon was found at end of cmd: %s\n\t-> In ini files, \';\' is for single line comments.", cmd_id);
+                        cmd_value = cmd_value.strip_end(COMMENT_CHAR);
+                    }
+                    
+                    break; // NOTE(HM) this should ignore any data after the cmd_value (like comments...)
+                }
+                
+                if(cmd_id.len != 0 && cmd_value.len == 0) {
+                        String type_name;
+                        foreach(cv: cvar::cvars) {
+                            if(cmd_id == cv.name) {
+                                switch(cv.type) {
+                                    case FLOAT:
+                                        type_name = "float";
+                                    case INT:
+                                        type_name = "int";
+                                    case BOOLEAN:
+                                        type_name = "boolean";
+                                    case STRING:
+                                        type_name = "string";
+                                    default:
+                                        unreachable("Ini file: Unknown type %s for %s.", cv.type, cmd_id);
+                                }
+                            }
+                        }
+                        
+                        unreachable("Ini File: cmd: %s has no value!\n\t-> Supported value is \"%s\".", cmd_id, type_name);
+                }
+                
+                // now set what type of cmd value is
+                // bool cmd_value_not_empty = cmd_value != "";
+                // if(cmd_value_not_empty) 
+                {
+                    // integer is always default, unless overriden bellow
+                    cmd_type = INT;
+                    
+                    if(cmd_value == "true" || cmd_value == "false") {
+                        cmd_type = BOOLEAN;
+                    }
+                    else if(cmd_value.starts_with(STR_CHAR)) {
+                        cmd_type = STRING;
+                        testCmdValueStringValidity(cmd_value, cmd_id);
+                    }
+                    else if(cmd_value.len >= 3) {
+                        // see if is a float and ovarride the type if necessary
+                        if(string::char_in_set('.', cmd_value)) cmd_type = FLOAT;
+                    }
+                }
+                
+                assert(cmd_type != 0 && cmd_id != EMPTY_STR && cmd_value != EMPTY_STR);
+                
+                IniCMD* cd = mem::new(IniCMD, { .type = cmd_type, .cmd.first = cmd_id, .cmd.second = cmd_value});
+                ini_file.sections[section_index].register(cd);
+                cmd_id    = "";
+                cmd_value = "";
+                
+                continue; // to next line to handle a new cmd if any
+            }
+        }
+        
+        return ini_file;
+    }
+    
+    return null;
+}
+
+fn void testCmdValueStringValidity(String value, String id) {
+    if(value.ends_with(STR_CHAR)) return; // all is well do nothing
+    
+    if(value.ends_with("\0")) {
+        char* ch = value[:value.len - 2];
+        if(*ch != '"') {
+            io::printfn("cmdline: Malformed <string> \"%s\" assigned to \"%s\", it should start and end with \'\"\'.", id);
+            // unreachable calls should be put AFTER code that you expect to run!
+            // this is because assert(false) is not available anymore and was deprected.
+            unreachable();
+        }
+    } else {
+        io::printfn("cmdline: Malformed value <string> assigned to \"%s\", it should start and end with \'\"\'.", id);
+        // unreachable calls should be put AFTER code that you expect to run!
+        // this is because assert(false) is not available anymore and was deprected.
+        unreachable();
+    }
+}
+
+<*
+ * @param [in] inifile "is not really a file but a adress of a data structure in memory"
+ * @ensure inifile != null 
+ *>
+fn void unload(FileData* inifile) {
+    if(inifile.sections.len()) {
+        foreach(section : inifile.sections) {
+            if(section.isLinked()) 
+            {
+                section.freeChild();
+                // and lastly free ourself
+                // just in case
+                assert(section.cmds.len() == 0);
+                mem::free(section);
+            } else {
+                // first free the section cmds data
+                if(section.cmds.len()) {
+                    foreach(cmd : section.cmds) {
+                        mem::free(cmd);
+                    }
+                }
+                // then free the section itself
+                mem::free(section);
+            }
+        }
+    }
+}
+
+
+<*
+ * Create a init file structure for easy parsing
+ *
+ * @param [in] path
+ * @require path.len > 0 "The path must be at least 1 character long"
+ *>
+fn bool! populate(FileData* file_data, String path) @deprecated {
+    if(file_data == null) {
+        return IniFault.MISSING_DATA_BUFFER?;
+    }
+
+    if(path == "") {
+        return IniFault.MISSING_FILE_PATH?;
+    }
+    
+    // first get the file raw data (comes with garbage at the end)
+    //char[] data = file::load_new(path)!;
+    String entire_data = (String)file::load_new(path)!;
+    
+    if(entire_data.len)
+    {
+        // now cut the data into individual strings
+        String[] lines = hm::cut_by_newline(entire_data);
+        
+        if(lines.len == 0) {
+            return IniFault.MALFORMED_INI_FILE?;
+        }
+        
+        IniSection* section;
+        String old_section_name;
+        String* current_editing_section_name;
+
+        foreach(String* &line : lines) {
+            //*line = (*line).trim();
+            
+            if(line.len == 0) continue;
+            
+            if(line.starts_with(";")) continue; // ignore comments
+            
+            // found a section name
+            if(line.starts_with("["))
+            {
+                section      = mem::new(IniSection);
+                section.name = (*line).strip("[").strip_end("]").copy();
+                current_editing_section_name = &section.name;
+                continue;
+            }
+            
+            // handle comands
+            if(section != null) // we have a previous section to assign the values too
+            {
+                int    cmd_type;
+                String cmd_id;
+                String cmd_value;
+                
+                String[] tokens = (*line).split(" ");
+                
+                // Get cmd ID and value
+                foreach(int i, String token : tokens) 
+                {
+                    token = token.trim(); // cleans the token
+                    
+                    if(token.len == 0 || token == "=") continue;
+                    
+                    // cmd_id should be always the first token in the array
+                    if(i == 0) { 
+                        cmd_id = token;
+                        continue;
+                    }
+                    
+                    // data is always the token after the '='
+                    cmd_value = token;
+                    
+                    if(cmd_value == "") {
+                        unreachable();
+                    }
+                    
+                    break; 
+                }
+                
+                // Set what value type it is
+                bool cmd_value_not_empty = cmd_value != "";
+                if(cmd_value_not_empty) 
+                {
+                    // Data is always a int unless overriden bellow
+                    cmd_type = INT;
+                    
+                    if(cmd_value == "true" || cmd_value == "no") {
+                        cmd_type = BOOLEAN;
+                    }
+                    else if(cmd_value.starts_with("\"")) {
+                        cmd_type = STRING;
+                        if(cmd_value.ends_with("\"")) {
+                            // go on
+                        } else {
+                            io::printfn("cmdline: Malformed value <string> assigned to \"%s\", it should end with a comma \".", cmd_id);
+                            // unreachable calls should be put AFTER code that you expect to run!
+                            // this is because assert(false) is not available anymore and was deprected.
+                            unreachable();
+                        }
+                    }
+                    else if(cmd_type == INT && cmd_value.len >= 3) {
+                        // see if is a float and ovarride the type if necessary
+                        foreach(char chr : cmd_value) {
+                            // bigger number
+                            if(chr == '.') {
+                                cmd_type = FLOAT;
+                                break;
+                            }
+                        }
+                    }
+                }
+                
+                section.cmds.push(mem::new(IniCMD, { .type = cmd_type, .cmd.first = cmd_id, .cmd.second = cmd_value}));
+                /*if ((*file_data).sections.len()) 
+                {
+                    bool already_pushed = false;
+                    foreach (IniSection* &it : (*file_data).sections)
+                    {
+                        if (it && (*it).name == cmd_id) {
+                            already_pushed = true;
+                            break;
+                        }
+                    }
+
+                    if(already_pushed == false) (*file_data).sections.push(*section);
+                } else {
+                    (*file_data).sections.push(*section);
+                }*/
+                if ((*file_data).sections.len() == 0 || old_section_name != *current_editing_section_name) {
+                    (*file_data).sections.push(section);
+                    old_section_name = (*current_editing_section_name).copy();
+                }
+                // done go to next line
+                continue;
+            }
+        }
+        
+        return true;
+    }
+    
+    return false;
+}
+
+fn bool FileData.is_valid(&self) @inline {
+    return self.sections.is_empty() == false;
+}
+
+fn void FileData.free(&self) {
+    unload(self);
+}
