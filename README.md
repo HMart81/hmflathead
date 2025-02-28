@@ -26,7 +26,7 @@
  - Very basic INI file parsing.
  - A Tokanizer to make it easy to parse custom files languages.
  - Boids system.
- - Particle System (very basic and simplistic) ** not working for now **.
+ - Particle System (very basic and simplistic) **not working for now**.
  ## Game
  - Ability to create game menus using **Basic Custom Immediate-mode GUI system**
  - Import fonts, textures, sounds and music inside the game base folder, at game loading time.
