@@ -10,7 +10,7 @@
 
 **WARNING: The game code is not entirelly in compilable/runnable state because I add to remove the game data.**
 
-## features
+# features
 
  ## Engine
  - Rendering, sound and input using Raylib functions
@@ -28,17 +28,17 @@
 ## compiling
 
 `hmflathead` is written using C3 language version (0.6.8 (Pre-release, Feb 26 2025 00:56:12)) so you need the C3 compiler, go to (https://c3-lang.org/) and setup it for your OS of choice.
-             To make things easy to compile make c3c.exe compilar globaly accessable to all users, by putting it in the OS path. 
-
+             To make things easy to compile make c3c.exe compilar globaly accessable to all users, by putting it in the OS path.
+             
 ## building
 
    - For debug exe in a console write 
-   ## make debug(dmain)
+`make debug(dmain)`
 
-    - For release exe in a console write 
-    ## make release(main)
+   - For release exe in a console write 
+`make release(main)`
 
-Open `makefile` in the main folder to see how the project is set up, I recomend reading about makefiles syntax and rules before
+Open **makefile** in the main folder to see how the project is set up, I recomend reading about makefiles syntax and rules before
 changing things inside.  
 Theres also a very simple and basic C3 language highlight for notepad++ in there as well.
 
