@@ -14,6 +14,13 @@
 
  ## Engine
  - Rendering, sound and input using Raylib functions, theres a input action system inspired by HPL1 engine from FG.
+ - Supports some command line arguments (cvars)
+    + developer (enables developer mode, for now only turns on/off some code lines)
+    + r_mode (sets screen resolution index)
+    + r_showFPS
+    + r_fullscreen (screen mode 0 = window, 1 = borderless, 2 = dedicated, -1 = ini file setting)
+    + ui_debugDraw (show debug visualization for gui development) **not fully implemented**
+    + fs_base ( sets name for default base folder, for the game data, right now is called `base`)
  - **Complex Immediate-mode gui system, using raygui** mostly recomended for tools.
  - XML file reading and writting (using a third party C3 simple xml parser).
  - Very basic INI file parsing.
