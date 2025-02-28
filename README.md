@@ -13,22 +13,22 @@
 # features
 
  ## Engine
- - Rendering, sound and input using Raylib functions
- - **Complex Immediate-mode gui system, using raygui** mostly for tools.
- - XML file reading and writting (using a third party C3 simple xml parser)
- - Very basic INI file parsing
- - A Tokanizer to make it easy to parse custom files languages
- - Boids system
- - Particle System (very basic and simplistic) ** not working for now **
+ - Rendering, sound and input using Raylib functions, theres a input action system inspired by HPL1 engine from FG.
+ - **Complex Immediate-mode gui system, using raygui** mostly recomended for tools.
+ - XML file reading and writting (using a third party C3 simple xml parser).
+ - Very basic INI file parsing.
+ - A Tokanizer to make it easy to parse custom files languages.
+ - Boids system.
+ - Particle System (very basic and simplistic) ** not working for now **.
  ## Game
  - Ability to create game menus using **Basic Custom Immediate-mode GUI system**
- - Import all fonts, textures, sounds and music in the game base folder at game loading time
- - Entity System inspired by older engines like idTech4 and Source Engine (no component system)
+ - Import fonts, textures, sounds and music inside the game base folder, at game loading time.
+ - Entity System inspired by engines like idTech4 and Source Engine (no component system).
 
 ## compiling
 
-`hmflathead` is written using C3 language version (0.6.8 (Pre-release, Feb 26 2025 00:56:12)) so you need the C3 compiler, go to (https://c3-lang.org/) and setup it for your OS of choice.
-             To make things easy to compile make c3c.exe compilar globaly accessable to all users, by putting it in the OS path.
+`hmflathead` is written using the C3 language version (0.6.8 (Pre-release, Feb 26 2025)), so you need the C3 compiler;  go to (https://c3-lang.org/) and setup it for your OS of choice.
+             To make things easy to compile, make the c3c.exe compiler globally accessible to all users, by putting it in the OS path.
              
 ## building
 
@@ -38,9 +38,9 @@
    - For release exe in a console write 
 `make release(main)`
 
-Open **makefile** in the main folder to see how the project is set up, I recomend reading about makefiles syntax and rules before
+Open **makefile** in the main folder to see how the project is set up. I recommend reading about Makefile syntax and rules before
 changing things inside.  
-Theres also a very simple and basic C3 language highlight for notepad++ in there as well.
+There's also a very simple and basic C3 language highlight for Notepad++ in there as well.
 
   
 ## license
