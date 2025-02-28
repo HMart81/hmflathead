@@ -32,11 +32,11 @@
 
 ## building
 
-    ## debug
-`` in a console write `make debug(dmain)`
+   - For debug exe in a console write 
+   ## make debug(dmain)
 
-    ## Release
-`` in a console write `make release(main)`
+    - For release exe in a console write 
+    ## make release(main)
 
 Open `makefile` in the main folder to see how the project is set up, I recomend reading about makefiles syntax and rules before
 changing things inside.  
