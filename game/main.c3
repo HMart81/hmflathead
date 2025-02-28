@@ -26,23 +26,10 @@
 # 
 *********************************************************************************************************************************************/
 
-// NOTE(HM) This is the main game module this is where the game initializes all its systems
-
-// DOC(HM) 
-// Modules are .h and .c files mixed into a single file,
-// module names are namespaces,
-// modules are public by default,
-// @private after a module name, makes all code inside private.
-// You can override that for a peace of code by marking it @public
+// NOTE(HM) This is the main game module, is where the game initializes almost all its systems and where the entry point is
 module game::main @private;
 
-// DOC(HM) 
-// Import is how you, use, other modules (namespaces), like "using namespace foo;" in c++.
-// There's no "c++ using" like keyword in this language, you have to prefix all functions with the module name.
-// There's C++ like $include("Foo.x") that copy&pastes the code in place, but is only valid at file top level, 
-// https://c3-lang.org/language-fundamentals/modules/#include
-
-// region C3 includes
+// region imports
 import std::io, std::thread, std::os;
 import std::math;
 import std::ascii;
@@ -50,9 +37,6 @@ import std::math::complex;
 import std::core::mem; // for malloc/new
 import std::collections::list, std::collections::map, std::collections::tuple;
 import libc;
-// end_region 
-
-// region Custom imports
 import engine::input;
 import engine::tokanizer::tok; // tokanizer
 import engine::filesystem::fs;
@@ -70,28 +54,16 @@ import game::logger::lgr; // for file logging or console logging
 import game::actors::ent::pl;  // player module
 import engine::misc; // misc code
 import game::camview;
-//import tok; // custom tokanizer lib
 import game::low_level::cvar;
 import game::files::ini @public;
 import game::effects::boid;
-// end_region
-
-// region third party libraries
+// third party libraries
 import raylib5::rl;
 import raygui5::rgui;
 import tiny::xml;
 // end_region
 
 // region Constants
-
-// set default options for ADDRESS_SANITIZER using --sanitize flag
-fn ZString __asan_default_options() @export("__asan_default_options") @if(env::ADDRESS_SANITIZER)
-{
-    // //return "detect_leaks=0";
-    //return "detect_odr_violation=0:help=1";
-    return "detect_odr_violation=0";
-}
-
 const String MOUSE_IMAGE_NAME      @Hardcode = "pointer.png";
 const int MAX_ENTITY_COUNT @public @Hardcode = 1 << 12; //int.max;
 
@@ -127,7 +99,7 @@ const ScreenRes[*] SCREEN_RES = {
     {"Mode 21: 4096x2304", 4096, 2304 },
     {"Mode 22: 2880x1800", 2880, 1800 },
     {"Mode 23: 2560x1440", 2560, 1440 }, // Ultra HD
-    {"Mode 24: 1680x720" , 1680, 720  }, // to be able to test in 1080p 16:9 screens
+    {"Mode 24: 1680x720" , 1680, 720  }, // to be able to test ultra wide in 1080p 16:9 screens
     {"Mode 25: 2560x1080", 2560, 1080 },
     {"Mode 26: 3072x1728", 3072, 1728 },
     {"Mode 27: 3200x1800", 3200, 1800 },
@@ -164,7 +136,8 @@ fn bool resValuesSafe(int w_value, int h_value) @inline {
 macro ScreenRes* @getResolutionFromIndex(#index) => &ScreenRes[#index];
 
 
-// multithreading *unused*
+// multithreading 
+// *unused*
 const int NUM_THREADS = 3;
 Thread assetsLoadingThread;
 Mutex  assetsLoadingMutex;
@@ -226,13 +199,12 @@ move_right = "D|d"
 quit       = "F10"
 editor     = "F1"
 `;
-
 // end_region Constants
 
 // region Defines
-
-// NOTE(HM) Alias definitions, always follow the same naming rules of the thing they are alising.
-// If alising a type the alias name, should start uppercase, if alising a function, it should start lowercase, if alising a Constant the alias also needs to be all caps, etc.
+// DOC(HM) Alias definitions, always follow the same naming rules of the thing they are alising.
+// If alising a type the alias name, should start uppercase, if alising a function, it should start lowercase, 
+// if alising a Constant the alias also needs to be all caps, etc.
 
 // alias Types
 def RColor         = rl::Color @public;
