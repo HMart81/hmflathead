@@ -1,6 +1,6 @@
 **hmflathead is a simple 2D game engine made using Raygui and C3 language.**
 
-`hmflathead` IS NOT in a finished state nor a complete 2D game engine, ** not really recomended for use ** for now. 
+`hmflathead` IS NOT in a finished state nor a complete 2D game engine, **not really recomended for use** for now. 
 
 `hmflathead` Is my first, from scratch, custom game engine ever, so expect some questionable design choices, but I did take inspiration from other engines/frameworks, so it is not entirely arbitrary.
 
