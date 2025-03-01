@@ -41,6 +41,7 @@ import libc;
 // region custom modules
 import game::main;
 import game::actors::ent::pl;
+import engine::logging::lgr;
 import raylib5::rl;
 // end
 
@@ -228,7 +229,7 @@ fn rl::Texture2D loadTexture(String image_path) @inline {
         return tex;
     }
     
-    main::gameWarning("Unable to load » %s", image_path);
+    lgr::warning(Where.CONSOLE, "Unable to load » %s", image_path);
     return main::gpGame.default_texture;
 }
 
@@ -254,7 +255,7 @@ fn Sound loadSound(String asset_path) @inline {
         return sd;
     }
     
-    main::filelgr.log(TraceLogLevel.WARNING, "Unable to load » %s", asset_path);
+    lgr::warning(Where.FILE,  "Unable to load » %s", asset_path);
     return main::gpGame.default_sound;
 }
 // end_region
@@ -340,7 +341,7 @@ fn String String.stripExtension(self) {
     if(known_extension) {
         return self.strip_end(needle);
     } else {
-        main::filelgr.log(TraceLogLevel.WARNING, "Cannot strip extension is unkown: %s.", needle);
+        lgr::warning(Where.FILE,  "Cannot strip extension is unkown: %s.", needle);
         return self; // do nothing
     }
 }
@@ -450,7 +451,7 @@ fn String! readEntireFileX(String filepath) {
         // return result;
         //return string::new_format("%s", (String)_file.contents[:_file.contents_size]);
     } else{
-        main::filelgr.log(TraceLogLevel.ERROR, "Cannot open file: %s", filepath);
+        lgr::error(Where.FILE, "Cannot open file: %s", filepath);
     }
     
     return (String)"";

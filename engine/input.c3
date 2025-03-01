@@ -41,6 +41,7 @@ import game::main;
 import raylib5::rl;
 //import raygui;
 import engine::misc;
+import engine::logging::lgr;
 //import game::assets_api::astmng; // asset manager
 // end_region
 
@@ -242,11 +243,11 @@ fn void Action.handleInput(&self) {
 
     /*
     if (input::gpManager.getActionByName("quit").fnDoubleTriggered(0.250f)) {
-        gameLog("Quit Action DOUBLE triggered!!!!!!");
+        lgr::info(Where.CONSOLE, "Quit Action DOUBLE triggered!!!!!!");
     }
 
     if (input::gpManager.getActionByName("quit").wasTriggered()) {
-        gameLog("Quit Action WAS triggered!!!!!!");
+        lgr::info(Where.CONSOLE, "Quit Action WAS triggered!!!!!!");
     }
     */
 }
@@ -460,7 +461,7 @@ ActionManager* gpManager = &local_manager;
 fn void ActionManager.register(&self, Action* action) @inline {
     foreach(act : self.actions) {
         if(act.name == action.name) {
-            main::gameWarning("Cannot register \"%s\" because is already registered.", action.name);
+            lgr::warning(Where.CONSOLE, "Cannot register \"%s\" because is already registered.", action.name);
             return;
         }
     }
@@ -544,11 +545,11 @@ fn void ActionManager.free(&self) {
 
 fn void ActionManager.listActions(&self) @local {
     if(self.actions.len()) {
-        main::gameLog("[ ACTIONS ]");
+        lgr::info(Where.CONSOLE, "[ ACTIONS ]");
         foreach(action: self.actions) {
-           main::gameLog("    -> \"%s\" : {%s, %s},", action.name, getKeyboardKeyName(action.keyboard.key1), getKeyboardKeyName(action.keyboard.key2));
+           lgr::info(Where.CONSOLE, "    -> \"%s\" : {%s, %s},", action.name, getKeyboardKeyName(action.keyboard.key1), getKeyboardKeyName(action.keyboard.key2));
         }
-        main::gameLog("[ END ACTIONS ]]");
+        lgr::info(Where.CONSOLE, "[ END ACTIONS ]]");
     }
 }
 

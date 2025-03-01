@@ -45,6 +45,7 @@ import raylib5::rl;
 import raygui5::rgui;
 import raylib5::rmath;
 import game::serialize::svs; // save system
+import engine::logging::lgr;
 // end_region
 
 /*
@@ -222,7 +223,7 @@ fn void takeScreenShot() {
     if(fs::directoryExists(shots_dir) == false) {
         bool! sucess = fs::makeDirectory(shots_dir);
         if(catch excuse = sucess) {
-            main::filelgr.log(TraceLogLevel.WARNING,"Cannot create screenshots directory at: %s!\n\t -> excuse: %s", 
+            lgr::warning(Where.FILE, "Cannot create screenshots directory at: %s!\n\t -> excuse: %s", 
                         shots_dir, excuse);
             $if $feature(_DEBUG):
                 unreachable();
@@ -241,7 +242,7 @@ fn void takeScreenShot() {
     defer {
         // at the end return everything to defaults
         fs::unloadDirectoryFiles(files);
-        //gameLog("current dir after all = %s", rl::getWorkingDirectory());
+        //lgr::info(Where.CONSOLE, "current dir after all = %s", rl::getWorkingDirectory());
         if(bytes_count) {
             // return to main work dir
             fs::changeDirectory(main::gpGame.app_work_dir)!!;
@@ -264,7 +265,7 @@ fn void takeScreenShot() {
         if(fs::changeDirectory(shots_dir)!! == true) {
             bool sucess = rl::saveFileData(shotname, (void*)saved_shot_file, bytes_count);
             if( sucess == false) {
-                main::gameWarning("failed to transfer file %s to %s", shotname, shots_dir);
+                lgr::warning(Where.CONSOLE, "failed to transfer file %s to %s", shotname, shots_dir);
             }
         }
     }
@@ -275,7 +276,7 @@ fn void moveScreenShots() {
     if(fs::directoryExists(shots_dir) == false) {
         bool! sucess = fs::makeDirectory(shots_dir);
         if(catch excuse = sucess) {
-            main::filelgr.log(TraceLogLevel.WARNING,"Cannot create screenshots directory at: %s!\n\t -> excuse: %s", 
+            lgr::warning(Where.FILE, "Cannot create screenshots directory at: %s!\n\t -> excuse: %s", 
                         shots_dir, excuse);
             $if $feature(_DEBUG):
                 unreachable();

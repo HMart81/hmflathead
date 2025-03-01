@@ -26,21 +26,15 @@
 # 
 *********************************************************************************************************************************************/
 
-/**
-	A bunch of code for Console and file logging.
-**/
-module game::logger::lgr @private;
+module engine::logging::lgr;
 
-// region C3 modules
+// region modules
 import std::io;
 import libc;
-// end_region C3 modules
-
-// region Custom modules
 import game::main;
 import raylib5::rl;
 import game::low_level::cvar;
-// end
+// end_region
 
 // region Cvars
 Cvar g_log @public = { "g_log", CvarType.INT, "0", "loggin for debuggin, int value from 0 to 4, 0 = off, larger values prints more stuff."};
@@ -50,85 +44,121 @@ fn void register_modulo_cvars() @local {
 }
 // end_region Cvars
 
-//
-const ZString WRITE_NEW     = "w";
-const ZString APPEND_TO_END = "a";
+// region constants
+const ZString WRITE_NEW        = "w";
+const ZString WRITE_NEW_BINARY = "wb";
+const ZString APPEND_TO_END    = "a";
+// end_region
 
-struct FileLogger {
-	libc::CFile* file;         // File to log to
-	rl::TraceLogLevel level;    // Controls how deep should the logging be done
-	int logcount;	           // Is this really needed... to know how many log prints he did if to many throw a warning
-	ZString path;	           // Full path to the file if needed 
+// region defines
+// end_region
+
+enum Where {
+    FILE,
+    CONSOLE
 }
 
-// NOTE(HM) 
-// Made this into a singleton 
-// (a global unique object that stays alive while the game is running) 
-// did this because I need to log to a file before the game stuff is initialized.
-FileLogger local_logger @local; // local engine logger
-FileLogger* gpfLog @public = &local_logger;
+// region local globals
+	rl::TraceLogLevel glevel @local;    // Controls how deep should the logging be done
+	int glogcount            @local;	   // Is this really needed... to know how many log prints we did if to many throw a warning
+	ZString gpath            @local;	   // Full path to the file if needed 
+// end_region
 
-fn void FileLogger.setLogLevel(&self, TraceLogLevel level) @inline {
-	self.level = level;
+fn void setLogLevel(TraceLogLevel level) @inline {
+	glevel = level;
 }
 
-fn void FileLogger.init(&self) {
-	self.path = rl::getWorkingDirectory().str_view().concat("\\debug.log").zstr_tcopy();
-	if(self.path.len()) {
-		self.file = libc::fopen(self.path, WRITE_NEW);
-		if(!self.file) {
-			raylibWarning("Unable to open file: %s to write to.", self.path);
-		}
-	} else {
-		raylibWarning("File path giving to log system is invalid.\n  Failed to initialize file logging!");
-	}
-	
+fn void init() {
+    gpath = rl::getWorkingDirectory().str_view().concat("\\debug.log").zstr_tcopy();
 	register_modulo_cvars();
 }
 
-fn void FileLogger.deinit(&self) {
-	self.path = "";
-	if(self.file) libc::fclose(self.file);
+fn String getfilepath() @inline => gpath.str_view();
+
+
+fn void log(Where where, TraceLogLevel level, String fmt, args...) @public {
+    switch (where) {
+        case FILE:
+            logTofile(level, fmt, ...args);
+        case CONSOLE:
+            logToConsole(level, fmt, ...args);
+    }
 }
 
-fn bool FileLogger.fileExist(&self) => self.file != null;
+fn void info(Where where, String fmt, args...) @public
+{
+	switch (where) {
+        case FILE:
+            logTofile(TraceLogLevel.INFO, fmt, ...args);
+        case CONSOLE:
+            logToConsole(TraceLogLevel.INFO, fmt, ...args);
+    }
+}
 
+fn void warning(Where where, String fmt, args...) @public
+{
+	switch (where) {
+        case FILE:
+            logTofile(TraceLogLevel.WARNING, fmt, ...args);
+        case CONSOLE:
+            logToConsole(TraceLogLevel.WARNING, fmt, ...args);
+    }
+}
 
-<*
-* @param [in] fmt `The formatting string`
-* @require self.path != "" && self.file != null
-*>
-fn void FileLogger.log(&self, TraceLogLevel level, String fmt, args...) 
+fn void error(Where where, String fmt, args...) @public
+{
+	switch (where) {
+        case FILE:
+            logTofile(TraceLogLevel.ERROR, fmt, ...args);
+        case CONSOLE:
+            logToConsole(TraceLogLevel.ERROR, fmt, ...args);
+    }
+}
+
+fn void fatal(Where where, String fmt, args...) @public {
+	switch (where) {
+        case FILE:
+            logTofile(TraceLogLevel.FATAL, fmt, ...args);
+        case CONSOLE:
+            logToConsole(TraceLogLevel.FATAL, fmt, ...args);
+    }
+    unreachable();
+}
+
+fn void logTofile(TraceLogLevel level, String fmt, args...) @local
 {
 	int log_value_from_cvar = g_log.getInt();
-	if(log_value_from_cvar == 0) return;
-	if(self.fileExist() == false) return;
-	
+	if(log_value_from_cvar == 0 || fmt.len == 0) return;
+    
 $if $feature(_DEBUG):
-	if(fmt.len == 0) return;
+	bool should_log = level.ordinal >= glevel.ordinal;
+	if( should_log == false || glevel.ordinal < log_value_from_cvar) return;
 	
-	bool should_log = level.ordinal >= self.level.ordinal;
-	if( should_log == false || self.level.ordinal < log_value_from_cvar) return;
-	
-	if(self.logcount >= 0xFFFF) {
-		self.log(TraceLogLevel.WARNING, "Log messages have reached or surpassed 65K!!!");
+	if(glogcount >= 0xFFFF) {
+		warning(Where.CONSOLE, "Log messages have reached or surpassed 65K!!!");
 	}
 	
 	DString str = dstring::temp_with_capacity(fmt.len + args.len * 8);
 	str.appendf(fmt, ...args);
+    
+    assert(gpath.len() != 0);
+    CFile* file = libc::fopen(gpath, WRITE_NEW);
+    defer {
+        libc::fclose(file);
+    }
 	
-	if(self.logcount >= 1) {
+	if(glogcount >= 1) {
 		// close the old file handle
-		libc::fclose(self.file);
+		libc::fclose(file);
 		// get a new file handle
-		self.file = libc::fopen(self.path, APPEND_TO_END);
-		if(!self.file) {
-			raylibWarning("Failed to open file: %s to write to it.\nlogging following warning to console instead:\n	- %s", self.path, str);
+		file = libc::fopen(gpath, APPEND_TO_END);
+		if(!file) {
+			warning(Where.CONSOLE, "Failed to open file: %s to append:\n	- %s", gpath, str);
 			return;
 		}
 	}
 	
-	assert(self.file != null);
+	assert(file != null);
 	
 	String level_str;
 	
@@ -146,51 +176,16 @@ $if $feature(_DEBUG):
 			level_str = "[INFO]";
 	}
 	
-	libc::fprintf(self.file, "%s: %s\n", level_str.zstr_copy(), str.zstr_view());
-	libc::fflush(self.file);
-	self.logcount++;
+	libc::fprintf(file, "%s: %s\n", level_str.zstr_copy(), str.zstr_view());
+	libc::fflush(file);
+	glogcount++;
 $endif
 }
 
-fn void FileLogger.info(&self, String fmt, args...) @inline
-{
-	self.log(TraceLogLevel.INFO, fmt, ...args);
-}
-
-fn void FileLogger.warning(&self, String fmt, args...) @inline
-{
-	self.log(TraceLogLevel.WARNING, fmt, ...args);
-}
-
-fn void FileLogger.error(&self, String fmt, args...) @inline
-{
-	self.log(TraceLogLevel.ERROR, fmt, ...args);
-}
-
-/////////////////////////// RAYLIB based Console logging ////////////////////////////////
-
-fn void raylibLog(String fmt, args...) @inline @public {
+fn void logToConsole(TraceLogLevel level, String fmt, args...) @local {
 	DString str = dstring::temp_with_capacity(fmt.len + args.len * 8);
 	str.appendf(fmt, ...args);
-	rl::traceLog(TraceLogLevel.INFO, str.zstr_view());
-}
-
-fn void raylibWarning(String fmt, args...) @inline @public {
-	DString str = dstring::temp_with_capacity(fmt.len + args.len * 8);
-	str.appendf(fmt, ...args);
-	rl::traceLog(TraceLogLevel.WARNING, str.zstr_view());
-}
-
-fn void raylibError(String fmt, args...) @inline @public {
-	DString str = dstring::temp_with_capacity(fmt.len + args.len * 8);
-	str.appendf(fmt, ...args);
-	rl::traceLog(TraceLogLevel.ERROR, str.zstr_view());
-}
-
-fn void raylibFatal(String fmt, args...) @inline @public {
-	DString str = dstring::temp_with_capacity(fmt.len + args.len * 8);
-	str.appendf(fmt, ...args);
-	rl::traceLog(TraceLogLevel.FATAL, str.zstr_view());
+	rl::traceLog(level, str.zstr_view());
 }
 
 /*

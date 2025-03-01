@@ -37,6 +37,7 @@ import std::collections::map;
 
 // region custom modules
 import game::main;
+import engine::logging::lgr;
 import raylib5::rl;
 import engine::misc;
 import game::assets::sprt;
@@ -99,11 +100,11 @@ fn void Entity.reload(&self, SaveFile* file) @dynamic {
 fn bool Entity.shouldSkip(&self, String name) @inline @local {
     if(main::gpGame.entityList.len() > main::MAX_ENTITY_COUNT) {
 		if(name != "") {
-			main::filelgr.log(TraceLogLevel.WARNING, "Skipping entity: '%s' creation, max count of '%s' reached!", 
+			lgr::warning(Where.FILE, "Skipping entity: '%s' creation, max count of '%s' reached!", 
 				name, main::MAX_ENTITY_COUNT);
 		} else {
             Vec2f origin = self.getPosition();
-			main::filelgr.log(TraceLogLevel.WARNING, "Skipping entity to create at {%s, %s}, because max count '%s' was reached!", 
+			lgr::warning(Where.FILE, "Skipping entity to create at {%s, %s}, because max count '%s' was reached!", 
 				origin.x, origin.y, main::MAX_ENTITY_COUNT);
 		}
 		return true;
@@ -136,7 +137,7 @@ fn void Entity.init(&self, String aname, Vec2f origin = {0,0}, Color color = rl:
 	}
     
 $if $feature(_DEBUG):
-	main::filelgr.log(TraceLogLevel.INFO, "Created entity-> id: %s with name: %s.", self.id, self.name);
+	lgr::info(Where.FILE, "Created entity-> id: %s with name: %s.", self.id, self.name);
 $endif
 
 	//

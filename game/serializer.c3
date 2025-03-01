@@ -43,6 +43,7 @@ import raylib5::rl;
 //import raygui;
 import engine::misc;
 import engine::assets_api::asapi;
+import engine::logging::lgr;
 // end_region
 
 // region defines
@@ -139,7 +140,7 @@ fn void! close(SaveFile* save) @inline {
 fn void	write(SaveFile* savefile, void* buffer, int bytes_len ) {
     char[] _buffer = ((char*)buffer)[:bytes_len];
     if(@catch(savefile.file.write(_buffer))) {
-        main::gameWarning("failed to write data to file %s! : %s:%s", savefile.path, $$FUNC, $$LINE);
+        lgr::warning(Where.CONSOLE, "failed to write data to file %s! : %s:%s", savefile.path, $$FUNC, $$LINE);
     }
 }
 <*
@@ -170,7 +171,7 @@ fn void	writeShort(SaveFile* savefile, short value ) {
 *>
 fn void	writeChar(SaveFile* savefile, char value ) {
     if(@catch(savefile.file.write_byte(value))) {
-        main::gameWarning("failed to write char to file %s! : %s:%s", savefile.path, $$FUNC, $$LINE);
+        lgr::warning(Where.CONSOLE, "failed to write char to file %s! : %s:%s", savefile.path, $$FUNC, $$LINE);
     }
 }
 <*
@@ -208,7 +209,7 @@ fn void	writeBool(SaveFile* savefile, bool value ) {
 *>
 fn void	writeString(SaveFile* savefile, String str) {
     if(@catch(savefile.file.write(str))) {
-        main::gameWarning("failed to write string to file %s! : %s:%s", savefile.path, $$FUNC, $$LINE);
+        lgr::warning(Where.CONSOLE, "failed to write string to file %s! : %s:%s", savefile.path, $$FUNC, $$LINE);
     }
 }
 <*
@@ -319,7 +320,7 @@ fn void advance_reading_position(SaveFile* f, usz n) @inline @local {
 
 fn void read(SaveFile* savefile, void *buffer, usz bytes_len) {
     if(@catch(savefile.file.read(((char*)buffer)[:bytes_len]))) {
-        main::gameWarning("failed to write data to file %s! : %s:%s", savefile.path, $$FUNC, $$LINE);
+        lgr::warning(Where.CONSOLE, "failed to write data to file %s! : %s:%s", savefile.path, $$FUNC, $$LINE);
         return;
     }
     advance_reading_position(savefile, bytes_len);
@@ -358,7 +359,7 @@ fn void readBool(SaveFile* file, bool* value) {
 
 fn void readString(SaveFile* savefile, String* string) {
     if(@catch(savefile.file.read(*string))) {
-        main::gameWarning("failed to write data to file %s! : %s:%s", savefile.path, $$FUNC, $$LINE);
+        lgr::warning(Where.CONSOLE, "failed to write data to file %s! : %s:%s", savefile.path, $$FUNC, $$LINE);
         return;
     }
      advance_reading_position(savefile, string.len);
@@ -367,7 +368,7 @@ fn void readString(SaveFile* savefile, String* string) {
 fn void readZString(SaveFile* savefile, ZString* string) {
     String result;
     if(@catch(savefile.file.read(result))) {
-        main::gameWarning("failed to write data to file %s! : %s:%s", savefile.path, $$FUNC, $$LINE);
+        lgr::warning(Where.CONSOLE, "failed to write data to file %s! : %s:%s", savefile.path, $$FUNC, $$LINE);
         return;
     }
     *string = result.zstr_copy();
@@ -612,7 +613,7 @@ ActionManager* gpActnMnagr = &local_manager;
 fn void ActionManager.register(&self, Action* action) @inline {
     foreach(act : self.actions) {
         if(act.name == action.name) {
-            main::gameWarning("Cannot register \"%s\" because is already registered.", action.name) {}
+            main::lgr::warning(Where.CONSOLE, "Cannot register \"%s\" because is already registered.", action.name) {}
             return;
         }
     }

@@ -33,7 +33,7 @@ import std::collections::list;
 // end_region
 
 // region custom modules
-import game::logger::lgr;
+import engine::logging::lgr;
 import raylib5::rl;
 import game::main;
 // end_region
@@ -95,14 +95,14 @@ $endif
 
 fn bool Cvar.getBool(&self) {
     if(self.type != CvarType.BOOLEAN) {
-        lgr::gpfLog.log(TraceLogLevel.WARNING, "Cvar: %s is not a bool: %s->%d", self.name, $$FUNC, $$LINE);
+        lgr::warning(Where.FILE, "Cvar: %s is not a bool: %s->%d", self.name, $$FUNC, $$LINE);
         return false;
     }
     
     char! value = self.value.to_uchar();
     
     if(catch excuse = value) {
-        lgr::gpfLog.log(TraceLogLevel.ERROR, "Cvar: %s fault '%s' :: %s->%d", self.name, excuse, $$FUNC, $$LINE);
+        lgr::error(Where.FILE, "Cvar: %s fault '%s' :: %s->%d", self.name, excuse, $$FUNC, $$LINE);
         return false;
     }
     
@@ -113,7 +113,7 @@ fn int Cvar.getInt(&self) {
     if(try int result = self.value.to_int()) {
         return result;
     } else {
-        lgr::gpfLog.log(TraceLogLevel.WARNING, "unable to get integer value for '%s' :: %s->%d", self.name, $$FUNC, $$LINE);
+        lgr::warning(Where.FILE, "unable to get integer value for '%s' :: %s->%d", self.name, $$FUNC, $$LINE);
         return 0;
     }
 }
@@ -122,14 +122,14 @@ fn float Cvar.getfloat(&self) {
     if(try float result = self.value.to_float()) {
         return result;
     } else {
-        lgr::gpfLog.log(TraceLogLevel.WARNING, "unable to get float value for '%s' :: %s->%d", self.name, $$FUNC, $$LINE);
+        lgr::warning(Where.FILE, "unable to get float value for '%s' :: %s->%d", self.name, $$FUNC, $$LINE);
         return 0.0;
     }
 }
 
 fn String Cvar.getString(&self) @inline {
     if(self.type != CvarType.STRING) {
-        lgr::gpfLog.log(TraceLogLevel.WARNING, "Cvar: %s was not defined as a string: %s->%d", self.name, $$FUNC, $$LINE);
+        lgr::warning(Where.FILE, "Cvar: %s was not defined as a string: %s->%d", self.name, $$FUNC, $$LINE);
         return "";
     }
     

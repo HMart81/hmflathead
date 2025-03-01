@@ -41,6 +41,7 @@ import game::main;
 import raylib5::rl;
 import engine::misc;
 import game::low_level::cvar;
+import engine::logging::lgr;
 // end_region
 
 /*
@@ -369,13 +370,13 @@ fn String[]! cutIniFileByLines(String filepath, bool isrelative) @local {
     INIFile file_data = (INIFile)file::open(filepath, "r")!;
     defer (void)file_data.close();
     // if(catch excuse = file_data) {
-        // filelgr.log(TraceLogLevel.WARNING, "Unable to open ini file: %s with excuse: %s", filepath, excuse);
+        // lgr::warning(Where.FILE, "Unable to open ini file: %s with excuse: %s", filepath, excuse);
         // return IniFault.FAILED_OPEN_FILE?;
     // }
     
     String! entire_file = misc::readEntireFile(filepath);
     if(catch excuse = entire_file) {
-        main::filelgr.log(TraceLogLevel.WARNING, "Unable to read data from file: %s with excuse: %s", filepath, excuse);
+        lgr::warning(Where.FILE,  "Unable to read data from file: %s with excuse: %s", filepath, excuse);
         return IniFault.FAILED_READ_FILE?;
     }
     
@@ -497,7 +498,7 @@ fn void parse_section_cmd(String line, FileData* file) @local {
         // if we think we are writting C/C++ or C3 code
         // and put a semicolon at the end of the line...
         if(word.ends_with(COMMENT_CHAR)) {
-            main::gameWarning("Ini File: A Semicolon was found at end of cmd: %s\n\t-> In ini files, \';\' is for single line comments.", cmdTempData.key);
+            lgr::warning(Where.CONSOLE, "Ini File: A Semicolon was found at end of cmd: %s\n\t-> In ini files, \';\' is for single line comments.", cmdTempData.key);
             cmdTempData.value = cmdTempData.value.strip_end(COMMENT_CHAR);
         }
         
@@ -562,7 +563,7 @@ fn FileData*! load(String filepath, bool isrelative = true) {
     
     String[]! data = cutIniFileByLines(filepath, isrelative);
     if(catch excuse = data) {
-        main::filelgr.log(TraceLogLevel.WARNING, "Unable to load file %s with excuse: %s", filepath, excuse);
+        lgr::warning(Where.FILE,  "Unable to load file %s with excuse: %s", filepath, excuse);
         return IniFault.INI_FILE_LOAD_FAILED?;
     }
     
@@ -650,7 +651,7 @@ fn FileData*! _load(String filepath, bool isrelative = true) @deprecated {
                     // just in case, we think we are writting C/C++ or C3 code
                     // and put a semicolon at the end of the line...
                     if(cmd_value.ends_with(COMMENT_CHAR)) {
-                        main::gameWarning("Ini File: A Semicolon was found at end of cmd: %s\n\t-> In ini files, \';\' is for single line comments.", cmd_id);
+                        lgr::warning(Where.CONSOLE, "Ini File: A Semicolon was found at end of cmd: %s\n\t-> In ini files, \';\' is for single line comments.", cmd_id);
                         cmd_value = cmd_value.strip_end(COMMENT_CHAR);
                     }
                     

@@ -39,7 +39,8 @@ import std::collections::map;
 import game::main;
 import engine::misc;
 import engine::assets::astmng; // asset manager
-import engine::assets_api::asapi; // for the asset 
+import engine::assets_api::asapi; // for the asset
+import engine::logging::lgr;
 import game::serialize::svs; // save system
 import game::actors::ent;
 import raylib5::rl;
@@ -340,6 +341,7 @@ import game::assets::sprt;
 import std::math::vector;
 import game::actors::ent;
 import engine::assets::astmng;
+import engine::logging::lgr;
 import engine::misc;
 // end_region
 
@@ -462,7 +464,7 @@ fn void ParticleSpawner.think(&self) {
     if(self.flags & ent::TH_THINK)
     {
         int current_time = main::gpGame.time_ms;
-        main::gameLog("Entity '%s' has flag %s!!!\n", self.name, self.flags);
+        lgr::info(Where.CONSOLE, "Entity '%s' has flag %s!!!\n", self.name, self.flags);
         if(current_time < self.delay_ms) {
            // do nothing
         }

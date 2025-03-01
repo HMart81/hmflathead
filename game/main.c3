@@ -50,7 +50,7 @@ import game::logic::timer;
 import game::assets::sprt; // sprites
 import game::assets::part; // particles
 //import game::assets::mtr; // materials
-import game::logger::lgr; // for file logging or console logging
+import engine::logging::lgr;
 import game::actors::ent::pl;  // player module
 import engine::misc; // misc code
 import game::camview;
@@ -214,11 +214,7 @@ def IniFileCMDList = List(<StringTuple*>);
 def asstManager    = astmng::assetManager @public;
 
 // alias function names
-def gameLog     = lgr::raylibLog     @public;
-def gameWarning = lgr::raylibWarning @public;
-def gameError   = lgr::raylibError   @public;
-def gameFatal   = lgr::raylibFatal   @public;
-def filelgr     = lgr::gpfLog        @public;
+
 // end_region Defines
 
 // region Cvars
@@ -247,7 +243,7 @@ fn void register_modulo_cvars() @local {
     //cvar::@register(r_window_resizable);
     //cvar::@register(g_log);
     
-    //if(cvar::cvars.len()) foreach(cv: cvar::cvars) {gameLog(cv.name);}
+    //if(cvar::cvars.len()) foreach(cv: cvar::cvars) {lgr::info(Where.CONSOLE, cv.name);}
 }
 
 // end_region Cvars
@@ -363,8 +359,8 @@ fn void Game.freeGameEntities(&self) @inline {
     if(int count = (int)self.entityList.len()) {
         foreach(&it: self.entityList) if(it) (*it).kill();
         self.entityList.free();
-        filelgr.log(TraceLogLevel.INFO, "['%s'] Entities were cleared!", count);
-        //filelgr.log(TraceLogLevel.INFO, "Done.");
+        lgr::info(Where.FILE, "['%s'] Entities were cleared!", count);
+        //lgr::info(Where.FILE,  "Done.");
     }
 }
 
@@ -552,7 +548,7 @@ fn void Game.unload(&self) {
     if(usz count = self.sprites.len()) {
         foreach(&it: self.sprites) if(it) (*it).deinit();
         self.sprites.free();
-        filelgr.log(TraceLogLevel.INFO, "['%s'] sprites were cleared!", count);
+        lgr::info(Where.FILE, "['%s'] sprites were cleared!", count);
     }
     self.view.deinit();
     self.boidManager1.release();
@@ -897,16 +893,16 @@ fn void gameHandleGeneralControls() @local @inline {
         if(action.fnBecameTriggered()) {
              unreachable();
             if(local_game.particleSpawner1.isActive() == false) local_game.particleSpawner1.activate();
-            gameLog("Action BECAME triggered!!!!!!");
+            lgr::info(Where.CONSOLE, "Action BECAME triggered!!!!!!");
         }
     }
     /*
     if(input::gpManager.getActionByName("quit").fnDoubleTriggered(0.250f)) {
-        gameLog("Quit Action DOUBLE triggered!!!!!!");
+        lgr::info(Where.CONSOLE, "Quit Action DOUBLE triggered!!!!!!");
     }
     
     if(input::gpManager.getActionByName("quit").wasTriggered()) {
-        gameLog("Quit Action WAS triggered!!!!!!");
+        lgr::info(Where.CONSOLE, "Quit Action WAS triggered!!!!!!");
     }*/
     
     if(rl::getKeyPressed()) {
@@ -977,7 +973,7 @@ fn void gameUpdate() @local
         foreach(int i, it : local_game.entityList) {
             if(it.alive == false) {
                 local_game.entityList.remove_at(i);
-                gameWarning("Entity '%s' was killed\n", it.name);
+                lgr::warning(Where.CONSOLE, "Entity '%s' was killed\n", it.name);
             }
         }
         
@@ -1103,7 +1099,7 @@ fn void handle_cmdline(String[]* args) {
     
     String cmd_arg;
     
-    gameLog("handling cmd line args: %s", *args);
+    lgr::info(Where.CONSOLE, "handling cmd line args: %s", *args);
     
     foreach(arg_index, &arg : *args)
     {
@@ -1145,12 +1141,12 @@ fn void handle_cmdline(String[]* args) {
                         int value = r_fullscreen.getInt();
                         if(value > 0) {
                             r_fullscreen.set("0");
-                            gameWarning("cmdline arg '%s' is overriding the value set by r_fullscreen.", cmd_arg); 
+                            lgr::warning(Where.CONSOLE, "cmdline arg '%s' is overriding the value set by r_fullscreen.", cmd_arg); 
                         } else {
-                            gameWarning("cmdline arg '%s' is not doing anything as r_fullscreen is already zero.", cmd_arg); 
+                            lgr::warning(Where.CONSOLE, "cmdline arg '%s' is not doing anything as r_fullscreen is already zero.", cmd_arg); 
                         }
                     //default:
-                        //gameWarning("cmdline arg '%s' with value = %s is still not handled.", cmd_arg, arg);
+                        //lgr::warning(Where.CONSOLE, "cmdline arg '%s' with value = %s is still not handled.", cmd_arg, arg);
                 } 
             }
             
@@ -1173,7 +1169,7 @@ fn void handle_cmdline(String[]* args) {
                 }
             case arg.starts_with("-"): // negative numbers
                 if(single_char_value) {
-                    gameWarning("rogue minus sign found in value of cmd \"%s\".", cmd_arg);
+                    lgr::warning(Where.CONSOLE, "rogue minus sign found in value of cmd \"%s\".", cmd_arg);
                     continue;
                 }
                 arg_is_number = true;
@@ -1188,14 +1184,14 @@ fn void handle_cmdline(String[]* args) {
                 if(!single_char_value && arg.ends_with("\"")) {
                     arg_is_string = true;
                 } else {
-                    gameWarning("malformed string assigned to \"%s\", strings most be defined between two \"\".", *arg, cmd_arg);
+                    lgr::warning(Where.CONSOLE, "malformed string assigned to \"%s\", strings most be defined between two \"\".", *arg, cmd_arg);
                     continue;
                 }
             case ascii::is_alpha((*arg)[0]):
-                gameWarning("malformed string assigned to \"%s\", strings most be defined between two \"\".", *arg, cmd_arg);
+                lgr::warning(Where.CONSOLE, "malformed string assigned to \"%s\", strings most be defined between two \"\".", *arg, cmd_arg);
                 continue;
             default:
-                gameWarning("invalid value '%s' assigned to cmd '%s'.", *arg, cmd_arg);
+                lgr::warning(Where.CONSOLE, "invalid value '%s' assigned to cmd '%s'.", *arg, cmd_arg);
                 continue;
         }
         
@@ -1212,7 +1208,7 @@ fn void handle_cmdline(String[]* args) {
                     }
                         
                     if(ch == ',') {
-                        gameWarning("value %s in cmdline has a comma seperator.\n   -That is not supported for numbers, please use dot instead.", *arg);
+                        lgr::warning(Where.CONSOLE, "value %s in cmdline has a comma seperator.\n   -That is not supported for numbers, please use dot instead.", *arg);
                         invalid_value_arg = true;
                     }
                 }
@@ -1227,13 +1223,13 @@ fn void handle_cmdline(String[]* args) {
                     if(try value = arg.to_float()) {
                         fvalue = value;
                     } else {
-                        gameWarning("Unnable to convert value \"%s\" of cmdline arg \"%s\" to float value!", arg, cmd_arg);
+                        lgr::warning(Where.CONSOLE, "Unnable to convert value \"%s\" of cmdline arg \"%s\" to float value!", arg, cmd_arg);
                     }
                 } else {
                     if(try value = arg.to_int()) {
                         ivalue = value;
                     } else {
-                        gameWarning("Unnable to convert value \"%s\" of cmdline arg \"%s\" to integer value!", arg, cmd_arg);
+                        lgr::warning(Where.CONSOLE, "Unnable to convert value \"%s\" of cmdline arg \"%s\" to integer value!", arg, cmd_arg);
                     }
                 }
                 
@@ -1254,16 +1250,16 @@ fn void handle_cmdline(String[]* args) {
                         if(ivalue >= 0 && ivalue <= SCREEN_RES.len - 1) {
                             r_mode.set(*arg);
                         } else {
-                            gameWarning("Ignoring cmdline arg '%s' invalid resolution index, expected '0..%s' found \"%s\".", cmd_arg, SCREEN_RES.len - 1, *arg);
+                            lgr::warning(Where.CONSOLE, "Ignoring cmdline arg '%s' invalid resolution index, expected '0..%s' found \"%s\".", cmd_arg, SCREEN_RES.len - 1, *arg);
                         }
                     case "r_fullscreen":
                         if(ivalue >= 0 && ivalue <= 2) {
                             r_fullscreen.set(*arg);
                         } else {
-                            gameWarning("Ignoring cmdline arg '%s' invalid value, should be from '0..2'.", cmd_arg); 
+                            lgr::warning(Where.CONSOLE, "Ignoring cmdline arg '%s' invalid value, should be from '0..2'.", cmd_arg); 
                         }
                     default:
-                        gameWarning("cmdline arg '%s' with value = %s is still not handled.", cmd_arg, *arg);
+                        lgr::warning(Where.CONSOLE, "cmdline arg '%s' with value = %s is still not handled.", cmd_arg, *arg);
                 }
             }
         }
@@ -1278,7 +1274,7 @@ fn void handle_cmdline(String[]* args) {
                 case "fs_mod_base":
                     fs_mod_base.set(*arg);
                 default:
-                    gameWarning("cmdline arg '%s' with string = %s is still not handled.", cmd_arg, *arg);
+                    lgr::warning(Where.CONSOLE, "cmdline arg '%s' with string = %s is still not handled.", cmd_arg, *arg);
             }
         }
     }
@@ -1302,7 +1298,7 @@ fn void! gameOnStart(String[]* args) @local
     
     
     // ******* Main Game Start *******
-    filelgr.log(TraceLogLevel.INFO, "Initializing game:");
+    lgr::info(Where.FILE, "Initializing game:");
     
     // TODO load the user.ini at this time?
     
@@ -1330,7 +1326,7 @@ fn void! gameOnStart(String[]* args) @local
     // This also saves original work dir, in case a mod is being used.
     local_game.app_default_workdir = fs::getWorkingDirectory().tconcat("\\");
     if(fs::directoryExists(local_game.app_default_workdir)) {
-        filelgr.log(TraceLogLevel.INFO, "Working from default Dir: %s", local_game.app_default_workdir);
+        lgr::info(Where.FILE, "Working from default Dir: %s", local_game.app_default_workdir);
     } else { 
         return GameError.INVALID_WORK_DIR?; 
     }
@@ -1360,35 +1356,35 @@ fn void! gameOnStart(String[]* args) @local
                 if(fs::directoryExists(mod_base_folder)) {
                     local_game.app_base_folder = mod_base_folder;
                 } else { 
-                    filelgr.log(TraceLogLevel.WARNING, "base directory for mod \"%s\" is missing cannot run mod!", mod_name);
+                    lgr::warning(Where.FILE, "base directory for mod \"%s\" is missing cannot run mod!", mod_name);
                 }
             } else { 
-                filelgr.log(TraceLogLevel.WARNING, "Work directory for mod \"%s\" is missing cannot run mod!", mod_name);
+                lgr::warning(Where.FILE, "Work directory for mod \"%s\" is missing cannot run mod!", mod_name);
             }
         } else {
-            filelgr.log(TraceLogLevel.WARNING, "Mod %s has to be run from inside folder \"mods\" but none was found at: %s", mod_name, local_game.app_default_workdir);
+            lgr::warning(Where.FILE, "Mod %s has to be run from inside folder \"mods\" but none was found at: %s", mod_name, local_game.app_default_workdir);
         }
     }
     
     // make sure required work dir exists
     if(fs::directoryExists(local_game.app_work_dir)) {
-        filelgr.log(TraceLogLevel.INFO, "Working from Dir: %s", local_game.app_work_dir);
+        lgr::info(Where.FILE,  "Working from Dir: %s", local_game.app_work_dir);
     } else {
         return GameError.INVALID_WORK_DIR?;
     }
     
     // make sure required base folder exists
     if(fs::directoryExists(local_game.app_base_folder)) {
-        filelgr.log(TraceLogLevel.INFO, "Base Dir set as: %s", local_game.app_base_folder);
+        lgr::info(Where.FILE,  "Base Dir set as: %s", local_game.app_base_folder);
     } else {
         if(local_game.mod_set) {
-            filelgr.log(TraceLogLevel.ERROR,`Required base folder inside %s not found!\n
+            lgr::error(Where.FILE,`Required base folder inside %s not found!\n
                        A non-empty folder called '%s' (case sensitive) most exist!`, 
                        local_game.app_work_dir, 
                        (fs_mod_base.getString().len > 0) ? fs_mod_base.getString() : fs_base.getString(), 
                        local_game.app_name);
         } else {
-            filelgr.log(TraceLogLevel.ERROR,`Required base folder inside %s not found!\n
+            lgr::error(Where.FILE,`Required base folder inside %s not found!\n
                        A non-empty folder called '%s' (case sensitive) most exist.\n
                        Please reinstall game.`, local_game.app_work_dir, fs_base.getString(), local_game.app_name);
         }
@@ -1398,21 +1394,21 @@ fn void! gameOnStart(String[]* args) @local
     // get the home folder to save necessary game data
     local_game.app_save_folder = fs::getSystemSpecialPath(fs::SystemPath.PERSONAL);
     if(local_game.app_save_folder.len > 0) {
-        filelgr.log(TraceLogLevel.INFO, "OS save dir set to: %s", local_game.app_save_folder);
-        gameLog("OS save dir at: %s", local_game.app_save_folder);
+        lgr::info(Where.FILE,  "OS save dir set to: %s", local_game.app_save_folder);
+        lgr::info(Where.CONSOLE, "OS save dir at: %s", local_game.app_save_folder);
         
         // NOTE(HM) append the desired final folder 
         // and look in the OS user save directory, to see if folder is already there 
         // if not create it.
         local_game.app_save_folder = local_game.app_save_folder.tconcat("\\").tconcat(local_game.app_name);
         if(fs::directoryExists(local_game.app_save_folder)) {
-            gameLog("Save Dir at: %s", local_game.app_save_folder);
+            lgr::info(Where.CONSOLE, "Save Dir at: %s", local_game.app_save_folder);
         } else { // create it
             //Path! save_path = path::temp_new(save_folder)!;
             //bool! sucess    = path::mkdir(save_path);
             bool! sucess    = fs::makeDirectory(local_game.app_save_folder);
             if(catch excuse = sucess) {
-                filelgr.log(TraceLogLevel.WARNING,"Failed to create %s folder inside %s with excuse: %s", 
+                lgr::warning(Where.FILE,"Failed to create %s folder inside %s with excuse: %s", 
                            local_game.app_name, local_game.app_save_folder, excuse);
                 $if $feature(_DEBUG):
                 unreachable();
@@ -1457,17 +1453,17 @@ fn void! gameOnStart(String[]* args) @local
 
     ini::FileData*! settings_file = ini::load(ini_file_path, false); //ini::load(SETTINGS_FILE_NAME);
     if( catch excuse = settings_file) {
-        filelgr.log(TraceLogLevel.WARNING, "Failed to load %s file with excuse: %s", ini_file_path, excuse);
+        lgr::warning(Where.FILE, "Failed to load %s file with excuse: %s", ini_file_path, excuse);
         return excuse?;
     }
     defer if(settings_file) ini::unload(settings_file);
 // end_region Ini file handling
 
     // log the amount of screen resolutions and their Mode
-    filelgr.info("Total video modes : %d", SCREEN_RES.len);
-    filelgr.info("Enumerate rendering video modes:");
+    lgr::info(Where.FILE, "Total video modes : %d", SCREEN_RES.len);
+    lgr::info(Where.FILE, "Enumerate rendering video modes:");
     foreach(res: SCREEN_RES) {
-        filelgr.log(TraceLogLevel.INFO, "\t%s", res.str);
+        lgr::info(Where.FILE, "\t%s", res.str);
     }
     
     // default screen resolution
@@ -1480,7 +1476,7 @@ fn void! gameOnStart(String[]* args) @local
     if(res_index >= 0) {
         // prevent array overflow
         if(res_index >= SCREEN_RES.len) {
-            filelgr.warning("Array index overflow, r_mode = %d is not valid, clamping to: %d", res_index, SCREEN_RES.len - 1);
+            lgr::warning(Where.FILE, "Array index overflow, r_mode = %d is not valid, clamping to: %d", res_index, SCREEN_RES.len - 1);
             res_index = SCREEN_RES.len - 1; // last screen resolution
         }
     }
@@ -1498,7 +1494,7 @@ fn void! gameOnStart(String[]* args) @local
             if(try value =  settings_file.getIntValue("r_custom_heigth")) h_value = value;
             
             if(!resValuesSafe(w_value, h_value)) {
-                filelgr.warning("Invalid custom resolution values {%s, %s} in %s setting defaults.", w_value, h_value, INI_SETTINGS_FILE_NAME);
+                lgr::warning(Where.FILE, "Invalid custom resolution values {%s, %s} in %s setting defaults.", w_value, h_value, INI_SETTINGS_FILE_NAME);
                 res_index = (int)DEFAULT_SCREEN_INDEX;
             } else {
                 res_index = (int)getResolutionIndexFromValues(w_value, h_value);
@@ -1507,7 +1503,7 @@ fn void! gameOnStart(String[]* args) @local
         
         // // prevent array overflow
         // if(res_index >= SCREEN_RES.len) {
-            // filelgr.warning("-Array index overflow, ini r_mode = %d is not valid, clamping to: %d", res_index, SCREEN_RES.len - 1);
+            // lgr::warning(Where.FILE, "-Array index overflow, ini r_mode = %d is not valid, clamping to: %d", res_index, SCREEN_RES.len - 1);
             // res_index = SCREEN_RES.len - 1; // last screen resolution
         // }
     }
@@ -1515,7 +1511,7 @@ fn void! gameOnStart(String[]* args) @local
     assert(res_index >= 0);
     local_game.screen.w = SCREEN_RES[res_index].w;
     local_game.screen.h = SCREEN_RES[res_index].h;
-    filelgr.log(TraceLogLevel.INFO, "Video mode set -> %s", SCREEN_RES[res_index].str);
+    lgr::info(Where.FILE,  "Video mode set -> %s", SCREEN_RES[res_index].str);
     
     // Vertical sync (may or may not apply...)
     if(try settings_file.getBoolValue("vsync")) {
@@ -1531,7 +1527,7 @@ fn void! gameOnStart(String[]* args) @local
     // prevent under or overflow
     if(fullscreen_choice < -1 || fullscreen_choice > 2) {
         int choice = fullscreen_choice;
-        filelgr.log(TraceLogLevel.WARNING, "invalid value: %d for r_fullscreen, using default. Valid values are '-1, 0, 1, 2'", choice);
+        lgr::warning(Where.FILE, "invalid value: %d for r_fullscreen, using default. Valid values are '-1, 0, 1, 2'", choice);
         if(choice < -1) {
             fullscreen_choice = -1;
         } else {
@@ -1544,11 +1540,11 @@ fn void! gameOnStart(String[]* args) @local
         case 1:
             window_flags |= (int)rl::FLAG_FULLSCREEN_MODE;
             local_game.screen.state.fullscreen = true;
-            filelgr.log(TraceLogLevel.INFO, "Game window set to Real/Dedicated Fullscreen mode.");
+            lgr::info(Where.FILE,  "Game window set to Real/Dedicated Fullscreen mode.");
         case 2:
             window_flags |= (int)rl::FLAG_WINDOW_UNDECORATED;
             local_game.screen.state.borderless = true;
-            filelgr.log(TraceLogLevel.INFO, "Game window set to Borderless fullscreen mode.");
+            lgr::info(Where.FILE,  "Game window set to Borderless fullscreen mode.");
         default: // fullscreen_choice = -1 or = 0
             local_game.screen.state.window = true;
     }
@@ -1559,7 +1555,7 @@ fn void! gameOnStart(String[]* args) @local
             if(msaa_samples > 0) {
                 window_flags |= (int)rl::FLAG_MSAA_4X_HINT;
                 local_game.screen.multiSamples = msaa_samples;
-                filelgr.info("MSAA enabled (Raylib only supports 4x).");
+                lgr::info(Where.FILE, "MSAA enabled (Raylib only supports 4x).");
             }
         }
     }
@@ -1585,7 +1581,7 @@ fn void! gameOnStart(String[]* args) @local
     //
     
     if(rl::isWindowReady() == false) {
-        filelgr.log(TraceLogLevel.FATAL, "Failed to init rl window and OpenGL context!");
+        lgr::fatal(Where.FILE, "Failed to init rl window and OpenGL context!");
         return GameError.WINDOW_INIT_FAILED?;
     }
     
@@ -1605,12 +1601,12 @@ $endif
     // region AUDIO DEVICE initialization
     rl::initAudioDevice(); 
     if(rl::isAudioDeviceReady() == false) {
-        filelgr.warning("AudioDevice: Not ready, sound will be disabled! %s:%s", $$MODULE, $$FUNC );
+        lgr::warning(Where.FILE, "AudioDevice: Not ready, sound will be disabled! %s:%s", $$MODULE, $$FUNC );
     }
     
     if(rl::getMasterVolume() < 1.0f) {
         rl::setMasterVolume(1.0f);
-        filelgr.info("Audio Master Volume set to = %s", 1.0f);
+        lgr::info(Where.FILE, "Audio Master Volume set to = %s", 1.0f);
     }
     
     // load required default sound
@@ -1620,14 +1616,14 @@ $endif
         rl::playSound(local_game.default_sound);
     $endif
     } else {
-        filelgr.log(TraceLogLevel.FATAL, "Required default asset: \"sounds/default.wav\" failed to load!");
+        lgr::fatal(Where.FILE, "Required default asset: \"sounds/default.wav\" failed to load!");
         return GameError.MISSING_REQUIRED_ASSET?;
     }
     
     // load required default music
     local_game.default_music = rl::loadMusicStream(local_game.app_base_folder.tconcat("music//default.mp3").zstr_tcopy());
     if(rl::isMusicValid(local_game.default_music) == false) {
-        filelgr.log(TraceLogLevel.FATAL, "Required default asset: \"music/default.mp3\" failed to load!");
+        lgr::fatal(Where.FILE, "Required default asset: \"music/default.mp3\" failed to load!");
         return GameError.MISSING_REQUIRED_ASSET?;
     }
     // end_region AUDIO DEVICE initialization
@@ -1638,7 +1634,7 @@ $endif
     int current_monitor = 0; //= rl::getCurrentMonitor();
     int monitor_count   = rl::getMonitorCount();
     if(monitor_count >= 2) {
-        filelgr.info("Multi-Monitor setup:");
+        lgr::info(Where.FILE, "Multi-Monitor setup:");
         bool chose_screen_pos_by_mouse = true; // @Hardcode
         if(chose_screen_pos_by_mouse)
         {
@@ -1680,17 +1676,17 @@ $endif
         }
     }
     
-    filelgr.log(TraceLogLevel.INFO, "Window put on monitor id: '%d'", ++current_monitor);
+    lgr::info(Where.FILE,  "Window put on monitor id: '%d'", ++current_monitor);
     
     // @Todo 
     // support unlocked framerates? 
     // Support user setting frame rate on main menu?
     int monitor_speed = rl::getMonitorRefreshRate(current_monitor);
     rl::setTargetFPS(monitor_speed);
-    filelgr.log(TraceLogLevel.INFO, "Game set to %shz update rate.", monitor_speed);    
+    lgr::info(Where.FILE,  "Game set to %shz update rate.", monitor_speed);    
     
     // region Asset manager
-    filelgr.log(TraceLogLevel.INFO, "** Starting Assets Loading **");
+    lgr::info(Where.FILE,  "** Starting Assets Loading **");
     
     // first load default assets
     
@@ -1703,7 +1699,7 @@ $endif
         local_game.app_base_folder.tconcat("shaders//default.fs").zstr_tcopy()
     );
     if(rl::isShaderValid(local_game.default_shader) == false) {
-        filelgr.log(TraceLogLevel.FATAL, "Required default shader not found in folder %s!", local_game.app_base_folder.tconcat("//shaders"));
+        lgr::fatal(Where.FILE, "Required default shader not found in folder %s!", local_game.app_base_folder.tconcat("//shaders"));
         return GameError.MISSING_REQUIRED_ASSET?;
     }
     //local_game.default_shader.locs[rl::ShaderLocationIndex.COLOR_DIFFUSE] = rl::getShaderLocation(local_game.default_shader, "DestinationColor");
@@ -1712,7 +1708,7 @@ $endif
     // get required default game texture
     local_game.default_texture = rl::loadTexture(local_game.app_base_folder.tconcat("images//default.png").zstr_tcopy());
     if(local_game.default_texture.isInvalid()) {
-        filelgr.log(TraceLogLevel.FATAL, "Required asset: images//default.png failed to load!");
+        lgr::fatal(Where.FILE, "Required asset: images//default.png failed to load!");
         return GameError.MISSING_REQUIRED_ASSET?;
     }
     
@@ -1728,7 +1724,7 @@ $endif
     local_game.initFonts();
     //
         
-    filelgr.log(TraceLogLevel.INFO, "** done **.");
+    lgr::info(Where.FILE,  "** done **.");
     // end_region Asset manager
     
     // setup/init game view (for now is a static)
@@ -1816,14 +1812,14 @@ $endif
     // NOTE(HM) todo: the player and entities should be created only at spawn of a level 
     // but right now, I don't have a concept of a "level" or World.
     // TODO make a special spawn point entity for the player
-    filelgr.log(TraceLogLevel.INFO, "** Creating test player. **");
+    lgr::info(Where.FILE,  "** Creating test player. **");
     local_game.main_player = pl::makePlayer(id: 1, color: rl::BLUE);
     // NOTE(HM) The first entity is always the main player1
     local_game.entityList.push((Entity*)local_game.main_player);
-    filelgr.log(TraceLogLevel.INFO, "** Done **.");
+    lgr::info(Where.FILE,  "** Done **.");
     
     // Create test entities @delete
-    filelgr.log(TraceLogLevel.INFO, "** Creating test entities. **");
+    lgr::info(Where.FILE,  "** Creating test entities. **");
     for(int i = 1; i <= 2; i++) {
         Vec2f origin = local_game.view.camera.target.toVec2f();
         origin.translateV(misc::VEC_UP * 100 * i);
@@ -1833,9 +1829,9 @@ $endif
         test_ent.setTexture("figure.png");
     }
     
-    filelgr.log(TraceLogLevel.INFO, "** Done. **");
+    lgr::info(Where.FILE,  "** Done. **");
     
-    filelgr.log(TraceLogLevel.INFO, "** Enabling test entities brains. **");
+    lgr::info(Where.FILE,  "** Enabling test entities brains. **");
     if(local_game.entityList.len() >= 1) {
         local_game.should_update_entities = true;
         
@@ -1869,17 +1865,17 @@ $endif
     local_game.test_panel.setPositionV(local_game.main_player.getPosition());
     
     
-    filelgr.log(TraceLogLevel.INFO, "** Done. **");
+    lgr::info(Where.FILE,  "** Done. **");
 // end_region Test game stuff
     
     local_game.should_quit = false;
     //if(local_game.numEntitiesToDeactivate) local_game.numEntitiesToDeactivate = 0;
-    filelgr.log(TraceLogLevel.INFO, "Game Start Done Sucessfully.\n//**//");
+    lgr::info(Where.FILE,  "Game Start Done Sucessfully.\n//**//");
 }
 
 fn void gameOnExit() @local 
 {
-    filelgr.log(TraceLogLevel.INFO, "Game shutdown starting.");
+    lgr::info(Where.FILE,  "Game shutdown starting.");
     deinit_game_cursor();
     asstManager.releaseAllAssets();
     rl::closeAudioDevice();
@@ -1890,16 +1886,13 @@ fn void gameOnExit() @local
         misc::freeDebugLines();
     }
     //rl::memFree(memory_pool);
-    filelgr.log(TraceLogLevel.INFO, "clearing game singletons and log system!\n\t** Printing done on console from this point on **");
+    lgr::info(Where.FILE,  "clearing game singletons and log system!\n\t** Printing done on console from this point on **");
     clear_game_singletons();
     io::printfn("Game shutdown done!\n");
 }
 
 fn void clear_game_singletons() @inline {
     gpGame = null; // clear pointer to game singleton
-    // clear file logger
-    filelgr.deinit();
-    lgr::gpfLog      = null;
     //
     input::gpManager.free();
     input::gpManager = null;
@@ -1915,13 +1908,13 @@ fn void saveGame() {
         svs::SaveFile! save_file = svs::make_new(file_path);
         defer (void)svs::close(&save_file);
         if(catch excuse = save_file) {
-            filelgr.log(TraceLogLevel.WARNING, "Unable to save to file: %s with excuse: %s", file_path, excuse);
+            lgr::warning(Where.FILE, "Unable to save to file: %s with excuse: %s", file_path, excuse);
             return;
         }
         local_game.save(&save_file);
-        filelgr.log(TraceLogLevel.INFO, "Saved \"%s\" to folder: %s", file_path, save_folder);
+        lgr::info(Where.FILE,  "Saved \"%s\" to folder: %s", file_path, save_folder);
     } else {
-        filelgr.log(TraceLogLevel.WARNING,`Required save folder inside %s not found!\n
+        lgr::warning(Where.FILE,`Required save folder inside %s not found!\n
                     A folder called '%s' (case sensitive) most exist there!`,
                     local_game.app_save_folder, local_game.app_name);
         $if $feature(_DEBUG):
@@ -1936,7 +1929,7 @@ fn void loadGame() {
     
     FilePathList files = fs::loadDirectoryFiles(local_game.app_save_folder);
     if(files.count == 0) {
-        gameWarning("Failed to get save files from: %s.", local_game.app_save_folder);
+        lgr::warning(Where.CONSOLE, "Failed to get save files from: %s.", local_game.app_save_folder);
         return;
     }
     
@@ -1962,7 +1955,7 @@ fn void loadGame() {
         svs::SaveFile! save_file = svs::open(((ZString)files.paths[file_index]).str_view());
         defer (void)svs::close(&save_file);
         if(catch excuse = save_file) {
-            filelgr.log(TraceLogLevel.WARNING, "Unable to open save file: %s with excuse: %s", files.paths[file_index], excuse);
+            lgr::warning(Where.FILE, "Unable to open save file: %s with excuse: %s", files.paths[file_index], excuse);
             return;
         }
         
@@ -1972,13 +1965,13 @@ fn void loadGame() {
 /* 
     Path! path = path::temp_new(local_game.app_save_folder);
     if(catch excuse = path) {
-        gameWarning("Failed to get home dir where save files are at with excuse: %s.", excuse);
+        lgr::warning(Where.CONSOLE, "Failed to get home dir where save files are at with excuse: %s.", excuse);
         return;
     }
     
     PathList! files  = path::new_ls(path)!!; // new_ls only returns the filenames
     if(catch excuse = files) {
-       gameWarning("Failed to get save files from home dir with excuse: %s.", excuse);
+       lgr::warning(Where.CONSOLE, "Failed to get save files from home dir with excuse: %s.", excuse);
         return;
     }
     
@@ -2009,7 +2002,7 @@ fn void loadGame() {
         svs::SaveFile! save_file = svs::open(file_path);
         defer (void)svs::close(&save_file);
         if(catch excuse = save_file) {
-            filelgr.log(TraceLogLevel.WARNING, "Unable to open save file: %s with excuse: %s", file_path, excuse);
+            lgr::warning(Where.FILE, "Unable to open save file: %s with excuse: %s", file_path, excuse);
             return;
         }
         
@@ -2057,26 +2050,27 @@ fn void pre_InitFunc() @init {
     //memory_pool = (usz*)rl::memAlloc( value * uint.sizeof);
     gameArena.init(GAME_ARENA_PAGE_SIZE, allocator::heap());
     
-    // NOTE(HM) 
-    // Raylib library gets initialized here, because this function calls raylib functions internaly
-    lgr::gpfLog.init();
-    
-    // controls FILE logging 
-    // NOTE(HM) This means the MINIMUM log level not the only level to log
-    // anything bellow this level will not log
-    lgr::gpfLog.setLogLevel(rl::TraceLogLevel.INFO);
-    
     // Controls raylib console logging
+    // Raylib library gets initialized here, because this function calls a raylib function
     // NOTE(HM) This means the MINIMUM log level not the only level to log
     // anything bellow this level will not log
     rl::setTraceLogLevel(rl::TraceLogLevel.INFO);
+    
+    // controls file and Console logging
+    // NOTE(HM) 
+    lgr::init();
+    
+    // NOTE(HM) This means the MINIMUM log level not the only level to log
+    // anything bellow this level will not log
+    lgr::setLogLevel(rl::TraceLogLevel.INFO);
+    
 }
 
 fn int main(String[] args) @public
 {
     anyfault excuse = @catch(gameOnStart(&args));
     if (excuse) {
-        gameError("Game initialization failed with excuse: %s", excuse);
+        lgr::error(Where.CONSOLE, "Game initialization failed with excuse: %s", excuse);
         return -1;
     } else {
         //assetsLoadingMutex.init()!!;
@@ -2142,7 +2136,7 @@ fn void parse_user_settings(FileData* settings, int* window_flags)
     {
         // handle empty sections
         if(section.cmds.is_empty()) {
-            gameWarning("Cmd list of section %s is empty. Using defaults.", section.name, INI_SETTINGS_FILE_NAME);
+            lgr::warning(Where.CONSOLE, "Cmd list of section %s is empty. Using defaults.", section.name, INI_SETTINGS_FILE_NAME);
             continue;
         }
         
@@ -2163,7 +2157,7 @@ fn void parse_user_settings(FileData* settings, int* window_flags)
                                 case "developer":
                                 nextcase;
                                 default:
-                                    gameWarning("Cmd \"%s = %s\" in file %s is still not handled.", cmd_id, cmd_value, INI_SETTINGS_FILE_NAME);
+                                    lgr::warning(Where.CONSOLE, "Cmd \"%s = %s\" in file %s is still not handled.", cmd_id, cmd_value, INI_SETTINGS_FILE_NAME);
                             }
                         case ini::INT:
                             switch(cmd_id) 
@@ -2178,7 +2172,7 @@ fn void parse_user_settings(FileData* settings, int* window_flags)
                                             (*window_flags) |= (int)rl::FLAG_WINDOW_UNDECORATED;
                                         }
                                     } else {
-                                        gameWarning("Unnable to convert value %s of cmd %s of section %s to int.", cmd_value, cmd_id, section.name);
+                                        lgr::warning(Where.CONSOLE, "Unnable to convert value %s of cmd %s of section %s to int.", cmd_value, cmd_id, section.name);
                                     }
                                     
                                 case "r_mode":
@@ -2194,7 +2188,7 @@ fn void parse_user_settings(FileData* settings, int* window_flags)
                                 case "brightness":
                                 nextcase;
                                 default:
-                                    gameWarning("Cmd \"%s = %s\" in file %s is still not handled.", cmd_id, cmd_value, INI_SETTINGS_FILE_NAME);
+                                    lgr::warning(Where.CONSOLE, "Cmd \"%s = %s\" in file %s is still not handled.", cmd_id, cmd_value, INI_SETTINGS_FILE_NAME);
                             }
                         case ini::FLOAT:
                             switch(cmd_id) 
@@ -2202,7 +2196,7 @@ fn void parse_user_settings(FileData* settings, int* window_flags)
                                 case "unknown":
                                 nextcase;
                                 default:
-                                    gameWarning("Cmd \"%s = %s\" in file %s is still not handled.", cmd_id, cmd_value, INI_SETTINGS_FILE_NAME);
+                                    lgr::warning(Where.CONSOLE, "Cmd \"%s = %s\" in file %s is still not handled.", cmd_id, cmd_value, INI_SETTINGS_FILE_NAME);
                             }
                         case ini::STRING:
                             switch(cmd_id) 
@@ -2210,7 +2204,7 @@ fn void parse_user_settings(FileData* settings, int* window_flags)
                                 case "unknown":
                                 nextcase;
                                 default:
-                                    gameWarning("Cmd \"%s = %s\" in file %s is still not handled.", cmd_id, cmd_value, INI_SETTINGS_FILE_NAME);
+                                    lgr::warning(Where.CONSOLE, "Cmd \"%s = %s\" in file %s is still not handled.", cmd_id, cmd_value, INI_SETTINGS_FILE_NAME);
                             }
                         default:
                             unreachable();
@@ -2236,11 +2230,11 @@ fn void parse_user_settings(FileData* settings, int* window_flags)
                         nextcase;
                         case "editor":
                         default:
-                            gameWarning("action \"%s = %s\" in file %s is still not handled.", cmd_id, cmd_value, INI_SETTINGS_FILE_NAME);
+                            lgr::warning(Where.CONSOLE, "action \"%s = %s\" in file %s is still not handled.", cmd_id, cmd_value, INI_SETTINGS_FILE_NAME);
                     }
                 }
             default:
-                gameWarning("Found empty section %s in ini file %s.", section.name, INI_SETTINGS_FILE_NAME);
+                lgr::warning(Where.CONSOLE, "Found empty section %s in ini file %s.", section.name, INI_SETTINGS_FILE_NAME);
         }
     }
 }

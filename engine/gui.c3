@@ -43,6 +43,7 @@ import raylib5::rl;
 import engine::misc;
 import engine::assets::astmng; // asset manager
 import game::serialize::svs; // save system
+import engine::logging::lgr;
 // end_region
 
 // region defines
@@ -345,7 +346,7 @@ fn void Panel.addTo(&self, Desktop* desk) @inline {
 *>
 fn void Panel.bindTo(&self, Panel* other) @inline {
     if(self.bound()) {
-        main::gameWarning("Cannot Bind %s to %s because is already bound to %s.", self.id, other.id, self.parent.panel.id);
+        lgr::warning(Where.CONSOLE, "Cannot Bind %s to %s because is already bound to %s.", self.id, other.id, self.parent.panel.id);
         return;
     }
     
@@ -383,7 +384,7 @@ fn void Panel.update(&self) @inline {
     if(self.hidden()) return;
     
     if (isMouseOver(self)) {
-        //main::gameLog("GUI: I'm over the Panel: %s", self.name);
+        //main::lgr::info(Where.CONSOLE, "GUI: I'm over the Panel: %s", self.name);
         self.flags.asFocus = true;
     } else {
         self.flags.asFocus = false;
@@ -492,7 +493,7 @@ fn void Panel.draw(&self) @inline {
             rl::drawRectangleRounded(self.visual.rect, 0.65f, 6, self.visual.color);
         }
         //$if $feature(_DEBUG):
-            //main::gameLog("I'm drawing!!!!!!!!!!!!!!!!!!!");
+            //main::lgr::info(Where.CONSOLE, "I'm drawing!!!!!!!!!!!!!!!!!!!");
         //$endif
     }
 }
@@ -566,7 +567,7 @@ fn void Widget.updatePos(&self) @inline @local {
 *>
 fn void Widget.bindTo(&self, Widget* other) @dynamic {
     if(self.bound()) {
-        main::gameWarning("Cannot Bind %s to %s because is already bound to %s.", self.id, other.id, self.parent_widget.id);
+        lgr::warning(Where.CONSOLE, "Cannot Bind %s to %s because is already bound to %s.", self.id, other.id, self.parent_widget.id);
         return;
     }
     
@@ -714,12 +715,12 @@ fn void WidgetButton.setOverColor(&self, Color color) @inline => self.over_color
 fn void WidgetButton.manage_interaction(&self) @local {
     if (self.flags.asFocus && self.flags.isInteractive) 
     {
-        //main::gameLog("Gui: I'm over button: %s", self.name);
+        //main::lgr::info(Where.CONSOLE, "Gui: I'm over button: %s", self.name);
         if(self.onOver) self.onOver(self);
         
         self.pressed = rl::isMouseButtonDown(MouseButton.LEFT);
         if(self.pressed) {
-            //main::gameLog("Gui: I'm pressing button: %s", self.name);
+            //main::lgr::info(Where.CONSOLE, "Gui: I'm pressing button: %s", self.name);
             if(self.onPress) self.onPress(self);
             
             self.press_count++;
@@ -995,7 +996,7 @@ DesktopManager* gpManager = &local_manager;
 fn void DesktopManager.register(&self, Desktop* _desk) @inline {
     foreach(desk : self.desktops) {
         if(desk.name == _desk.name) {
-            main::gameWarning("Cannot register \"%s\" because is already registered.", desk.name);
+            lgr::warning(Where.CONSOLE, "Cannot register \"%s\" because is already registered.", desk.name);
             return;
         }
     }

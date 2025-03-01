@@ -136,6 +136,7 @@ import std::collections::list;
 import raylib5::rl;
 import game::main;
 import engine::assets_api::asapi;
+import engine::logging::lgr;
 import engine::filesystem::fs;
 import engine::misc;
 // end_region
@@ -217,35 +218,35 @@ fn void Manager.listAssets(&self) @if($feature(_DEBUG)) {
 	
 	if(texture_assets.len()) 
 	{
-		main::gameLog("[TEXTURES]");
+		lgr::info(Where.CONSOLE, "[TEXTURES]");
 		foreach(asset: texture_assets) {
 			io::printfn("\t-> [%s , %s]", asset.name, asset.path);
 		}
 	}
 	if(shader_assets.len()) 
 	{
-		main::gameLog("[SHADERS]");
+		lgr::info(Where.CONSOLE, "[SHADERS]");
 		foreach(asset: shader_assets) {
 			io::printfn("\t-> [%s , %s]", asset.name, asset.path[0:asset.path.len - 3]);
 		}
 	}
 	if(sound_assets.len()) 
 	{
-		main::gameLog("[SOUNDS]");
+		lgr::info(Where.CONSOLE, "[SOUNDS]");
 		foreach(asset: sound_assets) {
 			io::printfn("\t-> [%s , %s]", asset.name, asset.path);
 		}
 	}
 	if(music_assets.len()) 
 	{
-		main::gameLog("[MUSIC]");
+		lgr::info(Where.CONSOLE, "[MUSIC]");
 		foreach(asset: music_assets) {
 			io::printfn("\t-> [%s , %s]", asset.name, asset.path);
 		}
 	}
 	if(font_assets.len()) 
 	{
-		main::gameLog("[FONTS]");
+		lgr::info(Where.CONSOLE, "[FONTS]");
 		foreach(asset: font_assets) {
 			io::printfn("\t-> [%s , %s]", asset.name, asset.path);
 		}
@@ -326,7 +327,7 @@ fn Texture2D* Manager.getTexture(&self, String name) @inline {
         }
     }
     
-    main::filelgr.log(TraceLogLevel.WARNING, "[Asset Manager]: Requesting texture asset but returning default texture, because no asset name was provided.");
+    lgr::warning(Where.FILE,  "[Asset Manager]: Requesting texture asset but returning default texture, because no asset name was provided.");
     return &main::gpGame.default_texture;
 }
 
@@ -339,7 +340,7 @@ fn Shader* Manager.getShader(&self, String name) @inline {
 		assert(asset.data.ptr != null);
 		return (Shader*)asset.data.ptr;
 	} else {
-        main::filelgr.log(TraceLogLevel.WARNING, "[Asset Manager]: Requesting shader asset but returning default shader, because no asset name was provided.");
+        lgr::warning(Where.FILE,  "[Asset Manager]: Requesting shader asset but returning default shader, because no asset name was provided.");
 		return &main::gpGame.default_shader;
 	}
 }
@@ -351,7 +352,7 @@ fn Sound* Manager.getSound(&self, String name) @inline {
 	Asset* asset = local_manager.getAsset(name);
 	if(asset) return (Sound*)asset.data.ptr;
 	
-    main::filelgr.log(TraceLogLevel.WARNING, "[Asset Manager]: Requesting sound asset but returning default sound, because no asset name was provided.");
+    lgr::warning(Where.FILE,  "[Asset Manager]: Requesting sound asset but returning default sound, because no asset name was provided.");
 	return &main::gpGame.default_sound;
 }
 
@@ -362,7 +363,7 @@ fn Music* Manager.getMusic(&self, String name) @inline {
 	Asset* asset = local_manager.getAsset(name);
 	if(asset) return (Music*)asset.data.ptr;
 	
-    main::filelgr.log(TraceLogLevel.WARNING, "[Asset Manager]: Requesting music asset but returning default music, because no asset name was provided.");
+    lgr::warning(Where.FILE,  "[Asset Manager]: Requesting music asset but returning default music, because no asset name was provided.");
 	return &main::gpGame.default_music;
 }
 
@@ -373,7 +374,7 @@ fn Font* Manager.getFont(&self, String name) @inline {
 	Asset* asset = local_manager.getAsset(name);
 	if(asset) return (Font*)asset.data.ptr;
 	
-    main::filelgr.log(TraceLogLevel.WARNING, "[Asset Manager]: Requesting font asset but returning default font, because no asset name was provided.");
+    lgr::warning(Where.FILE,  "[Asset Manager]: Requesting font asset but returning default font, because no asset name was provided.");
 	return &main::gpGame.default_font;
 }
 
@@ -428,7 +429,7 @@ fn void! loadAssetsRecursively(String basepath, String parent_folder = "") @inli
 	
 	PathList! paths = path::temp_ls(path::temp_new(search_path));
 	if(catch excuse = paths) {
-		main::filelgr.log(TraceLogLevel.WARNING, "Unable to get files from folder: %s with excuse: %s", search_path, excuse);
+		lgr::warning(Where.FILE,  "Unable to get files from folder: %s with excuse: %s", search_path, excuse);
 		return AssetError.FOLDER_SCAN_ERROR?;
 	}
 	
@@ -684,7 +685,7 @@ fn void Material.parse(&self, String file_path) @dynamic
     defer file.close()!!;
     
     if(catch excuse = file) {
-       filelgr.log(TraceLogLevel.WARNING, " Failed to open material xml at [%s] with excuse: %s", file_path, excuse);
+       lgr::warning(Where.FILE, " Failed to open material xml at [%s] with excuse: %s", file_path, excuse);
        // DOC(HM) I need to return from a catch or the excuse will not unwrap,
        // and causes variable shadow error, preventing me from using excuse again bellow.
        return; 
@@ -705,7 +706,7 @@ fn void Material.parse(&self, String file_path) @dynamic
     
     String! id = (String)main_node.get_attrib_value("name");
     if (catch excuse = id) {
-        filelgr.log(TraceLogLevel.ERROR, "Failed getting Material name from %s with excuse: %s\n", file_path, excuse);
+        lgr::error(Where.FILE, "Failed getting Material name from %s with excuse: %s\n", file_path, excuse);
         main_node = null;
         return;
     } 
@@ -1038,7 +1039,7 @@ fn void Sound.setupFlags(&self) @inline
                     self.flags |= SoundFlags.PLAY_ONCE.ordinal;
                 }
             default:
-                filelgr.log(TraceLogLevel.WARNING, "Flag %s for SoundShader %s is still not finished!\n", spwarg.key, self.name);
+                lgr::warning(Where.FILE, "Flag %s for SoundShader %s is still not finished!\n", spwarg.key, self.name);
         }
    }
 }
@@ -1056,7 +1057,7 @@ fn void SoundShader.update(&self)
             if(has_various_sounds) {
                 foreach(i, snd : self.sounds) {
                     if(snd.sound == null) {
-                        filelgr.log(TraceLogLevel.WARNING, "Trying to play sound [%s] from SoundShader %s but has no sound to play!\n", i, self.name);
+                        lgr::warning(Where.FILE, "Trying to play sound [%s] from SoundShader %s but has no sound to play!\n", i, self.name);
                         continue;
                     }
                     if(snd.spawnargs.len()) {
@@ -1065,11 +1066,11 @@ fn void SoundShader.update(&self)
                 }
             } else {
                 shdshd::Sound* snd = &self.sounds[0];
-                if(snd.sound == null) filelgr.log(TraceLogLevel.WARNING, "Trying to play SoundShader %s but has no sounds to play!\n", self.name);
+                if(snd.sound == null) lgr::warning(Where.FILE, "Trying to play SoundShader %s but has no sounds to play!\n", self.name);
             }
             
         } else {
-            filelgr.log(TraceLogLevel.WARNING, "Empty SoundShader %s found!\n", self.name);
+            lgr::warning(Where.FILE, "Empty SoundShader %s found!\n", self.name);
         }
         //rl::playSound
     }
@@ -1100,7 +1101,7 @@ fn void! loadSoundShaderRecursively(String basepath, String parent_folder = "") 
 	
 	PathList! paths = path::temp_ls(path::temp_new(search_path));
 	if(catch excuse = paths) {
-		filelgr.log(TraceLogLevel.WARNING, "Unable to get files from folder: %s with excuse: %s", search_path, excuse);
+		lgr::warning(Where.FILE, "Unable to get files from folder: %s with excuse: %s", search_path, excuse);
 		return AssetError.FOLDER_SCAN_ERROR?;
 	}
 	
@@ -1211,7 +1212,7 @@ fn void SoundShader.load(&self)
     defer file.close()!!;
     
     if(catch excuse = file) {
-       filelgr.log(TraceLogLevel.WARNING, " Failed to open [%s] with excuse: %s", self.path, excuse);
+       lgr::warning(Where.FILE, " Failed to open [%s] with excuse: %s", self.path, excuse);
        // DOC(HM) I need to return from a catch or the excuse will not unwrap,
        // and causes variable shadow error, preventing me from using excuse again bellow.
        return; 
@@ -1221,7 +1222,7 @@ fn void SoundShader.load(&self)
     defer doc.free();
     
     if(catch excuse = doc) {
-       filelgr.log(TraceLogLevel.WARNING, " Failed to read xml from [%s] with excuse: %s", self.path, excuse);
+       lgr::warning(Where.FILE, " Failed to read xml from [%s] with excuse: %s", self.path, excuse);
        return; 
     }
     
@@ -1234,7 +1235,7 @@ fn void SoundShader.load(&self)
     doc.find_nodes_by_tag_name("SOUND", &soundNodes);
     
     if (soundNodes.len() <= 0) {
-        filelgr.log(TraceLogLevel.WARNING, "Failed getting sound nodes from %s with excuse: %s\n", self.path, excuse);
+        lgr::warning(Where.FILE, "Failed getting sound nodes from %s with excuse: %s\n", self.path, excuse);
         return;
     }
     
@@ -1247,7 +1248,7 @@ fn void SoundShader.load(&self)
     
     String! id = (String)main_node.get_attrib_value("name");
     if (catch excuse = id) {
-        filelgr.log(TraceLogLevel.ERROR, "Failed getting Material name from %s with excuse: %s\n", self.path, excuse);
+        lgr::error(Where.FILE, "Failed getting Material name from %s with excuse: %s\n", self.path, excuse);
         main_node = null;
         return;
     } 
