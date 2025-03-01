@@ -1,12 +1,9 @@
 module game::gui::intro;
 
-// region C3 modules
+// region modules
 import std::io;
 import std::core::mem; // for malloc
 import std::collections::list;
-// end_region
-
-// region custom modules
 import game::main;
 import engine::input;
 import raylib5::rl;
@@ -31,7 +28,10 @@ struct Frame @local {
 struct IntroAnimation (SaveSystemInterface) {
    FrameQueue frames;
    Frame* current_frame;
-   
+
+   int fade_in_time;
+   int fade_out_time;
+
    bool should_play;
 }
 
@@ -81,10 +81,16 @@ fn bool updateIntroAnimation(IntroAnimation* anim) {
     do {
         bool stop_anim = input::getAction("noIntro").fnBecameTriggered();
         
-        if(anim.current_frame && 
-           anim.current_frame.end_time > 0 && 
-           main::gpGame.time_ms <= anim.current_frame.end_time && 
-           stop_anim == false)
+        int current_time = main::gpGame.time_ms;
+        if (!stop_anim && anim.current_frame && index == 0) // first frame
+        {
+            anim.current_frame.start_time = current_time;
+            anim.current_frame.end_time   = anim.current_frame.start_time + anim.current_frame.draw_time;
+            continue;
+        }
+
+        if(!stop_anim && anim.current_frame && anim.current_frame.end_time > 0 && 
+           current_time <= anim.current_frame.end_time)
         {
             any panel = any_make(anim.current_frame.image, gui::Panel_Image.typeid);
             gui::updatePanel(panel);
@@ -98,11 +104,6 @@ fn bool updateIntroAnimation(IntroAnimation* anim) {
             } else {
                 anim.current_frame = null;
             }
-        }
-        else if(anim.current_frame && !index) // first frame
-        {
-            anim.current_frame.start_time = main::gpGame.time_ms;
-            anim.current_frame.end_time   = anim.current_frame.start_time + anim.current_frame.draw_time;
         }
     } while(anim.current_frame != null);
     
