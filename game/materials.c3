@@ -12,11 +12,12 @@ import game::serialize::svs; // save system
 // end_region
 
 // region defines
-//def FrameQueue  = List(<Frame*>);
+def MaterialMapQueue  = List(<rl::MaterialMap>);
 // end_region
 
 // region constants
 //const DEFAULT_SHOW_TIME = 3000; // ms
+const DEFAULT_MATERIAL_MAP_COUNT = 5;
 // end_region
 
 enum GlobalParms : int (String keyword) {
@@ -152,14 +153,26 @@ enum StageParms : int(String keyword) {
     ZEROCLAMP = "zeroclamp"
 }
 
-/*
-struct Frame @local {
-    gui::Panel_Image* image;
-    int draw_time;
-    int start_time;
-    int end_time;
+// The order is important is how they are saved in the list queue a load time.
+enum MatMapKind : int {
+    ALBEDO,  //DIFFUSE
+    NORMAL,
+    SPECULAR,
+    EMISSION,
+    CUBEMAP
 }
 
+// Model model = LoadModel("resources/models/obj/castle.obj");                 // Load model
+// Texture2D texture = LoadTexture("resources/models/obj/castle_diffuse.png"); // Load model texture
+// model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;            // Set map diffuse texture
+
+struct Material {
+    String name;
+    String comment;
+    MaterialMapQueue maps;
+}
+
+/*
 struct IntroAnimation (SaveSystemInterface) {
    FrameQueue frames;
    Frame* current_frame;
