@@ -2123,7 +2123,7 @@ fn void pos_MainFunc() @finalizer
 
 fn int playIntro(void*) {
     do {
-        local_game.intro.should_play = true;
+        intro::triggerIntroAnimation(&local_game.intro);
     } while(intro::updateIntroAnimation(&local_game.intro));
     
     local_game.intro.should_play = false;

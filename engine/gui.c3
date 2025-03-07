@@ -145,35 +145,6 @@ fn bool isMouseOver(Panel* panel)  @local
     
     return false;
 }
-/*
-fn bool isMouseOver(Rectangle* widget)  @local
-{
-    Camera2D* view        = &main::gpGame.cameraView;
-    // Vec2f mouseWorldPos   = rl::getMousePosition();
-    // Vec2f mouseScreenPos  = misc::worldToScreen(mouseWorldPos);
-    // Vec2f widgetWorldPos  = misc::getRecPos(*widget);
-    // Vec2f widgetScreenPos = misc::worldToScreen(widgetWorldPos);
-    
-    Vec2f pos = rl::getMousePosition();
-    Vec2f mouseScreenPos  = misc::worldToScreen(pos);
-    Vec2f widgetScreenPos = misc::getRecScreenPos(*widget);
-    
-    Rectangle* mouseRect  = mem::temp_new(Rectangle, {mouseScreenPos.x, mouseScreenPos.y, 40, 40});
-    Rectangle* widgetRect = mem::temp_new(Rectangle);
-    mem::copy(widgetRect, widget, Rectangle.sizeof);
-    
-    widgetRect.x = widgetScreenPos.x;
-    widgetRect.y = widgetScreenPos.y;
-    
-    rl::drawRectangleRec(*mouseRect, rl::RED);
-    rl::drawRectangleRec(*widgetRect, rl::GREEN);
-    
-    if(rl::checkCollisionRecs(*mouseRect, *widgetRect)) return true;
-    
-    return false;
-}
-*/
-
 
 fn void Panel.initRec(&self, Rectangle rect, Color color = rl::COLOR_RED) @inline {
     self.type = Panel.typeid;
@@ -375,8 +346,10 @@ fn void Panel.draw(&self) @inline {
 
 //////////////// ************************ ////////////////////////
 
-// NOTE(HM) Widget is a data structure 
-// representing anything inside a gui, like buttons and such.
+// NOTE(HM) Widget is a data structure representing anything inside a gui, like buttons and such.
+
+const DEFAULT_WIDGET_SIZE_VALUE      = 16;
+const DEFAULT_WIDGET_POS_COORDINATE  = 0;
 
 interface WidgetInterface
 {
@@ -384,54 +357,108 @@ interface WidgetInterface
     // Widget  = parent widget whe may be bound to -> optional
     // String  = name of the widget for printing
     // typeid  = the class/type of this widget
-    fn void init(String name, typeid _type, Widget* parent = null, Desktop* desktop = null);
+    fn void init(Desktop* desktop, typeid _type = Widget.typeid);
     fn void deinit();
     // 
     fn void initExt() @optional;
     fn void update() @optional;
     //
-    fn void setBaseColor() @optional;
-    fn void setOverColor() @optional;
-    fn void setActivatedColor() @optional;
+    fn void setBaseColor(rl::Color) @optional;
+    fn void setPosition(float, float) @optional;
+    fn void setPositionV(Vec2f) @optional;
+    fn void setName(String) @optional;
+    fn void setInteractive(bool) @optional;
+    fn bool isInteractive() @optional;
+    fn void setOverColor(rl::Color) @optional;
+    fn void setActivatedColor(rl::Color) @optional;
     fn Desktop* getDesktop() @optional;
     fn void bindTo(Widget* other) @optional;
     fn bool bound() @optional;
     fn void unbind() @optional;
+    fn void link(Widget* other) @optional;
+    fn bool isLinked() @optional;
+    fn bool asFocus() @optional;
     
     // callbacks
     fn void onOver()        @optional;
     fn void onStopOver()    @optional;
     fn void onPress()       @optional;
     fn void onSinglePress() @optional;
+    fn void onDoublePress() @optional;
     fn void onRelease()     @optional;
+    fn void onEnterKey()    @optional;
 }
 
-// def Widget_OnOver_Callback        = fn void (Widget*);
-// def Widget_OnStopOver_Callback    = fn void (Widget*);
-// def Widget_OnPress_Callback       = fn void (Widget*);
-// def Widget_OnSinglePress_Callback = fn void (Widget*);
-// def Widget_OnRelease_Callback     = fn void (Widget*);
 struct Widget (WidgetInterface) {
     // extends Panel (super/base class)
-    inline Panel pnl;
+    inline Panel super;
     
     Widget* parent_widget;
+    Widget* next;
+}
+
+<*
+* @param in desktop "the desktop is the main area where widgets get put"
+* @param in parent  "another widget we may be bound to"
+* @require desktop != null
+*>
+fn void Widget.init(&self, Desktop* desktop, typeid _type = Widget.typeid) @dynamic {
+    self.type = _type;
+    self.visual.shape        = BOX;
+    self.parent.desktop      = desktop;
+    if(self.parent.desktop.isInteractive) self.setInteractive(true);
     
-    // callbacks
-    // Widget_OnOver_Callback        onOver;
-    // Widget_OnStopOver_Callback    onStopOver;
-    // Widget_OnPress_Callback       onPress;
-    // Widget_OnSinglePress_Callback onSinglePress;
-    // Widget_OnRelease_Callback     onRelease;
+    self.id = (int)self.parent.desktop.widgets.len() + 1;
+    // set name based on desktop name
+    String name = "Widget";
+    if(self.id < 10) {
+        self.name = string::tformat("%s_%s%d", self.parent.desktop.name, name.concat("0"), self.id);
+        if(self.parent_widget != null) {
+            self.name = string::tformat("%s_%s_%s%d", self.parent.desktop.name, self.parent_widget.name, name.concat("0"), self.id);
+        }
+    } else {
+        self.name = string::tformat("%s_%s%d", self.parent.desktop.name, name, self.id);
+        if(self.parent_widget != null) {
+            self.name = string::tformat("%s_%s_%s%d", self.parent.desktop.name, self.parent_widget.name, name, self.id);
+        }
+    }
+    
+    self.visual.color = rl::WHITE; // @hardcode
+    self.visual.tex   = null;
+    // position is relative to desktop origin
+    Vec2f desktop_origin = self.parent.desktop.rect.getPos().toVec2f();
+    self.visual.rect  = {
+    desktop_origin.x + DEFAULT_WIDGET_POS_COORDINATE, 
+    desktop_origin.y + DEFAULT_WIDGET_POS_COORDINATE, 
+    DEFAULT_WIDGET_SIZE_VALUE, 
+    DEFAULT_WIDGET_SIZE_VALUE
+    };
+    self.parent.desktop.addWidget(self);
+}
+
+fn void Widget.deinit(&self) @dynamic {
+    if(self.visual.tex)     self.visual.tex     = null;
+    if(self.parent_widget)  self.parent_widget  = null;
+    if(self.parent.desktop) self.parent.desktop = null;
+    if(self.parent.panel)   self.parent.panel   = null;
+    if(self.next)           self.next = null;
+}
+
+fn void Widget.setPosition(&self, float x, float y) @dynamic @inline {
+    self.visual.rect.x = x;
+    self.visual.rect.y = y;
+}
+
+fn void Widget.setPositionV(&self, Vec2f pos) @dynamic @inline {
+    self.setPosition(pos.x, pos.y);
 }
 
 fn void Widget.updatePos(&self) @inline @local {
     if(self.bound()) {
-        // our position is relative to the parent origin
         Vec2f parent_origin = self.parent_widget.visual.rect.getPos().toVec2f();
-        Vec2f offset        = parent_origin + (self.visual.rect.getPos().toVec2f() - parent_origin);
-        self.visual.rect.x += offset.x;
-        self.visual.rect.y += offset.y;
+        Vec2f our_origin    = self.visual.rect.getPos().toVec2f();
+        Vec2f offset        = parent_origin + (our_origin - parent_origin);
+        self.setPositionV(offset);
     }
 }
 
@@ -446,16 +473,20 @@ fn void Widget.bindTo(&self, Widget* other) @dynamic {
         return;
     }
     
-    self.parent_widget       = other;
-    self.flags.isInteractive = self.parent_widget.flags.isInteractive;
+    self.parent_widget = other;
+    // our position is relative to the parent origin both are relative to the desktop origin
+    self.updatePos();
+}
+
+fn void Widget.link(&self, Widget* other) @dynamic {
+    if(other == null) return;
     
-    // should be mostly {0, 0} but who knows...
-    Vec2f desktop_origin = self.parent.desktop.rect.getPos().toVec2f();
-    // our position is relative to the parent origin
-    Vec2f parent_origin = desktop_origin + self.parent_widget.visual.rect.getPos().toVec2f();
-    Vec2f offset        = parent_origin + (self.visual.rect.getPos().toVec2f() - parent_origin);
-    self.visual.rect.x += offset.x;
-    self.visual.rect.y += offset.y;
+    if(self.isLinked()) {
+        lgr::warning(Where.CONSOLE, "Cannot link %s to %s because is already linked to %s.", self.id, other.id, self.next.id);
+        return;
+    }
+    
+    self.next = other;
 }
 
 fn bool Widget.bound(&self) @dynamic {
@@ -474,158 +505,229 @@ fn void Widget.update(&self) @dynamic {
     self.updatePos();
 }
 
-<*
-* @param in desktop "the desktop is the main area where widgets get put"
-* @param in parent  "another widget we may be bound to"
-* @require desktop != null
-*>
-fn void Widget.init(&self, String name, typeid _type, Widget* parent, Desktop* desktop) @dynamic {
-    self.type = _type;
-    self.flags.isInteractive = true;
-    self.visual.shape        = BOX;
-    self.parent.desktop      = desktop;
-    self.flags.isInteractive = self.parent.desktop.isInteractive;
-    
-    if(parent) self.bindTo(parent);
-    
-    self.id = (int)self.parent.desktop.widgets.len() + 1;
-    if(name.len) {
-        self.name = name;
-    } else {
-        if(self.id < 10) {
-            self.name = string::tformat("%s_%s%d", self.parent.desktop.name, name.concat("0"), self.id);
-            if(self.parent_widget != null) {
-                self.name = string::tformat("%s_%s_%s%d", self.parent.desktop.name, self.parent_widget.name, name.concat("0"), self.id);
-            }
-        } else {
-            self.name = string::tformat("%s_%s%d", self.parent.desktop.name, name, self.id);
-            if(self.parent_widget != null) {
-                self.name = string::tformat("%s_%s_%s%d", self.parent.desktop.name, self.parent_widget.name, name, self.id);
-            }
-        }
-    }
-    
-    self.visual.color = rl::WHITE; //@hardcode
-    self.visual.tex   = null;
-    self.visual.rect  = {0,0,16,16};
-    self.parent.desktop.addWidget(self);
-}
-
-fn void Widget.deinit(&self) @dynamic {
-    if(self.visual.tex)     self.visual.tex     = null;
-    if(self.parent_widget)  self.parent_widget  = null;
-    if(self.parent.desktop) self.parent.desktop = null;
-    if(self.parent.panel)   self.parent.panel   = null;
+fn bool Widget.isLinked(&self) @dynamic {
+    return (self.next != null) ? true : false;
 }
 
 fn Desktop* Widget.getDesktop(&self) @dynamic {
     return self.parent.desktop;
 }
 
-/*
+fn void Widget.setName(&self, String name) @dynamic {
+    self.name = name;
+}
+
+fn void Widget.setInteractive(&self, bool choice) @inline  @dynamic {
+    self.flags.isInteractive = choice;
+}
+
+fn bool Widget.isInteractive(&self) @inline @dynamic {
+    return self.flags.isInteractive;
+}
+
+fn void Widget.setBaseColor(&self, rl::Color color) @inline @dynamic{
+    self.visual.color = color;
+}
+
+fn void Widget.onOver(&self) @inline @dynamic {
+    if (self.isInteractive() == false) return;
+    self.flags.asFocus = true;
+}
+
+fn void Widget.onStopOver(&self) @inline @dynamic {
+    if (self.isInteractive() == false) return;
+    self.flags.asFocus = false;
+}
+
+fn bool Widget.asFocus(&self) @inline @dynamic {
+    return self.flags.asFocus;
+}
+
+/////////////////////////////////////// extra widgets //////////////////////////////////////////////////////
+
+enum WidgetTextAlign
+{
+    CENTER,
+    LEFT,
+    RIGHT,
+}
+
+struct WidgetText {
+    // extends Widget (super/base class)
+    inline Widget super;
+
+    String text;
+    int font_size;
+    Color text_color;
+    WidgetTextAlign align;
+}
+
+<*
+* @param in desk "desktop where this widget will live"
+* @require desk != null
+*>
+fn void WidgetText.init(&self, Desktop* desk, typeid _type = WidgetText.typeid) @inline {
+    self.super.init(desk, _type);
+    self.font_size = 20; //@hardcode
+    self.text_color = rl::WHITE; //@hardcode
+    self.align = WidgetTextAlign.CENTER;
+}
+
+fn void WidgetText.deinit(&self) @inline {
+    self.super.deinit();
+}
+
+fn void WidgetText.setText(&self, String text) @inline {
+    self.text = text;
+}
+
+fn void WidgetText.setTextColor(&self, Color color) @inline {
+    self.text_color = color;
+}
+
+fn void WidgetText.setAlign(&self, WidgetTextAlign align) @inline {
+    self.align = align;
+}
+
+fn void WidgetText.setFontSize(&self, int size) @inline {
+    self.font_size = size;
+}
+
+fn void WidgetText.draw(&self) @inline {
+    if (self.hidden()) return;
+
+    switch (self.align)
+    {
+    case CENTER:
+        rl::drawText(self.text.zstr_tcopy(), (int)self.visual.rect.x + (int)self.visual.rect.width / 2, (int)self.visual.rect.y + (int)self.visual.rect.height / 2, self.font_size, self.text_color);
+    case LEFT:
+        rl::drawText(self.text.zstr_tcopy(), (int)self.visual.rect.x, (int)self.visual.rect.y, self.font_size, self.text_color);
+    case RIGHT:
+        rl::drawText(self.text.zstr_tcopy(), (int)self.visual.rect.x + (int)self.visual.rect.width, (int)self.visual.rect.y, self.font_size, self.text_color);
+    }
+}
+
+
 struct WidgetButton {
     // extends Widget (super/base class)
-    inline Widget wgt;
+    inline Widget super;
     
     Color default_color;
     Color over_color;
     Color pressed_color;
+    Color activated_color;
     bool pressed;
+    bool activated;
     Sound* interaction_sound;
     //bool sound_played;
     bool reset;
     int press_count;
 }
 
-fn void WidgetButton.init(&self, Desktop* parent = null) @inline {
-    self.type          = WidgetButton.typeid;
-    self.flags.isInteractive = true;
-    self.visual.shape          = ROUNDED_BOX;
-    self.parent        = parent;
-    self.visual.rect       = {0,0,16,16};
-    self.default_color = rl::WHITE; //@hardcode
-    self.visual.color         = self.default_color;
-    self.over_color    = rl::RED; //@hardcode
-    self.pressed_color = rl::GREEN; //@hardcode
-    self.interaction_sound = &main::gpGame.default_sound; //@hardcode todo give this a better sound
-    self.visual.tex                = null;
-    if(self.parent != null) {
-        self.visual.rect.x += self.parent.rect.x;
-        self.visual.rect.y += self.parent.rect.y;
-        self.flags.isInteractive = self.parent.isInteractive;
-        self.id   = (int)self.parent.widgets.len() + 1;
-        if(self.id < 10) {
-            self.name = string::tformat("%s_%s%d", self.parent.name, "Button0", self.id);
-        } else {
-            self.name = string::tformat("%s_%s%d", self.parent.name, "Button", self.id);
-        }
-        self.parent.addWidget(self);
-    }
+<*
+* @param in desk "desktop where this widget will live"
+* @require desk != null
+*>
+fn void WidgetButton.init(&self, Desktop* desk, typeid _type = WidgetButton.typeid) @inline {
+    self.super.init(desk, _type);
+    self.setDefaultColor(rl::WHITE); //@hardcode
+    self.setBaseColor(self.default_color);
+    self.setOverColor(rl::RED); //@hardcode
+    self.setPressedColor(rl::GREEN); //@hardcode
+    self.setActivatedColor(rl::BLUE); //@hardcode
+    self.setSound(&main::gpGame.default_sound); //@hardcode todo give this a better sound
 }
 
-fn void WidgetButton.initExt(&self, Rectangle rect, Color color = rl::COLOR_WHITE, Color over_color = rl::COLOR_RED, Texture2D* tex = null, Desktop* parent) @inline {
-    self.type          = WidgetButton.typeid;
-    self.flags.isInteractive = true;
-    self.parent        = parent;
-    self.visual.rect       = rect;
-    self.default_color = color;
-    self.visual.color         = self.default_color;
-    self.over_color    = over_color;
-    self.pressed_color = rl::GREEN; //@hardcode
-    self.interaction_sound = &main::gpGame.default_sound; // todo give this a better sound
-    if(tex) self.visual.tex   = tex;
-    if(self.parent != null) {
-        self.visual.rect.x += self.parent.rect.x;
-        self.visual.rect.y += self.parent.rect.y;
-        self.flags.isInteractive = self.parent.isInteractive;
-        self.id   = (int)self.parent.widgets.len() + 1;
-        self.name = string::tformat("%s_%s%d", self.parent.name, "Button", self.id);
-        self.parent.addWidget(self);
-    }
+fn void WidgetButton.deinit(&self) @inline {
+    self.super.deinit();
+    if (self.interaction_sound) self.interaction_sound = null;
 }
 
-fn void WidgetButton.setDefaultColor(&self, Color color) @inline => self.default_color = color;
-fn void WidgetButton.setOverColor(&self, Color color) @inline => self.over_color = color;
+fn void WidgetButton.setDefaultColor(&self, Color color)   @inline => self.default_color   = color;
+fn void WidgetButton.setOverColor(&self, Color color)      @inline => self.over_color      = color;
+fn void WidgetButton.setPressedColor(&self, Color color)   @inline => self.pressed_color   = color;
+fn void WidgetButton.setActivatedColor(&self, Color color) @inline => self.activated_color = color;
 
-fn void WidgetButton.manage_interaction(&self) @local {
-    if (self.flags.asFocus && self.flags.isInteractive) 
-    {
-        //main::lgr::info(Where.CONSOLE, "Gui: I'm over button: %s", self.name);
-        if(self.onOver) self.onOver(self);
-        
-        self.pressed = rl::isMouseButtonDown(MouseButton.LEFT);
-        if(self.pressed) {
-            //main::lgr::info(Where.CONSOLE, "Gui: I'm pressing button: %s", self.name);
-            if(self.onPress) self.onPress(self);
-            
-            self.press_count++;
+fn void WidgetButton.setSound(&self, Sound* sound) @inline {
+    self.interaction_sound = sound;
+}
+
+fn void WidgetButton.onOver(&self) @inline {
+    if (self.isInteractive() == false) return;
+
+    self.super.onOver();
+    self.setBaseColor(self.over_color);
+}
+
+fn void WidgetButton.onStopOver(&self) @inline {
+    if (self.isInteractive() == false) return;
+
+    self.super.onStopOver();
+    self.setBaseColor(self.default_color);
+}
+
+// while the button is kept pressed
+fn void WidgetButton.onPress(&self) @inline {
+    if (self.isInteractive() == false || self.asFocus() == false) return;
+    if (self.pressed == false) {
+        self.setBaseColor(self.pressed_color);
+
+        if (rl::isSoundValid(*self.interaction_sound)) {
+            rl::playSound(*self.interaction_sound);
         }
-        
-        // pressed once
-        if(rl::isMouseButtonPressed(MouseButton.LEFT) 
-           && self.press_count <= 1) {
-            if(self.onSinglePress) self.onSinglePress(self);
-        }
-        
-        if(rl::isMouseButtonReleased(MouseButton.LEFT)){
-            if(self.onRelease) self.onRelease(self);
-            self.press_count = 0;
-        }
-        
-        //if(rl::iskeypressed(KeyboardKey.LEFT_SHIFT.value) && rl::isMouseButtonDown(MouseButton.LEFT.value)) {
-            //reset(box);
-        //}
-        
-        if(!self.reset) self.reset = true;
-        
+    }
+    self.pressed = true;
+    self.press_count++;
+}
+
+fn void WidgetButton.onSinglePress(&self) @inline {
+    if (self.isInteractive() == false || self.asFocus() == false) return;
+
+    if (rl::isSoundValid(*self.interaction_sound)) {
+        rl::playSound(*self.interaction_sound);
+    }
+    self.setBaseColor(self.pressed_color);
+}
+
+fn void WidgetButton.onRelease(&self) @inline {
+    if (self.isInteractive() == false || self.asFocus() == false) return;
+    self.setBaseColor(self.default_color);
+    self.pressed = false;
+    self.press_count = 0;
+}
+
+fn void WidgetButton.onEnterKey(&self) @inline {
+    if (self.isInteractive() == false || self.asFocus() == false) return;
+    self.onSinglePress();
+}
+
+
+fn void WidgetButton.manage_interactions(&self) @local{
+    if (self.isInteractive() == false) return;
+
+    //main::lgr::info(Where.CONSOLE, "Gui: I'm over button: %s", self.name);
+    if (isMouseOver((Panel*)self)) {
+        self.onOver();
     } else {
-        if(self.reset) {
-            self.visual.color = self.default_color;
-            //self.sound_played = false;
-            self.press_count = 0;
-            if(self.onStopOver) self.onStopOver(self);
-            self.reset = false;
-        }
+        self.onStopOver();
+    }
+
+    if (rl::isMouseButtonDown(MouseButton.LEFT)) {
+        //main::lgr::info(Where.CONSOLE, "Gui: I'm pressing button: %s", self.name);
+        self.onPress();
+    }
+
+    // pressed once
+    if (rl::isMouseButtonDown(MouseButton.LEFT) && self.press_count == 0) {
+        self.onSinglePress();
+    }
+
+    if (rl::isMouseButtonReleased(MouseButton.LEFT)) {
+        self.onRelease();
+    }
+
+    if (rl::isKeyPressed(rl::KEY_ENTER) && !rl::isKeyPressedRepeat(rl::KEY_ENTER)) {
+        self.onEnterKey();
     }
 }
 
@@ -636,11 +738,10 @@ fn void WidgetButton.update(&self)
     // I need to manully call the root widget update,
     // that is the update method from the super class Panel 
     // for the focus code to work
-    self.wgt.update(); // for isMouseOver to run...
+    //self.update(); // for isMouseOver to run...
     //
-    self.manage_interaction();
+    self.manage_interactions();
 }
-*/
 
 /**
     GUI creation process:

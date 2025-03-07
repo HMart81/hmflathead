@@ -21,10 +21,10 @@ const DEFAULT_SHOW_TIME = 3000; // ms
 // end_region
 
 // region cvars
-Cvar intro_skip @public = { "intro_skip", CvarType.BOOLEAN, "0", "skip displaying the intro" };
+Cvar skip_intro @public = { "skip_intro", CvarType.BOOLEAN, "0", "skip displaying the intro" };
 
 fn void register_cvars() @public {
-    cvar::@register(&intro_skip);
+    cvar::@register(&skip_intro);
 }
 // end_region
 
@@ -79,7 +79,7 @@ fn void deinitIntroAnimation(IntroAnimation* anim) {
 }
 
 fn void triggerIntroAnimation(IntroAnimation* anim) {
-    if(intro_skip.getBool()) return;
+    if(skip_intro.getBool()) return;
     
     anim.should_play = true;
 }
