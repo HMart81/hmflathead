@@ -26,24 +26,21 @@
 # 
 *********************************************************************************************************************************************/
 
-module game::gui;
+module engine::gui;
 
-// region C3 modules
+// region modules
 import std::io;
 import std::core::mem; // for malloc
 import std::math;
 import std::collections::list;
-// end_region
-
-// region custom modules
-import game::main;
-import game::actors::ent;
 import raylib5::rl;
-//import raygui;
 import engine::misc;
 import engine::assets::astmng; // asset manager
-import game::serialize::svs; // save system
 import engine::logging::lgr;
+import game::main;
+import game::actors::ent;
+import game::serialize::svs; // save system
+import game::low_level::cvar;
 // end_region
 
 // region defines
@@ -57,6 +54,14 @@ def DesktopList  = List(<Desktop*>);
 //const bool PANEL_PROFILE = true;
 const bool DEBUG_PANELS  = true;
 const int MIN_PANEL_SIZE = 32;
+// end_region
+
+// region cvars
+Cvar ui_debugDraw @public = { "ui_debugDraw", CvarType.BOOLEAN, "0", "show debug visualization for gui development" };
+
+fn void register_cvars() @public {
+    cvar::@register(&ui_debugDraw);
+}
 // end_region
 
 struct Flags {
@@ -73,139 +78,9 @@ enum PanelShape {
     ROUNDED_BOX
 }
 
-struct Panel_Common @local  {
-    typeid type;     // for easy introspection this.class == class type
-    
-    String name;
-    int layer;
-    Flags flags;
-    
-    struct visual {
-        PanelShape shape;
-        Rectangle rect;
-        Color color;
-    }
-    
-    struct parent {
-        Desktop* desktop;
-        Panel*   panel;
-    }
-}
-
-struct Panel_Box
-{
-    inline Panel_Common super;
-}
-
-struct Panel_Image
-{
-    inline Panel_Common super;
-    
-    Texture2D* tex;
-}
-
-<*
-* @ensure return != null @if $feature(_DEBUG)
-*>
-fn Panel_Box* makePanelBox(Rectangle rect, Color color, PanelShape shape = BOX) {
-    Panel_Box* box = mem::new(Panel_Box);
-    box.type = Panel_Box.typeid;
-    //
-    box.visual.shape       = shape;
-    box.visual.rect        = rect;
-    box.visual.color       = color;
-    
-    return box;
-}
-
-<*
-* @param in box "the box to release"
-* @require box != null @if $feature(_DEBUG)
-*>
-fn void releasePanelBox(Panel_Box* box) {
-    if(box.parent.desktop) box.parent.desktop = null;
-    if(box.parent.panel)   box.parent.panel   = null;
-    
-}
-
-
-<*
-* @ensure return != null @if $feature(_DEBUG)
-*>
-fn Panel_Image* makePanelImage(Texture2D* tex, Rectangle rect, Color color, PanelShape shape = BOX) {
-    Panel_Image* box = mem::new(Panel_Image);
-    box.type = Panel_Image.typeid;
-    //
-    box.visual.shape       = shape;
-    box.visual.rect        = rect;
-    box.visual.color       = color;
-    box.tex = tex;
-    
-    return box;
-}
-
-<*
-* @param in box "the image box to release"
-* @require box != null @if $feature(_DEBUG)
-*>
-fn void releasePanelImage(Panel_Image* box) {
-    if(box.parent.desktop) box.parent.desktop = null;
-    if(box.parent.panel)   box.parent.panel   = null;
-    if(box.tex)            box.tex            = null;
-    mem::free(box);
-}
-
-
-fn void updatePanel(any panel) {
-    switch(panel.type) {
-        case Panel_Box.typeid:
-            break;
-        case Panel_Image.typeid:
-            break;
-    }
-}
-
-fn void drawPanel(any panel) {
-    switch(panel.type) 
-    {
-        case Panel_Box.typeid:
-            Panel_Box* box = panel.ptr;
-            if(!box.flags.should_hide) 
-            {
-                $if $defined(DEBUG_PANELS):
-                    rl::drawRectangleLinesEx(box.visual.rect, 1.0f, rl::RED);
-                $endif
-                
-                if(box.visual.shape == BOX) {
-                    misc::@drawRect(box.visual.rect, box.visual.color);
-                } else if(box.visual.shape == ROUNDED_BOX) {
-                    rl::drawRectangleRounded(box.visual.rect, 0.65f, 6, box.visual.color);
-                }
-            }
-        case Panel_Image.typeid:
-            Panel_Image* box = panel.ptr;
-            if(!box.flags.should_hide) 
-            {
-                if(box.tex) 
-                {
-                    // TODO(HM) find how to draw a image on a rounded rectangle!?
-                    assert(rl::isTextureValid(*box.tex));
-                    Vec2f tex_size = {box.tex.width, box.tex.height};
-                    Rectangle source = {0, 0, tex_size.x, tex_size.y};
-                    // center of the texture (rotation/scale point), it's relative to destination rectangle dimentions, not the screen
-                    rl::drawTexturePro(*box.tex, source, box.super.visual.rect, {0, 0}, 0.0f, box.super.visual.color);
-                    $if $feature(_DEBUG):
-                        rl::drawRectangleLinesEx(box.super.visual.rect, 1.0f, rl::RED);
-                    $endif
-                } else {
-                    if(box.visual.shape == BOX) {
-                        misc::@drawRect(box.visual.rect, box.visual.color);
-                    } else if(box.visual.shape == ROUNDED_BOX) {
-                        rl::drawRectangleRounded(box.visual.rect, 0.65f, 6, box.visual.color);
-                    }
-                }
-            }
-    }
+enum PanelKind {
+    BASIC,
+    IMAGE
 }
 
 /////////////////////////////////// ************** /////////////////////////
@@ -215,8 +90,9 @@ fn void drawPanel(any panel) {
 struct Panel (SaveSystemInterface)
 {
     typeid type;     // for easy introspection this.class == class type thing
-    int id;         // this is what really diferentites all panels
-    String name;     // same as above
+    int id;          // used to uniquily identify each panel on a gui
+    String name;
+    PanelKind kind;  // this is what really diferentites all panels
     
     struct visual {
         PanelShape shape;
@@ -299,18 +175,18 @@ fn bool isMouseOver(Rectangle* widget)  @local
 */
 
 
-fn void Panel.initRec(&self, Rectangle rect, Color color = rl::COLOR_RED, Texture2D* tex = null) @inline {
+fn void Panel.initRec(&self, Rectangle rect, Color color = rl::COLOR_RED) @inline {
     self.type = Panel.typeid;
+    self.kind = PanelKind.BASIC;
     //
     self.visual.shape       = BOX;  // @hardcode
     self.visual.rect        = rect;
     self.visual.color       = color;
-    if(tex) self.visual.tex = tex;
 }
 
-fn void Panel.initV(&self, Vec2f pos, Vec2f size, RColor color, Texture2D* tex = null) @inline {
+fn void Panel.initV(&self, Vec2f pos, Vec2f size, RColor color) @inline {
     Rectangle temp = {pos.x, pos.y, size.x, size.y};
-    self.initRec(temp, color, tex);
+    self.initRec(temp, color);
 }
 
 fn void Panel.init(&self) @inline {
@@ -320,12 +196,10 @@ fn void Panel.init(&self) @inline {
 
 fn void Panel.deinit(&self) @inline {
     self.hide();
-    self.visual.rect  = {};
-    self.name         = "";
-    self.visual.color = {0xFF, 0xFF, 0xFF, 0x00};
     if(self.visual.tex)     self.visual.tex     = null;
     if(self.bound())        self.unbind();
     if(self.parent.desktop) self.parent.desktop = null;
+    if(self.parent.panel)   self.parent.panel   = null;
 }
 
 <*
@@ -445,6 +319,7 @@ fn void Panel.addToPositionV(&self, Vec2f pos) @inline {
 *>
 fn void Panel.setTexture(&self, Texture2D* tex) @inline {
     self.visual.tex = tex;
+    self.kind = PanelKind.IMAGE;
 }
 
 fn bool Panel.isValid(&self) @inline {
@@ -477,24 +352,24 @@ fn Vec2f Panel.getSize(&self) @inline {
 fn void Panel.draw(&self) @inline {
     if(self.flags.should_hide) return;
     
-    $if $defined(DEBUG_PANELS):
+    if(ui_debugDraw.getBool()) {
         rl::drawRectangleLinesEx(self.visual.rect, 1.0f, rl::RED);
-    $endif
+    }
     
-    if(self.visual.tex) {
-        assert(rl::isTextureValid(*self.visual.tex));
-        rl::drawTexture(*self.visual.tex, (int)self.visual.rect.x, (int)self.visual.rect.y, self.visual.color);
-    } else {
-        //Texture2D* tex = assetManager.getTexture("white.png");
-        //if(tex) rl::drawTextureRec(*tex, self.visual.rect, misc::getRecPos(self.visual.rect), self.visual.color);
-        if(self.visual.shape == BOX) {
-            misc::@drawRect(self.visual.rect, self.visual.color);
-        } else if(self.visual.shape == ROUNDED_BOX) {
-            rl::drawRectangleRounded(self.visual.rect, 0.65f, 6, self.visual.color);
-        }
-        //$if $feature(_DEBUG):
-            //main::lgr::info(Where.CONSOLE, "I'm drawing!!!!!!!!!!!!!!!!!!!");
-        //$endif
+    switch (self.kind) {
+        case BASIC:
+            if(self.visual.shape == BOX) {
+                misc::@drawRect(self.visual.rect, self.visual.color);
+            } else if(self.visual.shape == ROUNDED_BOX) {
+                rl::drawRectangleRounded(self.visual.rect, 0.65f, 6, self.visual.color);
+            }
+        case IMAGE:
+            // TODO(HM) find how to draw a image on a rounded rectangle!?
+            assert(rl::isTextureValid(*self.visual.tex));
+            Vec2f tex_size = {self.visual.tex.width, self.visual.tex.height};
+            Rectangle source = {0, 0, tex_size.x, tex_size.y};
+            // center of the texture (rotation/scale point), it's relative to destination rectangle dimentions, not the screen
+            rl::drawTexturePro(*self.visual.tex, source, self.visual.rect, {0, 0}, 0.0f, self.visual.color);
     }
 }
 

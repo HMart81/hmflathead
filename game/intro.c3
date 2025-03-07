@@ -1,13 +1,15 @@
-module game::gui::intro;
+module game::intro;
 
 // region modules
 import std::io;
 import std::core::mem; // for malloc
 import std::collections::list;
 import game::main;
+import engine::gui;
 import engine::input;
 import raylib5::rl;
 import game::serialize::svs; // save system
+import game::low_level::cvar;
 // end_region
 
 // region defines
@@ -18,8 +20,16 @@ def FrameQueue  = List(<Frame*>);
 const DEFAULT_SHOW_TIME = 3000; // ms
 // end_region
 
+// region cvars
+Cvar intro_skip @public = { "intro_skip", CvarType.BOOLEAN, "0", "skip displaying the intro" };
+
+fn void register_cvars() @public {
+    cvar::@register(&intro_skip);
+}
+// end_region
+
 struct Frame @local {
-    gui::Panel_Image* image;
+    gui::Panel* image;
     int draw_time;
     int start_time;
     int end_time;
@@ -45,10 +55,9 @@ fn void IntroAnimation.reload(&self, SaveFile* file) @dynamic {
 
 fn void initIntroAnimation(IntroAnimation* anim) {
     Frame* frame1 = mem::new(Frame);
-    frame1.image  = gui::makePanelImage(
-    main::asstManager.getTexture("logo_hm.png"),
-    {0, 0, main::gpGame.screen.w, main::gpGame.screen.h}, 
-    rl::WHITE);
+    frame1.image  = mem::new(Panel);
+    frame1.image.initV({0,0}, {main::gpGame.screen.w, main::gpGame.screen.h},  rl::WHITE);
+    frame1.image.setTexture(main::asstManager.getTexture("logo_hm.png"));
     frame1.draw_time = DEFAULT_SHOW_TIME;
     //
     anim.frames.push(frame1);
@@ -60,7 +69,7 @@ fn void initIntroAnimation(IntroAnimation* anim) {
 fn void deinitIntroAnimation(IntroAnimation* anim) {
     foreach(frame : anim.frames) {
         if(frame) {
-            gui::releasePanelImage(frame.image);
+            frame.image.deinit();
             frame.image = null;
             mem::free(frame);
         }
@@ -70,6 +79,8 @@ fn void deinitIntroAnimation(IntroAnimation* anim) {
 }
 
 fn void triggerIntroAnimation(IntroAnimation* anim) {
+    if(intro_skip.getBool()) return;
+    
     anim.should_play = true;
 }
 
@@ -92,8 +103,7 @@ fn bool updateIntroAnimation(IntroAnimation* anim) {
         if(!stop_anim && anim.current_frame && anim.current_frame.end_time > 0 && 
            current_time <= anim.current_frame.end_time)
         {
-            any panel = any_make(anim.current_frame.image, gui::Panel_Image.typeid);
-            gui::updatePanel(panel);
+            anim.current_frame.image.update();
             return true;
         }
         else if(stop_anim) {
@@ -117,8 +127,7 @@ fn void drawIntroAnimation(IntroAnimation* anim) {
     if(anim == null) return;
     
     if(anim.current_frame) {
-        any panel = any_make(anim.current_frame.image, gui::Panel_Image.typeid);
-        gui::drawPanel(panel);
+        anim.current_frame.image.draw();
     }
 }
 

@@ -40,8 +40,8 @@ import libc;
 import engine::input;
 import engine::tokanizer::tok; // tokanizer
 import engine::filesystem::fs;
-import game::gui;
-import game::gui::intro;
+import engine::gui;
+import game::intro;
 //import game::gui::mainmenu;
 import engine::assets_api::asapi; // for the asset system
 import engine::assets::astmng; // asset manager
@@ -223,20 +223,18 @@ Cvar editor       @public = { "editor"            , CvarType.BOOLEAN, "0",    "e
 Cvar r_mode       @public = { "r_mode"            , CvarType.INT,     "-1",   "window resolution index 0.."};
 Cvar r_showFPS    @public = { "r_showFPS"         , CvarType.BOOLEAN, "1",    "draws framerate on screen"};
 Cvar r_fullscreen @public = { "r_fullscreen"      , CvarType.INT,     "-1",   "screen mode 0 = window, 1 = borderless, 2 = dedicated, -1 = ini file setting"};
-Cvar ui_debugDraw @public = { "ui_debugDraw"      , CvarType.BOOLEAN, "0",    "show debug visualization for gui development"};
 Cvar fs_base      @public = { "fs_base"           , CvarType.STRING,  "data", "default game base folder"};
 Cvar fs_mod_name  @public = { "fs_mod_name"       , CvarType.STRING,  "",     "folder name of mod to run"};
 Cvar fs_mod_base  @public = { "fs_mod_base"       , CvarType.STRING,  "",     "folder name for custom database of running mod"};
 //Cvar r_window_resizable @public = { "r_window_resizable", CvarType.BOOLEAN,  "0",   "makes window resizable, window mode only."};
 //Cvar g_log              @public = { "g_log"             , CvarType.INT,      "0",   "loggin for debuggin, int value from 0 to 4, 0 = off, larger values prints more stuff."};
 
-fn void register_modulo_cvars() @local {
+fn void register_cvars() @local {
     cvar::@register(&developer);
     cvar::@register(&editor);
     cvar::@register(&r_mode);
     cvar::@register(&r_showFPS);
     cvar::@register(&r_fullscreen);
-    cvar::@register(&ui_debugDraw);
     cvar::@register(&fs_base);
     cvar::@register(&fs_mod_name);
     cvar::@register(&fs_mod_base);
@@ -244,6 +242,12 @@ fn void register_modulo_cvars() @local {
     //cvar::@register(g_log);
     
     //if(cvar::cvars.len()) foreach(cv: cvar::cvars) {lgr::info(Where.CONSOLE, cv.name);}
+}
+
+fn void register_modulo_cvars() @local {
+    register_cvars(); // main
+    gui::register_cvars();
+    intro::register_cvars();
 }
 
 // end_region Cvars
