@@ -42,7 +42,7 @@ import engine::tokanizer::tok; // tokanizer
 import engine::filesystem::fs;
 import engine::gui;
 import game::intro;
-//import game::gui::mainmenu;
+import game::gui::mainmenu;
 import engine::assets_api::asapi; // for the asset system
 import engine::assets::astmng; // asset manager
 import game::serialize::svs; // save system
@@ -285,9 +285,7 @@ struct Game (SaveSystemInterface) @local
     intro::IntroAnimation intro;
     
     // menus
-    //gui::Desktop main_menu;
-    gui::Desktop test_desktop;
-    gui::Panel test_panel; // @delete
+    gui::Desktop* main_menu;
     
     Program_Mode mode;
     
@@ -375,8 +373,6 @@ fn void Game.save(&self, SaveFile* file) @dynamic {
     svs::writeBool(file, self.msgbox_showing);
     svs::writeBool(file, self.mod_set);
     self.intro.save(file);
-    self.test_desktop.save(file);
-    self.test_panel.save(file); // @delete
     svs::writeInt(file, self.mode.ordinal);
     svs::writeTexture2D(file, &self.default_texture);
     svs::writeShader(file, &self.default_shader);
@@ -427,8 +423,6 @@ fn void Game.reload(&self, SaveFile* file) @dynamic {
     svs::readBool(file, &self.msgbox_showing);
     svs::readBool(file, &self.mod_set);
     self.intro.reload(file);
-    self.test_desktop.reload(file);
-    self.test_panel.reload(file); // @delete
     svs::readInt(file, &self.mode.ordinal);
     svs::readTexture2D(file, &self.default_texture);
     /*
@@ -543,6 +537,12 @@ fn void Game.unload(&self) {
     self.clearFonts();
     self.unloadDefaultAssets();
     self.freeGameEntities();
+    
+    if(self.main_menu) {
+        self.main_menu.deinit();
+        self.main_menu = null;
+    }
+    
     if(self.current_global_shader) {
         self.current_global_shader = null;
     }
@@ -995,9 +995,9 @@ fn void gameUpdate() @local
         //
     }
     
-    /*if(!local_game.main_menu.hidden()) {
+    if(local_game.main_menu) {
         local_game.main_menu.update();
-    }*/
+    }
     
     if(misc::g_debugLines.len()) {
         foreach(line : misc::g_debugLines) {
@@ -1062,6 +1062,10 @@ fn void gameOnGuiDraw(int screenWidth, int screenHeight) @public @inline {
     
     if(local_game.intro.should_play) {
         intro::drawIntroAnimation(&local_game.intro);
+    }
+    
+    if(local_game.main_menu) {
+        local_game.main_menu.draw();
     }
     
     // update & draw cursor sprite
@@ -1766,15 +1770,11 @@ $endif
     // init gui manager stuff
     //gui::gpManager.init();
     
-    // NOTE(HM) Create main menu here
-    // TODO put the main menu code in its own file
-    // and just call its init stuff here
-    //local_game.main_menu = *mainmenu::create(screenWidth, screenHeight);
-    
-    //local_game.main_menu.init();
-    //gui::WidgetButton* main_menu_button = mem::new(gui::WidgetButton);
-    //main_menu_button.init({100, 100, 100, 100}, rl::YELLOW, rl::RED, null, &local_game.main_menu);
-    //
+    // NOTE(HM) Create main menu here but don't show it now
+    local_game.main_menu = mainmenu::create(screenWidth, screenHeight);
+    if(local_game.main_menu == null) {
+        lgr::warning(Where.FILE,  "!!!!!!!!! Failed to create main menu. !!!!!!!!!!!!!!");
+    }
     
     if(developer.getBool() && local_game.mode == EDITOR) {
         if(system_cursor_enabled() == false) enable_system_cursor();
@@ -1856,17 +1856,6 @@ $endif
     
     // init the boids system
     local_game.boidManager1.init();
-    
-    // TEST the gui stuff
-    local_game.test_desktop.init("Test_Zone");
-    
-    //local_game.main_menu.init();
-    //gui::WidgetButton* main_menu_button = mem::new(gui::WidgetButton);
-    //main_menu_button.init({100, 100, 100, 100}, rl::YELLOW, rl::RED, null, &local_game.main_menu);
-    //
-    local_game.test_panel.init();
-    local_game.test_panel.addTo(&local_game.test_desktop);
-    local_game.test_panel.setPositionV(local_game.main_player.getPosition());
     
     
     lgr::info(Where.FILE,  "** Done. **");
@@ -2018,6 +2007,9 @@ fn void loadGame() {
 
 ////////////////////////////////// GAME LOOP ////////////////////////////////////////////////////////////////
 
+fn void quitGame() @inline @public {
+    local_game.should_quit = true;
+}
 
 fn void gameDoOneFrame() @local
 {
@@ -2127,6 +2119,7 @@ fn int playIntro(void*) {
     } while(intro::updateIntroAnimation(&local_game.intro));
     
     local_game.intro.should_play = false;
+    local_game.main_menu.show();
     
     return 0;
 }

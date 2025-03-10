@@ -132,33 +132,3 @@ fn void drawIntroAnimation(IntroAnimation* anim) {
 }
 
 
-/*
-
-fn void start_button_onOver(Widget* button) {
-    //main::lgr::info(Where.CONSOLE, "Main Menu: I'm Over button: %s", button.name);
-    ((WidgetButton*)button).color = ((WidgetButton*)button).over_color;
-}
-
-fn void start_button_onStopOver(Widget* button) {
-    main::lgr::info(Where.CONSOLE, "Main Menu: Got out off button: %s", button.name);
-}
-
-fn void start_button_onRelease(Widget* button) {
-    main::lgr::info(Where.CONSOLE, "Main Menu: Released button: %s", button.name);
-}
-
-fn void start_button_onPress(Widget* button) {
-    //main::lgr::info(Where.CONSOLE, "Main Menu: I'm pressing button: %s", button.name);
-    ((WidgetButton*)button).color = ((WidgetButton*)button).pressed_color;
-}
-
-fn void start_button_onSinglePress(Widget* button) {
-    WidgetButton* btn = ((WidgetButton*)button);
-    main::lgr::info(Where.CONSOLE, "Main Menu: I pressed button: %s once.", btn.name);
-    if(/*!btn.sound_played && */rl::isSoundValid(*btn.interaction_sound)) {
-        rl::playSound(*btn.interaction_sound);
-        //btn.sound_played = true;
-    }
-}
-
-

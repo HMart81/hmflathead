@@ -26,23 +26,31 @@
 # 
 *********************************************************************************************************************************************/
 
-/*
 module game::gui::mainmenu;
+
+/**
+    GUI creation process:
+
+    - Create a Desktop
+    gui::Desktop main_menu;
+    - init the Desktop
+    main_menu.ini(...);
+    - create any children panels/widgets
+    gui::WidgetButton main_menu_button;
+    - init the Widget and add it to Desktop
+    main_menu_button.init();
+    main_menu_button.addTo(&main_menu);
+**/
 
 // region C3 modules
 import std::io;
 import std::core::mem; // for malloc
-import std::math;
+import std::math::vector;
 import std::collections::list;
-// end_region
-
-// region custom modules
-//import game::interfaces::gui;
-import game::misc::hm;
+import engine::gui;
+import engine::misc;
 import game::main;
 import raylib5::rl;
-//import ent;
-//import misc::dyarray;
 // end_region
 
 // region defines
@@ -53,8 +61,9 @@ import raylib5::rl;
 
 fn Desktop* create(int screenWidth, int screenHeight) {
     Desktop* menu = mem::new(Desktop);
-    menu.init("MainMenu", {0, 0, screenWidth, screenHeight }, rl::GRAY, null);
-    
+    menu.init("MainMenu");
+    menu.setColor(rl::GRAY);
+
     Vec2f screen_corner       = {0, 0};
     Vec2f offset              = screen_corner;
     Vec2f default_button_size = { 0.10f* screenWidth, 0.05f*screenHeight };
@@ -62,76 +71,113 @@ fn Desktop* create(int screenWidth, int screenHeight) {
 // region widgets
     // START
     WidgetButton* start_button = mem::new(WidgetButton);
-    start_button.init(menu);
-    defer { menu.addWidget(start_button); }
+    start_button.init();
+    start_button.addTo(menu);
     start_button.setSizeV(default_button_size);
-    button_width  = start_button.rect.width;
-    button_height = start_button.rect.height;
+    button_width  = start_button.getWidth();
+    button_height = start_button.getHeight();
     offset += misc::VEC_RIGHT * (((float)screenWidth / 2.0f) - (button_width / 2.0f));
     offset += misc::VEC_DOWN * button_height;
     start_button.setPositionV(offset);
-    start_button.setDefaultColor(rl::YELLOW);
+    start_button.setColor(rl::YELLOW);
     start_button.setOverColor(rl::RED);
-    start_button.onOver        = &start_button_onOver;
-    start_button.onStopOver    = &start_button_onStopOver;
+    // callbacks
+    start_button.onOver        = &button_onOver;
+    start_button.onStopOver    = &button_onStopOver;
     start_button.onPress       = &start_button_onPress;
     start_button.onSinglePress = &start_button_onSinglePress;
     // QUIT
     WidgetButton* quit_button = mem::new(WidgetButton);
-    quit_button.init(menu);
-    defer { menu.addWidget(quit_button); }
+    quit_button.init();
+    quit_button.addTo(menu);
     quit_button.setSizeV(default_button_size);
-    offset += misc::VEC_DOWN * (0.10f*default_button_size.y);
-    start_button.setPositionV(offset);
-    start_button.setDefaultColor(rl::YELLOW);
-    start_button.setOverColor(rl::RED);
+    offset += misc::VEC_DOWN * button_height;
+    offset.y += (0.50f* button_height);
+    quit_button.setPositionV(offset);
+    quit_button.setColor(rl::YELLOW);
+    quit_button.setOverColor(rl::RED);
+    // callbacks
+    quit_button.onOver        = &button_onOver;
+    quit_button.onStopOver    = &button_onStopOver;
+    quit_button.onPress       = &quit_button_onPress;
+    quit_button.onSinglePress = &quit_button_onSinglePress;
 // end_region widgets
     
     return menu;
 }
 
+// region callbacks
 
-fn void start_button_onOver(Widget* button) {
-    //main::lgr::info(Where.CONSOLE, "Main Menu: I'm Over button: %s", button.name);
-    ((WidgetButton*)button).color = ((WidgetButton*)button).over_color;
+// generic button callbacks
+fn void button_onOver(Widget* widget) {
+    assert(widget != null);
+    WidgetButton* self = (WidgetButton*)widget;
+    if (self.isInteractive() == false || self.asFocus() == false) return;
+    self.setBaseColor(self.over_color);
 }
 
-fn void start_button_onStopOver(Widget* button) {
-    main::lgr::info(Where.CONSOLE, "Main Menu: Got out off button: %s", button.name);
+// generic button callbacks
+fn void button_onStopOver(Widget* widget) {
+    assert(widget != null);
+    WidgetButton* self = (WidgetButton*)widget;
+    if (self.isInteractive() == false || self.asFocus() == false) return;
+    self.setBaseColor(self.default_color);
 }
 
-fn void start_button_onRelease(Widget* button) {
-    main::lgr::info(Where.CONSOLE, "Main Menu: Released button: %s", button.name);
+// generic button callbacks
+fn void button_onRelease(Widget* widget) {
+    assert(widget != null);
+    WidgetButton* self = (WidgetButton*)widget;
+    if (self.isInteractive() == false || self.asFocus() == false) return;
+    self.setBaseColor(self.default_color);
+    self.pressed = false;
+    self.press_count = 0;
 }
 
-fn void start_button_onPress(Widget* button) {
-    //main::lgr::info(Where.CONSOLE, "Main Menu: I'm pressing button: %s", button.name);
-    ((WidgetButton*)button).color = ((WidgetButton*)button).pressed_color;
-}
+// generic button callbacks
+fn void button_onPress(Widget* widget) {
+    assert(widget != null);
+    WidgetButton* self = (WidgetButton*)widget;
+    if (self.isInteractive() == false || self.asFocus() == false) return;
+    if (self.pressed == false) {
+        self.setBaseColor(self.pressed_color);
 
-fn void start_button_onSinglePress(Widget* button) {
-    WidgetButton* btn = ((WidgetButton*)button);
-    main::lgr::info(Where.CONSOLE, "Main Menu: I pressed button: %s once.", btn.name);
-    if(/*!btn.sound_played && */rl::isSoundValid(*btn.interaction_sound)) {
-        rl::playSound(*btn.interaction_sound);
-        //btn.sound_played = true;
+        if (rl::isSoundValid(*self.interaction_sound)) {
+            rl::playSound(*self.interaction_sound);
+        }
     }
+    self.pressed = true;
+    self.press_count++;
 }
 
-/*
-<*
-* @param [in] menu "menu to draw"
-* @require menu != null
-*>
-// fn void draw(Desktop* menu) {
-    // menu.draw();
-// }
+// generic button callbacks
+fn void button_onSinglePress(Widget* widget) {
+    assert(widget != null);
+    WidgetButton* self = (WidgetButton*)widget;
+    if (self.isInteractive() == false || self.asFocus() == false) return;
 
-<*
-* @param [in] menu "menu to destroy"
-* @require menu != null
-*>
-// fn void destroy(Desktop* menu) {
-    // menu.clear();
-// }
-*/
+    if (rl::isSoundValid(*self.interaction_sound)) {
+        rl::playSound(*self.interaction_sound);
+    }
+    self.setBaseColor(self.pressed_color);
+}
+
+// while the button is kept pressed
+fn void start_button_onPress(Widget* widget) {
+    button_onPress(widget);
+}
+
+fn void start_button_onSinglePress(Widget* widget) {
+    button_onSinglePress(widget);
+    main::gpGame.main_menu.hide();
+}
+
+fn void quit_button_onPress(Widget* widget) {
+    button_onPress(widget);
+}
+
+fn void quit_button_onSinglePress(Widget* widget) {
+    button_onSinglePress(widget);
+    main::quitGame();
+}
+// end_region
