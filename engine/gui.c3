@@ -106,34 +106,6 @@ fn void Panel.reload(&self, SaveFile* file) @dynamic {
 // todo
 }
 
-<*
-* @param [in] panel `The panel we want to test with the mouse`
-* @require panel != null
-*>
-fn bool isMouseOver(Panel* panel)  @local
-{
-    /* 
-        WARNING(HM) 
-        This requires conversion from "world" pos to camera pos
-        or mouse overing will break if camera is zoomed or rotated
-    */
-    
-    //Camera2D* cam        = &main::gpGame.view.camera;
-    // gets windows mouse position...
-    Vec2f mouseWorldPos   = rl::getMousePosition().toVec2f();
-    
-    // a small 32x32 pixels box
-    Vec2f mouse_size      = main::getGameCursorSize();
-    Rectangle mouseRect   = misc::@recFromVecs(mouseWorldPos, mouse_size);
-    
-    //rl::drawRectangleRec(mouseRect, rl::COLOR_RED);
-    //rl::drawRectangleRec((*panel).rect, rl::COLOR_GREEN);
-    
-    if(rl::checkCollisionRecs(mouseRect, (*panel).visual.rect)) return true;
-    
-    return false;
-}
-
 fn void Panel.initRec(&self, Rectangle rect, Color color = rl::COLOR_RED) @inline {
     self.kind         = PanelKind.BASIC;
     self.visual.shape = BOX;  // @hardcode
@@ -172,22 +144,42 @@ fn void Panel.addTo(&self, Desktop* desk) @inline {
 
 fn bool Panel.hidden(&self) @inline => self.flags.isHidden;
 
-fn void Panel.update(&self) {
-    if(self.hidden()) return;
-    
-    if (isMouseOver(self)) {
-        //main::lgr::info(Where.CONSOLE, "GUI: I'm over the Panel: %s", self.name);
-        self.flags.asFocus = true;
-    } else {
-        self.flags.asFocus = false;
-    }
+
+//    WARNING(HM)
+//    If the 2D camera view is changed in any way besides moving in x and y
+//    like if the camera is zoomed or the camera is rotated, this will break.
+//    If so it will require conversion from world space coordinates to camera space.
+fn bool Panel.isMouseOver(&self)
+{
+    if (self.hidden()) return false;
+
+    // gets windows mouse position...
+    Vec2f mouseWorldPos = rl::getMousePosition().toVec2f();
+
+    // a small 32x32 pixels box
+    Vec2f mouse_size = main::getGameCursorSize();
+    Rectangle mouseRect = misc::@recFromVecs(mouseWorldPos, mouse_size);
+
+    if (rl::checkCollisionRecs(mouseRect, self.visual.rect)) return true;
+
+    return false;
 }
+
+fn void Panel.setShape(&self, PanelShape shape) @inline => self.visual.shape = shape;
 
 fn bool Panel.asFocus(&self) @inline => self.flags.asFocus;
 
 fn void Panel.scale(&self, float w, float h) @inline {
     self.visual.rect.width  *= w;
     self.visual.rect.height *= h;
+}
+
+fn void Panel.scaleV(&self, Vec2f scale) @inline {
+    self.scale(scale.x, scale.y);
+}
+
+fn void Panel.scale_equaly(&self, float amount) @inline {
+    self.scale(amount, amount);
 }
 
 fn void Panel.setSize(&self, float w, float h) @inline {
@@ -199,12 +191,16 @@ fn void Panel.setSizeV(&self, Vec2f scale) @inline {
     self.setSize(scale.x, scale.y);
 }
 
-fn void Panel.scaleV(&self, Vec2f scale) @inline {
-    self.scale(scale.x, scale.y);
+fn Vec2f Panel.getSize(&self) @inline {
+    return { self.visual.rect.width, self.visual.rect.height };
 }
 
-fn void Panel.scale_equaly(&self, float amount) @inline {
-    self.scale(amount, amount);
+fn float Panel.getWidth(&self) @inline {
+    return self.visual.rect.width;
+}
+
+fn float Panel.getHeight(&self) @inline {
+    return self.visual.rect.height;
 }
 
 fn void Panel.setPosition(&self, float x, float y) @inline {
@@ -225,9 +221,8 @@ fn void Panel.addToPositionV(&self, Vec2f pos) @inline {
     self.addToPosition(pos.x, pos.y);
 }
 
-fn Vec2f Panel.getPos(&self) @inline @local {
-    //return { self.visual.rect.x, self.visual.rect.y };
-    return self.visual.rect.getPos().toVec2f();
+fn Vec2f Panel.getPosition(&self) @inline {
+    return { self.visual.rect.x, self.visual.rect.y };
 }
 
 <*
@@ -239,13 +234,30 @@ fn void Panel.setTexture(&self, Texture2D* tex) @inline {
     self.kind = PanelKind.IMAGE;
 }
 
+fn bool Panel.asTexture(&self) @inline => self.visual.tex != null;
+
 fn bool Panel.isValid(&self) @inline {
-    if(self.visual.rect.x >= 0 &&
-       self.visual.rect.y >= 0 &&
-       self.visual.rect.width  >= MIN_PANEL_SIZE && 
+    if(self.visual.rect.width  >= MIN_PANEL_SIZE && 
        self.visual.rect.height >= MIN_PANEL_SIZE ) return true;
        
     return false;
+}
+
+fn bool Panel.isWithinScreenBounds(&self) {
+    //if (self.hidden()) return false;
+
+    int w, h;
+    w = main::gpGame.screen.w;
+    h = main::gpGame.screen.h;
+
+    Rectangle screen_bounds = {
+    .x      = 0,
+    .y      = 0,
+    .width  = w,
+    .height = h
+    };
+
+    return rl::checkCollisionRecs(screen_bounds, self.visual.rect) ? true : false;
 }
 
 fn void Panel.hide(&self) @inline {
@@ -258,20 +270,14 @@ fn void Panel.show(&self) @inline {
     self.flags.isHidden = false;
 }
 
-fn Vec2f Panel.getPosition(&self) @inline {
-    return {self.visual.rect.x, self.visual.rect.y};
-}
+fn void Panel.update(&self) {
+    if(self.hidden()) return;
 
-fn Vec2f Panel.getSize(&self) @inline {
-    return {self.visual.rect.width, self.visual.rect.height};
-}
-
-fn float Panel.getWidth(&self) @inline {
-    return self.visual.rect.width;
-}
-
-fn float Panel.getHeight(&self) @inline {
-    return self.visual.rect.height;
+    if (self.isMouseOver()) {
+        self.flags.asFocus = true;
+    } else {
+        self.flags.asFocus = false;
+    }
 }
 
 fn void Panel.draw(&self) {
@@ -290,11 +296,16 @@ fn void Panel.draw(&self) {
             }
         case IMAGE:
             // TODO(HM) find how to draw a image on a rounded rectangle!?
-            assert(rl::isTextureValid(*self.visual.tex));
-            Vec2f tex_size = {self.visual.tex.width, self.visual.tex.height};
-            Rectangle source = {0, 0, tex_size.x, tex_size.y};
-            // center of the texture (rotation/scale point), it's relative to destination rectangle dimentions, not the screen
-            rl::drawTexturePro(*self.visual.tex, source, self.visual.rect, {0, 0}, 0.0f, self.visual.color);
+            $if $feature(_DEBUG) :
+                assert(self.asTexture() == true);
+            $endif
+            if (rl::isTextureValid(*self.visual.tex)) {
+                Vec2f tex_size = {self.visual.tex.width, self.visual.tex.height};
+                Rectangle source = {0, 0, tex_size.x, tex_size.y};
+                // NOTE(HM) 
+                // center of the texture (rotation/scale point), it's relative to destination rectangle dimentions, not the screen
+                rl::drawTexturePro(*self.visual.tex, source, self.visual.rect, {0, 0}, 0.0f, self.visual.color);
+            }
     }
 }
 
@@ -306,30 +317,23 @@ def WidgetCallback = fn void(Widget*);
 
 interface WidgetInterface
 {
-    // Desktop = place where all widgets live -> optional
-    // Widget  = parent widget whe may be bound to -> optional
-    // String  = name of the widget for printing
-    // typeid  = the class/type of this widget
     fn void init();
-    fn void deinit();
-    fn void addTo(Desktop*);
-    // 
     fn void initExt() @optional;
-    fn void update() @optional;
-    //
-    fn void setColor(rl::Color) @optional;
-    fn void setOverColor(rl::Color) @optional;
-    fn void setActivatedColor(rl::Color) @optional;
-    fn void setPressedColor(rl::Color) @optional;
-    fn void setName(String) @optional;
-    fn void setInteractive(bool) @optional;
-    fn bool isInteractive() @optional;
-    fn Desktop* getDesktop() @optional;
-    fn void bindTo(Widget* other) @optional;
-    fn void unbind() @optional;
-    fn void link(Widget* other) @optional;
-    fn bool isLinked() @optional;
-    fn bool asFocus() @optional;
+    fn void deinit();
+    fn void update();
+    fn void draw();
+    fn void addTo(Desktop*);
+    fn void setInteractive(bool);
+    fn bool isInteractive();
+    fn Desktop* getDesktop();
+    fn void bindTo(Widget* other);
+    fn bool bound();
+    fn void unbind();
+    fn String getName();
+    fn void link(Widget* other);
+    fn bool isLinked();
+    fn void unlink();
+    fn void setColor(rl::Color);
 }
 
 const KIND_TEXT    = 1;
@@ -364,6 +368,31 @@ fn void Widget.init(&self) @dynamic {
     self.super.init();
 }
 
+fn void Widget.deinit(&self) @dynamic{
+    self.super.deinit();
+    self.unlink();
+    self.unbind();
+    self.parent.desktop = null;
+}
+
+fn void Widget.update(&self) @dynamic {
+    self.super.update();
+    
+    if(self.hidden()) return;
+     
+    if(self.bound()) {
+        // if bound our position is updated to always be relative to the parent origin
+        Vec2f parent_origin = self.parent.other.getPosition();
+        Vec2f old_offset    = self.getPosition() - parent_origin;
+        Vec2f new_offset    = parent_origin + old_offset;
+        self.setPositionV(new_offset);
+    }
+}
+
+fn void Widget.draw(&self) @dynamic {
+    self.super.draw();
+}
+
 <*
 * @param in desktop "parent desktop"
 * @require desktop != null
@@ -390,12 +419,16 @@ fn void Widget.addTo(&self, Desktop* desktop) @dynamic {
     self.parent.desktop.addChild(self);
 }
 
-fn void Widget.deinit(&self) @dynamic{
-    self.super.deinit();
-    self.removeLink();
-    self.unbind();
-    self.parent.desktop = null;
+fn void Widget.setInteractive(&self, bool choice) @inline @dynamic {
+    self.flags.isInteractive = choice;
 }
+
+fn bool Widget.isInteractive(&self) @inline @dynamic => self.flags.isInteractive;
+
+<*
+* @ensure return != null
+*>
+fn Desktop* Widget.getDesktop(&self) @dynamic => self.parent.desktop;
 
 <*
 * @param in other "parent widget"
@@ -412,8 +445,8 @@ fn void Widget.bindTo(&self, Widget* other) @dynamic {
 
     // our position is now relative to the parent origin
     Vec2f desktop_origin = {0, 0};
-    Vec2f parent_origin  = other.getPos();
-    Vec2f old_offset     = self.getPos() - desktop_origin;
+    Vec2f parent_origin  = other.getPosition();
+    Vec2f old_offset     = self.getPosition() - desktop_origin;
     Vec2f new_offset     = parent_origin + old_offset; //(our_pos - parent_origin);
     self.setPositionV(new_offset);
     //
@@ -431,6 +464,8 @@ fn void Widget.unbind(&self) @dynamic {
     self.parent.other = null;
 }
 
+fn String Widget.getName(&self) @inline @dynamic => self.name;
+
 fn void Widget.link(&self, Widget* other) @dynamic {
     if (other == null) return;
 
@@ -442,56 +477,16 @@ fn void Widget.link(&self, Widget* other) @dynamic {
     self.next = other;
 }
 
-fn bool Widget.isLinked(&self) @dynamic{
+fn bool Widget.isLinked(&self) @dynamic {
     return (self.next != null) ? true : false;
 }
 
-fn void Widget.removeLink(&self) @inline {
+fn void Widget.unlink(&self) @inline @dynamic {
     if (self.isLinked()) self.next = null;
 }
 
-// todo make a unlink function?
-
 fn void Widget.setColor(&self, Color color) @dynamic {
     self.super.visual.color = color;
-}
-
-fn void Widget.update(&self) @dynamic {
-    self.super.update();
-    
-    if(self.hidden()) return;
-     
-    if(self.bound()) {
-        // if bound our position is updated to always be relative to the parent origin
-        Vec2f parent_origin = self.parent.other.getPos();
-        Vec2f old_offset    = self.getPos() - parent_origin;
-        Vec2f new_offset    = parent_origin + old_offset;
-        self.setPositionV(new_offset);
-    }
-}
-
-fn void Widget.draw(&self) @dynamic {
-    self.super.draw();
-}
-
-fn Desktop* Widget.getDesktop(&self) @dynamic {
-    return self.parent.desktop;
-}
-
-fn void Widget.setName(&self, String name) @dynamic {
-    self.name = name;
-}
-
-fn void Widget.setInteractive(&self, bool choice) @inline  @dynamic {
-    self.flags.isInteractive = choice;
-}
-
-fn bool Widget.isInteractive(&self) @inline @dynamic {
-    return self.flags.isInteractive;
-}
-
-fn bool Widget.asFocus(&self) @inline @dynamic {
-    return self.super.asFocus();
 }
 
 /////////////////////////////////////// extra widgets //////////////////////////////////////////////////////
@@ -551,14 +546,18 @@ fn void WidgetText.setFontSize(&self, int size) @inline {
     self.font_size = size;
 }
 
+fn void WidgetText.update(&self) {
+    self.super.update();
+}
+
 fn void WidgetText.draw(&self) @inline {
     if (self.hidden()) return;
 
     self.super.draw();
     
+    Vec2f center;
     ZString text = self.text.zstr_tcopy();
     int text_len = rl::measureText(text, self.font_size);
-    Vec2f center;
     
     switch (self.align)
     {
@@ -633,8 +632,8 @@ fn void WidgetButton.setDefaultColor(&self, Color color) @inline {
     self.default_color = color;
     self.setColor(color);
 }
-fn void WidgetButton.setOverColor(&self, Color color)      @dynamic => self.over_color      = color;
-fn void WidgetButton.setActivatedColor(&self, Color color) @dynamic => self.activated_color = color;
+fn void WidgetButton.setOverColor(&self, Color color)      @inline => self.over_color      = color;
+fn void WidgetButton.setActivatedColor(&self, Color color) @inline => self.activated_color = color;
 fn void WidgetButton.setPressedColor(&self, Color color)   @inline => self.pressed_color   = color;
 
 fn void WidgetButton.setSound(&self, Sound* sound) @inline {
