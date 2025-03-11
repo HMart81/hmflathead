@@ -256,7 +256,7 @@ fn void button_onPress(Widget* widget) {
         self.setColor(self.pressed_color);
 
         if (rl::isSoundValid(*self.interaction_sound)) {
-            rl::playSound(*self.interaction_sound);
+            if(!rl::isSoundPlaying(*self.interaction_sound)) rl::playSound(*self.interaction_sound);
         }
     }
     self.pressed = true;
@@ -270,7 +270,7 @@ fn void button_onSinglePress(Widget* widget) {
     if (self.isInteractive() == false || self.asFocus() == false) return;
 
     if (rl::isSoundValid(*self.interaction_sound)) {
-        rl::playSound(*self.interaction_sound);
+       if(!rl::isSoundPlaying(*self.interaction_sound)) rl::playSound(*self.interaction_sound);
     }
     self.setColor(self.pressed_color);
 }
