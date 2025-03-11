@@ -235,6 +235,16 @@ fn bool Player.anyKeyPressed(&self) @inline @local {
     return false;
 }
 
+fn bool Player.handleESC(&self) {
+/*
+	if (self.inventoryGuiOpen) {
+		self.toggleInventory();
+		return true;
+	}
+*/
+	return false;
+}
+
 fn void Player.updateInteraction(&self, float dt)
 {
     float speed = PLAYER_DEFAULT_MOV_SPEED;

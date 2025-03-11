@@ -724,7 +724,11 @@ struct Desktop (SaveSystemInterface) {
     // flags
     bool isInteractive;
     bool visible;
+    bool active;
+    bool loading; // when eventually we load guis from a file
     //
+    // to handle timing while the menu is open/active
+    int time; // milliseconds
     
     // Lists
     ChildrenQueue children;
@@ -740,6 +744,68 @@ fn void Desktop.reload(&self, SaveFile* file) @dynamic {
 // todo
 }
 
+// todo
+fn bool Desktop.initFromFile(&self, ZString path, bool cache ) {
+/*
+
+	if ( !path.len ) {
+		// FIXME: Memory leak!!
+		return false;
+	}
+
+	self.loading = true;
+    
+	source = qpath;
+	state.Set( "text", "Test Text!" );
+
+	idParser src( LEXFL_NOFATALERRORS | LEXFL_NOSTRINGCONCAT | LEXFL_ALLOWMULTICHARLITERALS | LEXFL_ALLOWBACKSLASHSTRINGCONCAT );
+
+	//Load the timestamp so reload guis will work correctly
+	fileSystem->ReadFile(qpath, NULL, &timeStamp);
+
+	src.LoadFile( qpath );
+
+	if ( src.IsLoaded() ) {
+		idToken token;
+		while( src.ReadToken( &token ) ) {
+			if ( idStr::Icmp( token, "windowDef" ) == 0 ) {
+				desktop->SetDC( &uiManagerLocal.dc );
+				if ( desktop->Parse( &src, rebuild ) ) {
+					desktop->SetFlag( WIN_DESKTOP );
+					desktop->FixupParms();
+				}
+				continue;
+			}
+		}
+
+		state.Set( "name", qpath );
+	} else {
+		desktop->SetDC( &uiManagerLocal.dc );
+		desktop->SetFlag( WIN_DESKTOP );
+		desktop->name = "Desktop";
+		desktop->text = va( "Invalid GUI: %s", qpath );
+		desktop->rect = idRectangle( 0.0f, 0.0f, 640.0f, 480.0f );
+		desktop->drawRect = desktop->rect;
+		desktop->foreColor = idVec4( 1.0f, 1.0f, 1.0f, 1.0f );
+		desktop->backColor = idVec4( 0.0f, 0.0f, 0.0f, 1.0f );
+		desktop->SetupFromState();
+		common->Warning( "Couldn't load gui: '%s'", qpath );
+		loading = false;
+		return false;
+	}
+
+	interactive = desktop->Interactive();
+
+	if ( uiManagerLocal.guis.Find( this ) == NULL ) {
+		uiManagerLocal.guis.Append( this );
+	}
+
+*/
+	self.loading = false;
+	return true;
+}
+
+
 fn void Desktop.init(&self, String name) @inline {
     self.name = string::tformat("Desktop_%s", name);
     //
@@ -754,12 +820,12 @@ fn void Desktop.init(&self, String name) @inline {
     self.color = rl::WHITE;
     //
     self.isInteractive = true;
+    self.show();
     
     Desktop* this = self;
     local_manager.register(this);
 }
 
-fn void Desktop.setColor(&self, Color color) @inline => self.color = color;
 
 fn void Desktop.deinit(&this) @inline {
     this.clear();
@@ -767,6 +833,32 @@ fn void Desktop.deinit(&this) @inline {
     if(this.tex) this.tex = null;
     local_manager.unregister(this);
 }
+
+fn void Desktop.activate(&self, bool activate, int _time) {
+	self.time   = _time;
+	self.active = activate;
+}
+
+fn void Desktop.stateChanged(&self, int _time, bool redraw ) {
+	self.time = _time;
+	if (redraw) {
+		self.redraw(_time);
+	}
+	/*if ( state.GetBool( "noninteractive" ) ) {
+		interactive = false;
+	}
+	else {
+		if (desktop) {
+			interactive = desktop->Interactive();
+		} else {
+			interactive = false;
+		}
+	}*/
+}
+
+fn String Desktop.getName(&self) @inline => self.name;
+
+fn void Desktop.setColor(&self, Color color) @inline => self.color = color;
 
 // delete all down to the basic desktop
 fn void Desktop.clear(&self) @inline {
@@ -845,8 +937,26 @@ fn void Desktop.show(&self) {
     }
 }
 
-fn void Desktop.draw(&self)  {
+fn void Desktop.drawCursor(&self) {
+	if ( self.isInteractive ) {
+		main::show_game_cursor();
+	} else {
+		main::hide_game_cursor();
+	}
+}
+
+fn void Desktop.redraw(&self, int _time)  {
     if(self.hidden()) return;
+    
+    /*if ( r_skipGuiShaders.GetInteger() > 5 ) {
+		return;
+	}*/
+    
+	if (!self.loading) {
+		self.time = _time;
+	}
+    
+    self.drawCursor();
     
     if(self.tex) {
         assert(rl::isTextureValid(*self.tex));
@@ -870,6 +980,14 @@ fn void Desktop.draw(&self)  {
     }
 }
 
+fn void Desktop.draw(&self, int time) {
+    Desktop* guiActive = main::gpGame.guiActive;
+
+    if ( guiActive ) {
+		guiActive.redraw(time);
+	}
+}
+
 fn void Desktop.addChild(&self, Widget* child) @inline @local {
     self.children.push(child);
 }
@@ -887,7 +1005,7 @@ struct DesktopManager {
 }
 
 DesktopManager local_manager @local;
-DesktopManager* gpManager = &local_manager;
+DesktopManager* gpDeskManager = &local_manager;
 
 <*
 * @param in desk "the desktop to register"
@@ -918,17 +1036,31 @@ fn void DesktopManager.unregister(&self, Desktop* _desk) @inline {
     }
 }
 
-fn void DesktopManager.draw(&self, int screenWidth, int screenHeight) @inline {
-
-$if $defined(PANEL_PROFILE):
-    ProfileInfo* panel_profile_info = @start_profile_zone("Panel draw");
-    defer @end_profile_zone(*panel_profile_info);
-$endif
+fn void DesktopManager.update(&self) {
+// $if $defined(PANEL_PROFILE):
+    // ProfileInfo* panel_profile_info = @start_profile_zone("Panel draw");
+    // defer @end_profile_zone(*panel_profile_info);
+// $endif
 
     usz desktop_count = self.desktops.len();
     if(desktop_count >= 1) {
         foreach(desk: self.desktops) {
-            desk.draw();
+            if(desk.active) desk.update();
+        }
+    }
+}
+
+fn void DesktopManager.draw(&self, int screenWidth, int screenHeight) @inline {
+
+// $if $defined(PANEL_PROFILE):
+    // ProfileInfo* panel_profile_info = @start_profile_zone("Panel draw");
+    // defer @end_profile_zone(*panel_profile_info);
+// $endif
+
+    usz desktop_count = self.desktops.len();
+    if(desktop_count >= 1) {
+        foreach(desk: self.desktops) {
+            desk.draw(main::gpGame.time_ms);
         }
     }
 }

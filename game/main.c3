@@ -42,7 +42,7 @@ import engine::tokanizer::tok; // tokanizer
 import engine::filesystem::fs;
 import engine::gui;
 import game::intro;
-import game::gui::mainmenu;
+import game::gui::menu;
 import engine::assets_api::asapi; // for the asset system
 import engine::assets::astmng; // asset manager
 import game::serialize::svs; // save system
@@ -269,6 +269,13 @@ enum Program_Mode @public {
 // region game manager
 // ********************
 
+// The type of menu gui set right now
+enum EscReply {
+   ESC_IGNORE,	// do nothing
+   ESC_MAIN,	// start main menu GUI
+   ESC_GUI		// set an explicit GUI
+}
+
 const usz GAME_ARENA_PAGE_SIZE = 256 * 1024; // 256 KB
 DynamicArenaAllocator gameArena @public;
 
@@ -285,6 +292,7 @@ struct Game (SaveSystemInterface) @local
     intro::IntroAnimation intro;
     
     // menus
+    gui::Desktop* guiActive; // to handle all guis
     gui::Desktop* main_menu;
     
     Program_Mode mode;
@@ -725,7 +733,7 @@ fn void drawGUIDebugInfo(int screen_w, int screen_h) @local
     //slot8 = string::tformat_zstr("Window Focus State: %s", (rl::isWindowFocused()) ? "focused" : "unfocused");
     slot9 = string::tformat_zstr("Key Press: %s", local_game.last_key_pressed);
     slot10 = string::tformat_zstr("Canonical mouse coords = %s", local_game.view.toCanonicalViewSpace(rl::getMousePosition().toVec2i()));
-    slot11 = string::tformat_zstr("none");
+    slot11 = string::tformat_zstr("current menu: %s", (local_game.guiActive) ? local_game.guiActive.getName() : "none");
     slot12 = string::tformat_zstr("none");
     
     // switch (action)
@@ -829,7 +837,25 @@ fn void gameDraw(int screenWidth, int screenHeight) @local
     gameOnPostBufferSwap();
 }
 
-fn void gameHandleGeneralControls() @local @inline {
+fn EscReply handleESC( Desktop** gui ) {
+	/*if ( isMultiplayer ) {
+		*gui = StartMenu();
+		// we may set the gui back to NULL to hide it
+		return ESC_GUI;
+	}*/
+	
+	Player* player = local_game.getLocalPlayer();
+	if ( player ) {
+		if ( player.handleESC() ) {
+			return EscReply.ESC_IGNORE;
+		} else {
+			return EscReply.ESC_MAIN;
+		}
+	}
+	return EscReply.ESC_MAIN;
+}
+
+fn void gameHandleGeneralControls() @local {
     
     if(rl::isKeyPressed(rl::KEY_F1) && !local_game.msgbox_showing) {
         local_game.msgbox_showing = true;
@@ -838,6 +864,20 @@ fn void gameHandleGeneralControls() @local @inline {
     if(rl::isKeyPressed(rl::KEY_F3)) {
         local_game.testTimer.init(5.0f);
     }
+    
+    if (!local_game.guiActive &&
+    rl::isKeyPressed(rl::KEY_ESCAPE) &&
+    !rl::isKeyDown(rl::KEY_LEFT_SHIFT) && 
+    !rl::isKeyDown(rl::KEY_RIGHT_SHIFT)) {
+		Desktop* gui;
+        EscReply op;
+		op = main::handleESC( &gui );
+        if(op == ESC_GUI) {
+            menu::setGUI(gui);
+        } else if(op != ESC_IGNORE) {
+            menu::start(local_game.main_menu);
+        }
+	}
     
     /*
     if(rl::isKeyPressed(rl::KEY_SPACE)) {
@@ -921,6 +961,8 @@ fn void gameUpdate() @local
     
     gameHandleGeneralControls();
     
+    gui::gpDeskManager.update();
+    
     // if(rl::isCursorOnScreen()) {
         // io::printfn("on screen id: %s", rl::getCurrentMonitor());
     // } else {
@@ -995,10 +1037,6 @@ fn void gameUpdate() @local
         //
     }
     
-    if(local_game.main_menu) {
-        local_game.main_menu.update();
-    }
-    
     if(misc::g_debugLines.len()) {
         foreach(line : misc::g_debugLines) {
             line.update();
@@ -1056,16 +1094,10 @@ fn void gameOnPostGUIDraw(int screenWidth, int screenHeight) @public
 
 fn void gameOnGuiDraw(int screenWidth, int screenHeight) @public @inline {
     
-    //if(local_game.mode == GAME || developer.getBool())  {
-        //gui::gpManager.draw(screenWidth, screenHeight);
-    //}
+    gui::gpDeskManager.draw(screenWidth, screenHeight);
     
     if(local_game.intro.should_play) {
         intro::drawIntroAnimation(&local_game.intro);
-    }
-    
-    if(local_game.main_menu) {
-        local_game.main_menu.draw();
     }
     
     // update & draw cursor sprite
@@ -1767,11 +1799,8 @@ $endif
         //local_game.mode = EDITOR;
     }
     
-    // init gui manager stuff
-    //gui::gpManager.init();
-    
     // NOTE(HM) Create main menu here but don't show it now
-    local_game.main_menu = mainmenu::create(screenWidth, screenHeight);
+    local_game.main_menu = menu::create(screenWidth, screenHeight);
     if(local_game.main_menu == null) {
         lgr::warning(Where.FILE,  "!!!!!!!!! Failed to create main menu. !!!!!!!!!!!!!!");
     }
@@ -1786,10 +1815,9 @@ $endif
     // TODO(HM) do this only in the main menu
     // custom game cursor
     init_game_cursor();
-    //if(developer.getBool() || local_game.prog_mode == MENU) 
-    //{
+    if(developer.getBool() || local_game.mode == EDITOR) {
         show_game_cursor();
-    //}
+    }
     
 // region Test game stuff
 $if $feature(_DEBUG):
@@ -2113,13 +2141,26 @@ fn void pos_MainFunc() @finalizer
     // return 0;
 // }
 
+fn void disconnect() {
+	menu::stop();
+	menu::start(local_game.main_menu);
+    
+    // todo handle music and audio
+	//if ( soundSystem ) {
+		//soundSystem->SetMute( false );
+	//}
+}
+
 fn int playIntro(void*) {
     do {
         intro::triggerIntroAnimation(&local_game.intro);
     } while(intro::updateIntroAnimation(&local_game.intro));
     
     local_game.intro.should_play = false;
-    local_game.main_menu.show();
+    //local_game.main_menu.show();
+    // 
+    // restarts from the main menu;
+    disconnect();
     
     return 0;
 }

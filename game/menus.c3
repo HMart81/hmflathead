@@ -26,7 +26,7 @@
 # 
 *********************************************************************************************************************************************/
 
-module game::gui::mainmenu;
+module game::gui::menu;
 
 /**
     GUI creation process:
@@ -134,6 +134,91 @@ fn Desktop* create(int screenWidth, int screenHeight) {
     return menu;
 }
 
+fn void setGUI(Desktop* menu) {
+    main::gpGame.guiActive = menu;
+    Desktop* guiActive = main::gpGame.guiActive;
+	if ( !guiActive ) {
+		return;
+	}
+
+    // todo
+	/*if ( guiActive == main::gpGame.main_menu ) {
+		SetSaveGameGuiVars();
+		SetMainMenuGuiVars();
+	} else if ( guiActive == main::gpGame.restart_menu ) {
+		SetSaveGameGuiVars();
+	}*/
+
+	// NOTE(HM) i'm 99.9% sure this sets a event data struct to catch key presses
+	//sysEvent_t  ev;
+	//memset( &ev, 0, sizeof( ev ) );
+	//ev.evType = SE_NONE;
+
+	//guiActive->HandleEvent( &ev, com_frameTime );
+	guiActive.activate( true, main::gpGame.time_ms );
+}
+
+fn Desktop* getActiveMenu() @local {
+	return main::gpGame.guiActive;
+}
+
+fn void start(Desktop* gui) {
+    Desktop* guiActive = getActiveMenu();
+    
+    // if already started
+	if ( guiActive == gui ) {
+		return;
+	}
+
+	// pause the game sound world
+	/*if ( sw != NULL && !sw->IsPaused() ) {
+		sw->Pause();
+	}*/
+
+	// start playing the menu sounds
+	//soundSystem->SetPlayingSoundWorld( menuSoundWorld );
+
+    setGUI(gui);
+
+	//console->Close();
+}
+
+fn void stop() {
+	//ClearWipe();
+
+	// clear mapSpawned and demo playing flags
+	//UnloadMap();
+
+	// disconnect async client
+	//idAsyncNetwork::client.DisconnectFromServer();
+
+	// kill async server
+	//idAsyncNetwork::server.Kill();
+
+    // stop sound world
+	//if ( sw ) {
+		//sw->StopAllSounds();
+	//}
+
+	//insideUpdateScreen = false;
+	//insideExecuteMapChange = false;
+
+	// drop all guis
+	setGUI(null);
+}
+
+fn void exitMenu() {
+	main::gpGame.guiActive = null;
+
+	// go back to the game sounds
+	//soundSystem->SetPlayingSoundWorld( sw );
+
+	// unpause the game sound world
+	//if ( sw != NULL && sw->IsPaused() ) {
+		//sw->UnPause();
+	//}
+}
+
 // region callbacks
 
 // generic button callbacks
@@ -197,7 +282,7 @@ fn void start_button_onPress(Widget* widget) {
 
 fn void start_button_onSinglePress(Widget* widget) {
     button_onSinglePress(widget);
-    main::gpGame.main_menu.hide();
+    exitMenu();
 }
 
 fn void quit_button_onPress(Widget* widget) {
