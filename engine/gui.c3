@@ -322,7 +322,7 @@ interface WidgetInterface
     fn void deinit();
     fn void update();
     fn void draw();
-    fn void addTo(Desktop*);
+    fn void addTo(Desktop*, String);
     fn void setInteractive(bool);
     fn bool isInteractive();
     fn Desktop* getDesktop();
@@ -397,13 +397,19 @@ fn void Widget.draw(&self) @dynamic {
 * @param in desktop "parent desktop"
 * @require desktop != null
 *>
-fn void Widget.addTo(&self, Desktop* desktop) @dynamic {
+fn void Widget.addTo(&self, Desktop* desktop, String name) @dynamic {
     self.parent.desktop = desktop;
     if (self.parent.desktop.isInteractive) self.setInteractive(true);
 
     self.id = (int)self.parent.desktop.children.len() + 1;
+    
     // set name based on desktop name
-    String name = "Widget";
+    if(name == "") {
+        name = "Widget";
+    } else {
+        name.concat("_Widget");
+    }
+    
     if (self.id < 10) {
         self.name = string::tformat("%s_%s%d", self.parent.desktop.name, name.concat("0"), self.id);
         if (self.bound()) {
@@ -503,6 +509,7 @@ struct WidgetText {
     inline Widget super;
 
     String text;
+    int text_len;
     // todo use a font
     int font_size;
     Color text_color;
@@ -526,12 +533,17 @@ fn void WidgetText.deinit(&self) @inline {
     self.super.deinit();
 }
 
-fn void WidgetText.setText(&self, String text) @inline {
+<*
+* @require self.text != ""
+*>
+fn void WidgetText.updateBounds(&self) @local {
+    self.text_len = rl::measureText(self.text.zstr_tcopy(), self.font_size);
+    self.setSize((float)self.text_len, (float)self.font_size);
+}
+
+fn void WidgetText.setText(&self, String text) {
     self.text = text;
-    Vec2f box_size;
-    box_size.x = (float)self.font_size * text.len;
-    box_size.y = (float)self.font_size;
-    self.setSize(box_size.x, box_size.y);
+    self.updateBounds();
 }
 
 fn void WidgetText.setTextColor(&self, Color color) @inline {
@@ -544,6 +556,7 @@ fn void WidgetText.setAlign(&self, WidgetTextAlign align) @inline {
 
 fn void WidgetText.setFontSize(&self, int size) @inline {
     self.font_size = size;
+    self.updateBounds();
 }
 
 fn void WidgetText.update(&self) {
@@ -557,7 +570,7 @@ fn void WidgetText.draw(&self) @inline {
     
     Vec2f center;
     ZString text = self.text.zstr_tcopy();
-    int text_len = rl::measureText(text, self.font_size);
+    //int text_len = rl::measureText(text, self.font_size);
     
     switch (self.align)
     {
@@ -566,7 +579,7 @@ fn void WidgetText.draw(&self) @inline {
             self.visual.rect.x + self.visual.rect.width / 2,
             self.visual.rect.y + self.visual.rect.height / 2
         };
-        center.x -= (float)(text_len / 2);
+        center.x -= (float)(self.text_len / 2);
         center.y -= (float)self.font_size / 2;
     case LEFT:
         center = {
@@ -578,7 +591,7 @@ fn void WidgetText.draw(&self) @inline {
             self.visual.rect.x + self.visual.rect.width,
             self.visual.rect.y
         };
-        center.x -= text_len;
+        center.x -= self.text_len;
     }
     
     rl::drawText(text, (int)center.x, (int)center.y, self.font_size, self.text_color);
@@ -586,6 +599,25 @@ fn void WidgetText.draw(&self) @inline {
     if(ui_debugDraw.getBool()) {
        rl::drawCircle((int)center.x, (int)center.y, 1.0f, rl::RED);
     }
+}
+
+<*
+* @param in menu "desktop where this widget will live"
+* @require menu != null
+* @ensure return != null
+*>
+fn WidgetText* createLabel(String name, String text, Color text_color, Desktop* menu) {
+    WidgetText* label = mem::new(WidgetText);
+    label.init();
+    if(name == "") {
+        name = "Label";
+    } else {
+        name.concat("_Label");
+    }
+    label.addTo(menu, name);
+    label.setText(text);
+    label.setTextColor(text_color);
+    return label;
 }
 
 
@@ -690,6 +722,23 @@ fn void WidgetButton.update(&self)
 
 fn void WidgetButton.draw(&self) {
     self.super.draw();
+}
+
+<*
+* @param in menu "desktop where this widget will live"
+* @require menu != null
+* @ensure return != null
+*>
+fn WidgetButton* createButton(String name, Desktop* menu) {
+    WidgetButton* button = mem::new(WidgetButton);
+    button.init();
+    if(name == "") {
+        name = "Button";
+    } else {
+        name.concat("_Button");
+    }
+    button.addTo(menu, name);
+    return button;
 }
 
 

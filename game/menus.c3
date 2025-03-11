@@ -59,79 +59,8 @@ import raylib5::rl;
 // region constants
 // end_region
 
-fn Desktop* create(int screenWidth, int screenHeight) {
-    Desktop* menu = mem::new(Desktop);
-    menu.init("MainMenu");
-    menu.setColor(rl::GRAY);
-
-    Vec2f screen_corner       = {0, 0};
-    Vec2f offset              = screen_corner;
-    Vec2f default_button_size = { 0.10f* screenWidth, 0.05f*screenHeight };
-    float button_width, button_height;
-// region widgets
-    // START
-    WidgetButton* start_button = mem::new(WidgetButton);
-    start_button.init();
-    start_button.addTo(menu);
-    start_button.setSizeV(default_button_size);
-    button_width  = start_button.getWidth();
-    button_height = start_button.getHeight();
-    offset += misc::VEC_RIGHT * (((float)screenWidth / 2.0f) - (button_width / 2.0f));
-    offset += misc::VEC_DOWN * button_height;
-    start_button.setPositionV(offset);
-    start_button.setDefaultColor(rl::YELLOW);
-    start_button.setOverColor(rl::RED);
-    //
-    WidgetText* start_btn_label = mem::new(WidgetText);
-    start_btn_label.init();
-    start_btn_label.addTo(menu);
-    start_btn_label.setText("START");
-    start_btn_label.setTextColor(rl::DARKGRAY);
-    //start_btn_label.setAlign(WidgetTextAlign.RIGHT);
-    start_btn_label.setPositionV(offset);
-    start_btn_label.addToPosition(
-        .x = 0.15f * button_width,
-        .y = 0.25f * button_height
-    );
-    //start_btn_label.bindTo(start_button);
-    //
-    // callbacks
-    start_button.onOver        = &button_onOver;
-    start_button.onStopOver    = &button_onStopOver;
-    start_button.onPress       = &start_button_onPress;
-    start_button.onSinglePress = &start_button_onSinglePress;
-    start_button.onRelease     = &button_onRelease;
-    // QUIT
-    WidgetButton* quit_button = mem::new(WidgetButton);
-    quit_button.init();
-    quit_button.addTo(menu);
-    quit_button.setSizeV(default_button_size);
-    offset += misc::VEC_DOWN * button_height;
-    offset.y += (0.50f* button_height);
-    quit_button.setPositionV(offset);
-    quit_button.setDefaultColor(rl::YELLOW);
-    quit_button.setOverColor(rl::RED);
-    //
-    WidgetText* quit_btn_label = mem::new(WidgetText);
-    quit_btn_label.init();
-    quit_btn_label.addTo(menu);
-    quit_btn_label.setText("QUIT");
-    quit_btn_label.setTextColor(rl::DARKGRAY);
-    //start_btn_label.setAlign(WidgetTextAlign.RIGHT);
-    quit_btn_label.setPositionV(offset);
-    quit_btn_label.addToPosition(
-        .x = 0.15f * button_width,
-        .y = 0.25f * button_height
-    );
-    // callbacks
-    quit_button.onOver        = &button_onOver;
-    quit_button.onStopOver    = &button_onStopOver;
-    quit_button.onPress       = &quit_button_onPress;
-    quit_button.onSinglePress = &quit_button_onSinglePress;
-    quit_button.onRelease     = &button_onRelease;
-// end_region widgets
-    
-    return menu;
+fn Desktop* getActiveMenu() @local {
+	return main::gpGame.guiActive;
 }
 
 fn void setGUI(Desktop* menu) {
@@ -156,10 +85,6 @@ fn void setGUI(Desktop* menu) {
 
 	//guiActive->HandleEvent( &ev, com_frameTime );
 	guiActive.activate( true, main::gpGame.time_ms );
-}
-
-fn Desktop* getActiveMenu() @local {
-	return main::gpGame.guiActive;
 }
 
 fn void start(Desktop* gui) {
@@ -207,7 +132,7 @@ fn void stop() {
 	setGUI(null);
 }
 
-fn void exitMenu() {
+fn void exit() {
 	main::gpGame.guiActive = null;
 
 	// go back to the game sounds
@@ -218,6 +143,100 @@ fn void exitMenu() {
 		//sw->UnPause();
 	//}
 }
+
+
+// region MAIN MENU
+fn Desktop* mainMenuCreate(int screenWidth, int screenHeight) {
+    Desktop* menu = mem::new(Desktop);
+    menu.init("MainMenu");
+    menu.setColor(rl::DARKGRAY);
+
+    Vec2f screen_corner       = {0, 0};
+    Vec2f offset              = screen_corner;
+    Vec2f default_button_size = { 0.10f* screenWidth, 0.05f*screenHeight };
+    float button_width, button_height;
+// region widgets
+    //*************
+    // TITLE
+    //*************
+    Vec2f title_offset;
+    title_offset += misc::VEC_RIGHT * (((float)screenWidth / 2.0f) - (button_width / 2.0f));
+    WidgetText* title_label = gui::createLabel("", "FlatHead", rl::GRAY, menu);
+    title_label.setFontSize(50);
+    title_offset -= title_label.getWidth() / 2;
+    title_offset += misc::VEC_DOWN * (0.25f * screenHeight);
+    title_label.setPositionV(title_offset);
+    //*************
+    // SUBTITLE
+    //*************
+    Vec2f subtitle_offset;
+    subtitle_offset += misc::VEC_RIGHT * (((float)screenWidth / 2.0f) - (button_width / 2.0f));
+    WidgetText* subtitle_label = gui::createLabel("", "engine", rl::RAYWHITE, menu);
+    //subtitle_label.setFontSize(10);
+    subtitle_offset -= subtitle_label.getWidth() / 2;
+    subtitle_offset += misc::VEC_DOWN * (0.22f * screenHeight);
+    subtitle_label.setPositionV(subtitle_offset);
+    //*************
+    // START
+    //*************
+    WidgetButton* start_button = gui::createButton("Start", menu);
+    start_button.setSizeV(default_button_size);
+    button_width  = start_button.getWidth();
+    button_height = start_button.getHeight();
+    offset += misc::VEC_RIGHT * (((float)screenWidth / 2.0f) - (button_width / 2.0f));
+    offset += misc::VEC_DOWN * (screenHeight / button_height) * 10;
+    start_button.setPositionV(offset);
+    start_button.setDefaultColor(rl::YELLOW);
+    start_button.setOverColor(rl::RED);
+    //
+    WidgetText* start_btn_label = gui::createLabel("", "START", rl::DARKGRAY, menu);
+    //start_btn_label.setAlign(WidgetTextAlign.RIGHT);
+    start_btn_label.setPositionV(offset);
+    start_btn_label.addToPosition(
+        .x = 0.15f * button_width,
+        .y = 0.25f * button_height
+    );
+    //
+    // callbacks
+    start_button.onOver        = &button_onOver;
+    start_button.onStopOver    = &button_onStopOver;
+    start_button.onPress       = &start_button_onPress;
+    start_button.onSinglePress = &start_button_onSinglePress;
+    start_button.onRelease     = &button_onRelease;
+    //************
+    // QUIT
+    //************
+    WidgetButton* quit_button = gui::createButton("Quit", menu);
+    quit_button.setSizeV(default_button_size);
+    offset += misc::VEC_DOWN * button_height;
+    offset.y += (0.50f* button_height);
+    quit_button.setPositionV(offset);
+    quit_button.setDefaultColor(rl::YELLOW);
+    quit_button.setOverColor(rl::RED);
+    //
+    WidgetText* quit_btn_label = gui::createLabel("", "QUIT", rl::DARKGRAY, menu);
+    //start_btn_label.setAlign(WidgetTextAlign.RIGHT);
+    quit_btn_label.setPositionV(offset);
+    quit_btn_label.addToPosition(
+        .x = 0.15f * button_width,
+        .y = 0.25f * button_height
+    );
+    // callbacks
+    quit_button.onOver        = &button_onOver;
+    quit_button.onStopOver    = &button_onStopOver;
+    quit_button.onPress       = &quit_button_onPress;
+    quit_button.onSinglePress = &quit_button_onSinglePress;
+    quit_button.onRelease     = &button_onRelease;
+// end_region widgets
+    
+    return menu;
+}
+
+
+
+
+
+
 
 // region callbacks
 
@@ -282,7 +301,7 @@ fn void start_button_onPress(Widget* widget) {
 
 fn void start_button_onSinglePress(Widget* widget) {
     button_onSinglePress(widget);
-    exitMenu();
+    menu::exit();
 }
 
 fn void quit_button_onPress(Widget* widget) {
@@ -293,4 +312,6 @@ fn void quit_button_onSinglePress(Widget* widget) {
     button_onSinglePress(widget);
     main::quitGame();
 }
+// end_region Main Menu
+
 // end_region

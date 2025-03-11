@@ -1800,7 +1800,7 @@ $endif
     }
     
     // NOTE(HM) Create main menu here but don't show it now
-    local_game.main_menu = menu::create(screenWidth, screenHeight);
+    local_game.main_menu = menu::mainMenuCreate(screenWidth, screenHeight);
     if(local_game.main_menu == null) {
         lgr::warning(Where.FILE,  "!!!!!!!!! Failed to create main menu. !!!!!!!!!!!!!!");
     }
@@ -1918,7 +1918,8 @@ fn void clear_game_singletons() @inline {
     input::gpManager.free();
     input::gpManager = null;
     //
-    //gui::gpManager = null;
+    gui::gpDeskManager.free();
+    gui::gpDeskManager = null;
 }
 
 fn void saveGame() {
