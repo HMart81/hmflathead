@@ -79,13 +79,28 @@ fn Desktop* create(int screenWidth, int screenHeight) {
     offset += misc::VEC_RIGHT * (((float)screenWidth / 2.0f) - (button_width / 2.0f));
     offset += misc::VEC_DOWN * button_height;
     start_button.setPositionV(offset);
-    start_button.setColor(rl::YELLOW);
+    start_button.setDefaultColor(rl::YELLOW);
     start_button.setOverColor(rl::RED);
+    //
+    WidgetText* start_btn_label = mem::new(WidgetText);
+    start_btn_label.init();
+    start_btn_label.addTo(menu);
+    start_btn_label.setText("START");
+    start_btn_label.setTextColor(rl::DARKGRAY);
+    //start_btn_label.setAlign(WidgetTextAlign.RIGHT);
+    start_btn_label.setPositionV(offset);
+    start_btn_label.addToPosition(
+        .x = 0.15f * button_width,
+        .y = 0.25f * button_height
+    );
+    //start_btn_label.bindTo(start_button);
+    //
     // callbacks
     start_button.onOver        = &button_onOver;
     start_button.onStopOver    = &button_onStopOver;
     start_button.onPress       = &start_button_onPress;
     start_button.onSinglePress = &start_button_onSinglePress;
+    start_button.onRelease     = &button_onRelease;
     // QUIT
     WidgetButton* quit_button = mem::new(WidgetButton);
     quit_button.init();
@@ -94,13 +109,26 @@ fn Desktop* create(int screenWidth, int screenHeight) {
     offset += misc::VEC_DOWN * button_height;
     offset.y += (0.50f* button_height);
     quit_button.setPositionV(offset);
-    quit_button.setColor(rl::YELLOW);
+    quit_button.setDefaultColor(rl::YELLOW);
     quit_button.setOverColor(rl::RED);
+    //
+    WidgetText* quit_btn_label = mem::new(WidgetText);
+    quit_btn_label.init();
+    quit_btn_label.addTo(menu);
+    quit_btn_label.setText("QUIT");
+    quit_btn_label.setTextColor(rl::DARKGRAY);
+    //start_btn_label.setAlign(WidgetTextAlign.RIGHT);
+    quit_btn_label.setPositionV(offset);
+    quit_btn_label.addToPosition(
+        .x = 0.15f * button_width,
+        .y = 0.25f * button_height
+    );
     // callbacks
     quit_button.onOver        = &button_onOver;
     quit_button.onStopOver    = &button_onStopOver;
     quit_button.onPress       = &quit_button_onPress;
     quit_button.onSinglePress = &quit_button_onSinglePress;
+    quit_button.onRelease     = &button_onRelease;
 // end_region widgets
     
     return menu;
@@ -113,15 +141,15 @@ fn void button_onOver(Widget* widget) {
     assert(widget != null);
     WidgetButton* self = (WidgetButton*)widget;
     if (self.isInteractive() == false || self.asFocus() == false) return;
-    self.setBaseColor(self.over_color);
+    self.setColor(self.over_color);
 }
 
 // generic button callbacks
 fn void button_onStopOver(Widget* widget) {
     assert(widget != null);
     WidgetButton* self = (WidgetButton*)widget;
-    if (self.isInteractive() == false || self.asFocus() == false) return;
-    self.setBaseColor(self.default_color);
+    if (self.isInteractive() == false) return;
+    self.setColor(self.default_color);
 }
 
 // generic button callbacks
@@ -129,7 +157,7 @@ fn void button_onRelease(Widget* widget) {
     assert(widget != null);
     WidgetButton* self = (WidgetButton*)widget;
     if (self.isInteractive() == false || self.asFocus() == false) return;
-    self.setBaseColor(self.default_color);
+    self.setColor(self.default_color);
     self.pressed = false;
     self.press_count = 0;
 }
@@ -140,7 +168,7 @@ fn void button_onPress(Widget* widget) {
     WidgetButton* self = (WidgetButton*)widget;
     if (self.isInteractive() == false || self.asFocus() == false) return;
     if (self.pressed == false) {
-        self.setBaseColor(self.pressed_color);
+        self.setColor(self.pressed_color);
 
         if (rl::isSoundValid(*self.interaction_sound)) {
             rl::playSound(*self.interaction_sound);
@@ -159,7 +187,7 @@ fn void button_onSinglePress(Widget* widget) {
     if (rl::isSoundValid(*self.interaction_sound)) {
         rl::playSound(*self.interaction_sound);
     }
-    self.setBaseColor(self.pressed_color);
+    self.setColor(self.pressed_color);
 }
 
 // while the button is kept pressed

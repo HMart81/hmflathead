@@ -302,9 +302,6 @@ fn void Panel.draw(&self) {
 
 // NOTE(HM) Widget is a data structure representing anything inside a gui, like buttons and such.
 
-const DEFAULT_WIDGET_SIZE_VALUE      = MIN_PANEL_SIZE;
-const DEFAULT_WIDGET_POS_COORDINATE  = 0;
-
 def WidgetCallback = fn void(Widget*);
 
 interface WidgetInterface
@@ -389,15 +386,7 @@ fn void Widget.addTo(&self, Desktop* desktop) @dynamic {
           self.name = string::tformat("%s_%s_%s%d", self.parent.desktop.name, self.parent.other.name, name, self.id);
       }
     }
-
-    // position is relative to desktop origin unless bound to another widget
-    Vec2f desktop_origin = self.parent.desktop.rect.getPos().toVec2f();
-    self.visual.rect = {
-        desktop_origin.x + DEFAULT_WIDGET_POS_COORDINATE,
-        desktop_origin.y + DEFAULT_WIDGET_POS_COORDINATE,
-        DEFAULT_WIDGET_SIZE_VALUE,
-        DEFAULT_WIDGET_SIZE_VALUE
-    };
+    
     self.parent.desktop.addChild(self);
 }
 
@@ -422,11 +411,11 @@ fn void Widget.bindTo(&self, Widget* other) @dynamic {
     self.parent.other = other;
 
     // our position is now relative to the parent origin
-    // should be mostly {0, 0} but who knows...
-    Vec2f desktop_origin = other.parent.desktop.rect.getPos().toVec2f();
-    Vec2f parent_origin  = desktop_origin + other.getPos();
-    Vec2f offset         = parent_origin  + (self.getPos() - parent_origin);
-    self.addToPositionV(offset);
+    Vec2f desktop_origin = {0, 0};
+    Vec2f parent_origin  = other.getPos();
+    Vec2f old_offset     = self.getPos() - desktop_origin;
+    Vec2f new_offset     = parent_origin + old_offset; //(our_pos - parent_origin);
+    self.setPositionV(new_offset);
     //
 }
 
@@ -475,8 +464,9 @@ fn void Widget.update(&self) @dynamic {
     if(self.bound()) {
         // if bound our position is updated to always be relative to the parent origin
         Vec2f parent_origin = self.parent.other.getPos();
-        Vec2f offset        = parent_origin + (self.getPos() - parent_origin);
-        self.addToPositionV(offset);
+        Vec2f old_offset    = self.getPos() - parent_origin;
+        Vec2f new_offset    = parent_origin + old_offset;
+        self.setPositionV(new_offset);
     }
 }
 
@@ -500,10 +490,6 @@ fn bool Widget.isInteractive(&self) @inline @dynamic {
     return self.flags.isInteractive;
 }
 
-fn void Widget.setBaseColor(&self, rl::Color color) @inline @dynamic {
-    self.visual.color = color;
-}
-
 fn bool Widget.asFocus(&self) @inline @dynamic {
     return self.super.asFocus();
 }
@@ -522,6 +508,7 @@ struct WidgetText {
     inline Widget super;
 
     String text;
+    // todo use a font
     int font_size;
     Color text_color;
     WidgetTextAlign align;
@@ -533,6 +520,7 @@ struct WidgetText {
 *>
 fn void WidgetText.init(&self) @inline {
     self.super.init();
+    self.setColor({0, 0, 0, 0});
     self.kind = KIND_TEXT;
     self.font_size = 20; //@hardcode
     self.text_color = rl::WHITE; //@hardcode
@@ -545,6 +533,10 @@ fn void WidgetText.deinit(&self) @inline {
 
 fn void WidgetText.setText(&self, String text) @inline {
     self.text = text;
+    Vec2f box_size;
+    box_size.x = (float)self.font_size * text.len;
+    box_size.y = (float)self.font_size;
+    self.setSize(box_size.x, box_size.y);
 }
 
 fn void WidgetText.setTextColor(&self, Color color) @inline {
@@ -563,15 +555,37 @@ fn void WidgetText.draw(&self) @inline {
     if (self.hidden()) return;
 
     self.super.draw();
-
+    
+    ZString text = self.text.zstr_tcopy();
+    int text_len = rl::measureText(text, self.font_size);
+    Vec2f center;
+    
     switch (self.align)
     {
     case CENTER:
-        rl::drawText(self.text.zstr_tcopy(), (int)self.visual.rect.x + (int)self.visual.rect.width / 2, (int)self.visual.rect.y + (int)self.visual.rect.height / 2, self.font_size, self.text_color);
+        center = {
+            self.visual.rect.x + self.visual.rect.width / 2,
+            self.visual.rect.y + self.visual.rect.height / 2
+        };
+        center.x -= (float)(text_len / 2);
+        center.y -= (float)self.font_size / 2;
     case LEFT:
-        rl::drawText(self.text.zstr_tcopy(), (int)self.visual.rect.x, (int)self.visual.rect.y, self.font_size, self.text_color);
+        center = {
+            self.visual.rect.x,
+            self.visual.rect.y
+        };
     case RIGHT:
-        rl::drawText(self.text.zstr_tcopy(), (int)self.visual.rect.x + (int)self.visual.rect.width, (int)self.visual.rect.y, self.font_size, self.text_color);
+        center = {
+            self.visual.rect.x + self.visual.rect.width,
+            self.visual.rect.y
+        };
+        center.x -= text_len;
+    }
+    
+    rl::drawText(text, (int)center.x, (int)center.y, self.font_size, self.text_color);
+    
+    if(ui_debugDraw.getBool()) {
+       rl::drawCircle((int)center.x, (int)center.y, 1.0f, rl::RED);
     }
 }
 
@@ -612,10 +626,13 @@ fn void WidgetButton.deinit(&self) @inline {
 }
 
 fn void WidgetButton.setColor(&self, Color color) @dynamic {
-    self.default_color  = color;
     self.super.setColor(color);
 }
 
+fn void WidgetButton.setDefaultColor(&self, Color color) @inline {
+    self.default_color = color;
+    self.setColor(color);
+}
 fn void WidgetButton.setOverColor(&self, Color color)      @dynamic => self.over_color      = color;
 fn void WidgetButton.setActivatedColor(&self, Color color) @dynamic => self.activated_color = color;
 fn void WidgetButton.setPressedColor(&self, Color color)   @inline => self.pressed_color   = color;
@@ -640,7 +657,7 @@ fn void WidgetButton.manage_interactions(&self) @local{
     {
         if(self.onOver) self.onOver(self);
 
-        if (rl::isMouseButtonDown(MouseButton.LEFT)) {
+        if (rl::isMouseButtonDown(MouseButton.LEFT) && self.press_count >= 1) {
             //main::lgr::info(Where.CONSOLE, "Gui: I'm pressing button: %s", self.name);
             if (self.onPress) self.onPress(self);
         }
