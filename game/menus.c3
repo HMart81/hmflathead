@@ -193,8 +193,8 @@ fn Desktop* mainMenuCreate(int screenWidth, int screenHeight) {
     //start_btn_label.setAlign(WidgetTextAlign.RIGHT);
     start_btn_label.setPositionV(offset);
     start_btn_label.addToPosition(
-        .x = 0.15f * button_width,
-        .y = 0.25f * button_height
+        x: 0.15f * button_width,
+        y: 0.25f * button_height
     );
     //
     // callbacks
@@ -218,8 +218,8 @@ fn Desktop* mainMenuCreate(int screenWidth, int screenHeight) {
     //start_btn_label.setAlign(WidgetTextAlign.RIGHT);
     quit_btn_label.setPositionV(offset);
     quit_btn_label.addToPosition(
-        .x = 0.15f * button_width,
-        .y = 0.25f * button_height
+        x: 0.15f * button_width,
+        y: 0.25f * button_height
     );
     // callbacks
     quit_button.onOver        = &button_onOver;

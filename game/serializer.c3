@@ -63,13 +63,11 @@ const int SAVE_FILE_VERSION = 1; // update this version if the save file structu
 // or 0x00 for the null symbol to not confuse with null terminated strings 
 const char NULL_CHARACTER = 'º'; 
 
-fault SaveFileFault {
     MISSING_FILE_PATH,
     FAILED_OPEN_FILE,
     FAILED_READ_FILE,
     FAILED_CLOSE_FILE,
     FAILED_GET_FILE_SIZE
-}
 // end_region
 
 // region Globals
@@ -90,7 +88,6 @@ interface SaveSystemInterface {
 <*
 * @require SaveFile.tagof("version") == SAVE_FILE_VERSION
 *>
-fn SaveFile! open(String filepath, int file_version = SAVE_FILE_VERSION) {
     if(filepath == "") {
         return SaveFileFault.MISSING_FILE_PATH?;
     }
@@ -98,7 +95,6 @@ fn SaveFile! open(String filepath, int file_version = SAVE_FILE_VERSION) {
     SaveFile file_data;
     file_data.version = file_version;
     file_data.path    = filepath;
-    io::File! file    = file::open(filepath, "rb");
     if(catch excuse = file) {
         return SaveFileFault.FAILED_OPEN_FILE?;
     } else {
@@ -110,12 +106,10 @@ fn SaveFile! open(String filepath, int file_version = SAVE_FILE_VERSION) {
 <*
 * @require SaveFile.tagof("version") == SAVE_FILE_VERSION
 *>
-fn SaveFile! make_new(String filepath, int file_version = SAVE_FILE_VERSION) {
     if(filepath == "") {
         return SaveFileFault.MISSING_FILE_PATH?;
     }
     
-    io::File! file  = file::open(filepath, "wb");
     if(catch excuse = file) {
         return SaveFileFault.FAILED_OPEN_FILE?;
     } else {
@@ -128,7 +122,6 @@ fn SaveFile! make_new(String filepath, int file_version = SAVE_FILE_VERSION) {
     }
 }
 
-fn void! close(SaveFile* save) @inline {
     save.file.close()!;
 }
 

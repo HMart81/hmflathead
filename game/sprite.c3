@@ -47,7 +47,6 @@ import raylib5::rl;
 // end_region
 
 // region defines
-def assetManager = astmng::assetManager @local;
 // end_region
 
 // region constants
@@ -65,8 +64,11 @@ enum SpriteKind : int {
     CURSOR,
 }
 
-fn SpriteKind SpriteKind.of(int value) @operator(construct)
-{
+<*
+    @param value "the inderlying ordinal value from the kind enum"
+    @require value >= 0 && value < SpriteKind.elements
+*>
+fn SpriteKind kindFrom(int value) @inline {
   return SpriteKind.from_ordinal(value);
 }
 // end_region defines
@@ -199,7 +201,7 @@ fn Vec2i Sprite.getSizei(&self) @inline {
     return (Vec2i)self.rect.getSize().toVec2f();
 }
 
-fn void Sprite.setKind(&self, int kind) @inline => self.kind = SpriteKind.of(kind);
+fn void Sprite.setKind(&self, int kind) @inline => self.kind = kindFrom(kind);
 
 // this is a world position
 // overrides the original position of the sprite
@@ -348,7 +350,6 @@ import engine::misc;
 const int DEFAULT_PARTICLE_LIFETIME   = 1000; // ms
 
 // region defines
-def assetManager = astmng::assetManager @local;
 // end_region
 
 struct Particle
@@ -447,8 +448,8 @@ fn void ParticleSpawner.activate(&self) @inline {
 
 fn void ParticleSpawner.deactivate(&self) @inline {
     unreachable();
-    self.super.stopThinking();
-    self.stopThinking();
+    //self.super.stopThinking();
+    //self.stopThinking();
 }
 
 fn void ParticleSpawner.spawnParticle(&self) {

@@ -47,8 +47,6 @@ import raylib5::rl;
 const float DEFAULT_PROJECTILE_SPEED    = 1.0f;
 const Vec2f DEFAULT_PROJECTILE_MOVE_DIR = misc::VEC_UP;
 
-def ProjectileList    = List(<Projectile>);
-def ProjectilePtrList = List(<Projectile*>);
 
 enum Kind : int {
     BULLET,
@@ -334,8 +332,6 @@ import raylib5::rl;
 //import game::actors::palyer;
 import std::collections::list;
 
-def InputActionCallback = fn void(void*... args);
-def ActionsList         = List(<InputAction*>);
 struct InputAction 
 {
     String name;

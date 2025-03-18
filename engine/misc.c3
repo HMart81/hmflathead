@@ -45,8 +45,6 @@ import engine::logging::lgr;
 import raylib5::rl;
 // end
 
-def Vec2i  = int[<2>];
-def Vec3i  = int[<3>];
 
 // NOTE(HM) There's not Z or back and forward, because this is 2D engine
 // in camera space!!!!!!!!!
@@ -60,8 +58,6 @@ const Color INVISIBLE_COLOR = {0xFF, 0xFF, 0xFF, 0x00};
 
 fn Vector2 Vec2f.toVector2(&self) => Vector2{self.x, self.y};
 
-def @Hardcode = {}; // empty user attribute (Need to start with a uppercase...)
-def @Performance = {};
 
 // cardinal directions
 const int COORD_180_NORTH =  90;
@@ -95,7 +91,6 @@ macro void @drawRect(#rect, color) => rl::drawRectangleRec(#rect, color);
 
 
 // region Debug Lines
-def ArrayOfLinesPtr = List(<DebugLine*>) @local;
 ArrayOfLinesPtr g_debugLines;
 
 struct DebugLine {
@@ -281,7 +276,6 @@ macro bool isDirSeparator( c ) {
         return true;
     }
     
-    $switch
         $case env::WIN32:
             if ( c == '\\' ) {
                 return true;
@@ -347,7 +341,6 @@ fn String String.stripExtension(self) {
 }
 
 macro String[] cut_by_newline(str) {
-    $switch
         $case env::POSIX:
             return str.split("\r\n");
         $case env::WIN32:
@@ -367,7 +360,6 @@ macro void String.remove_spaces(&self) {
     if(self.has_spaces()) {
         char[] buffer;
         usz count;
-        $foreach ($i, $ch : self)
             $if $ch != ' ':
                 buffer[$i] = $ch;
             $endif
@@ -484,13 +476,6 @@ fn int ZString.count_spaces(&self) @inline {
     return self.str_view().count_spaces();
 }
 // end_region raw strings utils
-    
-
-// for easy cast search 
-// macro cast($Type, exprs) @deprecated
-// {
-    // return ($Type)exprs;
-// }
 
 // region PROFILING /////////////////////////////////////////////////
 // todo make this into a internal module?
@@ -541,6 +526,34 @@ fn void axis_scale(Matrix2f* mat, Vec2f vec) @inline {
     }
 }
 
+// requires version c3c 0.7
+/*
+macro @printstruct(value)
+{
+    var $Type = $typeof(value);
+
+    $if $Type.kindof != STRUCT:
+        io::print(value);
+
+    $else
+
+        io::print("{\n");
+        $foreach $i, $member : $Type.membersof:
+            $if $i > 0:
+                io::print(",\n");
+            $endif
+
+            $if $member.nameof != "":
+                io::printf("    %s : ", $member.nameof);
+                @printstruct($member.get(value));
+            $endif
+        $endforeach
+
+        io::print("\n}\n");
+
+    $endif
+}
+*/
 
 fn void draw_arrow(Vec2f start, Vec2f end, Color color, Vec2f arrow_size = {16.0f, 8.0f})
 {

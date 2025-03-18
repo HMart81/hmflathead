@@ -90,7 +90,6 @@ defer {
 }
 */
 struct BoidManager (SaveSystemInterface) {
-    List(<Boid>) boids;
 	ArenaAllocator mem_arena;
 	char* arena_bytes;
     random::SimpleRandom rand;
@@ -114,7 +113,7 @@ fn void BoidManager.init(&self) {
 	self.arena_bytes = mem::malloc(mem_count);
 	// init the memory arena
 	self.mem_arena.init(self.arena_bytes[:mem_count]);
-    self.boids.new_init(self.max_boids, allocator: &self.mem_arena);
+    self.boids.init(&self.mem_arena, self.max_boids);
     random::seed_entropy(&self.rand);
 }
 

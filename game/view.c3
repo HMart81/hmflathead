@@ -112,7 +112,6 @@ const Matrix3f VIEW_AXIS_IDENTITY = {
     0.0f, 0.0f, 1.0f
 };
 
-def gameptr = main::gpGame;
 
 const bool ENABLE_CAMERA_VIEW = true;
 
@@ -122,9 +121,7 @@ enum ZoomMode : char @if ($defined(ENABLE_CAMERA_VIEW))
     MOUSE_MOVE
 }
 
-distinct RenderLayer = inline RenderTexture2D;
 
-def RenderFunctionCallback = fn void(RenderLayer* layer, int w = 0, int h = 0);
 
 struct RenderView (SaveSystemInterface)
 {
@@ -219,6 +216,7 @@ fn void RenderView.debug(&self) {
 // I call rl::takeScreenshot() I will take TWO screenshots!! :(
 fn void takeScreenShot() {
     unreachable();
+    /*
     String shots_dir = main::gpGame.app_work_dir.tconcat("screenshots\\");
     if(fs::directoryExists(shots_dir) == false) {
         bool! sucess = fs::makeDirectory(shots_dir);
@@ -269,12 +267,12 @@ fn void takeScreenShot() {
             }
         }
     }
+    */
 }
 
 fn void moveScreenShots() {
     String shots_dir = main::gpGame.app_work_dir.tconcat("screenshots\\");
     if(fs::directoryExists(shots_dir) == false) {
-        bool! sucess = fs::makeDirectory(shots_dir);
         if(catch excuse = sucess) {
             lgr::warning(Where.FILE, "Cannot create screenshots directory at: %s!\n\t -> excuse: %s", 
                         shots_dir, excuse);
