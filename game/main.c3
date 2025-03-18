@@ -206,6 +206,12 @@ editor     = "F1"
 // If alising a type the alias name, should start uppercase, if alising a function, it should start lowercase, 
 // if alising a Constant the alias also needs to be all caps, etc.
 
+// alias Types
+def RColor         = rl::Color @public;
+def RShader        = rl::Shader @public;
+def StringTuple    = Tuple(<String, String>) @public;
+def IniFileCMDList = List(<StringTuple*>);
+def asstManager    = astmng::assetManager @public;
 
 // alias function names
 
@@ -246,10 +252,12 @@ fn void register_modulo_cvars() @local {
 
 // end_region Cvars
 
+fault GameError {
     WINDOW_INIT_FAILED,
     MISSING_REQUIRED_ASSET,
     INVALID_WORK_DIR,
     NO_DATA_FOLDER
+} 
 
 enum Program_Mode @public {
     GAME,
@@ -326,6 +334,8 @@ struct Game (SaveSystemInterface) @local
         int  multiSamples; // MSAA
     }
 
+    List(<Entity*>) entityList;
+    List(<Sprite*>) sprites;
     BoidManager boidManager1;
     
     String app_name;
@@ -1313,6 +1323,7 @@ fn void handle_cmdline(String[]* args) {
 // end_region ARGS HANDLING ******************
 
 /* This is where game execution begins */
+fn void! gameOnStart(String[]* args) @local 
 {
     // NOTE(HM) 
     // This will save cvars in a global array for later looping through if needed
@@ -1435,6 +1446,7 @@ fn void handle_cmdline(String[]* args) {
         } else { // create it
             //Path! save_path = path::temp_new(save_folder)!;
             //bool! sucess    = path::mkdir(save_path);
+            bool! sucess    = fs::makeDirectory(local_game.app_save_folder);
             if(catch excuse = sucess) {
                 lgr::warning(Where.FILE,"Failed to create %s folder inside %s with excuse: %s", 
                            local_game.app_name, local_game.app_save_folder, excuse);
@@ -1473,11 +1485,13 @@ fn void handle_cmdline(String[]* args) {
     bool settings_file_missing = fs::fileExists(ini_file_path) == false;
     if (settings_file_missing) // create it with default settings
     {
+        File! data      = file::open(ini_file_path, "w");
         if(catch excuse = data)                      { return excuse?; }
         if(catch excuse = data.write(SAFE_SETTINGS)) { return excuse?; }
         if(catch excuse = data.close())              { return excuse?; }
     }
-
+    
+     ini::FileData*! settings_file = ini::load(ini_file_path, false); //ini::load(SETTINGS_FILE_NAME);
     if( catch excuse = settings_file) {
         lgr::warning(Where.FILE, "Failed to load %s file with excuse: %s", ini_file_path, excuse);
         return excuse?;
@@ -1913,6 +1927,7 @@ fn void saveGame() {
     String save_folder = local_game.app_save_folder;
     if(fs::directoryExists(save_folder)) {
         String file_path = save_folder.tconcat("\\").tconcat(string::tformat("%s%s%s", local_game.app_name, local_game.time_ms, ".sav"));
+        svs::SaveFile! save_file = svs::make_new(file_path);
         defer (void)svs::close(&save_file);
         if(catch excuse = save_file) {
             lgr::warning(Where.FILE, "Unable to save to file: %s with excuse: %s", file_path, excuse);
@@ -1959,6 +1974,7 @@ fn void loadGame() {
     
     // load the newer file then
     if(files.count) {
+         svs::SaveFile! save_file = svs::open(((ZString)files.paths[file_index]).str_view());
         defer (void)svs::close(&save_file);
         if(catch excuse = save_file) {
             lgr::warning(Where.FILE, "Unable to open save file: %s with excuse: %s", files.paths[file_index], excuse);
@@ -2077,6 +2093,7 @@ fn void pre_InitFunc() @init {
 
 fn int main(String[] args) @public
 {
+    anyfault excuse = @catch(gameOnStart(&args));
     if (excuse) {
         lgr::error(Where.CONSOLE, "Game initialization failed with excuse: %s", excuse);
         return -1;

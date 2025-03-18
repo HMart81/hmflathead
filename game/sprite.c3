@@ -47,6 +47,7 @@ import raylib5::rl;
 // end_region
 
 // region defines
+def assetManager = astmng::assetManager @local;
 // end_region
 
 // region constants
@@ -350,6 +351,7 @@ import engine::misc;
 const int DEFAULT_PARTICLE_LIFETIME   = 1000; // ms
 
 // region defines
+def assetManager = astmng::assetManager @local;
 // end_region
 
 struct Particle

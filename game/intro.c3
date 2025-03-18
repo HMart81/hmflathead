@@ -13,6 +13,7 @@ import game::low_level::cvar;
 // end_region
 
 // region defines
+def FrameQueue  = List(<Frame*>);
 // end_region
 
 // region constants
