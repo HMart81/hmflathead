@@ -308,10 +308,10 @@ struct Game (SaveSystemInterface) @local
     //
     
     // game fonts TODO(HM) We should chose only 2 for the final game...
-    Asset*  candara_font;
-    Font*  candara_light_font;
-    Font*  lucida_font;
-    Font*  trojan_pro_font;
+    Asset* candara_font;
+    Font* candara_light_font;
+    Font* lucida_font;
+    Font* trojan_pro_font;
     //
     
     String[] cursors;
@@ -330,6 +330,7 @@ struct Game (SaveSystemInterface) @local
             bool fullscreen;
             bool borderless;
         }
+        bool vsync_hint;
         int  displayHz;
         int  multiSamples; // MSAA
     }
@@ -959,6 +960,17 @@ fn void gameUpdate() @local
     float gameUpdate_st = @start_profile_zone();
     defer @end_profile_zone(gameUpdate_st);
     
+    // make game run at lower rate in case window loses focus
+    if(rl::isWindowFocused()) {
+        if(local_game.screen.displayHz == 15) {
+            local_game.screen.displayHz = rl::getMonitorRefreshRate(local_game.screen.id);
+            rl::setTargetFPS(local_game.screen.displayHz);
+        }
+    } else if(local_game.screen.displayHz != 15) {
+        local_game.screen.displayHz = 15;
+        rl::setTargetFPS(local_game.screen.displayHz);
+    }
+    
     gameHandleGeneralControls();
     
     gui::gpDeskManager.update();
@@ -1556,7 +1568,7 @@ fn void! gameOnStart(String[]* args) @local
     // Vertical sync (may or may not apply...)
     if(try settings_file.getBoolValue("vsync")) {
         window_flags |= (int)rl::FLAG_VSYNC_HINT;
-        local_game.screen.displayHz = 1;
+        local_game.screen.vsync_hint = true;
     }
     
     // NOTE(HM) cvar r_fullscreen has top priority
@@ -1612,13 +1624,14 @@ fn void! gameOnStart(String[]* args) @local
     // now set/apply the final window flags
     rl::setConfigFlags((ConfigFlag)window_flags);
     
-    // region Window initialization
+// region Window initialization
     int screenWidth     = local_game.screen.w;
     int screenHeight    = local_game.screen.h;
-    //
     ZString window_name = string::tformat_zstr("%s version: (%s, %s, %s)", local_game.app_name.zstr_tcopy(), MAX_VERSION, MIN_VERSION, BABY_VERSION);
+    
+    //========= Init Window ======== // 
     rl::initWindow(screenWidth, screenHeight, window_name);
-    //
+    //============================== //
     
     if(rl::isWindowReady() == false) {
         lgr::fatal(Where.FILE, "Failed to init rl window and OpenGL context!");
@@ -1636,25 +1649,28 @@ $if $feature(_DEBUG):
     rl::setExitKey(rl::KEY_F10);
 $endif
 
-    // end_region Window initialization
+// end_region Window initialization
     
-    // region AUDIO DEVICE initialization
-    rl::initAudioDevice(); 
+// region AUDIO DEVICE initialization
+    rl::initAudioDevice();
+    
     if(rl::isAudioDeviceReady() == false) {
+        if(rl::getMasterVolume() < 1.0f) {
+            rl::setMasterVolume(1.0f);
+            lgr::info(Where.FILE, "Audio Master Volume set to = %s", 1.0f);
+        }
+    } else {
         lgr::warning(Where.FILE, "AudioDevice: Not ready, sound will be disabled! %s:%s", $$MODULE, $$FUNC );
     }
     
-    if(rl::getMasterVolume() < 1.0f) {
-        rl::setMasterVolume(1.0f);
-        lgr::info(Where.FILE, "Audio Master Volume set to = %s", 1.0f);
-    }
+    
     
     // load required default sound
     local_game.default_sound = rl::loadSound(local_game.app_base_folder.tconcat("sounds//default.wav").zstr_tcopy());
     if(rl::isSoundValid(local_game.default_sound)) {
-    $if $feature(_DEBUG):
-        rl::playSound(local_game.default_sound);
-    $endif
+        $if $feature(_DEBUG):
+            if(rl::isAudioDeviceReady()) rl::playSound(local_game.default_sound);
+        $endif
     } else {
         lgr::fatal(Where.FILE, "Required default asset: \"sounds/default.wav\" failed to load!");
         return GameError.MISSING_REQUIRED_ASSET?;
@@ -1666,7 +1682,7 @@ $endif
         lgr::fatal(Where.FILE, "Required default asset: \"music/default.mp3\" failed to load!");
         return GameError.MISSING_REQUIRED_ASSET?;
     }
-    // end_region AUDIO DEVICE initialization
+// end_region AUDIO DEVICE initialization
     
     // See how many monitors user has and change the window placement if necessary.
     // WARNING(HM) This is not guarantied to work for all multi-monitor setups, 
@@ -1721,9 +1737,14 @@ $endif
     // @Todo 
     // support unlocked framerates? 
     // Support user setting frame rate on main menu?
-    int monitor_speed = rl::getMonitorRefreshRate(current_monitor);
-    rl::setTargetFPS(monitor_speed);
-    lgr::info(Where.FILE,  "Game set to %shz update rate.", monitor_speed);    
+    
+    if(rl::isWindowFullscreen() && rl::isWindowFocused()) {
+        local_game.screen.displayHz = rl::getMonitorRefreshRate(current_monitor);
+    } else {
+        local_game.screen.displayHz = 15;
+    }
+    rl::setTargetFPS(local_game.screen.displayHz);
+    lgr::info(Where.FILE,  "Game set to %shz update rate.", local_game.screen.displayHz);
     
     // region Asset manager
     lgr::info(Where.FILE,  "** Starting Assets Loading **");

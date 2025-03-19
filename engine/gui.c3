@@ -859,7 +859,7 @@ fn void Desktop.init(&self, String name) @inline {
     self.name = string::tformat("Desktop_%s", name);
     //
     //
-    self.rect = Rectangle { // @hardcode
+    self.rect = { // @hardcode
         .x      = 0,
         .y      = 0, 
         .width  = main::gpGame.screen.w,
