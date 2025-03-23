@@ -52,8 +52,8 @@ fn bool isWhiteSpace(CChar c)  @inline
 	return result;
 }
 
-// You can convert a CChar c to an integer as follow:
-// if the char falls withing the normal ASCII table values
+// You can convert a CChar c to an integer:
+// if the char code falls withing the normal ASCII table values
 fn int charToInt(CChar c)  @inline
 {
 	return  c - '0';
@@ -64,7 +64,7 @@ fn int charToInt(CChar c)  @inline
 // Is like advance but stops at first space character
 // NOTE(HM) 
 // String is a char[] that is a SLICE struct (a pointer and a len)
-// not a C array that is just a pointer.
+// not like a C array that is just a pointer to the start of a contiguous peace of memory.
 fn CChar returnNextToken(String str, int cur_index)  @inline
 {
 	return *(str.ptr + cur_index + 1);

@@ -487,6 +487,25 @@ fn int ZString.count_spaces(&self) @inline {
 // region PROFILING /////////////////////////////////////////////////
 // todo make this into a internal module?
 
+macro void @profile_zone(String name; @body()) {
+$if $feature(_PROFILE):
+    var start_time = rl::getTime(); // in seconds
+    defer
+    {
+        var current_time = rl::getTime();
+        var value = math::abs(start_time - current_time);
+        @pool() {
+            String time_type = "ms";
+            if((float)value >= 1.0f) {
+                time_type = "sec";
+            }
+            io::printfn("Profile Zone -> [%s]\n{\n Func: %s\n Time: %s %s\n}", name, $$FUNC, value, time_type);
+        };
+    }
+$endif
+    @body();
+}
+
 <*
  * @require rl::isWindowReady() == true "right now window most be initialized for Profiling to work"
  * @return `start time of function`

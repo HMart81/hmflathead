@@ -67,7 +67,8 @@ EXES_TO_CLEAN := $(wildcard $(BUILD_PATH)/*.exe)
 GAME_ARGUMENTS := +developer +g_log 1 +r_mode 9
 
 # you need to use $feature(_DEBUG) to check for this defines, in C3 $define is used for something else...
-DEBUG_DEFINES   := -D _DEBUG
+DEBUG_DEFINES   := -D _DEBUG 
+#-D _PROFILE
 # current release defines aren't really usefull... 
 RELEASE_DEFINES := -D _RELEASE 
 

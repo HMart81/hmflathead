@@ -957,103 +957,105 @@ fn void gameHandleGeneralControls() @local {
 
 fn void gameUpdate() @local 
 {
-    float gameUpdate_st = @start_profile_zone();
-    defer @end_profile_zone(gameUpdate_st);
-    
-    // make game run at lower rate in case window loses focus
-    if(rl::isWindowFocused()) {
-        if(local_game.screen.displayHz == 15) {
-            local_game.screen.displayHz = rl::getMonitorRefreshRate(local_game.screen.id);
+    //float gameUpdate_st = @start_profile_zone();
+    //defer @end_profile_zone(gameUpdate_st);
+    misc::@profile_zone("Game Update")
+    {
+        // make game run at lower rate in case window loses focus
+        if(rl::isWindowFocused()) {
+            if(local_game.screen.displayHz == 15) {
+                local_game.screen.displayHz = rl::getMonitorRefreshRate(local_game.screen.id);
+                rl::setTargetFPS(local_game.screen.displayHz);
+            }
+        } else if(local_game.screen.displayHz != 15) {
+            local_game.screen.displayHz = 15;
             rl::setTargetFPS(local_game.screen.displayHz);
         }
-    } else if(local_game.screen.displayHz != 15) {
-        local_game.screen.displayHz = 15;
-        rl::setTargetFPS(local_game.screen.displayHz);
-    }
-    
-    gameHandleGeneralControls();
-    
-    gui::gpDeskManager.update();
-    
-    // if(rl::isCursorOnScreen()) {
-        // io::printfn("on screen id: %s", rl::getCurrentMonitor());
-    // } else {
-        // io::printfn("NOT ON SCREEN!!!!!");
-    // }
-    
-    local_game.view.update();
-    
-    // done on sprite.c3 now
-    //update_game_cursor(local_game.screen.w, local_game.screen.h);
-    
-    // TODO(HM) Make a seperate function to update various timers?
-    local_game.testTimer.update();
-    
-    // boids
-    local_game.boidManager1.update(rl::getScreenWidth(), rl::getScreenHeight(), local_game.dt);
-    
-    if(local_game.testTimer.alive()) {
-        io::printfn("Timer time = %s!!!", local_game.testTimer.lifetime);
-    } else { 
-        //io::printfn("Timer run out press F2 to start again!!!");
-        if (rgui::button(Rectangle { 24, 24, 120, 30 }, "#191#Show Message")) local_game.showMessageBox = true;
+        
+        gameHandleGeneralControls();
+        
+        gui::gpDeskManager.update();
+        
+        // if(rl::isCursorOnScreen()) {
+            // io::printfn("on screen id: %s", rl::getCurrentMonitor());
+        // } else {
+            // io::printfn("NOT ON SCREEN!!!!!");
+        // }
+        
+        local_game.view.update();
+        
+        // done on sprite.c3 now
+        //update_game_cursor(local_game.screen.w, local_game.screen.h);
+        
+        // TODO(HM) Make a seperate function to update various timers?
+        local_game.testTimer.update();
+        
+        // boids
+        local_game.boidManager1.update(rl::getScreenWidth(), rl::getScreenHeight(), local_game.dt);
+        
+        if(local_game.testTimer.alive()) {
+            io::printfn("Timer time = %s!!!", local_game.testTimer.lifetime);
+        } else { 
+            //io::printfn("Timer run out press F2 to start again!!!");
+            if (rgui::button(Rectangle { 24, 24, 120, 30 }, "#191#Show Message")) local_game.showMessageBox = true;
 
-        if (local_game.showMessageBox)
-        {
-            int result = rgui::messageBox(Rectangle { 85, 70, 250, 100 },
-                "#191#Message Box", "Hi! This is a message!", "Nice;Cool");
+            if (local_game.showMessageBox)
+            {
+                int result = rgui::messageBox(Rectangle { 85, 70, 250, 100 },
+                    "#191#Message Box", "Hi! This is a message!", "Nice;Cool");
 
-            if (result >= 0) local_game.showMessageBox = false;
-        }
-    }
-    
-    // Todo handle more music but only one music should play at the same time...
-    if(rl::isMusicValid(local_game.default_music)) {
-        // Update music buffer with new stream data
-        rl::updateMusicStream(local_game.default_music);
-    }
-    
-    // update game sprites
-    if(local_game.sprites.len()) {
-        foreach(sprite : local_game.sprites) {
-            //if(sprite.kind == SpriteKind.CURSOR && game_cursor_visible()) {
-                //sprite.update();
-            //} else {
-                // generic sprite
-                sprite.update();
-            //}
-        }
-    }
-    
-    if(local_game.should_update_entities)
-    {
-        // remove dead entities
-        foreach(int i, it : local_game.entityList) {
-            if(it.alive == false) {
-                local_game.entityList.remove_at(i);
-                lgr::warning(Where.CONSOLE, "Entity '%s' was killed\n", it.name);
+                if (result >= 0) local_game.showMessageBox = false;
             }
         }
         
-        // entity thinking
-        foreach(usz i, ent: local_game.entityList) {
-            if(i == 0 && ent.type == Player.typeid) {
-                assert(ent != null);
-                // Need to cast Entity* to Player* to call player think not Entity think...
-                ((Player*)ent).think(dt: local_game.dt);
-            } else {
-                assert(ent != null);
-                ent.think(dt: local_game.dt);
+        // Todo handle more music but only one music should play at the same time...
+        if(rl::isMusicValid(local_game.default_music)) {
+            // Update music buffer with new stream data
+            rl::updateMusicStream(local_game.default_music);
+        }
+        
+        // update game sprites
+        if(local_game.sprites.len()) {
+            foreach(sprite : local_game.sprites) {
+                //if(sprite.kind == SpriteKind.CURSOR && game_cursor_visible()) {
+                    //sprite.update();
+                //} else {
+                    // generic sprite
+                    sprite.update();
+                //}
             }
         }
-        //
-    }
-    
-    if(misc::g_debugLines.len()) {
-        foreach(line : misc::g_debugLines) {
-            line.update();
+        
+        if(local_game.should_update_entities)
+        {
+            // remove dead entities
+            foreach(int i, it : local_game.entityList) {
+                if(it.alive == false) {
+                    local_game.entityList.remove_at(i);
+                    lgr::warning(Where.CONSOLE, "Entity '%s' was killed\n", it.name);
+                }
+            }
+            
+            // entity thinking
+            foreach(usz i, ent: local_game.entityList) {
+                if(i == 0 && ent.type == Player.typeid) {
+                    assert(ent != null);
+                    // Need to cast Entity* to Player* to call player think not Entity think...
+                    ((Player*)ent).think(dt: local_game.dt);
+                } else {
+                    assert(ent != null);
+                    ent.think(dt: local_game.dt);
+                }
+            }
+            //
         }
-    }
+        
+        if(misc::g_debugLines.len()) {
+            foreach(line : misc::g_debugLines) {
+                line.update();
+            }
+        }
+    }; // profile_zone
 }
 
 fn void gameReset() @local {
