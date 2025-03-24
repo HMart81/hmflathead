@@ -26,6 +26,30 @@
 # 
 ##########################################################################################
 
+################################# MAKE LANGUAGE DOC #####################################
+#
+# Simple assignment :=
+# A simple assignment expression is evaluated only once, at the very first occurrence (when is defined). 
+# For example, if CC := ${GCC} ${FLAGS} during the first encounter is evaluated to gcc -W 
+# then each time ${CC} occurs, it will be replaced with gcc -W.
+#
+# Recursive assignment =
+# A Recursive assignment expression is evaluated everytime the variable is encountered in the code. 
+# For example, a statement like CC = ${GCC} {FLAGS} will be evaluated only 
+# when an action like ${CC} file.c is executed. 
+# However, if the variable GCC is reassigned, GCC = c++, 
+# then from now on ${CC} will be converted to, c++ -W, after the reassignment.
+#
+#######################################################################################################
+#                       !!WARNING!! 
+# make will not work with space based "tab" it requires real tab
+# Wildcards require unix style forward slash's '/'.
+# Also do not use wildcards directly on the rules itself,
+# always use them through a variable, aparantly they don't always work as expected when used on a rule.
+# Make sure there's no space after all '\' in ENGINE_CHILD_SOURCES :=
+#######################################################################################################
+#########################################################################################
+
 $(info $(SHELL))
 
 APPLICATION_RELEASE_NAME := main
@@ -42,22 +66,15 @@ MSVC_SDK_PATH := windows\kit\8.1\Lib\winv6.3\um\x64
 FULL_MSVC_SDK_PATH := $(LIBRARY_ROOT_PATH)$(MSVC_SDK_PATH)
 KERNEL32_LIB := $(MSVC_SDK_PATH)\kernel32.lib
 USER32_LIB := $(MSVC_SDK_PATH)\user32.lib
-#######################################################################################################
-#                       !!WARNING!! 
-# make will not work with space based "tab" it requires real tab
-# Wildcards require unix style forward slash's.
-# Also do not use wildcards directly on the rules itself,
-# always use them through a variable, aparantly they don't always work as expected when used on a rule.
-# Make sure there's no space after all '\' in ENGINE_CHILD_SOURCES :=
-#######################################################################################################
-# engine folders
+
+########################### engine folders
 ENGINE_ROOT_SOURCES := $(wildcard $(ENGINE_FOLDER)*.c3 $(ENGINE_FOLDER)*.c3i)
 GAME_ROOT_SOURCES := $(wildcard $(GAME_FOLDER)*.c3)
 ENGINE_CHILD_SOURCES := \
 	$(ENGINE_FOLDER)$(wildcard containers/*.c3 containers/*.c3i) \
 	$(ENGINE_FOLDER)$(wildcard thirdparty/*.c3 thirdparty/*.c3i) \
 	$(ENGINE_FOLDER)$(wildcard xml/*.c3 xml/*.c3i)
-##
+#################################################################################
 
 OBJS_TO_CLEAN := $(wildcard $(BUILD_PATH)/temp/*.obj)
 LIBS_TO_CLEAN := $(wildcard $(BUILD_PATH)/*.lib)
@@ -67,16 +84,25 @@ EXES_TO_CLEAN := $(wildcard $(BUILD_PATH)/*.exe)
 # arguments to set at game start
 GAME_ARGUMENTS := +developer +g_log +r_mode 9
 
-# you need to use $feature(_DEBUG) to check for this defines, in C3 $define is used for something else...
-DEBUG_DEFINES   := -D _DEBUG 
+# in c3 you need to use $feature(_DEBUG) to check for this defines, C3 $define doesn't work for this...
+DEBUG_DEFINES   := -D _DEBUG -D _PROFILE
 #-D _PROFILE
 # current release defines aren't really usefull... 
-RELEASE_DEFINES := -D _RELEASE 
+RELEASE_DEFINES := -D _RELEASE
 
+# compiler to use right now there's only one, c3c
+CC := c3c.exe
+
+# common compiler flags/options
+CFLAGS := --target windows-x64 --threads 8 --output-dir $(BUILD_PATH)
+
+# libraries
+LIBRARIES := -l $(RAYLIB) -l $(BOX2D) -z $(RAYGUI)
+	
 # release
-comand_release_compile := c3c.exe -O3 $(RELEASE_DEFINES) -L $(LIBRARY_ROOT_PATH) -l $(RAYLIB) -l $(BOX2D) -z $(RAYGUI) -o $(APPLICATION_RELEASE_NAME) --output-dir $(BUILD_PATH) compile --target windows-x64 --threads 8 $(GAME_ROOT_SOURCES) $(ENGINE_ROOT_SOURCES) $(ENGINE_CHILD_SOURCES)
+comand_release_compile := $(CC) -O3 $(CFLAGS) $(RELEASE_DEFINES) -L $(LIBRARY_ROOT_PATH) $(LIBRARIES) -o $(APPLICATION_RELEASE_NAME) compile $(GAME_ROOT_SOURCES) $(ENGINE_ROOT_SOURCES) $(ENGINE_CHILD_SOURCES)
 # debug
-comand_debug_compile := c3c.exe -O0 $(DEBUG_DEFINES) -L $(LIBRARY_ROOT_PATH) -l $(RAYLIB) -l $(BOX2D) -l kernel32.lib -z $(RAYGUI) -o $(APPLICATION_DEBUG_NAME) --output-dir $(BUILD_PATH) compile --target windows-x64 --threads 8 $(GAME_ROOT_SOURCES) $(ENGINE_ROOT_SOURCES) $(ENGINE_CHILD_SOURCES)
+comand_debug_compile := $(CC) -O0 $(CFLAGS) $(DEBUG_DEFINES) -L $(LIBRARY_ROOT_PATH) $(LIBRARIES) -l kernel32.lib -o $(APPLICATION_DEBUG_NAME) compile $(GAME_ROOT_SOURCES) $(ENGINE_ROOT_SOURCES) $(ENGINE_CHILD_SOURCES)
 #
 comand_release_run := cd ${CURDIR}/build/ & start $(APPLICATION_RELEASE_NAME).exe $(GAME_ARGUMENTS)
 comand_debug_run := cd ${CURDIR}/build/ & start $(APPLICATION_DEBUG_NAME).exe $(GAME_ARGUMENTS)
@@ -94,6 +120,11 @@ comand_debug_run := cd ${CURDIR}/build/ & start $(APPLICATION_DEBUG_NAME).exe $(
 #####################################################################################################
 
 ################################### NOTE ############################################################
+#######  rules work like this:
+# 
+#     target (exe, dll, lib, etc) : depends on this files (if they change recompile)
+#	  		and calls this cmd
+######
 # the "all" rule is required to force rules "buildtype(name)" to be the only rules that run
 # when calling "make" with no parameters in the console, otherwise make will run the rules automatically 
 # from top to bottom and so, run clean rule first and it will break everything, if there's nothing to clean 
@@ -103,6 +134,7 @@ comand_debug_run := cd ${CURDIR}/build/ & start $(APPLICATION_DEBUG_NAME).exe $(
 
 #################################### RULES ###################################################
 
+# rule run when inputing "make" alone in the console
 all: release($(APPLICATION_RELEASE_NAME)) debug($(APPLICATION_DEBUG_NAME))
 
 clean: func_clean

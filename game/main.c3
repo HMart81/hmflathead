@@ -813,7 +813,7 @@ fn void gameDraw(int screenWidth, int screenHeight) @local
 {
     //float gameDraw_start = @start_profile_zone();
     //defer @end_profile_zone(gameDraw_start);
-    misc::@profile_zone("Game Draw") 
+    misc::@profile_zone("Game Draw", false)
     {
         local_game.view.renderToFBO(screenWidth, screenHeight);
         

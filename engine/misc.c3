@@ -486,44 +486,54 @@ fn int ZString.count_spaces(&self) @inline {
 
 // region PROFILING /////////////////////////////////////////////////
 // todo make this into a internal module?
-
-macro void @profile_zone(String name; @body()) {
+<*
+ * @require rl::isWindowReady() == true "right now window most be initialized for Profiling to work"
+*>
+macro void @profile_zone(String name, bool on = true; @body()) {
 $if $feature(_PROFILE):
-    var start_time = rl::getTime(); // in seconds
-    defer
-    {
-        var current_time = rl::getTime();
-        var value = math::abs(start_time - current_time);
-        @pool() {
-            String time_type = "ms";
-            if((float)value >= 1.0f) {
-                time_type = "sec";
-            }
-            io::printfn("Profile Zone -> [%s]\n{\n Func: %s\n Time: %s %s\n}", name, $$FUNC, value, time_type);
-        };
+    if(on) {
+        var start_time = rl::getTime(); // in seconds
+        defer
+        {
+            var current_time = rl::getTime();
+            var value        = math::abs(start_time - current_time);
+            String report    = string::tformat("Prof Zone-> [%s]\n{\n Func: %s\n Time: %s %s\n}", name, $$FUNC, value, ((float)value >= 1.0f) ? "sec" : "ms");
+            io::printfn(report);
+            /*@pool() {
+                String time_type = "ms";
+                if((float)value >= 1.0f) {
+                    time_type = "sec";
+                }
+                io::printfn("Profile Zone -> [%s]\n{\n Func: %s\n Time: %s %s\n}", name, $$FUNC, value, time_type);
+            };*/
+        }
     }
 $endif
     @body();
 }
 
+// deprected functions
 <*
  * @require rl::isWindowReady() == true "right now window most be initialized for Profiling to work"
  * @return `start time of function`
 *>
 macro float @start_profile_zone() @builtin {
+    return 0.0f;
+/*
 $if $feature(PROFILE):
     var ms = (float)rl::getTime() * 1000.0f;
     return ms;
 $else
     return 0.0f;
 $endif
+*/
 }
 
 <*
- * @require rl::isWindowReady() == true "right now window most be initialized for Profiling to work"
- * @param [in] start_time `The function start time`
+ @require rl::isWindowReady() == true "right now window most be initialized for Profiling to work"
 *>
 macro @end_profile_zone(#start_time) @builtin {
+/*
 $if $feature(PROFILE):
         var ms    = (float)rl::getTime() * 1000.0f;
         var value = math::abs(math::ceil(#start_time /*in ms*/ - ms));
@@ -535,6 +545,7 @@ $if $feature(PROFILE):
         //main::gpGame.gameView.pushDebugText("Performance zone:\n [%s] = %s %s", name, value, (print_sec) ? "sec" : "ms");
         io::printfn("Performance zone:\n [%s] = %s %s", $$FUNC, value, (print_sec) ? "sec" : "ms");
 $endif
+*/
 }
 
 // end_region PROFILING //////////////////////////////////////////////////////////////////////////////////////////////////////////////
