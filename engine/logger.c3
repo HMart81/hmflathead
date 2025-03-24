@@ -37,9 +37,9 @@ import game::low_level::cvar;
 // end_region
 
 // region Cvars
-Cvar g_log @public = { "g_log", CvarType.INT, "0", "loggin for debuggin, int value from 0 to 4, 0 = off, larger values prints more stuff."};
+Cvar g_log @public = { "g_log", CvarType.BOOLEAN, "true", "turns on loggin for debuggin."};
 
-fn void register_modulo_cvars() @local {
+fn void register_cvars() {
 	cvar::@register(&g_log);
 }
 // end_region Cvars
@@ -58,19 +58,40 @@ enum Where {
     CONSOLE
 }
 
+/*
+// Trace log level      *copy pasta* from raylib55.c3i just for doc reasons
+// NOTE: Organized by priority level
+enum TraceLogLevel : int
+{
+    ALL,            // Display all logs (0)
+    TRACE,          // Trace logging, intended for internal use only
+    DEBUG,          // Debug logging, used for internal debugging, it should be disabled on release builds
+    INFO,           // Info logging, used for program execution info
+    WARNING,        // Warning logging, used on recoverable failures
+    ERROR,          // Error logging, used on unrecoverable failures
+    FATAL,          // Fatal logging, used to abort program: exit(EXIT_FAILURE)
+    NONE            // Disable logging
+}
+*/
 // region local globals
-	rl::TraceLogLevel glevel @local;    // Controls how deep should the logging be done
-	int glogcount            @local;	   // Is this really needed... to know how many log prints we did if to many throw a warning
-	ZString gpath            @local;	   // Full path to the file if needed 
+	rl::TraceLogLevel glevel @local;    // default is ALL; Controls how deep should the logging be done
+	int glogcount            @local;	// Is this really needed... to know how many log prints we did if to many throw a warning
+	ZString gpath            @local;	// Full path to the file if needed
+    File gfile               @local;    // the file handle itself
 // end_region
 
 fn void setLogLevel(TraceLogLevel level) @inline {
 	glevel = level;
 }
 
-fn void init() {
+fn void initGlobalLoggingDir() {
     gpath = rl::getWorkingDirectory().str_view().concat("\\debug.log").zstr_tcopy();
-	register_modulo_cvars();
+}
+
+fn void closeLogFile() {
+    if(catch excuse = gfile.close()) {
+        warning(Where.CONSOLE, "failed to close log file!!!");
+    }
 }
 
 fn String getfilepath() @inline => gpath.str_view();
@@ -127,12 +148,12 @@ fn void fatal(Where where, String fmt, args...) @public {
 
 fn void logTofile(TraceLogLevel level, String fmt, args...) @local
 {
-	int log_value_from_cvar = g_log.getInt();
-	if(log_value_from_cvar == 0 || fmt.len == 0) return;
+	bool not_should_log = !g_log.getBool() || fmt.len == 0;
+	if(not_should_log) return;
     
 $if $feature(_DEBUG):
 	bool should_log = level.ordinal >= glevel.ordinal;
-	if( should_log == false || glevel.ordinal < log_value_from_cvar) return;
+	if(should_log == false) return;
 	
 	if(glogcount >= 0xFFFF) {
 		warning(Where.CONSOLE, "Log messages have reached or surpassed 65K!!!");
@@ -142,23 +163,31 @@ $if $feature(_DEBUG):
 	str.appendf(fmt, ...args);
     
     assert(gpath.len() != 0);
-    CFile* file = libc::fopen(gpath, WRITE_NEW);
+    //CFile* file = libc::fopen(gpath, WRITE_NEW);
+    if(gfile.file == null) {
+        gfile = file::open(gpath.str_view(), WRITE_NEW.str_view())!!;
+    }
     defer {
-        libc::fclose(file);
+        //libc::fclose(file);
+        //gfile.close()!!;
     }
 	
 	if(glogcount >= 1) {
 		// close the old file handle
-		libc::fclose(file);
+		//libc::fclose(file);
+        if(catch excuse = gfile.reopen(gpath.str_view(), APPEND_TO_END.str_view())) {
+			warning(Where.CONSOLE, "Failed to reopen file: %s to append:\n	- %s\n  excuse: %s", gpath, str, excuse);
+			return;
+        }
 		// get a new file handle
-		file = libc::fopen(gpath, APPEND_TO_END);
-		if(!file) {
+		//file = libc::fopen(gpath.str_view(), APPEND_TO_END);
+		/*if(!file.file) {
 			warning(Where.CONSOLE, "Failed to open file: %s to append:\n	- %s", gpath, str);
 			return;
-		}
+		}*/
 	}
 	
-	assert(file != null);
+	assert(gfile.file != null);
 	
 	String level_str;
 	
@@ -176,8 +205,10 @@ $if $feature(_DEBUG):
 			level_str = "[INFO]";
 	}
 	
-	libc::fprintf(file, "%s: %s\n", level_str.zstr_copy(), str.zstr_view());
-	libc::fflush(file);
+	//libc::fprintf(file, "%s: %s\n", level_str.zstr_copy(), str.zstr_view());
+	//libc::fflush(file);
+    gfile.write(string::tformat("%s: %s\n", level_str, str))!!;
+    gfile.flush()!!;
 	glogcount++;
 $endif
 }

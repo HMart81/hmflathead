@@ -28,20 +28,18 @@
 
 module game::actors::ent;
 
-// region c3 modules
+// region modules
 import std::io;
 import std::core::mem; // for malloc
 import std::math;
 import std::collections::map;
-// end_region
-
-// region custom modules
 import game::main;
 import engine::logging::lgr;
 import raylib5::rl;
 import engine::misc;
 import game::assets::sprt;
 import game::serialize::svs; // save system
+import engine::physics::box2d;
 // end_region
 
 const int TH_NONE         = 0;
@@ -83,6 +81,9 @@ struct Entity (SaveSystemInterface)
 	String name;
     //
     Sprite vs;
+    //
+    // physics
+    box2d::BodyId physics;
     //
 	int flags;
 	//LinkList(<Entity>) activeNode;	// for being linked into activeEntities list
@@ -139,10 +140,30 @@ fn void Entity.init(&self, String aname, Vec2f origin = {0,0}, Color color = rl:
 $if $feature(_DEBUG):
 	lgr::info(Where.FILE, "Created entity-> id: %s with name: %s.", self.id, self.name);
 $endif
-
+    
 	//
     self.vs.initV(origin, MIN_ENTITY_SIZE, color);
     //
+    
+    // physics
+    // define the body
+    box2d::BodyDef bodyDef   = box2d::defaultBodyDef();
+    bodyDef.type             = box2d::BodyType.DYNAMIC;
+    bodyDef.position         = box2d::vec2fToVec2(origin);
+    // create the body
+    self.physics             = box2d::createBody(main::gpGame.physWorldId, &bodyDef);
+    //
+    // create the polygon shape
+    // ‍Caution: A dynamic body should have at least one shape with a non-zero density. 
+    // Otherwise you will get strange behavior.
+    // TODO(HM) Set the correct size at creation time!!!
+    box2d::Polygon dynamicBox = box2d::makeBox(1.0f, 1.0f); //@hardcode
+    box2d::ShapeDef shapeDef  = box2d::defaultShapeDef();
+    shapeDef.density          = 1.0f;
+    shapeDef.friction         = 0.3f;
+	box2d::shapeCreatePolygon(self.physics, &shapeDef, &dynamicBox);
+    //
+    
 	self.alive = true;
 	self.startThinking();
 	self.register();
@@ -372,6 +393,9 @@ fn void Entity.think(&self, float dt) // update in other engines
 	
 	if(self.flags & TH_THINK)
 	{
+        // TODO find why this crash's
+        //self.setPositionV(box2d::vec2ToVec2f(box2d::bodyGetPosition(self.physics)));
+        
 		//io::printf("Entity '%s' has flag %s!!!\n", self.name, self.flags);
 		//self.rotateX(1);
 	}

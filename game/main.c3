@@ -61,6 +61,7 @@ import game::effects::boid;
 import raylib5::rl;
 import raygui5::rgui;
 import tiny::xml;
+import engine::physics::box2d;
 // end_region
 
 // region Constants
@@ -153,6 +154,7 @@ const int BIG_FONT_SCALE             @Hardcode = 14;
 const int SMALL_FONT_SCALE           @Hardcode = 6;
 const String INI_SETTINGS_FILE_NAME  @Hardcode = "user.ini";
 
+const PHYS_DEFAULT_SUBSTEPS        = 4;
 // world/game gravity info (still not used for anything...)
 const Vec2f GRAVITY_VEC            = {0, -1};
 const float GRAVITY_VALUE          = 9.80665f; // meters/sec2
@@ -248,6 +250,7 @@ fn void register_modulo_cvars() @local {
     register_cvars(); // main
     gui::register_cvars();
     intro::register_cvars();
+    lgr::register_cvars();
 }
 
 // end_region Cvars
@@ -338,6 +341,13 @@ struct Game (SaveSystemInterface) @local
     List(<Entity*>) entityList;
     List(<Sprite*>) sprites;
     BoidManager boidManager1;
+    
+    // physics engine world
+    box2d::WorldId physWorldId;
+    bool pause_phys_simulation;
+    float phys_time_step;
+    int phys_substep_count; // simulation quality;
+    //
     
     String app_name;
     
@@ -800,42 +810,44 @@ fn void drawGUIDebugInfo(int screen_w, int screen_h) @local
 
 fn void gameDraw(int screenWidth, int screenHeight) @local 
 {
-    float gameDraw_start = @start_profile_zone();
-    defer @end_profile_zone(gameDraw_start);
-    
-    local_game.view.renderToFBO(screenWidth, screenHeight);
-    
-    // Main Basic rendering
-    rl::beginDrawing();
-    
-    rl::clearBackground({0x18, 0x18, 0x18, 0xFF});
-    
-    // draw the view FBO's
-    if(rl::isShaderValid(*local_game.current_global_shader)) {
-        rl::beginShaderMode(*local_game.current_global_shader);
+    //float gameDraw_start = @start_profile_zone();
+    //defer @end_profile_zone(gameDraw_start);
+    misc::@profile_zone("Game Draw") 
+    {
+        local_game.view.renderToFBO(screenWidth, screenHeight);
+        
+        // Main Basic rendering
+        rl::beginDrawing();
+        
+        rl::clearBackground({0x18, 0x18, 0x18, 0xFF});
+        
+        // draw the view FBO's
+        if(rl::isShaderValid(*local_game.current_global_shader)) {
+            rl::beginShaderMode(*local_game.current_global_shader);
+                local_game.view.draw(screenWidth, screenHeight);
+            rl::endShaderMode();
+        } else {
+            // render using raylib default shader
             local_game.view.draw(screenWidth, screenHeight);
-        rl::endShaderMode();
-    } else {
-        // render using raylib default shader
-        local_game.view.draw(screenWidth, screenHeight);
-    }
-    
-    // NOTE(HM) 
-    // drawing after the scene is draw but before the GUI
-    gameOnPostSceneDraw(screenWidth, screenHeight);
-    //
-    //gameOnGuiDraw(screenWidth, screenHeight);
-    // NOTE(HM) 
-    // drawing after the GUI is draw
-    //gameOnPostGUIDraw(screenWidth, screenHeight);
-    
-    rl::endDrawing();
-    
-    // NOTE(HM) 1)
-    // drawing after the frame buffer is swapped/updated
-    // NOTE(HM) 2)
-    // Not sure for what this is usefull, but I saw this when studing the Penumbra engine
-    gameOnPostBufferSwap();
+        }
+        
+        // NOTE(HM) 
+        // drawing after the scene is draw but before the GUI
+        gameOnPostSceneDraw(screenWidth, screenHeight);
+        //
+        //gameOnGuiDraw(screenWidth, screenHeight);
+        // NOTE(HM) 
+        // drawing after the GUI is draw
+        //gameOnPostGUIDraw(screenWidth, screenHeight);
+        
+        rl::endDrawing();
+        
+        // NOTE(HM) 1)
+        // drawing after the frame buffer is swapped/updated
+        // NOTE(HM) 2)
+        // Not sure for what this is usefull, but I saw this when studing the Penumbra engine
+        gameOnPostBufferSwap();
+    }; // profile_zone
 }
 
 fn EscReply handleESC( Desktop** gui ) {
@@ -860,6 +872,10 @@ fn void gameHandleGeneralControls() @local {
     
     if(rl::isKeyPressed(rl::KEY_F1) && !local_game.msgbox_showing) {
         local_game.msgbox_showing = true;
+    }
+    
+    if (rl::isKeyPressed(rl::KEY_P)) {
+        local_game.pause_phys_simulation = !local_game.pause_phys_simulation;
     }
     
     if(rl::isKeyPressed(rl::KEY_F3)) {
@@ -973,6 +989,13 @@ fn void gameUpdate() @local
         }
         
         gameHandleGeneralControls();
+        
+        // physics engine
+        if(local_game.pause_phys_simulation == false) {
+			//float deltaTime = rl::getFrameTime();
+			box2d::world_Step(local_game.physWorldId, local_game.phys_time_step, local_game.phys_substep_count);
+        }
+        //
         
         gui::gpDeskManager.update();
         
@@ -1185,7 +1208,9 @@ fn void handle_cmdline(String[]* args) {
                 switch(cmd_arg)
                 {
                     case "developer":
-                        developer.set("1"); 
+                        developer.set("1");
+                    case "g_log":
+                        lgr::g_log.set("true"); 
                     case "editor":
                         editor.set("1");
                     case "window": nextcase;
@@ -1652,6 +1677,30 @@ $if $feature(_DEBUG):
 $endif
 
 // end_region Window initialization
+
+// region physics engine
+// 128 pixels per meter is a appropriate for this scene. The boxes are 128 pixels wide.
+	float lengthUnitsPerMeter = 128.0f;
+	box2d::setLengthUnitsPerMeter(lengthUnitsPerMeter);
+    
+    local_game.phys_time_step     = 1.0f / 60.0f; // 60fps @Hardcode
+    
+    // Using fewer sub-steps increases performance but accuracy suffers. 
+    // Likewise, using more sub-steps decreases performance but improves the quality of your simulation.
+    local_game.phys_substep_count = PHYS_DEFAULT_SUBSTEPS;
+    
+    lgr::info(Where.FILE, "Starting Box2D physics engine:");
+    box2d::WorldDef physWorld = box2d::defaultWorldDef();
+    
+    // Realistic gravity is achieved by multiplying gravity by the length unit.
+	physWorld.gravity.y    = GRAVITY_VALUE * lengthUnitsPerMeter;
+	local_game.physWorldId = box2d::createWorld(&physWorld);
+    if(box2d::worldIsValid(local_game.physWorldId)) {
+        lgr::info(Where.FILE, "Done.");
+    } else {
+        lgr::info(Where.FILE, "Failed to start physics engine, physics will not work!!!");
+    }
+// end_region physics engine
     
 // region AUDIO DEVICE initialization
     rl::initAudioDevice();
@@ -1922,6 +1971,13 @@ fn void gameOnExit() @local
     lgr::info(Where.FILE,  "Game shutdown starting.");
     deinit_game_cursor();
     asstManager.releaseAllAssets();
+    // close physics engine
+    if(box2d::worldIsValid(local_game.physWorldId)) {
+        lgr::info(Where.FILE, "Destroying physics engine.");
+        box2d::destroyWorld(local_game.physWorldId);
+        lgr::info(Where.FILE, "Done.");
+    }
+    //
     rl::closeAudioDevice();
     rl::closeWindow();
     local_game.unload();
@@ -1931,6 +1987,7 @@ fn void gameOnExit() @local
     }
     //rl::memFree(memory_pool);
     lgr::info(Where.FILE,  "clearing game singletons and log system!\n\t** Printing done on console from this point on **");
+    lgr::closeLogFile();
     clear_game_singletons();
     io::printfn("Game shutdown done!\n");
 }
@@ -2106,7 +2163,7 @@ fn void pre_InitFunc() @init {
     
     // controls file and Console logging
     // NOTE(HM) 
-    lgr::init();
+    lgr::initGlobalLoggingDir(); // sets where the log file is saved
     
     // NOTE(HM) This means the MINIMUM log level not the only level to log
     // anything bellow this level will not log

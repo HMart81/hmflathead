@@ -98,6 +98,7 @@ struct BoidManager (SaveSystemInterface) {
     int next_id;
 	bool paused;
 	bool boids_visible;
+    bool fade_lines;
 }
 
 fn void BoidManager.save(&self, SaveFile* file) @dynamic {
@@ -123,32 +124,35 @@ fn void BoidManager.release(&self) {
 	if(self.boids.len()) self.boids.free();
 }
 
-fn void BoidManager.update(&self, int screen_width,  int screen_height, float dt) {
-	if(self.paused) return;
-	
-	mem::@scoped(&self.mem_arena) 
-	{
-		// add boid!
-		if (rl::isKeyDown(rl::KEY_KP_ADD) && self.boids.len() < self.max_boids) {
-			Boid boid;
-			boid.position.x = random::next_float(&self.rand) * screen_width;
-			boid.position.y = random::next_float(&self.rand) * screen_height;
-			boid.velocity.x = (random::next_float(&self.rand) - 0.5) * MAX_SPEED;
-			boid.velocity.y = (random::next_float(&self.rand) - 0.5) * MAX_SPEED;
-			boid.id = self.next_id += 1;
-			self.boids.push(boid);
-			self.boids_visible = true;
-		}
-		
-		if(self.boids_visible == false) return;
-		
-		// kill boid! die!!!!!!!!!!
-		if (rl::isKeyDown(rl::KEY_KP_SUBTRACT) && self.boids.len() > 0) {
-			(void)self.boids.pop();
-			if(self.boids.len() == 0) self.boids_visible = false;
-		}
-	};
+fn void BoidManager.handle_key_events(&self, int screen_width,  int screen_height) {
+    // add boid!
+    if (rl::isKeyDown(rl::KEY_KP_ADD) && self.boids.len() < self.max_boids) {
+        Boid boid;
+        boid.position.x = random::next_float(&self.rand) * screen_width;
+        boid.position.y = random::next_float(&self.rand) * screen_height;
+        boid.velocity.x = (random::next_float(&self.rand) - 0.5) * MAX_SPEED;
+        boid.velocity.y = (random::next_float(&self.rand) - 0.5) * MAX_SPEED;
+        boid.id = self.next_id += 1;
+        self.boids.push(boid);
+        self.boids_visible = true;
+    }
+    
+    // kill boid! die!!!!!!!!!!
+    if (rl::isKeyDown(rl::KEY_KP_SUBTRACT) && self.boids.len() > 0) {
+        (void)self.boids.pop();
+        if(self.boids.len() == 0) self.boids_visible = false;
+    }
+    
+    if (rl::isKeyDown(rl::KEY_SPACE)) {
+       if(!self.fade_lines) {
+           self.fade_lines = true;
+       } else {
+           self.fade_lines = false;
+       }
+    }
+}
 
+fn void BoidManager.move_boids(&self, int screen_width,  int screen_height, float dt) {
     // move boids!
     foreach (&boid : self.boids) 
 	{
@@ -240,24 +244,35 @@ fn void BoidManager.update(&self, int screen_width,  int screen_height, float dt
     }
 }
 
-fn void BoidManager.draw(&self) {
-	if(self.boids_visible == false) return;
+fn void BoidManager.update(&self, int screen_width,  int screen_height, float dt) {
+	if(self.paused || self.boids_visible == false) return;
 	
-    int lines;
-    if (rl::isKeyDown(rl::KEY_SPACE)) {
-        foreach (boid : self.boids) {
-            foreach (other_boid : self.boids) {
-                if (boid.id == other_boid.id) { continue; }
-                float distance = boid.distance_to(&other_boid);
-                if (distance <= VISUAL_RANGE) {
-                    float opacity = (VISUAL_RANGE - distance) / VISUAL_RANGE;
-                    rl::drawLineEx(boid.position.toVector2(), other_boid.position.toVector2(), 1, {102, 191, 255, (char)(255*opacity)});
-                    lines++;
-                }
+	mem::@scoped(&self.mem_arena) 
+	{
+        self.handle_key_events(screen_width,  screen_height,);
+        self.move_boids(screen_width,  screen_height, dt);
+        self.draw();
+	};
+}
+
+fn void BoidManager.draw_fade_lines(&self, int lines) {
+    foreach (boid : self.boids) {
+        foreach (other_boid : self.boids) {
+            if (boid.id == other_boid.id) { continue; }
+            float distance = boid.distance_to(&other_boid);
+            if (distance <= VISUAL_RANGE) {
+                float opacity = (VISUAL_RANGE - distance) / VISUAL_RANGE;
+                rl::drawLineEx(boid.position.toVector2(), other_boid.position.toVector2(), 1, {102, 191, 255, (char)(255*opacity)});
+                lines++;
             }
         }
     }
+}
 
+fn void BoidManager.draw(&self) {
+    int lines;
+    if(self.fade_lines) self.draw_fade_lines(lines);
+    
     foreach (boid : self.boids) {
         rl::Color color;
         switch {

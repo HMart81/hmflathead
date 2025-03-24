@@ -99,6 +99,13 @@ fn bool Cvar.getBool(&self) {
         return false;
     }
     
+    if(self.value == "true") { 
+        return true; 
+    } else if(self.value == "false" || self.value == "") { 
+        return false;
+    }
+    
+    // from here we expect a valid integer value
     char! value = self.value.to_uchar();
     
     if(catch excuse = value) {

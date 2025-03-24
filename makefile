@@ -34,6 +34,7 @@ BUILD_DIR := build
 BUILD_PATH := ${CURDIR}/$(BUILD_DIR)
 LIBRARY_ROOT_PATH := .\thirdparty\include\libs\\
 RAYLIB := raylib55\lib\raylibdll.lib
+BOX2D := box2d\box2d.lib
 RAYGUI := raygui\raygui.obj
 ENGINE_FOLDER := engine/
 GAME_FOLDER   := game/
@@ -64,7 +65,7 @@ PDBS_TO_CLEAN := $(wildcard $(BUILD_PATH)/*.pdb)
 EXES_TO_CLEAN := $(wildcard $(BUILD_PATH)/*.exe)
 
 # arguments to set at game start
-GAME_ARGUMENTS := +developer +g_log 1 +r_mode 9
+GAME_ARGUMENTS := +developer +g_log +r_mode 9
 
 # you need to use $feature(_DEBUG) to check for this defines, in C3 $define is used for something else...
 DEBUG_DEFINES   := -D _DEBUG 
@@ -73,9 +74,9 @@ DEBUG_DEFINES   := -D _DEBUG
 RELEASE_DEFINES := -D _RELEASE 
 
 # release
-comand_release_compile := c3c.exe -O3 $(RELEASE_DEFINES) -L $(LIBRARY_ROOT_PATH) -l $(RAYLIB) -z $(RAYGUI) -o $(APPLICATION_RELEASE_NAME) --output-dir $(BUILD_PATH) compile --target windows-x64 --threads 8 $(GAME_ROOT_SOURCES) $(ENGINE_ROOT_SOURCES) $(ENGINE_CHILD_SOURCES)
+comand_release_compile := c3c.exe -O3 $(RELEASE_DEFINES) -L $(LIBRARY_ROOT_PATH) -l $(RAYLIB) -l $(BOX2D) -z $(RAYGUI) -o $(APPLICATION_RELEASE_NAME) --output-dir $(BUILD_PATH) compile --target windows-x64 --threads 8 $(GAME_ROOT_SOURCES) $(ENGINE_ROOT_SOURCES) $(ENGINE_CHILD_SOURCES)
 # debug
-comand_debug_compile := c3c.exe -O0 $(DEBUG_DEFINES) -L $(LIBRARY_ROOT_PATH) -l $(RAYLIB) -l kernel32.lib -z $(RAYGUI) -o $(APPLICATION_DEBUG_NAME) --output-dir $(BUILD_PATH) compile --target windows-x64 --threads 8 $(GAME_ROOT_SOURCES) $(ENGINE_ROOT_SOURCES) $(ENGINE_CHILD_SOURCES)
+comand_debug_compile := c3c.exe -O0 $(DEBUG_DEFINES) -L $(LIBRARY_ROOT_PATH) -l $(RAYLIB) -l $(BOX2D) -l kernel32.lib -z $(RAYGUI) -o $(APPLICATION_DEBUG_NAME) --output-dir $(BUILD_PATH) compile --target windows-x64 --threads 8 $(GAME_ROOT_SOURCES) $(ENGINE_ROOT_SOURCES) $(ENGINE_CHILD_SOURCES)
 #
 comand_release_run := cd ${CURDIR}/build/ & start $(APPLICATION_RELEASE_NAME).exe $(GAME_ARGUMENTS)
 comand_debug_run := cd ${CURDIR}/build/ & start $(APPLICATION_DEBUG_NAME).exe $(GAME_ARGUMENTS)

@@ -1,0 +1,702 @@
+/************************************ LICENSE *******************************************
+# hmflathead GPL Source Code
+# Copyright (C) 2025 Hilario Martins.
+# 
+# This file is part of the hmflathead GPL Source Code ("hmflathead Source Code")
+# 
+# hmflathead Source Code is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# hmflathead Source Code is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with hmflathead Source Code.  If not, see <http://www.gnu.org/licenses/>.
+# 
+# In addition, the hmflathead Source Code is also subject to certain additional terms. 
+# You should have received a copy of these additional terms immediately following the terms and conditions of the GNU General Public License 
+# which accompanied the hmflathead Source Code.  If not, please request a copy in writing from me at the address below.
+# 
+# If you have questions concerning this license or the applicable additional terms, you may contact in writing 
+# Hilario Martins, Rua de Sanguinhedo 1010 4850-545 Vieira Do Minho Portugal.
+# 
+*********************************************************************************************************************************************/
+
+
+// UNFINISHED see https://box2d.org/documentation/hello.html#autotoc_md21 
+// to get the necessary basic code for minimal support
+
+module engine::physics::box2d;
+
+import std::math::vector;
+//import raylib5::rl;
+
+def EnqueueTaskCallback = void*;
+def FinishTaskCallback  = fn void(void*, void*);
+
+struct Vec2 @packed 
+{
+    float x;
+    float y;
+}
+
+macro Vec2 vec2fToVec2(Vec2f vec) {
+    return (Vec2){vec.x, vec.y};
+}
+
+macro Vec2f vec2ToVec2f(Vec2 vec) {
+    return (Vec2f){vec.x, vec.y};
+}
+
+struct WorldId @packed
+{
+    ushort	index1;	
+    ushort revision;
+}
+
+// Body id references a body instance. This should be treated as an opaque handle.
+struct BodyId {
+    int	index1;	
+    ushort revision;	
+    ushort	world0;
+}
+
+// Shape id references a shape instance. This should be treated as an opaque handle.
+distinct ShapeId = inline BodyId;
+// Joint id references a joint instance. This should be treated as an opaque handle.
+distinct JointId = inline BodyId;
+// Chain id references a chain instances. This should be treated as an opaque handle.
+distinct ChainId = inline BodyId;
+
+
+struct Rot @packed
+{
+    float c; // cosine and sine
+    float s;
+}
+
+/// World definition used to create a simulation world.
+/// Must be initialized using b2DefaultWorldDef().
+struct WorldDef
+{
+	/// Gravity vector. Box2D has no up-vector defined.
+	Vec2 gravity;
+
+	/// Restitution velocity threshold, usually in m/s. Collisions above this
+	/// speed have restitution applied (will bounce).
+	float restitutionThreshold;
+
+	/// This parameter controls how fast overlap is resolved and has units of meters per second
+	float contactPushoutVelocity;
+
+	/// Threshold velocity for hit events. Usually meters per second.
+	float hitEventThreshold;
+
+	/// Contact stiffness. Cycles per second.
+	float contactHertz;
+
+	/// Contact bounciness. Non-dimensional.
+	float contactDampingRatio;
+
+	/// Joint stiffness. Cycles per second.
+	float jointHertz;
+
+	/// Joint bounciness. Non-dimensional.
+	float jointDampingRatio;
+
+	/// Maximum linear velocity. Usually meters per second.
+	float maximumLinearVelocity;
+
+	/// Can bodies go to sleep to improve performance
+	bool enableSleep;
+
+	/// Enable continuous collision
+	bool enableContinous;
+
+	/// Number of workers to use with the provided task system. Box2D performs best when using only
+	///	performance cores and accessing a single L2 cache. Efficiency cores and hyper-threading provide
+	///	little benefit and may even harm performance.
+	int workerCount;
+
+	/// Function to spawn tasks
+	EnqueueTaskCallback* enqueueTask;
+
+	/// Function to finish a task
+	FinishTaskCallback* finishTask;
+
+	/// User context that is provided to enqueueTask and finishTask
+	void* userTaskContext;
+
+	/// Used internally to detect a valid definition. DO NOT SET.
+	int internalValue;
+}
+
+/// A body definition holds all the data needed to construct a rigid body.
+/// You can safely re-use body definitions. Shapes are added to a body after construction.
+///	Body definitions are temporary objects used to bundle creation parameters.
+/// Must be initialized using b2DefaultBodyDef().
+/// @ingroup body
+struct BodyDef
+{
+	/// The body type: static, kinematic, or dynamic.
+	BodyType type;
+
+	/// The initial world position of the body. Bodies should be created with the desired position.
+	/// @note Creating bodies at the origin and then moving them nearly doubles the cost of body creation, especially
+	///	if the body is moved after shapes have been added.
+	Vec2 position;
+
+	/// The initial world rotation of the body. Use b2MakeRot() if you have an angle.
+	Rot rotation;
+
+	/// The initial linear velocity of the body's origin. Typically in meters per second.
+	Vec2 linearVelocity;
+
+	/// The initial angular velocity of the body. Radians per second.
+	float angularVelocity;
+
+	/// Linear damping is use to reduce the linear velocity. The damping parameter
+	/// can be larger than 1 but the damping effect becomes sensitive to the
+	/// time step when the damping parameter is large.
+	///	Generally linear damping is undesirable because it makes objects move slowly
+	///	as if they are floating.
+	float linearDamping;
+
+	/// Angular damping is use to reduce the angular velocity. The damping parameter
+	/// can be larger than 1.0f but the damping effect becomes sensitive to the
+	/// time step when the damping parameter is large.
+	///	Angular damping can be use slow down rotating bodies.
+	float angularDamping;
+
+	/// Scale the gravity applied to this body. Non-dimensional.
+	float gravityScale;
+
+	/// Sleep velocity threshold, default is 0.05 meter per second
+	float sleepThreshold;
+
+	/// Use this to store application specific body data.
+	void* userData;
+
+	/// Set this flag to false if this body should never fall asleep.
+	bool enableSleep;
+
+	/// Is this body initially awake or sleeping?
+	bool isAwake;
+
+	/// Should this body be prevented from rotating? Useful for characters.
+	bool fixedRotation;
+
+	/// Treat this body as high speed object that performs continuous collision detection
+	/// against dynamic and kinematic bodies, but not other bullet bodies.
+	///	@warning Bullets should be used sparingly. They are not a solution for general dynamic-versus-dynamic
+	///	continuous collision. They may interfere with joint constraints.
+	bool isBullet;
+
+	/// Used to disable a body. A disabled body does not move or collide.
+	bool isEnabled;
+
+	/// Automatically compute mass and related properties on this body from shapes.
+	/// Triggers whenever a shape is add/removed/changed. Default is true.
+	bool automaticMass;
+
+	/// This allows this body to bypass rotational speed limits. Should only be used
+	///	for circular objects, like wheels.
+	bool allowFastRotation;
+
+	/// Used internally to detect a valid definition. DO NOT SET.
+	int internalValue;
+}
+
+enum BodyType
+{
+	/// zero mass, zero velocity, may be manually moved
+	STATIC,
+
+	/// zero mass, velocity set by user, moved by solver
+	KINEMATIC,
+
+	/// positive mass, velocity determined by forces, moved by solver
+	DYNAMIC
+}
+
+
+/// The maximum number of vertices on a convex polygon. Changing this affects performance even if you
+///	don't use more vertices.
+const MAX_POLYGON_VERTICES = 8;
+
+/// A solid convex polygon. It is assumed that the interior of the polygon is to
+/// the left of each edge.
+/// Polygons have a maximum number of vertices equal to b2_maxPolygonVertices.
+/// In most cases you should not need many vertices for a convex polygon.
+///	@warning DO NOT fill this out manually, instead use a helper function like
+///	b2MakePolygon or b2MakeBox.
+struct Polygon
+{
+	/// The polygon vertices
+	Vec2[MAX_POLYGON_VERTICES] vertices;
+
+	/// The outward normal vectors of the polygon sides
+	Vec2[MAX_POLYGON_VERTICES] normals;
+
+	/// The centroid of the polygon
+	Vec2 centroid;
+
+	/// The external radius for rounded polygons
+	float radius;
+
+	/// The number of polygon vertices
+	int count;
+}
+
+/// This is used to filter collision on shapes. It affects shape-vs-shape collision
+///	and shape-versus-query collision (such as b2World_CastRay).
+struct Filter @packed
+{
+	/// The collision category bits. Normally you would just set one bit. The category bits should
+	///	represent your application object types. For example:
+	///	@code{.cpp}
+	///	enum MyCategories
+	///	{
+	///	   Static  = 0x00000001,
+	///	   Dynamic = 0x00000002,
+	///	   Debris  = 0x00000004,
+	///	   Player  = 0x00000008,
+	///	   // etc
+	/// };
+	///	@endcode
+	uint categoryBits;
+
+	/// The collision mask bits. This states the categories that this
+	/// shape would accept for collision.
+	///	For example, you may want your player to only collide with static objects
+	///	and other players.
+	///	@code{.c}
+	///	maskBits = Static | Player;
+	///	@endcode
+	uint maskBits;
+
+	/// Collision groups allow a certain group of objects to never collide (negative)
+	/// or always collide (positive). A group index of zero has no effect. Non-zero group filtering
+	/// always wins against the mask bits.
+	///	For example, you may want ragdolls to collide with other ragdolls but you don't want
+	///	ragdoll self-collision. In this case you would give each ragdoll a unique negative group index
+	///	and apply that group index to all shapes on the ragdoll.
+	int groupIndex;
+}
+
+/// The query filter is used to filter collisions between queries and shapes. For example,
+///	you may want a ray-cast representing a projectile to hit players and the static environment
+///	but not debris.
+/// @ingroup shape
+struct QueryFilter @packed
+{
+	/// The collision category bits of this query. Normally you would just set one bit.
+	uint categoryBits;
+
+	/// The collision mask bits. This states the shape categories that this
+	/// query would accept for collision.
+	uint maskBits;
+}
+
+/// Use this to initialize your query filter
+fn QueryFilter defaultQueryFilter() @extern("b2DefaultQueryFilter");
+
+// Use this to initialize your world definition.
+fn WorldDef defaultWorldDef() @extern("b2DefaultWorldDef");
+                         
+<*
+Create a world for rigid body simulation.
+
+A world contains bodies, shapes, and constraints. You make create up to 128 worlds. Each world is completely independent and may be simulated in parallel.
+
+Returns
+    the world id
+*>
+fn WorldId createWorld(WorldDef* world)	@extern("b2CreateWorld");
+//
+fn void destroyWorld(WorldId worldId) @extern("b2DestroyWorld");
+// World id validation. Provides validation for up to 64K allocations.
+fn bool worldIsValid(WorldId id) @extern("b2World_IsValid");
+// Simulate a world for one time step.
+fn void world_Step(WorldId worldId, float timeStep, int subStepCount) @extern("b2World_Step");
+
+<*
+Box2D bases all length units on meters, but you may need different units for your game.
+
+You can set this value to use different units. This should be done at application startup and only modified once. Default value is 1.
+
+Warning
+    This must be modified before any calls to Box2D
+*>
+fn void setLengthUnitsPerMeter(float lengthUnits) @extern("b2SetLengthUnitsPerMeter");
+
+// region ==== BODY ====
+
+// TODO make this into a module?
+// ex:  box2d::body::getPosition();
+
+// Use this to initialize your body definition.
+fn BodyDef defaultBodyDef() @extern("b2DefaultBodyDef");
+// Get the world position of a body. This is the location of the body origin.
+fn Vec2 bodyGetPosition(BodyId bodyId) @extern("b2Body_GetPosition");
+// Get the world rotation of a body as a cosine/sine pair (complex number)
+fn Rot bodyGetRotation(BodyId bodyId)  @extern("b2Body_GetRotation");
+// Get a world point on a body given a local point.
+fn Vec2 bodyGetWorldPoint (BodyId bodyId, Vec2 localPoint) @extern("b2Body_GetWorldPoint");
+    
+<*
+Create a rigid body given a definition.
+
+No reference to the definition is retained. So you can create the definition on the stack and pass it as a pointer.
+
+ex: 
+BodyDef bodyDef  = box2d::defaultBodyDef();
+BodyId  myBodyId = box2d::createBody(myWorldId, &bodyDef);
+
+Warning: This function is locked during callbacks.
+*>
+fn BodyId createBody(WorldId worldId, BodyDef* body) @extern("b2CreateBody");
+// end_region ==== BODY ====
+
+
+// region ==== SHAPE ====
+
+enum ShapeType
+{
+	/// A circle with an offset
+	CIRCLE,
+
+	/// A capsule is an extruded circle
+	CAPSULE,
+
+	/// A line segment
+	SEGMENT,
+
+	/// A convex polygon
+	POLYGON,
+
+	/// A smooth segment owned by a chain shape
+	SMOOTH_SEGMENT
+}
+
+/// Used to create a shape.
+/// This is a temporary object used to bundle shape creation parameters. You may use
+///	the same shape definition to create multiple shapes.
+/// Must be initialized using box2d::defaultShapeDef().
+struct ShapeDef
+{
+	/// Use this to store application specific shape data.
+	void* userData;
+
+	/// The Coulomb (dry) friction coefficient, usually in the range [0,1].
+	float friction;
+
+	/// The restitution (bounce) usually in the range [0,1].
+	float restitution;
+
+	/// The density, usually in kg/m^2.
+	float density;
+
+	/// Collision filtering data.
+	Filter filter;
+
+	/// Custom debug draw color.
+	uint customColor;
+
+	/// A sensor shape generates overlap events but never generates a collision response.
+	bool isSensor;
+
+	/// Enable sensor events for this shape. Only applies to kinematic and dynamic bodies. Ignored for sensors.
+	bool enableSensorEvents;
+
+	/// Enable contact events for this shape. Only applies to kinematic and dynamic bodies. Ignored for sensors.
+	bool enableContactEvents;
+
+	/// Enable hit events for this shape. Only applies to kinematic and dynamic bodies. Ignored for sensors.
+	bool enableHitEvents;
+
+	/// Enable pre-solve contact events for this shape. Only applies to dynamic bodies. These are expensive
+	///	and must be carefully handled due to threading. Ignored for sensors.
+	bool enablePreSolveEvents;
+
+	/// Normally shapes on static bodies don't invoke contact creation when they are added to the world. This overrides
+	///	that behavior and causes contact creation. This significantly slows down static body creation which can be important
+	///	when there are many static shapes.
+	bool forceContactCreation;
+
+	/// Used internally to detect a valid definition. DO NOT SET.
+	int internalValue;
+}
+
+// Use this to initialize your shape definition.
+fn ShapeDef defaultShapeDef() @extern("b2DefaultShapeDef");
+
+<*
+Create a polygon shape and attach it to a body.
+
+The shape definition and geometry are fully cloned. Contacts are not created until the next time step.
+
+Returns
+    the shape id for accessing the shape
+*>
+fn ShapeId shapeCreatePolygon(BodyId bodyId, ShapeDef* shp, Polygon* polygon) @extern("b2CreatePolygonShape");
+
+// end_region ==== SHAPE ==== 
+
+// region ==== GEOMETRY ==== 
+// helper functions
+
+// Validate ray cast input data (NaN, etc)
+//fn bool isValidRay(b2RayCastInput *input) @extern("b2IsValidRay");
+// Make a convex polygon from a convex hull.
+//fn Polygon makePolygon(b2Hull *hull, float radius) @extern("b2MakePolygon");
+// Make an offset convex polygon from a convex hull.
+//fn Polygon makeOffsetPolygon(b2Hull *hull, float radius, b2Transform transform) @extern("b2MakeOffsetPolygon");
+// Make a square polygon, bypassing the need for a convex hull.
+fn Polygon makeSquare(float h) @extern("b2MakeSquare");
+// Make a box (rectangle) polygon, bypassing the need for a convex hull.
+fn Polygon makeBox(float hx, float hy) @extern("b2MakeBox");
+/*
+// Make a rounded box, bypassing the need for a convex hull.
+Polygon 	b2MakeRoundedBox (float hx, float hy, float radius)
+ 
+// Make an offset box, bypassing the need for a convex hull.
+Polygon 	b2MakeOffsetBox (float hx, float hy, Vec2 center, b2Rot rotation)
+ 
+// Transform a polygon. This is useful for transferring a shape from one body to another.
+Polygon 	b2TransformPolygon (b2Transform transform, const Polygon *polygon)
+ 
+b2MassData 	b2ComputeCircleMass (const b2Circle *shape, float density)
+ 	Compute mass properties of a circle.
+ 
+b2MassData 	b2ComputeCapsuleMass (const b2Capsule *shape, float density)
+ 	Compute mass properties of a capsule.
+ 
+b2MassData 	b2ComputePolygonMass (const Polygon *shape, float density)
+ 	Compute mass properties of a polygon.
+ 
+b2AABB 	b2ComputeCircleAABB (const b2Circle *shape, b2Transform transform)
+ 	Compute the bounding box of a transformed circle.
+ 
+b2AABB 	b2ComputeCapsuleAABB (const b2Capsule *shape, b2Transform transform)
+ 	Compute the bounding box of a transformed capsule.
+ 
+b2AABB 	b2ComputePolygonAABB (const Polygon *shape, b2Transform transform)
+ 	Compute the bounding box of a transformed polygon.
+ 
+b2AABB 	b2ComputeSegmentAABB (const b2Segment *shape, b2Transform transform)
+ 	Compute the bounding box of a transformed line segment.
+ 
+bool 	b2PointInCircle (Vec2 point, const b2Circle *shape)
+ 	Test a point for overlap with a circle in local space.
+ 
+bool 	b2PointInCapsule (Vec2 point, const b2Capsule *shape)
+ 	Test a point for overlap with a capsule in local space.
+ 
+bool 	b2PointInPolygon (Vec2 point, const Polygon *shape)
+ 	Test a point for overlap with a convex polygon in local space.
+ 
+b2CastOutput 	b2RayCastCircle (const b2RayCastInput *input, const b2Circle *shape)
+ 	Ray cast versus circle in shape local space. Initial overlap is treated as a miss.
+ 
+b2CastOutput 	b2RayCastCapsule (const b2RayCastInput *input, const b2Capsule *shape)
+ 	Ray cast versus capsule in shape local space. Initial overlap is treated as a miss.
+ 
+b2CastOutput 	b2RayCastSegment (const b2RayCastInput *input, const b2Segment *shape, bool oneSided)
+ 	Ray cast versus segment in shape local space.
+ 
+b2CastOutput 	b2RayCastPolygon (const b2RayCastInput *input, const Polygon *shape)
+ 	Ray cast versus polygon in shape local space. Initial overlap is treated as a miss.
+ 
+b2CastOutput 	b2ShapeCastCircle (const b2ShapeCastInput *input, const b2Circle *shape)
+ 	Shape cast versus a circle. Initial overlap is treated as a miss.
+ 
+b2CastOutput 	b2ShapeCastCapsule (const b2ShapeCastInput *input, const b2Capsule *shape)
+ 	Shape cast versus a capsule. Initial overlap is treated as a miss.
+ 
+b2CastOutput 	b2ShapeCastSegment (const b2ShapeCastInput *input, const b2Segment *shape)
+ 	Shape cast versus a line segment. Initial overlap is treated as a miss.
+ 
+b2CastOutput 	b2ShapeCastPolygon (const b2ShapeCastInput *input, const Polygon *shape)
+ 	Shape cast versus a convex polygon. Initial overlap is treated as a miss.
+ 
+b2Hull 	b2ComputeHull (const Vec2 *points, int32_t count)
+ 	Compute the convex hull of a set of points.
+ 
+bool 	b2ValidateHull (const b2Hull *hull)
+ 	This determines if a hull is valid.
+*/
+// end_region ==== GEOMETRY ==== 
+
+module engine::physics::box2d::math;
+
+import engine::physics::box2d;
+
+// Compute an approximate arctangent in the range [-pi, pi] This is hand coded for cross platform determinism.
+fn float atan2(float y, float x) @extern("b2Atan2");
+fn float minFloat(float a, float b) @extern("b2MinFloat");
+fn float maxFloat(float a, float b) @extern("b2MaxFloat");
+fn float absFloat(float a)          @extern("b2AbsFloat");
+fn float clampFloat(float a, float lower, float upper) @extern("b2ClampFloat");
+fn int 	 minInt(int a, int b) @extern("b2MinInt");
+fn int 	 maxInt(int a, int b) @extern("b2MaxInt");
+fn int 	 absInt(int a)        @extern("b2AbsInt");
+fn int 	 clampInt(int a, int lower, int upper) @extern("b2ClampInt");
+// Vector dot product.
+fn float dot(Vec2 a, Vec2 b) @extern("b2Dot");
+// Vector cross product. In 2D this yields a scalar.
+fn float cross(Vec2 a, Vec2 b) @extern("b2Cross");
+// Perform the cross product on a vector and a scalar. In 2D this produces a vector.
+fn Vec2 crossVS(Vec2 v, float s) @extern("b2CrossVS");
+// Perform the cross product on a scalar and a vector. In 2D this produces a vector.
+fn Vec2 crossSV(float s, Vec2 v) @extern("b2CrossSV");
+// Get a left pointing perpendicular vector. Equivalent to b2CrossSV(1.0f, v)
+fn Vec2 leftPerp(Vec2 v) @extern("b2LeftPerp");
+// Get a right pointing perpendicular vector. Equivalent to b2CrossVS(v, 1.0f)
+fn Vec2 rightPerp (Vec2 v) @extern("b2RightPerp");
+// Vector addition.
+fn Vec2 add(Vec2 a, Vec2 b) @extern("b2Add");
+// Vector subtraction.
+fn Vec2 sub(Vec2 a, Vec2 b) @extern("b2Sub");
+// Vector negation.
+fn Vec2 neg(Vec2 a) @extern("b2Neg");
+// Vector linear interpolation https://fgiesen.wordpress.com/2012/08/15/linear-interpolation-past-present-and-future/.
+fn Vec2 lerp(Vec2 a, Vec2 b, float t) @extern("b2Lerp");
+/*
+Vec2 	b2Mul (Vec2 a, Vec2 b) @extern("b2MinInt");
+ 	Component-wise multiplication.
+ 
+Vec2 	b2MulSV (float s, Vec2 v) @extern("b2MinInt");
+ 	Multiply a scalar and vector.
+ 
+Vec2 	b2MulAdd (Vec2 a, float s, Vec2 b) @extern("b2MinInt");
+ 	a + s * b
+ 
+Vec2 	b2MulSub (Vec2 a, float s, Vec2 b) @extern("b2MinInt");
+ 	a - s * b
+ 
+Vec2 	b2Abs (Vec2 a) @extern("b2MinInt");
+ 	Component-wise absolute vector.
+ 
+Vec2 	b2Min (Vec2 a, Vec2 b) @extern("b2MinInt");
+ 	Component-wise minimum vector.
+ 
+Vec2 	b2Max (Vec2 a, Vec2 b) @extern("b2MinInt");
+ 	Component-wise maximum vector.
+*/
+
+// Component-wise clamp vector v into the range [a, b].
+fn Vec2 clamp (Vec2 v, Vec2 a, Vec2 b) @extern("b2Clamp");
+// Get the length of this vector (the norm)
+fn float length(Vec2 v) @extern("b2Length");
+// Get the distance between two points.
+fn float distance(Vec2 a, Vec2 b) @extern("b2Distance");
+// Convert a vector into a unit vector if possible, otherwise returns the zero vector.
+fn Vec2 normalize(Vec2 v) @extern("b2Normalize");
+// Convert a vector into a unit vector if possible, otherwise returns the zero vector.
+fn Vec2 getLengthAndNormalize (float* length, Vec2 v) @extern("b2GetLengthAndNormalize");
+/*
+b2Rot 	b2NormalizeRot (b2Rot q) @extern("b2MinInt");
+ 	Normalize rotation.
+ 
+b2Rot 	b2IntegrateRotation (b2Rot q1, float deltaAngle) @extern("b2MinInt");
+ 	Integration rotation from angular velocity.
+*/ 
+// Get the length squared of this vector.
+fn float lengthSquared(Vec2 v) @extern("b2LengthSquared");
+ // Get the distance squared between points.
+fn float distanceSquared(Vec2 a, Vec2 b) @extern("b2DistanceSquared");
+/*
+b2Rot 	b2MakeRot (float angle) @extern("b2MinInt");
+ 	Make a rotation using an angle in radians.
+*/
+// Is this rotation normalized?
+fn bool isNormalized(Rot q) @extern("b2IsNormalized");
+/*
+b2Rot 	b2NLerp (b2Rot q1, b2Rot q2, float t) @extern("b2MinInt");
+ 	Normalized linear interpolation https://fgiesen.wordpress.com/2012/08/15/linear-interpolation-past-present-and-future/.
+ 
+float 	b2ComputeAngularVelocity (b2Rot q1, b2Rot q2, float inv_h) @extern("b2MinInt");
+ 	Compute the angular velocity necessary to rotate between two rotations over a give time.
+*/ 
+// Get the angle in radians in the range [-pi, pi].
+fn float 	rotGetAngle(Rot q) @extern("b2Rot_GetAngle");
+fn Vec2 	rotGetXAxis(Rot q) @extern("b2Rot_GetXAxis");
+fn Vec2 	rotGetYAxis(Rot q) @extern("b2Rot_GetYAxis");
+/* 
+b2Rot 	b2MulRot (b2Rot q, b2Rot r) @extern("b2MinInt");
+ 	Multiply two rotations: q * r.
+ 
+b2Rot 	b2InvMulRot (b2Rot q, b2Rot r) @extern("b2MinInt");
+ 	Transpose multiply two rotations: qT * r.
+ 
+float 	b2RelativeAngle (b2Rot b, b2Rot a) @extern("b2MinInt");
+ 	relative angle between b and a (rot_b * inv(rot_a))
+ 
+float 	b2UnwindAngle (float angle) @extern("b2MinInt");
+ 	Convert an angle in the range [-2*pi, 2*pi] into the range [-pi, pi].
+ 
+float 	b2UnwindLargeAngle (float angle) @extern("b2MinInt");
+ 	Convert any into the range [-pi, pi] (slow)
+ 
+Vec2 	b2RotateVector (b2Rot q, Vec2 v) @extern("b2MinInt");
+ 	Rotate a vector.
+ 
+Vec2 	b2InvRotateVector (b2Rot q, Vec2 v) @extern("b2MinInt");
+ 	Inverse rotate a vector.
+ 
+Vec2 	b2TransformPoint (b2Transform t, const Vec2 p) @extern("b2MinInt");
+ 	Transform a point (e.g. local space to world space)
+ 
+Vec2 	b2InvTransformPoint (b2Transform t, const Vec2 p) @extern("b2MinInt");
+ 	Inverse transform a point (e.g. world space to local space)
+ 
+b2Transform 	b2MulTransforms (b2Transform A, b2Transform B) @extern("b2MinInt");
+ 	v2 = A.q.Rot(B.q.Rot(v1) + B.p) + A.p = (A.q * B.q).Rot(v1) + A.q.Rot(B.p) + A.p
+ 
+b2Transform 	b2InvMulTransforms (b2Transform A, b2Transform B) @extern("b2MinInt");
+ 	v2 = A.q' * (B.q * v1 + B.p - A.p) = A.q' * B.q * v1 + A.q' * (B.p - A.p)
+ 
+Vec2 	b2MulMV (b2Mat22 A, Vec2 v) @extern("b2MinInt");
+ 	Multiply a 2-by-2 matrix times a 2D vector.
+ 
+b2Mat22 	b2GetInverse22 (b2Mat22 A) @extern("b2MinInt");
+ 	Get the inverse of a 2-by-2 matrix.
+ 
+Vec2 	b2Solve22 (b2Mat22 A, Vec2 b) @extern("b2MinInt");
+ 	Solve A * x = b, where b is a column vector.
+ 
+bool 	b2AABB_Contains (b2AABB a, b2AABB b) @extern("b2MinInt");
+ 	Does a fully contain b.
+ 
+Vec2 	b2AABB_Center (b2AABB a) @extern("b2MinInt");
+ 	Get the center of the AABB.
+ 
+Vec2 	b2AABB_Extents (b2AABB a) @extern("b2MinInt");
+ 	Get the extents of the AABB (half-widths).
+ 
+b2AABB 	b2AABB_Union (b2AABB a, b2AABB b) @extern("b2MinInt");
+ 	Union of two AABBs.
+ 
+bool 	b2IsValid (float a) @extern("b2MinInt");
+ 	Is this a valid number? Not NaN or infinity.
+ 
+bool 	b2Vec2_IsValid (Vec2 v) @extern("b2MinInt");
+ 	Is this a valid vector? Not NaN or infinity.
+ 
+bool 	b2Rot_IsValid (b2Rot q) @extern("b2MinInt");
+ 	Is this a valid rotation? Not NaN or infinity. Is normalized.
+ 
+bool 	b2AABB_IsValid (b2AABB aabb) @extern("b2MinInt");
+ 	Is this a valid bounding box? Not Nan or infinity. Upper bound greater than or equal to lower bound.
+ 
+void 	b2SetLengthUnitsPerMeter (float lengthUnits) @extern("b2MinInt");
+ 	Box2D bases all length units on meters, but you may need different units for your game.
+ 
+float 	b2GetLengthUnitsPerMeter (void) @extern("b2MinInt");
+ 	Get the current length units per meter.
+
