@@ -154,6 +154,8 @@ const int BIG_FONT_SCALE             @Hardcode = 14;
 const int SMALL_FONT_SCALE           @Hardcode = 6;
 const String INI_SETTINGS_FILE_NAME  @Hardcode = "user.ini";
 
+const DEFAULT_GAMECURSOR_SIZE        @Hardcode = 16;
+
 const PHYS_DEFAULT_SUBSTEPS        = 4;
 const PHYS_DEFAULT_TIMESTEP        = 1.0f / 60.0f; // 60fps @Hardcode
 // world/game gravity info (still not used for anything...)
@@ -604,7 +606,7 @@ fn void show_system_cursor() @public {
 }
 
 // NOTE(HM) only hides the OS cursor visuals, doesn't disable it,
-// so it will still move in the background.
+// it will still move in the background.
 fn void hide_system_cursor() @public {
     if(rl::isCursorHidden()) return; 
     //else 
@@ -616,12 +618,9 @@ fn void hide_system_cursor() @public {
 // region Game Custom Cursor functions
 
 fn void init_game_cursor() @inline {
-    float x,y;
-    x = 0;//(float)(local_game.screen.w / 2);
-    y = 0; (float)(local_game.screen.h / 2);
     local_game.mouse_cursor.initV(
-        {x,y},
-        {16, 16}, // default size
+        {0,0},
+        {DEFAULT_GAMECURSOR_SIZE, DEFAULT_GAMECURSOR_SIZE}, // default size
         rl::WHITE,
         SpriteKind.CURSOR,
         MOUSE_IMAGE_NAME
@@ -637,20 +636,20 @@ fn void set_game_cursor_size(int w, int h) @inline {
     local_game.mouse_cursor.setSize(w, h);
 }
 
+fn Vec2f getGameCursorSize() @public @inline => local_game.mouse_cursor.getSize();
+
 fn void update_game_cursor(int screen_w, int screen_h) @public {
 
+    // todo enable this code
     //if(game_cursor_visible() == false) return;
     
     int x = rl::getMouseX(); // in world space
     int y = rl::getMouseY(); // in world space
     
-    // prevent the cursor from going out the screen area
+    // prevent the cursor from going out the screen bounds
     if (x < 0) x = 0;
-    
     if (x > screen_w) x = screen_w;
-
     if (y < 0) y = 0;
-
     if (y > screen_h) y = screen_h;
     //
     
@@ -659,16 +658,18 @@ fn void update_game_cursor(int screen_w, int screen_h) @public {
     local_game.mouse_cursor.setPositionV(currMousePos);
     
     // TODO do a better mouse cursor size dependent on screen size!!
-    /*int w = rl::getRenderWidth();
-    int h = rl::getRenderHeight();
-    //Vec2f cursor_size = getCursorSize();
-    Vec2f maxc = {0, 0};
-    Vec2f minc = maxc + misc::VEC_DOWN * h + misc::VEC_LEFT * w;
-    Vec2f hyp  = minc - maxc;
-    set_game_cursor_size(
-    8 * 0.007f * hyp.length(),
-    8 * 0.007f * hyp.length()
-    );*/
+    //int w = rl::getRenderWidth();
+    int h        = rl::getRenderHeight();
+    int cursor_h = (int)local_game.mouse_cursor.getSizeY();
+    if(cursor_h < DEFAULT_GAMECURSOR_SIZE) {
+        set_game_cursor_size(DEFAULT_GAMECURSOR_SIZE, DEFAULT_GAMECURSOR_SIZE);
+    }
+    
+    int percent_value = (int)(0.01f * h);
+    if(cursor_h < percent_value) {
+        int v = percent_value;
+        set_game_cursor_size(v, v);
+    }
 }
 
 fn void show_game_cursor() @public @inline {
@@ -684,8 +685,6 @@ fn bool game_cursor_visible() @public @inline {
     return !local_game.mouse_cursor.hidden();
 }
 
-fn Vec2f getGameCursorSize() @public @inline => local_game.mouse_cursor.getSize();
-
 // end_region Game Custom Cursor functions
 
 fn void drawWorkInProgressMessage(int screen_w, int screen_h) @local 
@@ -696,9 +695,9 @@ fn void drawWorkInProgressMessage(int screen_w, int screen_h) @local
     
     //int font_w = (int)font.recs.width;
 
-    //String message = string::tformat_zstr("Total entities alive: None");
-    String message = "WORK IN PROGRESS";
-    int text_len = rl::measureText(message.zstr_tcopy(), TITLE_FONT_SCALE);
+    //String message   = string::tformat_zstr("Total entities alive: None");
+    String message    = "WORK IN PROGRESS";
+    int text_len      = rl::measureText(message.zstr_tcopy(), TITLE_FONT_SCALE);
     int screen_middle = (int)math::floor(0.5f*screen_w);
     //int x = (int)(0.65f * ((float)(screen_middle + (font_w * message.len))));
     int x = (int)(0.60f * ((float)(screen_middle + text_len)));

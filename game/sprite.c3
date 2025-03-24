@@ -181,6 +181,16 @@ fn void Sprite.setSizeV(&self, Vec2i size) @inline {
     self.rect.height = (float)size.y;
 }
 
+// overrides the size of the sprite
+fn void Sprite.setSizeX(&self, int v) @inline {
+    self.rect.width  = (float)v;
+}
+
+// overrides the size of the sprite
+fn void Sprite.setSizeY(&self, int v) @inline {
+    self.rect.height = (float)v;
+}
+
 fn void Sprite.addToSize(&self, int w, int h) @inline {
     self.rect.width  += (float)w;
     self.rect.height += (float)h;
@@ -195,6 +205,16 @@ fn void Sprite.addToSizeV(&self, Vec2i size) @inline {
 // in screen pixel coordinates
 fn Vec2f Sprite.getSize(&self) @inline {
     return self.rect.getSize().toVec2f();
+}
+
+// in screen pixel coordinates
+fn float Sprite.getSizeX(&self) @inline {
+    return self.rect.getSize().toVec2f().x;
+}
+
+// in screen pixel coordinates
+fn float Sprite.getSizeY(&self) @inline {
+    return self.rect.getSize().toVec2f().y;
 }
 
 // in screen pixel coordinates
