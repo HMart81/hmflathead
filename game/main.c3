@@ -155,6 +155,7 @@ const int SMALL_FONT_SCALE           @Hardcode = 6;
 const String INI_SETTINGS_FILE_NAME  @Hardcode = "user.ini";
 
 const PHYS_DEFAULT_SUBSTEPS        = 4;
+const PHYS_DEFAULT_TIMESTEP        = 1.0f / 60.0f; // 60fps @Hardcode
 // world/game gravity info (still not used for anything...)
 const Vec2f GRAVITY_VEC            = {0, -1};
 const float GRAVITY_VALUE          = 9.80665f; // meters/sec2
@@ -1683,7 +1684,7 @@ $endif
 	float lengthUnitsPerMeter = 128.0f;
 	box2d::setLengthUnitsPerMeter(lengthUnitsPerMeter);
     
-    local_game.phys_time_step     = 1.0f / 60.0f; // 60fps @Hardcode
+    local_game.phys_time_step     = PHYS_DEFAULT_TIMESTEP;
     
     // Using fewer sub-steps increases performance but accuracy suffers. 
     // Likewise, using more sub-steps decreases performance but improves the quality of your simulation.
@@ -1907,11 +1908,6 @@ $endif
     
     input::listActions();
     
-    local_game.particleSpawner1.init({
-        0.5f*local_game.screen.w,
-        0.85f*local_game.screen.h
-    });
-
     // Create the main single player
     // NOTE(HM) todo: the player and entities should be created only at spawn of a level 
     // but right now, I don't have a concept of a "level" or World.
@@ -1921,6 +1917,11 @@ $endif
     // NOTE(HM) The first entity is always the main player1
     local_game.entityList.push((Entity*)local_game.main_player);
     lgr::info(Where.FILE,  "** Done **.");
+    
+    local_game.particleSpawner1.init({
+        0.5f*local_game.screen.w,
+        0.85f*local_game.screen.h
+    });
     
     // Create test entities @delete
     lgr::info(Where.FILE,  "** Creating test entities. **");

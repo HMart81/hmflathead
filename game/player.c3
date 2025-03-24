@@ -34,9 +34,6 @@ import std::io;
 import std::core::mem; // for malloc/new
 import std::math;
 import std::collections::list;
-// end_region
-
-// region custom modules
 import engine::misc;
 import game::serialize::svs; // save system
 import game::main;
@@ -134,9 +131,7 @@ import std::io;
 import std::core::mem; // for malloc/new
 import std::math;
 import std::collections::list;
-// end_region
-
-// region custom modules
+import engine::physics::box2d;
 import raylib5::rl;
 import game::projectiles::ammo;
 import game::serialize::svs; // save system
@@ -217,6 +212,24 @@ fn void Player.init(&self, Vec2f origin = {0, 0}, Color color = rl::BLUE, int id
     
     self.setSize(8, 8);
     self.vs.color = color;
+    
+    // physics
+    // define the body
+    box2d::BodyDef bodyDef   = box2d::defaultBodyDef();
+    bodyDef.type             = box2d::BodyType.KINEMATIC;
+    bodyDef.position         = box2d::vec2fToVec2(origin);
+    // create the body
+    self.physics             = box2d::createBody(main::gpGame.physWorldId, &bodyDef);
+    //
+    // create the polygon shape
+    // TODO(HM) Set the correct size at creation time!!!
+    box2d::Polygon playerBox = box2d::makeBox(1.0f, 1.0f); //@hardcode
+    box2d::ShapeDef shapeDef  = box2d::defaultShapeDef();
+    shapeDef.density          = 1.0f;
+    shapeDef.friction         = 0.3f;
+	box2d::shapeCreatePolygon(self.physics, &shapeDef, &playerBox);
+    //
+    
     self.alive = true;
     self.startThinking();
     // NOTE(HM) for now the player as to be manually registered and 

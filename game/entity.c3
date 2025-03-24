@@ -122,10 +122,9 @@ fn void Entity.init(&self, String aname, Vec2f origin = {0,0}, Color color = rl:
 	
 	int entity_count = (int)main::gpGame.entityList.len();
 	if( entity_count <= 0 ) {
-		self.id = 1;
-	} else {
-		self.id = entity_count + 1;
+		unreachable("invalid entity count, missing player1 entity?");
 	}
+	self.id = entity_count + 1;
     
 	if(aname == "") {
 		if(self.id < 10) {
@@ -394,7 +393,7 @@ fn void Entity.think(&self, float dt) // update in other engines
 	if(self.flags & TH_THINK)
 	{
         // TODO find why this crash's
-        //self.setPositionV(box2d::vec2ToVec2f(box2d::bodyGetPosition(self.physics)));
+        self.setPositionV(box2d::vec2ToVec2f(box2d::bodyGetPosition(self.physics)));
         
 		//io::printf("Entity '%s' has flag %s!!!\n", self.name, self.flags);
 		//self.rotateX(1);
