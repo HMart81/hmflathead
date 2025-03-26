@@ -62,6 +62,7 @@ import raylib5::rl;
 import raygui5::rgui;
 import tiny::xml;
 import engine::physics::box2d;
+import engine::physics::box2d::dbg;
 // end_region
 
 // region Constants
@@ -350,6 +351,7 @@ struct Game (SaveSystemInterface) @local
     bool pause_phys_simulation;
     float phys_time_step;
     int phys_substep_count; // simulation quality;
+    DebugDraw phys_debug;
     //
     
     String app_name;
@@ -368,7 +370,7 @@ struct Game (SaveSystemInterface) @local
     bool showMessageBox;
     int last_key_pressed;
     
-    Timer testTimer;
+    timer::Timer testTimer;
     ParticleSpawner particleSpawner1;
 }
 
@@ -1087,7 +1089,7 @@ fn void gameReset() @local {
 
 // NOTE(HM) Any code here draws before the game user interface
 fn void gameOnPostSceneDraw(int screenWidth, int screenHeight) @local {
-    
+    box2d::worldDebugDraw(local_game.physWorldId, &local_game.phys_debug);
 }
 
 // NOTE(HM) Any code here draws on top of the game user interface
@@ -1695,11 +1697,13 @@ $endif
     // Realistic gravity is achieved by multiplying gravity by the length unit.
 	physWorld.gravity.y    = GRAVITY_VALUE * lengthUnitsPerMeter;
 	local_game.physWorldId = box2d::createWorld(&physWorld);
-    if(box2d::worldIsValid(local_game.physWorldId)) {
+    if(box2d::world_IsValid(local_game.physWorldId)) {
         lgr::info(Where.FILE, "Done.");
     } else {
         lgr::info(Where.FILE, "Failed to start physics engine, physics will not work!!!");
     }
+    
+    box2d::dbg::initDebugDraw(&local_game.phys_debug);
 // end_region physics engine
     
 // region AUDIO DEVICE initialization
@@ -1972,7 +1976,8 @@ fn void gameOnExit() @local
     deinit_game_cursor();
     asstManager.releaseAllAssets();
     // close physics engine
-    if(box2d::worldIsValid(local_game.physWorldId)) {
+    box2d::dbg::deinitDebugDraw(&local_game.phys_debug);
+    if(box2d::world_IsValid(local_game.physWorldId)) {
         lgr::info(Where.FILE, "Destroying physics engine.");
         box2d::destroyWorld(local_game.physWorldId);
         lgr::info(Where.FILE, "Done.");

@@ -160,7 +160,7 @@ $endif
     box2d::ShapeDef shapeDef  = box2d::defaultShapeDef();
     shapeDef.density          = 1.0f;
     shapeDef.friction         = 0.3f;
-	box2d::shapeCreatePolygon(self.physics, &shapeDef, &dynamicBox);
+	box2d::createPolygonShape(self.physics, &shapeDef, &dynamicBox);
     //
     
 	self.alive = true;
@@ -393,7 +393,7 @@ fn void Entity.think(&self, float dt) // update in other engines
 	if(self.flags & TH_THINK)
 	{
         // TODO find why this crash's
-        self.setPositionV(box2d::vec2ToVec2f(box2d::bodyGetPosition(self.physics)));
+        self.setPositionV(box2d::vec2ToVec2f(box2d::body_GetPosition(self.physics)));
         
 		//io::printf("Entity '%s' has flag %s!!!\n", self.name, self.flags);
 		//self.rotateX(1);

@@ -78,10 +78,6 @@ struct Vector4 @compact
     float w;                // Vector w component
 }
 
-def Vec2 = Vector2;
-def Vec3 = Vector3;
-def Vec4 = Vector4;
-
 // Quaternion, 4 components (Vector4 alias)
 def Quaternion = Vector4;
 
@@ -112,8 +108,8 @@ struct Rectangle @compact
     float height;           // Rectangle height
 }
 
-macro Vec2 Rectangle.getPos(&self)  => { self.x, self.y };
-macro Vec2 Rectangle.getSize(&self) => { self.width, self.height };
+macro Vector2 Rectangle.getPos(&self)  => { self.x, self.y };
+macro Vector2 Rectangle.getSize(&self) => { self.width, self.height };
 
 
 // Image, pixel data stored in CPU memory (RAM)

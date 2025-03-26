@@ -60,8 +60,9 @@ const Color INVISIBLE_COLOR = {0xFF, 0xFF, 0xFF, 0x00};
 
 fn Vector2 Vec2f.toVector2(&self) => Vector2{self.x, self.y};
 
-def @Hardcode = {}; // empty user attribute (Need to start with a uppercase...)
+def @Hardcode    = {}; // empty user attribute (Need to start with a uppercase...)
 def @Performance = {};
+def @Exported    = {}; // used mainly to mark external functions from static libraries that are accessible because got exported when compiled by VS, CC or GCC
 
 // cardinal directions
 const int COORD_180_NORTH =  90;

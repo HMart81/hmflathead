@@ -227,7 +227,7 @@ fn void Player.init(&self, Vec2f origin = {0, 0}, Color color = rl::BLUE, int id
     box2d::ShapeDef shapeDef  = box2d::defaultShapeDef();
     shapeDef.density          = 1.0f;
     shapeDef.friction         = 0.3f;
-	box2d::shapeCreatePolygon(self.physics, &shapeDef, &playerBox);
+	box2d::createPolygonShape(self.physics, &shapeDef, &playerBox);
     //
     
     self.alive = true;

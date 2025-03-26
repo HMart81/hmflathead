@@ -345,7 +345,7 @@ $endif
         Rectangle* dist  = &self.rect;
         // Origin of the texture (rotation/scale point), 
         // is relative to destination rectangle size/area NOT the screen!!!
-        rl::Vec2 image_center       = {0, 0};
+        Vector2 image_center       = {0, 0};
         const float IMAGE_ROTATION  = 0.0f;
         rl::drawTexturePro(*(Texture2D*)self.tex.data.ptr, source, *dist, image_center, IMAGE_ROTATION, self.color);
     } else {
