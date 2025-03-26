@@ -1691,7 +1691,8 @@ $endif
     // Likewise, using more sub-steps decreases performance but improves the quality of your simulation.
     local_game.phys_substep_count = PHYS_DEFAULT_SUBSTEPS;
     
-    lgr::info(Where.FILE, "Starting Box2D physics engine:");
+    box2d::Version version = box2d::getVersion();
+    lgr::info(Where.FILE, "Starting Box2D physics engine v: %d.%d.%d", version.major, version.minor, version.revision);
     box2d::WorldDef physWorld = box2d::defaultWorldDef();
     
     // Realistic gravity is achieved by multiplying gravity by the length unit.

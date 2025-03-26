@@ -281,6 +281,32 @@ extern fn DebugDraw defaultDebugDraw() @extern("b2DefaultDebugDraw");
 
 // end_region DEBUG
 
+/*
+m_debugDraw = { DrawPolygonFcn,
+				DrawSolidPolygonFcn,
+				DrawCircleFcn,
+				DrawSolidCircleFcn,
+				DrawCapsuleFcn,
+				DrawSolidCapsuleFcn,
+				DrawSegmentFcn,
+				DrawTransformFcn,
+				DrawPointFcn,
+				DrawStringFcn,
+				bounds,
+				false, // drawUsingBounds
+				true,  // shapes
+				true,  // joints
+				false, // joint extras
+				false, // aabbs
+				false, // mass
+				false, // contacts
+				false, // colors
+				false, // normals
+				false, // impulse
+				false, // friction
+				this };
+*/
+
 <*
     @param [inout] dd "the debugDraw struct to init"
     @require dd != null
@@ -299,14 +325,15 @@ fn void initDebugDraw(DebugDraw* dd) {
     dd.drawPoint          = &drawPoint;
     dd.drawString         = &drawString;
     //
-    
+    AABBox bounds = { { -float.max, -float.max }, { float.max, float.max } };
+    dd.drawingBounds      = bounds;
     // drawing options
-	dd.drawShapes           = true;
-	//dd.drawJoints         = true;
-	//dd.drawJointExtras      = true;
-	dd.drawAABBs            = true;
-	//dd.drawMass             = true;
-	dd.drawContacts         = true;
+	dd.drawShapes         = true;
+	//dd.drawJoints       = true;
+	//dd.drawJointExtras  = true;
+	dd.drawAABBs          = true;
+	//dd.drawMass         = true;
+	dd.drawContacts       = true;
 	//dd.drawGraphColors      = true;
 	//dd.drawContactNormals   = true;
 	//dd.drawContactImpulses  = true;
@@ -314,6 +341,7 @@ fn void initDebugDraw(DebugDraw* dd) {
     
     // graphics context? for now is null
 	//void* context;
+    
 }
 
 <*
@@ -367,7 +395,7 @@ fn void drawTransformLocal(box2d::Transform transform) @local
 */
 }
 
-macro Color hexColorToColor(int hexValue)
+fn Color hexColorToColor(int hexValue)
 {
   Color rgbColor;
   rgbColor.r = (char)((hexValue >> 16) & 0xFF) / 255;  // Extract the RR byte
@@ -385,11 +413,11 @@ macro Vector2 vec2ToVector2(Vec2 vec) {
 /// Draw a closed polygon provided in CCW order.
 fn void drawPolygon(Vec2* vertices, int vertexCount, HexColor color, void* context ) {
     //rl::drawLineStrip((rl::Vector2*)vertices, vertexCount, hexColorToColor(color));
-    drawPolygonLocal((rl::Vector2*)vertices, vertexCount, hexColorToColor(color));
+    //drawPolygonLocal((rl::Vector2*)vertices, vertexCount, hexColorToColor(color));
 }
 /// Draw a solid closed polygon provided in CCW order.
 fn void drawSolidPolygon(box2d::Transform transform, Vec2* vertices, int vertexCount, float radius, HexColor color, void* context ) {
-    rl::drawTriangleStrip((rl::Vector2*)vertices, vertexCount, hexColorToColor(color));
+    //rl::drawTriangleStrip((rl::Vector2*)vertices, vertexCount, hexColorToColor(color));
 }
 fn void drawCircle(Vec2 center, float radius, HexColor color, void* context ) {
     rl::drawCircleLinesV(vec2ToVector2(center), radius, hexColorToColor(color));
