@@ -52,22 +52,36 @@
 
 $(info $(SHELL))
 
+## Project name (exe name)
 APPLICATION_RELEASE_NAME := main
 APPLICATION_DEBUG_NAME := dmain
+##
+
+## Build directory
 BUILD_DIR := build
 BUILD_PATH := ${CURDIR}/$(BUILD_DIR)
-LIBRARY_ROOT_PATH := .\thirdparty\include\libs\\
+##
+
+## Third party libraries
 RAYLIB := raylib55\lib\raylibdll.lib
 BOX2D := box2d\box2d.lib
 RAYGUI := raygui\raygui.obj
-ENGINE_FOLDER := engine/
-GAME_FOLDER   := game/
+LIBRARY_ROOT_PATH := .\thirdparty\include\libs\\
+LINKER_SEARCH_PATHS := -L $(LIBRARY_ROOT_PATH)
+LINKED_LIBRARIES := -l $(RAYLIB) -l $(BOX2D) -l kernel32.lib -z $(RAYGUI)
+##
+
+## Windows stuff
 MSVC_SDK_PATH := windows\kit\8.1\Lib\winv6.3\um\x64
 FULL_MSVC_SDK_PATH := $(LIBRARY_ROOT_PATH)$(MSVC_SDK_PATH)
 KERNEL32_LIB := $(MSVC_SDK_PATH)\kernel32.lib
 USER32_LIB := $(MSVC_SDK_PATH)\user32.lib
+##
 
-########################### engine folders
+
+############################## Source code  #####################################
+ENGINE_FOLDER := engine/
+GAME_FOLDER   := game/
 ENGINE_ROOT_SOURCES := $(wildcard $(ENGINE_FOLDER)*.c3 $(ENGINE_FOLDER)*.c3i)
 GAME_ROOT_SOURCES := $(wildcard $(GAME_FOLDER)*.c3)
 ENGINE_CHILD_SOURCES := \
@@ -90,19 +104,16 @@ DEBUG_DEFINES   := -D _DEBUG -D _PROFILE
 # current release defines aren't really usefull... 
 RELEASE_DEFINES := -D _RELEASE
 
-# compiler to use right now there's only one, c3c
+# compiler to use, right now there's only one, c3c
 CC := c3c.exe
 
 # common compiler flags/options
 CFLAGS := --target windows-x64 --threads 8 --output-dir $(BUILD_PATH)
 
-# libraries
-LIBRARIES := -l $(RAYLIB) -l $(BOX2D) -z $(RAYGUI)
-	
 # release
-comand_release_compile := $(CC) -O3 $(CFLAGS) $(RELEASE_DEFINES) -L $(LIBRARY_ROOT_PATH) $(LIBRARIES) -o $(APPLICATION_RELEASE_NAME) compile $(GAME_ROOT_SOURCES) $(ENGINE_ROOT_SOURCES) $(ENGINE_CHILD_SOURCES)
+comand_release_compile := $(CC) -O3 $(CFLAGS) $(RELEASE_DEFINES) $(LINKER_SEARCH_PATHS) $(LINKED_LIBRARIES) -o $(APPLICATION_RELEASE_NAME) compile $(GAME_ROOT_SOURCES) $(ENGINE_ROOT_SOURCES) $(ENGINE_CHILD_SOURCES)
 # debug
-comand_debug_compile := $(CC) -O0 $(CFLAGS) $(DEBUG_DEFINES) -L $(LIBRARY_ROOT_PATH) $(LIBRARIES) -l kernel32.lib -o $(APPLICATION_DEBUG_NAME) compile $(GAME_ROOT_SOURCES) $(ENGINE_ROOT_SOURCES) $(ENGINE_CHILD_SOURCES)
+comand_debug_compile := $(CC) -O0 $(CFLAGS) $(DEBUG_DEFINES) $(LINKER_SEARCH_PATHS) $(LINKED_LIBRARIES) -o $(APPLICATION_DEBUG_NAME) compile $(GAME_ROOT_SOURCES) $(ENGINE_ROOT_SOURCES) $(ENGINE_CHILD_SOURCES)
 #
 comand_release_run := cd ${CURDIR}/build/ & start $(APPLICATION_RELEASE_NAME).exe $(GAME_ARGUMENTS)
 comand_debug_run := cd ${CURDIR}/build/ & start $(APPLICATION_DEBUG_NAME).exe $(GAME_ARGUMENTS)

@@ -51,7 +51,7 @@ def assetManager = astmng::assetManager @local;
 // end_region
 
 // region constants
-const int MIN_SPRIT_SIZE @local = 4; // pixels
+const int MIN_SPRIT_SIZE @local = 1; // pixels
 const Vec2i MIN_SIZE @local = {MIN_SPRIT_SIZE, MIN_SPRIT_SIZE};
 //
 // NOTE(HM) Uncoment this to enable the sprite profilling
@@ -111,13 +111,13 @@ fn void Sprite.update(&self) @inline {
     }
 }
 
-fn void Sprite.init(&self, float x, float y, float width, float height, RColor color, SpriteKind kind = GENERIC, String asset_name = "") @inline {
+fn void Sprite.init(&self, float x, float y, int width, int height, RColor color, SpriteKind kind = GENERIC, String asset_name = "") @inline {
     self.type  = Sprite.typeid;
     //
     self.kind  = kind;
     self.color = color;
     self.setPosition( x, y );
-    self.setSize( (int)width, (int)height );
+    self.setSize( width, height );
     self.setTexture(asset_name);
 $if $feature(_DEBUG):   
     assert(self.isValid() == true);
@@ -126,7 +126,7 @@ $endif
 }
 
 fn void Sprite.initRec(&self, Rectangle rect, RColor color = rl::COLOR_WHITE, SpriteKind kind = GENERIC, String asset_texture_name = "") @inline {
-    self.init(rect.x, rect.y, rect.width, rect.height, color, kind, asset_texture_name);
+    self.init(rect.x, rect.y, (int)rect.width, (int)rect.height, color, kind, asset_texture_name);
 }
 
 fn void Sprite.initV(&self, Vec2f pos, Vec2f size, RColor color, SpriteKind kind = GENERIC, String asset_texture_name = "") @inline {
@@ -264,7 +264,7 @@ fn void Sprite.addToPositionV(&self, Vec2f pos) @inline {
 // this is a world position
 fn Vec2f Sprite.getPos(&self) @inline => self.rect.getPos().toVec2f();
 
-fn bool Sprite.isValid(&self) @inline {
+fn bool Sprite.isValid(&self) {
     if(self.rect.x >= 0 &&
        self.rect.y >= 0 &&
        self.rect.width  >= MIN_SPRIT_SIZE && 

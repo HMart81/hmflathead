@@ -214,7 +214,7 @@ fn void RenderView.debug(&self) {
 
 // NOTE(HM) This is now really inconvinient
 // This is because I found Raysan decided to not give a way 
-// to overrride the screenshot key, inlike the quit key,
+// to override the screenshot key, or the quit key,
 // so if I use this with another key than F12 or 
 // I call rl::takeScreenshot() I will take TWO screenshots!! :(
 fn void takeScreenShot() {
@@ -344,19 +344,19 @@ fn void RenderView.cameraControls(&self) @inline {
 $if $feature(_DEBUG):
     // Camera translation controls
     if (rl::isKeyDown(rl::KEY_A)) {
-        self.camera.target.x--;
-        self.updateAxis(self.camera.target.toVec2f());
-    }
-    if (rl::isKeyDown(rl::KEY_D)) {
         self.camera.target.x++;
         self.updateAxis(self.camera.target.toVec2f());
     }
+    if (rl::isKeyDown(rl::KEY_D)) {
+        self.camera.target.x--;
+        self.updateAxis(self.camera.target.toVec2f());
+    }
     if (rl::isKeyDown(rl::KEY_W)) {
-        self.camera.target.y--;
+        self.camera.target.y++;
         self.updateAxis(self.camera.target.toVec2f());
     }
     if (rl::isKeyDown(rl::KEY_S)) {
-        self.camera.target.y++;
+        self.camera.target.y--;
         self.updateAxis(self.camera.target.toVec2f());
     }
 $endif

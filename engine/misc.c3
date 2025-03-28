@@ -56,6 +56,27 @@ const Vec2f VEC_LEFT  = {-1.0f, 0.0f};
 const Vec2f VEC_RIGHT = { 1.0f, 0.0f};
 //
 
+const MINIMUM_SIZE_IN_PIXELS = 1;    //
+const MINIMUM_SIZE_IN_METERS = 0.1f; // 10 cm
+
+fn int metersToPixels(float meters) {
+    if(meters <= 0.1f) {
+        return MINIMUM_SIZE_IN_PIXELS;
+    }
+    return (int)(math::floor(meters) * main::DEFAULT_PIXELS_PER_METER);
+}
+
+fn float pixelsToMeters(int pixels) {
+    if(pixels <= MINIMUM_SIZE_IN_METERS) return MINIMUM_SIZE_IN_METERS;
+    
+    float m = (float)(pixels / main::DEFAULT_PIXELS_PER_METER);
+    if(m <= MINIMUM_SIZE_IN_METERS) {
+        return MINIMUM_SIZE_IN_PIXELS;
+    } else {
+        return m;
+    }
+}
+
 const Color INVISIBLE_COLOR = {0xFF, 0xFF, 0xFF, 0x00};
 
 fn Vector2 Vec2f.toVector2(&self) => Vector2{self.x, self.y};

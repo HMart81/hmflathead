@@ -62,12 +62,20 @@ import raylib5::rl;
 import raygui5::rgui;
 import tiny::xml;
 import engine::physics::box2d;
-import engine::physics::box2d::dbg;
 // end_region
 
 // region Constants
-const String MOUSE_IMAGE_NAME      @Hardcode = "pointer.png";
-const int MAX_ENTITY_COUNT @public @Hardcode = 1 << 12; //int.max;
+
+/*
+   ===== Game Scale Units =====
+   
+   1 meter = 10 pixels
+    
+*/
+const DEFAULT_PIXELS_PER_METER @public @Hardcode = 10;
+const String MOUSE_IMAGE_NAME          @Hardcode = "pointer.png";
+const GAME_CURSOR_SCALER               @Hardcode = 0.025f;
+const int MAX_ENTITY_COUNT     @public @Hardcode = 1 << 12; //int.max;
 
 struct ScreenRes
 {
@@ -155,12 +163,10 @@ const int BIG_FONT_SCALE             @Hardcode = 14;
 const int SMALL_FONT_SCALE           @Hardcode = 6;
 const String INI_SETTINGS_FILE_NAME  @Hardcode = "user.ini";
 
-const DEFAULT_GAMECURSOR_SIZE        @Hardcode = 16;
-
 const PHYS_DEFAULT_SUBSTEPS        = 4;
 const PHYS_DEFAULT_TIMESTEP        = 1.0f / 60.0f; // 60fps @Hardcode
 // world/game gravity info (still not used for anything...)
-const Vec2f GRAVITY_VEC            = {0, -1};
+const B2Vec2 GRAVITY_VEC           = {0.0f, -10.0f};
 const float GRAVITY_VALUE          = 9.80665f; // meters/sec2
 const Vec2f DEFAULT_WORLD_CENTER   = {0, 0}; // top left coorner of screen (this is contrary to OpenGL that is lower left corner)
 //
@@ -347,11 +353,14 @@ struct Game (SaveSystemInterface) @local
     BoidManager boidManager1;
     
     // physics engine world
-    box2d::WorldId physWorldId;
+    B2WorldId physWorldId;
     bool pause_phys_simulation;
     float phys_time_step;
     int phys_substep_count; // simulation quality;
-    DebugDraw phys_debug;
+    B2DebugDraw phys_debug;
+    
+    B2BodyId    phys_grd_bodyid;
+    B2Polygon   phys_grd_box;
     //
     
     String app_name;
@@ -499,6 +508,14 @@ fn Player* Game.getLocalPlayer(&self) {
     return (Player*)self.entityList[0];
 }
 
+fn Vec2f Game.getScreenCenterPos(&self) {
+    return (Vec2f) { (float)rl::getScreenWidth() / 2, (float)rl::getScreenHeight() / 2 };
+}
+
+fn Vec2i Game.getScreenCenterPosI(&self) {
+    return (Vec2i) { rl::getScreenWidth() / 2, rl::getScreenHeight() / 2 };
+}
+
 <*
 * @require(self.entityList.len() >= 2)
 * @ensure return != null @if($feature(_DEBUG))
@@ -622,7 +639,7 @@ fn void hide_system_cursor() @public {
 fn void init_game_cursor() @inline {
     local_game.mouse_cursor.initV(
         {0,0},
-        {DEFAULT_GAMECURSOR_SIZE, DEFAULT_GAMECURSOR_SIZE}, // default size
+        {GAME_CURSOR_SCALER*gpGame.screen.h, GAME_CURSOR_SCALER*gpGame.screen.h},
         rl::WHITE,
         SpriteKind.CURSOR,
         MOUSE_IMAGE_NAME
@@ -659,18 +676,14 @@ fn void update_game_cursor(int screen_w, int screen_h) @public {
     Vec2f currMousePos  = {(float)x, (float)y};
     local_game.mouse_cursor.setPositionV(currMousePos);
     
+    // update size
     // TODO do a better mouse cursor size dependent on screen size!!
     //int w = rl::getRenderWidth();
-    int h        = rl::getRenderHeight();
-    int cursor_h = (int)local_game.mouse_cursor.getSizeY();
-    if(cursor_h < DEFAULT_GAMECURSOR_SIZE) {
-        set_game_cursor_size(DEFAULT_GAMECURSOR_SIZE, DEFAULT_GAMECURSOR_SIZE);
-    }
-    
-    int percent_value = (int)(0.01f * h);
-    if(cursor_h < percent_value) {
-        int v = percent_value;
-        set_game_cursor_size(v, v);
+    int window_h            = gpGame.screen.h;
+    int cursor_h            = (int)local_game.mouse_cursor.getSizeY();
+    int desired_cursor_size = (int)math::floor((GAME_CURSOR_SCALER * window_h));
+    if(cursor_h > desired_cursor_size) {
+        set_game_cursor_size(desired_cursor_size, desired_cursor_size);
     }
 }
 
@@ -1681,30 +1694,45 @@ $endif
 // end_region Window initialization
 
 // region physics engine
-// 128 pixels per meter is a appropriate for this scene. The boxes are 128 pixels wide.
-	float lengthUnitsPerMeter = 128.0f;
-	box2d::setLengthUnitsPerMeter(lengthUnitsPerMeter);
+// TODO(HM) refactor this into a physics engine module that wraps box2d? 
+    B2Version version      = box2d::getVersion();
+    lgr::info(Where.FILE, "Starting Box2D physics engine v: %d.%d.%d", version.major, version.minor, version.revision);
     
+    // NOTE(HM) This needs to be done before any box2d function requiring units is used!!!
+	box2d::setLengthUnitsPerMeter(DEFAULT_PIXELS_PER_METER);
+    
+    // physics quality and performance options
     local_game.phys_time_step     = PHYS_DEFAULT_TIMESTEP;
-    
-    // Using fewer sub-steps increases performance but accuracy suffers. 
+    // NOTE(HM) Using fewer sub-steps increases performance but accuracy suffers. 
     // Likewise, using more sub-steps decreases performance but improves the quality of your simulation.
     local_game.phys_substep_count = PHYS_DEFAULT_SUBSTEPS;
     
-    box2d::Version version = box2d::getVersion();
-    lgr::info(Where.FILE, "Starting Box2D physics engine v: %d.%d.%d", version.major, version.minor, version.revision);
-    box2d::WorldDef physWorld = box2d::defaultWorldDef();
-    
-    // Realistic gravity is achieved by multiplying gravity by the length unit.
-	physWorld.gravity.y    = GRAVITY_VALUE * lengthUnitsPerMeter;
+    // 
+    B2WorldDef physWorld   = box2d::defaultWorldDef();
+    //physWorld.gravity      = GRAVITY_VEC;
+    // NOTE(HM) Realistic gravity is achieved by multiplying gravity by the length unit.
+	physWorld.gravity.y    = GRAVITY_VALUE * DEFAULT_PIXELS_PER_METER;
+    //
 	local_game.physWorldId = box2d::createWorld(&physWorld);
     if(box2d::world_IsValid(local_game.physWorldId)) {
-        lgr::info(Where.FILE, "Done.");
+        lgr::info(Where.FILE, "Box2D Started.");
     } else {
-        lgr::info(Where.FILE, "Failed to start physics engine, physics will not work!!!");
+        lgr::error(Where.FILE, "Failed to start Box2D physics engine! Halting game initialization.");
+        unreachable();
     }
     
-    box2d::dbg::initDebugDraw(&local_game.phys_debug);
+    // create a static ground entity
+    B2BodyDef  grd_bodydef = box2d::defaultBodyDef();
+    int screen_half_x      = (int)0.5f * local_game.screen.w;
+    Vec2f pos              = DEFAULT_WORLD_CENTER + misc::VEC_RIGHT * screen_half_x;
+    pos                   += misc::VEC_DOWN * (0.75f* local_game.screen.h);
+    grd_bodydef.position   = (B2Vec2)pos.toVector2();
+    local_game.phys_grd_bodyid  = box2d::createBody(local_game.physWorldId, &grd_bodydef);
+    local_game.phys_grd_box     = box2d::makeBox(20.0f, 10.0f);
+    B2ShapeDef  grd_shpdef      = box2d::defaultShapeDef();
+    box2d::createPolygonShape(local_game.phys_grd_bodyid, &grd_shpdef, &local_game.phys_grd_box);
+    
+    box2d::initDebugDraw(&local_game.phys_debug);
 // end_region physics engine
     
 // region AUDIO DEVICE initialization
@@ -1912,10 +1940,10 @@ $endif
     
     input::listActions();
     
-    // Create the main single player
-    // NOTE(HM) todo: the player and entities should be created only at spawn of a level 
-    // but right now, I don't have a concept of a "level" or World.
-    // TODO make a special spawn point entity for the player
+    // Create the main Single Player
+    // NOTE(HM) todo: the player and ingame entities should be created only at spawn of a level 
+    // but right now, I don't have a concept of a "level" or game World.
+    // TODO(HM) when possible make a dedicated spawn point entity for the player.
     lgr::info(Where.FILE,  "** Creating test player. **");
     local_game.main_player = pl::makePlayer(id: 1, color: rl::BLUE);
     // NOTE(HM) The first entity is always the main player1
@@ -1977,7 +2005,7 @@ fn void gameOnExit() @local
     deinit_game_cursor();
     asstManager.releaseAllAssets();
     // close physics engine
-    box2d::dbg::deinitDebugDraw(&local_game.phys_debug);
+    box2d::deinitDebugDraw(&local_game.phys_debug);
     if(box2d::world_IsValid(local_game.physWorldId)) {
         lgr::info(Where.FILE, "Destroying physics engine.");
         box2d::destroyWorld(local_game.physWorldId);

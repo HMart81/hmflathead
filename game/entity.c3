@@ -42,11 +42,19 @@ import game::serialize::svs; // save system
 import engine::physics::box2d;
 // end_region
 
-const int TH_NONE         = 0;
-const int TH_THINK        = 1;
-const int TH_PHYSICS      = 2; // for the future...
-const int MIN_SIZE_VALUE    = 8;
-const Vec2i MIN_ENTITY_SIZE = {MIN_SIZE_VALUE, MIN_SIZE_VALUE};
+const int   TH_NONE          = 0;
+const int   TH_THINK         = 1;
+const int   TH_PHYSICS       = 2; // for the future...
+
+const MIN_VISUAL_SIZE_VALUE         @Hardcode = 1;     // pixel
+const MIN_PHYSICS_SIZE_VALUE        @Hardcode = 0.10f; // 10 cm;
+const Vec2i MIN_ENTITY_VISUAL_SIZE  = {MIN_VISUAL_SIZE_VALUE, MIN_VISUAL_SIZE_VALUE};
+const Vec2f MIN_ENTITY_PHYSICS_SIZE = {MIN_PHYSICS_SIZE_VALUE, MIN_PHYSICS_SIZE_VALUE};
+
+const int   ENTITY_DEFAULT_SIZE_X_PIXELS  = 3;
+const int   ENTITY_DEFAULT_SIZE_Y_PIXELS  = 11;
+const float ENTITY_DEFAULT_SIZE_X_METER   = 0.27f; // 27 cm  (minimum size is 10 cm)
+const float ENTITY_DEFAULT_SIZE_Y_METER   = 1.0f;  // 1  m
 
 /*
 interface EntityInterface {
@@ -83,7 +91,7 @@ struct Entity (SaveSystemInterface)
     Sprite vs;
     //
     // physics
-    box2d::BodyId physics;
+    B2BodyId physics;
     //
 	int flags;
 	//LinkList(<Entity>) activeNode;	// for being linked into activeEntities list
@@ -141,23 +149,27 @@ $if $feature(_DEBUG):
 $endif
     
 	//
-    self.vs.initV(origin, MIN_ENTITY_SIZE, color);
+    self.vs.initV(
+    origin, 
+    {ENTITY_DEFAULT_SIZE_X_PIXELS, ENTITY_DEFAULT_SIZE_Y_PIXELS}, 
+    color
+    );
     //
     
     // physics
     // define the body
-    box2d::BodyDef bodyDef   = box2d::defaultBodyDef();
-    bodyDef.type             = box2d::BodyType.DYNAMIC;
-    bodyDef.position         = box2d::vec2fToVec2(origin);
+    B2BodyDef bodyDef   = box2d::defaultBodyDef();
+    bodyDef.type        = B2BodyType.DYNAMIC;
+    bodyDef.position    = box2d::vec2fToVec2(origin);
     // create the body
-    self.physics             = box2d::createBody(main::gpGame.physWorldId, &bodyDef);
+    self.physics        = box2d::createBody(main::gpGame.physWorldId, &bodyDef);
     //
     // create the polygon shape
     // ‍Caution: A dynamic body should have at least one shape with a non-zero density. 
     // Otherwise you will get strange behavior.
     // TODO(HM) Set the correct size at creation time!!!
-    box2d::Polygon dynamicBox = box2d::makeBox(1.0f, 1.0f); //@hardcode
-    box2d::ShapeDef shapeDef  = box2d::defaultShapeDef();
+    B2Polygon dynamicBox = box2d::makeBox(ENTITY_DEFAULT_SIZE_X_METER, ENTITY_DEFAULT_SIZE_Y_METER);
+    B2ShapeDef shapeDef  = box2d::defaultShapeDef();
     shapeDef.density          = 1.0f;
     shapeDef.friction         = 0.3f;
 	box2d::createPolygonShape(self.physics, &shapeDef, &dynamicBox);
@@ -431,8 +443,8 @@ fn bool Entity.isValid(&self)
 	self.id >= 1 && 
 	self.getPosition().x >= 0 &&
     self.getPosition().y >= 0 && 
-    self.getSizei().x >= MIN_SIZE_VALUE &&
-    self.getSizei().y >= MIN_SIZE_VALUE)
+    self.getSizei().x >= MIN_VISUAL_SIZE_VALUE &&
+    self.getSizei().y >= MIN_VISUAL_SIZE_VALUE)
 	{
 		return true;
 	}

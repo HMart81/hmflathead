@@ -26,104 +26,6 @@
 # 
 *********************************************************************************************************************************************/
 
-// TODO(HM) to support multiple players make a seperate player array.
-module game::projectiles::ammo;
-
-// region c3
-import std::io;
-import std::core::mem; // for malloc/new
-import std::math;
-import std::collections::list;
-import engine::misc;
-import game::serialize::svs; // save system
-import game::main;
-//import ent;
-import raylib5::rl;
-// end_region
-
-const float DEFAULT_PROJECTILE_SPEED    = 1.0f;
-const Vec2f DEFAULT_PROJECTILE_MOVE_DIR = misc::VEC_UP;
-
-def ProjectileList    = List(<Projectile>);
-def ProjectilePtrList = List(<Projectile*>);
-
-enum Kind : int {
-    BULLET,
-    ROCKET,
-    LASER,
-}
-
-struct Projectile
-{
-    Rectangle rec;
-    typeid _typeid;
-    Kind kind;
-    int lifetime;
-    int creationTime;
-    //int maxLifeTime;
-    float move_speed;
-    Vec2f move_dir;
-}
-
-fn Projectile* create(Vec2f origin, Vec2f size = {40, 40}, int lifetime = 5000, Kind type = BULLET) {
-    Projectile* projectile  = mem::new(Projectile);
-    projectile._typeid      = Projectile.typeid;
-    projectile.kind         = type;
-    projectile.rec          = {origin.x, origin.y, size.x, size.y};
-    projectile.move_speed   = DEFAULT_PROJECTILE_SPEED; // @hardcode
-    projectile.move_dir     = DEFAULT_PROJECTILE_MOVE_DIR; // @hardcode
-    projectile.creationTime = main::gpGame.time_ms;
-    projectile.lifetime     = projectile.creationTime + lifetime;
-    //projectile.maxLifeTime  = projectile.creationTime + projectile.lifetime;
-    return projectile;
-}
-
-<*
-* @param [in] projectile "pointer to a Projectile"
-* @param dt "delta time for projectile movement"
-*>
-fn void update(Projectile* projectile, float dt) @inline {
-    if(!projectile) return;
-    
-    if(main::gpGame.time_ms > projectile.lifetime) {
-        destroy(projectile);
-        return;
-    }
-    
-    move(projectile, dt);
-}
-
-<*
-* @param [in] projectile "pointer to a Projectile"
-* @require projectile != null
-*>
-fn void move(Projectile* projectile, float dt) @inline {
-    // TODO(HM) Bullets should move in more directions than just up
-    Vec2f velocity = projectile.move_dir + projectile.move_speed * dt;
-    projectile.rec.y += velocity.length();
-}
-
-<*
-* @param [in] projectile "pointer to a Projectile"
-* @require projectile != null
-*>
-fn void draw(Projectile* projectile) @inline {
-    if(!projectile) return;
-    
-    rl::drawRectangleRec(projectile.rec, rl::RED);
-}
-
-<*
-* @param [in] projectile "pointer to a Projectile"
-* @require projectile != null
-*>
-fn void destroy(Projectile* projectile) @inline {
-    mem::free(projectile);
-    projectile = null;
-}
-
-
-
 module game::actors::ent::pl;
 
 // region c3
@@ -131,16 +33,25 @@ import std::io;
 import std::core::mem; // for malloc/new
 import std::math;
 import std::collections::list;
-import engine::physics::box2d;
-import raylib5::rl;
 import game::projectiles::ammo;
 import game::serialize::svs; // save system
-//import game::actors::ent;
-import engine::misc;
 import game::main;
+//import game::actors::ent;
+import engine::physics::box2d;
+import engine::misc;
+import raylib5::rl;
 // end_region
 
-const float PLAYER_DEFAULT_MOV_SPEED = 5.0f;
+// player speed is defined in how many pixels it travels in one second
+// 1 meter / second = 11.0f pixels / 1.0f sec;
+// 10 cm / sec      = 1.0f pixels / 1.0f;
+// 0.1 pixels to meter = 1 pixel;
+
+const float PLAYER_DEFAULT_MOV_SPEED      = 1.0f; // 1 pixel / sec
+const int   PLAYER_DEFAULT_SIZE_X_PIXELS  = 6;
+const int   PLAYER_DEFAULT_SIZE_Y_PIXELS  = 22;
+const float PLAYER_DEFAULT_SIZE_X_METER   = 0.50f; // (minimum size is 10 cm)
+const float PLAYER_DEFAULT_SIZE_Y_METER   = 2.0f;
 
 enum Move_Dir : int (Vec2i vec, String id)
 {
@@ -159,10 +70,12 @@ struct PersistentInfo (SaveSystemInterface)  @packed {
 
 fn void PersistentInfo.save(&self, SaveFile* file) @dynamic {
 // todo
+    io::printfn("PersistentInfo save not implemented!!");
 }
 
 fn void PersistentInfo.reload(&self, SaveFile* file) @dynamic {
 // todo
+    io::printfn("PersistentInfo reload not implemented!!");
 }
 
 fn bool PersistentInfo.clear(&self) @inline {
@@ -189,8 +102,8 @@ fn void Player.reload(&self, SaveFile* file) @dynamic {
 // todo
 }
 
-// Player.init() will shadow (aka override) Entity.init()
-fn void Player.init(&self, Vec2f origin = {0, 0}, Color color = rl::BLUE, int id = 1)
+// WARNING(HM) Player.init() will shadow (aka override) Entity.init()
+fn void Player.init(&self, Vec2f origin, Color color, int id)
 {
     self.type = Player.typeid;
     self.id   = id;
@@ -202,31 +115,28 @@ fn void Player.init(&self, Vec2f origin = {0, 0}, Color color = rl::BLUE, int id
     
     // TODO(HM) makes this position editable...
     if(origin == {0, 0}) {
-        self.setPosition(
-            (float)rl::getScreenWidth() / 2,
-            (float)rl::getScreenHeight() / 2
-        );
+        self.setPositionV(main::gpGame.getScreenCenterPos());
     } else {
         self.setPositionV(origin);
     }
     
-    self.setSize(8, 8);
+    self.setSize(PLAYER_DEFAULT_SIZE_X_PIXELS, PLAYER_DEFAULT_SIZE_Y_PIXELS);  // x = 50 cm | y = 2 m
     self.vs.color = color;
     
     // physics
     // define the body
-    box2d::BodyDef bodyDef   = box2d::defaultBodyDef();
-    bodyDef.type             = box2d::BodyType.KINEMATIC;
-    bodyDef.position         = box2d::vec2fToVec2(origin);
+    B2BodyDef bodyDef   = box2d::defaultBodyDef();
+    bodyDef.type        = B2BodyType.KINEMATIC;
+    bodyDef.position    = box2d::vec2fToVec2(origin);
     // create the body
-    self.physics             = box2d::createBody(main::gpGame.physWorldId, &bodyDef);
+    self.physics        = box2d::createBody(main::gpGame.physWorldId, &bodyDef);
     //
     // create the polygon shape
     // TODO(HM) Set the correct size at creation time!!!
-    box2d::Polygon playerBox = box2d::makeBox(1.0f, 1.0f); //@hardcode
-    box2d::ShapeDef shapeDef  = box2d::defaultShapeDef();
-    shapeDef.density          = 1.0f;
-    shapeDef.friction         = 0.3f;
+    B2Polygon playerBox = box2d::makeBox(PLAYER_DEFAULT_SIZE_X_METER, PLAYER_DEFAULT_SIZE_Y_METER); //@hardcode
+    B2ShapeDef shapeDef = box2d::defaultShapeDef();
+    shapeDef.density    = 1.0f;
+    shapeDef.friction   = 0.3f;
 	box2d::createPolygonShape(self.physics, &shapeDef, &playerBox);
     //
     
@@ -260,28 +170,20 @@ fn bool Player.handleESC(&self) {
 
 fn void Player.updateInteraction(&self, float dt)
 {
-    float speed = PLAYER_DEFAULT_MOV_SPEED;
+    float speed   = PLAYER_DEFAULT_MOV_SPEED;
     
     self.move_dir = Move_Dir.DIR_NONE;
     
     if(rl::isKeyDown(rl::KEY_RIGHT)) {
-        //libc::puts("F1 key was pressed once");
-        //self.x += (int)math::floor(1.0f * speed);
         self.move_dir = Move_Dir.DIR_RIGHT;
     }
     if(rl::isKeyDown(rl::KEY_LEFT)) {
-        //libc::puts("F1 key was pressed once");
-        //self.x -= (int)math::floor(1.0f * speed);
         self.move_dir = Move_Dir.DIR_LEFT;
     }
     if(rl::isKeyDown(rl::KEY_UP)) {
-        //libc::puts("F1 key was pressed once");
-        //self.y -= (int)math::floor(1.0f * speed);
         self.move_dir = Move_Dir.DIR_UP;
     }
     if(rl::isKeyDown(rl::KEY_DOWN)) {
-        //libc::puts("F1 key was pressed once");
-        //self.y += (int)math::floor(1.0f * speed);
         self.move_dir = Move_Dir.DIR_DOWN;
     }
     
@@ -296,6 +198,11 @@ fn void Player.updateInteraction(&self, float dt)
         self.projectiles.push(ammo::create(self.getPosition()));
     }
     
+    self.move(speed);
+}
+
+fn void Player.move(&self, float speed) @inline
+{
     Vec2f new_origin = self.getPosition() + misc::dir_mul(self.move_dir, speed);
     self.setPositionV(new_origin);
 }
@@ -307,10 +214,8 @@ fn void Player.think(&self, float dt /*delta_time*/)
     
     if(self.flags & ent::TH_THINK)
     {
-        //io::printfn("player is thinking!!!!!!!!!!!!!!!!");
-        
-        // player Input should be done the next possible to 
-        // updating the player think/state possible to diminish input lag.
+        // player Input should be done near possible to 
+        // updating the player think/state to diminish input lag.
         self.updateInteraction(dt);
         
         foreach(projectile : self.projectiles) {
@@ -319,6 +224,10 @@ fn void Player.think(&self, float dt /*delta_time*/)
                 ammo::draw(projectile);
             }
         }
+    } 
+    
+    if(self.flags & ent::TH_PHYSICS) {
+        // update player physics code here
     }
 }
 
@@ -334,10 +243,10 @@ fn void Player.stopThinking(&self) @inline  {
 }
 
 
-fn Player* makePlayer(int id, Color color)  @inline
+fn Player* makePlayer(int id = 0, Vec2f position = {0, 0}, Color color = rl::WHITE) @inline
 {
     Player* player = mem::new(Player);
-    player.init({0, 0}, color, id);
+    player.init(position, color, id);
     return player;
 }
 
@@ -396,4 +305,104 @@ fn InputAction* create(String _name, KeyboardKey key, MouseButton mbtn = MouseBu
     register(action);
     
     return action;
+}
+
+
+
+// not working for now UNFINISHED
+
+// TODO(HM) to support multiple players make a seperate player array.
+module game::projectiles::ammo;
+
+// region c3
+import std::io;
+import std::core::mem; // for malloc/new
+import std::math;
+import std::collections::list;
+import engine::misc;
+import game::serialize::svs; // save system
+import game::main;
+//import ent;
+import raylib5::rl;
+// end_region
+
+const float DEFAULT_PROJECTILE_SPEED    = 1.0f;
+const Vec2f DEFAULT_PROJECTILE_MOVE_DIR = misc::VEC_UP;
+ 
+def ProjectileList    = List(<Projectile>);
+def ProjectilePtrList = List(<Projectile*>);
+
+enum AmmoKind : int {
+    BULLET,
+    ROCKET,
+    LASER,
+}
+
+struct Projectile
+{
+    Rectangle rec;
+    typeid _typeid;
+    AmmoKind kind;
+    int lifetime;
+    int creationTime;
+    //int maxLifeTime;
+    float move_speed;
+    Vec2f move_dir;
+}
+
+fn Projectile* create(Vec2f origin, Vec2f size = {40, 40}, int lifetime = 5000, AmmoKind type = BULLET) {
+    Projectile* projectile  = mem::new(Projectile);
+    projectile._typeid      = Projectile.typeid;
+    projectile.kind         = type;
+    projectile.rec          = {origin.x, origin.y, size.x, size.y};
+    projectile.move_speed   = DEFAULT_PROJECTILE_SPEED; // @hardcode
+    projectile.move_dir     = DEFAULT_PROJECTILE_MOVE_DIR; // @hardcode
+    projectile.creationTime = main::gpGame.time_ms;
+    projectile.lifetime     = projectile.creationTime + lifetime;
+    //projectile.maxLifeTime  = projectile.creationTime + projectile.lifetime;
+    return projectile;
+}
+
+<*
+* @param [in] projectile "pointer to a Projectile"
+* @param dt "delta time for projectile movement"
+*>
+fn void update(Projectile* projectile, float dt) @inline {
+    if(!projectile) return;
+    
+    if(main::gpGame.time_ms > projectile.lifetime) {
+        destroy(projectile);
+        return;
+    }
+    
+    move(projectile, dt);
+}
+
+<*
+* @param [in] projectile "pointer to a Projectile"
+* @require projectile != null
+*>
+fn void move(Projectile* projectile, float dt) @inline {
+    // TODO(HM) Bullets should move in more directions than just up
+    Vec2f velocity = projectile.move_dir + projectile.move_speed * dt;
+    projectile.rec.y += velocity.length();
+}
+
+<*
+* @param [in] projectile "pointer to a Projectile"
+* @require projectile != null
+*>
+fn void draw(Projectile* projectile) @inline {
+    if(!projectile) return;
+    
+    rl::drawRectangleRec(projectile.rec, rl::RED);
+}
+
+<*
+* @param [in] projectile "pointer to a Projectile"
+* @require projectile != null
+*>
+fn void destroy(Projectile* projectile) @inline {
+    mem::free(projectile);
+    projectile = null;
 }
