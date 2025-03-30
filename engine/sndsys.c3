@@ -83,21 +83,19 @@ import engine::logging::lgr;
     fn float getMusicTimePlayed(SSMusic music) 
 */
 
-def SSMusicDatabase = List(<SSMusic*>);
+alias SSMusicDatabase = List{SSMusic*};
 SSMusicDatabase music_data;
 
 fn void init() {
     rl::initAudioDevice();
 }
 
-def SndSysError = astmng::AssetError;
-
-fn bool! populateMusicDataBase() {
+fn bool? populateMusicDataBase() {
     String music_folder = main::gpGame.app_base_folder.tconcat("\\").tconcat("music\\");
-	PathList! paths = path::temp_ls(path::temp_new(music_folder));
+	PathList? paths = path::ls(tmem, path::temp(music_folder));
 	if(catch excuse = paths) {
 		lgr::warning(Where.FILE,  "Unable to get audio from folder music with excuse: %s", excuse);
-		return SndSysError.FOLDER_SCAN_ERROR?;
+		return astmng::FOLDER_SCAN_ERROR?;
 	}
 	
 	foreach(path: paths)
@@ -130,7 +128,7 @@ fn bool! populateMusicDataBase() {
             
             sndsys::SSMusic* music = mem::new(sndsys::SSMusic);
 			
-			music.stream = rl::loadMusicStream(asset_path.zstr_copy());
+			music.stream = rl::loadMusicStream(asset_path.zstr_tcopy());
             music_data.push(music);
 			continue; // to next file
 			

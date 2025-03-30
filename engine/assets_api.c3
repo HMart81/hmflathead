@@ -141,16 +141,15 @@ import engine::filesystem::fs;
 import engine::misc;
 // end_region
 
-fault AssetError {
-	INVALID_ASSETS_PATH_STRING,
-	MALFORMED_PATHS_FILE,
-	UNKNOWN_FOLDER,
-	FOLDER_SCAN_ERROR,
-	ASSET_LOAD_ERROR,
-	SMALL_ASSET_PATH,
-	ASSET_RETRIVAL_ERROR,
-	MISSING_ASSET
-}
+faultdef INVALID_ASSETS_PATH_STRING,
+	     MALFORMED_PATHS_FILE,
+	     UNKNOWN_FOLDER,
+	     FOLDER_SCAN_ERROR,
+	     ASSET_LOAD_ERROR,
+	     SMALL_ASSET_PATH,
+	     ASSET_RETRIVAL_ERROR,
+	     MISSING_ASSET;
+
 
 // NOTE(HM) 
 // If this is changed need to update FILE_EXTENSIONS_ARRAY in hm_lib_funcs.c3 as well.
@@ -168,7 +167,7 @@ const String[*] VALID_ASSET_EXTENSIONS = {
 	".fnt"
 };
 
-def AssetListPtr = List(<Asset*>);
+alias AssetListPtr = List{Asset*};
 
 struct Manager {
 	AssetListPtr assets;
@@ -417,7 +416,7 @@ fn void loadAsset(String path, String* extension) {
 	local_manager.register(new_asset);
 }
 
-fn void! loadAssetsRecursively(String basepath, String parent_folder = "") @inline @local {
+fn void? loadAssetsRecursively(String basepath, String parent_folder = "") @inline @local {
 	String search_path = basepath;
 	if(parent_folder != "") {
 		if (parent_folder.ends_with("\\")) {
@@ -427,10 +426,10 @@ fn void! loadAssetsRecursively(String basepath, String parent_folder = "") @inli
 		}
 	}
 	
-	PathList! paths = path::temp_ls(path::temp_new(search_path));
+	PathList? paths = path::ls(tmem, path::temp(search_path));
 	if(catch excuse = paths) {
 		lgr::warning(Where.FILE,  "Unable to get files from folder: %s with excuse: %s", search_path, excuse);
-		return AssetError.FOLDER_SCAN_ERROR?;
+		return FOLDER_SCAN_ERROR?;
 	}
 	
 	foreach(path: paths)
@@ -484,7 +483,7 @@ fn void! loadAssetsRecursively(String basepath, String parent_folder = "") @inli
 <*
 *@require main::gpGame.app_base_folder.len > 0
 *>
-fn void! loadAssets() {
+fn void? loadAssets() {
 
 	float loadAsset_st = @start_profile_zone();
 	defer @end_profile_zone(loadAsset_st);
@@ -646,7 +645,7 @@ fn void Material.load(&self, String file_path) @dynamic @inline
     io::printf("book nodes %d\n", bookNodes.size);
 
     foreach (node : bookNodes) {
-        char[]! id = node.get_attrib_value("id");
+        char[]? id = node.get_attrib_value("id");
         if (catch err = id) {
             io::printf("attribute not found\n");
             continue;
@@ -660,7 +659,7 @@ fn void Material.parse(&self, String file_path) @dynamic
 /*
     // load test xml file
     String xml_path = local_game.app_base_folder.tconcat("images\\default.xml");
-    File! xmlfile = io::file::open(xml_path, "r");
+    File? xmlfile = io::file::open(xml_path, "r");
     defer xmlfile.close()!!;
     
     if(catch excuse = xmlfile) {
@@ -681,7 +680,7 @@ fn void Material.parse(&self, String file_path) @dynamic
     }
 */
     // load xml file
-    File! file = io::file::open(file_path, "r");
+    File? file = io::file::open(file_path, "r");
     defer file.close()!!;
     
     if(catch excuse = file) {
@@ -790,13 +789,13 @@ import game::assets::astmng;
 import std::collections::list, std::collections::map;
 // end_region
 
-def Spawnarg             = main::StringTuple;
+alias Spawnarg             = main::StringTuple;
 // global file sound list
-def SoundShaderList      = List(<SoundShader*>);
-def SoundShaderSoundList = List(<sndshd::Sound*>);
+alias SoundShaderList      = List{SoundShader*};
+alias SoundShaderSoundList = List{sndshd::Sound*};
 // individual sound, sound list and spawnargs
-def SoundDefList         = List(<SoundDef*>);
-def SpawnargList         = List(<Spawnarg*>);
+alias SoundDefList         = List{SoundDef*};
+alias SpawnargList         = List{Spawnarg*};
 
 enum SoundKind : int {
     EFFECT,
@@ -911,7 +910,7 @@ fn String Sound.to_string(&self, Allocator allocator) @dynamic
 }
 
 
-// TODO handle global args and each sound def args seperatly
+// TODO handle global args and each sound alias args seperatly
 // This function should be only for global sound args 
 fn void Sound.setupFlags(&self) @inline
 {
@@ -1088,7 +1087,7 @@ fn void SoundShader.playSoundOneShot(&self, String sound_name)
 
 }
 
-fn void! loadSoundShaderRecursively(String basepath, String parent_folder = "") @local 
+fn void? loadSoundShaderRecursively(String basepath, String parent_folder = "") @local 
 {
 	String search_path = basepath;
 	if(parent_folder != "") {
@@ -1208,7 +1207,7 @@ fn void SoundShader.load(&self)
     bool sucess;
     
     // load xml file
-    File! file = io::file::open(self.path, "r");
+    File? file = io::file::open(self.path, "r");
     defer file.close()!!;
     
     if(catch excuse = file) {

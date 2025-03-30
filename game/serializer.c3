@@ -47,11 +47,11 @@ import engine::logging::lgr;
 // end_region
 
 // region defines
-//def assetManager = astmng::assetManager @private;
-//def WidgetQueue  = List(<Widget*>) {}
-//def DesktopList  = List(<Action*>) {}
-//def ActionQueue    = List(<Action*>) {}
-//def ActionCallBack = fn void(args...) {}
+//alias assetManager = astmng::assetManager @private;
+//alias WidgetQueue  = List{Widget*} {}
+//alias DesktopList  = List{Action*} {}
+//alias ActionQueue    = List{Action*} {}
+//alias ActionCallBack = fn void(args...) {}
 // end_region
 
 
@@ -63,13 +63,12 @@ const int SAVE_FILE_VERSION = 1; // update this version if the save file structu
 // or 0x00 for the null symbol to not confuse with null terminated strings 
 const char NULL_CHARACTER = 'º'; 
 
-fault SaveFileFault {
-    MISSING_FILE_PATH,
-    FAILED_OPEN_FILE,
-    FAILED_READ_FILE,
-    FAILED_CLOSE_FILE,
-    FAILED_GET_FILE_SIZE
-}
+faultdef MISSING_FILE_PATH,
+         FAILED_OPEN_FILE,
+         FAILED_READ_FILE,
+         FAILED_CLOSE_FILE,
+         FAILED_GET_FILE_SIZE;
+
 // end_region
 
 // region Globals
@@ -90,17 +89,17 @@ interface SaveSystemInterface {
 <*
 * @require SaveFile.tagof("version") == SAVE_FILE_VERSION
 *>
-fn SaveFile! open(String filepath, int file_version = SAVE_FILE_VERSION) {
+fn SaveFile? open(String filepath, int file_version = SAVE_FILE_VERSION) {
     if(filepath == "") {
-        return SaveFileFault.MISSING_FILE_PATH?;
+        return MISSING_FILE_PATH?;
     }
     
     SaveFile file_data;
     file_data.version = file_version;
     file_data.path    = filepath;
-    io::File! file    = file::open(filepath, "rb");
+    io::File? file    = file::open(filepath, "rb");
     if(catch excuse = file) {
-        return SaveFileFault.FAILED_OPEN_FILE?;
+        return FAILED_OPEN_FILE?;
     } else {
         file_data.file = file;
         return file_data;
@@ -110,14 +109,14 @@ fn SaveFile! open(String filepath, int file_version = SAVE_FILE_VERSION) {
 <*
 * @require SaveFile.tagof("version") == SAVE_FILE_VERSION
 *>
-fn SaveFile! make_new(String filepath, int file_version = SAVE_FILE_VERSION) {
+fn SaveFile? make_new(String filepath, int file_version = SAVE_FILE_VERSION) {
     if(filepath == "") {
-        return SaveFileFault.MISSING_FILE_PATH?;
+        return MISSING_FILE_PATH?;
     }
     
-    io::File! file  = file::open(filepath, "wb");
+    io::File? file  = file::open(filepath, "wb");
     if(catch excuse = file) {
-        return SaveFileFault.FAILED_OPEN_FILE?;
+        return FAILED_OPEN_FILE?;
     } else {
         SaveFile file_data;
         file_data.version = file_version;
@@ -128,7 +127,7 @@ fn SaveFile! make_new(String filepath, int file_version = SAVE_FILE_VERSION) {
     }
 }
 
-fn void! close(SaveFile* save) @inline {
+fn void? close(SaveFile* save) @inline {
     save.file.close()!;
 }
 
@@ -371,7 +370,7 @@ fn void readZString(SaveFile* savefile, ZString* string) {
         lgr::warning(Where.CONSOLE, "failed to write data to file %s! : %s:%s", savefile.path, $$FUNC, $$LINE);
         return;
     }
-    *string = result.zstr_copy();
+    *string = result.zstr_tcopy();
 }
 
 <*

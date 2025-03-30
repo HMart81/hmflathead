@@ -219,11 +219,11 @@ editor     = "F1"
 // if alising a Constant the alias also needs to be all caps, etc.
 
 // alias Types
-def RColor         = rl::Color @public;
-def RShader        = rl::Shader @public;
-def StringTuple    = Tuple(<String, String>) @public;
-def IniFileCMDList = List(<StringTuple*>);
-def asstManager    = astmng::assetManager @public;
+alias RColor         @public = rl::Color;
+alias RShader        @public = rl::Shader;
+alias StringTuple    @public = Tuple{String, String};
+alias IniFileCMDList = List{StringTuple*};
+alias asstManager    @public= astmng::assetManager;
 
 // alias function names
 
@@ -265,12 +265,10 @@ fn void register_modulo_cvars() @local {
 
 // end_region Cvars
 
-fault GameError {
-    WINDOW_INIT_FAILED,
-    MISSING_REQUIRED_ASSET,
-    INVALID_WORK_DIR,
-    NO_DATA_FOLDER
-} 
+faultdef WINDOW_INIT_FAILED, 
+         MISSING_REQUIRED_ASSET,
+         INVALID_WORK_DIR,
+         NO_DATA_FOLDER;
 
 enum Program_Mode @public {
     GAME,
@@ -348,8 +346,8 @@ struct Game (SaveSystemInterface) @local
         int  multiSamples; // MSAA
     }
 
-    List(<Entity*>) entityList;
-    List(<Sprite*>) sprites;
+    List{Entity*} entityList;
+    List{Sprite*} sprites;
     BoidManager boidManager1;
     
     // physics engine world
@@ -1035,11 +1033,11 @@ fn void gameUpdate() @local
             io::printfn("Timer time = %s!!!", local_game.testTimer.lifetime);
         } else { 
             //io::printfn("Timer run out press F2 to start again!!!");
-            if (rgui::button(Rectangle { 24, 24, 120, 30 }, "#191#Show Message")) local_game.showMessageBox = true;
+            if (rgui::button((Rectangle) { 24, 24, 120, 30 }, "#191#Show Message")) local_game.showMessageBox = true;
 
             if (local_game.showMessageBox)
             {
-                int result = rgui::messageBox(Rectangle { 85, 70, 250, 100 },
+                int result = rgui::messageBox((Rectangle) { 85, 70, 250, 100 },
                     "#191#Message Box", "Hi! This is a message!", "Nice;Cool");
 
                 if (result >= 0) local_game.showMessageBox = false;
@@ -1377,7 +1375,7 @@ fn void handle_cmdline(String[]* args) {
 // end_region ARGS HANDLING ******************
 
 /* This is where game execution begins */
-fn void! gameOnStart(String[]* args) @local 
+fn void? gameOnStart(String[]* args) @local 
 {
     // Handle cmdline arguments if any.
     // NOTE(HM) the first argument in cmdline, is just the full path to the exe, 
@@ -1420,7 +1418,7 @@ fn void! gameOnStart(String[]* args) @local
     if(fs::directoryExists(local_game.app_default_workdir)) {
         lgr::info(Where.FILE, "Working from default Dir: %s", local_game.app_default_workdir);
     } else { 
-        return GameError.INVALID_WORK_DIR?; // will this ever happen? 
+        return INVALID_WORK_DIR?; // will this ever happen? 
     }
     // Detect and Setup the base folder where required game assets/data live.
     local_game.app_default_base_folder = local_game.app_default_workdir.tconcat(fs_base.getString()).tconcat("\\");
@@ -1436,7 +1434,7 @@ fn void! gameOnStart(String[]* args) @local
     {
         String mods_dir, mod_name, mod_work_dir, mod_base_folder;
         mod_name = fs_mod_name.getString();
-        if(mod_name <=2) 
+        if(mod_name.len <=2) 
         {
             lgr::warning(Where.FILE, "mod name: \"%s\" seems to be very small are you sure that is correct?", mod_name);
         }
@@ -1468,7 +1466,7 @@ fn void! gameOnStart(String[]* args) @local
     if(fs::directoryExists(local_game.app_work_dir)) {
         lgr::info(Where.FILE,  "Working from Dir: %s", local_game.app_work_dir);
     } else {
-        return GameError.INVALID_WORK_DIR?;
+        return INVALID_WORK_DIR?;
     }
     
     // make sure required base folder exists
@@ -1486,7 +1484,7 @@ fn void! gameOnStart(String[]* args) @local
                        A non-empty folder called '%s' (case sensitive) most exist.\n
                        Please reinstall game.`, local_game.app_work_dir, fs_base.getString(), local_game.app_name);
         }
-        return GameError.NO_DATA_FOLDER?;
+        return NO_DATA_FOLDER?;
     }
     
     // get the home folder to save necessary game data
@@ -1502,9 +1500,9 @@ fn void! gameOnStart(String[]* args) @local
         if(fs::directoryExists(local_game.app_save_folder)) {
             lgr::info(Where.CONSOLE, "Save Dir at: %s", local_game.app_save_folder);
         } else { // create it
-            //Path! save_path = path::temp_new(save_folder)!;
-            //bool! sucess    = path::mkdir(save_path);
-            bool! sucess    = fs::makeDirectory(local_game.app_save_folder);
+            //Path? save_path = path::temp_new(save_folder)!;
+            //bool? sucess    = path::mkdir(save_path);
+            bool? sucess    = fs::makeDirectory(local_game.app_save_folder);
             if(catch excuse = sucess) {
                 lgr::warning(Where.FILE,"Failed to create %s folder inside %s with excuse: %s", 
                            local_game.app_name, local_game.app_save_folder, excuse);
@@ -1543,13 +1541,13 @@ fn void! gameOnStart(String[]* args) @local
     bool settings_file_missing = fs::fileExists(ini_file_path) == false;
     if (settings_file_missing) // create it with default settings
     {
-        File! data      = file::open(ini_file_path, "w");
+        File? data      = file::open(ini_file_path, "w");
         if(catch excuse = data)                      { return excuse?; }
         if(catch excuse = data.write(SAFE_SETTINGS)) { return excuse?; }
         if(catch excuse = data.close())              { return excuse?; }
     }
     
-     ini::FileData*! settings_file = ini::load(ini_file_path, false); //ini::load(SETTINGS_FILE_NAME);
+     ini::FileData*? settings_file = ini::load(ini_file_path, false); //ini::load(SETTINGS_FILE_NAME);
     if( catch excuse = settings_file) {
         lgr::warning(Where.FILE, "Failed to load %s file with excuse: %s", ini_file_path, excuse);
         return excuse?;
@@ -1681,7 +1679,7 @@ fn void! gameOnStart(String[]* args) @local
     
     if(rl::isWindowReady() == false) {
         lgr::fatal(Where.FILE, "Failed to init rl window and OpenGL context!");
-        return GameError.WINDOW_INIT_FAILED?;
+        return WINDOW_INIT_FAILED?;
     }
     
     // NOTE(HM) timing, is always counted since initWindow above;
@@ -1761,14 +1759,14 @@ $endif
         $endif
     } else {
         lgr::fatal(Where.FILE, "Required default asset: \"sounds/default.wav\" failed to load!");
-        return GameError.MISSING_REQUIRED_ASSET?;
+        return MISSING_REQUIRED_ASSET?;
     }
     
     // load required default music
     local_game.default_music = rl::loadMusicStream(local_game.app_base_folder.tconcat("music//default.mp3").zstr_tcopy());
     if(rl::isMusicValid(local_game.default_music) == false) {
         lgr::fatal(Where.FILE, "Required default asset: \"music/default.mp3\" failed to load!");
-        return GameError.MISSING_REQUIRED_ASSET?;
+        return MISSING_REQUIRED_ASSET?;
     }
 // end_region AUDIO DEVICE initialization
     
@@ -1849,7 +1847,7 @@ $endif
     );
     if(rl::isShaderValid(local_game.default_shader) == false) {
         lgr::fatal(Where.FILE, "Required default shader not found in folder %s!", local_game.app_base_folder.tconcat("//shaders"));
-        return GameError.MISSING_REQUIRED_ASSET?;
+        return MISSING_REQUIRED_ASSET?;
     }
     //local_game.default_shader.locs[rl::ShaderLocationIndex.COLOR_DIFFUSE] = rl::getShaderLocation(local_game.default_shader, "DestinationColor");
     local_game.current_global_shader = &local_game.default_shader;
@@ -1858,7 +1856,7 @@ $endif
     local_game.default_texture = rl::loadTexture(local_game.app_base_folder.tconcat("images//default.png").zstr_tcopy());
     if(local_game.default_texture.isInvalid()) {
         lgr::fatal(Where.FILE, "Required asset: images//default.png failed to load!");
-        return GameError.MISSING_REQUIRED_ASSET?;
+        return MISSING_REQUIRED_ASSET?;
     }
     
     // now load all assets and catch a error if any
@@ -2045,7 +2043,7 @@ fn void saveGame() {
     String save_folder = local_game.app_save_folder;
     if(fs::directoryExists(save_folder)) {
         String file_path = save_folder.tconcat("\\").tconcat(string::tformat("%s%s%s", local_game.app_name, local_game.time_ms, ".sav"));
-        svs::SaveFile! save_file = svs::make_new(file_path);
+        svs::SaveFile? save_file = svs::make_new(file_path);
         defer (void)svs::close(&save_file);
         if(catch excuse = save_file) {
             lgr::warning(Where.FILE, "Unable to save to file: %s with excuse: %s", file_path, excuse);
@@ -2092,7 +2090,7 @@ fn void loadGame() {
     
     // load the newer file then
     if(files.count) {
-         svs::SaveFile! save_file = svs::open(((ZString)files.paths[file_index]).str_view());
+         svs::SaveFile? save_file = svs::open(((ZString)files.paths[file_index]).str_view());
         defer (void)svs::close(&save_file);
         if(catch excuse = save_file) {
             lgr::warning(Where.FILE, "Unable to open save file: %s with excuse: %s", files.paths[file_index], excuse);
@@ -2103,7 +2101,7 @@ fn void loadGame() {
     }  
 
 /* 
-    Path! path = path::temp_new(local_game.app_save_folder);
+    Path? path = path::temp_new(local_game.app_save_folder);
     if(catch excuse = path) {
         lgr::warning(Where.CONSOLE, "Failed to get home dir where save files are at with excuse: %s.", excuse);
         return;
@@ -2191,7 +2189,7 @@ fn void pre_InitFunc() @init {
     
     //uint value = misc::megaBytes2Bytes(1024);
     //memory_pool = (usz*)rl::memAlloc( value * uint.sizeof);
-    gameArena.init(GAME_ARENA_PAGE_SIZE, allocator::heap());
+    gameArena.init(mem, GAME_ARENA_PAGE_SIZE);
     
     // Controls raylib console logging
     // Raylib library gets initialized here, because this function calls a raylib function
@@ -2211,7 +2209,7 @@ fn void pre_InitFunc() @init {
 
 fn int main(String[] args) @public
 {
-    anyfault excuse = @catch(gameOnStart(&args));
+    fault excuse = @catch(gameOnStart(&args));
     if (excuse) {
         lgr::error(Where.CONSOLE, "Game initialization failed with excuse: %s", excuse);
         return -1;

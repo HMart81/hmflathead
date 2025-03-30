@@ -45,8 +45,9 @@ import engine::logging::lgr;
 import raylib5::rl;
 // end
 
-def Vec2i  = int[<2>];
-def Vec3i  = int[<3>];
+alias Vec2f  = float[<2>];
+alias Vec2i  = int[<2>];
+alias Vec3i  = int[<3>];
 
 // NOTE(HM) There's not Z or back and forward, because this is 2D engine
 // in camera space!!!!!!!!!
@@ -79,11 +80,11 @@ fn float pixelsToMeters(int pixels) {
 
 const Color INVISIBLE_COLOR = {0xFF, 0xFF, 0xFF, 0x00};
 
-fn Vector2 Vec2f.toVector2(&self) => Vector2{self.x, self.y};
+fn Vector2 Vec2f.toVector2(&self) => (Vector2) {self.x, self.y};
 
-def @Hardcode    = {}; // empty user attribute (Need to start with a uppercase...)
-def @Performance = {};
-def @Exported    = {}; // used mainly to mark external functions from static libraries that are accessible because got exported when compiled by VS, CC or GCC
+attrdef @Hardcode; // empty user attribute (Need to start with a uppercase...)
+attrdef @Performance;
+attrdef @Exported; // used mainly to mark external functions from static libraries that are accessible because got exported when compiled by VS, CC or GCC
 
 // cardinal directions
 const int COORD_180_NORTH =  90;
@@ -117,7 +118,7 @@ macro void @drawRect(#rect, color) => rl::drawRectangleRec(#rect, color);
 
 
 // region Debug Lines
-def ArrayOfLinesPtr = List(<DebugLine*>) @local;
+alias ArrayOfLinesPtr @local = List{DebugLine*};
 ArrayOfLinesPtr g_debugLines;
 
 struct DebugLine {
@@ -287,7 +288,7 @@ macro mili_since_init() => main::gpGame.time_ms;
 
 macro bool recIsValid(rec) => ((getRecSize(rec).length() + getRecPos(rec).length()) > 0) ? true : false;
 
-macro Rectangle @recFromVecs(#vec1, #vec2) => Rectangle {#vec1.x, #vec1.y, #vec2.x, #vec2.y};
+macro Rectangle @recFromVecs(#vec1, #vec2) => (Rectangle) {#vec1.x, #vec1.y, #vec2.x, #vec2.y};
 
 // region String custom extension
 
@@ -310,7 +311,7 @@ fn void main() {
 }
 */
 
-macro ZString stringTozstring(x) => x.zstr_copy();
+macro ZString stringTozstring(x) => x.tcopy();
 macro ZString stringTotempzstring(x) => x.zstr_tcopy();
 macro String zstringTostring(x) => x.zstr_view();
 macro String zstringTotempstring(x) => string::tformat(x);
@@ -322,7 +323,7 @@ macro bool isDirSeparator( c ) {
     if ( c == '/' ) {
         return true;
     }
-    $switch
+    $switch:
         $case env::WIN32:
             if ( c == '\\' ) {
                 return true;
@@ -346,7 +347,7 @@ fn ZString String.cpy_zpeace(self, int start, int len) {
         len = i - start;
     }
     String result = (String)self[start..len]; //string::tformat("%s", self[:(start + len)]);
-    return result.zstr_copy();
+    return result.zstr_tcopy();
 }
 
 // NOTE(HM) 
@@ -388,16 +389,16 @@ fn String String.stripExtension(self) {
 }
 
 macro String[] cut_by_newline(str) {
-    $switch
+    $switch:
         $case env::POSIX:
-            return str.split("\r\n");
+            return str.tsplit("\r\n");
         $case env::WIN32:
-            return str.split("\n");
+            return str.tsplit("\n");
     $endswitch
 }
 
 macro String[] cut_by_spaces(str) {
-	return str.split(" ");
+	return str.tsplit(" ");
 }
 
 macro void String.remove_spaces(&self) {
@@ -408,7 +409,7 @@ macro void String.remove_spaces(&self) {
     if(self.has_spaces()) {
         char[] buffer;
         usz count;
-        $foreach ($i, $ch : self)
+        $foreach $i, $ch : self:
             $if $ch != ' ':
                 buffer[$i] = $ch;
             $endif
@@ -457,7 +458,7 @@ fn void String.extractFileBaseByRef(&self) { // using self you are passing by va
     }
 
     int start = pos;
-    (*self) = string::new_format("%s", copy[start..]);
+    (*self) = string::tformat("%s", copy[start..]);
 }
 
 // fn String getAssetNameFrom(String path) @inline {
@@ -470,7 +471,7 @@ struct EntireFile @local {
 }
 
 // »Performance?
-fn String! readEntireFileX(String filepath) {
+fn String? readEntireFileX(String filepath) {
     EntireFile _file;
     
     File data = file::open(filepath, "rb")!;
@@ -498,8 +499,11 @@ fn String! readEntireFileX(String filepath) {
     return (String)"";
 }
 
-fn String! readEntireFile(String filepath) @inline {
-    return (String)file::load_new(filepath)!;
+fn String? readEntireFile(String filepath) @inline {
+    char[] buffer;
+    fault excuse = @catch(file::load_buffer(filepath, buffer));
+    
+    return string::format(mem, "%s", buffer);
 }
 
 fn int String.count_spaces(&self) @inline {
@@ -595,7 +599,7 @@ $endif
 
 // region MISC
 fn Vec2f dir_mul(pl::Move_Dir d, float a) @inline {
-    return Vec2f { d.vec.x * a, d.vec.y * a };
+    return (Vec2f) { d.vec.x * a, d.vec.y * a };
 }
 
 fn void axis_scale(Matrix2f* mat, Vec2f vec) @inline {
@@ -636,6 +640,7 @@ macro @printstruct(value)
 
 fn void draw_arrow(Vec2f start, Vec2f end, Color color, Vec2f arrow_size = {16.0f, 8.0f})
 {
+    /*
     //Draw a color-filled triangle (vertex in counter-clockwise order!)
 
     Vec2f v1, v2, v3, vdir;
@@ -659,9 +664,10 @@ fn void draw_arrow(Vec2f start, Vec2f end, Color color, Vec2f arrow_size = {16.0
     // draw the line removing the arrow len from the line lenght
     Vec2f _end = v1 - ((v1 - v3) / 2);
     rl::drawLineV(start.toVector2(), _end.toVector2(), color);
+    */
 }
 
-macro mat2_identity() => matrix::IDENTITY2(<float>);
+macro mat2_identity() => matrix::IDENTITY2{float};
 
 macro int fmin_to_sec(int minutes) 
 {
@@ -740,7 +746,7 @@ macro @clampfBinormalMapToRange(#x, #min, #max) {
 macro reverse_digits(num)
 {
     var rev_num = 0;
-    $for(rev_num; num > 0; num = num / 10)
+    $for rev_num; num > 0; num = num / 10:
         rev_num = rev_num * 10 + num % 10;
     $endfor
     

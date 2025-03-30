@@ -44,7 +44,7 @@ import game::low_level::cvar;
 // end_region
 
 // region defines
-def assetManager = astmng::assetManager @private;
+alias assetManager @private = astmng::assetManager;
 // end_region
 
 // region constants
@@ -313,7 +313,7 @@ fn void Panel.draw(&self) {
 
 // NOTE(HM) Widget is a data structure representing anything inside a gui, like buttons and such.
 
-def WidgetCallback = fn void(Widget*);
+alias WidgetCallback = fn void(Widget*);
 
 interface WidgetInterface
 {
@@ -407,13 +407,13 @@ fn void Widget.addTo(&self, Desktop* desktop, String name) @dynamic {
     if(name == "") {
         name = "Widget";
     } else {
-        name.concat("_Widget");
+        name.tconcat("_Widget");
     }
     
     if (self.id < 10) {
-        self.name = string::tformat("%s_%s%d", self.parent.desktop.name, name.concat("0"), self.id);
+        self.name = string::tformat("%s_%s%d", self.parent.desktop.name, name.tconcat("0"), self.id);
         if (self.bound()) {
-            self.name = string::tformat("%s_%s_%s%d", self.parent.desktop.name, self.parent.other.name, name.concat("0"), self.id);
+            self.name = string::tformat("%s_%s_%s%d", self.parent.desktop.name, self.parent.other.name, name.tconcat("0"), self.id);
         }
     } else {
       self.name = string::tformat("%s_%s%d", self.parent.desktop.name, name, self.id);
@@ -612,7 +612,7 @@ fn WidgetText* createLabel(String name, String text, Color text_color, Desktop* 
     if(name == "") {
         name = "Label";
     } else {
-        name.concat("_Label");
+        name.tconcat("_Label");
     }
     label.addTo(menu, name);
     label.setText(text);
@@ -735,7 +735,7 @@ fn WidgetButton* createButton(String name, Desktop* menu) {
     if(name == "") {
         name = "Button";
     } else {
-        name.concat("_Button");
+        name.tconcat("_Button");
     }
     button.addTo(menu, name);
     return button;
@@ -758,7 +758,7 @@ fn WidgetButton* createButton(String name, Desktop* menu) {
     main_menu_button.addTo(&main_menu);
 */
 
-def ChildrenQueue = List(<Widget*>);
+alias ChildrenQueue = List{Widget*};
 
 struct Desktop (SaveSystemInterface) {
     // id
@@ -1044,7 +1044,7 @@ fn void Desktop.addChild(&self, Widget* child) @inline @local {
 
 //////////////////////////////////// DESKTOP MANAGER //////////////////////////////////////
 
-def DesktopList = List(<Desktop*>);
+alias DesktopList = List{Desktop*};
 
 // NOTE(HM) TODO(HM) Rename to MenuOS?
 // Every user GUI should have at lest one Desktop,

@@ -85,7 +85,7 @@ fn void setLogLevel(TraceLogLevel level) @inline {
 }
 
 fn void initGlobalLoggingDir() {
-    gpath = rl::getWorkingDirectory().str_view().concat("\\debug.log").zstr_tcopy();
+    gpath = rl::getWorkingDirectory().str_view().tconcat("\\debug.log").zstr_tcopy();
 }
 
 fn void closeLogFile() {
@@ -205,7 +205,7 @@ $if $feature(_DEBUG):
 			level_str = "[INFO]";
 	}
 	
-	//libc::fprintf(file, "%s: %s\n", level_str.zstr_copy(), str.zstr_view());
+	//libc::fprintf(file, "%s: %s\n", level_str.tcopy(), str.zstr_view());
 	//libc::fflush(file);
     gfile.write(string::tformat("%s: %s\n", level_str, str))!!;
     gfile.flush()!!;

@@ -94,7 +94,7 @@ struct Entity (SaveSystemInterface)
     B2BodyId physics;
     //
 	int flags;
-	//LinkList(<Entity>) activeNode;	// for being linked into activeEntities list
+	//LinkList{Entity} activeNode;	// for being linked into activeEntities list
 	bool alive; // Todo read about C3 bitstruct?
 }
 
@@ -141,7 +141,7 @@ fn void Entity.init(&self, String aname, Vec2f origin = {0,0}, Color color = rl:
 			self.name = string::tformat("entity%s", self.id);
 		}
 	} else {
-		self.name = aname.copy();
+		self.name = aname.tcopy();
 	}
     
 $if $feature(_DEBUG):
@@ -258,7 +258,7 @@ fn void Entity.setname(&self, String* aname) @inline
 {
 	if(aname)
 	{
-		self.name = aname.copy();
+		self.name = aname.tcopy();
 	} else {
 		unreachable("Failed to give name to entity.");
 	}
@@ -287,7 +287,7 @@ fn Entity* Entity.find_other_in_radius(self, float radius )
 		
 		Vec2f other_org = self.getPosition() - other.getPosition();
 		
-		if (other_org.length_sq() <= r2 ) {
+		if (other_org.sq_magnitude() <= r2 ) {
 			return other;
 		}
 	}
@@ -327,7 +327,7 @@ fn Entity* findradius(Entity *startent, Vec2f* org, float rad )
 		
 		Vec2f other_org = (*org) - startent.getPosition();
 		
-		float distance = other_org.length_sq();
+		float distance = other_org.sq_magnitude();
 		
 		if ( distance <= r2 )
 		{

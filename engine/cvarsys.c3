@@ -39,7 +39,7 @@ import game::main;
 // end_region
 
 // region defines
-def CvarList = List(<Cvar*>);
+alias CvarList = List{Cvar*};
 // end_region
 
 // region constantes
@@ -106,7 +106,7 @@ fn bool Cvar.getBool(&self) {
     }
     
     // from here we expect a valid integer value
-    char! value = self.value.to_uchar();
+    char? value = self.value.to_uchar();
     
     if(catch excuse = value) {
         lgr::error(Where.FILE, "Cvar: %s fault '%s' :: %s->%d", self.name, excuse, $$FUNC, $$LINE);
@@ -144,7 +144,7 @@ fn String Cvar.getString(&self) @inline {
 }
 
 fn Cvar* Cvar.set(&self, String value) @inline {
-    self.value = value.copy();
+    self.value = value.tcopy();
 $if $feature(_DEBUG):
     if(self.type == CvarType.BOOLEAN) {
         io::printfn("[INFO] Cvar %s was set to %s.", self.name, "true");

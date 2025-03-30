@@ -46,11 +46,11 @@ import engine::logging::lgr;
 // end_region
 
 // region defines
-//def assetManager = astmng::assetManager @private;
-//def WidgetQueue  = List(<Widget*>);
-//def DesktopList  = List(<Action*>);
-def ActionQueue    = List(<Action*>);
-def ActionCallBack = fn void(args...);
+//alias assetManager = astmng::assetManager @private;
+//alias WidgetQueue  = List{Widget*};
+//alias DesktopList  = List{Action*};
+alias ActionQueue    = List{Action*};
+alias ActionCallBack = fn void(args...);
 // end_region
 
 // region constants

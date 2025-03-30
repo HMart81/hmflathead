@@ -141,7 +141,7 @@ fn void remove_all_spaces(String* str)  @inline
     } while (j < str.len);
     
     (*str) = "";
-    DString _str = dstring::new_with_capacity(new_len);
+    DString _str = dstring::new_with_capacity(mem, new_len);
 	for(int a = 0; a < new_len; a++) {
         _str.append_char(buffer[a]);
     }

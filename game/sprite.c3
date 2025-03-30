@@ -47,7 +47,7 @@ import raylib5::rl;
 // end_region
 
 // region defines
-def assetManager = astmng::assetManager @local;
+alias assetManager @local = astmng::assetManager;
 // end_region
 
 // region constants
@@ -105,7 +105,7 @@ fn void Sprite.update(&self) @inline {
     if(self.isHidden) return;
     
     if(self.kind == SpriteKind.CURSOR) {
-        //ZString text = string::tformat("%s", source).zstr_copy();
+        //ZString text = string::tformat("%s", source).tcopy();
         //rl::drawText(text, 500, 25, 15, rl::RAYWHITE);
         main::update_game_cursor(main::gpGame.screen.w, main::gpGame.screen.h);
     }
@@ -371,7 +371,7 @@ import engine::misc;
 const int DEFAULT_PARTICLE_LIFETIME   = 1000; // ms
 
 // region defines
-def assetManager = astmng::assetManager @local;
+alias assetManager @local = astmng::assetManager;
 // end_region
 
 struct Particle

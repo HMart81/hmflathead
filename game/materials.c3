@@ -12,7 +12,7 @@ import game::serialize::svs; // save system
 // end_region
 
 // region defines
-def MaterialMapQueue  = List(<rl::MaterialMap>);
+alias MaterialMapQueue  = List{rl::MaterialMap};
 // end_region
 
 // region constants

@@ -38,11 +38,9 @@ import std::os;
 import raylib5::rl;
 // end_region
 
-fault FS_Fault {
-    FS_FAILED_SAVE_DATA,
-    FS_FAILED_MAKE_DIR,
-    FS_FAILED_CHANGE_DIR,
-}
+faultdef FS_FAILED_SAVE_DATA,
+         FS_FAILED_MAKE_DIR,
+         FS_FAILED_CHANGE_DIR;
 
 // region Files management functions
 // Load file data as byte array (read)
@@ -61,11 +59,11 @@ fn void fileUnloadEntireBytes(ZString data) @inline {
 }
 
 // Save data to file from byte array (write), returns true on success
-fn bool! fileSaveEntireBytes(String fileName, char[] data) {
+fn bool? fileSaveEntireBytes(String fileName, char[] data) {
     if(rl::saveFileData(fileName.zstr_tcopy(), (void*)data.ptr, data.len)) {
         return true;
     } else {
-        return FS_Fault.FS_FAILED_SAVE_DATA?;
+        return FS_FAILED_SAVE_DATA?;
     }
 }
 
@@ -75,11 +73,11 @@ fn String fileLoadEntireText(String fileName) {
 }
 
 // Save data to file from byte array (write), returns true on success
-fn bool! fileSaveEntireText(String fileName, String text) {
+fn bool? fileSaveEntireText(String fileName, String text) {
     if(rl::saveFileText(fileName.zstr_tcopy(), text.zstr_tcopy())) {
         return true;
     } else {
-        return FS_Fault.FS_FAILED_SAVE_DATA?;
+        return FS_FAILED_SAVE_DATA?;
     }
 }
 // end_region
@@ -134,19 +132,19 @@ fn ZString getApplicationDirectory() @inline {
     return rl::getApplicationDirectory();
 }
 // Create directories (including full path requested), returns true on success
-fn bool! makeDirectory(String dirPath) {
+fn bool? makeDirectory(String dirPath) {
     if(rl::makeDirectory(dirPath.zstr_tcopy()) == 0) {
         return true;
     } else {
-        return FS_Fault.FS_FAILED_MAKE_DIR?;
+        return FS_FAILED_MAKE_DIR?;
     }
 }
 // Change working directory, return true on success
-fn bool! changeDirectory(String dir) {
+fn bool? changeDirectory(String dir) {
     if(rl::changeDirectory(dir.zstr_tcopy())) {
         return true;
     } else {
-        return FS_Fault.FS_FAILED_CHANGE_DIR?;
+        return FS_FAILED_CHANGE_DIR?;
     }
 }
 // Check if a given path is a file
@@ -235,18 +233,18 @@ struct OSversionInfo (Printable)
   Win32_ULONG dwPlatformId;
   Win32_WCHAR[128] szCSDVersion;
 }
-def OSversionInfoPrt = OSversionInfo*;
+alias OSversionInfoPrt = OSversionInfo*;
 
-fn String OSversionInfo.to_string(&self, Allocator allocator) @dynamic
+fn String OSversionInfo.to_constant_string(&self) @dynamic
 {
-    return string::format("%s", *self, allocator: allocator);
+    return string::format(tmem, "%s", *self);
 }
 
 //--------------------------------------------------------
 
-def Win32_REFKNOWNFOLDERID = Win32_GUID @if(env::WIN32);
+alias Win32_REFKNOWNFOLDERID @if(env::WIN32) = Win32_GUID;
 const Win32_REFKNOWNFOLDERID  HOME_FOLDER @if(env::WIN32) = {0x4c5c32ff, 0xbb9d, 0x43b0, {0xb5, 0xb4, 0x2d, 0x72, 0xe5, 0x4e, 0xaa, 0xa4}};
-def FOLDERID_SAVEDGAMES = HOME_FOLDER;
+alias FOLDERID_SAVEDGAMES = HOME_FOLDER;
 
 extern fn HResult win32GetKnownFolderPath(Win32_REFKNOWNFOLDERID rfid, Win32_DWORD dwFlags, Win32_HANDLE hToken /*null*/, Win32_PWSTR *ppszPath /*out*/) @extern("SHGetKnownFolderPath") @if(env::WIN32);
 //extern fn bool isWindowsVistaOrGreater() @extern("IsWindowsVistaOrGreater") @if(env::WIN32);
@@ -266,7 +264,7 @@ $if $defined(env::WIN32):
             HResult result = win32GetKnownFolderPath(FOLDERID_SAVEDGAMES, KnownFolderFlag.CREATE.val, null, &path);
             if (result == S_OK) {
                 WString wpath = (WString)path;
-                return string::temp_from_wstring(wpath)!!;
+                return string::tfrom_wstring(wpath)!!;
             } else {
                 return result.disc;
             }

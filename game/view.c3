@@ -112,7 +112,7 @@ const Matrix3f VIEW_AXIS_IDENTITY = {
     0.0f, 0.0f, 1.0f
 };
 
-def gameptr = main::gpGame;
+alias gameptr = main::gpGame;
 
 const bool ENABLE_CAMERA_VIEW = true;
 
@@ -122,9 +122,9 @@ enum ZoomMode : char @if ($defined(ENABLE_CAMERA_VIEW))
     MOUSE_MOVE
 }
 
-distinct RenderLayer = inline RenderTexture2D;
+typedef RenderLayer = inline RenderTexture2D;
 
-def RenderFunctionCallback = fn void(RenderLayer* layer, int w = 0, int h = 0);
+alias RenderFunctionCallback = fn void(RenderLayer* layer, int w = 0, int h = 0);
 
 struct RenderView (SaveSystemInterface)
 {
@@ -204,7 +204,7 @@ fn void RenderView.debug(&self) {
     
     rl::drawRectangleLinesEx(rec, 2.5f, rl::RED);
     String view_data_text = string::tformat("Screen Size: {%.2f, %.2f}", rec.width, rec.height);
-    rl::drawText(view_data_text.zstr_copy(), 100, 10, 30, rl::RED);
+    rl::drawText(view_data_text.zstr_tcopy(), 100, 10, 30, rl::RED);
     //rl::drawTextEx(*main::gpGame.candara_font, "TEXT DRAWN IN RENDER TEXTURE", {10, 30}, 16.0f, 2.0f, rl::COLOR_RED);
     //rl::drawLine((int)self.camera.target.x, -(int)rec.height*10, (int)self.camera.target.x, (int)rec.height*10, rl::COLOR_GREEN);
     //rl::drawCircleV(self.camera.target, 16.0f, rl::COLOR_RED);
@@ -222,7 +222,7 @@ fn void takeScreenShot() {
     /*
     String shots_dir = main::gpGame.app_work_dir.tconcat("screenshots\\");
     if(fs::directoryExists(shots_dir) == false) {
-        bool! sucess = fs::makeDirectory(shots_dir);
+        bool? sucess = fs::makeDirectory(shots_dir);
         if(catch excuse = sucess) {
             lgr::warning(Where.FILE, "Cannot create screenshots directory at: %s!\n\t -> excuse: %s", 
                         shots_dir, excuse);
@@ -254,7 +254,7 @@ fn void takeScreenShot() {
     }
     
     if(files.count) file_count = files.count++;
-    shotname = string::tformat("screen%d.png", file_count).zstr_copy();
+    shotname = string::tformat("screen%d.png", file_count).tcopy();
     rl::takeScreenshot(shotname); // saves it in the application .exe folder
     
     // move the image to the screenshot folder
@@ -276,7 +276,7 @@ fn void takeScreenShot() {
 fn void moveScreenShots() {
     String shots_dir = main::gpGame.app_work_dir.tconcat("screenshots\\");
     if(fs::directoryExists(shots_dir) == false) {
-        bool! sucess = fs::makeDirectory(shots_dir);
+        bool? sucess = fs::makeDirectory(shots_dir);
         if(catch excuse = sucess) {
             lgr::warning(Where.FILE, "Cannot create screenshots directory at: %s!\n\t -> excuse: %s", 
                         shots_dir, excuse);
@@ -610,8 +610,8 @@ fn void RenderView.drawWorldSpaceCoords(&self, int screenWidth, int screenHeight
     x_coord = string::tformat("[%s]", rec.width);
     y_coord = string::tformat("[%s]", rec.height);
     // drawText(ZString text, int posX, int posY, int fontSize, Color color)
-    rl::drawText(x_coord.zstr_copy(), (int)pox.x, (int)pox.y, 10, rl::RED);
-    rl::drawText(y_coord.zstr_copy(), (int)poy.x, (int)poy.y, 10, rl::RED);
+    rl::drawText(x_coord.zstr_tcopy(), (int)pox.x, (int)pox.y, 10, rl::RED);
+    rl::drawText(y_coord.zstr_tcopy(), (int)poy.x, (int)poy.y, 10, rl::RED);
 }
 
 fn void RenderView.drawCameraSpaceCoords(&self, int screenWidth, int screenHeight) @if($feature(_DEBUG)) {

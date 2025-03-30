@@ -68,9 +68,9 @@ fn void unloadDroppedFiles(FilePathList files)           // Unload dropped filep
 fn long getFileModTime(char *fileName)                   // Get file modification time (last write time)
 */
 
-distinct INIFile   = inline io::File;
+typedef INIFile   = inline io::File;
 
-def SectionListPtr = List(<IniSection>)*;
+alias SectionListPtr = List{IniSection}*;
 
 <*
 * @param [in] key `The cmd name`
@@ -90,17 +90,16 @@ fn String getIniKey(String key, FileData* inifile) {
     return "";
 }
 
-fault IniFault {
-    MISSING_FILE_PATH,
-    INI_FILE_LOAD_FAILED,
-    FAILED_OPEN_FILE,
-    FAILED_READ_FILE,
-    FAILED_CLOSE,
-    FAILED_GET_FILE_SIZE,
-    MALFORMED_INI_FILE,
-    MISSING_DATA_BUFFER,
-    INVALID_TOKEN
-}
+faultdef MISSING_FILE_PATH,
+         INI_FILE_LOAD_FAILED,
+         FAILED_OPEN_FILE,
+         FAILED_READ_FILE,
+         FAILED_CLOSE,
+         FAILED_GET_FILE_SIZE,
+         MALFORMED_INI_FILE,
+         MISSING_DATA_BUFFER,
+         INVALID_TOKEN;
+
 
 enum ParseLineType : char  {
     NAME,
@@ -124,10 +123,10 @@ const String EMPTY_STR          @local = "";
 const String STR_CHAR           @local = "\"";
 
 
-def ListIniSectionPrts = List(<IniSection*>)      @local;
-def ListIniCMDPrts     = List(<IniCMD*>)          @local;
-def IniCmdData         = Tuple(<String, String>)  @local;
-def game               = main::gpGame             @local;
+alias ListIniSectionPrts @local = List{IniSection*};
+alias ListIniCMDPrts     @local = List{IniCMD*};
+alias IniCmdData         @local = Tuple{String, String};
+alias game               @local = main::gpGame;
 
 <*
 * DOC Final parsed data used by the engine
@@ -201,7 +200,7 @@ fn String FileData.getValue(&self, String key) {
 * @param [in] key `The cmd name`
 * @require key != "" @if $feature(_DEBUG)
 *>
-fn float! FileData.getFloatValue(&self, String key) {
+fn float? FileData.getFloatValue(&self, String key) {
     foreach(section : self.sections) {
         if(section.isLinked()) { // first section name didn't match see if it's child is the one
             foreach(inicmd : section.next.cmds) {
@@ -227,7 +226,7 @@ fn float! FileData.getFloatValue(&self, String key) {
 * @param [in] key `The cmd name`
 * @require key != "" @if $feature(_DEBUG)
 *>
-fn int! FileData.getIntValue(&self, String key) {
+fn int? FileData.getIntValue(&self, String key) {
     foreach(section : self.sections) {
         if(section.isLinked()) { // first section name didn't match see if it's child is the one
             foreach(inicmd : section.next.cmds) {
@@ -253,7 +252,7 @@ fn int! FileData.getIntValue(&self, String key) {
 * @param [in] key `The cmd name`
 * @require key != "" @if $feature(_DEBUG)
 *>
-fn bool! FileData.getBoolValue(&self, String key) {
+fn bool? FileData.getBoolValue(&self, String key) {
     foreach(section : self.sections) {
         if(section.isLinked()) { // first section name didn't match see if it's child is the one
             foreach(inicmd : section.next.cmds) {
@@ -360,9 +359,9 @@ fn bool detect_child_section_in_name(String str, usz where_index = 0) @local @in
 * String[] is a slice (a pointer and a len) 
 * String[*] is a C like array (a pointer to the first data in the array, with no len). 
 */
-fn String[]! cutIniFileByLines(String filepath, bool isrelative) @local {
+fn String[]? cutIniFileByLines(String filepath, bool isrelative) @local {
     if(filepath == "") {
-        return IniFault.MISSING_FILE_PATH?; // does this even happens when we have a contract in place?
+        return MISSING_FILE_PATH?; // does this even happens when we have a contract in place?
     }
     
     if(isrelative) filepath = game.app_base_folder.tconcat(filepath);
@@ -374,10 +373,10 @@ fn String[]! cutIniFileByLines(String filepath, bool isrelative) @local {
         // return IniFault.FAILED_OPEN_FILE?;
     // }
     
-    String! entire_file = misc::readEntireFile(filepath);
+    String? entire_file = misc::readEntireFileX(filepath);
     if(catch excuse = entire_file) {
         lgr::warning(Where.FILE,  "Unable to read data from file: %s with excuse: %s", filepath, excuse);
-        return IniFault.FAILED_READ_FILE?;
+        return FAILED_READ_FILE?;
     }
     
     // cut the data into individual string slices
@@ -390,11 +389,11 @@ fn String[]! cutIniFileByLines(String filepath, bool isrelative) @local {
     if(lines.len) {
         return lines;
     }  else {
-        return IniFault.FAILED_READ_FILE?;
+        return FAILED_READ_FILE?;
     }
 }
 
-fn FileData*! parse_file(String[] lines) @local {
+fn FileData*? parse_file(String[] lines) @local {
     FileData* file_data = mem::new(FileData);
     
     foreach(line : lines) {
@@ -408,7 +407,7 @@ fn FileData*! parse_file(String[] lines) @local {
             String[] split = line.tsplit(COMMENT_CHAR);
             // now clean the start and end of line ignoring the comment section
             split[0] = split[0].trim();
-            line = split[0].copy();
+            line = split[0].tcopy();
         }
         
         if(line.starts_with(SECTION_NAME_START)) {
@@ -556,15 +555,15 @@ fn void get_cmd_type_from_value(IniCMD_TempData* cmd_data) @local {
  * @param [in] filepath
  * @require filepath.len >= 3 "The file path must be at least 3 characters long"
  *>
-fn FileData*! load(String filepath, bool isrelative = true) {
+fn FileData*? load(String filepath, bool isrelative = true) {
     if(filepath == "") {
-        return IniFault.MISSING_FILE_PATH?;
+        return MISSING_FILE_PATH?;
     }
     
-    String[]! data = cutIniFileByLines(filepath, isrelative);
+    String[]? data = cutIniFileByLines(filepath, isrelative);
     if(catch excuse = data) {
         lgr::warning(Where.FILE,  "Unable to load file %s with excuse: %s", filepath, excuse);
-        return IniFault.INI_FILE_LOAD_FAILED?;
+        return INI_FILE_LOAD_FAILED?;
     }
     
     //data is valid from here
@@ -580,22 +579,22 @@ fn FileData*! load(String filepath, bool isrelative = true) {
  * @param [in] filepath
  * @require filepath.len >= 3 "The file path must be at least 3 characters long"
  *>
-fn FileData*! _load(String filepath, bool isrelative = true) @deprecated {
+fn FileData*? _load(String filepath, bool isrelative = true) @deprecated {
     if(filepath == "") {
-        return IniFault.MISSING_FILE_PATH?; // does this even happens when we have a contract in place?
+        return MISSING_FILE_PATH?; // does this even happens when we have a contract in place?
     }
     
     if(isrelative) filepath = main::gpGame.app_base_folder.tconcat(filepath);
     
     // first get the file raw data WARNING(HM) (comes with garbage at the end)
-    String entire_data = misc::readEntireFile(filepath)!;
+    String entire_data = misc::readEntireFileX(filepath)!;
     if(entire_data.len)
     {
         // cut the data into individual strings
         String[] lines = misc::cut_by_newline(entire_data);
         
         if(lines.len == 0) {
-            return IniFault.MALFORMED_INI_FILE?;
+            return MALFORMED_INI_FILE?;
         }
         
         FileData* ini_file = mem::new(FileData);
@@ -629,7 +628,7 @@ fn FileData*! _load(String filepath, bool isrelative = true) @deprecated {
                 String     cmd_value;
                 
                 // divide each cmd into small peaces for easy parsing
-                String[] tokens = (*line).split(SPACE_CHAR);
+                String[] tokens = (*line).tsplit(SPACE_CHAR);
                 
                 assert(tokens.len >= 1);
                 
@@ -723,7 +722,7 @@ fn void testCmdValueStringValidity(String value, String id) {
     if(value.ends_with("\0")) {
         char* ch = value[:value.len - 2];
         if(*ch != '"') {
-            io::printfn("cmdline: Malformed <string> \"%s\" assigned to \"%s\", it should start and end with \'\"\'.", id);
+            io::printfn("cmdline: Malformed <string> \"%s\" assigned to \"%s\", it should start and end with \'\"\'.",*ch, id);
             // unreachable calls should be put AFTER code that you expect to run!
             // this is because assert(false) is not available anymore and was deprected.
             unreachable();
@@ -771,18 +770,18 @@ fn void unload(FileData* inifile) {
  * @param [in] path
  * @require path.len > 0 "The path must be at least 1 character long"
  *>
-fn bool! populate(FileData* file_data, String path) @deprecated {
+fn bool? populate(FileData* file_data, String path) @deprecated {
     if(file_data == null) {
-        return IniFault.MISSING_DATA_BUFFER?;
+        return MISSING_DATA_BUFFER?;
     }
 
     if(path == "") {
-        return IniFault.MISSING_FILE_PATH?;
+        return MISSING_FILE_PATH?;
     }
     
     // first get the file raw data (comes with garbage at the end)
     //char[] data = file::load_new(path)!;
-    String entire_data = (String)file::load_new(path)!;
+    String entire_data = (String)file::load_temp(path)!;
     
     if(entire_data.len)
     {
@@ -790,7 +789,7 @@ fn bool! populate(FileData* file_data, String path) @deprecated {
         String[] lines = misc::cut_by_newline(entire_data);
         
         if(lines.len == 0) {
-            return IniFault.MALFORMED_INI_FILE?;
+            return MALFORMED_INI_FILE?;
         }
         
         IniSection* section;
@@ -808,7 +807,7 @@ fn bool! populate(FileData* file_data, String path) @deprecated {
             if(line.starts_with("["))
             {
                 section      = mem::new(IniSection);
-                section.name = (*line).strip("[").strip_end("]").copy();
+                section.name = (*line).strip("[").strip_end("]").tcopy();
                 current_editing_section_name = &section.name;
                 continue;
             }
@@ -820,7 +819,7 @@ fn bool! populate(FileData* file_data, String path) @deprecated {
                 String cmd_id;
                 String cmd_value;
                 
-                String[] tokens = (*line).split(" ");
+                String[] tokens = (*line).tsplit(" ");
                 
                 // Get cmd ID and value
                 foreach(int i, String token : tokens) 
@@ -896,7 +895,7 @@ fn bool! populate(FileData* file_data, String path) @deprecated {
                 }*/
                 if ((*file_data).sections.len() == 0 || old_section_name != *current_editing_section_name) {
                     (*file_data).sections.push(section);
-                    old_section_name = (*current_editing_section_name).copy();
+                    old_section_name = (*current_editing_section_name).tcopy();
                 }
                 // done go to next line
                 continue;

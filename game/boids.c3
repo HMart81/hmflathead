@@ -90,7 +90,7 @@ defer {
 }
 */
 struct BoidManager (SaveSystemInterface) {
-    List(<Boid>) boids;
+    List{Boid} boids;
 	ArenaAllocator mem_arena;
 	char* arena_bytes;
     random::SimpleRandom rand;

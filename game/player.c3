@@ -110,7 +110,7 @@ fn void Player.init(&self, Vec2f origin, Color color, int id)
     
     char[64] buffer;
     String _name    = (String)io::bprintf(&buffer, "player%d", id)!!;
-    self.name       = _name.copy();
+    self.name       = _name.tcopy();
     self.move_dir   = DIR_NONE;
     
     // TODO(HM) makes this position editable...
@@ -256,8 +256,8 @@ import raylib5::rl;
 //import game::actors::palyer;
 import std::collections::list;
 
-def InputActionCallback = fn void(void*... args);
-def ActionsList         = List(<InputAction*>);
+alias InputActionCallback = fn void(void*... args);
+alias ActionsList         = List{InputAction*};
 struct InputAction 
 {
     String name;
@@ -329,8 +329,8 @@ import raylib5::rl;
 const float DEFAULT_PROJECTILE_SPEED    = 1.0f;
 const Vec2f DEFAULT_PROJECTILE_MOVE_DIR = misc::VEC_UP;
  
-def ProjectileList    = List(<Projectile>);
-def ProjectilePtrList = List(<Projectile*>);
+alias ProjectileList    = List{Projectile};
+alias ProjectilePtrList = List{Projectile*};
 
 enum AmmoKind : int {
     BULLET,
