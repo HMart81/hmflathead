@@ -25,7 +25,8 @@
 # Hilario Martins, Rua de Sanguinhedo 1010 4850-545 Vieira Do Minho Portugal.
 # 
 *********************************************************************************************************************************************/
-/* UNFINISHED
+
+// Ignore UNFINISHED
 
 module engine::soundsystem::sndsys;
 
@@ -46,44 +47,44 @@ import game::serialize::svs; // save system
 import engine::logging::lgr;
 // end_region
 
-// Music management functions
+// SSMusic management functions
 /*
 // Checks if a music stream is valid (context and buffers initialized)
-    fn bool isMusicValid(Music music)
+    fn bool isMusicValid(SSMusic music)
 // Load music stream from file
-    fn Music loadMusicStream(ZString fileName)
+    fn SSMusic loadMusicStream(ZString fileName)
 // Load music stream from data
-    fn Music loadMusicStreamFromMemory(ZString fileType, char* data, int dataSize) 
+    fn SSMusic loadMusicStreamFromMemory(ZString fileType, char* data, int dataSize) 
 // Unload music stream
-    fn void unloadMusicStream(Music music) 
+    fn void unloadMusicStream(SSMusic music) 
 // Start music playing
-    fn void playMusicStream(Music music) 
+    fn void playMusicStream(SSMusic music) 
 // Check if music is playing
-    fn bool isMusicStreamPlaying(Music music) 
+    fn bool isMusicStreamPlaying(SSMusic music) 
 // Updates buffers for music streaming
-    fn void updateMusicStream(Music music) 
+    fn void updateMusicStream(SSMusic music) 
 // Stop music playing
-    fn void stopMusicStream(Music music) 
+    fn void stopMusicStream(SSMusic music) 
 // Pause music playing
-    fn void pauseMusicStream(Music music) 
+    fn void pauseMusicStream(SSMusic music) 
 // Resume playing paused music
-    fn void resumeMusicStream(Music music) 
+    fn void resumeMusicStream(SSMusic music) 
 // Seek music to a position (in seconds)
-    fn void seekMusicStream(Music music, float position) 
+    fn void seekMusicStream(SSMusic music, float position) 
 // Set volume for music (1.0 is max level)
-    fn void setMusicVolume(Music music, float volume) 
+    fn void setMusicVolume(SSMusic music, float volume) 
 // Set pitch for a music (1.0 is base level)
-    fn void setMusicPitch(Music music, float pitch) 
+    fn void setMusicPitch(SSMusic music, float pitch) 
 // Set pan for a music (0.5 is center)
-    fn void setMusicPan(Music music, float pan) 
+    fn void setMusicPan(SSMusic music, float pan) 
 // Get music time length (in seconds)
-    fn float getMusicTimeLength(Music music) 
+    fn float getMusicTimeLength(SSMusic music) 
 // Get current music time played (in seconds)
-    fn float getMusicTimePlayed(Music music) 
+    fn float getMusicTimePlayed(SSMusic music) 
 */
 
-def MusicDatabase = List(<sndsys::Music*>);
-MusicDatabase music_data;
+def SSMusicDatabase = List(<SSMusic*>);
+SSMusicDatabase music_data;
 
 fn void init() {
     rl::initAudioDevice();
@@ -111,7 +112,7 @@ fn bool! populateMusicDataBase() {
 			//if (file_name == "default") continue; // to next file
 			
 			String extension = fs::getFileExtension(path_);
-            if(extension != ".mp3" && entension != ".ogg") {
+            if(extension != ".mp3" && extension != ".ogg") {
                 lgr::warning(Where.FILE, "Non valid audio \"%s\" inside music folder.", file_name);
                 continue; // to next file
             }
@@ -119,78 +120,80 @@ fn bool! populateMusicDataBase() {
 			// from here should be a valid audio file
 			String asset_path;
             bool mp3file;
-            mapfile = extension == ".mp3";
+            mp3file = (extension == ".mp3");
             if(mp3file) {
                 asset_path = music_folder.tconcat(file_name).tconcat(".mp3");
             } else {
-                assert(entension == ".ogg");
+                assert(extension == ".ogg");
                 asset_path = music_folder.tconcat(file_name).tconcat(".ogg");
             }
             
-            sndsys::Music* music = mem::new(sndsys::Music);
+            sndsys::SSMusic* music = mem::new(sndsys::SSMusic);
 			
-			music.stream = rl::loadMusicStream(asset_path);
+			music.stream = rl::loadMusicStream(asset_path.zstr_copy());
             music_data.push(music);
 			continue; // to next file
 			
 		} else { // is a child folder/Directory
-			loadAssetsRecursively(path.str_view(), search_path)!;
+			//loadAssetsRecursively(path.str_view(), search_path)!;
 		}
 	}
+    
+    return false;
 }
 
 fn void update() {
-    if(music_data.len) {
-        foreach(music, music_data) {
+    if(music_data.len()) {
+        foreach(music : music_data) {
            rl::updateMusicStream(music.stream);
         }
     }
 }
 
-struct Music {
-    rl::Music stream;
+struct SSMusic {
+    Music stream;
     float timePlayed;  // Time played normalized [0.0f..1.0f]
     bool pause;
 }
 
 <*
-* @param in stream "music stream to stop"
-* @require stream != null
+* @param [in] music "music to stop"
+* @require music != null
 *>
-fn void stopMusic(Music* stream) {
-    rl::stopMusicStream(*stream);
+fn void stopMusic(SSMusic* music) {
+    rl::stopMusicStream(music.stream);
 }
 
 <*
-* @param in stream "music stream to play"
-* @require stream != null
+* @param [in] music "music to play"
+* @require music != null
 *>
-fn void playMusic(Music* stream) {
-    rl::playMusicStream(*stream);
+fn void playMusic(SSMusic* music) {
+    rl::playMusicStream(music.stream);
 }
 
 <*
-* @param in stream "music stream to restart"
-* @require stream != null
+* @param [in] music "music to restart"
+* @require music != null
 *>
-fn void restartMusic(Music* stream) {
+fn void restartMusic(SSMusic* music) {
     stopMusic(music);
     playMusic(music);
 }
 
 <*
-* @param in stream "music stream to pause"
-* @require stream != null
+* @param [in] music "music to pause"
+* @require music != null
 *>
-fn void pauseMusic(Music* stream) {
-    rl::pauseMusicStream(*stream);
+fn void pauseMusic(SSMusic* music) {
+    rl::pauseMusicStream(music.stream);
 }
 
 <*
-* @param in stream "music stream to resume"
-* @require stream != null
+* @param [in] music "music to resume"
+* @require music != null
 *>
-fn void resumeMusic(Music* stream) {
-    rl::resumeMusicStream(*stream);
+fn void resumeMusic(SSMusic* music) {
+    rl::resumeMusicStream(music.stream);
 }
 

@@ -290,6 +290,26 @@ macro bool recIsValid(rec) => ((getRecSize(rec).length() + getRecPos(rec).length
 macro Rectangle @recFromVecs(#vec1, #vec2) => Rectangle {#vec1.x, #vec1.y, #vec2.x, #vec2.y};
 
 // region String custom extension
+
+/*
+example on how to use the string splitter
+
+module string;
+
+import std::io;
+
+fn void main() {
+    String s = ";string;to;split;";
+    Splitter splitter = s.splitter(";");
+    while (try split = splitter.next()) {
+        io::printf("(%s)", split);
+    }
+    io::printn("");
+    
+    output: ()(string)(to)(split)()
+}
+*/
+
 macro ZString stringTozstring(x) => x.zstr_copy();
 macro ZString stringTotempzstring(x) => x.zstr_tcopy();
 macro String zstringTostring(x) => x.zstr_view();

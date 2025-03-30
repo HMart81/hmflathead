@@ -29,7 +29,7 @@
 
 
 /*
-    DOC:
+    BASIC DOC:
     
 ==== Units ====
     Box2D works with floating point numbers and tolerances have to be used to make Box2D perform well. 
@@ -44,13 +44,15 @@
     
     ******************************************************************************************
     * ‍Caution:                                                                               *
-    * - Box2D is tuned for MKS units. Keep the size of moving objects larger than 1cm.       *
+    * - Box2D is tuned for MKS units. Keep the size of moving objects larger than 10cm.      *
     *   You'll need to use some scaling system when you render your environment and actors.  *
     *   The Box2D samples application does this by using an OpenGL viewport transform.       *
     *   DO NOT USE PIXEL UNITS for box2D unless you understand the implications.             *
     * - Box2D uses radians, not degrees.                                                     *
     * - Box2D works best with world sizes less than 12 kilometers.                           *
     ******************************************************************************************
+    
+    Hello World Example at @ https://box2d.org/documentation/hello.html#autotoc_md21
 */
 
 // c3 language version 6.8.0
@@ -66,18 +68,17 @@ import raylib5::rl;
 
 // region BASE
 
-// if there's any desire to ovverride the internal box2d memory allocator
-// and assert function
+// if there's any desire to override the internal box2d memory allocator and assert function
 //typedef void* b2AllocFcn( unsigned int size, int alignment );
-def AllocCallback = fn void*(uint,int);
+def B2AllocCallback = fn void*(uint,int);
 //typedef void b2FreeFcn( void* mem );
-def FreeCallback = fn void(void*);
+def B2FreeCallback = fn void(void*);
 //typedef int b2AssertFcn( const char* condition, const char* fileName, int lineNumber );
-def AssertCallback = fn int(ZString,ZString,int);
+def B2AssertCallback = fn int(ZString,ZString,int);
  
-fn void setAllocator( AllocCallback* allocFcn, FreeCallback* freeFcn ) @extern("b2SetAllocator");
-fn int getByteCount() @extern("b2GetByteCount");
-fn void setAssertFcn( AssertCallback* assertFcn ) @extern("b2SetAssertFcn");
+fn void setAllocator( B2AllocCallback* allocFcn, B2FreeCallback* freeFcn ) @extern("b2SetAllocator");
+fn int  getByteCount()                                                     @extern("b2GetByteCount");
+fn void setAssertFcn( B2AssertCallback* assertFcn )                        @extern("b2SetAssertFcn");
  
 struct B2Version @compact
 {
@@ -182,7 +183,7 @@ struct B2RayResult
 }
  
 /// World definition used to create a simulation world.
-/// Must be initialized using b2DefaultWorldDef().
+/// Must be initialized using defaultWorldDef().
 struct B2WorldDef
 {
 	/// Gravity vector. Box2D has no up-vector defined.
@@ -254,8 +255,7 @@ enum B2BodyType : int
 /// A body definition holds all the data needed to construct a rigid body.
 /// You can safely re-use body definitions. Shapes are added to a body after construction.
 ///	Body definitions are temporary objects used to bundle creation parameters.
-/// Must be initialized using b2DefaultBodyDef().
-/// @ingroup body
+/// Must be initialized using defaultBodyDef().
 struct B2BodyDef
 {
 	/// The body type: static, kinematic, or dynamic.
@@ -406,7 +406,7 @@ enum B2ShapeType : int
 /// Used to create a shape.
 /// This is a temporary object used to bundle shape creation parameters. You may use
 ///	the same shape definition to create multiple shapes.
-/// Must be initialized using box2d::defaultShapeDef().
+/// Must be initialized using defaultShapeDef().
 struct B2ShapeDef
 {
 	/// Use this to store application specific shape data.
@@ -755,39 +755,41 @@ Returns
     the world id
 *>
 fn B2WorldId createWorld( B2WorldDef* wdef ) @extern("b2CreateWorld");
-fn void destroyWorld( B2WorldId worldId ) @extern("b2DestroyWorld");
+fn void      destroyWorld( B2WorldId worldId ) @extern("b2DestroyWorld");
 // World id validation. Provides validation for up to 64K allocations.
-fn bool world_IsValid( B2WorldId id ) @extern("b2World_IsValid");
+fn bool            world_IsValid( B2WorldId id ) @extern("b2World_IsValid");
 // Simulate a world for one time step.
-fn void world_Step( B2WorldId worldId, float timeStep, int subStepCount ) @extern("b2World_Step");
+fn void            world_Step( B2WorldId worldId, float timeStep, int subStepCount ) @extern("b2World_Step");
+fn B2BodyEvents    world_GetBodyEvents( B2WorldId worldId ) @extern("b2World_GetBodyEvents");
+fn B2SensorEvents  world_GetSensorEvents( B2WorldId worldId ) @extern("b2World_GetSensorEvents");
+fn B2ContactEvents world_GetContactEvents( B2WorldId worldId ) @extern("b2World_GetContactEvents");
+fn void            world_OverlapAABB( B2WorldId worldId, B2AABBox aabb, B2QueryFilter filter, B2OverlapResultCallback* fcn, void* context ) @extern("b2World_OverlapAABB");
+fn void            world_OverlapCircle( B2WorldId worldId, B2Circle* circle, B2Transform transform, B2QueryFilter filter, B2OverlapResultCallback* fcn, void* context ) @extern("b2World_OverlapCircle");
+fn void            world_OverlapCapsule( B2WorldId worldId, B2Capsule* capsule, B2Transform transform, B2QueryFilter filter, B2OverlapResultCallback* fcn, void* context ) @extern("b2World_OverlapCapsule");
+fn void            world_OverlapPolygon( B2WorldId worldId, B2Polygon* polygon, B2Transform transform, B2QueryFilter filter, B2OverlapResultCallback* fcn, void* context ) @extern("b2World_OverlapPolygon");
+fn void            world_CastRay( B2WorldId worldId, B2Vec2 origin, B2Vec2 translation, B2QueryFilter filter, B2CastResultCallback* fcn, void* context ) @extern("b2World_CastRay");
+fn B2RayResult     world_CastRayClosest( B2WorldId worldId, B2Vec2 origin, B2Vec2 translation, B2QueryFilter filter ) @extern("b2World_CastRayClosest");
+fn void            world_CastCircle( B2WorldId worldId, B2Circle* circle, B2Transform originTransform, B2Vec2 translation, B2QueryFilter filter, B2CastResultCallback* fcn, void* context ) @extern("b2World_CastCircle");
+fn void            world_CastCapsule( B2WorldId worldId, B2Capsule* capsule, B2Transform originTransform, B2Vec2 translation, B2QueryFilter filter, B2CastResultCallback* fcn, void* context ) @extern("b2World_CastCapsule");
+fn void b2World_CastPolygon( B2WorldId worldId, B2Polygon* polygon, B2Transform originTransform, B2Vec2 translation, B2QueryFilter filter, B2CastResultCallback* fcn, void* context ) @extern("b2World_CastPolygon");
+fn void            world_EnableSleeping( B2WorldId worldId, bool flag ) @extern("b2World_EnableSleeping");
+fn void            world_EnableContinuous( B2WorldId worldId, bool flag ) @extern("b2World_EnableContinuous");
+fn void            world_SetRestitutionThreshold( B2WorldId worldId, float value ) @extern("b2World_SetRestitutionThreshold");
+fn void            world_SetHitEventThreshold( B2WorldId worldId, float value ) @extern("b2World_SetHitEventThreshold");
+fn void            world_SetCustomFilterCallback( B2WorldId worldId, B2CustomFilterCallback* fcn, void* context ) @extern("b2World_SetCustomFilterCallback");
+fn void            world_SetPreSolveCallback( B2WorldId worldId, B2PreSolveCallback* fcn, void* context ) @extern("b2World_SetPreSolveCallback");
+fn void            world_SetGravity( B2WorldId worldId, B2Vec2 gravity ) @extern("b2World_SetGravity");
+fn B2Vec2          world_GetGravity( B2WorldId worldId ) @extern("b2World_GetGravity");
+fn void            world_Explode( B2WorldId worldId, B2Vec2 position, float radius, float impulse ) @extern("b2World_Explode");
+fn void            world_SetContactTuning( B2WorldId worldId, float hertz, float dampingRatio, float pushVelocity ) @extern("b2World_SetContactTuning");
+fn void            world_EnableWarmStarting( B2WorldId worldId, bool flag ) @extern("b2World_EnableWarmStarting");
+fn B2Profile       world_GetProfile( B2WorldId worldId ) @extern("b2World_GetProfile");
+fn B2Counters      world_GetCounters( B2WorldId worldId ) @extern("b2World_GetCounters");
+fn void            world_DumpMemoryStats( B2WorldId worldId ) @extern("b2World_DumpMemoryStats");
+
 /// Call this to draw shapes and other debug draw data
 fn void worldDebugDraw(B2WorldId worldId, B2DebugDraw* draw ) @extern("b2World_Draw");
-fn B2BodyEvents world_GetBodyEvents( B2WorldId worldId ) @extern("b2World_GetBodyEvents");
-fn B2SensorEvents world_GetSensorEvents( B2WorldId worldId ) @extern("b2World_GetSensorEvents");
-fn B2ContactEvents world_GetContactEvents( B2WorldId worldId ) @extern("b2World_GetContactEvents");
-fn void world_OverlapAABB( B2WorldId worldId, B2AABBox aabb, B2QueryFilter filter, B2OverlapResultCallback* fcn, void* context ) @extern("b2World_OverlapAABB");
-fn void world_OverlapCircle( B2WorldId worldId, B2Circle* circle, B2Transform transform, B2QueryFilter filter, B2OverlapResultCallback* fcn, void* context ) @extern("b2World_OverlapCircle");
-fn void world_OverlapCapsule( B2WorldId worldId, B2Capsule* capsule, B2Transform transform, B2QueryFilter filter, B2OverlapResultCallback* fcn, void* context ) @extern("b2World_OverlapCapsule");
-fn void world_OverlapPolygon( B2WorldId worldId, B2Polygon* polygon, B2Transform transform, B2QueryFilter filter, B2OverlapResultCallback* fcn, void* context ) @extern("b2World_OverlapPolygon");
-fn void world_CastRay( B2WorldId worldId, B2Vec2 origin, B2Vec2 translation, B2QueryFilter filter, B2CastResultCallback* fcn, void* context ) @extern("b2World_CastRay");
-fn B2RayResult world_CastRayClosest( B2WorldId worldId, B2Vec2 origin, B2Vec2 translation, B2QueryFilter filter ) @extern("b2World_CastRayClosest");
-fn void world_CastCircle( B2WorldId worldId, B2Circle* circle, B2Transform originTransform, B2Vec2 translation, B2QueryFilter filter, B2CastResultCallback* fcn, void* context ) @extern("b2World_CastCircle");
-fn void world_CastCapsule( B2WorldId worldId, B2Capsule* capsule, B2Transform originTransform, B2Vec2 translation, B2QueryFilter filter, B2CastResultCallback* fcn, void* context ) @extern("b2World_CastCapsule");
-fn void b2World_CastPolygon( B2WorldId worldId, B2Polygon* polygon, B2Transform originTransform, B2Vec2 translation, B2QueryFilter filter, B2CastResultCallback* fcn, void* context ) @extern("b2World_CastPolygon");
-fn void world_EnableSleeping( B2WorldId worldId, bool flag ) @extern("b2World_EnableSleeping");
-fn void world_EnableContinuous( B2WorldId worldId, bool flag ) @extern("b2World_EnableContinuous");
-fn void world_SetRestitutionThreshold( B2WorldId worldId, float value ) @extern("b2World_SetRestitutionThreshold");
-fn void world_SetHitEventThreshold( B2WorldId worldId, float value ) @extern("b2World_SetHitEventThreshold");
-fn void world_SetCustomFilterCallback( B2WorldId worldId, B2CustomFilterCallback* fcn, void* context ) @extern("b2World_SetCustomFilterCallback");
-fn void world_SetPreSolveCallback( B2WorldId worldId, B2PreSolveCallback* fcn, void* context ) @extern("b2World_SetPreSolveCallback");
-fn void world_SetGravity( B2WorldId worldId, B2Vec2 gravity ) @extern("b2World_SetGravity");
-fn B2Vec2 world_GetGravity( B2WorldId worldId ) @extern("b2World_GetGravity");
-fn void world_Explode( B2WorldId worldId, B2Vec2 position, float radius, float impulse ) @extern("b2World_Explode");
-fn void world_SetContactTuning( B2WorldId worldId, float hertz, float dampingRatio, float pushVelocity ) @extern("b2World_SetContactTuning");
-fn void world_EnableWarmStarting( B2WorldId worldId, bool flag ) @extern("b2World_EnableWarmStarting");
-fn B2Profile world_GetProfile( B2WorldId worldId ) @extern("b2World_GetProfile");
-fn B2Counters world_GetCounters( B2WorldId worldId ) @extern("b2World_GetCounters");
-fn void world_DumpMemoryStats( B2WorldId worldId ) @extern("b2World_DumpMemoryStats");
+
 <*
 Create a rigid body given a definition.
 
@@ -800,70 +802,70 @@ B2BodyId  myBodyId = box2d::createBody(myWorldId, &bodyDef);
 Warning: This function is locked during callbacks.
 *>
 fn B2BodyId createBody( B2WorldId worldId, B2BodyDef* bdef ) @extern("b2CreateBody");
-//
-fn void destroyBody( B2BodyId bodyId ) @extern("b2DestroyBody");
-fn bool body_IsValid( B2BodyId id ) @extern("b2Body_IsValid");
-fn B2BodyType body_GetType( B2BodyId bodyId ) @extern("b2Body_GetType");
-fn void body_SetType( B2BodyId bodyId, B2BodyType type ) @extern("b2Body_SetType");
-fn void body_SetUserData( B2BodyId bodyId, void* userData ) @extern("b2Body_SetUserData");
-fn void* body_GetUserData( B2BodyId bodyId ) @extern("b2Body_GetUserData");
+fn void     destroyBody( B2BodyId bodyId ) @extern("b2DestroyBody");
+fn bool        body_IsValid( B2BodyId id ) @extern("b2Body_IsValid");
+fn B2BodyType  body_GetType( B2BodyId bodyId ) @extern("b2Body_GetType");
+fn void        body_SetType( B2BodyId bodyId, B2BodyType type ) @extern("b2Body_SetType");
+fn void        body_SetUserData( B2BodyId bodyId, void* userData ) @extern("b2Body_SetUserData");
+fn void*       body_GetUserData( B2BodyId bodyId ) @extern("b2Body_GetUserData");
 // Get the world position of a body. This is the location of the body origin.
-fn B2Vec2 body_GetPosition( B2BodyId bodyId ) @extern("b2Body_GetPosition");
+fn B2Vec2      body_GetPosition( B2BodyId bodyId ) @extern("b2Body_GetPosition");
 // Get the world rotation of a body as a cosine/sine pair (complex number)
-fn B2Rot body_GetRotation( B2BodyId bodyId ) @extern("b2Body_GetRotation");
+fn B2Rot       body_GetRotation( B2BodyId bodyId ) @extern("b2Body_GetRotation");
 fn B2Transform body_GetTransform( B2BodyId bodyId ) @extern("b2Body_GetTransform");
-fn void body_SetTransform( B2BodyId bodyId, B2Vec2 position, B2Rot rotation ) @extern("b2Body_SetTransform");
-fn B2Vec2 body_GetLocalPoint( B2BodyId bodyId, B2Vec2 worldPoint ) @extern("b2Body_GetLocalPoint");
+fn void        body_SetTransform( B2BodyId bodyId, B2Vec2 position, B2Rot rotation ) @extern("b2Body_SetTransform");
+fn B2Vec2      body_GetLocalPoint( B2BodyId bodyId, B2Vec2 worldPoint ) @extern("b2Body_GetLocalPoint");
 // Get a world point on a body given a local point.
-fn B2Vec2 body_GetWorldPoint( B2BodyId bodyId, B2Vec2 localPoint ) @extern("b2Body_GetWorldPoint");
-fn B2Vec2 body_GetLocalVector( B2BodyId bodyId, B2Vec2 worldVector ) @extern("b2Body_GetLocalVector");
-fn B2Vec2 body_GetWorldVector( B2BodyId bodyId, B2Vec2 localVector ) @extern("b2Body_GetWorldVector");
-fn B2Vec2 body_GetLinearVelocity( B2BodyId bodyId ) @extern("b2Body_GetLinearVelocity");
-fn float body_GetAngularVelocity( B2BodyId bodyId ) @extern("b2Body_GetAngularVelocity");
-fn void body_SetLinearVelocity( B2BodyId bodyId, B2Vec2 linearVelocity ) @extern("b2Body_SetLinearVelocity");
-fn void body_SetAngularVelocity( B2BodyId bodyId, float angularVelocity ) @extern("b2Body_SetAngularVelocity");
-fn void body_ApplyForce( B2BodyId bodyId, B2Vec2 force, B2Vec2 point, bool wake ) @extern("b2Body_ApplyForce");
-fn void body_ApplyForceToCenter( B2BodyId bodyId, B2Vec2 force, bool wake ) @extern("b2Body_ApplyForceToCenter");
-fn void body_ApplyTorque( B2BodyId bodyId, float torque, bool wake ) @extern("b2Body_ApplyTorque");
-fn void body_ApplyLinearImpulse( B2BodyId bodyId, B2Vec2 impulse, B2Vec2 point, bool wake ) @extern("b2Body_ApplyLinearImpulse");
-fn void body_ApplyLinearImpulseToCenter( B2BodyId bodyId, B2Vec2 impulse, bool wake ) @extern("b2Body_ApplyLinearImpulseToCenter");
-fn void body_ApplyAngularImpulse( B2BodyId bodyId, float impulse, bool wake ) @extern("b2Body_ApplyAngularImpulse");
-fn float body_GetMass( B2BodyId bodyId ) @extern("b2Body_GetMass");
-fn float body_GetRotationalInertia( B2BodyId bodyId ) @extern("b2Body_GetRotationalInertia");
-fn B2Vec2 body_GetLocalCenterOfMass( B2BodyId bodyId ) @extern("b2Body_GetLocalCenterOfMass");
-fn B2Vec2 body_GetWorldCenterOfMass( B2BodyId bodyId ) @extern("b2Body_GetWorldCenterOfMass");
-fn void body_SetMassData( B2BodyId bodyId, B2MassData massData ) @extern("b2Body_SetMassData");
-fn B2MassData body_GetMassData( B2BodyId bodyId ) @extern("b2Body_GetMassData");
-fn void body_ApplyMassFromShapes( B2BodyId bodyId ) @extern("b2Body_ApplyMassFromShapes");
-fn void body_SetAutomaticMass( B2BodyId bodyId, bool automaticMass ) @extern("b2Body_SetAutomaticMass");
-fn bool body_GetAutomaticMass( B2BodyId bodyId ) @extern("b2Body_GetAutomaticMass");
-fn void body_SetLinearDamping( B2BodyId bodyId, float linearDamping ) @extern("b2Body_SetLinearDamping");
-fn float body_GetLinearDamping( B2BodyId bodyId ) @extern("b2Body_GetLinearDamping");
-fn void body_SetAngularDamping( B2BodyId bodyId, float angularDamping ) @extern("b2Body_SetAngularDamping");
-fn float body_GetAngularDamping( B2BodyId bodyId ) @extern("b2Body_GetAngularDamping");
-fn void body_SetGravityScale( B2BodyId bodyId, float gravityScale ) @extern("b2Body_SetGravityScale");
-fn float body_GetGravityScale( B2BodyId bodyId ) @extern("b2Body_GetGravityScale");
-fn bool body_IsAwake( B2BodyId bodyId ) @extern("b2Body_IsAwake");
-fn void body_SetAwake( B2BodyId bodyId, bool awake ) @extern("b2Body_SetAwake");
-fn void body_EnableSleep( B2BodyId bodyId, bool enableSleep ) @extern("b2Body_EnableSleep");
-fn bool body_IsSleepEnabled( B2BodyId bodyId ) @extern("b2Body_IsSleepEnabled");
-fn void body_SetSleepThreshold( B2BodyId bodyId, float sleepThreshold ) @extern("b2Body_SetSleepThreshold");
-fn float body_GetSleepThreshold( B2BodyId bodyId ) @extern("b2Body_GetSleepThreshold");
-fn bool body_IsEnabled( B2BodyId bodyId ) @extern("b2Body_IsEnabled");
-fn void body_Disable( B2BodyId bodyId ) @extern("b2Body_Disable");
-fn void body_Enable( B2BodyId bodyId ) @extern("b2Body_Enable");
-fn void body_SetFixedRotation( B2BodyId bodyId, bool flag ) @extern("b2Body_SetFixedRotation");
-fn bool body_IsFixedRotation( B2BodyId bodyId ) @extern("b2Body_IsFixedRotation");
-fn void body_SetBullet( B2BodyId bodyId, bool flag ) @extern("b2Body_SetBullet");
-fn bool body_IsBullet( B2BodyId bodyId ) @extern("b2Body_IsBullet");
-fn void body_EnableHitEvents( B2BodyId bodyId, bool enableHitEvents ) @extern("b2Body_EnableHitEvents");
-fn int body_GetShapeCount( B2BodyId bodyId ) @extern("b2Body_GetShapeCount");
-fn int body_GetShapes( B2BodyId bodyId, B2ShapeId* shapeArray, int capacity ) @extern("b2Body_GetShapes");
-fn int body_GetJointCount( B2BodyId bodyId ) @extern("b2Body_GetJointCount");
-fn int body_GetJoints( B2BodyId bodyId, B2JointId* jointArray, int capacity ) @extern("b2Body_GetJoints");
-fn int body_GetContactCapacity( B2BodyId bodyId ) @extern("b2Body_GetContactCapacity");
-fn int body_GetContactData( B2BodyId bodyId, B2ContactData* contactData, int capacity ) @extern("b2Body_GetContactData");
-fn B2AABBox body_ComputeAABB( B2BodyId bodyId ) @extern("b2Body_ComputeAABB");
+fn B2Vec2      body_GetWorldPoint( B2BodyId bodyId, B2Vec2 localPoint ) @extern("b2Body_GetWorldPoint");
+fn B2Vec2      body_GetLocalVector( B2BodyId bodyId, B2Vec2 worldVector ) @extern("b2Body_GetLocalVector");
+fn B2Vec2      body_GetWorldVector( B2BodyId bodyId, B2Vec2 localVector ) @extern("b2Body_GetWorldVector");
+fn B2Vec2      body_GetLinearVelocity( B2BodyId bodyId ) @extern("b2Body_GetLinearVelocity");
+fn float       body_GetAngularVelocity( B2BodyId bodyId ) @extern("b2Body_GetAngularVelocity");
+fn void        body_SetLinearVelocity( B2BodyId bodyId, B2Vec2 linearVelocity ) @extern("b2Body_SetLinearVelocity");
+fn void        body_SetAngularVelocity( B2BodyId bodyId, float angularVelocity ) @extern("b2Body_SetAngularVelocity");
+fn void        body_ApplyForce( B2BodyId bodyId, B2Vec2 force, B2Vec2 point, bool wake ) @extern("b2Body_ApplyForce");
+fn void        body_ApplyForceToCenter( B2BodyId bodyId, B2Vec2 force, bool wake ) @extern("b2Body_ApplyForceToCenter");
+fn void        body_ApplyTorque( B2BodyId bodyId, float torque, bool wake ) @extern("b2Body_ApplyTorque");
+fn void        body_ApplyLinearImpulse( B2BodyId bodyId, B2Vec2 impulse, B2Vec2 point, bool wake ) @extern("b2Body_ApplyLinearImpulse");
+fn void        body_ApplyLinearImpulseToCenter( B2BodyId bodyId, B2Vec2 impulse, bool wake ) @extern("b2Body_ApplyLinearImpulseToCenter");
+fn void        body_ApplyAngularImpulse( B2BodyId bodyId, float impulse, bool wake ) @extern("b2Body_ApplyAngularImpulse");
+fn float       body_GetMass( B2BodyId bodyId ) @extern("b2Body_GetMass");
+fn float       body_GetRotationalInertia( B2BodyId bodyId ) @extern("b2Body_GetRotationalInertia");
+fn B2Vec2      body_GetLocalCenterOfMass( B2BodyId bodyId ) @extern("b2Body_GetLocalCenterOfMass");
+fn B2Vec2      body_GetWorldCenterOfMass( B2BodyId bodyId ) @extern("b2Body_GetWorldCenterOfMass");
+fn void        body_SetMassData( B2BodyId bodyId, B2MassData massData ) @extern("b2Body_SetMassData");
+fn B2MassData  body_GetMassData( B2BodyId bodyId ) @extern("b2Body_GetMassData");
+fn void        body_ApplyMassFromShapes( B2BodyId bodyId ) @extern("b2Body_ApplyMassFromShapes");
+fn void        body_SetAutomaticMass( B2BodyId bodyId, bool automaticMass ) @extern("b2Body_SetAutomaticMass");
+fn bool        body_GetAutomaticMass( B2BodyId bodyId ) @extern("b2Body_GetAutomaticMass");
+fn void        body_SetLinearDamping( B2BodyId bodyId, float linearDamping ) @extern("b2Body_SetLinearDamping");
+fn float       body_GetLinearDamping( B2BodyId bodyId ) @extern("b2Body_GetLinearDamping");
+fn void        body_SetAngularDamping( B2BodyId bodyId, float angularDamping ) @extern("b2Body_SetAngularDamping");
+fn float       body_GetAngularDamping( B2BodyId bodyId ) @extern("b2Body_GetAngularDamping");
+fn void        body_SetGravityScale( B2BodyId bodyId, float gravityScale ) @extern("b2Body_SetGravityScale");
+fn float       body_GetGravityScale( B2BodyId bodyId ) @extern("b2Body_GetGravityScale");
+fn bool        body_IsAwake( B2BodyId bodyId ) @extern("b2Body_IsAwake");
+fn void        body_SetAwake( B2BodyId bodyId, bool awake ) @extern("b2Body_SetAwake");
+fn void        body_EnableSleep( B2BodyId bodyId, bool enableSleep ) @extern("b2Body_EnableSleep");
+fn bool        body_IsSleepEnabled( B2BodyId bodyId ) @extern("b2Body_IsSleepEnabled");
+fn void        body_SetSleepThreshold( B2BodyId bodyId, float sleepThreshold ) @extern("b2Body_SetSleepThreshold");
+fn float       body_GetSleepThreshold( B2BodyId bodyId ) @extern("b2Body_GetSleepThreshold");
+fn bool        body_IsEnabled( B2BodyId bodyId ) @extern("b2Body_IsEnabled");
+fn void        body_Disable( B2BodyId bodyId ) @extern("b2Body_Disable");
+fn void        body_Enable( B2BodyId bodyId ) @extern("b2Body_Enable");
+fn void        body_SetFixedRotation( B2BodyId bodyId, bool flag ) @extern("b2Body_SetFixedRotation");
+fn bool        body_IsFixedRotation( B2BodyId bodyId ) @extern("b2Body_IsFixedRotation");
+fn void        body_SetBullet( B2BodyId bodyId, bool flag ) @extern("b2Body_SetBullet");
+fn bool        body_IsBullet( B2BodyId bodyId ) @extern("b2Body_IsBullet");
+fn void        body_EnableHitEvents( B2BodyId bodyId, bool enableHitEvents ) @extern("b2Body_EnableHitEvents");
+fn int         body_GetShapeCount( B2BodyId bodyId ) @extern("b2Body_GetShapeCount");
+fn int         body_GetShapes( B2BodyId bodyId, B2ShapeId* shapeArray, int capacity ) @extern("b2Body_GetShapes");
+fn int         body_GetJointCount( B2BodyId bodyId ) @extern("b2Body_GetJointCount");
+fn int         body_GetJoints( B2BodyId bodyId, B2JointId* jointArray, int capacity ) @extern("b2Body_GetJoints");
+fn int         body_GetContactCapacity( B2BodyId bodyId ) @extern("b2Body_GetContactCapacity");
+fn int         body_GetContactData( B2BodyId bodyId, B2ContactData* contactData, int capacity ) @extern("b2Body_GetContactData");
+fn B2AABBox    body_ComputeAABB( B2BodyId bodyId ) @extern("b2Body_ComputeAABB");
+//
 fn B2ShapeId createCircleShape( B2BodyId bodyId, B2ShapeDef* sdef, B2Circle* circle ) @extern("b2CreateCircleShape");
 fn B2ShapeId createSegmentShape( B2BodyId bodyId, B2ShapeDef* sdef, B2Segment* segment ) @extern("b2CreateSegmentShape");
 fn B2ShapeId createCapsuleShape( B2BodyId bodyId, B2ShapeDef* sdef, B2Capsule* capsule ) @extern("b2CreateCapsuleShape");
@@ -878,343 +880,183 @@ Returns
 *>
 fn B2ShapeId createPolygonShape( B2BodyId bodyId, B2ShapeDef* sdef, B2Polygon* polygon ) @extern("b2CreatePolygonShape");
 fn void destroyShape( B2ShapeId shapeId ) @extern("b2DestroyShape");
-fn bool shape_IsValid( B2ShapeId id ) @extern("b2Shape_IsValid");
-
-/*
-fn b2ShapeType b2Shape_GetType( B2ShapeId shapeId ) @extern("b2CreateWorld");
- 
-fn B2BodyId b2Shape_GetBody( B2ShapeId shapeId ) @extern("b2CreateWorld");
- 
-fn bool b2Shape_IsSensor( B2ShapeId shapeId ) @extern("b2CreateWorld");
- 
-fn void b2Shape_SetUserData( B2ShapeId shapeId, void* userData ) @extern("b2CreateWorld");
- 
-fn void* b2Shape_GetUserData( B2ShapeId shapeId ) @extern("b2CreateWorld");
- 
-fn void b2Shape_SetDensity( B2ShapeId shapeId, float density ) @extern("b2CreateWorld");
- 
-fn float b2Shape_GetDensity( B2ShapeId shapeId ) @extern("b2CreateWorld");
- 
-fn void b2Shape_SetFriction( B2ShapeId shapeId, float friction ) @extern("b2CreateWorld");
- 
-fn float b2Shape_GetFriction( B2ShapeId shapeId ) @extern("b2CreateWorld");
- 
-fn void b2Shape_SetRestitution( B2ShapeId shapeId, float restitution ) @extern("b2CreateWorld");
- 
-fn float b2Shape_GetRestitution( B2ShapeId shapeId ) @extern("b2CreateWorld");
- 
-fn b2Filter b2Shape_GetFilter( B2ShapeId shapeId ) @extern("b2CreateWorld");
- 
-fn void b2Shape_SetFilter( B2ShapeId shapeId, b2Filter filter ) @extern("b2CreateWorld");
- 
-fn void b2Shape_EnableSensorEvents( B2ShapeId shapeId, bool flag ) @extern("b2CreateWorld");
- 
-fn bool b2Shape_AreSensorEventsEnabled( B2ShapeId shapeId ) @extern("b2CreateWorld");
- 
-fn void b2Shape_EnableContactEvents( B2ShapeId shapeId, bool flag ) @extern("b2CreateWorld");
- 
-fn bool b2Shape_AreContactEventsEnabled( B2ShapeId shapeId ) @extern("b2CreateWorld");
- 
-fn void b2Shape_EnablePreSolveEvents( B2ShapeId shapeId, bool flag ) @extern("b2CreateWorld");
- 
-fn bool b2Shape_ArePreSolveEventsEnabled( B2ShapeId shapeId ) @extern("b2CreateWorld");
- 
-fn void b2Shape_EnableHitEvents( B2ShapeId shapeId, bool flag ) @extern("b2CreateWorld");
- 
-fn bool b2Shape_AreHitEventsEnabled( B2ShapeId shapeId ) @extern("b2CreateWorld");
- 
-fn bool b2Shape_TestPoint( B2ShapeId shapeId, B2Vec2 point ) @extern("b2CreateWorld");
- 
-fn b2CastOutput b2Shape_RayCast( B2ShapeId shapeId, B2RayCastInput* input ) @extern("b2CreateWorld");
- 
-fn B2Circle b2Shape_GetCircle( B2ShapeId shapeId ) @extern("b2CreateWorld");
- 
-fn b2Segment b2Shape_GetSegment( B2ShapeId shapeId ) @extern("b2CreateWorld");
- 
-fn b2ChainSegment b2Shape_GetChainSegment( B2ShapeId shapeId ) @extern("b2CreateWorld");
- 
-fn B2Capsule b2Shape_GetCapsule( B2ShapeId shapeId ) @extern("b2CreateWorld");
- 
-fn B2Polygon b2Shape_GetPolygon( B2ShapeId shapeId ) @extern("b2CreateWorld");
- 
-fn void b2Shape_SetCircle( B2ShapeId shapeId, const B2Circle* circle ) @extern("b2CreateWorld");
- 
-fn void b2Shape_SetCapsule( B2ShapeId shapeId, const B2Capsule* capsule ) @extern("b2CreateWorld");
- 
-fn void b2Shape_SetSegment( B2ShapeId shapeId, const b2Segment* segment ) @extern("b2CreateWorld");
- 
-fn void b2Shape_SetPolygon( B2ShapeId shapeId, const B2Polygon* polygon ) @extern("b2CreateWorld");
- 
-fn b2ChainId b2Shape_GetParentChain( B2ShapeId shapeId ) @extern("b2CreateWorld");
- 
-fn int b2Shape_GetContactCapacity( B2ShapeId shapeId ) @extern("b2CreateWorld");
- 
-fn int b2Shape_GetContactData( B2ShapeId shapeId, b2ContactData* contactData, int capacity ) @extern("b2CreateWorld");
- 
-fn B2AABBox b2Shape_GetAABB( B2ShapeId shapeId ) @extern("b2CreateWorld");
- 
-fn B2Vec2 b2Shape_GetClosestPoint( B2ShapeId shapeId, B2Vec2 target ) @extern("b2CreateWorld");
- 
- 
-fn b2ChainId b2CreateChain( B2BodyId bodyId, const b2ChainDef* def ) @extern("b2CreateWorld");
- 
-fn void b2DestroyChain( b2ChainId chainId ) @extern("b2CreateWorld");
- 
-fn void b2Chain_SetFriction( b2ChainId chainId, float friction ) @extern("b2CreateWorld");
- 
-fn void b2Chain_SetRestitution( b2ChainId chainId, float restitution ) @extern("b2CreateWorld");
- 
-fn bool b2Chain_IsValid( b2ChainId id ) @extern("b2CreateWorld");
- 
-fn void b2DestroyJoint( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn bool b2Joint_IsValid( b2JointId id ) @extern("b2CreateWorld");
- 
-fn b2JointType b2Joint_GetType( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn B2BodyId b2Joint_GetBodyA( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn B2BodyId b2Joint_GetBodyB( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn B2Vec2 b2Joint_GetLocalAnchorA( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn B2Vec2 b2Joint_GetLocalAnchorB( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn void b2Joint_SetCollideConnected( b2JointId jointId, bool shouldCollide ) @extern("b2CreateWorld");
- 
-fn bool b2Joint_GetCollideConnected( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn void b2Joint_SetUserData( b2JointId jointId, void* userData ) @extern("b2CreateWorld");
- 
-fn void* b2Joint_GetUserData( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn void b2Joint_WakeBodies( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn B2Vec2 b2Joint_GetConstraintForce( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn float b2Joint_GetConstraintTorque( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn b2JointId b2CreateDistanceJoint( B2WorldId worldId, const b2DistanceJointDef* def ) @extern("b2CreateWorld");
- 
-fn void b2DistanceJoint_SetLength( b2JointId jointId, float length ) @extern("b2CreateWorld");
- 
-fn float b2DistanceJoint_GetLength( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn void b2DistanceJoint_EnableSpring( b2JointId jointId, bool enableSpring ) @extern("b2CreateWorld");
- 
-fn bool b2DistanceJoint_IsSpringEnabled( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn void b2DistanceJoint_SetSpringHertz( b2JointId jointId, float hertz ) @extern("b2CreateWorld");
- 
-fn void b2DistanceJoint_SetSpringDampingRatio( b2JointId jointId, float dampingRatio ) @extern("b2CreateWorld");
- 
-fn float b2DistanceJoint_GetSpringHertz( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn float b2DistanceJoint_GetSpringDampingRatio( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn void b2DistanceJoint_EnableLimit( b2JointId jointId, bool enableLimit ) @extern("b2CreateWorld");
- 
-fn bool b2DistanceJoint_IsLimitEnabled( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn void b2DistanceJoint_SetLengthRange( b2JointId jointId, float minLength, float maxLength ) @extern("b2CreateWorld");
- 
-fn float b2DistanceJoint_GetMinLength( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn float b2DistanceJoint_GetMaxLength( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn float b2DistanceJoint_GetCurrentLength( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn void b2DistanceJoint_EnableMotor( b2JointId jointId, bool enableMotor ) @extern("b2CreateWorld");
- 
-fn bool b2DistanceJoint_IsMotorEnabled( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn void b2DistanceJoint_SetMotorSpeed( b2JointId jointId, float motorSpeed ) @extern("b2CreateWorld");
- 
-fn float b2DistanceJoint_GetMotorSpeed( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn void b2DistanceJoint_SetMaxMotorForce( b2JointId jointId, float force ) @extern("b2CreateWorld");
- 
-fn float b2DistanceJoint_GetMaxMotorForce( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn float b2DistanceJoint_GetMotorForce( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn b2JointId b2CreateMotorJoint( B2WorldId worldId, const b2MotorJointDef* def ) @extern("b2CreateWorld");
- 
-fn void b2MotorJoint_SetLinearOffset( b2JointId jointId, B2Vec2 linearOffset ) @extern("b2CreateWorld");
- 
-fn B2Vec2 b2MotorJoint_GetLinearOffset( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn void b2MotorJoint_SetAngularOffset( b2JointId jointId, float angularOffset ) @extern("b2CreateWorld");
- 
-fn float b2MotorJoint_GetAngularOffset( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn void b2MotorJoint_SetMaxForce( b2JointId jointId, float maxForce ) @extern("b2CreateWorld");
- 
-fn float b2MotorJoint_GetMaxForce( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn void b2MotorJoint_SetMaxTorque( b2JointId jointId, float maxTorque ) @extern("b2CreateWorld");
- 
-fn float b2MotorJoint_GetMaxTorque( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn void b2MotorJoint_SetCorrectionFactor( b2JointId jointId, float correctionFactor ) @extern("b2CreateWorld");
- 
-fn float b2MotorJoint_GetCorrectionFactor( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn b2JointId b2CreateMouseJoint( B2WorldId worldId, const b2MouseJointDef* def ) @extern("b2CreateWorld");
- 
-fn void b2MouseJoint_SetTarget( b2JointId jointId, B2Vec2 target ) @extern("b2CreateWorld");
- 
-fn B2Vec2 b2MouseJoint_GetTarget( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn void b2MouseJoint_SetSpringHertz( b2JointId jointId, float hertz ) @extern("b2CreateWorld");
- 
-fn float b2MouseJoint_GetSpringHertz( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn void b2MouseJoint_SetSpringDampingRatio( b2JointId jointId, float dampingRatio ) @extern("b2CreateWorld");
- 
-fn float b2MouseJoint_GetSpringDampingRatio( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn void b2MouseJoint_SetMaxForce( b2JointId jointId, float maxForce ) @extern("b2CreateWorld");
- 
-fn float b2MouseJoint_GetMaxForce( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn b2JointId b2CreatePrismaticJoint( B2WorldId worldId, const b2PrismaticJointDef* def ) @extern("b2CreateWorld");
- 
-fn void b2PrismaticJoint_EnableSpring( b2JointId jointId, bool enableSpring ) @extern("b2CreateWorld");
- 
-fn bool b2PrismaticJoint_IsSpringEnabled( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn void b2PrismaticJoint_SetSpringHertz( b2JointId jointId, float hertz ) @extern("b2CreateWorld");
- 
-fn float b2PrismaticJoint_GetSpringHertz( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn void b2PrismaticJoint_SetSpringDampingRatio( b2JointId jointId, float dampingRatio ) @extern("b2CreateWorld");
- 
-fn float b2PrismaticJoint_GetSpringDampingRatio( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn void b2PrismaticJoint_EnableLimit( b2JointId jointId, bool enableLimit ) @extern("b2CreateWorld");
- 
-fn bool b2PrismaticJoint_IsLimitEnabled( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn float b2PrismaticJoint_GetLowerLimit( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn float b2PrismaticJoint_GetUpperLimit( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn void b2PrismaticJoint_SetLimits( b2JointId jointId, float lower, float upper ) @extern("b2CreateWorld");
- 
-fn void b2PrismaticJoint_EnableMotor( b2JointId jointId, bool enableMotor ) @extern("b2CreateWorld");
- 
-fn bool b2PrismaticJoint_IsMotorEnabled( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn void b2PrismaticJoint_SetMotorSpeed( b2JointId jointId, float motorSpeed ) @extern("b2CreateWorld");
- 
-fn float b2PrismaticJoint_GetMotorSpeed( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn void b2PrismaticJoint_SetMaxMotorForce( b2JointId jointId, float force ) @extern("b2CreateWorld");
- 
-fn float b2PrismaticJoint_GetMaxMotorForce( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn float b2PrismaticJoint_GetMotorForce( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn b2JointId b2CreateRevoluteJoint( B2WorldId worldId, const b2RevoluteJointDef* def ) @extern("b2CreateWorld");
- 
-fn void b2RevoluteJoint_EnableSpring( b2JointId jointId, bool enableSpring ) @extern("b2CreateWorld");
- 
-fn bool b2RevoluteJoint_IsSpringEnabled( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn void b2RevoluteJoint_SetSpringHertz( b2JointId jointId, float hertz ) @extern("b2CreateWorld");
- 
-fn float b2RevoluteJoint_GetSpringHertz( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn void b2RevoluteJoint_SetSpringDampingRatio( b2JointId jointId, float dampingRatio ) @extern("b2CreateWorld");
- 
-fn float b2RevoluteJoint_GetSpringDampingRatio( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn float b2RevoluteJoint_GetAngle( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn void b2RevoluteJoint_EnableLimit( b2JointId jointId, bool enableLimit ) @extern("b2CreateWorld");
- 
-fn bool b2RevoluteJoint_IsLimitEnabled( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn float b2RevoluteJoint_GetLowerLimit( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn float b2RevoluteJoint_GetUpperLimit( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn void b2RevoluteJoint_SetLimits( b2JointId jointId, float lower, float upper ) @extern("b2CreateWorld");
- 
-fn void b2RevoluteJoint_EnableMotor( b2JointId jointId, bool enableMotor ) @extern("b2CreateWorld");
- 
-fn bool b2RevoluteJoint_IsMotorEnabled( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn void b2RevoluteJoint_SetMotorSpeed( b2JointId jointId, float motorSpeed ) @extern("b2CreateWorld");
- 
-fn float b2RevoluteJoint_GetMotorSpeed( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn float b2RevoluteJoint_GetMotorTorque( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn void b2RevoluteJoint_SetMaxMotorTorque( b2JointId jointId, float torque ) @extern("b2CreateWorld");
- 
-fn float b2RevoluteJoint_GetMaxMotorTorque( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn b2JointId b2CreateWeldJoint( B2WorldId worldId, const b2WeldJointDef* def ) @extern("b2CreateWorld");
- 
-fn void b2WeldJoint_SetLinearHertz( b2JointId jointId, float hertz ) @extern("b2CreateWorld");
- 
-fn float b2WeldJoint_GetLinearHertz( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn void b2WeldJoint_SetLinearDampingRatio( b2JointId jointId, float dampingRatio ) @extern("b2CreateWorld");
- 
-fn float b2WeldJoint_GetLinearDampingRatio( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn void b2WeldJoint_SetAngularHertz( b2JointId jointId, float hertz ) @extern("b2CreateWorld");
- 
-fn float b2WeldJoint_GetAngularHertz( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn void b2WeldJoint_SetAngularDampingRatio( b2JointId jointId, float dampingRatio ) @extern("b2CreateWorld");
- 
-fn float b2WeldJoint_GetAngularDampingRatio( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn b2JointId b2CreateWheelJoint( B2WorldId worldId, const b2WheelJointDef* def ) @extern("b2CreateWorld");
- 
-fn void b2WheelJoint_EnableSpring( b2JointId jointId, bool enableSpring ) @extern("b2CreateWorld");
- 
-fn bool b2WheelJoint_IsSpringEnabled( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn void b2WheelJoint_SetSpringHertz( b2JointId jointId, float hertz ) @extern("b2CreateWorld");
- 
-fn float b2WheelJoint_GetSpringHertz( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn void b2WheelJoint_SetSpringDampingRatio( b2JointId jointId, float dampingRatio ) @extern("b2CreateWorld");
- 
-fn float b2WheelJoint_GetSpringDampingRatio( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn void b2WheelJoint_EnableLimit( b2JointId jointId, bool enableLimit ) @extern("b2CreateWorld");
- 
-fn bool b2WheelJoint_IsLimitEnabled( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn float b2WheelJoint_GetLowerLimit( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn float b2WheelJoint_GetUpperLimit( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn void b2WheelJoint_SetLimits( b2JointId jointId, float lower, float upper ) @extern("b2CreateWorld");
- 
-fn void b2WheelJoint_EnableMotor( b2JointId jointId, bool enableMotor ) @extern("b2CreateWorld");
- 
-fn bool b2WheelJoint_IsMotorEnabled( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn void b2WheelJoint_SetMotorSpeed( b2JointId jointId, float motorSpeed ) @extern("b2CreateWorld");
- 
-fn float b2WheelJoint_GetMotorSpeed( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn void b2WheelJoint_SetMaxMotorTorque( b2JointId jointId, float torque ) @extern("b2CreateWorld");
- 
-fn float b2WheelJoint_GetMaxMotorTorque( b2JointId jointId ) @extern("b2CreateWorld");
- 
-fn float b2WheelJoint_GetMotorTorque( b2JointId jointId ) @extern("b2CreateWorld");
-*/
+fn bool        shape_IsValid( B2ShapeId id ) @extern("b2Shape_IsValid");
+fn B2ShapeType shape_GetType( B2ShapeId shapeId ) @extern("b2Shape_GetType");
+fn B2BodyId    shape_GetBody( B2ShapeId shapeId ) @extern("b2Shape_GetBody");
+fn bool        shape_IsSensor( B2ShapeId shapeId ) @extern("b2Shape_IsSensor");
+fn void        shape_SetUserData( B2ShapeId shapeId, void* userData ) @extern("b2Shape_SetUserData");
+fn void*       shape_GetUserData( B2ShapeId shapeId ) @extern("b2Shape_GetUserData");
+fn void        shape_SetDensity( B2ShapeId shapeId, float density ) @extern("b2Shape_SetDensity");
+fn float       shape_GetDensity( B2ShapeId shapeId ) @extern("b2Shape_GetDensity");
+fn void        shape_SetFriction( B2ShapeId shapeId, float friction ) @extern("b2Shape_SetFriction");
+fn float       shape_GetFriction( B2ShapeId shapeId ) @extern("b2Shape_GetFriction");
+fn void        shape_SetRestitution( B2ShapeId shapeId, float restitution ) @extern("b2Shape_SetRestitution");
+fn float       shape_GetRestitution( B2ShapeId shapeId ) @extern("b2Shape_GetRestitution");
+fn B2Filter    shape_GetFilter( B2ShapeId shapeId ) @extern("b2Shape_GetFilter");
+fn void        shape_SetFilter( B2ShapeId shapeId, B2Filter filter ) @extern("b2Shape_SetFilter");
+fn void        shape_EnableSensorEvents( B2ShapeId shapeId, bool flag ) @extern("b2Shape_EnableSensorEvents");
+fn bool        shape_AreSensorEventsEnabled( B2ShapeId shapeId ) @extern("b2Shape_AreSensorEventsEnabled");
+fn void        shape_EnableContactEvents( B2ShapeId shapeId, bool flag ) @extern("b2Shape_EnableContactEvents");
+fn bool        shape_AreContactEventsEnabled( B2ShapeId shapeId ) @extern("b2Shape_AreContactEventsEnabled");
+fn void        shape_EnablePreSolveEvents( B2ShapeId shapeId, bool flag ) @extern("b2Shape_EnablePreSolveEvents");
+fn bool        shape_ArePreSolveEventsEnabled( B2ShapeId shapeId ) @extern("b2Shape_ArePreSolveEventsEnabled");
+fn void        shape_EnableHitEvents( B2ShapeId shapeId, bool flag ) @extern("b2Shape_EnableHitEvents");
+fn bool        shape_AreHitEventsEnabled( B2ShapeId shapeId ) @extern("b2Shape_AreHitEventsEnabled");
+fn bool        shape_TestPoint( B2ShapeId shapeId, B2Vec2 point ) @extern("b2Shape_TestPoint");
+fn B2CastOutput shape_RayCast( B2ShapeId shapeId, B2RayCastInput* input ) @extern("b2Shape_RayCast");
+fn B2Circle     shape_GetCircle( B2ShapeId shapeId ) @extern("b2Shape_GetCircle");
+fn B2Segment    shape_GetSegment( B2ShapeId shapeId ) @extern("b2Shape_GetSegment");
+fn B2ChainSegment shape_GetChainSegment( B2ShapeId shapeId ) @extern("b2Shape_GetChainSegment");
+fn B2Capsule    shape_GetCapsule( B2ShapeId shapeId ) @extern("b2Shape_GetCapsule");
+fn B2Polygon    shape_GetPolygon( B2ShapeId shapeId ) @extern("b2Shape_GetPolygon");
+fn void        shape_SetCircle( B2ShapeId shapeId, B2Circle* circle ) @extern("b2Shape_SetCircle");
+fn void        shape_SetCapsule( B2ShapeId shapeId, B2Capsule* capsule ) @extern("b2Shape_SetCapsule");
+fn void        shape_SetSegment( B2ShapeId shapeId, B2Segment* segment ) @extern("b2Shape_SetSegment");
+fn void        shape_SetPolygon( B2ShapeId shapeId, B2Polygon* polygon ) @extern("b2Shape_SetPolygon");
+fn B2ChainId   shape_GetParentChain( B2ShapeId shapeId ) @extern("b2Shape_GetParentChain");
+fn int         shape_GetContactCapacity( B2ShapeId shapeId ) @extern("b2Shape_GetContactCapacity");
+fn int         shape_GetContactData( B2ShapeId shapeId, B2ContactData* contactData, int capacity ) @extern("b2Shape_GetContactData");
+fn B2AABBox    shape_GetAABB( B2ShapeId shapeId ) @extern("b2Shape_GetAABB");
+fn B2Vec2      shape_GetClosestPoint( B2ShapeId shapeId, B2Vec2 target ) @extern("b2Shape_GetClosestPoint");
+//
+fn B2ChainId createChain( B2BodyId bodyId, B2ChainDef* cdef ) @extern("b2CreateChain");
+fn void      destroyChain( B2ChainId chainId ) @extern("b2DestroyChain");
+fn void chain_SetFriction( B2ChainId chainId, float friction ) @extern("b2Chain_SetFriction");
+fn void chain_SetRestitution( B2ChainId chainId, float restitution ) @extern("b2Chain_SetRestitution");
+fn bool chain_IsValid( B2ChainId id ) @extern("b2Chain_IsValid");
+//
+fn void        destroyJoint( B2JointId jointId ) @extern("b2DestroyJoint");
+fn bool        joint_IsValid( B2JointId id ) @extern("b2Joint_IsValid");
+fn B2JointType joint_GetType( B2JointId jointId ) @extern("b2Joint_GetType");
+fn B2BodyId    joint_GetBodyA( B2JointId jointId ) @extern("b2Joint_GetBodyA");
+fn B2BodyId    joint_GetBodyB( B2JointId jointId ) @extern("b2Joint_GetBodyB");
+fn B2Vec2      joint_GetLocalAnchorA( B2JointId jointId ) @extern("b2Joint_GetLocalAnchorA");
+fn B2Vec2      joint_GetLocalAnchorB( B2JointId jointId ) @extern("b2Joint_GetLocalAnchorB");
+fn void        joint_SetCollideConnected( B2JointId jointId, bool shouldCollide ) @extern("b2Joint_SetCollideConnected");
+fn bool        joint_GetCollideConnected( B2JointId jointId ) @extern("b2Joint_GetCollideConnected");
+fn void        joint_SetUserData( B2JointId jointId, void* userData ) @extern("b2Joint_SetUserData");
+fn void*       joint_GetUserData( B2JointId jointId ) @extern("b2Joint_GetUserData");
+fn void        joint_WakeBodies( B2JointId jointId ) @extern("b2Joint_WakeBodies");
+fn B2Vec2      joint_GetConstraintForce( B2JointId jointId ) @extern("b2Joint_GetConstraintForce");
+fn float       joint_GetConstraintTorque( B2JointId jointId ) @extern("b2Joint_GetConstraintTorque");
+//
+fn B2JointId createDistanceJoint( B2WorldId worldId, B2DistanceJointDef* ddef ) @extern("b2CreateDistanceJoint");
+fn void      distanceJoint_SetLength( B2JointId jointId, float length ) @extern("b2DistanceJoint_SetLength");
+fn float     distanceJoint_GetLength( B2JointId jointId ) @extern("b2DistanceJoint_GetLength");
+fn void      distanceJoint_EnableSpring( B2JointId jointId, bool enableSpring ) @extern("b2DistanceJoint_EnableSpring");
+fn bool      distanceJoint_IsSpringEnabled( B2JointId jointId ) @extern("b2DistanceJoint_IsSpringEnabled");
+fn void      distanceJoint_SetSpringHertz( B2JointId jointId, float hertz ) @extern("b2DistanceJoint_SetSpringHertz");
+fn void      distanceJoint_SetSpringDampingRatio( B2JointId jointId, float dampingRatio ) @extern("b2DistanceJoint_SetSpringDampingRatio");
+fn float     distanceJoint_GetSpringHertz( B2JointId jointId ) @extern("b2DistanceJoint_GetSpringHertz");
+fn float     distanceJoint_GetSpringDampingRatio( B2JointId jointId ) @extern("b2DistanceJoint_GetSpringDampingRatio");
+fn void      distanceJoint_EnableLimit( B2JointId jointId, bool enableLimit ) @extern("b2DistanceJoint_EnableLimit");
+fn bool      distanceJoint_IsLimitEnabled( B2JointId jointId ) @extern("b2DistanceJoint_IsLimitEnabled");
+fn void      distanceJoint_SetLengthRange( B2JointId jointId, float minLength, float maxLength ) @extern("b2DistanceJoint_SetLengthRange");
+fn float     distanceJoint_GetMinLength( B2JointId jointId ) @extern("b2DistanceJoint_GetMinLength");
+fn float     distanceJoint_GetMaxLength( B2JointId jointId ) @extern("b2DistanceJoint_GetMaxLength");
+fn float     distanceJoint_GetCurrentLength( B2JointId jointId ) @extern("b2DistanceJoint_GetCurrentLength");
+fn void      distanceJoint_EnableMotor( B2JointId jointId, bool enableMotor ) @extern("b2DistanceJoint_EnableMotor");
+fn bool      distanceJoint_IsMotorEnabled( B2JointId jointId ) @extern("b2DistanceJoint_IsMotorEnabled");
+fn void      distanceJoint_SetMotorSpeed( B2JointId jointId, float motorSpeed ) @extern("b2DistanceJoint_SetMotorSpeed");
+fn float     distanceJoint_GetMotorSpeed( B2JointId jointId ) @extern("b2DistanceJoint_GetMotorSpeed");
+fn void      distanceJoint_SetMaxMotorForce( B2JointId jointId, float force ) @extern("b2DistanceJoint_SetMaxMotorForce");
+fn float     distanceJoint_GetMaxMotorForce( B2JointId jointId ) @extern("b2DistanceJoint_GetMaxMotorForce");
+fn float     distanceJoint_GetMotorForce( B2JointId jointId ) @extern("b2DistanceJoint_GetMotorForce");
+//
+fn B2JointId createMotorJoint( B2WorldId worldId, B2MotorJointDef* mdef ) @extern("b2CreateMotorJoint");
+fn void      motorJoint_SetLinearOffset( B2JointId jointId, B2Vec2 linearOffset ) @extern("b2MotorJoint_SetLinearOffset");
+fn B2Vec2    motorJoint_GetLinearOffset( B2JointId jointId ) @extern("b2MotorJoint_GetLinearOffset");
+fn void      motorJoint_SetAngularOffset( B2JointId jointId, float angularOffset ) @extern("b2MotorJoint_SetAngularOffset");
+fn float     motorJoint_GetAngularOffset( B2JointId jointId ) @extern("b2MotorJoint_GetAngularOffset");
+fn void      motorJoint_SetMaxForce( B2JointId jointId, float maxForce ) @extern("b2MotorJoint_SetMaxForce");
+fn float     motorJoint_GetMaxForce( B2JointId jointId ) @extern("b2MotorJoint_GetMaxForce");
+fn void      motorJoint_SetMaxTorque( B2JointId jointId, float maxTorque ) @extern("b2MotorJoint_SetMaxTorque");
+fn float     motorJoint_GetMaxTorque( B2JointId jointId ) @extern("b2MotorJoint_GetMaxTorque");
+fn void      motorJoint_SetCorrectionFactor( B2JointId jointId, float correctionFactor ) @extern("b2MotorJoint_SetCorrectionFactor");
+fn float     motorJoint_GetCorrectionFactor( B2JointId jointId ) @extern("b2MotorJoint_GetCorrectionFactor");
+//
+fn B2JointId createMouseJoint( B2WorldId worldId, B2MouseJointDef* mdef ) @extern("b2CreateMouseJoint");
+fn void      mouseJoint_SetTarget( B2JointId jointId, B2Vec2 target ) @extern("b2MouseJoint_SetTarget");
+fn B2Vec2    mouseJoint_GetTarget( B2JointId jointId ) @extern("b2MouseJoint_GetTarget");
+fn void      mouseJoint_SetSpringHertz( B2JointId jointId, float hertz ) @extern("b2MouseJoint_SetSpringHertz");
+fn float     mouseJoint_GetSpringHertz( B2JointId jointId ) @extern("b2MouseJoint_GetSpringHertz");
+fn void      mouseJoint_SetSpringDampingRatio( B2JointId jointId, float dampingRatio ) @extern("b2MouseJoint_SetSpringDampingRatio");
+fn float     mouseJoint_GetSpringDampingRatio( B2JointId jointId ) @extern("b2MouseJoint_GetSpringDampingRatio");
+fn void      mouseJoint_SetMaxForce( B2JointId jointId, float maxForce ) @extern("b2MouseJoint_SetMaxForce");
+fn float     mouseJoint_GetMaxForce( B2JointId jointId ) @extern("b2MouseJoint_GetMaxForce");
+//
+fn B2JointId createPrismaticJoint( B2WorldId worldId, B2PrismaticJointDef* pdef ) @extern("b2CreatePrismaticJoint");
+fn void      prismaticJoint_EnableSpring( B2JointId jointId, bool enableSpring ) @extern("b2PrismaticJoint_EnableSpring");
+fn bool      prismaticJoint_IsSpringEnabled( B2JointId jointId ) @extern("b2PrismaticJoint_IsSpringEnabled");
+fn void      prismaticJoint_SetSpringHertz( B2JointId jointId, float hertz ) @extern("b2PrismaticJoint_SetSpringHertz");
+fn float     prismaticJoint_GetSpringHertz( B2JointId jointId ) @extern("b2PrismaticJoint_GetSpringHertz");
+fn void      prismaticJoint_SetSpringDampingRatio( B2JointId jointId, float dampingRatio ) @extern("b2PrismaticJoint_SetSpringDampingRatio");
+fn float     prismaticJoint_GetSpringDampingRatio( B2JointId jointId ) @extern("b2PrismaticJoint_GetSpringDampingRatio");
+fn void      prismaticJoint_EnableLimit( B2JointId jointId, bool enableLimit ) @extern("b2PrismaticJoint_EnableLimit");
+fn bool      prismaticJoint_IsLimitEnabled( B2JointId jointId ) @extern("b2PrismaticJoint_IsLimitEnabled");
+fn float     prismaticJoint_GetLowerLimit( B2JointId jointId ) @extern("b2PrismaticJoint_GetLowerLimit");
+fn float     prismaticJoint_GetUpperLimit( B2JointId jointId ) @extern("b2PrismaticJoint_GetUpperLimit");
+fn void      prismaticJoint_SetLimits( B2JointId jointId, float lower, float upper ) @extern("b2PrismaticJoint_SetLimits");
+fn void      prismaticJoint_EnableMotor( B2JointId jointId, bool enableMotor ) @extern("b2PrismaticJoint_EnableMotor");
+fn bool      prismaticJoint_IsMotorEnabled( B2JointId jointId ) @extern("b2PrismaticJoint_IsMotorEnabled");
+fn void      prismaticJoint_SetMotorSpeed( B2JointId jointId, float motorSpeed ) @extern("b2PrismaticJoint_SetMotorSpeed");
+fn float     prismaticJoint_GetMotorSpeed( B2JointId jointId ) @extern("b2PrismaticJoint_GetMotorSpeed");
+fn void      prismaticJoint_SetMaxMotorForce( B2JointId jointId, float force ) @extern("b2PrismaticJoint_SetMaxMotorForce");
+fn float     prismaticJoint_GetMaxMotorForce( B2JointId jointId ) @extern("b2PrismaticJoint_GetMaxMotorForce");
+fn float     prismaticJoint_GetMotorForce( B2JointId jointId ) @extern("b2PrismaticJoint_GetMotorForce");
+//
+fn B2JointId createRevoluteJoint( B2WorldId worldId, B2RevoluteJointDef* rdef ) @extern("b2CreateRevoluteJoint");
+fn void    revoluteJoint_EnableSpring( B2JointId jointId, bool enableSpring ) @extern("b2RevoluteJoint_EnableSpring");
+fn bool    revoluteJoint_IsSpringEnabled( B2JointId jointId ) @extern("b2RevoluteJoint_IsSpringEnabled");
+fn void    revoluteJoint_SetSpringHertz( B2JointId jointId, float hertz ) @extern("b2RevoluteJoint_SetSpringHertz");
+fn float   revoluteJoint_GetSpringHertz( B2JointId jointId ) @extern("b2RevoluteJoint_GetSpringHertz");
+fn void    revoluteJoint_SetSpringDampingRatio( B2JointId jointId, float dampingRatio ) @extern("b2RevoluteJoint_SetSpringDampingRatio");
+fn float   revoluteJoint_GetSpringDampingRatio( B2JointId jointId ) @extern("b2RevoluteJoint_GetSpringDampingRatio");
+fn float   revoluteJoint_GetAngle( B2JointId jointId ) @extern("b2RevoluteJoint_GetAngle");
+fn void    revoluteJoint_EnableLimit( B2JointId jointId, bool enableLimit ) @extern("b2RevoluteJoint_EnableLimit");
+fn bool    revoluteJoint_IsLimitEnabled( B2JointId jointId ) @extern("b2RevoluteJoint_IsLimitEnabled");
+fn float   revoluteJoint_GetLowerLimit( B2JointId jointId ) @extern("b2RevoluteJoint_GetLowerLimit");
+fn float   revoluteJoint_GetUpperLimit( B2JointId jointId ) @extern("b2RevoluteJoint_GetUpperLimit");
+fn void    revoluteJoint_SetLimits( B2JointId jointId, float lower, float upper ) @extern("b2RevoluteJoint_SetLimits");
+fn void    revoluteJoint_EnableMotor( B2JointId jointId, bool enableMotor ) @extern("b2RevoluteJoint_EnableMotor");
+fn bool    revoluteJoint_IsMotorEnabled( B2JointId jointId ) @extern("b2RevoluteJoint_IsMotorEnabled");
+fn void    revoluteJoint_SetMotorSpeed( B2JointId jointId, float motorSpeed ) @extern("b2RevoluteJoint_SetMotorSpeed");
+fn float   revoluteJoint_GetMotorSpeed( B2JointId jointId ) @extern("b2RevoluteJoint_GetMotorSpeed");
+fn float   revoluteJoint_GetMotorTorque( B2JointId jointId ) @extern("b2RevoluteJoint_GetMotorTorque");
+fn void    revoluteJoint_SetMaxMotorTorque( B2JointId jointId, float torque ) @extern("b2RevoluteJoint_SetMaxMotorTorque");
+fn float   revoluteJoint_GetMaxMotorTorque( B2JointId jointId ) @extern("b2RevoluteJoint_GetMaxMotorTorque");
+//
+fn B2JointId createWeldJoint( B2WorldId worldId, B2WeldJointDef* wdef ) @extern("b2CreateWeldJoint");
+fn void      weldJoint_SetLinearHertz( B2JointId jointId, float hertz ) @extern("b2WeldJoint_SetLinearHertz");
+fn float     weldJoint_GetLinearHertz( B2JointId jointId ) @extern("b2WeldJoint_GetLinearHertz");
+fn void      weldJoint_SetLinearDampingRatio( B2JointId jointId, float dampingRatio ) @extern("b2WeldJoint_SetLinearDampingRatio");
+fn float     weldJoint_GetLinearDampingRatio( B2JointId jointId ) @extern("b2WeldJoint_GetLinearDampingRatio");
+fn void      weldJoint_SetAngularHertz( B2JointId jointId, float hertz ) @extern("b2WeldJoint_SetAngularHertz");
+fn float     weldJoint_GetAngularHertz( B2JointId jointId ) @extern("b2WeldJoint_GetAngularHertz");
+fn void      weldJoint_SetAngularDampingRatio( B2JointId jointId, float dampingRatio ) @extern("b2WeldJoint_SetAngularDampingRatio");
+fn float     weldJoint_GetAngularDampingRatio( B2JointId jointId ) @extern("b2WeldJoint_GetAngularDampingRatio");
+//
+fn B2JointId createWheelJoint( B2WorldId worldId, B2WheelJointDef* wdef ) @extern("b2CreateWheelJoint");
+fn void      wheelJoint_EnableSpring( B2JointId jointId, bool enableSpring ) @extern("b2WheelJoint_EnableSpring");
+fn bool      wheelJoint_IsSpringEnabled( B2JointId jointId ) @extern("b2WheelJoint_IsSpringEnabled");
+fn void      wheelJoint_SetSpringHertz( B2JointId jointId, float hertz ) @extern("b2WheelJoint_SetSpringHertz");
+fn float     wheelJoint_GetSpringHertz( B2JointId jointId ) @extern("b2WheelJoint_GetSpringHertz");
+fn void      wheelJoint_SetSpringDampingRatio( B2JointId jointId, float dampingRatio ) @extern("b2WheelJoint_SetSpringDampingRatio");
+fn float     wheelJoint_GetSpringDampingRatio( B2JointId jointId ) @extern("b2WheelJoint_GetSpringDampingRatio");
+fn void      wheelJoint_EnableLimit( B2JointId jointId, bool enableLimit ) @extern("b2WheelJoint_EnableLimit");
+fn bool      wheelJoint_IsLimitEnabled( B2JointId jointId ) @extern("b2WheelJoint_IsLimitEnabled");
+fn float     wheelJoint_GetLowerLimit( B2JointId jointId ) @extern("b2WheelJoint_GetLowerLimit");
+fn float     wheelJoint_GetUpperLimit( B2JointId jointId ) @extern("b2WheelJoint_GetUpperLimit");
+fn void      wheelJoint_SetLimits( B2JointId jointId, float lower, float upper ) @extern("b2WheelJoint_SetLimits");
+fn void      wheelJoint_EnableMotor( B2JointId jointId, bool enableMotor ) @extern("b2WheelJoint_EnableMotor");
+fn bool      wheelJoint_IsMotorEnabled( B2JointId jointId ) @extern("b2WheelJoint_IsMotorEnabled");
+fn void      wheelJoint_SetMotorSpeed( B2JointId jointId, float motorSpeed ) @extern("b2WheelJoint_SetMotorSpeed");
+fn float     wheelJoint_GetMotorSpeed( B2JointId jointId ) @extern("b2WheelJoint_GetMotorSpeed");
+fn void      wheelJoint_SetMaxMotorTorque( B2JointId jointId, float torque ) @extern("b2WheelJoint_SetMaxMotorTorque");
+fn float     wheelJoint_GetMaxMotorTorque( B2JointId jointId ) @extern("b2WheelJoint_GetMaxMotorTorque");
+fn float     wheelJoint_GetMotorTorque( B2JointId jointId ) @extern("b2WheelJoint_GetMotorTorque");
 
 // end_region TYPES
-
 
 // region collision
 

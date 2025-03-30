@@ -28,6 +28,8 @@
 
 module engine::tokanizer::tok;
 
+// based on a basic C tokanizer, C3 can do it like this or using slices or the splitter object.
+
 // region imports
 import libc;
 import std::io, std::ascii;
@@ -63,7 +65,7 @@ fn int charToInt(CChar c)  @inline
 // only by testing if the character (token) is inferior to ' ' (space).
 // Is like advance but stops at first space character
 // NOTE(HM) 
-// String is a char[] that is a SLICE struct (a pointer and a len)
+// String is a char[] that is a SLICE ( a struct with a pointer and a len)
 // not like a C array that is just a pointer to the start of a contiguous peace of memory.
 fn CChar returnNextToken(String str, int cur_index)  @inline
 {

@@ -1379,10 +1379,6 @@ fn void handle_cmdline(String[]* args) {
 /* This is where game execution begins */
 fn void! gameOnStart(String[]* args) @local 
 {
-    // NOTE(HM) 
-    // This will save cvars in a global array for later looping through if needed
-    register_modulo_cvars();
-    
     // Handle cmdline arguments if any.
     // NOTE(HM) the first argument in cmdline, is just the full path to the exe, 
     // so if there's only one arg, there's no need to call handle_cmdline().
@@ -1390,6 +1386,9 @@ fn void! gameOnStart(String[]* args) @local
         handle_cmdline(args);
     }
     
+     // NOTE(HM) 
+    // This will save cvars in a global array for later looping through if needed
+    register_modulo_cvars();
     
     // ******* Main Game Start *******
     lgr::info(Where.FILE, "Initializing game:");
@@ -1413,18 +1412,17 @@ fn void! gameOnStart(String[]* args) @local
         local_game.app_name = fs::getFileNameWithoutExt(app_exe_path).tconcat("_app");
     }
     
-    // NOTE(HM) 
     // Detect and Setup the work directory folder,
-    // app_exe_path has the working dir encoded on it, but also includes the exe name, 
-    // rl::getWorkingDirectory() removes the name and gets the required path.
+    // NOTE(HM) app_exe_path has the working dir encoded on it, but also includes the exe name, 
+    //          rl::getWorkingDirectory() removes the name and gets the required path.
     // This also saves original work dir, in case a mod is being used.
     local_game.app_default_workdir = fs::getWorkingDirectory().tconcat("\\");
     if(fs::directoryExists(local_game.app_default_workdir)) {
         lgr::info(Where.FILE, "Working from default Dir: %s", local_game.app_default_workdir);
     } else { 
-        return GameError.INVALID_WORK_DIR?; 
+        return GameError.INVALID_WORK_DIR?; // will this ever happen? 
     }
-    // Detect and Setup the base folder where required game assets/data live
+    // Detect and Setup the base folder where required game assets/data live.
     local_game.app_default_base_folder = local_game.app_default_workdir.tconcat(fs_base.getString()).tconcat("\\");
     
     local_game.app_work_dir    = local_game.app_default_workdir;
@@ -1432,13 +1430,19 @@ fn void! gameOnStart(String[]* args) @local
     
     // NOTE(HM) support for mods.
     // WARNING(HM) This is needs more testing...
-    local_game.mod_set = fs_mod_name.getString().len > 0;
-    if(local_game.mod_set) {
+    bool using_mod     = fs_mod_name.getString().len > 0;
+    local_game.mod_set = using_mod; 
+    if(using_mod) 
+    {
         String mods_dir, mod_name, mod_work_dir, mod_base_folder;
         mod_name = fs_mod_name.getString();
-        assert(mod_name.len > 0, "trying to run a empty mod name");
+        if(mod_name <=2) 
+        {
+            lgr::warning(Where.FILE, "mod name: \"%s\" seems to be very small are you sure that is correct?", mod_name);
+        }
         mods_dir = local_game.app_default_workdir.tconcat("mods");
-        if(fs::directoryExists(mods_dir)) {
+        if(fs::directoryExists(mods_dir)) 
+        {
             mod_work_dir = mods_dir.tconcat("\\").tconcat(mod_name).tconcat("\\");
             // make sure this work dir exists as well
             if(fs::directoryExists(mod_work_dir)) {
