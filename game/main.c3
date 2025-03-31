@@ -213,21 +213,18 @@ editor     = "F1"
 `;
 // end_region Constants
 
-// region Defines
+// region Alias
 // DOC(HM) Alias definitions, always follow the same naming rules of the thing they are alising.
 // If alising a type the alias name, should start uppercase, if alising a function, it should start lowercase, 
 // if alising a Constant the alias also needs to be all caps, etc.
 
-// alias Types
 alias RColor         @public = rl::Color;
 alias RShader        @public = rl::Shader;
 alias StringTuple    @public = Tuple{String, String};
 alias IniFileCMDList = List{StringTuple*};
 alias asstManager    @public= astmng::assetManager;
 
-// alias function names
-
-// end_region Defines
+// end_region Alias
 
 // region Cvars
 Cvar developer    @public = { "developer"         , CvarType.BOOLEAN, "0",    "enables developer mode"};
