@@ -42,7 +42,7 @@ module game::gui::menu;
     main_menu_button.addTo(&main_menu);
 **/
 
-// region C3 modules
+// region modules
 import std::io;
 import std::core::mem; // for malloc
 import std::math::vector;
@@ -53,7 +53,7 @@ import game::main;
 import raylib5::rl;
 // end_region
 
-// region defines
+// region alias
 // end_region
 
 // region constants
@@ -65,7 +65,7 @@ fn Desktop* getActiveMenu() @local {
 
 fn void setGUI(Desktop* menu) {
     main::gpGame.guiActive = menu;
-    Desktop* guiActive = main::gpGame.guiActive;
+    Desktop* guiActive     = main::gpGame.guiActive;
 	if ( !guiActive ) {
 		return;
 	}

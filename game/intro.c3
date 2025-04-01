@@ -103,7 +103,6 @@ fn bool updateIntroAnimation(IntroAnimation* anim) {
         if(!stop_anim && anim.current_frame && anim.current_frame.end_time > 0 && 
            current_time <= anim.current_frame.end_time)
         {
-            anim.current_frame.image.update();
             return true;
         }
         else if(stop_anim) {

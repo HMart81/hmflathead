@@ -43,14 +43,14 @@ import game::serialize::svs; // save system
 import game::low_level::cvar;
 // end_region
 
-// region defines
+// region alias
 alias assetManager @private = astmng::assetManager;
 // end_region
 
 // region constants
 //const bool PANEL_PROFILE = true;
-const bool DEBUG_PANELS  = true;
-const int MIN_PANEL_SIZE = 32;
+const bool DEBUG_PANELS   = true;
+const int  MIN_PANEL_SIZE = 32;
 // end_region
 
 // region cvars
@@ -61,56 +61,45 @@ fn void register_cvars() @public {
 }
 // end_region
 
-struct Flags {
-    union {
-        bool isHidden;
-        bool should_hide;
-    }
-    bool isInteractive;
-    bool asFocus;
-}
-
-enum PanelShape {
+enum PanelShape : inline int 
+{
     BOX,
     ROUNDED_BOX
 }
 
-enum PanelKind {
-    BASIC,
-    IMAGE
-}
-
 /////////////////////////////////// ************** /////////////////////////
 
-// NOTE(HM) Panel is a data representing a big square or image, 
-// used for background images or single color rectangles...
+// NOTE(HM) Panel is a simple data structure representing a big square or image, 
+// used for background images or single color rectangles, buttons, etc...
 struct Panel (SaveSystemInterface)
 {
-    PanelKind kind;
-    Flags flags;
-    
-    struct visual {
-        PanelShape shape;
-        Rectangle rect;
-        Color color;
-        Texture2D* tex;
-    }
-    
+   PanelShape shape;
+   Rectangle  rect;
+   Color      color;
+   Texture2D* tex;
 }
 
 fn void Panel.save(&self, SaveFile* file) @dynamic {
-// todo
+    svs::writeInt(file, self.shape);
+    svs::writeRect(file, self.rect);
+    svs::writeColor(file, self.color);
+    // cannot save pointers
+    // cannot save Texture2D's because they are saved on GPU memoru
+    // TODO(HM) turn textures into a asset that can be saved and reloaded...
 }
 
 fn void Panel.reload(&self, SaveFile* file) @dynamic {
-// todo
+    int value;
+    svs::readInt(file, &value);
+    self.shape = PanelShape.from_ordinal(value);
+    svs::readRect(file, &self.rect);
+    svs::readColor(file, &self.color);
 }
 
 fn void Panel.initRec(&self, Rectangle rect, Color color = rl::COLOR_RED) @inline {
-    self.kind         = PanelKind.BASIC;
-    self.visual.shape = BOX;  // @hardcode
-    self.visual.rect  = rect;
-    self.visual.color = color;
+    self.shape = BOX;  // @hardcode
+    self.rect  = rect;
+    self.color = color;
 }
 
 fn void Panel.initV(&self, Vec2f pos, Vec2f size, RColor color) @inline {
@@ -124,196 +113,166 @@ fn void Panel.init(&self) @inline {
 }
 
 fn void Panel.deinit(&self) @inline {
-    self.hide();
-    if(self.visual.tex)     self.visual.tex = null;
+    if(self.tex) self.tex = null;
 }
 
-/*
+fn void Panel.setShape(&self, PanelShape shape) @inline => self.shape = shape;
+
 <*
-* @param [in] desk "desktop where this panel will live"
-* @require desk != null "Panel's require a desktop"
+    @param w_scaler "value to scale x coordinate with"
+    @param h_scaler "value to scale y coordinate with"
+    @require w_scaler >= 0.0 && w_scaler <= 1.0f
+    @require h_scaler >= 0.0 && h_scaler <= 1.0f
 *>
-fn void Panel.addTo(&self, Desktop* desk) @inline {
-    desk.addChild(any_make(self, Panel.typeid));
-    self.flags.isInteractive = desk.isInteractive;
-    self.id                  = (int)desk.children.len() + 1;
-    self.name                = string::tformat("%s_%s%d", desk.name, "Panel", self.id);
-    self.parent.desktop      = desk;
-}
-*/
-
-fn bool Panel.hidden(&self) @inline => self.flags.isHidden;
-
-
-//    WARNING(HM)
-//    If the 2D camera view is changed in any way besides moving in x and y
-//    like if the camera is zoomed or the camera is rotated, this will break.
-//    If so it will require conversion from world space coordinates to camera space.
-fn bool Panel.isMouseOver(&self)
-{
-    if (self.hidden()) return false;
-
-    // gets windows mouse position...
-    Vec2f mouseWorldPos = rl::getMousePosition().toVec2f();
-
-    // a small 32x32 pixels box
-    Vec2f mouse_size = main::getGameCursorSize();
-    Rectangle mouseRect = misc::@recFromVecs(mouseWorldPos, mouse_size);
-
-    if (rl::checkCollisionRecs(mouseRect, self.visual.rect)) return true;
-
-    return false;
+fn void Panel.scale(&self, float w_scaler, float h_scaler) @inline {
+    self.rect.width  *= w_scaler;
+    self.rect.height *= h_scaler;
 }
 
-fn void Panel.setShape(&self, PanelShape shape) @inline => self.visual.shape = shape;
-
-fn bool Panel.asFocus(&self) @inline => self.flags.asFocus;
-
-fn void Panel.scale(&self, float w, float h) @inline {
-    self.visual.rect.width  *= w;
-    self.visual.rect.height *= h;
-}
-
+<*
+    @param scale "vector to scale the panel with"
+    @require scale.x >= 0.0 && scale.x <= 1.0f
+    @require scale.y >= 0.0 && scale.y <= 1.0f
+*>
 fn void Panel.scaleV(&self, Vec2f scale) @inline {
     self.scale(scale.x, scale.y);
 }
 
+<*
+    @param amount "value to scale equaly both coordinates with"
+    @require amount >= 0.0 && amount <= 1.0f
+*>
 fn void Panel.scale_equaly(&self, float amount) @inline {
     self.scale(amount, amount);
 }
 
+<*
+    Sets the size of the Panel, units is in pixels.
+*>
 fn void Panel.setSize(&self, float w, float h) @inline {
-    self.visual.rect.width  = w;
-    self.visual.rect.height = h;
+    self.rect.width  = w;
+    self.rect.height = h;
 }
 
+<*
+    Sets the size of the Panel, vector units is in pixels.
+*>
 fn void Panel.setSizeV(&self, Vec2f scale) @inline {
     self.setSize(scale.x, scale.y);
 }
 
+<*
+    gets the size of the Panel, units is in pixels.
+*>
 fn Vec2f Panel.getSize(&self) @inline {
-    return { self.visual.rect.width, self.visual.rect.height };
+    return { self.rect.width, self.rect.height };
 }
 
+<*
+    gets the width of the Panel, units is in pixels.
+*>
 fn float Panel.getWidth(&self) @inline {
-    return self.visual.rect.width;
+    return self.rect.width;
 }
 
+<*
+    gets the height of the Panel, units is in pixels.
+*>
 fn float Panel.getHeight(&self) @inline {
-    return self.visual.rect.height;
+    return self.rect.height;
 }
 
+<*
+    replaces the position of the Panel, units is in pixels.
+*>
 fn void Panel.setPosition(&self, float x, float y) @inline {
-    self.visual.rect.x = x;
-    self.visual.rect.y = y;
+    self.rect.x = x;
+    self.rect.y = y;
 }
 
+<*
+    replaces position of the Panel, vector units is in pixels.
+*>
 fn void Panel.setPositionV(&self, Vec2f pos) @inline {
     self.setPosition(pos.x, pos.y);
 }
 
+<*
+    adds to existing position of the Panel, units is in pixels.
+*>
 fn void Panel.addToPosition(&self, float x, float y) @inline {
-    self.visual.rect.x += x;
-    self.visual.rect.y += y;
+    self.rect.x += x;
+    self.rect.y += y;
 }
 
+<*
+    adds to existing position of the Panel, vector units is in pixels.
+*>
 fn void Panel.addToPositionV(&self, Vec2f pos) @inline {
     self.addToPosition(pos.x, pos.y);
 }
 
+<*
+    gets current position of the Panel, vector units is in pixels.
+*>
 fn Vec2f Panel.getPosition(&self) @inline {
-    return { self.visual.rect.x, self.visual.rect.y };
+    return { self.rect.x, self.rect.y };
 }
 
 <*
-* @param in tex "texture to assign to the panel"
-* @require tex != null
+    @param [in] tex "texture to assign to the panel"
+    @require tex != null
 *>
 fn void Panel.setTexture(&self, Texture2D* tex) @inline {
-    self.visual.tex = tex;
-    self.kind = PanelKind.IMAGE;
+    self.tex = tex;
 }
 
-fn bool Panel.asTexture(&self) @inline => self.visual.tex != null;
+fn bool Panel.asTexture(&self) @inline => self.tex != null;
 
 fn bool Panel.isValid(&self) @inline {
-    if(self.visual.rect.width  >= MIN_PANEL_SIZE && 
-       self.visual.rect.height >= MIN_PANEL_SIZE ) return true;
+    if(self.rect.width  >= MIN_PANEL_SIZE && 
+       self.rect.height >= MIN_PANEL_SIZE ) return true;
        
     return false;
 }
 
-fn bool Panel.isWithinScreenBounds(&self) {
-    //if (self.hidden()) return false;
-
-    int w, h;
-    w = main::gpGame.screen.w;
-    h = main::gpGame.screen.h;
-
-    Rectangle screen_bounds = {
-    .x      = 0,
-    .y      = 0,
-    .width  = w,
-    .height = h
-    };
-
-    return rl::checkCollisionRecs(screen_bounds, self.visual.rect) ? true : false;
-}
-
-fn void Panel.hide(&self) @inline {
-    if(self.hidden()) return;
-    self.flags.isHidden = true;
-}
-
-fn void Panel.show(&self) @inline {
-    if(!self.hidden()) return;
-    self.flags.isHidden = false;
-}
-
-fn void Panel.update(&self) {
-    if(self.hidden()) return;
-
-    if (self.isMouseOver()) {
-        self.flags.asFocus = true;
-    } else {
-        self.flags.asFocus = false;
-    }
-}
-
 fn void Panel.draw(&self) {
-    if(self.hidden()) return;
     
     if(ui_debugDraw.getBool()) {
-        rl::drawRectangleLinesEx(self.visual.rect, 2.0f, rl::RED);
+        rl::drawRectangleLinesEx(self.rect, 2.0f, rl::RED);
     }
     
-    switch (self.kind) {
-        case BASIC:
-            if(self.visual.shape == BOX) {
-                misc::@drawRect(self.visual.rect, self.visual.color);
-            } else if(self.visual.shape == ROUNDED_BOX) {
-                rl::drawRectangleRounded(self.visual.rect, 0.65f, 6, self.visual.color);
-            }
-        case IMAGE:
-            // TODO(HM) find how to draw a image on a rounded rectangle!?
-            $if $feature(_DEBUG) :
-                assert(self.asTexture() == true);
-            $endif
-            if (rl::isTextureValid(*self.visual.tex)) {
-                Vec2f tex_size = {self.visual.tex.width, self.visual.tex.height};
-                Rectangle source = {0, 0, tex_size.x, tex_size.y};
-                // NOTE(HM) 
-                // center of the texture (rotation/scale point), it's relative to destination rectangle dimentions, not the screen
-                rl::drawTexturePro(*self.visual.tex, source, self.visual.rect, {0, 0}, 0.0f, self.visual.color);
-            }
+    if(self.asTexture()) {
+        // TODO(HM) find how to draw a image on a rounded rectangle!?
+        if (rl::isTextureValid(*self.tex)) {
+            Vec2f tex_size = {self.tex.width, self.tex.height};
+            Rectangle source = {0, 0, tex_size.x, tex_size.y};
+            // NOTE(HM) 
+            // center of the texture (rotation/scale point), it's relative to destination rectangle dimentions, not the screen
+            rl::drawTexturePro(*self.tex, source, self.rect, {0, 0}, 0.0f, self.color);
+        }
+    } else {
+        if(self.shape == BOX) {
+            misc::@drawRect(self.rect, self.color);
+        } else if(self.shape == ROUNDED_BOX) {
+            rl::drawRectangleRounded(self.rect, 0.65f, 6, self.color);
+        }
     }
 }
 
-//////////////// ************************ ////////////////////////
+//////////////// ******** WIDGET'S ******** ////////////////////////
 
 // NOTE(HM) Widget is a data structure representing anything inside a gui, like buttons and such.
 
-alias WidgetCallback = fn void(Widget*);
+
+struct WidgetFlags {
+    union {
+        bool isHidden;
+        bool should_hide;
+    }
+    bool isInteractive;
+    bool asFocus;
+}
 
 interface WidgetInterface
 {
@@ -321,7 +280,13 @@ interface WidgetInterface
     fn void initExt() @optional;
     fn void deinit();
     fn void update();
+    fn void hide();
+    fn void show();
     fn void draw();
+    fn bool asFocus();
+    fn bool hidden();
+    fn bool isMouseOver() @optional;
+    fn bool isWithinScreenBounds() @optional;
     fn void addTo(Desktop*, String);
     fn void setInteractive(bool);
     fn bool isInteractive();
@@ -339,7 +304,10 @@ interface WidgetInterface
 const KIND_TEXT    = 1;
 const KIND_BUTTON  = 2;
 
-struct Widget (WidgetInterface) {
+alias WidgetCallback = fn void(Widget*);
+
+struct Widget (WidgetInterface) 
+{
     // extends Panel (super/base class)
     inline Panel super;
     
@@ -347,6 +315,8 @@ struct Widget (WidgetInterface) {
     String name;
     int layer;
     int kind;
+    WidgetFlags flags;
+    
 
     Widget* next;
     struct parent {
@@ -376,10 +346,14 @@ fn void Widget.deinit(&self) @dynamic{
 }
 
 fn void Widget.update(&self) @dynamic {
-    self.super.update();
-    
     if(self.hidden()) return;
-     
+
+    if (self.isMouseOver()) {
+        self.flags.asFocus = true;
+    } else {
+        self.flags.asFocus = false;
+    }
+    
     if(self.bound()) {
         // if bound our position is updated to always be relative to the parent origin
         Vec2f parent_origin = self.parent.other.getPosition();
@@ -389,8 +363,61 @@ fn void Widget.update(&self) @dynamic {
     }
 }
 
+fn void Widget.hide(&self) @inline @dynamic {
+    if(self.hidden()) return;
+    self.flags.isHidden = true;
+}
+
+fn void Widget.show(&self) @inline @dynamic {
+    if(!self.hidden()) return;
+    self.flags.isHidden = false;
+}
+
 fn void Widget.draw(&self) @dynamic {
+    if(self.hidden()) return;
+    
     self.super.draw();
+}
+
+fn bool Widget.asFocus(&self) @inline @dynamic => self.flags.asFocus;
+fn bool Widget.hidden(&self)  @inline @dynamic => self.flags.isHidden;
+
+//    WARNING(HM)
+//    If the 2D camera view is changed in any way besides moving in x and y
+//    like if the camera is zoomed or the camera is rotated, this will break.
+//    If so it will require conversion from world space coordinates to camera space.
+fn bool Widget.isMouseOver(&self) @dynamic
+{
+    if (self.hidden()) return false;
+
+    // gets windows mouse position...
+    Vec2f mouseWorldPos = rl::getMousePosition().toVec2f();
+
+    // a small 32x32 pixels box
+    Vec2f mouse_size = main::getGameCursorSize();
+    Rectangle mouseRect = misc::@recFromVecs(mouseWorldPos, mouse_size);
+
+    if (rl::checkCollisionRecs(mouseRect, self.rect)) return true;
+
+    return false;
+}
+
+fn bool Widget.isWithinScreenBounds(&self) @dynamic
+{
+    //if (self.hidden()) return false;
+
+    int w, h;
+    w = main::gpGame.screen.w;
+    h = main::gpGame.screen.h;
+
+    Rectangle screen_bounds = {
+    .x      = 0,
+    .y      = 0,
+    .width  = w,
+    .height = h
+    };
+
+    return rl::checkCollisionRecs(screen_bounds, self.rect) ? true : false;
 }
 
 <*
@@ -492,7 +519,7 @@ fn void Widget.unlink(&self) @inline @dynamic {
 }
 
 fn void Widget.setColor(&self, Color color) @dynamic {
-    self.super.visual.color = color;
+    self.super.color = color;
 }
 
 /////////////////////////////////////// extra widgets //////////////////////////////////////////////////////
@@ -576,20 +603,20 @@ fn void WidgetText.draw(&self) @inline {
     {
     case CENTER:
         center = {
-            self.visual.rect.x + self.visual.rect.width / 2,
-            self.visual.rect.y + self.visual.rect.height / 2
+            self.rect.x + self.rect.width / 2,
+            self.rect.y + self.rect.height / 2
         };
         center.x -= (float)(self.text_len / 2);
         center.y -= (float)self.font_size / 2;
     case LEFT:
         center = {
-            self.visual.rect.x,
-            self.visual.rect.y
+            self.rect.x,
+            self.rect.y
         };
     case RIGHT:
         center = {
-            self.visual.rect.x + self.visual.rect.width,
-            self.visual.rect.y
+            self.rect.x + self.rect.width,
+            self.rect.y
         };
         center.x -= self.text_len;
     }

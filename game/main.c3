@@ -60,7 +60,7 @@ import game::effects::boid;
 // third party libraries
 import raylib5::rl;
 import raygui5::rgui;
-import tiny::xml;
+import thirdparty::library::xml;
 import engine::physics::box2d;
 // end_region
 

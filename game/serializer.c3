@@ -236,6 +236,7 @@ fn void	writeAsset(SaveFile* savefile, Asset* asset) {
 }
 
 // raylib structures
+
 <*
 * @param in savefile "the file to write the data to"
 * @param in tex      "the data to save"
@@ -256,6 +257,31 @@ fn void	writeTexture2D(SaveFile* savefile, Texture2D* tex) {
     writeInt(savefile, (*tex).mipmaps);
     writeInt(savefile, (*tex).format.ordinal);
 }
+
+<*
+* @param in savefile "the file to write the data to"
+* @param rect        "the data to save"
+* @require savefile != null
+*>
+fn void	writeRect(SaveFile* savefile, Rectangle rect) {
+    writeFloat(savefile, rect.x);
+    writeFloat(savefile, rect.y);
+    writeFloat(savefile, rect.width);
+    writeFloat(savefile, rect.height);
+}
+
+<*
+* @param in savefile "the file to write the data to"
+* @param clr        "the data to save"
+* @require savefile != null
+*>
+fn void	writeColor(SaveFile* savefile, Color clr) {
+    writeChar(savefile, clr.r);
+    writeChar(savefile, clr.g);
+    writeChar(savefile, clr.b);
+    writeChar(savefile, clr.a);
+}
+
 <*
 * @param in savefile "the file to write the data to"
 * @param in shd      "the data to save"
@@ -394,6 +420,30 @@ fn void readAsset(SaveFile* savefile, Asset* asset, typeid type) {
 
 
 fn void readTexture2D(SaveFile* file, Texture2D* tex ) {}
+
+<*
+* @param in savefile  "the file to read the data from"
+* @param [inout] rect "the adress to place the data into"
+* @require savefile != null && rect != null
+*>
+fn void	readRect(SaveFile* savefile, Rectangle* rect) {
+    readFloat(savefile, &rect.x);
+    readFloat(savefile, &rect.y);
+    readFloat(savefile, &rect.width);
+    readFloat(savefile, &rect.height);
+}
+
+<*
+* @param in savefile   "the file to read the data from"
+* @param [inout] clr   "the adress to place the data into"
+* @require savefile != null && clr != null
+*>
+fn void	readColor(SaveFile* savefile, Color* clr) {
+    readChar(savefile, &clr.r);
+    readChar(savefile, &clr.g);
+    readChar(savefile, &clr.b);
+    readChar(savefile, &clr.a);
+}
 
 //fn void readVec2( idVec2 &vec ) {}
 //fn void readVec3( idVec3 &vec ) {}

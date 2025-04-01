@@ -26,12 +26,13 @@
 # 
 *********************************************************************************************************************************************/
 
-module tiny::xml;
+module thirdparty::library::xml;
+
 import std::io;
 import std::collections;
 
 alias XmlAttributeList = List{XmlAttribute*};
-alias XmlNodeList = List{XmlNode*};
+alias XmlNodeList      = List{XmlNode*};
 
 faultdef ATTRIBUTE_NOT_FOUND;
 
@@ -58,7 +59,7 @@ fn XmlDoc*? read_file(File file, Allocator allocator = allocator::heap()) {
 	char[] buff = allocator::new_array(allocator, char, 2048);
 	defer allocator::free(allocator, buff);
 
-	XmlDoc* doc = allocator::new(allocator, XmlDoc);
+	XmlDoc* doc   = allocator::new(allocator, XmlDoc);
 	doc.allocator = allocator;
 
 	XmlReader* reader = new_reader(doc, allocator);
