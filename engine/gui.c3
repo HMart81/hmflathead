@@ -26,6 +26,12 @@
 # 
 *********************************************************************************************************************************************/
 
+
+/*
+    TODO: 
+        A ingame gui edit mode for easy placement of widgets
+        Perhaps even create a simple gui editor using raygui buttons and such...
+*/
 module engine::gui;
 
 // region modules
@@ -55,9 +61,12 @@ const int  MIN_PANEL_SIZE = 32;
 
 // region cvars
 Cvar ui_debugDraw @public = { "ui_debugDraw", CvarType.BOOLEAN, "1", "show debug visualization for gui development" };
+//Cvar ui_editGUI   @public = { "ui_editGUI", CvarType.BOOLEAN, "0", "turn on gui editing functionality for gui development" };
+
 
 fn void register_cvars() @public {
     cvar::@register(&ui_debugDraw);
+    //cvar::@register(&ui_editGUI);
 }
 // end_region
 
@@ -236,13 +245,10 @@ fn bool Panel.isValid(&self) @inline {
     return false;
 }
 
-fn void Panel.draw(&self) {
-    
-    if(ui_debugDraw.getBool()) {
-        rl::drawRectangleLinesEx(self.rect, 2.0f, rl::RED);
-    }
-    
-    if(self.asTexture()) {
+fn void Panel.draw(&self) 
+{
+    if(self.asTexture()) 
+    {
         // TODO(HM) find how to draw a image on a rounded rectangle!?
         if (rl::isTextureValid(*self.tex)) {
             Vec2f tex_size = {self.tex.width, self.tex.height};
@@ -622,10 +628,6 @@ fn void WidgetText.draw(&self) @inline {
     }
     
     rl::drawText(text, (int)center.x, (int)center.y, self.font_size, self.text_color);
-    
-    if(ui_debugDraw.getBool()) {
-       rl::drawCircle((int)center.x, (int)center.y, 1.0f, rl::RED);
-    }
 }
 
 <*
@@ -772,17 +774,23 @@ fn WidgetButton* createButton(String name, Desktop* menu) {
 //////////////////////////////////// DESKTOP //////////////////////////////////////
 
 /*
-    GUI creation process:
+    NOTE(HM) 
+    
+    A Desktop can be thought like a OS desktop, a place 
+        where you put all icons, buttons and windows.
+    Is where the entire GUI construct lives.
+    
+    BASIC GUI creation process:
     
     - Create a Desktop
-    gui::Desktop main_menu;
+        gui::Desktop main_menu;
     - init the Desktop
-    main_menu.ini(...);
-    - create any children panels/widgets
-    gui::WidgetButton main_menu_button;
+        main_menu.ini(...);
+    - create any widgets
+        gui::WidgetButton main_menu_button;
     - init the Widget and add it to Desktop
-    main_menu_button.init();
-    main_menu_button.addTo(&main_menu);
+        main_menu_button.init();
+        main_menu_button.addTo(&main_menu);
 */
 
 alias ChildrenQueue = List{Widget*};
@@ -803,7 +811,7 @@ struct Desktop (SaveSystemInterface) {
     bool active;
     bool loading; // when eventually we load guis from a file
     //
-    // to handle timing while the menu is open/active
+    // to handle timing while the desktop is open/active
     int time; // milliseconds
     
     // Lists
@@ -886,6 +894,7 @@ fn void Desktop.init(&self, String name) @inline {
     self.name = string::tformat("Desktop_%s", name);
     //
     //
+    assert(rl::isWindowReady() == true);
     self.rect = { // @hardcode
         .x      = 0,
         .y      = 0, 
@@ -937,10 +946,14 @@ fn String Desktop.getName(&self) @inline => self.name;
 fn void Desktop.setColor(&self, Color color) @inline => self.color = color;
 
 // delete all down to the basic desktop
-fn void Desktop.clear(&self) @inline {
-    if (self.children.len()) {
-        foreach(child: self.children) {
-            switch (child.kind) {
+fn void Desktop.clear(&self) @inline
+{
+    if (self.children.len()) 
+    {
+        foreach(child: self.children) 
+        {
+            switch (child.kind) 
+            {
                 case KIND_BUTTON:
                     ((WidgetButton*)child).deinit(); 
                 case KIND_TEXT:
@@ -954,12 +967,16 @@ fn void Desktop.clear(&self) @inline {
 
 fn bool Desktop.hidden(&self) @inline => !self.visible;
 
-fn void Desktop.update(&self) {
+fn void Desktop.update(&self) 
+{
     if(self.hidden()) return;
     
-    if (self.children.len()) {
-        foreach(child: self.children) {
-            switch (child.kind) {
+    if (self.children.len()) 
+    {
+        foreach(child: self.children) 
+        {
+            switch (child.kind) 
+            {
                 case KIND_BUTTON:
                     ((WidgetButton*)child).update(); 
                 case KIND_TEXT:
@@ -971,16 +988,20 @@ fn void Desktop.update(&self) {
     }
 }
 
-fn void Desktop.hide(&self) {
+fn void Desktop.hide(&self) 
+{
     if(self.hidden()) return;
     
     self.visible = false;
 
     // hide children
     
-    if (self.children.len()) {
-        foreach(child: self.children) {
-           switch (child.kind) {
+    if (self.children.len()) 
+    {
+        foreach(child: self.children) 
+        {
+           switch (child.kind) 
+           {
                 case KIND_BUTTON:
                     ((WidgetButton*)child).hide(); 
                 case KIND_TEXT:
@@ -1054,6 +1075,8 @@ fn void Desktop.redraw(&self, int _time)  {
             }
         }
     }
+    
+    self.debug();
 }
 
 fn void Desktop.draw(&self, int time) {
@@ -1066,6 +1089,71 @@ fn void Desktop.draw(&self, int time) {
 
 fn void Desktop.addChild(&self, Widget* child) @inline @local {
     self.children.push(child);
+}
+
+fn void Desktop.debug(&self) 
+{
+    if(ui_debugDraw.getBool()) 
+    {
+        int scr_w, scr_h;
+        float lineThick  = 1.0f;
+        scr_w = main::gpGame.screen.w;
+        scr_h = main::gpGame.screen.h;
+/*
+        Vec2f w_startPos; // = {0, 0};
+        Vec2f h_startPos; // = {0, 0};
+        // draw a background grid
+        for(int i = 0; i < scr_w; i++) {
+            for(int j = 0; j < scr_h; j++) {
+                rl::drawLineEx( 
+                    h_startPos.toVector2(), 
+                    (h_startPos + misc::VEC_RIGHT * scr_w).toVector2(), 
+                    lineThick, rl::GRAY
+                );
+                float h_line_seperation = (0.05f * scr_w);
+                h_startPos += (Vec2f){h_line_seperation, 0};
+            }
+            rl::drawLineEx(
+                w_startPos.toVector2(), 
+                (w_startPos + misc::VEC_DOWN * scr_h).toVector2(), 
+                lineThick, rl::GRAY
+            );
+            float w_line_seperation = (0.05f * scr_h);
+            w_startPos += (Vec2f){0, w_line_seperation};
+        }
+*/
+        // draw a react around the destop area itself
+        rl::drawRectangleLinesEx(self.rect, 2.0f, rl::RED);
+        // show destop name
+        Vec2f dbg_text_pos;
+        dbg_text_pos += misc::VEC_RIGHT * (0.10f * scr_w);
+        dbg_text_pos += misc::VEC_DOWN * (0.05f * scr_h);
+        String desktop_name = string::tformat("GUI: \"%s\"", self.name);
+        rl::drawText(desktop_name.zstr_tcopy(), (int)dbg_text_pos.x, (int)dbg_text_pos.y, 9, rl::RED);
+        // show destop time
+        dbg_text_pos += misc::VEC_DOWN * (0.025f * scr_h);
+        String time = string::tformat("GUI TIME: \"%s\"", self.time);
+        rl::drawText(time.zstr_tcopy(), (int)dbg_text_pos.x, (int)dbg_text_pos.y, 9, rl::RED);
+        
+        // draw the children BBox
+        // now handle our children
+        if (self.children.len()) 
+        {
+            foreach(child: self.children)
+            {
+               dbg_text_pos = {child.rect.x, child.rect.y};
+               dbg_text_pos += misc::VEC_UP * (0.30f * child.rect.height); 
+               rl::drawText(
+                    string::tformat("(w:%dpx, h:%dpx) : (w:%d%%, h:%d%%)", child.rect.x, child.rect.y, 
+                    ((child.rect.x * 100) / scr_w), ((child.rect.y * 100) / scr_h)).zstr_tcopy(),
+                    (int)dbg_text_pos.x, (int)dbg_text_pos.y, 9, rl::RED
+               );
+               // draw widget center
+               rl::drawCircle((int)child.rect.x, (int)child.rect.y, 2.0f, rl::SKYBLUE);
+               rl::drawRectangleLinesEx(child.rect, 1.5f, rl::RED);
+            }
+        }
+    }
 }
 
 
