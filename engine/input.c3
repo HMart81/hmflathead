@@ -141,7 +141,7 @@ fn bool Action.fnIsTriggered(&self) @dynamic
             if (rl::isKeyPressed(self.keyboard.key1)) 
             {
                 if(hasExtKey) {
-                   return (rl::isKeyPressed(self.keyboard.key2)) ? true : false;
+                   return rl::isKeyDown(self.keyboard.key2);
                 }
                 
                 return true;
@@ -151,7 +151,7 @@ fn bool Action.fnIsTriggered(&self) @dynamic
             {
                 bool hasExtKey = self.keyboard.key2 != rl::KEY_NULL;
                 if(hasExtKey) {
-                   return (rl::isKeyPressed(self.keyboard.key2)) ? true : false;
+                   return rl::isKeyDown(self.keyboard.key2);
                 }
                 
                 return true;
@@ -282,7 +282,7 @@ fn void makeKeyboardAction(String name, KeyboardKey key1, KeyboardKey key2 = rl:
 * @param [in] func "pointer to function to call"
 * @require func != null "A action requires a function to do anything"
 *>
-fn void makeMouseAction(String name, MouseButton btn, KeyboardKey key, ActionCallBack func)  @inline
+fn void makeMouseAction(String name, MouseButton btn, KeyboardKey key = rl::KEY_NULL, ActionCallBack func = null)  @inline
 {
     Action* action       = mem::new(Action);
     action.type          = Action.typeid;
@@ -517,11 +517,6 @@ fn void ActionManager.remove(&self, Action* action) @inline {
 }
 
 fn void ActionManager.update(&self) @inline {
-
-$if $defined(ACTION_PROFILE):
-    ProfileInfo* info = @start_profile_zone("Actions update");
-    defer @end_profile_zone(*info);
-    $endif
 
     float dt = main::gpGame.dt;
 

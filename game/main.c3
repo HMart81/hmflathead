@@ -878,7 +878,9 @@ fn EscReply handleESC( Desktop** gui ) {
 	return EscReply.ESC_MAIN;
 }
 
-fn void gameHandleGeneralControls() @local {
+fn void gameHandleGeneralControls() @local 
+{
+    input::gpManager.update();
     
     if(rl::isKeyPressed(rl::KEY_F1) && !local_game.msgbox_showing) {
         local_game.msgbox_showing = true;
@@ -966,7 +968,7 @@ fn void gameHandleGeneralControls() @local {
     }
 */
 
-    input::gpManager.update();
+    
     
     if(input::Action* action = input::getAction("particles")) {
         if(action.fnBecameTriggered()) {
@@ -991,8 +993,6 @@ fn void gameHandleGeneralControls() @local {
 
 fn void gameUpdate() @local 
 {
-    //float gameUpdate_st = @start_profile_zone();
-    //defer @end_profile_zone(gameUpdate_st);
     misc::@profile_zone("Game Update")
     {
         // make game run at lower rate in case window loses focus
@@ -2163,24 +2163,27 @@ fn void quitGame() @inline @public {
 
 fn void gameDoOneFrame() @local
 {
-    while(rl::windowShouldClose() != true) 
+    misc::@profile_zone("Game Loop")
     {
-        float gameDoOneFrame_st = @start_profile_zone();
-        defer @end_profile_zone(gameDoOneFrame_st);
-        
-        if(local_game.should_quit) break;
-        
-        // update game timing
-        local_game.dt       = rl::getFrameTime(); // last frame time
-        local_game.time_sec = (float)rl::getTime();
-        local_game.time_ms  = misc::sec2ms(local_game.time_sec);
+        while(rl::windowShouldClose() != true) 
+        {
+            float gameDoOneFrame_st = @start_profile_zone();
+            defer @end_profile_zone(gameDoOneFrame_st);
+            
+            if(local_game.should_quit) break;
+            
+            // update game timing
+            local_game.dt       = rl::getFrameTime(); // last frame time
+            local_game.time_sec = (float)rl::getTime();
+            local_game.time_ms  = misc::sec2ms(local_game.time_sec);
 
-        int screen_w = rl::getScreenWidth();
-        int screen_h = rl::getScreenHeight();
-        
-        gameUpdate();
-        gameDraw(screen_w, screen_h);
-    }
+            int screen_w = rl::getScreenWidth();
+            int screen_h = rl::getScreenHeight();
+            
+            gameUpdate();
+            gameDraw(screen_w, screen_h);
+        }
+    };
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////

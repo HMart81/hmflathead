@@ -40,6 +40,7 @@ import std::core::mem; // for malloc
 import std::math;
 import std::collections::list;
 import engine::misc;
+import engine::input;
 import engine::assets::astmng; // asset manager
 import engine::logging::lgr;
 import game::main;
@@ -85,11 +86,13 @@ struct Panel (SaveSystemInterface)
 {
    PanelShape shape;
    Rectangle  rect;
-   Color      color;
+   Color      color; // main color
+   Color      selected_color; // for gui editor functionality
    Texture2D* tex;
 }
 
-fn void Panel.save(&self, SaveFile* file) @dynamic {
+fn void Panel.save(&self, SaveFile* file) @dynamic 
+{
     svs::writeInt(file, self.shape);
     svs::writeRect(file, self.rect);
     svs::writeColor(file, self.color);
@@ -98,7 +101,8 @@ fn void Panel.save(&self, SaveFile* file) @dynamic {
     // TODO(HM) turn textures into a asset that can be saved and reloaded...
 }
 
-fn void Panel.reload(&self, SaveFile* file) @dynamic {
+fn void Panel.reload(&self, SaveFile* file) @dynamic 
+{
     int value;
     svs::readInt(file, &value);
     self.shape = PanelShape.from_ordinal(value);
@@ -106,25 +110,26 @@ fn void Panel.reload(&self, SaveFile* file) @dynamic {
     svs::readColor(file, &self.color);
 }
 
-fn void Panel.initRec(&self, Rectangle rect, Color color = rl::COLOR_RED) @inline {
+fn void Panel.initRec(&self, Rectangle rect, Color color = rl::COLOR_RED) @inline 
+{
     self.shape = BOX;  // @hardcode
     self.rect  = rect;
     self.color = color;
 }
 
-fn void Panel.initV(&self, Vec2f pos, Vec2f size, RColor color) @inline {
+fn void Panel.initV(&self, Vec2f pos, Vec2f size, RColor color) @inline 
+{
     Rectangle temp = {pos.x, pos.y, size.x, size.y};
     self.initRec(temp, color);
 }
 
-fn void Panel.init(&self) @inline {
+fn void Panel.init(&self) @inline 
+{
     Rectangle temp = {0, 0, MIN_PANEL_SIZE, MIN_PANEL_SIZE};
     self.initRec(temp, rl::WHITE);
 }
 
-fn void Panel.deinit(&self) @inline {
-    if(self.tex) self.tex = null;
-}
+fn void Panel.deinit(&self) @inline {if(self.tex) self.tex = null;}
 
 fn void Panel.setShape(&self, PanelShape shape) @inline => self.shape = shape;
 
@@ -134,7 +139,8 @@ fn void Panel.setShape(&self, PanelShape shape) @inline => self.shape = shape;
     @require w_scaler >= 0.0 && w_scaler <= 1.0f
     @require h_scaler >= 0.0 && h_scaler <= 1.0f
 *>
-fn void Panel.scale(&self, float w_scaler, float h_scaler) @inline {
+fn void Panel.scale(&self, float w_scaler, float h_scaler) @inline 
+{
     self.rect.width  *= w_scaler;
     self.rect.height *= h_scaler;
 }
@@ -144,22 +150,19 @@ fn void Panel.scale(&self, float w_scaler, float h_scaler) @inline {
     @require scale.x >= 0.0 && scale.x <= 1.0f
     @require scale.y >= 0.0 && scale.y <= 1.0f
 *>
-fn void Panel.scaleV(&self, Vec2f scale) @inline {
-    self.scale(scale.x, scale.y);
-}
+fn void Panel.scaleV(&self, Vec2f scale) @inline => self.scale(scale.x, scale.y);
 
 <*
     @param amount "value to scale equaly both coordinates with"
     @require amount >= 0.0 && amount <= 1.0f
 *>
-fn void Panel.scale_equaly(&self, float amount) @inline {
-    self.scale(amount, amount);
-}
+fn void Panel.scale_equaly(&self, float amount) @inline => self.scale(amount, amount);
 
 <*
     Sets the size of the Panel, units is in pixels.
 *>
-fn void Panel.setSize(&self, float w, float h) @inline {
+fn void Panel.setSize(&self, float w, float h) @inline 
+{
     self.rect.width  = w;
     self.rect.height = h;
 }
@@ -167,30 +170,22 @@ fn void Panel.setSize(&self, float w, float h) @inline {
 <*
     Sets the size of the Panel, vector units is in pixels.
 *>
-fn void Panel.setSizeV(&self, Vec2f scale) @inline {
-    self.setSize(scale.x, scale.y);
-}
+fn void Panel.setSizeV(&self, Vec2f scale) @inline => self.setSize(scale.x, scale.y);
 
 <*
     gets the size of the Panel, units is in pixels.
 *>
-fn Vec2f Panel.getSize(&self) @inline {
-    return { self.rect.width, self.rect.height };
-}
+fn Vec2f Panel.getSize(&self) @inline => { self.rect.width, self.rect.height };
 
 <*
     gets the width of the Panel, units is in pixels.
 *>
-fn float Panel.getWidth(&self) @inline {
-    return self.rect.width;
-}
+fn float Panel.getWidth(&self) @inline => self.rect.width;
 
 <*
     gets the height of the Panel, units is in pixels.
 *>
-fn float Panel.getHeight(&self) @inline {
-    return self.rect.height;
-}
+fn float Panel.getHeight(&self) @inline => self.rect.height;
 
 <*
     replaces the position of the Panel, units is in pixels.
@@ -203,9 +198,7 @@ fn void Panel.setPosition(&self, float x, float y) @inline {
 <*
     replaces position of the Panel, vector units is in pixels.
 *>
-fn void Panel.setPositionV(&self, Vec2f pos) @inline {
-    self.setPosition(pos.x, pos.y);
-}
+fn void Panel.setPositionV(&self, Vec2f pos) @inline => self.setPosition(pos.x, pos.y);
 
 <*
     adds to existing position of the Panel, units is in pixels.
@@ -218,24 +211,18 @@ fn void Panel.addToPosition(&self, float x, float y) @inline {
 <*
     adds to existing position of the Panel, vector units is in pixels.
 *>
-fn void Panel.addToPositionV(&self, Vec2f pos) @inline {
-    self.addToPosition(pos.x, pos.y);
-}
+fn void Panel.addToPositionV(&self, Vec2f pos) @inline => self.addToPosition(pos.x, pos.y);
 
 <*
     gets current position of the Panel, vector units is in pixels.
 *>
-fn Vec2f Panel.getPosition(&self) @inline {
-    return { self.rect.x, self.rect.y };
-}
+fn Vec2f Panel.getPosition(&self) @inline => { self.rect.x, self.rect.y };
 
 <*
     @param [in] tex "texture to assign to the panel"
     @require tex != null
 *>
-fn void Panel.setTexture(&self, Texture2D* tex) @inline {
-    self.tex = tex;
-}
+fn void Panel.setTexture(&self, Texture2D* tex) @inline => self.tex = tex;
 
 fn bool Panel.asTexture(&self) @inline => self.tex != null;
 
@@ -246,7 +233,8 @@ fn bool Panel.isValid(&self) @inline {
     return false;
 }
 
-fn void Panel.draw(&self) 
+
+fn void Panel.draw(&self, bool selected = false)
 {
     if(self.asTexture()) 
     {
@@ -256,13 +244,13 @@ fn void Panel.draw(&self)
             Rectangle source = {0, 0, tex_size.x, tex_size.y};
             // NOTE(HM) 
             // center of the texture (rotation/scale point), it's relative to destination rectangle dimentions, not the screen
-            rl::drawTexturePro(*self.tex, source, self.rect, {0, 0}, 0.0f, self.color);
+            rl::drawTexturePro(*self.tex, source, self.rect, {0, 0}, 0.0f, (selected) ? self.selected_color : self.color);
         }
     } else {
         if(self.shape == BOX) {
-            misc::@drawRect(self.rect, self.color);
+            misc::@drawRect(self.rect, (selected) ? self.selected_color : self.color);
         } else if(self.shape == ROUNDED_BOX) {
-            rl::drawRectangleRounded(self.rect, 0.65f, 6, self.color);
+            rl::drawRectangleRounded(self.rect, 0.65f, 6, (selected) ? self.selected_color : self.color);
         }
     }
 }
@@ -279,6 +267,7 @@ struct WidgetFlags {
     }
     bool isInteractive;
     bool asFocus;
+    bool selected;  // for the editor
 }
 
 interface WidgetInterface
@@ -343,6 +332,9 @@ struct Widget (WidgetInterface)
 
 fn void Widget.init(&self) @dynamic {
     self.super.init();
+    
+    // key actions
+    input::makeMouseAction("editor_select", MouseButton.LEFT, rl::KEY_LEFT_SHIFT);
 }
 
 fn void Widget.deinit(&self) @dynamic{
@@ -364,9 +356,7 @@ fn void Widget.update(&self) @dynamic {
     if(self.bound()) {
         // if bound our position is updated to always be relative to the parent origin
         Vec2f parent_origin = self.parent.other.getPosition();
-        Vec2f old_offset    = self.getPosition() - parent_origin;
-        Vec2f new_offset    = parent_origin + old_offset;
-        self.setPositionV(new_offset);
+        self.setPositionV(self.getPosition() + parent_origin);
     }
 }
 
@@ -380,10 +370,41 @@ fn void Widget.show(&self) @inline @dynamic {
     self.flags.isHidden = false;
 }
 
+// Function to calculate the color based on time
+fn Color selected_color_anim(Widget* wgt) @inline @local
+{
+    if(!wgt) return {0, 0, 0, 1};
+    
+    assert(wgt.parent.desktop != null);
+    int time = wgt.parent.desktop.time;
+    int flicker_milliseconds = 200;
+    
+    Color color;
+    int r,g,b,a;
+    //r = (int) (math::sin(time / 100) + 1) * 128 + 127;
+    //g = (int) (math::cos(time / 50) + 1) * 128 + 127;
+    //b = (int) (math::sin(time / 20) + 255) * 128 + 127;
+    r = wgt.color.r;
+    g = wgt.color.g;
+    b = wgt.color.b;
+    color.r = (char) r;
+    color.g = (char) g;
+    color.b = (char) b;
+    //color.a = 0xFF;
+    color.a = (char) (math::sin(time / flicker_milliseconds) + 1) * 128 + 127;
+    
+    return color;
+}
+
 fn void Widget.draw(&self) @dynamic {
     if(self.hidden()) return;
     
-    self.super.draw();
+    if(self.selected())
+    {
+        self.setSelectedColor(selected_color_anim(self));
+    }
+    
+    self.super.draw(self.selected());
 }
 
 fn bool Widget.asFocus(&self) @inline @dynamic => self.flags.asFocus;
@@ -528,6 +549,28 @@ fn void Widget.unlink(&self) @inline @dynamic {
 fn void Widget.setColor(&self, Color color) @dynamic {
     self.super.color = color;
 }
+
+fn void Widget.setSelectedColor(&self, Color color) @dynamic {
+    self.super.selected_color = color;
+}
+
+// editor functions
+fn void Widget.select(&self) @inline @local
+{
+    if(self.flags.selected) return;
+    
+    self.flags.selected = true;
+    //lgr::info(Where.CONSOLE, "Selected: %s", self.name);
+}
+
+fn void Widget.deselect(&self) @inline @local
+{
+    if(!self.flags.selected) return;
+    
+    self.flags.selected = false;
+}
+
+fn bool Widget.selected(&self) @inline @local => self.flags.selected;
 
 /////////////////////////////////////// extra widgets //////////////////////////////////////////////////////
 
@@ -709,12 +752,32 @@ fn void WidgetButton.onEnterKey(&self) @inline {
 }
 */
 
+fn void WidgetButton.editor_interactions(&self) @local
+{
+    if (self.isInteractive()) return;
+    
+    if (self.asFocus())
+    {
+        if (input::Action* action = input::getAction("editor_select")) {
+            if(action.fnIsTriggered()) self.select();
+        }
+    }
+}
 
-fn void WidgetButton.manage_interactions(&self) @local{
+fn void WidgetButton.manage_interactions(&self) @local 
+{
+    if(editor_enabled()) {
+        if(self.isInteractive()) self.setInteractive(false);
+        
+        self.editor_interactions();
+    } else {
+        if(self.isInteractive() == false) self.setInteractive(true);
+    }
+    
     if (self.isInteractive() == false) return;
 
     //main::lgr::info(Where.CONSOLE, "Gui: I'm over button: %s", self.name);
-    if (self.asFocus()) 
+    if (self.asFocus() && self.flags.selected == false)
     {
         if(self.onOver) self.onOver(self);
 
@@ -1256,7 +1319,6 @@ fn void DesktopManager.editor(&self, bool choice = false) {
 
 // region GUI EDITOR ****************************
 
-
 const GUIE_MAJOR    = 0;
 const GUIE_MINOR    = 1;
 const GUIE_REVISION = 0;
@@ -1276,8 +1338,37 @@ fn void disable_edit_mode() @inline {
 
 fn bool editor_enabled() @inline => local_manager.mode == EDITOR;
 
+fn void editor_move_selected(Widget* wgt)
+{
+    if(!wgt) return;
+    
+    float move_speed = 1.5f;
+    if(rl::isKeyDown(rl::KEY_RIGHT)) {
+        wgt.addToPositionV(misc::VEC_RIGHT * move_speed);
+    }
+    if(rl::isKeyDown(rl::KEY_LEFT)) {
+        wgt.addToPositionV(misc::VEC_LEFT * move_speed);
+    }
+    if(rl::isKeyDown(rl::KEY_UP)) {
+        wgt.addToPositionV(misc::VEC_UP * move_speed);
+    }
+    if(rl::isKeyDown(rl::KEY_DOWN)) {
+        wgt.addToPositionV(misc::VEC_DOWN * move_speed);
+    }
+}
+
 fn void updateGuiEditor(Desktop* mng) {
     if(!mng || editor_enabled() == false) return;
+    
+    foreach(wgt : mng.children) {
+        if(wgt.selected()) {
+            if(rl::isKeyPressed(rl::KEY_ESCAPE)) {
+                wgt.deselect();
+            } else {
+                editor_move_selected(wgt);
+            }
+        }
+    }
 }
 
 fn void drawGuiEditor(Desktop* mng) {
