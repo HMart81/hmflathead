@@ -718,6 +718,7 @@ fn void drawWorkInProgressMessage(int screen_w, int screen_h) @local
 
 fn void drawGUIDebugInfo(int screen_w, int screen_h) @local
 {
+    if(gui::editor_enabled()) return;
     //if (!ui_debugDraw.getBool()) return;
     
     ZString slot1;
@@ -890,14 +891,14 @@ fn void gameHandleGeneralControls() @local
         local_game.pause_phys_simulation = !local_game.pause_phys_simulation;
     }
     
-    // Enable ingame gui editor
-    if(rl::isKeyPressed(rl::KEY_F3)) {
+    if(input::Action* enable_gui_editor = input::getAction("edit_gui")) {
         //local_game.testTimer.init(5.0f);
-        if(main::gpGame.guiActive) {
+        if(enable_gui_editor.fnIsTriggered() && main::gpGame.guiActive) 
+        {
             if(gui::editor_enabled()) {
-                gui::disable_edit_mode();
+                gui::editor_close();
             } else {
-                gui::enable_edit_mode();
+                gui::editor_open();
             }
         }
     }
@@ -1944,6 +1945,8 @@ $endif
     input::makeKeyboardAction("quickload", rl::KEY_F9, rl::KEY_NULL, (ActionCallBack)&loadGame);
     
     input::makeKeyboardAction("particles", rl::KEY_INSERT);
+    // ingame gui editor
+    input::makeKeyboardAction("edit_gui", rl::KEY_F3);
     
     input::listActions();
     

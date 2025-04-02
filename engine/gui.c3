@@ -396,12 +396,54 @@ fn Color selected_color_anim(Widget* wgt) @inline @local
     return color;
 }
 
+fn void draw_origin_coordinates(Widget* wgt) @local @inline {
+    if(!wgt.selected()) return;
+    
+    int scr_w, scr_h;
+    float lineThick  = 1.0f;
+    scr_w = main::gpGame.screen.w;
+    scr_h = main::gpGame.screen.h;
+    
+    Vec2f widget_center = wgt.getPosition();
+    Vec2f widget_size   = wgt.getSize();
+    
+    // draw widget BBox and coordinates values
+    Vec2f dbg_text_pos = widget_center;
+    dbg_text_pos += misc::VEC_UP * (0.40f * widget_size.y);
+    rl::drawText(
+        string::tformat("(w:%dpx, h:%dpx) : (w:%d%%, h:%d%%)", widget_center.x, widget_center.y, 
+        ((widget_center.x * 100) / scr_w), ((widget_center.y * 100) / scr_h)).zstr_tcopy(),
+        (int)dbg_text_pos.x, (int)dbg_text_pos.y, 16, rl::RED
+    );
+    // draw widget center
+    rl::drawCircle((int)widget_center.x, (int)widget_center.y, 2.0f, rl::SKYBLUE);
+    
+    // draw lines going from widget center to the screen ends
+    rl::drawLineEx(widget_center.toVector2(),
+        (widget_center + misc::VEC_LEFT * (scr_w - widget_center.x)).toVector2(),
+        lineThick, rl::RED
+    );
+    rl::drawLineEx(widget_center.toVector2(),
+        (widget_center + misc::VEC_RIGHT * (scr_w - widget_center.x)).toVector2(),
+        lineThick, rl::RED
+    );
+    rl::drawLineEx(widget_center.toVector2(),
+        (widget_center + misc::VEC_UP * (scr_h - widget_center.y)).toVector2(),
+        lineThick, rl::RED
+    );
+    rl::drawLineEx(widget_center.toVector2(),
+        (widget_center + misc::VEC_DOWN * (scr_h - widget_center.y)).toVector2(),
+        lineThick, rl::RED
+    );
+}
+
 fn void Widget.draw(&self) @dynamic {
     if(self.hidden()) return;
     
     if(self.selected())
     {
         self.setSelectedColor(selected_color_anim(self));
+        draw_origin_coordinates(self);
     }
     
     self.super.draw(self.selected());
@@ -1205,6 +1247,8 @@ fn void Desktop.debug(&self)
         {
             foreach(child: self.children)
             {
+               if(child.selected()) continue;
+               
                dbg_text_pos = {child.rect.x, child.rect.y};
                dbg_text_pos += misc::VEC_UP * (0.30f * child.rect.height); 
                rl::drawText(
@@ -1328,13 +1372,18 @@ macro bool drawEditorButton(String text, Vector2 pos) @local
     return rgui::button({pos.x, pos.y, 120, 30}, string::tformat("#191#%s", text).zstr_tcopy());
 }
 
-fn void enable_edit_mode() @inline {
+fn void editor_open() @inline {
     ui_editGUI.set("1");
 }
 
-fn void disable_edit_mode() @inline {
+fn void editor_close() @inline {
     ui_editGUI.set("0");
+    if(editor_is_widget_debug_on()) editor_disable_widget_debug();
 }
+
+fn void editor_enable_widget_debug()  @local @inline => ui_debugDraw.set("1");
+fn void editor_disable_widget_debug() @local @inline => ui_debugDraw.set("0");
+fn bool editor_is_widget_debug_on()   @local @inline => ui_debugDraw.getBool();
 
 fn bool editor_enabled() @inline => local_manager.mode == EDITOR;
 
@@ -1378,26 +1427,29 @@ fn void drawGuiEditor(Desktop* mng) {
     scr_w = main::gpGame.screen.w;
     scr_h = main::gpGame.screen.h;
     
+    float left_marging = 0.025f * scr_w;
+    float top_margin   = 0.05f  * scr_h;
+    
     String editor_version = string::tformat("GUI EDITOR v: %s.%s.%s", GUIE_MAJOR, GUIE_MINOR, GUIE_REVISION);
-    rgui::label({0.05f * scr_w, 0.95f * scr_h, 120, 30}, editor_version.zstr_tcopy());
-        
+    rgui::label({left_marging, top_margin, 120, 30}, editor_version.zstr_tcopy());
+    
     // gui debug on off
-    if(drawEditorButton("Gui Debug", {0.10f * scr_w, 0.10f * scr_h})) {
-        if(ui_debugDraw.getBool()) {
-            ui_debugDraw.set("0"); 
+    if(drawEditorButton("Gui Debug", {left_marging, top_margin * 2})) {
+        if(editor_is_widget_debug_on()) {
+            editor_disable_widget_debug();
         } else {
-            ui_debugDraw.set("1");
+            editor_enable_widget_debug();
         }
     }
     
      // gui saving 
-    if(drawEditorButton("Gui SAVE", {0.10f * scr_w, 0.15f * scr_h})) {
+    if(drawEditorButton("Gui SAVE", {left_marging, top_margin * 3})) {
          lgr::info(Where.CONSOLE, "Trying to save gui \"%s\" but that is still not possible.", mng.name);
     }
     
-    // quit editor
-    if(drawEditorButton("Gui SAVE", {0.10f * scr_w, 0.15f * scr_h})) {
-         lgr::info(Where.CONSOLE, "Trying to save gui \"%s\" but that is still not possible.", mng.name);
+    // close editor
+    if(drawEditorButton("Gui CLOSE", {left_marging, top_margin * 4})) {
+        editor_close();
     }
 }
 
