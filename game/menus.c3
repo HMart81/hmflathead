@@ -50,7 +50,7 @@ import std::collections::list;
 import engine::gui;
 import engine::misc;
 import game::main;
-import raylib5::rl;
+import thirdparty::raylib5::rl;
 // end_region
 
 // region alias

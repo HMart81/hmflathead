@@ -35,7 +35,7 @@ import std::math;
 import std::collections::map;
 import game::main;
 import engine::logging::lgr;
-import raylib5::rl;
+import thirdparty::raylib5::rl;
 import engine::misc;
 import game::assets::sprt;
 import game::serialize::svs; // save system

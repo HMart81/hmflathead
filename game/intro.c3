@@ -7,7 +7,7 @@ import std::collections::list;
 import game::main;
 import engine::gui;
 import engine::input;
-import raylib5::rl;
+import thirdparty::raylib5::rl;
 import game::serialize::svs; // save system
 import game::low_level::cvar;
 // end_region

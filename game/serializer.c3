@@ -39,7 +39,7 @@ import std::collections::list;
 // region custom modules
 import game::main;
 //import game::actors::ent;
-import raylib5::rl;
+import thirdparty::raylib5::rl;
 //import raygui;
 import engine::misc;
 import engine::assets_api::asapi;

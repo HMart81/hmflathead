@@ -31,7 +31,7 @@ module engine::assets_api::asapi;
 
 // region imports
 import std::io;
-import raylib5::rl;
+import thirdparty::raylib5::rl;
 import engine::misc;
 import engine::filesystem::fs;
 // end_region
@@ -133,7 +133,7 @@ module engine::assets::astmng;
 // region imports
 import std::io::path;
 import std::collections::list;
-import raylib5::rl;
+import thirdparty::raylib5::rl;
 import game::main;
 import engine::assets_api::asapi;
 import engine::logging::lgr;
@@ -512,7 +512,7 @@ import std::io;
 // end_region
 
 // region user module
-import raylib5::rl;
+import thirdparty::raylib5::rl;
 //import game::misc::hm;
 import tiny::xml;
 import game::main; // for file logging or console logging
@@ -781,7 +781,7 @@ import std::io;
 // end_region
 
 // region user module
-import raylib5::rl;
+import thirdparty::raylib5::rl;
 //import game::misc::hm;
 import tiny::xml;
 import game::main; // for file logging or console logging

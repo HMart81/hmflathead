@@ -35,7 +35,7 @@ import std::os;
 // end_region
 
 // region user module
-import raylib5::rl;
+import thirdparty::raylib5::rl;
 // end_region
 
 faultdef FS_FAILED_SAVE_DATA,

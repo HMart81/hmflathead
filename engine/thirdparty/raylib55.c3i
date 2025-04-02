@@ -1,4 +1,4 @@
-module raylib5::rl;
+module thirdparty::raylib5::rl;
 
 import std::math::vector;
 import engine::misc;

@@ -38,7 +38,7 @@ import std::collections::tuple;
 
 // region custom imports
 import game::main;
-import raylib5::rl;
+import thirdparty::raylib5::rl;
 import engine::misc;
 import game::low_level::cvar;
 import engine::logging::lgr;

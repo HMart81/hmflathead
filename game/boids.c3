@@ -39,7 +39,7 @@ import game::main;
 import engine::misc;
 import game::assets::sprt;
 import game::serialize::svs; // save system
-import raylib5::rl;
+import thirdparty::raylib5::rl;
 // end_region
 
 const float VISUAL_RANGE                = 100;

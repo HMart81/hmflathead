@@ -64,7 +64,7 @@ module engine::physics::box2d;
 
 import std::math::vector; // c3 math for Vec2f
 import engine::misc; // for Exported tag
-import raylib5::rl;
+import thirdparty::raylib5::rl;
 
 // region BASE
 

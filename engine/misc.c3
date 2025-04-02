@@ -42,7 +42,7 @@ import libc;
 import game::main;
 import game::actors::ent::pl;
 import engine::logging::lgr;
-import raylib5::rl;
+import thirdparty::raylib5::rl;
 // end
 
 alias Vec2f  = float[<2>];

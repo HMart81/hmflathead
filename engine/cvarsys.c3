@@ -34,7 +34,7 @@ import std::collections::list;
 
 // region custom modules
 import engine::logging::lgr;
-import raylib5::rl;
+import thirdparty::raylib5::rl;
 import game::main;
 // end_region
 
@@ -147,7 +147,7 @@ fn Cvar* Cvar.set(&self, String value) @inline {
     self.value = value.tcopy();
 $if $feature(_DEBUG):
     if(self.type == CvarType.BOOLEAN) {
-        io::printfn("[INFO] Cvar %s was set to %s.", self.name, "true");
+        io::printfn("[INFO] Cvar %s was set to %s.", self.name, (self.value == "1") ? "true" : "false");
     } else {
         io::printfn("[INFO] Cvar %s was set to value %s.", self.name, value);
     }

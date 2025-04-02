@@ -39,7 +39,6 @@ import std::io;
 import std::core::mem; // for malloc
 import std::math;
 import std::collections::list;
-import raylib5::rl;
 import engine::misc;
 import engine::assets::astmng; // asset manager
 import engine::logging::lgr;
@@ -47,6 +46,8 @@ import game::main;
 import game::actors::ent;
 import game::serialize::svs; // save system
 import game::low_level::cvar;
+import thirdparty::raylib5::rl;
+import thirdparty::raygui5::rgui;
 // end_region
 
 // region alias
@@ -60,13 +61,13 @@ const int  MIN_PANEL_SIZE = 32;
 // end_region
 
 // region cvars
-Cvar ui_debugDraw @public = { "ui_debugDraw", CvarType.BOOLEAN, "1", "show debug visualization for gui development" };
-//Cvar ui_editGUI   @public = { "ui_editGUI", CvarType.BOOLEAN, "0", "turn on gui editing functionality for gui development" };
+Cvar ui_debugDraw @public = { "ui_debugDraw", CvarType.BOOLEAN, "0", "show debug visualization for gui development" };
+Cvar ui_editGUI   @public = { "ui_editGUI", CvarType.BOOLEAN, "0", "turn on gui editing functionality for gui development" };
 
 
 fn void register_cvars() @public {
     cvar::@register(&ui_debugDraw);
-    //cvar::@register(&ui_editGUI);
+    cvar::@register(&ui_editGUI);
 }
 // end_region
 
@@ -1156,8 +1157,13 @@ fn void Desktop.debug(&self)
     }
 }
 
-
 //////////////////////////////////// DESKTOP MANAGER //////////////////////////////////////
+
+enum GUIMode : inline int
+{
+    NORMAL,
+    EDITOR
+}
 
 alias DesktopList = List{Desktop*};
 
@@ -1165,7 +1171,8 @@ alias DesktopList = List{Desktop*};
 // Every user GUI should have at lest one Desktop,
 // is a data structure to put everything that makes up a user GUI inside.
 struct DesktopManager {
-    DesktopList desktops; 
+    DesktopList desktops;
+    GUIMode mode;
 }
 
 DesktopManager local_manager @local;
@@ -1201,30 +1208,38 @@ fn void DesktopManager.unregister(&self, Desktop* _desk) @inline {
 }
 
 fn void DesktopManager.update(&self) {
-// $if $defined(PANEL_PROFILE):
-    // ProfileInfo* panel_profile_info = @start_profile_zone("Panel draw");
-    // defer @end_profile_zone(*panel_profile_info);
-// $endif
+
+    if(ui_editGUI.getBool()) {
+        // enable edit mode
+        if(self.mode != EDITOR) self.editor(true);
+    } else {
+        // disable edit mode
+       if(self.mode == EDITOR) self.editor(false);
+    }
 
     usz desktop_count = self.desktops.len();
     if(desktop_count >= 1) {
         foreach(desk: self.desktops) {
-            if(desk.active) desk.update();
+            if(desk.active) {
+                desk.update();
+                if(self.mode == EDITOR) {
+                    updateGuiEditor(desk);
+                }
+            }
         }
     }
 }
 
 fn void DesktopManager.draw(&self, int screenWidth, int screenHeight) @inline {
 
-// $if $defined(PANEL_PROFILE):
-    // ProfileInfo* panel_profile_info = @start_profile_zone("Panel draw");
-    // defer @end_profile_zone(*panel_profile_info);
-// $endif
-
     usz desktop_count = self.desktops.len();
     if(desktop_count >= 1) {
         foreach(desk: self.desktops) {
             desk.draw(main::gpGame.time_ms);
+            
+            if(self.mode == EDITOR) {
+                drawGuiEditor(desk);
+            }
         }
     }
 }
@@ -1235,6 +1250,67 @@ fn void DesktopManager.free(&self) {
     self.desktops.free();
 }
 
+fn void DesktopManager.editor(&self, bool choice = false) {
+    self.mode = (choice) ? EDITOR : NORMAL;
+}
+
+// region GUI EDITOR ****************************
+
+
+const GUIE_MAJOR    = 0;
+const GUIE_MINOR    = 1;
+const GUIE_REVISION = 0;
+
+macro bool drawEditorButton(String text, Vector2 pos) @local
+{
+    return rgui::button({pos.x, pos.y, 120, 30}, string::tformat("#191#%s", text).zstr_tcopy());
+}
+
+fn void enable_edit_mode() @inline {
+    ui_editGUI.set("1");
+}
+
+fn void disable_edit_mode() @inline {
+    ui_editGUI.set("0");
+}
+
+fn bool editor_enabled() @inline => local_manager.mode == EDITOR;
+
+fn void updateGuiEditor(Desktop* mng) {
+    if(!mng || editor_enabled() == false) return;
+}
+
+fn void drawGuiEditor(Desktop* mng) {
+    if(!mng || editor_enabled() == false) return;
+    
+    int scr_w, scr_h;
+    scr_w = main::gpGame.screen.w;
+    scr_h = main::gpGame.screen.h;
+    
+    String editor_version = string::tformat("GUI EDITOR v: %s.%s.%s", GUIE_MAJOR, GUIE_MINOR, GUIE_REVISION);
+    rgui::label({0.05f * scr_w, 0.95f * scr_h, 120, 30}, editor_version.zstr_tcopy());
+        
+    // gui debug on off
+    if(drawEditorButton("Gui Debug", {0.10f * scr_w, 0.10f * scr_h})) {
+        if(ui_debugDraw.getBool()) {
+            ui_debugDraw.set("0"); 
+        } else {
+            ui_debugDraw.set("1");
+        }
+    }
+    
+     // gui saving 
+    if(drawEditorButton("Gui SAVE", {0.10f * scr_w, 0.15f * scr_h})) {
+         lgr::info(Where.CONSOLE, "Trying to save gui \"%s\" but that is still not possible.", mng.name);
+    }
+    
+    // quit editor
+    if(drawEditorButton("Gui SAVE", {0.10f * scr_w, 0.15f * scr_h})) {
+         lgr::info(Where.CONSOLE, "Trying to save gui \"%s\" but that is still not possible.", mng.name);
+    }
+}
+
+// end_region GUI EDITOR **************************
 
 
 

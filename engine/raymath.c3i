@@ -26,9 +26,9 @@
 # 
 *********************************************************************************************************************************************/
 
-module raylib5::rmath;
+module thirdparty::raylib5::rmath;
 
-import raylib5::rl;
+import thirdparty::raylib5::rl;
 
 
 // region vector 2 math

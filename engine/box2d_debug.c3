@@ -29,7 +29,7 @@
 
 module engine::physics::box2d;
 
-import raylib5::rl;
+import thirdparty::raylib5::rl;
 
 macro Vector2 vec2ToVector2(B2Vec2 vec) {
     return (Vector2){vec.x, vec.y};

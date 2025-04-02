@@ -32,7 +32,7 @@ module engine::logging::lgr;
 import std::io;
 import libc;
 import game::main;
-import raylib5::rl;
+import thirdparty::raylib5::rl;
 import game::low_level::cvar;
 // end_region
 

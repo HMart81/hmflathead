@@ -26,9 +26,9 @@
 # 
 *********************************************************************************************************************************************/
 
-module raygui5::rgui;
+module thirdparty::raygui5::rgui;
 
-import raylib5::rl;
+import thirdparty::raylib5::rl;
 
 const RAYGUI_VERSION_MAJOR = 4;
 const RAYGUI_VERSION_MINOR = 0;
@@ -141,65 +141,65 @@ extern fn void setStyle(GuiControl control, GuiControlProperty property, CInt va
 extern fn CInt getStyle(GuiControl control, GuiControlProperty property) @extern("GuiGetStyle");           // Get one style property
 
 // Styles loading functions
-extern fn void loadStyle(char *fileName) @extern("GuiLoadStyle");              // Load style file over global style variable (.rgs)
+extern fn void loadStyle(ZString fileName) @extern("GuiLoadStyle");              // Load style file over global style variable (.rgs)
 extern fn void loadStyleDefault() @extern("GuiLoadStyleDefault");                       // Load style default over global style
 
 // Tooltips management functions
 extern fn void enableTooltip() @extern("GuiEnableTooltip");                          // Enable gui tooltips (global state)
 extern fn void disableTooltip() @extern("GuiDisableTooltip");                         // Disable gui tooltips (global state)
-extern fn void setTooltip(char *tooltip) @extern("GuiSetTooltip");              // Set tooltip string
+extern fn void setTooltip(ZString tooltip) @extern("GuiSetTooltip");              // Set tooltip string
 
 // Icons functionality
 extern fn ZString iconText (Icon iconId, ZString text) @extern("GuiIconText"); // Get text with icon id prepended (if supported)
 extern fn void setIconScale(CInt scale) @extern("GuiSetIconScale");                      // Set default icon drawing size
 extern fn CUInt *getIcons() @extern("GuiGetIcons");                      // Get raygui icons data pointer
-extern fn char **loadIcons(char *fileName, bool loadIconsName) @extern("GuiLoadIcons"); // Load raygui icons file (.rgi) into internal icons data
+extern fn char **loadIcons(ZString fileName, bool loadIconsName) @extern("GuiLoadIcons"); // Load raygui icons file (.rgi) into internal icons data
 extern fn void drawIcon(Icon iconId, CInt posX, CInt posY, CInt pixelSize, Color color) @extern("GuiDrawIcon"); // Draw icon using pixel size at specified position
 
 
 // Controls
 //----------------------------------------------------------------------------------------------------------
 // Container/separator controls, useful for controls organization
-extern fn bool windowBox(Rectangle bounds, char *title) @extern("GuiWindowBox");                                       // Window Box control, shows a window that can be closed
-extern fn bool groupBox(Rectangle bounds, char *text) @extern("GuiGroupBox");                                         // Group Box control with text name
-extern fn bool line(Rectangle bounds, char *text) @extern("GuiLine");                                             // Line separator control, could contain text
-extern fn bool panel(Rectangle bounds, char *text) @extern("GuiPanel");                                            // Panel control, useful to group controls
+extern fn bool windowBox(Rectangle bounds, ZString title) @extern("GuiWindowBox");                                       // Window Box control, shows a window that can be closed
+extern fn bool groupBox(Rectangle bounds, ZString text) @extern("GuiGroupBox");                                         // Group Box control with text name
+extern fn bool line(Rectangle bounds, ZString text) @extern("GuiLine");                                             // Line separator control, could contain text
+extern fn bool panel(Rectangle bounds, ZString text) @extern("GuiPanel");                                            // Panel control, useful to group controls
 extern fn bool tabBar(Rectangle bounds, char **text, CInt count, CInt *active) @extern("GuiTabBar");                  // Tab Bar control, returns TAB to be closed or -1
-extern fn bool scrollPanel(Rectangle bounds, char *text, Rectangle content, Vector2 *scroll, Rectangle *view) @extern("GuiScrollPanel"); // Scroll Panel control
+extern fn bool scrollPanel(Rectangle bounds, ZString text, Rectangle content, Vector2 *scroll, Rectangle *view) @extern("GuiScrollPanel"); // Scroll Panel control
 
 // Basic controls set
-extern fn bool label(Rectangle bounds, char *text) @extern("GuiLabel");                                            // Label control, shows text
-extern fn bool button(Rectangle bounds, char *text) @extern("GuiButton");                                           // Button control, returns true when clicked
-extern fn bool labelButton(Rectangle bounds, char *text) @extern("GuiLabelButton");                                      // Label button control, show true when clicked
-extern fn bool toggle(Rectangle bounds, char *text, bool *active) @extern("GuiToggle");                             // Toggle Button control, returns true when active
-extern fn bool toggleGroup(Rectangle bounds, char *text, CInt *active) @extern("GuiToggleGroup");                         // Toggle Group control, returns active toggle index
-extern fn bool toggleSlider(Rectangle bounds, char *text, CInt *active) @extern("GuiToggleSlider");                        // Toggle Slider control, returns true when clicked
-extern fn bool checkBox(Rectangle bounds, char *text, bool *checked) @extern("GuiCheckBox");                          // Check Box control, returns true when active
-extern fn bool comboBox(Rectangle bounds, char *text, CInt *active) @extern("GuiComboBox");                            // Combo Box control, returns selected item index
+extern fn bool label(Rectangle bounds, ZString text) @extern("GuiLabel");                                            // Label control, shows text
+extern fn bool button(Rectangle bounds, ZString text) @extern("GuiButton");                                           // Button control, returns true when clicked
+extern fn bool labelButton(Rectangle bounds, ZString text) @extern("GuiLabelButton");                                      // Label button control, show true when clicked
+extern fn bool toggle(Rectangle bounds, ZString text, bool *active) @extern("GuiToggle");                             // Toggle Button control, returns true when active
+extern fn bool toggleGroup(Rectangle bounds, ZString text, CInt *active) @extern("GuiToggleGroup");                         // Toggle Group control, returns active toggle index
+extern fn bool toggleSlider(Rectangle bounds, ZString text, CInt *active) @extern("GuiToggleSlider");                        // Toggle Slider control, returns true when clicked
+extern fn bool checkBox(Rectangle bounds, ZString text, bool *checked) @extern("GuiCheckBox");                          // Check Box control, returns true when active
+extern fn bool comboBox(Rectangle bounds, ZString text, CInt *active) @extern("GuiComboBox");                            // Combo Box control, returns selected item index
 
-extern fn bool dropdownBox(Rectangle bounds, char *text, CInt *active, bool editMode) @extern("GuiDropdownBox");          // Dropdown Box control, returns selected item
-extern fn bool spinner(Rectangle bounds, char *text, CInt *value, CInt minValue, CInt maxValue, bool editMode) @extern("GuiSpinner"); // Spinner control, returns selected value
-extern fn bool valueBox(Rectangle bounds, char *text, CInt *value, CInt minValue, CInt maxValue, bool editMode) @extern("GuiValueBox"); // Value Box control, updates input text with numbers
-extern fn bool textBox(Rectangle bounds, char *text, CInt textSize, bool editMode) @extern("GuiTextBox");                   // Text Box control, updates input text
+extern fn bool dropdownBox(Rectangle bounds, ZString text, CInt *active, bool editMode) @extern("GuiDropdownBox");          // Dropdown Box control, returns selected item
+extern fn bool spinner(Rectangle bounds, ZString text, CInt *value, CInt minValue, CInt maxValue, bool editMode) @extern("GuiSpinner"); // Spinner control, returns selected value
+extern fn bool valueBox(Rectangle bounds, ZString text, CInt *value, CInt minValue, CInt maxValue, bool editMode) @extern("GuiValueBox"); // Value Box control, updates input text with numbers
+extern fn bool textBox(Rectangle bounds, ZString text, CInt textSize, bool editMode) @extern("GuiTextBox");                   // Text Box control, updates input text
 
-extern fn bool slider(Rectangle bounds, char *textLeft, char *textRight, float *value, float minValue, float maxValue) @extern("GuiSlider"); // Slider control, returns selected value
-extern fn bool sliderBar(Rectangle bounds, char *textLeft, char *textRight, float *value, float minValue, float maxValue) @extern("GuiSliderBar"); // Slider Bar control, returns selected value
-extern fn bool progressBar(Rectangle bounds, char *textLeft, char *textRight, float *value, float minValue, float maxValue) @extern("GuiProgressBar"); // Progress Bar control, shows current progress value
-extern fn bool statusBar(Rectangle bounds, char *text) @extern("GuiStatusBar");                                        // Status Bar control, shows info text
-extern fn bool dummyRec(Rectangle bounds, char *text) @extern("GuiDummyRec");                                         // Dummy control for placeholders
-extern fn bool grid(Rectangle bounds, char *text, float spacing, CInt subdivs, Vector2 *mouseCell) @extern("GuiGrid"); // Grid control, returns mouse cell position
+extern fn bool slider(Rectangle bounds, ZString textLeft, ZString textRight, float *value, float minValue, float maxValue) @extern("GuiSlider"); // Slider control, returns selected value
+extern fn bool sliderBar(Rectangle bounds, ZString textLeft, ZString textRight, float *value, float minValue, float maxValue) @extern("GuiSliderBar"); // Slider Bar control, returns selected value
+extern fn bool progressBar(Rectangle bounds, ZString textLeft, ZString textRight, float *value, float minValue, float maxValue) @extern("GuiProgressBar"); // Progress Bar control, shows current progress value
+extern fn bool statusBar(Rectangle bounds, ZString text) @extern("GuiStatusBar");                                        // Status Bar control, shows info text
+extern fn bool dummyRec(Rectangle bounds, ZString text) @extern("GuiDummyRec");                                         // Dummy control for placeholders
+extern fn bool grid(Rectangle bounds, ZString text, float spacing, CInt subdivs, Vector2 *mouseCell) @extern("GuiGrid"); // Grid control, returns mouse cell position
 
 // Advance controls set
-extern fn CInt listView(Rectangle bounds, char *text, CInt *scrollIndex, CInt *active) @extern("GuiListView");          // List View control, returns selected list item index
+extern fn CInt listView(Rectangle bounds, ZString text, CInt *scrollIndex, CInt *active) @extern("GuiListView");          // List View control, returns selected list item index
 extern fn CInt listViewEx(Rectangle bounds, char **text, CInt count, CInt *scrollIndex, CInt *active, CInt *focus) @extern("GuiListViewEx"); // List View with extended parameters
-extern fn CInt messageBox(Rectangle bounds, char *title, char *message, char *buttons) @extern("GuiMessageBox"); // Message Box control, displays a message
-extern fn CInt textInputBox(Rectangle bounds, char *title, char *message, char *buttons, char *text, CInt textMaxSize, bool *secretViewActive) @extern("GuiTextInputBox"); // Text Input Box control, ask for text, supports secret
-extern fn CInt colorPicker(Rectangle bounds, char *text, Color *color) @extern("GuiColorPicker");                        // Color Picker control (multiple color controls)
-extern fn CInt colorPanel(Rectangle bounds, char *text, Color *color) @extern("GuiColorPanel");                         // Color Panel control
-extern fn CInt colorBarAlpha(Rectangle bounds, char *text, float *alpha) @extern("GuiColorBarAlpha");                      // Color Bar Alpha control
-extern fn CInt colorBarHue(Rectangle bounds, char *text, float *value) @extern("GuiColorBarHue");                        // Color Bar Hue control
-extern fn CInt colorPickerHSV(Rectangle bounds, char *text, Vector3 *colorHsv) @extern("GuiColorPickerHSV");                // Color Picker control that avoids conversion to RGB on each call (multiple color controls)
-extern fn CInt colorPanelHSV(Rectangle bounds, char *text, Vector3 *colorHsv) @extern("GuiColorPanelHSV");                 // Color Panel control that returns HSV color value, used by GuiColorPickerHSV()
+extern fn CInt messageBox(Rectangle bounds, ZString title, ZString message, ZString buttons) @extern("GuiMessageBox"); // Message Box control, displays a message
+extern fn CInt textInputBox(Rectangle bounds, ZString title, ZString message, ZString buttons, ZString text, CInt textMaxSize, bool *secretViewActive) @extern("GuiTextInputBox"); // Text Input Box control, ask for text, supports secret
+extern fn CInt colorPicker(Rectangle bounds, ZString text, Color *color) @extern("GuiColorPicker");                        // Color Picker control (multiple color controls)
+extern fn CInt colorPanel(Rectangle bounds, ZString text, Color *color) @extern("GuiColorPanel");                         // Color Panel control
+extern fn CInt colorBarAlpha(Rectangle bounds, ZString text, float *alpha) @extern("GuiColorBarAlpha");                      // Color Bar Alpha control
+extern fn CInt colorBarHue(Rectangle bounds, ZString text, float *value) @extern("GuiColorBarHue");                        // Color Bar Hue control
+extern fn CInt colorPickerHSV(Rectangle bounds, ZString text, Vector3 *colorHsv) @extern("GuiColorPickerHSV");                // Color Picker control that avoids conversion to RGB on each call (multiple color controls)
+extern fn CInt colorPanelHSV(Rectangle bounds, ZString text, Vector3 *colorHsv) @extern("GuiColorPanelHSV");                 // Color Panel control that returns HSV color value, used by GuiColorPickerHSV()
 //----------------------------------------------------------------------------------------------------------
 
 //----------------------------------------------------------------------------------
@@ -211,7 +211,8 @@ extern fn CInt colorPanelHSV(Rectangle bounds, char *text, Vector3 *colorHsv) @e
 // is easy and faster, than counting each icon by hand, just to know it's ordinal value!
 // In the same vein, sometimes you may know the ID, but not the icon name itself, so is a good way 
 // to know what value belongs to what icon name!
-enum Icon : int (int val) {
+enum Icon : (inline int val)
+{
 	NONE                     = 0,
 	FOLDER_FILE_OPEN         = 1,
 	FILE_SAVE_CLASSIC        = 2,
@@ -490,14 +491,14 @@ const  TEXT_WRAP_MODE = 22;              // Text wrap-mode inside text bounds
 
 
 typedef GuiControlProperty = CInt;
-module raygui5::rgui::property_element;
-
+// region property_element;
 const GuiControlProperty BORDER = 0;
-const GuiControlProperty BASE = 1;
-const GuiControlProperty TEXT = 2;
-const GuiControlProperty OTHER = 3;
+const GuiControlProperty BASE   = 1;
+const GuiControlProperty TEXT   = 2;
+const GuiControlProperty OTHER  = 3;
+// end_region property_element
 
-module raygui5::rgui::control_property;
+// region control_property;
 
 const GuiControlProperty BORDER_COLOR_NORMAL = 0;        // Control border color in STATE_NORMAL
 const GuiControlProperty BASE_COLOR_NORMAL = 1;          // Control base color in STATE_NORMAL
@@ -564,3 +565,5 @@ const GuiControlProperty HUEBAR_WIDTH = 17;               // ColorPicker right h
 const GuiControlProperty HUEBAR_PADDING = 18;             // ColorPicker right hue bar separation from panel
 const GuiControlProperty HUEBAR_SELECTOR_HEIGHT = 19;     // ColorPicker right hue bar selector height
 const GuiControlProperty HUEBAR_SELECTOR_OVERFLOW = 20;   // ColorPicker right hue bar selector overflow
+
+// end_region control_property

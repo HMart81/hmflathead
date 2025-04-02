@@ -39,7 +39,7 @@ import game::main;
 //import game::actors::ent;
 import engine::physics::box2d;
 import engine::misc;
-import raylib5::rl;
+import thirdparty::raylib5::rl;
 // end_region
 
 // player speed is defined in how many pixels it travels in one second
@@ -252,7 +252,7 @@ fn Player* makePlayer(int id = 0, Vec2f position = {0, 0}, Color color = rl::WHI
 
 module game::actors::palyer::action;
 
-import raylib5::rl;
+import thirdparty::raylib5::rl;
 //import game::actors::palyer;
 import std::collections::list;
 
@@ -323,7 +323,7 @@ import engine::misc;
 import game::serialize::svs; // save system
 import game::main;
 //import ent;
-import raylib5::rl;
+import thirdparty::raylib5::rl;
 // end_region
 
 const float DEFAULT_PROJECTILE_SPEED    = 1.0f;

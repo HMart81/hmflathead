@@ -37,7 +37,7 @@ import std::io;
 // end
 
 // region custom imports
-import raylib5::rl;
+import thirdparty::raylib5::rl;
 import engine::misc;
 import game::serialize::svs; // save system
 // end

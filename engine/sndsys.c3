@@ -40,9 +40,9 @@ import engine::assets::astmng;
 import game::main;
 import game::assets::sprt; // sprite
 import engine::filesystem::fs;
-import raylib5::rl;
+import thirdparty::raylib5::rl;
 //import raygui5::rgui;
-import raylib5::rmath;
+import thirdparty::raylib5::rmath;
 import game::serialize::svs; // save system
 import engine::logging::lgr;
 // end_region

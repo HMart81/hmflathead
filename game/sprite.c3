@@ -43,7 +43,7 @@ import engine::assets_api::asapi; // for the asset
 import engine::logging::lgr;
 import game::serialize::svs; // save system
 import game::actors::ent;
-import raylib5::rl;
+import thirdparty::raylib5::rl;
 // end_region
 
 // region defines
@@ -358,7 +358,7 @@ module game::assets::part;
 // UNFINISHED...
 
 // region user module
-import raylib5::rl;
+import thirdparty::raylib5::rl;
 import game::main;
 import game::assets::sprt;
 import std::math::vector;

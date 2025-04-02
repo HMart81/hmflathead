@@ -58,8 +58,8 @@ import game::low_level::cvar;
 import game::files::ini @public;
 import game::effects::boid;
 // third party libraries
-import raylib5::rl;
-import raygui5::rgui;
+import thirdparty::raylib5::rl;
+import thirdparty::raygui5::rgui;
 import thirdparty::library::xml;
 import engine::physics::box2d;
 // end_region
@@ -888,8 +888,16 @@ fn void gameHandleGeneralControls() @local {
         local_game.pause_phys_simulation = !local_game.pause_phys_simulation;
     }
     
+    // Enable ingame gui editor
     if(rl::isKeyPressed(rl::KEY_F3)) {
-        local_game.testTimer.init(5.0f);
+        //local_game.testTimer.init(5.0f);
+        if(main::gpGame.guiActive) {
+            if(gui::editor_enabled()) {
+                gui::disable_edit_mode();
+            } else {
+                gui::enable_edit_mode();
+            }
+        }
     }
     
     if (!local_game.guiActive &&

@@ -41,9 +41,9 @@ import game::main;
 import game::assets::sprt; // sprite
 import game::actors::ent::pl;
 import engine::filesystem::fs;
-import raylib5::rl;
-import raygui5::rgui;
-import raylib5::rmath;
+import thirdparty::raylib5::rl;
+import thirdparty::raygui5::rgui;
+import thirdparty::raylib5::rmath;
 import game::serialize::svs; // save system
 import engine::logging::lgr;
 // end_region
