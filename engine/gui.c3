@@ -265,6 +265,7 @@ struct WidgetFlags {
         bool isHidden;
         bool should_hide;
     }
+    bool wasInteractive;
     bool isInteractive;
     bool asFocus;
     bool selected;  // for the editor
@@ -344,6 +345,18 @@ fn void Widget.deinit(&self) @dynamic{
     self.parent.desktop = null;
 }
 
+fn void Widget.editor_interactions(&self) @local
+{
+    if (self.isInteractive()) return;
+    
+    if (self.asFocus())
+    {
+        if (input::Action* action = input::getAction("editor_select")) {
+            if(action.fnIsTriggered()) self.select();
+        }
+    }
+}
+
 fn void Widget.update(&self) @dynamic {
     if(self.hidden()) return;
 
@@ -351,6 +364,15 @@ fn void Widget.update(&self) @dynamic {
         self.flags.asFocus = true;
     } else {
         self.flags.asFocus = false;
+    }
+    
+    if(editor_enabled()) {
+        if(self.isInteractive()) {
+            self.setInteractive(false);
+        }
+        self.editor_interactions();
+    } else {
+        if(!self.isInteractive() && self.flags.wasInteractive) self.setInteractive(true);
     }
     
     if(self.bound()) {
@@ -496,7 +518,10 @@ fn bool Widget.isWithinScreenBounds(&self) @dynamic
 *>
 fn void Widget.addTo(&self, Desktop* desktop, String name) @dynamic {
     self.parent.desktop = desktop;
-    if (self.parent.desktop.isInteractive) self.setInteractive(true);
+    if (self.parent.desktop.isInteractive) {
+        self.flags.wasInteractive = true;
+        self.setInteractive(true);
+    }
 
     self.id = (int)self.parent.desktop.children.len() + 1;
     
@@ -642,10 +667,10 @@ struct WidgetText {
 fn void WidgetText.init(&self) @inline {
     self.super.init();
     self.setColor({0, 0, 0, 0});
-    self.kind = KIND_TEXT;
-    self.font_size = 20; //@hardcode
+    self.kind       = KIND_TEXT;
+    self.font_size  = 20; //@hardcode
     self.text_color = rl::WHITE; //@hardcode
-    self.align = WidgetTextAlign.CENTER;
+    self.align      = WidgetTextAlign.CENTER;
 }
 
 fn void WidgetText.deinit(&self) @inline {
@@ -730,6 +755,9 @@ fn WidgetText* createLabel(String name, String text, Color text_color, Desktop* 
         name.tconcat("_Label");
     }
     label.addTo(menu, name);
+    // labels shouldn't be interactive (to save perf...)
+    label.flags.wasInteractive = false;
+    label.setInteractive(false);
     label.setText(text);
     label.setTextColor(text_color);
     return label;
@@ -794,28 +822,8 @@ fn void WidgetButton.onEnterKey(&self) @inline {
 }
 */
 
-fn void WidgetButton.editor_interactions(&self) @local
-{
-    if (self.isInteractive()) return;
-    
-    if (self.asFocus())
-    {
-        if (input::Action* action = input::getAction("editor_select")) {
-            if(action.fnIsTriggered()) self.select();
-        }
-    }
-}
-
 fn void WidgetButton.manage_interactions(&self) @local 
 {
-    if(editor_enabled()) {
-        if(self.isInteractive()) self.setInteractive(false);
-        
-        self.editor_interactions();
-    } else {
-        if(self.isInteractive() == false) self.setInteractive(true);
-    }
-    
     if (self.isInteractive() == false) return;
 
     //main::lgr::info(Where.CONSOLE, "Gui: I'm over button: %s", self.name);

@@ -267,10 +267,12 @@ faultdef WINDOW_INIT_FAILED,
          INVALID_WORK_DIR,
          NO_DATA_FOLDER;
 
-enum Program_Mode @public {
-    GAME,
+enum GameMode @public 
+{
+    INTRO,
     MENU,
-    EDITOR,
+    GAME,
+    EDITOR
 }
 
 // ********************
@@ -297,13 +299,13 @@ struct Game (SaveSystemInterface) @local
     bool mod_set;
     
     
-    intro::IntroAnimation intro;
+    IntroAnimation intro;
     
     // menus
     gui::Desktop* guiActive; // to handle all guis
     gui::Desktop* main_menu;
     
-    Program_Mode mode;
+    GameMode mode;
     
     // defaults
     // required default assets
@@ -716,10 +718,9 @@ fn void drawWorkInProgressMessage(int screen_w, int screen_h) @local
     //rl::drawTextEx(*font, string::tformat_zstr("%s (Raylib %s)", message, rl::VERSION), {x, y}, TITLE_FONT_SCALE, 1.0f, rl::RED);
 }
 
-fn void drawGUIDebugInfo(int screen_w, int screen_h) @local
+fn void drawGameOnScreenDebugInfo(int screen_w, int screen_h) @local
 {
     if(gui::editor_enabled()) return;
-    //if (!ui_debugDraw.getBool()) return;
     
     ZString slot1;
     ZString slot2;
@@ -1120,26 +1121,27 @@ fn void gameOnPostGUIDraw(int screenWidth, int screenHeight) @public
     
     if(developer.getBool())
     {
-        int font_w = (int)local_game.default_font.recs.width;
-        //io::printfn("%s", default_font.recs.width);
-    
         // draw game version
-        ZString game_version = string::tformat_zstr("version: (%s, %s, %s)", MAX_VERSION, MIN_VERSION, BABY_VERSION);
+        const VERSION_FONT_SCALE = 12;
+        ZString game_version     = string::tformat_zstr("version: (%s, %s, %s)", MAX_VERSION, MIN_VERSION, BABY_VERSION);
+        int version_text_len     = rl::measureText(game_version, VERSION_FONT_SCALE);
         rl::drawText(
-        game_version,
-        (int)(screenWidth - 2.0f * (float)(font_w * libc::strlen(game_version))),
-        (int)0.25f*screenHeight,
-        12, // font size
-        {127, 127, 255, 255} // @Hardcode color
+            game_version,
+            (int)(screenWidth - (2.0f * version_text_len)), //(float)(font_w * libc::strlen(game_version))),
+            (int)0.25f*screenHeight,
+            VERSION_FONT_SCALE,
+            {127, 127, 255, 255} // @Hardcode color
         );
         
-        if(developer.getBool() /*|| local_game.mode == EDITOR*/) {
-            drawWorkInProgressMessage(screenWidth, screenHeight);
+        drawWorkInProgressMessage(screenWidth, screenHeight);
+        
+        if(local_game.mode == EDITOR) {
             // todo draw this only in editor mode only
-            drawGUIDebugInfo(screenWidth, screenHeight);
+            drawGameOnScreenDebugInfo(screenWidth, screenHeight);
         }
         
-        // debug_lines
+        // draw debug_lines 
+        // NOTE(HM) should this be allowed in normal gaming as well?
         if(misc::g_debugLines.len()) {
             foreach(line : misc::g_debugLines) {
                 line.draw();
@@ -1692,10 +1694,15 @@ fn void? gameOnStart(String[]* args) @local
     local_game.time_sec = (float)rl::getTime();
     local_game.time_ms  = misc::sec2ms(local_game.time_sec);
     
+    // Todo(HM) create pre loading logo videos?
+    //
+    // Set the current program mode to the intro mode
+    local_game.mode = INTRO;
+    
 $if $feature(_DEBUG):
-    // TODO(HM) On release version remove the ability to quit, but using the main menu? 
-    // NOTE(HM) This needs to run after initWindow...
-    // changes the default app exit key (default is ESC key)
+    // TODO(HM) On release version quit should only be done from main menu. 
+    // NOTE(HM) This needs to run after initWindow,
+    //          also changes the default exit key (default is ESC key)
     rl::setExitKey(rl::KEY_F10);
 $endif
 
@@ -1775,7 +1782,8 @@ $endif
         return MISSING_REQUIRED_ASSET?;
     }
 // end_region AUDIO DEVICE initialization
-    
+
+// region MONITOR STATES    
     // See how many monitors user has and change the window placement if necessary.
     // WARNING(HM) This is not guarantied to work for all multi-monitor setups, 
     // it seems that even glfw, that rl uses internally, fails to set the correct monitor on some setups :(
@@ -1837,8 +1845,10 @@ $endif
     }
     rl::setTargetFPS(local_game.screen.displayHz);
     lgr::info(Where.FILE,  "Game set to %shz update rate.", local_game.screen.displayHz);
+
+// end_region MONITOR STATES
     
-    // region Asset manager
+// region Asset manager
     lgr::info(Where.FILE,  "** Starting Assets Loading **");
     
     // first load default assets
@@ -1901,25 +1911,19 @@ $endif
     //}
 // end_region InitRaylib stuff
     
-    // Todo(HM) menu mode should be the first, because of the main menu...
-    // Todo(HM) create pre loading logo videos?
-    //
-    // Set the current program mode
-    local_game.mode = GAME;
-    
-    if(editor.getBool()) {
-        // TODO enable this
-        //local_game.mode = EDITOR;
-    }
-    
+// region MAIN MENU 
     // NOTE(HM) Create main menu here but don't show it now
     local_game.main_menu = menu::mainMenuCreate(screenWidth, screenHeight);
     if(local_game.main_menu == null) {
-        lgr::warning(Where.FILE,  "!!!!!!!!! Failed to create main menu. !!!!!!!!!!!!!!");
+        lgr::fatal(Where.FILE, "Something when very wrong, failed to init Main Menu!");
+        unreachable("!!!!!!!!! Failed to create main menu. !!!!!!!!!!!!!!");
     }
     
-    if(developer.getBool() && local_game.mode == EDITOR) {
-        if(system_cursor_enabled() == false) enable_system_cursor();
+    //local_game.mode = MENU;
+    
+    if(developer.getBool() && local_game.mode == EDITOR)
+    {
+        if(!system_cursor_enabled()) enable_system_cursor();
         show_system_cursor();
     } else {
         if(system_cursor_enabled()) disable_system_cursor();
@@ -1927,9 +1931,11 @@ $endif
 
     // TODO(HM) do this only in the main menu
     // custom game cursor
-    init_game_cursor();
-    if(developer.getBool() || local_game.mode == EDITOR) {
-        show_game_cursor();
+    if(local_game.mode == MENU) {
+        // just in case...
+        if(system_cursor_enabled()) disable_system_cursor();
+        init_game_cursor();
+        //show_game_cursor(); now done in menus.c3
     }
     
 // region Test game stuff
@@ -2280,8 +2286,10 @@ fn void disconnect() {
 }
 
 fn int playIntro(void*) {
+    local_game.intro.next_start_time  = local_game.time_ms + intro::FRAME_TIME;
+    
     do {
-        intro::triggerIntroAnimation(&local_game.intro);
+        intro::play(&local_game.intro);
     } while(intro::updateIntroAnimation(&local_game.intro));
     
     local_game.intro.should_play = false;

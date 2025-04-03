@@ -71,10 +71,11 @@ fn void setGUI(Desktop* menu) {
 	}
 
     // todo
-	/*if ( guiActive == main::gpGame.main_menu ) {
-		SetSaveGameGuiVars();
-		SetMainMenuGuiVars();
-	} else if ( guiActive == main::gpGame.restart_menu ) {
+	if ( guiActive == main::gpGame.main_menu ) {
+        main::show_game_cursor();
+		//SetSaveGameGuiVars();
+		//SetMainMenuGuiVars();
+	} /*else if ( guiActive == main::gpGame.restart_menu ) {
 		SetSaveGameGuiVars();
 	}*/
 
@@ -150,6 +151,8 @@ fn Desktop* mainMenuCreate(int screenWidth, int screenHeight) {
     Desktop* menu = mem::new(Desktop);
     menu.init("MainMenu");
     menu.setColor(rl::DARKGRAY);
+    
+    main::gpGame.mode = main::GameMode.MENU;
 
     Vec2f screen_corner       = {0, 0};
     Vec2f offset              = screen_corner;
