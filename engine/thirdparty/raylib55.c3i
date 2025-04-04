@@ -54,12 +54,8 @@ struct Vector2 @compact
 }
 
 macro Vector2.toVec2f(&self) => (Vec2f) {self.x, self.y};
+//macro Vector2.toVec2f(&self) => (Vec2f)(*self);
 macro Vector2.toVec2i(&self) => (Vec2i) {(int)self.x, (int)self.y};
-fn Vector2 vector2Add(Vector2 v) @extern("Vector2Add");
-fn Vector2 vector2Subtract(Vector2 v1, Vector2 v2)  @extern("Vector2Subtract");
-fn Vector2 vector2Scale(Vector2 v, float scale) @extern("Vector2Scale");
-fn Vector2 vector2Multiply(Vector2 v1, Vector2 v2)  @extern("Vector2Multiply");
-fn Vector2 vector2Negate(Vector2 v) @extern("Vector2Negate");
 
 // Vector3, 3 components
 struct Vector3 @compact
