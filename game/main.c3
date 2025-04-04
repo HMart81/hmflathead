@@ -1155,7 +1155,7 @@ fn void gameOnGuiDraw(int screenWidth, int screenHeight) @public @inline {
     gui::gpDeskManager.draw(screenWidth, screenHeight);
     
     if(local_game.intro.should_play) {
-        intro::drawIntroAnimation(&local_game.intro);
+        intro::drawIntroAnimation(&local_game.intro, screenWidth, screenHeight);
     }
     
     // update & draw cursor sprite
@@ -2286,8 +2286,6 @@ fn void disconnect() {
 }
 
 fn int playIntro(void*) {
-    local_game.intro.next_start_time  = local_game.time_ms + intro::FRAME_TIME;
-    
     do {
         intro::play(&local_game.intro);
     } while(intro::updateIntroAnimation(&local_game.intro));

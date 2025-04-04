@@ -6,6 +6,7 @@ import std::core::mem; // for malloc
 import std::collections::list;
 import game::main;
 import engine::gui;
+import engine::misc;
 import engine::input;
 import thirdparty::raylib5::rl;
 import game::serialize::svs; // save system
@@ -17,8 +18,10 @@ alias FrameQueue  = List{Frame*};
 // end_region
 
 // region constants
-const FRAME_TIME = 1000; // ms = 1 sec
-const SHOW_TIME = 5000; // ms 
+const FADE_IN_TIME     = 1000; // ms
+const VISIBLE_DURATION = 3000;
+const FADE_OUT_TIME    = 1000; // ms
+const FRAME_TIME       = FADE_IN_TIME + VISIBLE_DURATION + FADE_OUT_TIME; // ms
 // end_region
 
 // region cvars
@@ -31,21 +34,19 @@ fn void register_cvars() @public {
 
 struct Frame @local {
     gui::Panel* image;
-    int draw_time;
-    int start_time;
-    int end_time;
+    int fade_in_time;
+    int fade_out_time;
 }
 
 struct IntroAnimation (SaveSystemInterface) {
    FrameQueue frames;
-   Frame* current_frame;
-
-   int fade_in_time;
-   int fade_out_time;
+   
    int current_frame_index;
-   int next_start_time;
+   int next_frame_time;
+   int duration;
    
    bool should_play;
+   bool timing_initialized;
 }
 
 fn void IntroAnimation.save(&self, SaveFile* file) @dynamic {
@@ -56,24 +57,20 @@ fn void IntroAnimation.reload(&self, SaveFile* file) @dynamic {
 // todo
 }
 
+macro makeFrame(String image_name, IntroAnimation* anim) @local {
+    int w, h;
+    w = main::gpGame.screen.w;
+    h = main::gpGame.screen.h;
+    Frame* frame = mem::new(Frame);
+    frame.image  = mem::new(Panel);
+    frame.image.initV({0,0}, {w,h},  {0xFF,0xFF,0xFF,0} /*rl::WHITE*/);
+    frame.image.setTexture(main::asstManager.getTexture(image_name));
+    anim.frames.push(frame);
+}
+
 fn void initIntroAnimation(IntroAnimation* anim) {
-    /*anim.frames.reserve(60);
-    for(int i = 0; i < 60; i++) {
-        Frame* frame = mem::new(Frame);
-        frame.image  = mem::new(Panel);
-        frame.image.initV({0,0}, {main::gpGame.screen.w, main::gpGame.screen.h},  rl::WHITE);
-        frame.image.setTexture(main::asstManager.getTexture("logo_hm.png"));
-        //
-        anim.frames.push(frame);
-    }*/
-    Frame* frame1 = mem::new(Frame);
-    frame1.image  = mem::new(Panel);
-    frame1.image.initV({0,0}, {main::gpGame.screen.w, main::gpGame.screen.h},  rl::WHITE);
-    frame1.image.setTexture(main::asstManager.getTexture("logo_hm.png"));
-    frame1.draw_time = SHOW_TIME;
-    //
-    anim.frames.push(frame1);
-    anim.current_frame = frame1;
+    makeFrame("raylib_intro.png", anim);
+    makeFrame("logo_hm.png", anim);
     //
     input::makeKeyboardAction("noIntro", rl::KEY_ESCAPE);
 }
@@ -94,6 +91,14 @@ fn void play(IntroAnimation* anim) @inline {
     if(skip_intro.getBool()) return;
     
     anim.should_play = true;
+    
+    if(!anim.timing_initialized) {
+        // each frame duration
+        anim.next_frame_time    = main::gpGame.time_ms + FRAME_TIME;
+        // full anim duration
+        anim.duration           = main::gpGame.time_ms + (int)anim.frames.len() * anim.next_frame_time;
+        anim.timing_initialized = true;
+    }
 }
 
 fn void stop(IntroAnimation* anim) @inline {
@@ -114,68 +119,44 @@ fn bool updateIntroAnimation(IntroAnimation* anim) {
         
         bool stop_anim = input::getAction("noIntro").fnBecameTriggered();
         
-        if(main::gpGame.time_ms >= SHOW_TIME || stop_anim ) {
+        if(main::gpGame.time_ms >= anim.duration || stop_anim ) {
             stop(anim);
             return false;
         }
         
-        if(anim.frames.len() > 1) {
-            if(anim.current_frame_index > anim.frames.len()) loop(anim);
-    
-            if(main::gpGame.time_ms >= anim.next_start_time) {
+        if(anim.frames.len() > 1) 
+        {
+            //if(anim.current_frame_index > anim.frames.len()) loop(anim);
+            if(anim.current_frame_index >= anim.frames.len()) {
+                stop(anim);
+                continue;
+            }
+            
+            // set next frame
+            if(main::gpGame.time_ms >= anim.next_frame_time) {
                 anim.current_frame_index++;
-                anim.next_start_time = main::gpGame.time_ms + FRAME_TIME;
+                anim.next_frame_time = main::gpGame.time_ms + FRAME_TIME;
             }
         }
     }
-    
-    /*
-    if(anim.should_play == false) return false;
-    
-    int index = 0;
-    
-    do {
-        bool stop_anim = input::getAction("noIntro").fnBecameTriggered();
-        
-        int current_time = main::gpGame.time_ms;
-        if (!stop_anim && anim.current_frame && index == 0) // first frame
-        {
-            anim.current_frame.start_time = current_time;
-            anim.current_frame.end_time   = anim.current_frame.start_time + anim.current_frame.draw_time;
-            continue;
-        }
-
-        if(!stop_anim && anim.current_frame && anim.current_frame.end_time > 0 && 
-           current_time <= anim.current_frame.end_time)
-        {
-            return true;
-        }
-        else if(stop_anim) {
-            if(anim.current_frame && anim.frames.len() > 1 && index < anim.frames.len()) {
-                anim.current_frame = anim.frames[index += 1];
-                anim.current_frame.start_time = main::gpGame.time_ms;
-                anim.current_frame.end_time   = anim.current_frame.start_time + anim.current_frame.draw_time;
-            } else {
-                anim.current_frame = null;
-            }
-        }
-    } while(anim.current_frame != null);
-  
-    // todo don't skip the entire intro?
-    deinitIntroAnimation(anim);
-    
-    return false;
-    */
 }
 
-fn void drawIntroAnimation(IntroAnimation* anim) {
+fn void drawIntroAnimation(IntroAnimation* anim, int w, int h) {
     if(anim == null) return;
     
-    /*if(anim.current_frame) {
-        anim.current_frame.image.draw();
-    }*/
+    //misc::@drawRect({0, 0, w, h}, (Color){0x18, 0x18, 0x18, 0xFF});
+    misc::@drawRect({0, 0, w, h}, rl::BLACK);
     
+    if(main::gpGame.time_ms <= anim.next_frame_time - FADE_IN_TIME) {
+        anim.frames[anim.current_frame_index].image.fadeIn(0.1f);
+    }
+    
+    //io::printfn("Color = %s", misc::printColor(anim.frames[anim.current_frame_index].image.color));
     anim.frames[anim.current_frame_index].image.draw();
+    
+    if(main::gpGame.time_ms >= anim.next_frame_time - FADE_OUT_TIME) {
+        anim.frames[anim.current_frame_index].image.fadeOut(0.1f);
+    }
 }
 
 

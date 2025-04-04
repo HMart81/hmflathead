@@ -55,6 +55,9 @@ const Vec2f VEC_UP    = { 0.0f,-1.0f};
 const Vec2f VEC_DOWN  = { 0.0f, 1.0f};
 const Vec2f VEC_LEFT  = {-1.0f, 0.0f};
 const Vec2f VEC_RIGHT = { 1.0f, 0.0f};
+
+macro @makeVec2f(#x, #y) => (Vec2f){#x, #y};
+macro @makeVec2fExt(#x) => (Vec2f){#x, #x};
 //
 
 const MINIMUM_SIZE_IN_PIXELS = 1;    //
@@ -79,6 +82,9 @@ fn float pixelsToMeters(int pixels) {
 }
 
 const Color INVISIBLE_COLOR = {0xFF, 0xFF, 0xFF, 0x00};
+fn String printColor(Color color) @inline {
+    return string::tformat("{%s,%s,%s,%s}", color.r, color.g, color.b, color.a);
+} 
 
 fn Vector2 Vec2f.toVector2(&self) => (Vector2) {self.x, self.y};
 

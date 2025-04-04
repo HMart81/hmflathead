@@ -491,7 +491,7 @@ fn void? loadAssets() {
 	loadAssetsRecursively(main::gpGame.app_base_folder)!!;
 	
 	$if $feature(_DEBUG):
-		assetManager.listAssets();
+		//assetManager.listAssets();
 	$endif
 }
 

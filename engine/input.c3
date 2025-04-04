@@ -26,6 +26,8 @@
 # 
 *********************************************************************************************************************************************/
 
+// TODO(HM) Detect if the same key combo is being assign to many actions
+
 module engine::input;
 
 // region C3 modules
@@ -33,9 +35,6 @@ import std::io;
 //import std::core::mem; // for malloc
 //import std::math;
 import std::collections::list;
-// end_region
-
-// region custom modules
 import game::main;
 //import game::actors::ent;
 import thirdparty::raylib5::rl;
@@ -138,7 +137,7 @@ fn bool Action.fnIsTriggered(&self) @dynamic
     switch (self.kind) {
         case KEYBOARD:
             bool hasExtKey = self.keyboard.key2 != rl::KEY_NULL;
-            if (rl::isKeyPressed(self.keyboard.key1)) 
+            if (rl::isKeyDown(self.keyboard.key1)) 
             {
                 if(hasExtKey) {
                    return rl::isKeyDown(self.keyboard.key2);
@@ -147,7 +146,7 @@ fn bool Action.fnIsTriggered(&self) @dynamic
                 return true;
             }
         case MOUSE:
-            if (rl::isMouseButtonPressed(self.mouse.btn))
+            if (rl::isMouseButtonDown(self.mouse.btn))
             {
                 bool hasExtKey = self.keyboard.key2 != rl::KEY_NULL;
                 if(hasExtKey) {
@@ -185,7 +184,11 @@ fn bool Action.wasTriggered(&self) @inline
  */
 fn bool Action.fnBecameTriggered(&self)
 {
-    if(!self.isTriggered && self.fnIsTriggered()){
+    if(!self.isTriggered && self.fnIsTriggered()) {
+        // if(self.name == "Single Press") {
+            // int stop = 0;
+        // }
+        
         self.isTriggered = true;
         return true;
     }
@@ -207,7 +210,7 @@ fn bool Action.fnDoubleTriggered(&self, float limit)
             self.timeCount = 0;
             return false;
         } else {
-            self.timeCount  = 0;
+            self.timeCount   = 0;
             self.isTriggered = true;
             return true;
         }
@@ -237,7 +240,7 @@ fn void Action.update(&self, float timeStep)
 }
 
 fn void Action.handleInput(&self) {
-    if (self.fnBecameTriggered()) {
+    if (self.wasTriggered()) {
         if(self.callback != null) self.callback();
     }
 
@@ -516,6 +519,34 @@ fn void ActionManager.remove(&self, Action* action) @inline {
     self.unregister(action);
 }
 
+
+///////// JUST FOR TESTING DELETE THIS PLEASE!!!!!
+////
+// Function to check if a string is a duplicate
+fn int is_duplicate(String[] array, String str) {
+    foreach(s : array) {
+        if(s == str) return 1; // a duplicate
+    }
+    return 0; // Not a duplicate
+}
+
+// Function to detect duplicates in an array of strings
+fn void detect_duplicates(String[] array, int size) {
+    List{String} seen;
+    for (int i = 0; i < size; i++) {
+        if (is_duplicate(array, array[i])) {
+            seen.push(array[i]);
+        }
+    }
+    // Print all duplicate strings
+    foreach(s : seen) {
+        io::printfn("%s is a duplicate", s);
+    }
+    if(seen.len()) seen.clear();
+}
+////
+////////////////////////////////////////////
+
 fn void ActionManager.update(&self) @inline {
 
     float dt = main::gpGame.dt;
@@ -526,6 +557,9 @@ fn void ActionManager.update(&self) @inline {
             act.update(dt);
         }
     }
+    
+    // detect actions with the same keys
+    
 }
 
 fn void ActionManager.free(&self) {
@@ -540,11 +574,11 @@ fn void ActionManager.free(&self) {
 
 fn void ActionManager.listActions(&self) @local {
     if(self.actions.len()) {
-        lgr::info(Where.CONSOLE, "[ ACTIONS ]");
+        lgr::info(Where.FILE, "[ KEY ACTIONS ]");
         foreach(action: self.actions) {
-           lgr::info(Where.CONSOLE, "    -> \"%s\" : {%s, %s},", action.name, getKeyboardKeyName(action.keyboard.key1), getKeyboardKeyName(action.keyboard.key2));
+           lgr::info(Where.FILE, "    -> \"%s\" : {%s, %s},", action.name, getKeyboardKeyName(action.keyboard.key1), getKeyboardKeyName(action.keyboard.key2));
         }
-        lgr::info(Where.CONSOLE, "[ END ACTIONS ]]");
+        lgr::info(Where.FILE, "[ END ACTIONS ]]");
     }
 }
 

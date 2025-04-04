@@ -226,6 +226,14 @@ fn void Panel.setTexture(&self, Texture2D* tex) @inline => self.tex = tex;
 
 fn bool Panel.asTexture(&self) @inline => self.tex != null;
 
+fn void Panel.fadeIn(&self, float factor) {
+    self.color = rl::colorLerp(self.color, rl::WHITE, factor);
+}
+
+fn void Panel.fadeOut(&self, float factor) {
+    self.color = rl::colorLerp(self.color, misc::INVISIBLE_COLOR, factor);
+}
+
 fn bool Panel.isValid(&self) @inline {
     if(self.rect.width  >= MIN_PANEL_SIZE && 
        self.rect.height >= MIN_PANEL_SIZE ) return true;
@@ -378,7 +386,9 @@ fn void Widget.update(&self) @dynamic {
     if(self.bound()) {
         // if bound our position is updated to always be relative to the parent origin
         Vec2f parent_origin = self.parent.other.getPosition();
-        self.setPositionV(self.getPosition() + parent_origin);
+        //self.setPositionV(self.getPosition() + parent_origin);
+        Vec2f new_offset    = (self.getPosition() + parent_origin) - parent_origin;
+        self.setPositionV(new_offset);
     }
 }
 
@@ -572,11 +582,10 @@ fn void Widget.bindTo(&self, Widget* other) @dynamic {
     self.parent.other = other;
 
     // our position is now relative to the parent origin
-    Vec2f desktop_origin = {0, 0};
-    Vec2f parent_origin  = other.getPosition();
-    Vec2f old_offset     = self.getPosition() - desktop_origin;
-    Vec2f new_offset     = parent_origin + old_offset; //(our_pos - parent_origin);
-    self.setPositionV(new_offset);
+    //Vec2f parent_origin  = other.getPosition();
+    //Vec2f dist_offset    = self.getPosition() - parent_origin;
+    //Vec2f new_offset     = parent_origin + dist_offset;
+    //self.setPositionV(new_offset);
     //
 }
 
@@ -690,6 +699,14 @@ fn void WidgetText.setText(&self, String text) {
     self.updateBounds();
 }
 
+fn int WidgetText.textlen(&self) @inline {
+    return rl::measureText(self.text.zstr_tcopy(), self.font_size);
+}
+
+fn float WidgetText.textlenf(&self) @inline {
+    return (float)rl::measureText(self.text.zstr_tcopy(), self.font_size);
+}
+
 fn void WidgetText.setTextColor(&self, Color color) @inline {
     self.text_color = color;
 }
@@ -792,11 +809,18 @@ fn void WidgetButton.init(&self) @inline {
     self.setPressedColor(rl::GREEN); //@hardcode
     self.setActivatedColor(rl::BLUE); //@hardcode
     self.setSound(&main::gpGame.default_sound); //@hardcode todo give this a better sound
+    
+    //input::makeKeyboardAction("MMenu Enter", MouseButton.LEFT);
+    input::makeMouseAction("Single Press", MouseButton.LEFT);
+    input::makeMouseAction("Double Press", MouseButton.LEFT);
 }
 
 fn void WidgetButton.deinit(&self) @inline {
     self.super.deinit();
     if (self.interaction_sound) self.interaction_sound = null;
+    
+    input::removeAction("Single Press");
+    input::removeAction("Double Press");
 }
 
 fn void WidgetButton.setColor(&self, Color color) @dynamic {
@@ -835,9 +859,18 @@ fn void WidgetButton.manage_interactions(&self) @local
             //main::lgr::info(Where.CONSOLE, "Gui: I'm pressing button: %s", self.name);
             if (self.onPress) self.onPress(self);
         }
-        // pressed once
-        if (rl::isMouseButtonDown(MouseButton.LEFT) && self.press_count == 0) {
-            if (self.onSinglePress) self.onSinglePress(self);
+        
+        if (Action* action = input::getAction("Double Press")) {
+            if (action.fnDoubleTriggered(0.250f) && self.onDoublePress) self.onDoublePress(self);
+        }
+        
+        if (Action* action = input::getAction("Single Press")) {
+            //if (action.fnBecameTriggered() && self.onSinglePress) self.onSinglePress(self);
+            if(action.fnBecameTriggered()) {
+                String[] array = {"apple", "banana", "apple", "orange", "banana"};
+                int size = array.len;
+                input::detect_duplicates(array, size);
+            }
         }
 
         if (rl::isMouseButtonReleased(MouseButton.LEFT)) {
