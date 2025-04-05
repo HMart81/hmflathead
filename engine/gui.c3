@@ -865,12 +865,12 @@ fn void WidgetButton.manage_interactions(&self) @local
         }
         
         if (Action* action = input::getAction("Single Press")) {
-            //if (action.fnBecameTriggered() && self.onSinglePress) self.onSinglePress(self);
-            if(action.fnBecameTriggered()) {
-                String[] array = {"apple", "banana", "apple", "orange", "banana"};
-                int size = array.len;
-                input::detect_duplicates(array, size);
-            }
+            if (action.fnBecameTriggered() && self.onSinglePress) self.onSinglePress(self);
+            // if(action.fnBecameTriggered()) {
+                // String[] array = {"apple", "banana", "apple", "orange", "banana"};
+                // int size = array.len;
+                // input::detect_duplicates(array, size);
+            // }
         }
 
         if (rl::isMouseButtonReleased(MouseButton.LEFT)) {

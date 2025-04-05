@@ -31,10 +31,6 @@ module engine::physics::box2d;
 
 import thirdparty::raylib5::rl;
 
-macro Vector2 vec2ToVector2(B2Vec2 vec) {
-    return (Vector2){vec.x, vec.y};
-}
-
 /*
 m_debugDraw = { DrawPolygonFcn,
 				DrawSolidPolygonFcn,
@@ -122,7 +118,7 @@ fn void dbgDrawPolygonLocal(B2Vec2* vertices, int vertexCount, Color tint) @loca
     for ( int i = 0; i < vertexCount; ++i )
     {
         B2Vec2 p2 = vertices[i];
-        rl::drawLineV(p1, p2, tint);
+        rl::drawLineV(b2Vec2ToVector2f(p1), b2Vec2ToVector2f(p2), tint);
         p1 = p2;
     }
 }
@@ -169,15 +165,15 @@ fn void dbgDrawSolidPolygon(B2Transform transform, B2Vec2* vertices, int vertexC
     //rl::drawTriangleStrip((rl::Vector2*)vertices, vertexCount, hexColorToColor(color));
 }
 fn void dbgDrawCircle(B2Vec2 center, float radius, B2HexColor color, void* context ) {
-    rl::drawCircleLinesV(vec2ToVector2(center), radius, hexColorToColor(color));
+    rl::drawCircleLinesV(b2Vec2ToVector2f(center), radius, hexColorToColor(color));
 }
 fn void dbgDrawSolidCircle(B2Transform transform, float radius, B2HexColor color, void* context ) {
-    rl::drawCircleV(vec2ToVector2(transform.p), radius, hexColorToColor(color));
+    rl::drawCircleV(b2Vec2ToVector2f(transform.p), radius, hexColorToColor(color));
 }
 	//void ( *DrawCapsule )( b2Vec2 p1, b2Vec2 p2, float radius, b2HexColor color, void* context );
 	//void ( *DrawSolidCapsule )( b2Vec2 p1, b2Vec2 p2, float radius, b2HexColor color, void* context );
 fn void dbgDrawLineSegment(B2Vec2 p1, B2Vec2 p2, B2HexColor color, void* context ) {
-    rl::drawLineV(vec2ToVector2(p1), vec2ToVector2(p2), hexColorToColor(color));
+    rl::drawLineV(b2Vec2ToVector2f(p1), b2Vec2ToVector2f(p2), hexColorToColor(color));
 }
 
 /// Draw a transform. Choose your own length scale.
@@ -189,5 +185,5 @@ fn void dbgDrawPoint(B2Vec2 p, float size, B2HexColor color, void* context ) {
     dbgDrawCircle(p, size, color, context);
 }
 fn void dbgDrawString(B2Vec2 p, ZString s, void* context ) {
-    rl::drawTextEx(rl::getFontDefault(), s, vec2ToVector2(p), 1.0f, 1.0f, rl::WHITE);
+    rl::drawTextEx(rl::getFontDefault(), s, b2Vec2ToVector2f(p), 1.0f, 1.0f, rl::WHITE);
 }

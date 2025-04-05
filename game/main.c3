@@ -258,6 +258,7 @@ fn void register_modulo_cvars() @local {
     gui::register_cvars();
     intro::register_cvars();
     lgr::register_cvars();
+    ent::register_cvars();
 }
 
 // end_region Cvars
@@ -1726,7 +1727,7 @@ $endif
     B2WorldDef physWorld   = box2d::defaultWorldDef();
     //physWorld.gravity      = GRAVITY_VEC;
     // NOTE(HM) Realistic gravity is achieved by multiplying gravity by the length unit.
-	physWorld.gravity.y    = GRAVITY_VALUE * DEFAULT_PIXELS_PER_METER;
+	physWorld.gravity[1]    = GRAVITY_VALUE * DEFAULT_PIXELS_PER_METER;
     //
 	local_game.physWorldId = box2d::createWorld(&physWorld);
     if(box2d::world_IsValid(local_game.physWorldId)) {
@@ -1741,7 +1742,7 @@ $endif
     int screen_half_x      = (int)0.5f * local_game.screen.w;
     Vec2f pos              = DEFAULT_WORLD_CENTER + misc::VEC_RIGHT * screen_half_x;
     pos                   += misc::VEC_DOWN * (0.75f* local_game.screen.h);
-    grd_bodydef.position   = (B2Vec2)pos.toVector2();
+    grd_bodydef.position   = (B2Vec2)pos;//.toVector2();
     local_game.phys_grd_bodyid  = box2d::createBody(local_game.physWorldId, &grd_bodydef);
     local_game.phys_grd_box     = box2d::makeBox(20.0f, 10.0f);
     B2ShapeDef  grd_shpdef      = box2d::defaultShapeDef();

@@ -39,7 +39,20 @@ import thirdparty::raylib5::rl;
 import engine::misc;
 import game::assets::sprt;
 import game::serialize::svs; // save system
+import game::low_level::cvar;
+import game::lowlevel::bounds;
 import engine::physics::box2d;
+// end_region
+
+// region cvars
+Cvar ent_debugBounds @public = { "ent_debugBounds", CvarType.BOOLEAN, "0", "show debug visualization for entity bounding box" };
+//Cvar ui_editGUI   @public = { "ui_editGUI", CvarType.BOOLEAN, "0", "turn on gui editing functionality for gui development" };
+
+
+fn void register_cvars() @public {
+    cvar::@register(&ent_debugBounds);
+    //cvar::@register(&ui_editGUI);
+}
 // end_region
 
 const int   TH_NONE          = 0;
@@ -88,6 +101,7 @@ struct Entity (SaveSystemInterface)
 	typeid type;
 	String name;
     //
+    Bounds{Vec2f} bounds;
     Sprite vs;
     //
     // physics
@@ -122,7 +136,7 @@ fn bool Entity.shouldSkip(&self, String name) @inline @local {
     return false;
 }
 
-fn void Entity.init(&self, String aname, Vec2f origin = {0,0}, Color color = rl::WHITE) @public 
+fn void Entity.init(&self, String aname, Vec2f origin, Color color = rl::WHITE) @public 
 {
 	if(self.shouldSkip(aname)) return;
 	
@@ -156,15 +170,20 @@ $endif
     );
     //
     
+    // set entity Bounds
+    self.updateBounds();
+    
     // physics
     // define the body
     B2BodyDef bodyDef   = box2d::defaultBodyDef();
-    bodyDef.type        = B2BodyType.DYNAMIC;
-    bodyDef.position    = box2d::vec2fToVec2(origin);
-    // create the body
+    bodyDef.type        = box2d::KINEMATIC;
+    bodyDef.position    = origin; //box2d::vec2fToVec2(origin);
+    bodyDef.enableSleep = true;
+    
+    // create the body from the definition data above
     self.physics        = box2d::createBody(main::gpGame.physWorldId, &bodyDef);
     //
-    // create the polygon shape
+    // create the physics shape
     // ‍Caution: A dynamic body should have at least one shape with a non-zero density. 
     // Otherwise you will get strange behavior.
     // TODO(HM) Set the correct size at creation time!!!
@@ -231,6 +250,15 @@ fn void Entity.setPositionV(&self, Vec2f newpos) @inline
 fn Vec2f Entity.getPosition(&self) @inline
 {
 	return self.vs.getPos();
+}
+
+fn void Entity.updateBounds(&self) @inline
+{
+    Vec2f origin = self.getPosition();
+    self.bounds = {
+        .minc = origin + misc::VEC_RIGHT * self.vs.rect.width + misc::VEC_DOWN * self.vs.rect.height,
+        .maxc = origin
+    };
 }
 
 // fn void Entity.rotate2D(&self, float angle) @inline
@@ -370,12 +398,21 @@ fn void Entity.draw(&self)
 		// center of the texture (rotation/scale point), it's relative to destination rectangle dimentions, not the screen
 		rl::drawTexturePro(*self.vs.getTexture(), source, self.vs.rect, {0, 0}, 0.0f, self.vs.color);
 		//rl::drawTextureEx(*self.tex, self.origin, 0, 1.0f, self.color);
-	//$if $feature(_DEBUG):
+//$if $feature(_DEBUG):
 	//	rl::drawRectangleLinesEx(self.rect, 1.0f, rl::RED);
 //	$endif
 	} else {
 		rl::drawRectangleRec(self.vs.rect, self.vs.color);
 	}
+    
+    if(ent_debugBounds.getBool())
+    {
+        rl::drawCircle((int)self.bounds.maxc.x, (int)self.bounds.maxc.y, 2.0f, rl::SKYBLUE);
+        rl::drawCircle((int)self.bounds.minc.x, (int)self.bounds.minc.y, 2.0f, rl::SKYBLUE);
+        Vec2f size = self.bounds.minc - self.bounds.maxc;
+        Rectangle rect = {self.vs.rect.x, self.vs.rect.y, size.x, size.y};
+        rl::drawRectangleLinesEx(rect, 1.0f, rl::YELLOW);
+    }
 }
 
 fn void Entity.startThinking(&self) @inline {
@@ -397,6 +434,16 @@ fn bool Entity.isActive(&self) @inline {
 	return (self.flags & ent::TH_THINK) ? true : false;
 }
 
+fn void Entity.move(&self) {
+    // update visuals based on physics movement
+    if(((Vec2f)box2d::body_GetLinearVelocity(self.physics)).length() > 0.0f 
+     && box2d::body_GetType(self.physics) == box2d::DYNAMIC) {
+        self.setPositionV(box2d::body_GetPosition(self.physics));
+    }
+    // update bounds
+    self.updateBounds();
+}
+
 fn void Entity.think(&self, float dt) // update in other engines
 {
 	float think_st = @start_profile_zone();
@@ -404,28 +451,31 @@ fn void Entity.think(&self, float dt) // update in other engines
 	
 	if(self.flags & TH_THINK)
 	{
-        // TODO find why this crash's
-        self.setPositionV(box2d::vec2ToVec2f(box2d::body_GetPosition(self.physics)));
-        
-		//io::printf("Entity '%s' has flag %s!!!\n", self.name, self.flags);
-		//self.rotateX(1);
+        //self.setPositionV(box2d::body_GetPosition(self.physics));
+        self.move();
 	}
 }
 
-// fn void Entity.becomeActive(&self, int flags) {
+/*
+fn void Entity.becomeActive(&self, int flags) {
 	
-	// int oldFlags = self.flags;
-	// self.flags |= flags;
-	// if (self.flags) {
-		// if (!isActive()) {
-			// activeNode.AddToEnd(gameLocal.activeEntities);
-		// }
-		// else if (!oldFlags) {
-			// // we became inactive this frame, so we have to decrease the count of entities to deactivate
-			// gameLocal.numEntitiesToDeactivate--;
-		// }
-	// }
-// }
+    if (flags & TH_PHYSICS) {
+        //enable physics
+	}
+    
+	int oldFlags = self.flags;
+	self.flags |= flags;
+	if (self.flags) {
+		if (!isActive()) {
+			activeNode.AddToEnd(gameLocal.activeEntities);
+		}
+		else if (!oldFlags) {
+			// we became inactive this frame, so we have to decrease the count of entities to deactivate
+			gameLocal.numEntitiesToDeactivate--;
+		}
+	}
+}
+*/
 
 fn void Entity.kill(&self) {
 //self.mGame = null; // make sure we don't accidently kill the game singleton!!

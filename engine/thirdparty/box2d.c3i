@@ -240,17 +240,13 @@ struct B2WorldDef
  
 fn B2WorldDef defaultWorldDef() @extern("b2DefaultWorldDef");
  
-enum B2BodyType : int
-{
-	/// zero mass, zero velocity, may be manually moved
-	STATIC,
-
-	/// zero mass, velocity set by user, moved by solver
-	KINEMATIC,
-
-	/// positive mass, velocity determined by forces, moved by solver
-	DYNAMIC
-}
+alias B2BodyType = int;
+/// zero mass, zero velocity, may be manually moved
+const B2BodyType STATIC    = 0;
+/// zero mass, velocity set by user, moved by solver
+const B2BodyType KINEMATIC = 1;
+/// positive mass, velocity determined by forces, moved by solver
+const B2BodyType DYNAMIC   = 2;
  
 /// A body definition holds all the data needed to construct a rigid body.
 /// You can safely re-use body definitions. Shapes are added to a body after construction.
@@ -1417,15 +1413,19 @@ fn int dynamicTree_GetByteCount( B2DynamicTree* tree ) @extern("b2DynamicTree_Ge
 // region MATH
 
 // alias of raylib Vector2
-alias B2Vec2 = rl::Vector2;
+alias B2Vec2 = float[2]; //rl::Vector2;
 
-macro B2Vec2 vec2fToVec2(Vec2f vec) {
-    return (B2Vec2){vec.x, vec.y};
+macro rl::Vector2 b2Vec2ToVector2f(B2Vec2 vec) {
+    return (rl::Vector2){vec[0], vec[1]};
 }
 
-macro Vec2f vec2ToVec2f(B2Vec2 vec) {
-    return (Vec2f){vec.x, vec.y};
-}
+// macro B2Vec2 vec2fToVec2(Vec2f vec) {
+    // return (B2Vec2){vec.x, vec.y};
+// }
+
+// macro Vec2f vec2ToVec2f(B2Vec2 vec) {
+    // return (Vec2f){vec.x, vec.y};
+// }
 
 struct B2Rot @compact
 {
@@ -1510,13 +1510,13 @@ B2Vec2 	b2Max (B2Vec2 a, B2Vec2 b) @extern("b2MinInt");
 */
  
 // Component-wise clamp vector v into the range [a, b].
-fn B2Vec2 clamp (B2Vec2 v, B2Vec2 a, B2Vec2 b) @extern("b2Clamp");
+fn B2Vec2 B2Vec2.clamp (B2Vec2 v, B2Vec2 a, B2Vec2 b) @extern("b2Clamp");
 // Get the length of this vector (the norm)
-fn float length(B2Vec2 v) @extern("b2Length");
+fn float B2Vec2.length(B2Vec2 v) @extern("b2Length");
 // Get the distance between two points.
 fn float distance(B2Vec2 a, B2Vec2 b) @extern("b2Distance");
 // Convert a vector into a unit vector if possible, otherwise returns the zero vector.
-fn B2Vec2 normalize(B2Vec2 v) @extern("b2Normalize");
+fn B2Vec2 B2Vec2.normalize(B2Vec2 v) @extern("b2Normalize");
 // Convert a vector into a unit vector if possible, otherwise returns the zero vector.
 fn B2Vec2 getLengthAndNormalize (float* length, B2Vec2 v) @extern("b2GetLengthAndNormalize");
 /*
@@ -1528,7 +1528,7 @@ B2Rot 	b2IntegrateRotation (B2Rot q1, float deltaAngle) @extern("b2MinInt");
 */ 
  
 // Get the length squared of this vector.
-fn float lengthSquared(B2Vec2 v) @extern("b2LengthSquared");
+fn float B2Vec2.lengthSquared(B2Vec2 v) @extern("b2LengthSquared");
  // Get the distance squared between points.
 fn float distanceSquared(B2Vec2 a, B2Vec2 b) @extern("b2DistanceSquared");
 /*
@@ -1536,7 +1536,7 @@ B2Rot 	b2MakeRot (float angle) @extern("b2MinInt");
  	Make a rotation using an angle in radians.
 */
 // Is this rotation normalized?
-fn bool isNormalized(B2Rot q) @extern("b2IsNormalized");
+fn bool B2Rot.isNormalized(B2Rot q) @extern("b2IsNormalized");
 /*
 fn B2Rot b2NLerp( B2Rot q1, B2Rot q2, float t );
 fn float b2ComputeAngularVelocity( B2Rot q1, B2Rot q2, float inv_h );

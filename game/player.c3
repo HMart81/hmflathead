@@ -126,8 +126,8 @@ fn void Player.init(&self, Vec2f origin, Color color, int id)
     // physics
     // define the body
     B2BodyDef bodyDef   = box2d::defaultBodyDef();
-    bodyDef.type        = B2BodyType.KINEMATIC;
-    bodyDef.position    = box2d::vec2fToVec2(origin);
+    bodyDef.type        = box2d::KINEMATIC;
+    bodyDef.position    = origin; //box2d::vec2fToVec2(origin);
     // create the body
     self.physics        = box2d::createBody(main::gpGame.physWorldId, &bodyDef);
     //
