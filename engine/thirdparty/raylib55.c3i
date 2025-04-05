@@ -46,16 +46,27 @@ const Color BLANK       = { 0, 0, 0, 0 };           // Blank (Transparent)
 const Color MAGENTA     = { 255, 0, 255, 255 };     // Magenta
 const Color RAYWHITE    = { 245, 245, 245, 255 };   // My own White (raylib logo)
 
-// Vector2, 2 components
-struct Vector2 @compact
-{
-    float x;                // Vector x component
-    float y;                // Vector y component
-}
+// // Vector2, 2 components
+// struct Vector2 @compact
+// {
+    // float x;                // Vector x component
+    // float y;                // Vector y component
+// }
 
 macro Vector2.toVec2f(&self) => (Vec2f) {self.x, self.y};
 //macro Vector2.toVec2f(&self) => (Vec2f)(*self);
 macro Vector2.toVec2i(&self) => (Vec2i) {(int)self.x, (int)self.y};
+
+struct Vector2 @compact
+{
+   union {
+        struct {
+            float x; // Vector x component
+            float y; // Vector y component
+        }
+        float[2] arr;
+   }
+}
 
 // Vector3, 3 components
 struct Vector3 @compact

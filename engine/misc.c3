@@ -230,6 +230,13 @@ fn void Vec2f.translateV(&self, Vec2f vec) @inline {
 }
 // end_region vec2 extensions
 
+// region Matrix3f extensions
+macro Matrix3f.getScale(&self) => (Vec2f){self.m00, self.m11};
+macro Matrix3f.getTranslation(&self) => (Vec2f){self.m02, self.m12};
+macro Matrix3f.getRotation(&self) => (Vec2f){self.m10, self.m01};
+// end_region Matrix3f extensions
+
+
 // region raylib Rectangle extensions
 macro Vec2f getRecSize(rec) => {rec.width, rec.height};
 macro Vec2f getRecPos(rec) => {rec.x, rec.y}; // world pos

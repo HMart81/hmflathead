@@ -139,6 +139,7 @@ struct RenderView (SaveSystemInterface)
     bool taking_screenshot;
     
     Matrix3f axis; // view axis
+    Vec2f default_origin;
     
     Camera2D camera    @if ($defined(ENABLE_CAMERA_VIEW));
     ZoomMode zoom_mode @if ($defined(ENABLE_CAMERA_VIEW));
@@ -166,17 +167,19 @@ fn void RenderView.init(&self, int screenWidth, int screenHeight) @inline {
     self.axis = VIEW_AXIS_IDENTITY;
     
 $if $defined(ENABLE_CAMERA_VIEW):
+    self.default_origin = { screenWidth / 2.0f, screenHeight / 2.0f };
+    self.setOrigin(self.default_origin);
     // sets camera view target and view direction
-    self.camera.target = { screenWidth / 2.0f, screenHeight / 2.0f };
-    // move the view axis center to be the target 
-    self.axis.translate(self.camera.target.toVec2f());
+    self.camera.target.arr = self.getOrigin();
+    // move the view axis center to be the target
+    //self.axis.translate(self.camera.target.arr);
     
     // sets how far the camera is from the view target
     // right now theres no offset for the target
     self.camera.offset = self.camera.target;
    
     // NOTE(HM) To simplify things camera rotation will not be possible
-    self.camera.rotation = 0.0f;
+    //self.camera.rotation = 0.0f;
     //
     self.camera.zoom = 1.0f;
     self.zoom_mode   = MOUSE_WHEEL;
@@ -326,39 +329,47 @@ fn void RenderView.showAxis(&self) {
     rl::drawLineV(start.toVector2(), end.toVector2(), {10, 255, 15, 127});
 }
 
-fn void RenderView.updateAxis(&self, Vec2f new_origin) @inline {
-    self.axis.translate(new_origin);
+fn void RenderView.updateTarget(&self) {
+    self.camera.target.arr = self.getOrigin();
 }
 
-/*
-* Row Major*
-|sx ry tx|   |m00 m01 m02|
-|rx sy ty| = |m10 m11 m12|
-| 0  0  1|   |m20 m21 m22|
-*/
+fn void RenderView.setOrigin(&self, Vec2f new_pos) {
+    self.axis.m02 = new_pos.x;
+    self.axis.m12 = new_pos.y;
+    self.updateTarget(); // this needs to run always after updating the camera axis
+}
+
 fn Vec2f RenderView.getOrigin(&self) @inline {
-    return {self.axis.m02, self.axis.m12};
+    return self.axis.getTranslation();
 }
 
 fn void RenderView.cameraControls(&self) @inline {
+    // TODO(HM) Make this use the new key actions...
+    
 $if $feature(_DEBUG):
     // Camera translation controls
+    Vec2f new_pos = self.getOrigin();
     if (rl::isKeyDown(rl::KEY_A)) {
-        self.camera.target.x++;
-        self.updateAxis(self.camera.target.toVec2f());
+        new_pos.x++;
+        //self.camera.target.x++;
+        //self.updateAxis(self.camera.target.toVec2f());
     }
     if (rl::isKeyDown(rl::KEY_D)) {
-        self.camera.target.x--;
-        self.updateAxis(self.camera.target.toVec2f());
+        new_pos.x--;
+        //self.camera.target.x--;
+        //self.updateAxis(self.camera.target.toVec2f());
     }
     if (rl::isKeyDown(rl::KEY_W)) {
-        self.camera.target.y++;
-        self.updateAxis(self.camera.target.toVec2f());
+        new_pos.y++;
+        //self.camera.target.y++;
+        //self.updateAxis(self.camera.target.toVec2f());
     }
     if (rl::isKeyDown(rl::KEY_S)) {
-        self.camera.target.y--;
-        self.updateAxis(self.camera.target.toVec2f());
+        new_pos.y--;
+        //self.camera.target.y--;
+        //self.updateAxis(self.camera.target.toVec2f());
     }
+    self.setOrigin(new_pos);
 $endif
     
     if (rl::isKeyPressed(rl::KEY_ONE)) {
@@ -427,12 +438,12 @@ $endif
         self.camera.zoom = 0.1f;
     }
     
-    // Camera reset (zoom and rotation)
+    // Camera reset (zoom && origin)
     if (rl::isKeyPressed(rl::KEY_R))
     {
-        self.camera.target   = { main::gpGame.screen.w / 2.0f, main::gpGame.screen.h / 2.0f };
+        self.setOrigin(self.default_origin);
         self.camera.zoom     = 1.0f;
-        self.camera.rotation = 0.0f; // this should be always 0.0f...
+        //self.camera.rotation = 0.0f; // this should be always 0.0f...
     }
 }
 

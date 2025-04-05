@@ -380,7 +380,7 @@ fn void Entity.born(&self) @inline @local { if(self.alive) return; self.alive = 
 fn void Entity.register(&self) @inline
 {
 	// NOTE(HM) shouldn't never happen, but who knows...
-	assert(self.isValid(), "error cannot register entity because is not valid!");
+	//assert(self.isValid(), "error cannot register entity because is not valid!");
     self.born();
 	main::gpGame.entityList.push(self);
 }

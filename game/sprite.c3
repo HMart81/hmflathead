@@ -120,7 +120,7 @@ fn void Sprite.init(&self, float x, float y, int width, int height, RColor color
     self.setSize( width, height );
     self.setTexture(asset_name);
 $if $feature(_DEBUG):   
-    assert(self.isValid() == true);
+    //assert(self.isValid() == true);
 $endif
     self.register();
 }
