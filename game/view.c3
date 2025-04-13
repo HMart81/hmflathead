@@ -36,8 +36,9 @@ import std::collections::list;
 // end_region
 
 // region custom modules
-import engine::misc;
 import game::main;
+import engine::misc;
+import engine::input;
 import game::assets::sprt; // sprite
 import game::actors::ent::pl;
 import engine::filesystem::fs;
@@ -129,12 +130,6 @@ alias gameptr = main::gpGame;
 
 const int ENABLE_CAMERA_VIEW = 1;
 
-enum ZoomMode : char @if ($defined(ENABLE_CAMERA_VIEW))
-{
-    MOUSE_WHEEL,
-    MOUSE_MOVE
-}
-
 typedef RenderLayer = inline RenderTexture2D;
 
 alias RenderFunctionCallback = fn void(RenderView* view, RenderLayer* layer);
@@ -163,7 +158,6 @@ struct RenderView (SaveSystemInterface)
     Bounds bounds;
     
     Camera2D camera    @if ($defined(ENABLE_CAMERA_VIEW));
-    ZoomMode zoom_mode @if ($defined(ENABLE_CAMERA_VIEW));
 }
 
 fn void RenderView.save(&self, SaveFile* file) @dynamic {
@@ -205,12 +199,19 @@ $if $defined(ENABLE_CAMERA_VIEW):
     // NOTE(HM) To simplify things camera rotation will not be possible
     //self.camera.rotation = 0; /s zero by defaul in C3 language
     //
-    self.zoom_mode   = MOUSE_WHEEL;
     self.camera.zoom = 1.0f;
 $endif
     Vec2f bb_maxc = self.origin + misc::VEC_UP * (float)(self.h / 2) + misc::VEC_LEFT * (float)(self.w / 2);  
     Rectangle bb_def = misc::makeRect(bb_maxc, {self.w, self.h});
     self.bounds.setRect(bb_def);
+    
+    // key actions
+    input::makeKeyboardAction("cam_move_up",    rl::KEY_W);
+    input::makeKeyboardAction("cam_move_left",  rl::KEY_A);
+    input::makeKeyboardAction("cam_move_down",  rl::KEY_S);
+    input::makeKeyboardAction("cam_move_right", rl::KEY_D);
+    input::makeKeyboardAction("cam_zoom",       rl::KEY_Z);
+    input::makeKeyboardAction("cam_reset",      rl::KEY_R);
 }
 
 fn void RenderView.deinit(&self) {
@@ -360,7 +361,7 @@ fn void RenderView.showModelViewAxis(&self) {
     
     // draw axis coords in camera space
     Vec2f axis_org, start, end, pox, poy;
-    axis_org = self.getOrigin();
+    axis_org = self.getTarget();
     start    = axis_org;
     // +X coord
     end = start + (Vec2f) {axis.m0, axis.m1} * (0.10f * self.w);
@@ -381,6 +382,11 @@ fn void RenderView.updateTarget(&self) @inline @if ($defined(ENABLE_CAMERA_VIEW)
     self.camera.target.arr = self.getOrigin();
 }
 
+fn Vec2f RenderView.getTarget(&self) @inline @if ($defined(ENABLE_CAMERA_VIEW))
+{
+    return (Vec2f)self.camera.target.arr;
+}
+
 fn void RenderView.setOrigin(&self, Vec2f new_pos) {
     //self.axis.m02 = new_pos.x;
     //self.axis.m12 = new_pos.y;
@@ -395,99 +401,62 @@ fn Vec2f RenderView.getOrigin(&self) @inline {
     return self.origin;
 }
 
-fn void RenderView.cameraControls(&self) @inline @if ($defined(ENABLE_CAMERA_VIEW))
+fn void RenderView.cameraControls(&self) @if ($defined(ENABLE_CAMERA_VIEW))
 {
-    // TODO(HM) Make this use the new key actions...
-    
 $if $feature(_DEBUG):
     // Camera translation controls
-    if (rl::isKeyDown(rl::KEY_A)) {
-        self.origin.x++;
-    }
-    if (rl::isKeyDown(rl::KEY_D)) {
-        self.origin.x--;
-    }
-    if (rl::isKeyDown(rl::KEY_W)) {
+    if (input::getAction("cam_move_up").fnIsTriggered()) {
         self.origin.y++;
     }
-    if (rl::isKeyDown(rl::KEY_S)) {
+    if (input::getAction("cam_move_left").fnIsTriggered()) {
+        self.origin.x++;
+    }
+    if (input::getAction("cam_move_down").fnIsTriggered()) {
         self.origin.y--;
     }
-$endif
-    
-    if (rl::isKeyPressed(rl::KEY_ONE)) {
-        self.zoom_mode = (self.zoom_mode == MOUSE_MOVE) ? MOUSE_WHEEL : MOUSE_MOVE;
+    if (input::getAction("cam_move_right").fnIsTriggered()) {
+        self.origin.x--;
     }
+$endif
 
-    if (rl::isMouseButtonDown(MouseButton.RIGHT))
-    {
-        Vector2 delta = rl::getMouseDelta();
-        delta = rmath::vector2Scale(delta, -1.0f/self.camera.zoom);
-        self.camera.target = rmath::vector2Add(self.camera.target, delta);
-    }
+    // if (rl::isMouseButtonDown(MouseButton.RIGHT))
+    // {
+        // Vector2 delta = rl::getMouseDelta();
+        // delta = rmath::vector2Scale(delta, -1.0f/self.camera.zoom);
+        // self.camera.target = rmath::vector2Add(self.camera.target, delta);
+    // }
     
-    switch(self.zoom_mode)
+    if (input::getAction("cam_zoom").fnIsTriggered())
     {
-        case MOUSE_WHEEL:
-            float wheel = rl::getMouseWheelMove();
-            if (wheel != 0)
-            {
-                // Get the world point that is under the mouse
-                Vector2 mousePos = rl::getMousePosition();
-$if $defined(ENABLE_CAMERA_VIEW):
-                mousePos.y = self.h - mousePos.y;
-                Vector2 mouseWorldPos = rl::getScreenToWorld2D(mousePos, self.camera);
-$else
-                Vector2 mouseWorldPos = mousePos;
-$endif
-                // Set the offset to where the mouse is in world space
-                self.camera.offset = mousePos;
+        float wheel_movement = rl::getMouseWheelMove();
+        if (wheel_movement != 0)
+        {
+            // Get the world point that is under the mouse
+            Vector2 mousePos = rl::getMousePosition();
+            Vector2 mouseWorldPos = rl::getScreenToWorld2D(mousePos, self.camera);
+            
+            // Set the offset to where the mouse is in world space
+            self.camera.offset = mousePos;
 
-                // Set the target to match, so that the camera maps the world space point 
-                // under the cursor to the screen space point under the cursor at any zoom
-                self.camera.target = mouseWorldPos;
-                
-                // Camera zoom controls
-                // Uses log scaling to provide consistent zoom speed
-                self.camera.zoom = math::exp(math::ln(self.camera.zoom) + ((float)rl::getMouseWheelMove() * 0.1f));
+            // Set the target to match, so that the camera maps the world space point 
+            // under the cursor to the screen space point under the cursor at any zoom
+            self.camera.target = mouseWorldPos;
+            
+            // Camera zoom controls
+            // Uses log scaling to provide consistent zoom speed
+            self.camera.zoom = math::exp(math::ln(self.camera.zoom) + ((float)rl::getMouseWheelMove() * 0.1f));
 
-                if (self.camera.zoom > 3.0f) { self.camera.zoom = 3.0f; }
-                else { if (self.camera.zoom < 0.1f) self.camera.zoom = 0.1f; }
+            if (self.camera.zoom > 3.0f) { self.camera.zoom = 3.0f; }
+            else { if (self.camera.zoom < 0.1f) self.camera.zoom = 0.1f; }
 
-            }
-        case MOUSE_MOVE:
-            // Zoom based on mouse left click
-            if (rl::isMouseButtonPressed(MouseButton.LEFT))
-            {
-                Vector2 mousePos = rl::getMousePosition();
-$if $defined(ENABLE_CAMERA_VIEW):
-                mousePos.y = self.h - mousePos.y;
-                Vector2 mouseWorldPos = rl::getScreenToWorld2D(mousePos, self.camera);
-$else
-                Vector2 mouseWorldPos = mousePos;
-$endif
-                // Set the offset to where the mouse is in world space
-                self.camera.offset = mousePos;
-
-                // Set the target to match, so that the camera maps the world space point 
-                // under the cursor to the screen space point under the cursor at any zoom
-                self.camera.target = mouseWorldPos;
-                
-                // Camera zoom controls
-                // Uses log scaling to provide consistent zoom speed
-                self.camera.zoom = math::exp(math::ln(self.camera.zoom) + (rl::getMouseDelta().x * 0.1f));
-
-                if (self.camera.zoom > 3.0f) { self.camera.zoom = 3.0f; }
-                else { if (self.camera.zoom < 0.1f) self.camera.zoom = 0.1f; }
-            }
+        }
     }
     
     // Camera reset (zoom && origin)
-    if (rl::isKeyPressed(rl::KEY_R))
+    if (input::getAction("cam_reset").fnIsTriggered())
     {
         self.setOrigin(self.default_origin);
-        self.camera.zoom     = 1.0f;
-        //self.camera.rotation = 0.0f; // this should be always 0.0f...
+        self.camera.zoom = 1.0f;
     }
 }
 
@@ -505,14 +474,13 @@ fn void RenderView.update(&self)
 $if $defined(ENABLE_CAMERA_VIEW): 
         self.cameraControls();
 $endif
-
         self.updateBounds();
     }
 }
 
 fn void RenderView.updateBounds(&self) {
     @pool() {
-        Vec2f bb_maxc    = self.origin + misc::VEC_UP * (float)(self.h / 2) + misc::VEC_LEFT * (float)(self.w / 2);  
+        Vec2f bb_maxc    = self.getTarget() + misc::VEC_UP * (float)(self.h / 2) + misc::VEC_LEFT * (float)(self.w / 2);  
         self.bounds.setRect(misc::makeRect(bb_maxc,{self.w, self.h}));
     };
 }
@@ -537,17 +505,27 @@ $endif
             foreach(sprite : main::gpGame.sprites) {
                 bool not_game_cursor = sprite.kind != SpriteKind.CURSOR;
                 if(not_game_cursor) {
+                    bool out_of_view = !view.bounds.intersectsOther(&sprite.bounds);
+                    if(out_of_view) {
+                        sprite.hide();
+                    } else if(sprite.hidden()) { sprite.show(); }
+                    
                     sprite.draw();
                 }
             }
         }
             
         // draw game entities
-        if(main::gpGame.entityList.len()) {
-            foreach(ent : main::gpGame.entityList) {
-                if(ent.alive) {
-                    ent.draw();
-                }
+        if(main::gpGame.entityList.len()) 
+        {
+            foreach(ent : main::gpGame.entityList) 
+            {
+                bool ent_out_of_view = !view.bounds.intersectsOther(&ent.bounds);
+                if(ent_out_of_view) {
+                    ent.hide();
+                } else if(ent.hidden()) { ent.show(); }
+                
+                ent.draw();
             }
         }
         
@@ -711,7 +689,7 @@ fn void RenderView.drawWorldSpaceCoords(&self) @if($feature(_DEBUG))
 fn void RenderView.drawCameraSpaceCoords(&self) @if($defined(ENABLE_CAMERA_VIEW) && $feature(_DEBUG))
 {
     self.showModelViewAxis();
-    /*
+    
     Color g = {0, 255, 0, 100};
     Color r = {255, 0, 0, 100};
     //rl::drawRectangleLinesEx(misc::makeRect(self.origin, {self.w, (float)-self.h}), 2.5f, rl::RED);
@@ -724,6 +702,5 @@ fn void RenderView.drawCameraSpaceCoords(&self) @if($defined(ENABLE_CAMERA_VIEW)
     // horizontal line
     rl::drawLine(-self.w*10, (int)self.camera.target.y, self.w*10, (int)self.camera.target.y, r);
     rl::drawText("+X", (int)(self.camera.target.x + (0.95f*(self.w/2.0f))), (int)self.camera.target.y + 10, 10, r);
-    //rl::drawCircleV(self.camera.target, 10.0f, rl::GREEN);
-    */
+    rl::drawCircleV(self.camera.target, 10.0f, rl::GREEN);
 }

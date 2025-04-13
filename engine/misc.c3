@@ -168,7 +168,7 @@ fn void freeDebugLines() @inline {
 
 <*
 * @param [in] line "pointer to a DebugLine"
-* @ensure line != null
+* @require line != null
 *>
 fn bool debugLineIsValid(DebugLine* line) {
     return (line.lifetime >= 1000) ? true : false;

@@ -40,6 +40,7 @@ import engine::assets::astmng; // asset manager
 import engine::assets_api::asapi; // for the asset
 import engine::logging::lgr;
 import game::serialize::svs; // save system
+import game::lowlevel::bounds;
 import game::actors::ent;
 import thirdparty::raylib5::rl;
 import thirdparty::tracy;
@@ -81,6 +82,7 @@ struct Sprite (SaveSystemInterface)
     Rectangle rect;
     RColor color;
     Asset* tex;
+    Bounds bounds; // will be equal to the rectangle
     //
     union {
         bool isHidden;
@@ -117,6 +119,8 @@ fn void Sprite.init(&self, float x, float y, int width, int height, RColor color
     self.color = color;
     self.setPosition( x, y );
     self.setSize( width, height );
+    // now set the Bounds
+    self.bounds.fromRect(&self.rect);
     self.setTexture(asset_name);
 $if $feature(_DEBUG):   
     //assert(self.isValid() == true);

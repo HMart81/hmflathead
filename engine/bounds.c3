@@ -46,6 +46,17 @@ struct Bounds {
     Vec2f minc;
 }
 
+<*
+* @param [in] rect "rectangle to get data from"
+* @require rect != null
+*>
+fn Bounds Bounds.fromRect(&self, Rectangle* rect) @inline {
+    Vec2f size = rect.getSize().arr;
+    self.maxc  = rect.getPosition().arr;
+    self.minc  = self.maxc + misc::VEC_RIGHT * size.x + misc::VEC_DOWN * size.y;
+    return *self;
+}
+
 fn void Bounds.debugDraw(self) {
     Vec2f size = self.minc - self.maxc;
     rl::drawRectangleLinesEx(misc::makeRect(self.maxc, {size.x, size.y}), 2.5f, rl::YELLOW);
@@ -182,11 +193,11 @@ fn Bounds* Bounds.expandSelf(&self, float d ) @inline {
 |rx sy ty| = |m10 m11 m12|
 | 0  0  1|   |m20 m21 m22|
 */
-fn void Bounds.fromTransformedBounds(&self, Bounds *bounds, Vec2f* origin, Matrix3f* axis ) {
+fn void Bounds.fromTransformedBounds(&self, Vec2f origin, Matrix3f* axis ) {
 	Vec2f center, extents, rotatedExtents;
 
-	center  = (bounds.maxc + bounds.minc) * 0.5f;
-	extents = bounds.minc - center;
+	center  = (self.maxc + self.minc) * 0.5f;
+	extents = self.minc - center;
     
     rotatedExtents.x = math::abs( extents.x * axis.m00 ) +
 					   math::abs( extents.y * axis.m10 );
@@ -194,7 +205,7 @@ fn void Bounds.fromTransformedBounds(&self, Bounds *bounds, Vec2f* origin, Matri
 					   math::abs( extents.y * axis.m11 );
 
 	//center = origin + center * axis;
-    center = (*origin + (axis.multiply(center)));
+    center = (origin + (axis.multiply(center)));
 	self.maxc = center - rotatedExtents;
 	self.minc = center + rotatedExtents;
 }
@@ -205,3 +216,29 @@ fn void Bounds.fromTransformedBounds(&self, Bounds *bounds, Vec2f* origin, Matri
 |m10 m11 m12| = |m01 m11 m21|
 |m20 m21 m22|   |m02 m12 m22|
 */
+
+fn Bounds Bounds.translate(&self, Vec2f translation ) @inline {
+	self.maxc += translation;
+	self.minc += translation;
+	return *self;
+}
+
+fn Bounds* Bounds.rotate(&self, Matrix3f* rotation ) @inline { 
+	self.fromTransformedBounds( (Vec2f){0,0}, rotation );
+	return self;
+}
+
+fn bool Bounds.containsPoint(&self, Vec2f p ) @inline {
+	if ( p.x < self.maxc.x || p.y < self.maxc.y || p.x > self.minc.x || p.y > self.minc.y) {
+		return false;
+	}
+	return true;
+}
+
+fn bool Bounds.intersectsOther(&self, Bounds* a) @inline {
+	if (a.minc.x < self.maxc.x || a.minc.y < self.maxc.y ||
+		a.maxc.x > self.minc.x || a.maxc.y > self.minc.y) {
+		return false;
+	}
+	return true;
+}

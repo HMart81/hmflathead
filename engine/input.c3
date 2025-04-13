@@ -27,6 +27,10 @@
 *********************************************************************************************************************************************/
 
 // TODO(HM) Detect if the same key combo is being assign to many actions
+// NOTE(HM) This doesn't handle mouse wheel detection, is only for keyboard and mouse button keys,
+//          mouse wheel data retrievel is done using either raylib functions:
+//              fn float getMouseWheelMove()
+//              fn Vector2 getMouseWheelMoveV()
 
 module engine::input;
 

@@ -92,7 +92,7 @@ interface EntityInterface {
 	fn bool isdead(); @optional
     fn void hide(); @optional
     fn void show(); @optional
-    fn bool isHidden(); @optional
+    fn bool hidden(); @optional
 }
 */
 
@@ -173,7 +173,10 @@ $endif
     //
     
     // set entity Bounds
-    self.updateBounds();
+    Bounds bb;
+    bb.maxc = origin;
+    bb.minc = bb.maxc + misc::VEC_RIGHT * self.vs.rect.width + misc::VEC_DOWN * self.vs.rect.height;
+    self.setBounds(bb);
     
     // physics
     // define the body
@@ -280,13 +283,20 @@ fn Vec2f Entity.getPosition(&self) @inline
 	return self.vs.getPos();
 }
 
-fn void Entity.updateBounds(&self) @inline
-{
-    Vec2f origin = self.getPosition();
+fn void Entity.setBounds(&self, Bounds bb) @inline {
     self.bounds = {
-        .minc = origin + misc::VEC_RIGHT * self.vs.rect.width + misc::VEC_DOWN * self.vs.rect.height,
-        .maxc = origin
+        .minc = bb.minc,
+        .maxc = bb.maxc
     };
+}
+
+fn void Entity.updateBoundsPos(&self, Vec2f pos) @inline
+{
+    self.bounds.translate(pos);
+    // Bounds bb;
+    // bb.maxc = origin;
+    // bb.minc = bb.maxc + misc::VEC_RIGHT * self.vs.rect.width + misc::VEC_DOWN * self.vs.rect.height;
+    // self.setBounds(bb);
 }
 
 // fn void Entity.rotate2D(&self, float angle) @inline
@@ -308,7 +318,7 @@ fn void Entity.hide(&self) @inline => self.vs.hide();
 
 fn void Entity.show(&self) @inline => self.vs.show();
 
-fn bool Entity.isHidden(&self) @inline => self.vs.hidden();
+fn bool Entity.hidden(&self) @inline => self.vs.hidden();
 
 fn void Entity.setname(&self, String* aname) @inline
 {
@@ -337,7 +347,7 @@ fn Entity* Entity.find_other_in_radius(self, float radius )
 	foreach(int index, Entity* other : main::gpGame.entityList)
 	{
 		// NOTE(HM) Should this really ignore hidden entities?
-		if (other == null || other.isdead() || other.isHidden()) {
+		if (other == null || other.isdead() || other.hidden()) {
 			continue;
 		}
 		
@@ -379,7 +389,7 @@ fn Entity* findradius(Entity *startent, Vec2f* org, float rad )
 	
 	foreach(int index, Entity* other : main::gpGame.entityList) 
 	{
-		if(other.isdead() || other.isHidden()) continue;
+		if(other.isdead() || other.hidden()) continue;
 		
 		Vec2f other_org = (*org) - startent.getPosition();
 		
@@ -415,7 +425,7 @@ fn void Entity.register(&self) @inline
 
 fn void Entity.draw(&self) 
 {
-	if(self.isHidden() || self.isdead()) return;
+	if(self.hidden() || self.isdead()) return;
 	
 	//
 	if(self.vs.asTexture()) {
@@ -464,12 +474,12 @@ fn bool Entity.isActive(&self) @inline {
 
 fn void Entity.move(&self) {
     // update visuals based on physics movement
-    if(((Vec2f)box2d::body_GetLinearVelocity(self.physics)).length() > 0.0f 
-     && box2d::body_GetType(self.physics) == box2d::DYNAMIC) {
-        self.setPositionV(box2d::body_GetPosition(self.physics));
+    // && box2d::body_GetType(self.physics) == box2d::DYNAMIC
+    if(((Vec2f)box2d::body_GetLinearVelocity(self.physics)).length() > 0.0f ) {
+        Vec2f new_pos = box2d::body_GetPosition(self.physics);
+        self.setPositionV(new_pos);
+        self.updateBoundsPos(new_pos);
     }
-    // update bounds
-    self.updateBounds();
 }
 
 fn void Entity.think(&self, float dt) // update in other engines
@@ -479,6 +489,10 @@ fn void Entity.think(&self, float dt) // update in other engines
         tracy::@zoneN("Entity.think", 1)
         {
             self.move();
+            
+            if(bounds::db_showBounds.getBool()) {
+                self.bounds.debugDraw();
+            }
         };
     }
 }
