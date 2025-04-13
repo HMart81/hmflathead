@@ -36,25 +36,24 @@ import std::math;
 import std::collections;
 //import std::core::string;
 import libc;
-// end
-
-// region custom modules
 import game::main;
 import game::actors::ent::pl;
 import engine::logging::lgr;
 import thirdparty::raylib5::rl;
+import engine::physics::box2d;
+import game::camview;
 // end
 
 alias Vec2f  = float[<2>];
 alias Vec2i  = int[<2>];
 alias Vec3i  = int[<3>];
 
-// NOTE(HM) There's not Z or back and forward, because this is 2D engine
-// in camera space!!!!!!!!!
-const Vec2f VEC_UP    = { 0.0f,-1.0f};
-const Vec2f VEC_DOWN  = { 0.0f, 1.0f};
+// NOTE(HM) There's no Z or backward and forward, because this is 2D engine
+const Vec2f VEC_UP    = {0.0f, -1.0f};
+const Vec2f VEC_DOWN  = {0.0f,  1.0f};
 const Vec2f VEC_LEFT  = {-1.0f, 0.0f};
-const Vec2f VEC_RIGHT = { 1.0f, 0.0f};
+const Vec2f VEC_RIGHT = {1.0f,  0.0f};
+
 
 macro @makeVec2f(#x, #y) => (Vec2f){#x, #y};
 macro @makeVec2fExt(#x) => (Vec2f){#x, #x};
@@ -234,25 +233,50 @@ fn void Vec2f.translateV(&self, Vec2f vec) @inline {
 macro Matrix3f.getScale(&self) => (Vec2f){self.m00, self.m11};
 macro Matrix3f.getTranslation(&self) => (Vec2f){self.m02, self.m12};
 macro Matrix3f.getRotation(&self) => (Vec2f){self.m10, self.m01};
+macro Vec2f Matrix3f.multiply(&self, Vec2f v) {
+    Matrix3f m = self.transpose();
+    Vec2f result = {m.m00 * v.x + m.m10 * v.y, m.m01 * v.x + m.m11 * v.y};
+    return result;
+}
 // end_region Matrix3f extensions
+
+// region box2d non exported functions
+
+/// Make a rotation using an angle in radians
+fn B2Rot makeRot(float radians) @inline
+{
+	B2CosSin cs = box2d::computeCosSin( radians );
+	return (B2Rot){ cs.cosine, cs.sine };
+}
+
+/// Get the angle in radians in the range [-pi, pi]
+fn float rot_GetAngle( B2Rot q ) => box2d::atan2( q.s, q.c );
+
+/// Get the x-axis
+fn B2Vec2 rot_GetXAxis( B2Rot q ) => (B2Vec2) { q.c, q.s };
+
+/// Get the y-axis
+fn B2Vec2 rot_GetYAxis( B2Rot q ) => (B2Vec2) { -q.s, q.c };
+// end_region
 
 
 // region raylib Rectangle extensions
-macro Vec2f getRecSize(rec) => {rec.width, rec.height};
-macro Vec2f getRecPos(rec) => {rec.x, rec.y}; // world pos
-macro Vec2f getRecScreenPos(rec) => worldToScreen(getRecPos(rec));
+macro Rectangle makeRect(Vec2f v1, Vec2f v2) => (Rectangle){v1.x, v1.y, v2.x, v2.y};
+
+macro Vec2f Rectangle.getScreenPos(self) => worldToScreen(self.getPosition());
 
 // NOTE(HM) This may return the exact same coords as put in if
 // the camera is never moved around, as world coords and camera coords
 // are very similar only the center/origin changes.
 // UNTESTED!!!!!!!!!!!!!!!!!!!!!
-fn Vec2f Rectangle.getPosCameraCoords(&self) {
+fn Vec2f Rectangle.getPosCameraCoords(&self) @if ($defined(ENABLE_CAMERA_VIEW))
+{
     Vec2f world_origin   = {0, 0};
     Vec2f cam_org        = main::gpGame.view.camera.target.toVec2f();
     Vec2f offset_vec_dir = cam_org - world_origin;
     float offset_len     = offset_vec_dir.length();
     
-    return self.getPos().toVec2f() * offset_vec_dir.normalize() * offset_len; 
+    return self.getPosition().toVec2f() * offset_vec_dir.normalize() * offset_len; 
 }
 // end_region raylib Rectangle extensions
 

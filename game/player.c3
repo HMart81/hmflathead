@@ -40,6 +40,7 @@ import game::main;
 import engine::physics::box2d;
 import engine::misc;
 import thirdparty::raylib5::rl;
+import thirdparty::tracy;
 // end_region
 
 // player speed is defined in how many pixels it travels in one second
@@ -209,26 +210,30 @@ fn void Player.move(&self, float speed) @inline
 
 fn void Player.think(&self, float dt /*delta_time*/) 
 {
-    // NOTE(HM) to run parent entity code that may be necessary by the player
-    self.super.think(dt); // parent
-    
-    if(self.flags & ent::TH_THINK)
-    {
-        // player Input should be done near possible to 
-        // updating the player think/state to diminish input lag.
-        self.updateInteraction(dt);
+        // NOTE(HM) to run parent entity think code that may be necessary by the player
+        self.super.think(dt); // parent
         
-        foreach(projectile : self.projectiles) {
-            if(projectile) {
-                ammo::update(projectile, dt);
-                ammo::draw(projectile);
-            }
+        if(self.flags & ent::TH_THINK)
+        {
+            tracy::@zoneN("Playerthink", 1)
+            {
+                // player Input should be done next possible to 
+                // updating the player state to diminish input lag.
+                self.updateInteraction(dt);
+                
+                // foreach(projectile : self.projectiles) {
+                    // if(projectile) {
+                        // ammo::update(projectile, dt);
+                        // ammo::draw(projectile);
+                    // }
+                // }
+            };
+        } 
+        
+        if(self.flags & ent::TH_PHYSICS) {
+            // update player physics code here
         }
-    } 
-    
-    if(self.flags & ent::TH_PHYSICS) {
-        // update player physics code here
-    }
+        
 }
 
 fn void Player.startThinking(&self) @inline {

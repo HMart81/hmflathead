@@ -45,11 +45,11 @@ import game::intro;
 import game::gui::menu;
 import engine::assets_api::asapi; // for the asset system
 import engine::assets::astmng; // asset manager
-import game::serialize::svs; // save system
-import game::logic::timer;
 import game::assets::sprt; // sprites
 import game::assets::part; // particles
 //import game::assets::mtr; // materials
+import game::serialize::svs; // save system
+import game::logic::timer;
 import engine::logging::lgr;
 import game::actors::ent::pl;  // player module
 import engine::misc; // misc code
@@ -57,20 +57,27 @@ import game::camview;
 import game::low_level::cvar;
 import game::files::ini @public;
 import game::effects::boid;
+import game::lowlevel::bounds;
 // third party libraries
 import thirdparty::raylib5::rl;
 import thirdparty::raygui5::rgui;
 import thirdparty::library::xml;
 import engine::physics::box2d;
+import thirdparty::tracy;
 // end_region
 
 // region Constants
+
+const TRACY_ENABLE_ZONE @if($feature(TRACY_ENABLE)) = 1;
 
 /*
    ===== Game Scale Units =====
    
    1 meter = 10 pixels
-    
+   
+   NOTE(HM): 
+   minimum scale for physics objects is 10 cm 
+   this is a hard limit imposed by the box2d physics engine.
 */
 const DEFAULT_PIXELS_PER_METER @public @Hardcode = 10;
 const String MOUSE_IMAGE_NAME          @Hardcode = "pointer.png";
@@ -175,8 +182,8 @@ const Vec2f DEFAULT_WORLD_CENTER   = {0, 0}; // top left coorner of screen (this
 const int MAX_VERSION                = 0;
 const int MIN_VERSION                = 0;
 const int BABY_VERSION               = 2;
-const String GAME_NAME     @Hardcode = "neo"; // TODO(HM) give me a final name!!!!
-const String GAME_SUB_NAME @Hardcode = ""; // NOTE(HM) optional...
+const String GAME_NAME     @Hardcode = "hmflathead"; // TODO(HM) give me a final name!!!!
+const String GAME_SUB_NAME @Hardcode = "engine"; // NOTE(HM) optional...
 //
 
 // default safe settings
@@ -259,6 +266,7 @@ fn void register_modulo_cvars() @local {
     intro::register_cvars();
     lgr::register_cvars();
     ent::register_cvars();
+    bounds::register_cvars();
 }
 
 // end_region Cvars
@@ -301,9 +309,11 @@ struct Game (SaveSystemInterface) @local
     
     
     IntroAnimation intro;
+    bool intro_playing;
     
     // menus
     gui::Desktop* guiActive; // to handle all guis
+    //
     gui::Desktop* main_menu;
     
     GameMode mode;
@@ -658,7 +668,7 @@ fn Vec2f getGameCursorSize() @public @inline => local_game.mouse_cursor.getSize(
 fn void update_game_cursor(int screen_w, int screen_h) @public {
 
     // todo enable this code
-    //if(game_cursor_visible() == false) return;
+    if(game_cursor_visible() == false) return;
     
     int x = rl::getMouseX(); // in world space
     int y = rl::getMouseY(); // in world space
@@ -671,15 +681,13 @@ fn void update_game_cursor(int screen_w, int screen_h) @public {
     //
     
     // update position
-    Vec2f currMousePos  = {(float)x, (float)y};
-    local_game.mouse_cursor.setPositionV(currMousePos);
+    //local_game.mouse_cursor.setPositionV({x, y});
+    local_game.mouse_cursor.setPositionV(rl::getWorldToScreen2D({x, y}, local_game.view.camera).toVec2f());
     
     // update size
     // TODO do a better mouse cursor size dependent on screen size!!
-    //int w = rl::getRenderWidth();
-    int window_h            = gpGame.screen.h;
     int cursor_h            = (int)local_game.mouse_cursor.getSizeY();
-    int desired_cursor_size = (int)math::floor((GAME_CURSOR_SCALER * window_h));
+    int desired_cursor_size = (int)math::floor((GAME_CURSOR_SCALER * screen_h));
     if(cursor_h > desired_cursor_size) {
         set_game_cursor_size(desired_cursor_size, desired_cursor_size);
     }
@@ -699,6 +707,21 @@ fn bool game_cursor_visible() @public @inline {
 }
 
 // end_region Game Custom Cursor functions
+
+fn void drawGameVersion(int screenWidth, int screenHeight) @inline
+{
+    // draw game version
+        const VERSION_FONT_SCALE = 12;
+        ZString game_version     = string::tformat_zstr("version: (%s, %s, %s)", MAX_VERSION, MIN_VERSION, BABY_VERSION);
+        int version_text_len     = rl::measureText(game_version, VERSION_FONT_SCALE);
+        rl::drawText(
+            game_version,
+            (int)(screenWidth - (2.0f * version_text_len)), //(float)(font_w * libc::strlen(game_version))),
+            (int)0.25f*screenHeight,
+            VERSION_FONT_SCALE,
+            {127, 127, 255, 255} // @Hardcode color
+        );
+}
 
 fn void drawWorkInProgressMessage(int screen_w, int screen_h) @local 
 {
@@ -785,9 +808,10 @@ fn void drawGameOnScreenDebugInfo(int screen_w, int screen_h) @local
         // break;
     // }
     
+    RenderView* view = &local_game.view;
     const rl::Color* COLOR = &rl::YELLOW;
-    int x = (int)math::floor(0.01f*screen_w);
-    int y = screen_h;
+    int x = (int)math::floor(0.01f*view.w);
+    int y = view.h;
     
     rl::drawText(slot1, x, (int)math::floor(0.01f*y), SMALL_FONT_SCALE, *COLOR);
     rl::drawText(slot2, x, (int)math::floor(0.03f*y), SMALL_FONT_SCALE, *COLOR);
@@ -827,7 +851,7 @@ fn void gameDraw(int screenWidth, int screenHeight) @local
     //defer @end_profile_zone(gameDraw_start);
     misc::@profile_zone("Game Draw", false)
     {
-        local_game.view.renderToFBO(screenWidth, screenHeight);
+        local_game.view.renderToFBO();
         
         // Main Basic rendering
         rl::beginDrawing();
@@ -835,13 +859,16 @@ fn void gameDraw(int screenWidth, int screenHeight) @local
         rl::clearBackground({0x18, 0x18, 0x18, 0xFF});
         
         // draw the view FBO's
-        if(rl::isShaderValid(*local_game.current_global_shader)) {
+        if(rl::isShaderValid(*local_game.current_global_shader)) 
+        {
             rl::beginShaderMode(*local_game.current_global_shader);
-                local_game.view.draw(screenWidth, screenHeight);
+            
+                local_game.view.draw();
+                
             rl::endShaderMode();
         } else {
             // render using raylib default shader
-            local_game.view.draw(screenWidth, screenHeight);
+            local_game.view.draw();
         }
         
         // NOTE(HM) 
@@ -853,7 +880,9 @@ fn void gameDraw(int screenWidth, int screenHeight) @local
         // drawing after the GUI is draw
         //gameOnPostGUIDraw(screenWidth, screenHeight);
         
+        // this is where input pooling and swapping buffers happens
         rl::endDrawing();
+        tracy::frameMark();
         
         // NOTE(HM) 1)
         // drawing after the frame buffer is swapped/updated
@@ -864,12 +893,6 @@ fn void gameDraw(int screenWidth, int screenHeight) @local
 }
 
 fn EscReply handleESC( Desktop** gui ) {
-	/*if ( isMultiplayer ) {
-		*gui = StartMenu();
-		// we may set the gui back to NULL to hide it
-		return ESC_GUI;
-	}*/
-	
 	Player* player = local_game.getLocalPlayer();
 	if ( player ) {
 		if ( player.handleESC() ) {
@@ -905,19 +928,29 @@ fn void gameHandleGeneralControls() @local
         }
     }
     
-    if (!local_game.guiActive &&
-    rl::isKeyPressed(rl::KEY_ESCAPE) &&
-    !rl::isKeyDown(rl::KEY_LEFT_SHIFT) && 
-    !rl::isKeyDown(rl::KEY_RIGHT_SHIFT)) {
+    if (!local_game.guiActive && rl::isKeyPressed(rl::KEY_ESCAPE) &&
+        !rl::isKeyDown(rl::KEY_LEFT_SHIFT) && !rl::isKeyDown(rl::KEY_RIGHT_SHIFT)) 
+    {
 		Desktop* gui;
-        EscReply op;
-		op = main::handleESC( &gui );
+        EscReply op = main::handleESC( &gui );
         if(op == ESC_GUI) {
             menu::setGUI(gui);
-        } else if(op != ESC_IGNORE) {
+        } else if(op == ESC_MAIN) {
             menu::start(local_game.main_menu);
+        } else {
+            menu::setGUI(null);
         }
 	}
+    
+    if(developer.getBool()) 
+    {
+        if (local_game.guiActive && local_game.guiActive == local_game.main_menu) 
+        {
+            if(input::Action* close_menu = input::getAction("close_main_menu")) {
+                if(close_menu.fnIsTriggered() && !local_game.intro_playing) menu::setGUI(null);
+            }
+        }
+    }
     
     /*
     if(rl::isKeyPressed(rl::KEY_SPACE)) {
@@ -998,6 +1031,8 @@ fn void gameUpdate() @local
 {
     misc::@profile_zone("Game Update")
     {
+    tracy::@zoneN("gameUpdate", 1)
+    {
         // make game run at lower rate in case window loses focus
         if(rl::isWindowFocused()) {
             if(local_game.screen.displayHz == 15) {
@@ -1005,8 +1040,10 @@ fn void gameUpdate() @local
                 rl::setTargetFPS(local_game.screen.displayHz);
             }
         } else if(local_game.screen.displayHz != 15) {
-            local_game.screen.displayHz = 15;
-            rl::setTargetFPS(local_game.screen.displayHz);
+            $if !$feature(TRACY_ENABLE):
+                local_game.screen.displayHz = 15;
+                rl::setTargetFPS(local_game.screen.displayHz);
+            $endif
         }
         
         gameHandleGeneralControls();
@@ -1099,6 +1136,7 @@ fn void gameUpdate() @local
                 line.update();
             }
         }
+    }; // tracy
     }; // profile_zone
 }
 
@@ -1122,24 +1160,14 @@ fn void gameOnPostGUIDraw(int screenWidth, int screenHeight) @public
     
     if(developer.getBool())
     {
-        // draw game version
-        const VERSION_FONT_SCALE = 12;
-        ZString game_version     = string::tformat_zstr("version: (%s, %s, %s)", MAX_VERSION, MIN_VERSION, BABY_VERSION);
-        int version_text_len     = rl::measureText(game_version, VERSION_FONT_SCALE);
-        rl::drawText(
-            game_version,
-            (int)(screenWidth - (2.0f * version_text_len)), //(float)(font_w * libc::strlen(game_version))),
-            (int)0.25f*screenHeight,
-            VERSION_FONT_SCALE,
-            {127, 127, 255, 255} // @Hardcode color
-        );
+        drawGameVersion(screenWidth, screenHeight);
         
         drawWorkInProgressMessage(screenWidth, screenHeight);
         
-        if(local_game.mode == EDITOR) {
+        //if(local_game.mode == EDITOR) {
             // todo draw this only in editor mode only
             drawGameOnScreenDebugInfo(screenWidth, screenHeight);
-        }
+        //}
         
         // draw debug_lines 
         // NOTE(HM) should this be allowed in normal gaming as well?
@@ -1155,7 +1183,7 @@ fn void gameOnGuiDraw(int screenWidth, int screenHeight) @public @inline {
     
     gui::gpDeskManager.draw(screenWidth, screenHeight);
     
-    if(local_game.intro.should_play) {
+    if(local_game.intro_playing) {
         intro::drawIntroAnimation(&local_game.intro, screenWidth, screenHeight);
     }
     
@@ -1500,7 +1528,6 @@ fn void? gameOnStart(String[]* args) @local
     local_game.app_save_folder = fs::getSystemSpecialPath(fs::SystemPath.PERSONAL);
     if(local_game.app_save_folder.len > 0) {
         lgr::info(Where.FILE,  "OS save dir set to: %s", local_game.app_save_folder);
-        lgr::info(Where.CONSOLE, "OS save dir at: %s", local_game.app_save_folder);
         
         // NOTE(HM) append the desired final folder 
         // and look in the OS user save directory, to see if folder is already there 
@@ -1682,6 +1709,7 @@ fn void? gameOnStart(String[]* args) @local
     int screenHeight    = local_game.screen.h;
     ZString window_name = string::tformat_zstr("%s version: (%s, %s, %s)", local_game.app_name.zstr_tcopy(), MAX_VERSION, MIN_VERSION, BABY_VERSION);
     
+    //===============================//
     //========= Init Window ======== // 
     rl::initWindow(screenWidth, screenHeight, window_name);
     //============================== //
@@ -1694,6 +1722,74 @@ fn void? gameOnStart(String[]* args) @local
     // NOTE(HM) timing, is always counted since initWindow above;
     local_game.time_sec = (float)rl::getTime();
     local_game.time_ms  = misc::sec2ms(local_game.time_sec);
+    
+    // region MONITOR STATES    
+    // See how many monitors user has and change the window placement if necessary.
+    // WARNING(HM) This is not guarantied to work for all multi-monitor setups, 
+    // it seems that even glfw, that rl uses internally, fails to set the correct monitor on some setups :(
+    int current_monitor = 0; //= rl::getCurrentMonitor();
+    int monitor_count   = rl::getMonitorCount();
+    if(monitor_count >= 2) {
+        lgr::info(Where.FILE, "Multi-Monitor setup:");
+        bool chose_screen_pos_by_mouse = true; // @Hardcode
+        if(chose_screen_pos_by_mouse)
+        {
+            // enable_system_cursor();
+            // int monitor_index = monitor_count - 1;
+            // do {
+                 // if(monitor_index >= 0) rl::setWindowMonitor(monitor_index--);
+            // } while(rl::isCursorOnScreen() == false);
+            
+            // current_monitor = monitor_index;
+            
+            int displayIndex = 0;
+            // try to put the window on the display the mousecursor is currently on
+                
+            int x = rl::getMouseX();
+            int y = rl::getMouseY();
+
+            for (int i = 0; i < monitor_count; ++i) {
+                int w = rl::getMonitorPhysicalWidth(i);
+                int h = rl::getMonitorPhysicalHeight(i);
+                Vec2f mpos = rl::getMonitorPosition(i).toVec2f();
+                rl::Rectangle rect = {mpos.x, mpos.y, w, h};
+                if ( x >= rect.x && x < rect.x + rect.width
+                    && y >= rect.y && y < rect.y + rect.height )
+                {
+                    displayIndex = i;
+                    break;
+                }
+            }
+            
+            if(displayIndex >= 0 && displayIndex <= (monitor_count - 1)) {
+                rl::setWindowMonitor(displayIndex);
+            } else {
+                // NOTE(HM) If all else fails, set the game to first monitor index
+                rl::setWindowMonitor(0); // @Hardcode
+            }
+            current_monitor = rl::getCurrentMonitor();
+            local_game.screen.id = current_monitor;
+        }
+    }
+    
+    lgr::info(Where.FILE,  "Window put on monitor id: '%d'", ++current_monitor);
+    
+    // @Todo 
+    // support unlocked framerates? 
+    // Support user setting frame rate on main menu?
+    
+    if(rl::isWindowFullscreen() && rl::isWindowFocused()) {
+        local_game.screen.displayHz = rl::getMonitorRefreshRate(current_monitor);
+    } else {
+        local_game.screen.displayHz = 15;
+    }
+    rl::setTargetFPS(local_game.screen.displayHz);
+    lgr::info(Where.FILE,  "Game set to %shz update rate.", local_game.screen.displayHz);
+
+// end_region MONITOR STATES
+    
+    // setup/init game view (for now is a static)
+    local_game.view.init(screenWidth, screenHeight);
     
     // Todo(HM) create pre loading logo videos?
     //
@@ -1784,70 +1880,6 @@ $endif
     }
 // end_region AUDIO DEVICE initialization
 
-// region MONITOR STATES    
-    // See how many monitors user has and change the window placement if necessary.
-    // WARNING(HM) This is not guarantied to work for all multi-monitor setups, 
-    // it seems that even glfw, that rl uses internally, fails to set the correct monitor on some setups :(
-    int current_monitor = 0; //= rl::getCurrentMonitor();
-    int monitor_count   = rl::getMonitorCount();
-    if(monitor_count >= 2) {
-        lgr::info(Where.FILE, "Multi-Monitor setup:");
-        bool chose_screen_pos_by_mouse = true; // @Hardcode
-        if(chose_screen_pos_by_mouse)
-        {
-            // enable_system_cursor();
-            // int monitor_index = monitor_count - 1;
-            // do {
-                 // if(monitor_index >= 0) rl::setWindowMonitor(monitor_index--);
-            // } while(rl::isCursorOnScreen() == false);
-            
-            // current_monitor = monitor_index;
-            
-            int displayIndex = 0;
-            // try to put the window on the display the mousecursor is currently on
-                
-            int x = rl::getMouseX();
-            int y = rl::getMouseY();
-
-            for (int i = 0; i < monitor_count; ++i) {
-                int w = rl::getMonitorPhysicalWidth(i);
-                int h = rl::getMonitorPhysicalHeight(i);
-                Vec2f mpos = rl::getMonitorPosition(i).toVec2f();
-                rl::Rectangle rect = {mpos.x, mpos.y, w, h};
-                if ( x >= rect.x && x < rect.x + rect.width
-                    && y >= rect.y && y < rect.y + rect.height )
-                {
-                    displayIndex = i;
-                    break;
-                }
-            }
-            
-            if(displayIndex >= 0 && displayIndex <= (monitor_count - 1)) {
-                rl::setWindowMonitor(displayIndex);
-            } else {
-                // NOTE(HM) If all else fails, set the game to first monitor index
-                rl::setWindowMonitor(0); // @Hardcode
-            }
-            current_monitor = rl::getCurrentMonitor();
-            local_game.screen.id = current_monitor;
-        }
-    }
-    
-    lgr::info(Where.FILE,  "Window put on monitor id: '%d'", ++current_monitor);
-    
-    // @Todo 
-    // support unlocked framerates? 
-    // Support user setting frame rate on main menu?
-    
-    if(rl::isWindowFullscreen() && rl::isWindowFocused()) {
-        local_game.screen.displayHz = rl::getMonitorRefreshRate(current_monitor);
-    } else {
-        local_game.screen.displayHz = 15;
-    }
-    rl::setTargetFPS(local_game.screen.displayHz);
-    lgr::info(Where.FILE,  "Game set to %shz update rate.", local_game.screen.displayHz);
-
-// end_region MONITOR STATES
     
 // region Asset manager
     lgr::info(Where.FILE,  "** Starting Assets Loading **");
@@ -1889,10 +1921,8 @@ $endif
     //
         
     lgr::info(Where.FILE,  "** done **.");
-    // end_region Asset manager
+// end_region Asset manager
     
-    // setup/init game view (for now is a static)
-    local_game.view.init(screenWidth, screenHeight);
     
     // init intro stuff here
     intro::initIntroAnimation(&local_game.intro);
@@ -1955,6 +1985,9 @@ $endif
     // ingame gui editor
     input::makeKeyboardAction("edit_gui", rl::KEY_F3);
     
+    // close the main menu
+    input::makeKeyboardAction("close_main_menu", rl::KEY_ESCAPE);
+    
     input::listActions();
     
     // Create the main Single Player
@@ -1975,7 +2008,11 @@ $endif
     // Create test entities @delete
     lgr::info(Where.FILE,  "** Creating test entities. **");
     for(int i = 1; i <= 2; i++) {
+        $if $defined(ENABLE_CAMERA_VIEW):
         Vec2f origin = local_game.view.camera.target.toVec2f();
+        $else
+        Vec2f origin;
+        $endif
         origin.translateV(misc::VEC_UP * 100 * i);
         
         Entity* test_ent = ent::create_ex("", origin, rl::WHITE);
@@ -2054,7 +2091,7 @@ fn void clear_game_singletons() @inline {
 }
 
 fn void saveGame() {
-    // look in the directory for the the game save folder
+    // look in the directory for the game save folder
     String save_folder = local_game.app_save_folder;
     if(fs::directoryExists(save_folder)) {
         String file_path = save_folder.tconcat("\\").tconcat(string::tformat("%s%s%s", local_game.app_name, local_game.time_ms, ".sav"));
@@ -2177,23 +2214,29 @@ fn void gameDoOneFrame() @local
     {
         while(rl::windowShouldClose() != true) 
         {
-            float gameDoOneFrame_st = @start_profile_zone();
-            defer @end_profile_zone(gameDoOneFrame_st);
-            
-            if(local_game.should_quit) break;
-            
-            // update game timing
-            local_game.dt       = rl::getFrameTime(); // last frame time
-            local_game.time_sec = (float)rl::getTime();
-            local_game.time_ms  = misc::sec2ms(local_game.time_sec);
+            tracy::@messageL( "Tick" );
+            tracy::@zoneN("Game loop", 1)
+            {
+                float gameDoOneFrame_st = @start_profile_zone();
+                defer @end_profile_zone(gameDoOneFrame_st);
+                
+                if(local_game.should_quit) break;
+                
+                // update game timing
+                local_game.dt       = rl::getFrameTime(); // last frame time
+                local_game.time_sec = (float)rl::getTime();
+                local_game.time_ms  = misc::sec2ms(local_game.time_sec);
 
-            int screen_w = rl::getScreenWidth();
-            int screen_h = rl::getScreenHeight();
-            
-            gameUpdate();
-            gameDraw(screen_w, screen_h);
+                int screen_w = rl::getScreenWidth();
+                int screen_h = rl::getScreenHeight();
+                
+                gameUpdate();
+                gameDraw(screen_w, screen_h);
+            }; // tracy scope end
         }
+        
     };
+    
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -2227,6 +2270,8 @@ fn void pre_InitFunc() @init {
 
 fn int main(String[] args) @public
 {
+    tracy::set_thread_name("main_thread");
+    
     fault excuse = @catch(gameOnStart(&args));
     if (excuse) {
         lgr::error(Where.CONSOLE, "Game initialization failed with excuse: %s", excuse);
@@ -2276,7 +2321,9 @@ fn void pos_MainFunc() @finalizer
     // return 0;
 // }
 
-fn void disconnect() {
+// Stops all gameplay and goes to main menu
+fn void disconnect() 
+{
 	menu::stop();
 	menu::start(local_game.main_menu);
     
@@ -2286,12 +2333,17 @@ fn void disconnect() {
 	//}
 }
 
-fn int playIntro(void*) {
+fn int playIntro(void*) 
+{
+    tracy::set_thread_name("intro_thread");
+    menu::stop();
+    
     do {
         intro::play(&local_game.intro);
+        local_game.intro_playing = true;
     } while(intro::updateIntroAnimation(&local_game.intro));
     
-    local_game.intro.should_play = false;
+    local_game.intro_playing = false;
     //local_game.main_menu.show();
     // 
     // restarts from the main menu;

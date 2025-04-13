@@ -45,6 +45,7 @@ import thirdparty::raylib5::rl;
 import thirdparty::raygui5::rgui;
 import thirdparty::raylib5::rmath;
 import game::serialize::svs; // save system
+import game::lowlevel::bounds;
 import engine::logging::lgr;
 // end_region
 
@@ -65,9 +66,16 @@ import engine::logging::lgr;
     s = scale
     r = rotation
     t = translation
-    |1 0 0| = |sx ry 0|
+    
+    * collum Major*
+    |1 0 0| = |sx ry 0|  
     |0 1 0|   |rx sy 0|
     |0 0 1|   |tx ty 1|
+    
+    * Row Major*
+    |sx ry tx|   |m00 m01 m02|
+    |rx sy ty| = |m10 m11 m12|
+    | 0  0  1|   |m20 m21 m22|
     
     ** camera coordinate space **
     
@@ -80,6 +88,11 @@ import engine::logging::lgr;
     |_____________|
     
     -z is towards the viewer (not used for now...)
+    
+    WARNING: Y coordinate will get inverted if using the framebuffer textures!!!
+             so Y going up becomes +Y and down becomes -Y!!!!!
+             functions similar to rl::getMouseY() getting the screen Y coord 
+             will return the value has if Y is NOT inverted, so have that in mind!!!
     
     ** entity/model space **
     
@@ -114,7 +127,7 @@ const Matrix3f VIEW_AXIS_IDENTITY = {
 
 alias gameptr = main::gpGame;
 
-const bool ENABLE_CAMERA_VIEW = true;
+const int ENABLE_CAMERA_VIEW = 1;
 
 enum ZoomMode : char @if ($defined(ENABLE_CAMERA_VIEW))
 {
@@ -124,22 +137,30 @@ enum ZoomMode : char @if ($defined(ENABLE_CAMERA_VIEW))
 
 typedef RenderLayer = inline RenderTexture2D;
 
-alias RenderFunctionCallback = fn void(RenderLayer* layer, int w = 0, int h = 0);
+alias RenderFunctionCallback = fn void(RenderView* view, RenderLayer* layer);
 
 struct RenderView (SaveSystemInterface)
 {
-    RenderLayer sceneFrameBuffer;
+    RenderLayer gameFrameBuffer;
     RenderLayer guiFrameBuffer;
     RenderLayer postGuiFrameBuffer;
     // function pointers
+    RenderFunctionCallback gameFrameBufferCallback;
     RenderFunctionCallback guiFrameBufferCallback;
     RenderFunctionCallback postGuiFrameBufferCallback;
     //
     RenderLayer* currentRender;
     bool taking_screenshot;
     
-    Matrix3f axis; // view axis
+    // render view size
+    struct @packed {
+        int w;
+        int h;
+    }
+    // render view position/origin
+    Vec2f origin;
     Vec2f default_origin;
+    Bounds bounds;
     
     Camera2D camera    @if ($defined(ENABLE_CAMERA_VIEW));
     ZoomMode zoom_mode @if ($defined(ENABLE_CAMERA_VIEW));
@@ -153,24 +174,27 @@ fn void RenderView.reload(&self, SaveFile* file) @dynamic {
 // todo
 }
 
-fn void RenderView.init(&self, int screenWidth, int screenHeight) @inline {
+fn void RenderView.init(&self, int screenWidth, int screenHeight) @inline 
+{
     // @testing...
-    self.sceneFrameBuffer   = (RenderLayer)rl::loadRenderTexture(screenWidth, screenHeight);
+    self.gameFrameBuffer    = (RenderLayer)rl::loadRenderTexture(screenWidth, screenHeight);
     self.guiFrameBuffer     = (RenderLayer)rl::loadRenderTexture(screenWidth, screenHeight);
     self.postGuiFrameBuffer = (RenderLayer)rl::loadRenderTexture(screenWidth, screenHeight);
     //
+    self.gameFrameBufferCallback    = &renderGameFBO;
     self.guiFrameBufferCallback     = &renderGuiFBO;
     self.postGuiFrameBufferCallback = &renderPostGuiFBO;
     // NOTE(HM) used to point to the main render layer to be used for shaders and such if necessary
-    self.currentRender              = &self.sceneFrameBuffer;
+    self.currentRender              = &self.gameFrameBuffer;
     
-    self.axis = VIEW_AXIS_IDENTITY;
+    self.w = screenWidth;
+    self.h = screenHeight;
     
 $if $defined(ENABLE_CAMERA_VIEW):
-    self.default_origin = { screenWidth / 2.0f, screenHeight / 2.0f };
-    self.setOrigin(self.default_origin);
+    self.origin = { self.w / 2.0f, self.h / 2.0f };
+    self.default_origin = self.origin;
     // sets camera view target and view direction
-    self.camera.target.arr = self.getOrigin();
+    self.camera.target.arr = self.origin;
     // move the view axis center to be the target
     //self.axis.translate(self.camera.target.arr);
     
@@ -179,17 +203,19 @@ $if $defined(ENABLE_CAMERA_VIEW):
     self.camera.offset = self.camera.target;
    
     // NOTE(HM) To simplify things camera rotation will not be possible
-    //self.camera.rotation = 0.0f;
+    //self.camera.rotation = 0; /s zero by defaul in C3 language
     //
-    self.camera.zoom = 1.0f;
     self.zoom_mode   = MOUSE_WHEEL;
+    self.camera.zoom = 1.0f;
 $endif
-
+    Vec2f bb_maxc = self.origin + misc::VEC_UP * (float)(self.h / 2) + misc::VEC_LEFT * (float)(self.w / 2);  
+    Rectangle bb_def = misc::makeRect(bb_maxc, {self.w, self.h});
+    self.bounds.setRect(bb_def);
 }
 
 fn void RenderView.deinit(&self) {
      // Unload render texture (FBO)
-    rl::unloadRenderTexture(self.sceneFrameBuffer);
+    rl::unloadRenderTexture(self.gameFrameBuffer);
     rl::unloadRenderTexture(self.guiFrameBuffer);
     rl::unloadRenderTexture(self.postGuiFrameBuffer);
     self.guiFrameBufferCallback     = null;
@@ -197,12 +223,20 @@ fn void RenderView.deinit(&self) {
     self.currentRender              = null;
 }
 
-fn void RenderView.debug(&self) {
+fn void RenderView.debug(&self) 
+{
+    /*
+    // Rectangle rec = {
+        // .x = 0,
+        // .y = 0,
+        // .width  = self.currentRender.texture.width,
+        // .height = self.currentRender.texture.height
+    // };
     Rectangle rec = {
-        .x = 0,
-        .y = 0,
-        .width  = self.currentRender.texture.width,
-        .height = self.currentRender.texture.height
+        .x = self.origin.x,
+        .y = self.origin.y,
+        .width  = self.w,
+        .height = self.h
     };
     
     rl::drawRectangleLinesEx(rec, 2.5f, rl::RED);
@@ -212,6 +246,7 @@ fn void RenderView.debug(&self) {
     //rl::drawLine((int)self.camera.target.x, -(int)rec.height*10, (int)self.camera.target.x, (int)rec.height*10, rl::COLOR_GREEN);
     //rl::drawCircleV(self.camera.target, 16.0f, rl::COLOR_RED);
     //rl::drawRectangle(-6000, 320, 13000, 8000, rl::DARKGRAY);
+    */
 }
 
 
@@ -310,66 +345,74 @@ fn void moveScreenShots() {
     fs::unloadDirectoryFiles(files);
 }
 
-fn void RenderView.showAxis(&self) {
-    // draw axis coords
+fn void RenderView.showModelViewAxis(&self) {
+
+    /*
+    // Matrix, 4x4 components, column major, OpenGL style, right handed
+    {                            identity Matrix     X   Y   Z
+        float m0, m4, m8, m12;     1  0  0  0       sx   x   x  tx
+        float m1, m5, m9, m13;     0  1  0  0   =    y  sy   y  ty
+        float m2, m6, m10, m14;    0  0  1  0        z   z  sz  tz
+        float m3, m7, m11, m15;    0  0  0  1        0   0   0   1
+    }
+    */
+    Matrix axis = rl::getCameraMatrix2D(self.camera);
+    
+    // draw axis coords in camera space
     Vec2f axis_org, start, end, pox, poy;
     axis_org = self.getOrigin();
     start    = axis_org;
     // +X coord
-    end = start + misc::VEC_RIGHT * (0.10f * gameptr.screen.w);
-    misc::draw_arrow(start, end, rl::RED);
+    end = start + (Vec2f) {axis.m0, axis.m1} * (0.10f * self.w);
+    rl::drawLineV(start.toVector2(), end.toVector2(), rl::RED);
     // -X coord
-    end = start + misc::VEC_LEFT * (0.10f * gameptr.screen.w);
+    end = start + (Vec2f) {-axis.m0, axis.m1} * (0.10f * self.w);
     rl::drawLineV(start.toVector2(), end.toVector2(), {255, 50, 15, 127});
     // +Y coord arrow
-    end = start + misc::VEC_DOWN * (0.10f * gameptr.screen.h);
-    misc::draw_arrow(start, end, rl::GREEN);
+    end = start + (Vec2f) {axis.m4, axis.m5} * (0.10f * self.h);
+    rl::drawLineV(start.toVector2(), end.toVector2(), rl::GREEN);
     // -Y coord
-    end = start + misc::VEC_UP * (0.10f * gameptr.screen.h);
+    end = start + (Vec2f) {axis.m4, -axis.m5} * (0.10f * self.h);
     rl::drawLineV(start.toVector2(), end.toVector2(), {10, 255, 15, 127});
 }
 
-fn void RenderView.updateTarget(&self) {
+fn void RenderView.updateTarget(&self) @inline @if ($defined(ENABLE_CAMERA_VIEW))
+{
     self.camera.target.arr = self.getOrigin();
 }
 
 fn void RenderView.setOrigin(&self, Vec2f new_pos) {
-    self.axis.m02 = new_pos.x;
-    self.axis.m12 = new_pos.y;
-    self.updateTarget(); // this needs to run always after updating the camera axis
+    //self.axis.m02 = new_pos.x;
+    //self.axis.m12 = new_pos.y;
+    self.origin = new_pos;
+$if $defined(ENABLE_CAMERA_VIEW):
+    self.updateTarget(); // this needs to run always after updating the camera pos
+$endif
 }
 
 fn Vec2f RenderView.getOrigin(&self) @inline {
-    return self.axis.getTranslation();
+    //return self.axis.getTranslation();
+    return self.origin;
 }
 
-fn void RenderView.cameraControls(&self) @inline {
+fn void RenderView.cameraControls(&self) @inline @if ($defined(ENABLE_CAMERA_VIEW))
+{
     // TODO(HM) Make this use the new key actions...
     
 $if $feature(_DEBUG):
     // Camera translation controls
-    Vec2f new_pos = self.getOrigin();
     if (rl::isKeyDown(rl::KEY_A)) {
-        new_pos.x++;
-        //self.camera.target.x++;
-        //self.updateAxis(self.camera.target.toVec2f());
+        self.origin.x++;
     }
     if (rl::isKeyDown(rl::KEY_D)) {
-        new_pos.x--;
-        //self.camera.target.x--;
-        //self.updateAxis(self.camera.target.toVec2f());
+        self.origin.x--;
     }
     if (rl::isKeyDown(rl::KEY_W)) {
-        new_pos.y++;
-        //self.camera.target.y++;
-        //self.updateAxis(self.camera.target.toVec2f());
+        self.origin.y++;
     }
     if (rl::isKeyDown(rl::KEY_S)) {
-        new_pos.y--;
-        //self.camera.target.y--;
-        //self.updateAxis(self.camera.target.toVec2f());
+        self.origin.y--;
     }
-    self.setOrigin(new_pos);
 $endif
     
     if (rl::isKeyPressed(rl::KEY_ONE)) {
@@ -390,52 +433,53 @@ $endif
             if (wheel != 0)
             {
                 // Get the world point that is under the mouse
-                Vector2 mouseWorldPos = rl::getScreenToWorld2D(rl::getMousePosition(), self.camera);
-
-                // Set the offset to where the mouse is
-                self.camera.offset = rl::getMousePosition();
+                Vector2 mousePos = rl::getMousePosition();
+$if $defined(ENABLE_CAMERA_VIEW):
+                mousePos.y = self.h - mousePos.y;
+                Vector2 mouseWorldPos = rl::getScreenToWorld2D(mousePos, self.camera);
+$else
+                Vector2 mouseWorldPos = mousePos;
+$endif
+                // Set the offset to where the mouse is in world space
+                self.camera.offset = mousePos;
 
                 // Set the target to match, so that the camera maps the world space point 
                 // under the cursor to the screen space point under the cursor at any zoom
                 self.camera.target = mouseWorldPos;
+                
+                // Camera zoom controls
+                // Uses log scaling to provide consistent zoom speed
+                self.camera.zoom = math::exp(math::ln(self.camera.zoom) + ((float)rl::getMouseWheelMove() * 0.1f));
 
-                // Zoom increment
-                float scaleFactor = 1.0f + (0.25f*math::abs(wheel));
-                if (wheel < 0) scaleFactor = 1.0f/scaleFactor;
-                self.camera.zoom = math::clamp(self.camera.zoom*scaleFactor, 0.125f, 64.0f);
+                if (self.camera.zoom > 3.0f) { self.camera.zoom = 3.0f; }
+                else { if (self.camera.zoom < 0.1f) self.camera.zoom = 0.1f; }
+
             }
         case MOUSE_MOVE:
             // Zoom based on mouse left click
             if (rl::isMouseButtonPressed(MouseButton.LEFT))
             {
-                // Get the world point that is under the mouse
-                Vector2 mouseWorldPos = rl::getScreenToWorld2D(rl::getMousePosition(), self.camera);
-
-                // Set the offset to where the mouse is
-                self.camera.offset = rl::getMousePosition();
+                Vector2 mousePos = rl::getMousePosition();
+$if $defined(ENABLE_CAMERA_VIEW):
+                mousePos.y = self.h - mousePos.y;
+                Vector2 mouseWorldPos = rl::getScreenToWorld2D(mousePos, self.camera);
+$else
+                Vector2 mouseWorldPos = mousePos;
+$endif
+                // Set the offset to where the mouse is in world space
+                self.camera.offset = mousePos;
 
                 // Set the target to match, so that the camera maps the world space point 
                 // under the cursor to the screen space point under the cursor at any zoom
                 self.camera.target = mouseWorldPos;
-            }
-            if (rl::isMouseButtonDown(MouseButton.LEFT))
-            {
-                // Zoom increment
-                float deltaX = rl::getMouseDelta().x;
-                float scaleFactor = 1.0f + (0.01f*math::abs(deltaX));
-                if (deltaX < 0) scaleFactor = 1.0f/scaleFactor;
-                self.camera.zoom = math::clamp(self.camera.zoom*scaleFactor, 0.125f, 64.0f);
-            }
-            default:
-    }
-        
-    // Camera zoom controls
-    self.camera.zoom += (rl::getMouseWheelMove() * 0.05f);
+                
+                // Camera zoom controls
+                // Uses log scaling to provide consistent zoom speed
+                self.camera.zoom = math::exp(math::ln(self.camera.zoom) + (rl::getMouseDelta().x * 0.1f));
 
-    if (self.camera.zoom > 3.0f) {
-        self.camera.zoom = 3.0f;
-    } else if (self.camera.zoom < 0.1f) {
-        self.camera.zoom = 0.1f;
+                if (self.camera.zoom > 3.0f) { self.camera.zoom = 3.0f; }
+                else { if (self.camera.zoom < 0.1f) self.camera.zoom = 0.1f; }
+            }
     }
     
     // Camera reset (zoom && origin)
@@ -447,8 +491,10 @@ $endif
     }
 }
 
-fn void RenderView.update(&self) {
-    if(main::developer.getBool()) {
+fn void RenderView.update(&self) 
+{
+    if(main::developer.getBool()) 
+    {
         // for some stupid reason raysan from raylib hardcoded F12 to the screenshot action
         // if(!self.taking_screenshot && rl::isKeyDown(rl::KEY_F2)) {
             // self.taking_screenshot = true;
@@ -456,18 +502,34 @@ fn void RenderView.update(&self) {
         // }
         
         // if(rl::isKeyReleased(rl::KEY_F2)) self.taking_screenshot = false;
-        
+$if $defined(ENABLE_CAMERA_VIEW): 
         self.cameraControls();
+$endif
+
+        self.updateBounds();
     }
 }
 
-fn void renderSceneFBO(RenderView* view, RenderLayer* layer) @local {
+fn void RenderView.updateBounds(&self) {
+    @pool() {
+        Vec2f bb_maxc    = self.origin + misc::VEC_UP * (float)(self.h / 2) + misc::VEC_LEFT * (float)(self.w / 2);  
+        self.bounds.setRect(misc::makeRect(bb_maxc,{self.w, self.h}));
+    };
+}
+
+<*
+    @param [in] view : "the view to render to the framebuffer layer" 
+    @param [inout] layer : "the framebuffer layer to render to"
+    @require view != null && layer != null
+*>
+fn void renderGameFBO(RenderView* view, RenderLayer* layer) @local 
+{
     rl::beginTextureMode(*layer);       // Enable drawing to a texture
-        //rl::clearBackground(rl::COLOR_WHITE);  // Clear texture background
+        //rl::clearBackground(rl::WHITE);  // Clear texture background
         rl::clearBackground(rl::fade(rl::WHITE, 0.0f));
         
-$if $feature(ENABLE_CAMERA_VIEW):
-        rl::beginMode2D(self.camera);
+$if $defined(ENABLE_CAMERA_VIEW):
+        rl::beginMode2D(view.camera);
 $endif
 
         // draw general game sprites
@@ -493,63 +555,82 @@ $endif
         
 $if $feature(_DEBUG):
         //view.debug();
-        view.drawWorldSpaceCoords(layer.texture.width, layer.texture.height);
-        view.drawCameraSpaceCoords(layer.texture.width, layer.texture.height);
+       // view.drawWorldSpaceCoords();
+$if $defined(ENABLE_CAMERA_VIEW):
+        view.drawCameraSpaceCoords();
+$endif
 $endif
 
-$if $feature(ENABLE_CAMERA_VIEW):
+$if $defined(ENABLE_CAMERA_VIEW):
         rl::endMode2D();
 $endif
     
     rl::endTextureMode(); // End drawing to texture (now we have a texture available for next passes)
 }
 
-fn void renderGuiFBO(RenderLayer* layer, int w, int h) @inline {
+<*
+    // NOTE(HM) This renders AFTER the game gui layer
+    
+    @param [in] view : "the view to render to the framebuffer layer" 
+    @param [inout] layer : "the framebuffer layer to render to"
+    @require view != null && layer != null
+*>
+fn void renderGuiFBO(RenderView* view, RenderLayer* layer) @local 
+{
     rl::beginTextureMode(*layer);
     rl::clearBackground(rl::fade(rl::WHITE, 0.0f));
-$if $feature(ENABLE_CAMERA_VIEW):
-        rl::beginMode2D(self.camera);
+    
+$if $defined(ENABLE_CAMERA_VIEW):
+        rl::beginMode2D(view.camera);
 $endif
-        main::gameOnGuiDraw(w, h);
-$if $feature(ENABLE_CAMERA_VIEW):
+
+        main::gameOnGuiDraw(view.w, view.h);
+        
+$if $defined(ENABLE_CAMERA_VIEW):
         rl::endMode2D();
 $endif
+
     rl::endTextureMode(); // End drawing to texture (now we have a texture available for next passes)
 }
 
-// NOTE(HM) This renders AFTER the game gui layer
-fn void renderPostGuiFBO(RenderLayer* layer, int w, int h) @inline {
+<*
+    // NOTE(HM) This renders AFTER the game gui layer
+    
+    @param [in] view : "the view to render to the framebuffer layer" 
+    @param [inout] layer : "the framebuffer layer to render to"
+    @require view != null && layer != null
+*>
+fn void renderPostGuiFBO(RenderView* view, RenderLayer* layer) @local 
+{
     rl::beginTextureMode(*layer);
     rl::clearBackground(rl::fade(rl::WHITE, 0.0f));
-$if $feature(ENABLE_CAMERA_VIEW):
-        rl::beginMode2D(self.camera);
+    
+$if $defined(ENABLE_CAMERA_VIEW):
+        rl::beginMode2D(view.camera);
 $endif
-        main::gameOnPostGUIDraw(w, h);
-$if $feature(ENABLE_CAMERA_VIEW):
+
+        main::gameOnPostGUIDraw(view.w, view.h);
+        
+$if $defined(ENABLE_CAMERA_VIEW):
         rl::endMode2D();
 $endif
+
     rl::endTextureMode(); // End drawing to texture (now we have a texture available for next passes)
 }
 
-fn void RenderView.renderToFBO(&self, int screenWidth, int screenHeight) @inline {
-    // region main scene render
-    renderSceneFBO(self, &self.sceneFrameBuffer);
-    // end_region main scene render
-    
-    // region GUI Frame Buffer
-    self.guiFrameBufferCallback(&self.guiFrameBuffer, screenWidth, screenHeight);
-    // end_region GUI Frame Buffer
-    
-    // region POST GUI Frame Buffer
-    self.postGuiFrameBufferCallback(&self.postGuiFrameBuffer, screenWidth, screenHeight);
-    // end_region POST GUI Frame Buffer
+fn void RenderView.renderToFBO(&self) @inline 
+{
+    self.gameFrameBufferCallback(self, &self.gameFrameBuffer);
+    self.guiFrameBufferCallback(self, &self.guiFrameBuffer);
+    self.postGuiFrameBufferCallback(self, &self.postGuiFrameBuffer);
 }
 
-fn void RenderView.draw(&self, int screenWidth, int screenHeight) @inline {
+fn void RenderView.draw(&self) @inline 
+{
     // NOTE: Render texture must be y-flipped due to default OpenGL coordinates (left-bottom)
-    rl::drawTextureRec(self.sceneFrameBuffer.texture, { 0, 0, (float)screenWidth, (float)-screenHeight }, { 0, 0 }, rl::WHITE);
-    rl::drawTextureRec(self.guiFrameBuffer.texture, { 0, 0, (float)screenWidth, (float)-screenHeight }, { 0, 0 }, rl::WHITE);
-    rl::drawTextureRec(self.postGuiFrameBuffer.texture, { 0, 0, (float)screenWidth, (float)-screenHeight }, { 0, 0 }, rl::WHITE);
+    rl::drawTextureRec(self.gameFrameBuffer.texture, { 0, 0, (float)self.w, (float)-self.h }, { 0, 0 }, rl::WHITE);
+    rl::drawTextureRec(self.guiFrameBuffer.texture, { 0, 0, (float)self.w, (float)-self.h }, { 0, 0 }, rl::WHITE);
+    rl::drawTextureRec(self.postGuiFrameBuffer.texture, { 0, 0, (float)self.w, (float)-self.h }, { 0, 0 }, rl::WHITE);
 }
 
 /*
@@ -559,13 +640,14 @@ fn void RenderView.draw(&self, int screenWidth, int screenHeight) @inline {
 | 0  0  1|   |m20 m21 m22|
 */
 fn Vec2f RenderView.fromWorldSpaceToView(&self, Vec2f vec) {
-    Matrix3f transform = VIEW_AXIS_IDENTITY;
-    transform.m02 *= vec.x;
-    transform.m12 *= vec.y;
+    // Matrix3f transform = VIEW_AXIS_IDENTITY;
+    // transform.m02 *= vec.x;
+    // transform.m12 *= vec.y;
     
-    transform =  self.axis.mul(transform);
+    // transform =  self.axis.mul(transform);
     
-    return {transform.m02, transform.m12};
+    // return {transform.m02, transform.m12};
+    return {};
 }
 
 // NOTE(HM) 
@@ -588,12 +670,13 @@ fn Vec2f RenderView.toCanonicalViewSpace(&self, Vec2i vec) {
     return {x, y};
 }
 
-fn void RenderView.drawWorldSpaceCoords(&self, int screenWidth, int screenHeight) @inline @if($feature(_DEBUG)) {
+fn void RenderView.drawWorldSpaceCoords(&self) @if($feature(_DEBUG)) 
+{
     Rectangle rec = {
         .x = 0,
         .y = 0,
-        .width  = screenWidth,
-        .height = screenHeight
+        .width  = self.w,
+        .height = self.h
     };
     
     // draw a box representing the world area
@@ -625,19 +708,22 @@ fn void RenderView.drawWorldSpaceCoords(&self, int screenWidth, int screenHeight
     rl::drawText(y_coord.zstr_tcopy(), (int)poy.x, (int)poy.y, 10, rl::RED);
 }
 
-fn void RenderView.drawCameraSpaceCoords(&self, int screenWidth, int screenHeight) @if($feature(_DEBUG)) {
-
-$if $feature(_DEBUG):
-    self.showAxis();
-$endif
-
+fn void RenderView.drawCameraSpaceCoords(&self) @if($defined(ENABLE_CAMERA_VIEW) && $feature(_DEBUG))
+{
+    self.showModelViewAxis();
+    /*
     Color g = {0, 255, 0, 100};
     Color r = {255, 0, 0, 100};
+    //rl::drawRectangleLinesEx(misc::makeRect(self.origin, {self.w, (float)-self.h}), 2.5f, rl::RED);
+    if(bounds::db_showBounds.getBool()) {
+        self.bounds.debugDraw();
+    }
     // vertical line
-    rl::drawLine((int)self.camera.target.x, -screenHeight*10, (int)self.camera.target.x, screenHeight*10, g);
-    rl::drawText("-Y", (int)self.camera.target.x + 10, (int)(self.camera.target.y - (0.95f*(screenHeight/2.0f))), 10, g);
+    rl::drawLine((int)self.camera.target.x, -self.w*10, (int)self.camera.target.x, self.h*10, g);
+    rl::drawText("-Y", (int)self.camera.target.x + 10, (int)(self.camera.target.y - (0.95f*(self.h/2.0f))), 10, g);
     // horizontal line
-    rl::drawLine(-screenWidth*10, (int)self.camera.target.y, screenWidth*10, (int)self.camera.target.y, r);
-    rl::drawText("+X", (int)(self.camera.target.x + (0.95f*(screenWidth/2.0f))), (int)self.camera.target.y + 10, 10, r);
+    rl::drawLine(-self.w*10, (int)self.camera.target.y, self.w*10, (int)self.camera.target.y, r);
+    rl::drawText("+X", (int)(self.camera.target.x + (0.95f*(self.w/2.0f))), (int)self.camera.target.y + 10, 10, r);
     //rl::drawCircleV(self.camera.target, 10.0f, rl::GREEN);
+    */
 }

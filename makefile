@@ -66,9 +66,10 @@ BUILD_PATH := ${CURDIR}/$(BUILD_DIR)
 RAYLIB := raylib55\lib\raylibdll.lib
 BOX2D := box2d\box2d.lib
 RAYGUI := raygui\raygui.obj
+TRACY := tracy\TracyClient.lib
 LIBRARY_ROOT_PATH := .\thirdparty\include\libs\\
 LINKER_SEARCH_PATHS := -L $(LIBRARY_ROOT_PATH)
-LINKED_LIBRARIES := -l $(RAYLIB) -l $(BOX2D) -l kernel32.lib -z $(RAYGUI)
+LINKED_LIBRARIES := -l $(RAYLIB) -l $(BOX2D) -l kernel32.lib -z $(RAYGUI) -l $(TRACY)
 ##
 
 ## Windows stuff
@@ -99,10 +100,10 @@ EXES_TO_CLEAN := $(wildcard $(BUILD_PATH)/*.exe)
 GAME_ARGUMENTS := +developer +g_log +r_mode 9
 
 # in c3 you need to use $feature(_DEBUG) to check for this defines, C3 $define doesn't work for this...
-DEBUG_DEFINES   := -D _DEBUG
+DEBUG_DEFINES   := -D _DEBUG -D TRACY_ENABLE
 #-D _PROFILE
 # current release defines aren't really usefull... 
-RELEASE_DEFINES := -D _RELEASE
+RELEASE_DEFINES := -D _RELEASE -D TRACY_ENABLE
 
 # compiler to use, right now there's only one, c3c
 CC := c3c.exe

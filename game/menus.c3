@@ -194,14 +194,15 @@ macro create_menu_button(Vec2f pos, String text, MenuButtonDef* bdef, Desktop* m
     button.onRelease     = bdef.callbacks[4];//&button_onRelease;
 }
     
-fn Desktop* mainMenuCreate(int screenWidth, int screenHeight) {
+fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
+{
     Desktop* menu = mem::new(Desktop);
     menu.init("MainMenu");
     menu.setColor(rl::DARKGRAY);
     
     main::gpGame.mode = main::GameMode.MENU;
 
-    const SCREEN_CORNER       = (Vec2f) {0, 0};
+    const SCREEN_TOP_CORNER   = (Vec2f) {0.0f, 0.0f};
     Vec2f screen_center       = (Vec2f) {(float)screenWidth/2.0f, (float)screenHeight / 2.0f};
     Vec2f screen_top_center   = (Vec2f) {(float)screenWidth/2.0f, 0.0f};
     float screen_half_width   = screen_center.x;
@@ -238,7 +239,7 @@ fn Desktop* mainMenuCreate(int screenWidth, int screenHeight) {
     // end_region LABELS
     
     // region BUTTONS
-    Vec2f offset          = SCREEN_CORNER;
+    Vec2f offset          = SCREEN_TOP_CORNER;
     
     MenuButtonDef btn_def;
     btn_def.size          = default_button_size;

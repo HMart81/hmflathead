@@ -33,17 +33,16 @@ import std::io;
 import std::core::mem; // for malloc
 import std::math;
 import std::collections::map;
-// end_region
-
-// region other modules
 import game::main;
 import engine::misc;
+import game::camview;
 import engine::assets::astmng; // asset manager
 import engine::assets_api::asapi; // for the asset
 import engine::logging::lgr;
 import game::serialize::svs; // save system
 import game::actors::ent;
 import thirdparty::raylib5::rl;
+import thirdparty::tracy;
 // end_region
 
 // region defines
@@ -57,7 +56,7 @@ const Vec2i MIN_SIZE @local = {MIN_SPRIT_SIZE, MIN_SPRIT_SIZE};
 // NOTE(HM) Uncoment this to enable the sprite profilling
 //const int SPRITE_PROFILE = 1;
 // NOTE(HM) Uncoment this to show debug boxes for the sprites
-const int DEBUG_SPRITES = 1;
+//const int DEBUG_SPRITES = 1;
 
 // Used for very special sprites only
 enum SpriteKind : int {
@@ -145,61 +144,77 @@ fn void Sprite.deinit(&self) @inline {
     if(self.asTexture()) self.tex = null;
 }
 
+fn bool Sprite.equal(&self, Sprite* other) //@operator(==) 
+{
+    return (self.kind  == other.kind  &&
+            self.rect  == other.rect  &&
+            self.color == other.color);
+}
+
 
 // WARNING(HM) setSize and scale are diferent things!!!
 <*
-* @param w_scaler "amout of scaling for width"
-* @param h_scaler "amout of scaling for height"
-* @require w_scaler <= 0 && w_scaler >= -1.0f || w_scaler >= 0 && w_scaler <= 1.0f
-* @require h_scaler <= 0 && h_scaler >= -1.0f || h_scaler >= 0 && h_scaler <= 1.0f
+* @param w_scaler "amout of scaling for width 0 to INF"
+* @param h_scaler "amout of scaling for height 0 to INF"
+* @require w_scaler >= 0.0f
+* @require h_scaler >= 0.0f
 *>
-// adds to the current size
-fn void Sprite.scale(&self, float w_scaler, float h_scaler) @inline {
+fn void Sprite.scale(&self, float w_scaler, float h_scaler) @inline 
+{
     self.rect.width  *= w_scaler;
     self.rect.height *= h_scaler;
 }
 
 <*
 * @param scaler "scaling info"
-* @require scaler.x <= 0.0f && scaler.x >= -1.0f || scaler.x >= 0.0f && scaler.x <= 1.0f
-* @require scaler.y <= 0.0f && scaler.y >= -1.0f || scaler.y >= 0.0f && scaler.y <= 1.0f
+* @require scaler.x >= 0.0f
+* @require scaler.y >= 0.0f
 *>
-// adds to the current size
 fn void Sprite.scaleV(&self, Vec2f scaler) @inline {
     self.scale(scaler.x, scaler.y);
 }
 
 // overrides the size of the sprite
-fn void Sprite.setSize(&self, int w, int h) @inline {
+fn void Sprite.setSize(&self, uint w, uint h) @inline {
+    if(w == 0 && h == 0) {
+        w = h = MIN_SPRIT_SIZE;
+    }
+    
     self.rect.width  = (float)w;
     self.rect.height = (float)h;
 }
 
 // overrides the size of the sprite
-fn void Sprite.setSizeV(&self, Vec2i size) @inline {
-    self.rect.width  = (float)size.x;
-    self.rect.height = (float)size.y;
+fn void Sprite.setSizeV(&self, Vec2f size) @inline {
+    if(size.x && math::is_approx(size.x, 0.0f, 0.05f) && 
+       size.y && math::is_approx(size.x, 0.0f, 0.05f))
+    {
+        size.x = size.y = MIN_SPRIT_SIZE;
+    }
+    
+    self.rect.width  = size.x;
+    self.rect.height = size.y;
 }
 
 // overrides the size of the sprite
-fn void Sprite.setSizeX(&self, int v) @inline {
+fn void Sprite.setSizeX(&self, uint v) @inline {
     self.rect.width  = (float)v;
 }
 
 // overrides the size of the sprite
-fn void Sprite.setSizeY(&self, int v) @inline {
+fn void Sprite.setSizeY(&self, uint v) @inline {
     self.rect.height = (float)v;
 }
 
-fn void Sprite.addToSize(&self, int w, int h) @inline {
+fn void Sprite.addToSize(&self, uint w, uint h) @inline {
     self.rect.width  += (float)w;
     self.rect.height += (float)h;
 }
 
 // overrides the size of the sprite
-fn void Sprite.addToSizeV(&self, Vec2i size) @inline {
-    self.rect.width  += (float)size.x;
-    self.rect.height += (float)size.y;
+fn void Sprite.addToSizeV(&self, Vec2f size) @inline {
+    self.rect.width  += size.x;
+    self.rect.height += size.y;
 }
 
 // in screen pixel coordinates
@@ -262,7 +277,7 @@ fn void Sprite.addToPositionV(&self, Vec2f pos) @inline {
 }
 
 // this is a world position
-fn Vec2f Sprite.getPos(&self) @inline => self.rect.getPos().toVec2f();
+fn Vec2f Sprite.getPos(&self) @inline => self.rect.getPosition().toVec2f();
 
 fn bool Sprite.isValid(&self) {
     if(self.rect.x >= 0 &&
@@ -320,37 +335,35 @@ fn Vec2f Sprite.getPosition(&self) @inline {
     return {self.rect.x, self.rect.y};
 }
 
-fn void Sprite.draw(&self)  @inline {
-$if $defined(SPRITE_PROFILE):
-    float sprite_profile_start = @start_profile_zone();
-    defer @end_profile_zone(sprite_profile_start);
-$endif
-
-    if(self.should_hide) return;
-    
-$if $defined(DEBUG_SPRITES):
-        rl::drawRectangleLinesEx(self.rect, 1.0f, rl::RED);
-$endif
-    
-    if(self.asTexture())
+fn void Sprite.draw(&self)  @inline 
+{
+    misc::@profile_zone("Sprite Draw")
     {
-        //rl::drawTexture(*self.tex, (int)self.rect.x, (int)self.rect.y, self.color);
-        //rl::drawTextureV(*self.tex, self.rect.getPos(), self.color);
-        //rl::drawTextureEx(*self.tex, {self.rect.x, self.rect.y}, 0.0f, self.rect.width, self.color);
+    tracy::@zoneN("sprite draw", 0)
+    {
+        if(self.should_hide) return;
         
-        // Source rectangle (part of the texture to use for drawing)
-        Vec2i texture_size = self.getTextureSize();
-        Rectangle source = {0, 0, texture_size.x, texture_size.y};
-        // Destination rectangle (screen rectangle where to draw part of texture)
-        Rectangle* dist  = &self.rect;
-        // Origin of the texture (rotation/scale point), 
-        // is relative to destination rectangle size/area NOT the screen!!!
-        Vector2 image_center       = {0, 0};
-        const float IMAGE_ROTATION  = 0.0f;
-        rl::drawTexturePro(*(Texture2D*)self.tex.data.ptr, source, *dist, image_center, IMAGE_ROTATION, self.color);
-    } else {
-        rl::drawRectangleRec(self.rect, self.color);
-    }
+        $if $defined(DEBUG_SPRITES):
+            rl::drawRectangleLinesEx(self.rect, 1.0f, rl::RED);
+        $endif
+        
+        if(self.asTexture())
+        {
+            // Source rectangle (part of the texture to use for drawing)
+            Vec2i texture_size = self.getTextureSize();
+            Rectangle source = {0.0f, 0.0f, (float)texture_size.x, (float)texture_size.y};
+            // Destination rectangle (screen rectangle where to draw part of texture)
+            Rectangle* dist  = &self.rect;
+            // Origin of the texture (rotation/scale point), 
+            // is relative to destination rectangle size/area NOT the screen!!!
+            Vector2 image_center       = {0, 0};
+            const float IMAGE_ROTATION = 0.0f;
+            rl::drawTexturePro(*(Texture2D*)self.tex.data.ptr, source, *dist, image_center, IMAGE_ROTATION, self.color);
+        } else {
+            rl::drawRectangleRec(self.rect, self.color);
+        }
+    };//tracy::@zoneN
+    }; // misc::@profile_zone
 }
 
 ///////////////////////////////////// PARTICLE ///////////////

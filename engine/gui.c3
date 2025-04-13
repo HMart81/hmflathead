@@ -44,6 +44,7 @@ import engine::input;
 import engine::assets::astmng; // asset manager
 import engine::logging::lgr;
 import game::main;
+import game::camview;
 import game::actors::ent;
 import game::serialize::svs; // save system
 import game::low_level::cvar;
@@ -590,11 +591,11 @@ fn void Widget.bindTo(&self, Widget* other) @dynamic {
 }
 
 fn bool Widget.bound(&self) @dynamic {
-    return (self.parent.other != null) ? true : false;
+    return self.parent.other != null;
 }
 
 fn void Widget.unbind(&self) @dynamic {
-     if(!self.bound()) {
+    if(!self.bound()) {
         return;
     }
     

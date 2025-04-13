@@ -83,6 +83,20 @@ fn bool? fileSaveEntireText(String fileName, String text) {
 // end_region
 
 // region File system functions
+
+/*
+    example:
+    
+    char[100] buffer;
+    String res = (String)io::bprintf(&buffer, "%s", "This is where save data will be")!;
+    if(@catch(fs::makeFile(local_game.app_save_folder.tconcat("\\").tconcat("READ_ME.txt"), &buffer))) {
+        unreachable();
+    }
+*/
+fn void? makeFile(String full_path_including_file_name, char[] data) {
+    return file::save(full_path_including_file_name, data);
+}
+
 // Check if file exists
 fn bool fileExists(String fileName) @inline {
     return rl::fileExists(fileName.zstr_tcopy());
@@ -278,8 +292,9 @@ $else
     switch (pathType)
     {
     case SystemPath.PERSONAL:
-        ZString home = libc::getenv("HOME");
-        return home.str_view();
+        // ZString home = libc::getenv("HOME");
+        // return home.str_view();
+        return env::get_home_dir(tmem)!;
     default:
         return "";
     }

@@ -1427,25 +1427,31 @@ macro rl::Vector2 b2Vec2ToVector2f(B2Vec2 vec) {
     // return (Vec2f){vec.x, vec.y};
 // }
 
-struct B2Rot @compact
+struct B2CosSin //@packed @align(4)
+{
+	float cosine;
+	float sine;
+}
+
+struct B2Rot //@packed @align(4) @compact
 {
     float c; // cosine and sine
     float s;
 }
 
 /// A 2D rigid transform
-struct B2Transform
+struct B2Transform //@packed @align(16) @compact
 {
 	B2Vec2 p;
 	B2Rot q;
 }
 
-struct B2Mat22 @compact
+struct B2Mat22 //@compact
 {
     B2Vec2 cx, cy;
 }
 
-struct B2AABBox @compact
+struct B2AABBox
 {
     B2Vec2 lowerBound;
     B2Vec2 upperBound;
@@ -1459,6 +1465,9 @@ const B2Mat22 MAT22_ZERO  = { { 0.0f, 0.0f }, { 0.0f, 0.0f } };
 
 // Compute an approximate arctangent in the range [-pi, pi] This is hand coded for cross platform determinism.
 fn float atan2(float y, float x) @extern("b2Atan2") @Exported;
+/// Compute the cosine and sine of an angle in radians. Implemented
+/// for cross-platform determinism.
+fn B2CosSin computeCosSin( float radians ) @extern("b2ComputeCosSin") @Exported;
 
 fn float minFloat(float a, float b) @extern("b2MinFloat");
 fn float maxFloat(float a, float b) @extern("b2MaxFloat");
@@ -1529,12 +1538,10 @@ B2Rot 	b2IntegrateRotation (B2Rot q1, float deltaAngle) @extern("b2MinInt");
  
 // Get the length squared of this vector.
 fn float B2Vec2.lengthSquared(B2Vec2 v) @extern("b2LengthSquared");
- // Get the distance squared between points.
+// Get the distance squared between points.
 fn float distanceSquared(B2Vec2 a, B2Vec2 b) @extern("b2DistanceSquared");
-/*
-B2Rot 	b2MakeRot (float angle) @extern("b2MinInt");
- 	Make a rotation using an angle in radians.
-*/
+//Make a rotation using an angle in radians.
+//fn B2Rot makeRot(float angle) @extern("b2MakeRot");
 // Is this rotation normalized?
 fn bool B2Rot.isNormalized(B2Rot q) @extern("b2IsNormalized");
 /*

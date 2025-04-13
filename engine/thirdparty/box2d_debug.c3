@@ -75,8 +75,8 @@ fn void initDebugDraw(B2DebugDraw* dd) {
     dd.drawPoint          = &dbgDrawPoint;
     dd.drawString         = &dbgDrawString;
     //
-    B2AABBox bounds = { { -float.max, -float.max }, { float.max, float.max } };
-    dd.drawingBounds      = bounds;
+    //B2AABBox bounds = { { -float.max, -float.max }, { float.max, float.max } };
+    //dd.drawingBounds      = bounds;
     // drawing options
 	dd.drawShapes         = true;
 	//dd.drawJoints       = true;

@@ -25,7 +25,7 @@
 # Hilario Martins, Rua de Sanguinhedo 1010 4850-545 Vieira Do Minho Portugal.
 # 
 *********************************************************************************************************************************************/
-
+/*
 module thirdparty::raylib5::rmath;
 
 import thirdparty::raylib5::rl;

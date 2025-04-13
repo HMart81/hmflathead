@@ -36,6 +36,7 @@ import std::collections::map;
 import game::main;
 import engine::logging::lgr;
 import thirdparty::raylib5::rl;
+import thirdparty::tracy;  // profiling
 import engine::misc;
 import game::assets::sprt;
 import game::serialize::svs; // save system
@@ -101,9 +102,10 @@ struct Entity (SaveSystemInterface)
 	typeid type;
 	String name;
     //
-    Bounds{Vec2f} bounds;
+    Bounds bounds;
     Sprite vs;
     //
+    Entity* parent;
     // physics
     B2BodyId physics;
     //
@@ -177,8 +179,14 @@ $endif
     // define the body
     B2BodyDef bodyDef   = box2d::defaultBodyDef();
     bodyDef.type        = box2d::KINEMATIC;
+    /*
+        WARNING(HM) 
+        Do not create a body at the world origin and then move it to the final place. 
+        If you do that to several bodies (specially on the same entity) performance will suffer.
+    */
     bodyDef.position    = origin; //box2d::vec2fToVec2(origin);
-    bodyDef.enableSleep = true;
+    //bodyDef.rotation    = misc::makeRot(1.0f); // angle is in radians and is zero by default
+    //bodyDef.enableSleep = true; // already done
     
     // create the body from the definition data above
     self.physics        = box2d::createBody(main::gpGame.physWorldId, &bodyDef);
@@ -237,6 +245,26 @@ fn void Entity.scaleV(&self, Vec2f scaler) @inline {
 	self.vs.scaleV(scaler);
 }
 
+<*
+    @param [in] other : "the other entity to bind this one too"
+    @require other != null
+*>
+fn void Entity.bindTo(&self, Entity* other, bool release_from_other = false) {
+    if(self.bound() && !release_from_other) {
+        lgr::warning(Where.CONSOLE, "Cannot Bind %s to %s because is already bound to %s.", self.name, other.name, self.parent.name);
+        return;
+    }
+    
+    self.parent = other;
+}
+
+fn bool Entity.bound(&self) => self.parent != null;
+
+fn void Entity.unbind(&self) 
+{
+    if(self.parent) self.parent = null;
+}
+
 fn void Entity.setPosition(&self, float x, float y) @inline
 {
 	self.vs.setPosition(x, y);
@@ -244,7 +272,7 @@ fn void Entity.setPosition(&self, float x, float y) @inline
 
 fn void Entity.setPositionV(&self, Vec2f newpos) @inline
 {
-	self.vs.setPositionV(newpos);
+	self.setPosition(newpos.x, newpos.y);
 }
 
 fn Vec2f Entity.getPosition(&self) @inline
@@ -446,14 +474,13 @@ fn void Entity.move(&self) {
 
 fn void Entity.think(&self, float dt) // update in other engines
 {
-	float think_st = @start_profile_zone();
-	defer @end_profile_zone(think_st);
-	
-	if(self.flags & TH_THINK)
-	{
-        //self.setPositionV(box2d::body_GetPosition(self.physics));
-        self.move();
-	}
+    if(self.flags & TH_THINK)
+    {
+        tracy::@zoneN("Entity.think", 1)
+        {
+            self.move();
+        };
+    }
 }
 
 /*
