@@ -85,7 +85,8 @@ fn void Bounds.clear(&self) @inline {
 	self.minc.x = self.minc.y = -INFINITY;
 }
 
-fn void Bounds.zero(&self) @inline {
+fn void Bounds.zero(&self) @inline 
+{
 	self.maxc.x = self.maxc.y =
 	self.minc.x = self.minc.y = 0.0f;
 }
@@ -241,4 +242,18 @@ fn bool Bounds.intersectsOther(&self, Bounds* a) @inline {
 		return false;
 	}
 	return true;
+}
+
+fn void Bounds.axisProjection(&self, Vec2f* dir, float* min, float* max ) {
+	float d1, d2;
+	Vec2f center, extents;
+
+	center  = (self.maxc + self.minc) * 0.5f;
+	extents = self.minc - center;
+
+	d1 = ((*dir) * center).length();
+	d2 = math::abs(extents.x * (*dir).x) + math::abs(extents.y * (*dir).y);
+
+	*min = d1 - d2;
+	*max = d1 + d2;
 }
