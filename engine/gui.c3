@@ -242,7 +242,6 @@ fn bool Panel.isValid(&self) @inline {
     return false;
 }
 
-
 fn void Panel.draw(&self, bool selected = false)
 {
     if(self.asTexture()) 
@@ -269,7 +268,8 @@ fn void Panel.draw(&self, bool selected = false)
 // NOTE(HM) Widget is a data structure representing anything inside a gui, like buttons and such.
 
 
-struct WidgetFlags {
+struct WidgetFlags 
+{
     union {
         bool isHidden;
         bool should_hide;
@@ -319,7 +319,7 @@ struct Widget (WidgetInterface)
     
     int id;  // used to uniquily identify each widget on a gui
     String name;
-    int layer;
+    //int layer;
     int kind;
     WidgetFlags flags;
     
@@ -658,7 +658,8 @@ enum WidgetTextAlign
     RIGHT,
 }
 
-struct WidgetText {
+struct WidgetText 
+{
     // extends Widget (super/base class)
     inline Widget super;
 
@@ -670,11 +671,9 @@ struct WidgetText {
     WidgetTextAlign align;
 }
 
-<*
-* @param in desk "desktop where this widget will live"
-* @require desk != null
-*>
-fn void WidgetText.init(&self) @inline {
+
+fn void WidgetText.init(&self) @inline 
+{
     self.super.init();
     self.setColor({0, 0, 0, 0});
     self.kind       = KIND_TEXT;
@@ -1203,6 +1202,7 @@ fn void Desktop.redraw(&self, int _time)  {
     
     self.drawCursor();
     
+    // draw Desktop background
     if(self.tex) {
         assert(rl::isTextureValid(*self.tex));
         rl::drawTexture(*self.tex, (int)self.rect.x, (int)self.rect.y, self.color);
@@ -1210,10 +1210,13 @@ fn void Desktop.redraw(&self, int _time)  {
         misc::@drawRect(self.rect, self.color);
     }
     
-    // now handle our children
-    if (self.children.len()) {
-        foreach(child: self.children) {
-           switch (child.kind) {
+    // draw Desktop content/children
+    if (self.children.len())
+    {
+        foreach(child: self.children) 
+        {
+           switch (child.kind) 
+           {
                 case KIND_BUTTON:
                     ((WidgetButton*)child).draw(); 
                 case KIND_TEXT:

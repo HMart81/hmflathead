@@ -35,7 +35,9 @@ import thirdparty::raylib5::rl;
 
 const float	INFINITY = 1e30f;
 
-Cvar db_showBounds = { "db_showBounds", CvarType.BOOLEAN, "1", "displays used bounding box's on screen for debug"};
+const VEC2_ZERO @local = (Vec2f){0.0f, 0.0f};
+
+Cvar db_showBounds = { "db_showBounds", CvarType.BOOLEAN, "0", "displays used bounding box's on screen for debug"};
 
 fn void register_cvars() {
     cvar::@register(&db_showBounds);
@@ -62,10 +64,147 @@ fn void Bounds.debugDraw(self) {
     rl::drawRectangleLinesEx(misc::makeRect(self.maxc, {size.x, size.y}), 2.5f, rl::YELLOW);
 }
 
-fn void Bounds.set(&self, Vec2f minc, Vec2f maxc) @inline {
+fn void Bounds.set(&self, Vec2f minc, Vec2f maxc) @inline 
+{
     self.maxc = maxc;
     self.minc = minc;
 }
+
+////
+fn Vec2f Bounds.get(&self, usz index ) @operator([]) 
+{
+	switch(index) 
+    {
+        case 0:
+            return self.maxc;
+        case 1:
+            return self.minc;
+        default:
+            unreachable();
+    }
+}
+
+fn Vec2f* Bounds.get_ref(&self, usz index ) @operator(&[]) 
+{
+	switch(index) 
+    {
+        case 0:
+            return &self.maxc;
+        case 1:
+            return &self.minc;
+        default:
+            unreachable();
+    }
+}
+
+fn usz Bounds.len(&self) @operator(len)
+{
+    return self.maxc.len + self.minc.len;
+}
+
+fn void Bounds.set2(&self, usz i, Vec2f new_val) @operator([]=)
+{
+    return (*self)[i] = new_val;
+}
+
+fn Bounds Bounds.addV(self, Vec2f t) @operator(+)
+{
+	return (Bounds) { self.maxc + t, self.minc + t };
+}
+
+fn Bounds* Bounds.peqV(&self, Vec2f t ) @operator(+=)
+{
+	self.maxc += t;
+	self.minc += t;
+	return self;
+}
+
+fn Bounds Bounds.mul(&self, Matrix3f* r ) @operator(*)
+{
+	Bounds bounds;
+	bounds.fromTransformedBounds(VEC2_ZERO, r );
+	return bounds;
+}
+
+fn Bounds* Bounds.muleq(&self, Matrix3f* r ) @operator(*=)
+{
+	self.fromTransformedBounds(VEC2_ZERO, r );
+	return self;
+}
+
+fn Bounds Bounds.addOther(&self, Bounds* a ) @operator(+)
+{
+	Bounds newBounds;
+	newBounds = *self;
+	newBounds.addBounds( a );
+	return newBounds;
+}
+
+// fn Bounds* Bounds.peqB(&self, Bounds* a) @operator(+=)
+// {
+	// Bounds.addBounds( a );
+	// return self;
+// }
+
+fn Bounds Bounds.minusB(&self, Bounds* a) @operator(-)
+{
+	assert( self.minc.x - self.maxc.x > a.minc.x - a.maxc.x &&
+				self.minc.y - self.maxc.y > a.minc.y - a.maxc.y);
+	return (Bounds) {(Vec2f){self.maxc.x + a.minc.x, self.maxc.y + a.minc.y},
+					  (Vec2f){self.minc.x + a.maxc.x, self.minc.y + a.maxc.y}};
+}
+
+fn Bounds* Bounds.minusEq(&self, Bounds* a) @operator(-=)
+{
+	assert(self.minc.x - self.maxc.x > a.minc.x - a.maxc.x &&
+		   self.minc.y - self.maxc.y > a.minc.y - a.maxc.y);
+	self.maxc += a.minc;
+	self.minc += a.maxc;
+	return self;
+}
+////
+
+fn Bounds Bounds.addBB(self, Bounds other) @operator_s(+)
+{
+    return {
+        self.maxc + other.maxc,
+        self.maxc + other.minc
+    };
+}
+
+// <*
+    // @param [in] other "other bounds to do subtraction with"
+    // @require other != null
+    // @ensure (return.maxc - return.minc).length() > 0
+// *>
+// fn Bounds Bounds.sub(self, Bounds* other) @operator_s(-)
+// {
+    // return {
+        // self.maxc - other.maxc,
+        // self.maxc - other.minc
+    // };
+// }
+
+<*
+    @param [in] other "other bounds to do somation with"
+    @require other != null
+*>
+fn void Bounds.pequals(&self, Bounds* other) @operator(+=)
+{
+    self.maxc = self.maxc + other.maxc;
+    self.minc = self.maxc + other.minc;
+}
+
+// <*
+    // @param [in] other "other bounds to do subtraction with"
+    // @require other != null
+    // @ensure (self.maxc - self.minc).length() > 0
+// *>
+// fn void Bounds.mequals(&self, Bounds* other) @operator(-=)
+// {
+    // self.maxc = self.maxc - other.maxc;
+    // self.minc = self.maxc - other.minc;
+// }
 
 fn void Bounds.setRect(&self, Rectangle rect) @inline {
     Vec2f origin = rect.getPosition().arr;
@@ -76,8 +215,22 @@ fn void Bounds.setRect(&self, Rectangle rect) @inline {
     self.minc = self.maxc + misc::VEC_RIGHT * w + misc::VEC_DOWN * h;
 }
 
-fn bool Bounds.compare(&self, Bounds* a ) @inline {
+<*
+    @param [in] a "other bounds to compare too"
+    @require a != null
+*>
+fn bool Bounds.compare(&self, Bounds* a ) @operator(==)
+{
     return (self.minc == a.minc && self.maxc == a.maxc);
+}
+
+<*
+    @param [in] a "other bounds to compare too"
+    @require a != null
+*>
+fn bool Bounds.compare2(&self, Bounds* a ) @operator(!=)
+{
+    return (self.minc != a.minc && self.maxc != a.maxc);
 }
 
 fn void Bounds.clear(&self) @inline {
@@ -127,6 +280,10 @@ fn bool Bounds.addPoint(&self, Vec2f* v ) @inline {
 	return expanded;
 }
 
+<*
+    @param [in] a "other bounds to add to us"
+    @require a != null
+*>
 fn bool Bounds.addBounds(&self, Bounds* a ) @inline {
 	bool expanded = false;
 	if ( a.maxc.x < self.maxc.x ) {
@@ -236,6 +393,10 @@ fn bool Bounds.containsPoint(&self, Vec2f p ) @inline {
 	return true;
 }
 
+<*
+    @param [in] a "other bounds to test with"
+    @require a != null
+*>
 fn bool Bounds.intersectsOther(&self, Bounds* a) @inline {
 	if (a.minc.x < self.maxc.x || a.minc.y < self.maxc.y ||
 		a.maxc.x > self.minc.x || a.maxc.y > self.minc.y) {

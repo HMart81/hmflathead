@@ -46,13 +46,12 @@ import engine::physics::box2d;
 // end_region
 
 // region cvars
-Cvar ent_debugBounds @public = { "ent_debugBounds", CvarType.BOOLEAN, "0", "show debug visualization for entity bounding box" };
-//Cvar ui_editGUI   @public = { "ui_editGUI", CvarType.BOOLEAN, "0", "turn on gui editing functionality for gui development" };
+Cvar ent_debugBounds  = { "ent_debugBounds", CvarType.BOOLEAN, "0", "show debug visualization for entity bounding box" };
 
-
-fn void register_cvars() @public {
+// NOTE(HM) this is called in main.c3
+fn void register_cvars() @inline 
+{
     cvar::@register(&ent_debugBounds);
-    //cvar::@register(&ui_editGUI);
 }
 // end_region
 
@@ -69,32 +68,6 @@ const int   ENTITY_DEFAULT_SIZE_X_PIXELS  = 3;
 const int   ENTITY_DEFAULT_SIZE_Y_PIXELS  = 11;
 const float ENTITY_DEFAULT_SIZE_X_METER   = 0.27f; // 27 cm  (minimum size is 10 cm)
 const float ENTITY_DEFAULT_SIZE_Y_METER   = 1.0f;  // 1  m
-
-/*
-interface EntityInterface {
-	fn void init(String aname, Vec2f origin, Color color, typeid _type = Entity.typeid);
-	fn void deinit();
-	fn void spawn(); // what the diference with init right now?
-	fn void think();
-	
-	//
-	fn void setAxis(Matrix2f axis);
-	fn void setTexture(Texture2D* tex = null); @optional
-	fn Vec2f getWorldForward(); @optional
-	fn Vec2f getForward(); @optional
-	fn void scale(float w, float h); @optional
-	fn void scale_ex(Matrix2f axis); @optional
-	fn void scaleV(Vec2f scale); @optional
-	fn void scaleEqualy(float scaler); @optional
-	fn void setOrigin(float x, float y); @optional
-	fn void setOriginV(Vec2f newpos); @optional
-	fn void rotate2D(float angle); @optional
-	fn bool isdead(); @optional
-    fn void hide(); @optional
-    fn void show(); @optional
-    fn bool hidden(); @optional
-}
-*/
 
 struct Entity (SaveSystemInterface)
 {
@@ -138,7 +111,7 @@ fn bool Entity.shouldSkip(&self, String name) @inline @local {
     return false;
 }
 
-fn void Entity.init(&self, String aname, Vec2f origin, Color color = rl::WHITE) @public 
+fn void Entity.init(&self, String aname, Vec2f origin, Color color = rl::WHITE)
 {
 	if(self.shouldSkip(aname)) return;
 	
@@ -150,7 +123,8 @@ fn void Entity.init(&self, String aname, Vec2f origin, Color color = rl::WHITE) 
 	}
 	self.id = entity_count + 1;
     
-	if(aname == "") {
+	if(aname == "")
+    {
 		if(self.id < 10) {
 			self.name = string::tformat("entity0%s", self.id);
 		} else {
@@ -189,7 +163,8 @@ $endif
     */
     bodyDef.position    = origin; //box2d::vec2fToVec2(origin);
     //bodyDef.rotation    = misc::makeRot(1.0f); // angle is in radians and is zero by default
-    //bodyDef.enableSleep = true; // already done
+    // already done by default
+    //bodyDef.enableSleep = true;
     
     // create the body from the definition data above
     self.physics        = box2d::createBody(main::gpGame.physWorldId, &bodyDef);
@@ -198,7 +173,10 @@ $endif
     // ‍Caution: A dynamic body should have at least one shape with a non-zero density. 
     // Otherwise you will get strange behavior.
     // TODO(HM) Set the correct size at creation time!!!
-    B2Polygon dynamicBox = box2d::makeBox(ENTITY_DEFAULT_SIZE_X_METER, ENTITY_DEFAULT_SIZE_Y_METER);
+    B2Polygon dynamicBox = box2d::makeBox(
+        misc::pixelsToMeters(ENTITY_DEFAULT_SIZE_X_PIXELS),
+        misc::pixelsToMeters(ENTITY_DEFAULT_SIZE_Y_PIXELS)
+        );
     B2ShapeDef shapeDef  = box2d::defaultShapeDef();
     shapeDef.density          = 1.0f;
     shapeDef.friction         = 0.3f;

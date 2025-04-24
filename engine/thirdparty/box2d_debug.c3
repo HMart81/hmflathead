@@ -30,6 +30,23 @@
 module engine::physics::box2d;
 
 import thirdparty::raylib5::rl;
+import engine::misc;
+import game::camview;
+
+//fn Color makeColor( int c, float alpha = 1.0f ) @local
+//{
+	//return { (char)(( c >> 16 ) & 0xFF), (char)( ( c >> 8 ) & 0xFF ), (char)( c & 0xFF ), (char)( 0xFF * alpha ) };
+//}
+
+fn Color makeColor(int hexValue)
+{
+  Color rgbColor;
+  rgbColor.r = (char)((hexValue >> 16) & 0xFF) / 255;  // Extract the RR byte
+  rgbColor.g = (char)((hexValue >> 8) & 0xFF) / 255;   // Extract the GG byte
+  rgbColor.b = (char)((hexValue) & 0xFF) / 255;        // Extract the BB byte
+
+  return rgbColor;
+}
 
 /*
 m_debugDraw = { DrawPolygonFcn,
@@ -59,10 +76,11 @@ m_debugDraw = { DrawPolygonFcn,
 
 <*
     @param [inout] dd "the debugDraw struct to init"
-    @require dd != null
+    @param [in] view "the view where to draw the stuff"
+    @require dd != null && view != null
 *>
-fn void initDebugDraw(B2DebugDraw* dd) {
-    //(*dd) = defaultDebugDraw();
+fn void initDebugDraw(B2DebugDraw* dd, RenderView* view) {
+    (*dd) = defaultDebugDraw();
     // draw callbacks
     dd.drawPolygon        = &dbgDrawPolygon;
     dd.drawSolidPolygon   = &dbgDrawSolidPolygon;
@@ -71,18 +89,19 @@ fn void initDebugDraw(B2DebugDraw* dd) {
     //dd.drawCapsule      = &dbgDrawCapsule;
     //dd.drawSolidCapsule = &dbgDrawSolidCapsule;
     dd.drawSegment        = &dbgDrawLineSegment;
-    //dd.drawTransform      = &dbgDrawTransform;
+    dd.drawTransform      = &dbgDrawTransform;
     dd.drawPoint          = &dbgDrawPoint;
     dd.drawString         = &dbgDrawString;
     //
-    //B2AABBox bounds = { { -float.max, -float.max }, { float.max, float.max } };
-    //dd.drawingBounds      = bounds;
+    B2AABBox bounds = view.fromBoundsToPhysicsAABB(); //{ { -float.max, -float.max }, { float.max, float.max } };
+    dd.drawingBounds      = bounds;
     // drawing options
+    dd.useDrawingBounds   = true;
 	dd.drawShapes         = true;
 	//dd.drawJoints       = true;
 	//dd.drawJointExtras  = true;
 	dd.drawAABBs          = true;
-	//dd.drawMass         = true;
+	dd.drawMass           = true;
 	dd.drawContacts       = true;
 	//dd.drawGraphColors      = true;
 	//dd.drawContactNormals   = true;
@@ -123,57 +142,47 @@ fn void dbgDrawPolygonLocal(B2Vec2* vertices, int vertexCount, Color tint) @loca
     }
 }
 
-// Disabled because mulAdd, rotGetXAxis and rotGetYAxis are not 
-// exported in the current static library box2d.lib.
-// This functions (and many others in math_functions.h) 
-// are not marked "B2_API" but "B2_INLINE" so their symbols (func names)
-// don't get exported into the library when compiled.
-// I have the source so I could change that myself, but then 
-// I would need to maintain my own clone of the box2d library and updating would be a pita. :(
 fn void dbgDrawTransformLocal(B2Transform transform) @local
 {
-    unreachable();
-/*
 	float k_axisScale = 0.2f;
 	B2Vec2 p1 = transform.p;
 
-	B2Vec2 p2 = box2d::math::mulAdd(p1, k_axisScale, box2d::math::rotGetXAxis(transform.q));
-    rl::drawLineV(p1, p2, rl::RED);
+	B2Vec2 p2 = misc::mulAdd(p1, k_axisScale, misc::rot_GetXAxis(transform.q));
+    rl::drawLineV(b2Vec2ToVector2f(p1), b2Vec2ToVector2f(p2), rl::RED);
 
-	p2 = box2d::math::mulAdd(p1, k_axisScale, box2d::math::rotGetYAxis(transform.q));
-    rl::drawLineV(p1, p2, rl::GREEN);
-*/
+	p2 = misc::mulAdd(p1, k_axisScale, misc::rot_GetYAxis(transform.q));
+    rl::drawLineV(b2Vec2ToVector2f(p1), b2Vec2ToVector2f(p2), rl::GREEN);
 }
 
-fn Color hexColorToColor(int hexValue)
-{
-  Color rgbColor;
-  rgbColor.r = (char)((hexValue >> 16) & 0xFF) / 255;  // Extract the RR byte
-  rgbColor.g = (char)((hexValue >> 8) & 0xFF) / 255;   // Extract the GG byte
-  rgbColor.b = (char)((hexValue) & 0xFF) / 255;        // Extract the BB byte
-
-  return rgbColor;
-}
-
-/// Draw a closed polygon provided in CCW order.
-fn void dbgDrawPolygon(B2Vec2* vertices, int vertexCount, B2HexColor color, void* context ) {
-    //rl::drawLineStrip((rl::Vector2*)vertices, vertexCount, hexColorToColor(color));
-    //drawPolygonLocal((rl::Vector2*)vertices, vertexCount, hexColorToColor(color));
+<*
+    Draw a closed polygon provided in CCW order.
+    
+    @param [in] vertices "polygon vertices"
+    @param vertexCount   "amount of vertices"
+    @param color         "polygon color passed as a hexValue"
+    @param [in] context  "opengl/drawing context is null by default"
+    @require vertices != null
+*>
+fn void dbgDrawPolygon(B2Vec2* vertices, int vertexCount, B2HexColor color, void* context = null ) {
+    //rl::drawLineStrip((Vector2*)vertices, vertexCount, rl::BLUE);
+    rl::drawTriangleStrip((Vector2*)vertices, vertexCount, rl::BLUE);
+    //Color c = makeColor(color);
+    //dbgDrawPolygonLocal(vertices, vertexCount, rl::BLUE);
 }
 /// Draw a solid closed polygon provided in CCW order.
 fn void dbgDrawSolidPolygon(B2Transform transform, B2Vec2* vertices, int vertexCount, float radius, B2HexColor color, void* context ) {
-    //rl::drawTriangleStrip((rl::Vector2*)vertices, vertexCount, hexColorToColor(color));
+    rl::drawTriangleStrip((rl::Vector2*)vertices, vertexCount, makeColor(color));
 }
 fn void dbgDrawCircle(B2Vec2 center, float radius, B2HexColor color, void* context ) {
-    rl::drawCircleLinesV(b2Vec2ToVector2f(center), radius, hexColorToColor(color));
+    rl::drawCircleLinesV(b2Vec2ToVector2f(center), radius, makeColor(color));
 }
 fn void dbgDrawSolidCircle(B2Transform transform, float radius, B2HexColor color, void* context ) {
-    rl::drawCircleV(b2Vec2ToVector2f(transform.p), radius, hexColorToColor(color));
+    rl::drawCircleV(b2Vec2ToVector2f(transform.p), radius, makeColor(color));
 }
 	//void ( *DrawCapsule )( b2Vec2 p1, b2Vec2 p2, float radius, b2HexColor color, void* context );
 	//void ( *DrawSolidCapsule )( b2Vec2 p1, b2Vec2 p2, float radius, b2HexColor color, void* context );
 fn void dbgDrawLineSegment(B2Vec2 p1, B2Vec2 p2, B2HexColor color, void* context ) {
-    rl::drawLineV(b2Vec2ToVector2f(p1), b2Vec2ToVector2f(p2), hexColorToColor(color));
+    rl::drawLineV(b2Vec2ToVector2f(p1), b2Vec2ToVector2f(p2), makeColor(color));
 }
 
 /// Draw a transform. Choose your own length scale.

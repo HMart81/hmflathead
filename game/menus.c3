@@ -58,6 +58,7 @@ import thirdparty::raylib5::rl;
 // end_region
 
 // region constants
+const SCREEN_TOP_CORNER = (Vec2f) {0.0f, 0.0f};
 // end_region
 
 fn Desktop* getActiveMenu() @local {
@@ -202,7 +203,6 @@ fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
     
     main::gpGame.mode = main::GameMode.MENU;
 
-    const SCREEN_TOP_CORNER   = (Vec2f) {0.0f, 0.0f};
     Vec2f screen_center       = (Vec2f) {(float)screenWidth/2.0f, (float)screenHeight / 2.0f};
     Vec2f screen_top_center   = (Vec2f) {(float)screenWidth/2.0f, 0.0f};
     float screen_half_width   = screen_center.x;

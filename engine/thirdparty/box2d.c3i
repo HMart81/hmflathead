@@ -1590,7 +1590,7 @@ fn float getLengthUnitsPerMeter() @extern("b2GetLengthUnitsPerMeter") @Exported;
 
 /// These colors are used for debug draw.
 ///	See https://www.rapidtables.com/web/color/index.html
-enum B2HexColor : int (inline int value)
+enum B2HexColor : int (inline int color)
 {
 	ALICE_BLUE           = 0xf0f8ff,
 	ANTIQUE_WHITE        = 0xfaebd7,

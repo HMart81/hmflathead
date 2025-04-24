@@ -161,6 +161,8 @@ fn char[]? XmlNode.get_attrib_value(&self, char[] name) {
 	return ATTRIBUTE_NOT_FOUND?;
 }
 
+fn bool XmlNode.asAttributes(&self) => (self.attributes.size) ? true : false;
+
 fn void XmlDoc.print_as_tree(&doc, OutStream stream) {
 	doc.rootNode.print_as_tree(stream, 0, 0, 0);
 }

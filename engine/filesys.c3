@@ -29,12 +29,9 @@
 module engine::filesystem::fs;
 // just a wrapper to some raylib functions
 
-// region c3 modules
+// region modules
 import std::io;
 import std::os;
-// end_region
-
-// region user module
 import thirdparty::raylib5::rl;
 // end_region
 
@@ -80,6 +77,13 @@ fn bool? fileSaveEntireText(String fileName, String text) {
         return FS_FAILED_SAVE_DATA?;
     }
 }
+
+
+fn File? openFile(String path, String mode) @inline
+{
+    return io::file::open(path, mode)!;
+}
+
 // end_region
 
 // region File system functions

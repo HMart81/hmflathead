@@ -234,14 +234,15 @@ alias asstManager    @public= astmng::assetManager;
 // end_region Alias
 
 // region Cvars
-Cvar developer    @public = { "developer"         , CvarType.BOOLEAN, "0",    "enables developer mode"};
-Cvar editor       @public = { "editor"            , CvarType.BOOLEAN, "0",    "enables the game editor (requires developer mode)"};
-Cvar r_mode       @public = { "r_mode"            , CvarType.INT,     "-1",   "window resolution index 0.."};
-Cvar r_showFPS    @public = { "r_showFPS"         , CvarType.BOOLEAN, "1",    "draws framerate on screen"};
-Cvar r_fullscreen @public = { "r_fullscreen"      , CvarType.INT,     "-1",   "screen mode 0 = window, 1 = borderless, 2 = dedicated, -1 = ini file setting"};
-Cvar fs_base      @public = { "fs_base"           , CvarType.STRING,  "data", "default game base folder"};
-Cvar fs_mod_name  @public = { "fs_mod_name"       , CvarType.STRING,  "",     "folder name of mod to run"};
-Cvar fs_mod_base  @public = { "fs_mod_base"       , CvarType.STRING,  "",     "folder name for custom database of running mod"};
+Cvar developer      @public = { "developer"     , CvarType.BOOLEAN, "0",    "enables developer mode"};
+Cvar editor         @public = { "editor"        , CvarType.BOOLEAN, "0",    "enables the game editor (requires developer mode)"};
+Cvar r_mode         @public = { "r_mode"        , CvarType.INT,     "-1",   "window resolution index 0.."};
+Cvar r_showFPS      @public = { "r_showFPS"     , CvarType.BOOLEAN, "1",    "draws framerate on screen"};
+Cvar r_fullscreen   @public = { "r_fullscreen"  , CvarType.INT,     "-1",   "screen mode 0 = window, 1 = borderless, 2 = dedicated, -1 = ini file setting"};
+Cvar fs_base        @public = { "fs_base"       , CvarType.STRING,  "data", "default game base folder"};
+Cvar fs_mod_name    @public = { "fs_mod_name"   , CvarType.STRING,  "",     "folder name of mod to run"};
+Cvar fs_mod_base    @public = { "fs_mod_base"   , CvarType.STRING,  "",     "folder name for custom database of running mod"};
+Cvar db_drawPhysics @public = { "db_drawPhysics", CvarType.BOOLEAN, "1",    "show debug visualization for world physics" };
 //Cvar r_window_resizable @public = { "r_window_resizable", CvarType.BOOLEAN,  "0",   "makes window resizable, window mode only."};
 //Cvar g_log              @public = { "g_log"             , CvarType.INT,      "0",   "loggin for debuggin, int value from 0 to 4, 0 = off, larger values prints more stuff."};
 
@@ -254,6 +255,7 @@ fn void register_cvars() @local {
     cvar::@register(&fs_base);
     cvar::@register(&fs_mod_name);
     cvar::@register(&fs_mod_base);
+    cvar::@register(&db_drawPhysics);
     //cvar::@register(r_window_resizable);
     //cvar::@register(g_log);
     
@@ -1146,7 +1148,7 @@ fn void gameReset() @local {
 
 // NOTE(HM) Any code here draws before the game user interface
 fn void gameOnPostSceneDraw(int screenWidth, int screenHeight) @local {
-    box2d::worldDebugDraw(local_game.physWorldId, &local_game.phys_debug);
+    
 }
 
 // NOTE(HM) Any code here draws on top of the game user interface
@@ -1844,7 +1846,7 @@ $endif
     B2ShapeDef  grd_shpdef      = box2d::defaultShapeDef();
     box2d::createPolygonShape(local_game.phys_grd_bodyid, &grd_shpdef, &local_game.phys_grd_box);
     
-    box2d::initDebugDraw(&local_game.phys_debug);
+    box2d::initDebugDraw(&local_game.phys_debug, &local_game.view);
 // end_region physics engine
     
 // region AUDIO DEVICE initialization
@@ -2057,6 +2059,7 @@ fn void gameOnExit() @local
 {
     lgr::info(Where.FILE,  "Game shutdown starting.");
     deinit_game_cursor();
+    // make sure to release all assets last, so you don't try to release a asset that is already released.
     asstManager.releaseAllAssets();
     // close physics engine
     box2d::deinitDebugDraw(&local_game.phys_debug);
@@ -2067,12 +2070,13 @@ fn void gameOnExit() @local
     }
     //
     rl::closeAudioDevice();
-    rl::closeWindow();
-    local_game.unload();
     // debug_lines
-    if(misc::g_debugLines.len()) {
+    if(misc::g_debugLines.len())
+    {
         misc::freeDebugLines();
     }
+    rl::closeWindow();
+    local_game.unload();
     //rl::memFree(memory_pool);
     lgr::info(Where.FILE,  "clearing game singletons and log system!\n\t** Printing done on console from this point on **");
     lgr::closeLogFile();

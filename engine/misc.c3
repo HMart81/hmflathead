@@ -241,12 +241,16 @@ macro Vec2f Matrix3f.multiply(&self, Vec2f v) {
 // end_region Matrix3f extensions
 
 // region box2d non exported functions
-
 /// Make a rotation using an angle in radians
 fn B2Rot makeRot(float radians) @inline
 {
 	B2CosSin cs = box2d::computeCosSin( radians );
 	return (B2Rot){ cs.cosine, cs.sine };
+}
+
+fn B2Vec2 mulAdd( B2Vec2 a, float s, B2Vec2 b ) @inline
+{
+	return (B2Vec2){ a[0] + s * b[0], a[1] + s * b[1] };
 }
 
 /// Get the angle in radians in the range [-pi, pi]

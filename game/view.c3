@@ -28,14 +28,11 @@
 
 module game::camview;
 
-// region c3 modules
+// region modules
 import std::io;
 import std::core::mem; // for malloc/new
 import std::math;
 import std::collections::list;
-// end_region
-
-// region custom modules
 import game::main;
 import engine::misc;
 import engine::input;
@@ -48,6 +45,7 @@ import thirdparty::raylib5::rmath;
 import game::serialize::svs; // save system
 import game::lowlevel::bounds;
 import engine::logging::lgr;
+import engine::physics::box2d;
 // end_region
 
 /*
@@ -485,6 +483,14 @@ fn void RenderView.updateBounds(&self) {
     };
 }
 
+fn B2AABBox RenderView.fromBoundsToPhysicsAABB(&self)
+{
+	B2AABBox bb;
+	bb.lowerBound = self.bounds.minc; //rl::getScreenToWorld2D( { 0.0f, (float)self.h }, self.camera ).arr;
+	bb.upperBound = self.bounds.maxc; //rl::getScreenToWorld2D( { (float)self.w, 0.0f }, self.camera ).arr;
+	return bb;
+}
+
 <*
     @param [in] view : "the view to render to the framebuffer layer" 
     @param [inout] layer : "the framebuffer layer to render to"
@@ -530,6 +536,11 @@ $endif
         }
         
         main::gpGame.boidManager1.draw();
+        
+        // physics debug drawing
+        if(main::db_drawPhysics.getBool()) {
+            box2d::worldDebugDraw(main::gpGame.physWorldId, &main::gpGame.phys_debug);
+        }
         
 $if $feature(_DEBUG):
         //view.debug();

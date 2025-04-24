@@ -42,20 +42,23 @@ fn void advance(CChar** str, int count)  @inline
 	str += count;
 }
 
-fn bool isEndofLine(CChar c)  @inline
+fn bool isEndOfLine(CChar c)  @inline
 {
-	bool result = ((c == '\n') || (c == '\r'));
-	return result;
+	return ((c == '\n') || (c == '\r'));
 }
 
 fn bool isWhiteSpace(CChar c)  @inline
 {
-	bool result = ((c == ' ') || (c == '\t') || isEndofLine(c));
-	return result;
+	return ((c == ' ') || (c == '\t') || isEndOfLine(c));
 }
 
-// You can convert a CChar c to an integer:
-// if the char code falls withing the normal ASCII table values
+<*
+    You can convert a CChar c to an integer safely:
+    if the char code falls withing the normal ASCII table values.
+    
+ @require ascii::is_alnum(c) : "Expected a number or symbol"
+ @require c >= 0 && c <= 127 : "Expected valid ASCII value from 0 to 127"
+*>
 fn int charToInt(CChar c)  @inline
 {
 	return  c - '0';
@@ -65,18 +68,18 @@ fn int charToInt(CChar c)  @inline
 // only by testing if the character (token) is inferior to ' ' (space).
 // Is like advance but stops at first space character
 // NOTE(HM) 
-// String is a char[] that is a SLICE ( a struct with a pointer and a len)
-// not like a C array that is just a pointer to the start of a contiguous peace of memory.
-fn CChar returnNextToken(String str, int cur_index)  @inline
+// String is a char[] SLICE ( a struct with a pointer and a len)
+// not a array like C, that is just a pointer to the start of a contiguous peace of memory.
+fn CChar returnNextToken(String str, int curr_index)  @inline
 {
-	return *(str.ptr + cur_index + 1);
+	return *(str.ptr + curr_index + 1);
 }
 
 <*
-* @param in str "the string to peak at, passed by pointer"
-* @param cur_index "where we currently are in the string"
-* @require str != null
-* @ensure return != null
+* @param in str : "the string to peak at, passed by pointer"
+* @param cur_index : "where the cursor is currently in the string"
+* @require str != null : "trying to peak at null str"
+* @ensure return != null : "expect a character pointer got a null pointer"
 *>
 fn CChar* peakAtNextToken(String* str, int cur_index)  @inline
 {
@@ -85,14 +88,14 @@ fn CChar* peakAtNextToken(String* str, int cur_index)  @inline
 
 <*
 * DOC - go back a char
-* @param in str "the string to peak at, passed by pointer"
-* @param cur_index "where we currently are in the string"
-* @require str != null
-* @ensure return != null
+* @param in str : "the string to peak at, passed by pointer"
+* @param cur_index : "where we currently are in the string"
+* @require str != null : "trying to peak at null str"
+* @ensure return != null : "expect a character pointer got a null pointer"
 *>
-fn CChar* peakAtPreviousToken(String* str, int cur_index)  @inline
+fn CChar* peakAtPreviousToken(String* str, int curr_index)  @inline
 {
-	return (CChar*)((*str).ptr + cur_index - 1);
+	return (CChar*)((*str).ptr + curr_index - 1);
 }
 
 <*
@@ -113,17 +116,19 @@ fn bool expectToken(CChar token, String* str, int cur_index)  @inline
 fn int count_spaces(String str)  @inline
 {
 	int result;
-    foreach(c : str) { if(c == ' ') result++; }
+    foreach(c : str) { if(ascii::is_space_m(c)) result++; }
     return result;
 }
 
 <* 
 * Removes all spaces from a string
-* @param str "string to remove spaces from"
+* @param [inout] str "string to remove spaces from"
 *>
 fn void remove_all_spaces(String* str)  @inline
 {
     int spaces_count = count_spaces(*str);
+    if(spaces_count <= 0) return;
+    
     int new_len      = (str.len - spaces_count) + 1;
 	CChar* buffer    = (CChar*)mem::calloc(new_len);
     
@@ -148,23 +153,23 @@ fn void remove_all_spaces(String* str)  @inline
     (*str) = _str.str_view();
 }
 
+
+<*
+    Eats all the spaces starting at current char untill a non space character is found
+*>
+fn void eat_spaces_starting_from(CChar** cursor) @inline
+{
+	while (true)
+	{
+		if (isWhiteSpace(**cursor)) {
+			advance(cursor, 1);
+        } else {
+			break;
+        } 
+	}
+}
+
 /*
-
-/// <summary>
-/// Eats all the spaces starting at index untill a non space character is found
-/// </summary>
-// fn void eat_spaces_starting_from(uint index, String* str) @inline
-// {
-	// while (str.len())
-	// {
-		// if (isWhiteSpace(str[index])) 
-			// advance(str, 1); 
-		// else 
-			// break;
-		
-	// }
-// }
-
 // Eats all the spaces at the start of a string if any
 fn String eat_starting_spaces(String* str) @inline
 {
