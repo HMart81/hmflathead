@@ -302,8 +302,16 @@ $endif
 	return null;
 }
 
-fn Asset* Manager.getAssetExt(&self, String name, typeid type) {
-
+fn Asset* Manager.getAssetExt(&self, String name, typeid type)
+{
+    String needle = "/";
+    if(name.contains(needle)) {
+        //usz ch_index = name.index_of(needle)!!;
+        //char[] cut = name[:ch_index+1];
+        //name = name.trim((String)cut);
+        name = name.extractFileBaseByCopy();
+    }
+    
 	foreach(asset: self.assets) {
 		if(asset.name == name && asset.data.type == type) {
 			return asset;

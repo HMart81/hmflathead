@@ -82,6 +82,7 @@ struct Sprite (SaveSystemInterface)
     Rectangle rect;
     RColor color;
     Asset* tex;
+    //HMaterial mat;
     Bounds bounds; // will be equal to the rectangle
     //
     union {
@@ -293,9 +294,10 @@ fn bool Sprite.isValid(&self) {
 }
 
 fn void Sprite.setTexture(&self, String texture_name_with_ext) @inline {
+
     if(texture_name_with_ext == "") return;
     
-    self.tex = main::asstManager.getAssetExt(texture_name_with_ext, Texture2D.typeid);;
+    self.tex = main::asstManager.getAssetExt(texture_name_with_ext, Texture2D.typeid);
     assert(rl::isTextureValid(*(Texture2D*)self.tex.data.ptr));
 }
 

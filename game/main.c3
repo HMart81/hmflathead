@@ -45,6 +45,7 @@ import game::intro;
 import game::gui::menu;
 import engine::assets_api::asapi; // for the asset system
 import engine::assets::astmng; // asset manager
+import game::material::database::mtrdb; // material database
 import game::assets::sprt; // sprites
 import game::assets::part; // particles
 //import game::assets::mtr; // materials
@@ -362,6 +363,8 @@ struct Game (SaveSystemInterface) @local
     List{Sprite*} sprites;
     BoidManager boidManager1;
     
+    MTR_DataBase mtrDB;
+    
     // physics engine world
     B2WorldId physWorldId;
     bool pause_phys_simulation;
@@ -587,6 +590,8 @@ fn void Game.unloadDefaultAssets(&self) {
 fn void Game.unload(&self) {
     self.clearFonts();
     self.unloadDefaultAssets();
+    // clear material database
+    self.mtrDB.clear();
     self.freeGameEntities();
     
     if(self.main_menu) {
@@ -1861,8 +1866,6 @@ $endif
         lgr::warning(Where.FILE, "AudioDevice: Not ready, sound will be disabled! %s:%s", $$MODULE, $$FUNC );
     }
     
-    
-    
     // load required default sound
     local_game.default_sound = rl::loadSound(local_game.app_base_folder.tconcat("sounds//default.wav").zstr_tcopy());
     if(rl::isSoundValid(local_game.default_sound)) {
@@ -1925,6 +1928,8 @@ $endif
     lgr::info(Where.FILE,  "** done **.");
 // end_region Asset manager
     
+    // load all material files from the material folder
+    mtrdb::loadMaterialFiles(&local_game.mtrDB)!!;
     
     // init intro stuff here
     intro::initIntroAnimation(&local_game.intro);
