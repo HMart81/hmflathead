@@ -184,7 +184,9 @@ fn void Manager.register(&self, Asset* asset) @local @inline {
 	self.assets.push(asset);
 }
 
-fn void Manager.listAssets(&self) @if($feature(_DEBUG)) {
+fn void Manager.listAssets(&self) @if($feature(_DEBUG)) 
+{
+    /*
 	AssetListPtr texture_assets;
 	AssetListPtr shader_assets;
 	AssetListPtr sound_assets;
@@ -250,6 +252,7 @@ fn void Manager.listAssets(&self) @if($feature(_DEBUG)) {
 			io::printfn("\t-> [%s , %s]", asset.name, asset.path);
 		}
 	}
+    */
 }
 
 // WARNING(HM) 06/11/2024

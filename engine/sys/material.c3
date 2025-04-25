@@ -152,6 +152,32 @@ fn HMaterial* HM_mtr_Data.getMaterial(&self, String name) @inline
 	return null;
 }
 
+fn void print_material_map_data(HMaterial* mat) @local @inline
+{
+    if(mat)
+    {
+        io::printfn("   [map : 'Diffuse']");
+        io::printfn("       tex: \"%s\"", mat.diffuse.tex);
+        io::printfn("       color: \"%s\"", mat.diffuse.color);
+        foreach(i, arg : mat.diffuse.args) io::printfn("       arg%d: \"%s = %s\"", i, arg.first, arg.second);
+    }
+}
+
+fn void HM_mtr_Data.printMaterials(&self) @inline 
+{
+    if(self.mats.len()) 
+    {
+        foreach(mat: self.mats) 
+        {
+             io::printfn("[material : '%s']", mat.name);
+             if(mat.comment.len) {
+                io::printfn("   comment = \"%s\"", mat.comment);
+             }
+             print_material_map_data(mat);
+        }
+    }
+}
+
 fn bool? HM_mtr_Data.load(&self, String file_path) @inline
 {
     if(self.parse(file_path) == false) {
@@ -302,20 +328,6 @@ fn String getNodeText(XmlNode* node) @local
 *>
 fn void parse_material_comment(XmlNode node, HMaterial* mat, HM_mtr_Data mtr_file) @inline @local
 {
-    // usz child_count = node.children.len();
-    // if(child_count >= 1) {
-        // String comment = node.children[0].value;
-        // if(child_count > 1) {
-            // for(int i = 1; i < child_count; i++) {
-                // comment = comment.tconcat(node.children[i].value);
-            // }
-        // }
-        // mat.comment = string::format(mem, "%s", comment);
-    // } else {
-        // lgr::warning(Where.FILE, "material %s in %s as empty comment node.\n", mat.name, mtr_file.path);
-        // return;
-    // }
-    
     mat.comment = getNodeText(&node);
 }
 
@@ -421,7 +433,7 @@ fn Color xmlStrColorToColor(String value) @local
 *>
 fn void parse_material_atributes(XmlNode* node, HMaterial* mat, HM_mtr_Data* mtr_file)
 {
-    io::printfn("START parsing Material '%s' attributes:", node.name);
+    //io::printfn("START parsing Material '%s' attributes:", node.name);
     foreach (atrb : node.attributes)
     {
        if(atrb == null) continue;
@@ -434,7 +446,7 @@ fn void parse_material_atributes(XmlNode* node, HMaterial* mat, HM_mtr_Data* mtr
            io::printfn("Unnused atribute '%s' found in node '%s' of material '%s' in file '%s'!", atrb.name, node.name, mat.name, mtr_file.path);
        }
     }
-    io::printfn("END parsing Material '%s' attributes:", node.name);
+    //io::printfn("END parsing Material '%s' attributes:", node.name);
 }
 
 <*
@@ -445,7 +457,7 @@ fn void parse_material_atributes(XmlNode* node, HMaterial* mat, HM_mtr_Data* mtr
 *>
 fn void parse_node_atributes(XmlNode* node, HMaterial* mat, HM_mtr_Data* mtr_file)
 {
-    io::printfn("START parsing node '%s' attributes:", node.name);
+    //io::printfn("START parsing node '%s' attributes:", node.name);
     foreach (atrb : node.attributes)
     {
        if(atrb == null) continue;
@@ -460,7 +472,7 @@ fn void parse_node_atributes(XmlNode* node, HMaterial* mat, HM_mtr_Data* mtr_fil
            io::printfn("Unnused node attribute '%s' found in node '%s' of material '%s' in file '%s'!", atrb.name, node.name, mat.name, mtr_file.path);
        }
     }
-    io::printfn("END parsing node '%s' attributes:", node.name);
+    //io::printfn("END parsing node '%s' attributes:", node.name);
 }
 
 <*
@@ -487,7 +499,7 @@ fn void parse_material_map_args(MTR_MatMap* map, XmlNode* node)
 *>
 fn void handle_material_map_args(MTR_MatMap* map, XmlNode* node, HMaterial* mat, HM_mtr_Data* mtr_file)
 {
-    io::printfn("START parsing map '%s' arguments:", node.name);
+    //io::printfn("START parsing map '%s' arguments:", node.name);
     foreach (arg : map.args)
     {
        if(arg == null) continue;
@@ -503,7 +515,7 @@ fn void handle_material_map_args(MTR_MatMap* map, XmlNode* node, HMaterial* mat,
            io::printfn("Unnused map argument '%s' found in node '%s' of material '%s' in file '%s'!", arg.first, node.name, mat.name, mtr_file.path);
        }
     }
-    io::printfn("END parsing map '%s' arguments:", node.name);
+    //io::printfn("END parsing map '%s' arguments:", node.name);
 }
 
 fn void HMaterial.free(&self)
@@ -576,7 +588,7 @@ alias MTR_FileList = List{HM_mtr_Data*};
 
 struct MTR_DataBase 
 {
-    MTR_FileList db;
+    MTR_FileList data;
 }
 
 faultdef INVALID_PATH_STRING,
@@ -656,7 +668,7 @@ fn void? loadMaterialFiles(MTR_DataBase* db) @inline
 // This will probably be very slow...
 fn HMaterial* MTR_DataBase.findMaterial(&self, String name) @inline 
 {
-	foreach(mtr: self.db)
+	foreach(mtr: self.data)
     {
         HMaterial* mat = mtr.getMaterial(name);
 		if(mat != null) return mat;
@@ -670,15 +682,15 @@ fn HMaterial* MTR_DataBase.findMaterial(&self, String name) @inline
 * @require mtr != null
 *>
 fn void MTR_DataBase.register(&self, HM_mtr_Data* mtr) @local @inline {
-	self.db.push(mtr);
+	self.data.push(mtr);
 }
 
 fn void MTR_DataBase.listMTRs(&self) @if($feature(_DEBUG)) 
 {
-	if(self.db.len())
+	if(self.data.len())
 	{
 		lgr::info(Where.CONSOLE, "[MATERIAL FILES]");
-		foreach(mtr: self.db) {
+		foreach(mtr: self.data) {
 			io::printfn("\t-> \"%s\"", mtr.path);
 		}
 	}
@@ -693,9 +705,9 @@ fn void MTR_DataBase.listMTRs(&self) @if($feature(_DEBUG))
 // 	to reading the data from the HD/SSD/MD2 drive.
 fn void MTR_DataBase.clear(&self) @inline
 {
-	if(self.db.len()) 
+	if(self.data.len()) 
     {
-		foreach(mtr: self.db) mtr.unload();
-		self.db.free();
+		foreach(mtr: self.data) mtr.unload();
+		self.data.free();
 	}
 }

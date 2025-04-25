@@ -1931,6 +1931,9 @@ $endif
     // load all material files from the material folder
     mtrdb::loadMaterialFiles(&local_game.mtrDB)!!;
     
+    local_game.mtrDB.listMTRs();
+    //local_game.mtrDB.data[0].printMaterials();
+    
     // init intro stuff here
     intro::initIntroAnimation(&local_game.intro);
     
