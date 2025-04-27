@@ -839,7 +839,10 @@ fn HMaterial* getMaterial(String material_name) @public
     do {
         mat = main::gpGame.mtrDB.data[index++].getMaterial(material_name);
     } while(mat == null && index < count);
-	
+
+    // just for testing purposes
+	assert(rl::isTextureValid(mat.diffuse.tex));
+    
     /*foreach(mtr: self.data)
     {
         HMaterial* mat = mtr.getMaterial(material_name);

@@ -41,7 +41,9 @@ import std::math;
 import std::collections::list;
 import engine::misc;
 import engine::input;
-import engine::assets::astmng; // asset manager
+//import engine::assets::astmng; // asset manager
+import game::material::mtr;
+import game::material::manager::mtrmng;
 import engine::logging::lgr;
 import game::main;
 import game::camview;
@@ -53,7 +55,7 @@ import thirdparty::raygui5::rgui;
 // end_region
 
 // region alias
-alias assetManager @private = astmng::assetManager;
+//alias assetManager @private = astmng::assetManager;
 // end_region
 
 // region constants
@@ -67,7 +69,8 @@ Cvar ui_debugDraw @public = { "ui_debugDraw", CvarType.BOOLEAN, "0", "show debug
 Cvar ui_editGUI   @public = { "ui_editGUI", CvarType.BOOLEAN, "0", "turn on gui editing functionality for gui development" };
 
 
-fn void register_cvars() @public {
+fn void register_cvars() @public 
+{
     cvar::@register(&ui_debugDraw);
     cvar::@register(&ui_editGUI);
 }
@@ -89,7 +92,8 @@ struct Panel (SaveSystemInterface)
    Rectangle  rect;
    Color      color; // main color
    Color      selected_color; // for gui editor functionality
-   Texture2D* tex;
+   //Texture2D* tex;
+   HMaterial* mat;
 }
 
 fn void Panel.save(&self, SaveFile* file) @dynamic 
@@ -130,7 +134,7 @@ fn void Panel.init(&self) @inline
     self.initRec(temp, rl::WHITE);
 }
 
-fn void Panel.deinit(&self) @inline {if(self.tex) self.tex = null;}
+fn void Panel.deinit(&self) @inline {if(self.mat) self.mat = null;}
 
 fn void Panel.setShape(&self, PanelShape shape) @inline => self.shape = shape;
 
@@ -219,13 +223,13 @@ fn void Panel.addToPositionV(&self, Vec2f pos) @inline => self.addToPosition(pos
 *>
 fn Vec2f Panel.getPosition(&self) @inline => { self.rect.x, self.rect.y };
 
-<*
-    @param [in] tex "texture to assign to the panel"
-    @require tex != null
-*>
-fn void Panel.setTexture(&self, Texture2D* tex) @inline => self.tex = tex;
 
-fn bool Panel.asTexture(&self) @inline => self.tex != null;
+fn void Panel.setMaterial(&self, String material_name) @inline 
+{
+    self.mat = mtrmng::getMaterial(material_name);
+}
+
+fn bool Panel.asMaterial(&self) @inline => self.mat != null;
 
 fn void Panel.fadeIn(&self, float factor) {
     self.color = rl::colorLerp(self.color, rl::WHITE, factor);
@@ -244,16 +248,14 @@ fn bool Panel.isValid(&self) @inline {
 
 fn void Panel.draw(&self, bool selected = false)
 {
-    if(self.asTexture()) 
+    if(self.asMaterial())
     {
         // TODO(HM) find how to draw a image on a rounded rectangle!?
-        if (rl::isTextureValid(*self.tex)) {
-            Vec2f tex_size = {self.tex.width, self.tex.height};
-            Rectangle source = {0, 0, tex_size.x, tex_size.y};
-            // NOTE(HM) 
-            // center of the texture (rotation/scale point), it's relative to destination rectangle dimentions, not the screen
-            rl::drawTexturePro(*self.tex, source, self.rect, {0, 0}, 0.0f, (selected) ? self.selected_color : self.color);
-        }
+        Vec2f tex_size = {self.mat.diffuse.tex.width, self.mat.diffuse.tex.height};
+        Rectangle source = {0, 0, tex_size.x, tex_size.y};
+        // NOTE(HM) 
+        // center of the texture (rotation/scale point), it's relative to destination rectangle dimentions, not the screen
+        rl::drawTexturePro(self.mat.diffuse.tex, source, self.rect, {0, 0}, 0.0f, (selected) ? self.selected_color : self.color);
     } else {
         if(self.shape == BOX) {
             misc::@drawRect(self.rect, (selected) ? self.selected_color : self.color);

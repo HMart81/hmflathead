@@ -27,18 +27,21 @@ const FRAME_TIME       = FADE_IN_TIME + VISIBLE_DURATION + FADE_OUT_TIME; // ms
 // region cvars
 Cvar skip_intro @public = { "skip_intro", CvarType.BOOLEAN, "0", "skip displaying the intro" };
 
-fn void register_cvars() @public {
+fn void register_cvars() @public 
+{
     cvar::@register(&skip_intro);
 }
 // end_region
 
-struct Frame @local {
+struct Frame @local 
+{
     gui::Panel* image;
     int fade_in_time;
     int fade_out_time;
 }
 
-struct IntroAnimation (SaveSystemInterface) {
+struct IntroAnimation (SaveSystemInterface) 
+{
    FrameQueue frames;
    
    int current_frame_index;
@@ -57,20 +60,20 @@ fn void IntroAnimation.reload(&self, SaveFile* file) @dynamic {
 // todo
 }
 
-macro makeFrame(String image_name, IntroAnimation* anim) @local {
+macro makeFrame(String material_name, IntroAnimation* anim) @local {
     int w, h;
     w = main::gpGame.screen.w;
     h = main::gpGame.screen.h;
     Frame* frame = mem::new(Frame);
     frame.image  = mem::new(Panel);
     frame.image.initV({0,0}, {w,h},  {0xFF,0xFF,0xFF,0} /*rl::WHITE*/);
-    frame.image.setTexture(main::asstManager.getTexture(image_name));
+    frame.image.setMaterial(material_name);
     anim.frames.push(frame);
 }
 
 fn void initIntroAnimation(IntroAnimation* anim) {
-    makeFrame("raylib_intro.png", anim);
-    makeFrame("logo_hm.png", anim);
+    makeFrame("gui/raylib_intro", anim);
+    makeFrame("gui/logo", anim);
     //
     input::makeKeyboardAction("noIntro", rl::KEY_ESCAPE);
 }
