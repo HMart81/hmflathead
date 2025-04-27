@@ -864,6 +864,7 @@ fn void gameDraw(int screenWidth, int screenHeight) @local
         rl::beginDrawing();
         
         rl::clearBackground({0x18, 0x18, 0x18, 0xFF});
+        //rl::clearBackground(*(Color*)&&((uint[1]){ 0x181818FF }));
         
         // draw the view FBO's
         if(rl::isShaderValid(*local_game.current_global_shader)) 
@@ -1932,7 +1933,7 @@ $endif
     mtrdb::loadMaterialFiles(&local_game.mtrDB)!!;
     
     local_game.mtrDB.listMTRs();
-    //local_game.mtrDB.data[0].printMaterials();
+    local_game.mtrDB.data[0].printMaterials();
     
     // init intro stuff here
     intro::initIntroAnimation(&local_game.intro);

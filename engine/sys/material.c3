@@ -33,12 +33,13 @@ module game::material::mtr;
 import std::io;
 import game::main; // for file logging or console logging
 import engine::misc;
+import game::serialize::svs;
 import engine::logging::lgr;
-import std::collections::list, std::collections::tuple;
-import engine::assets::astmng;
 import engine::filesystem::fs;
+import engine::assets::astmng;
 import thirdparty::raylib5::rl;
 import thirdparty::library::xml;
+import std::collections::list, std::collections::tuple;
 // end_region
 
 /*****************************************************************************
@@ -47,10 +48,8 @@ import thirdparty::library::xml;
 *
 ******************************************************************************/
 
-
-alias MaterialList   = List{HMaterial*};
-alias MTRFile        = File;
-alias MTR_MatMapArgs = List{StringTuple*};
+alias MaterialList       = List{HMaterial*};
+alias MaterialMapArgList = List{StringTuple*};
 
 faultdef INVALID_PATH_STRING,
 	     MALFORMED_MTR_FILE,
@@ -62,8 +61,11 @@ faultdef INVALID_PATH_STRING,
 	     MTR_RETRIVAL_ERROR,
 	     MISSING_MTR;
 
-enum MTR_Node : int (inline String name)
+
+// NOTE(HM) This represents every usefull node in the xml file 
+enum Node : int (inline String str)
 {
+    INVALID   = "[35, 116, 101, 120, 116]", // for some reason the current third party xml reader I use, creates this invalid node with this particular signture...
     ROOT      = "MTR",
     MATERIAL  = "MATERIAL",
     COMMENT   = "comments",
@@ -79,33 +81,36 @@ enum MTR_Node : int (inline String name)
     SHADER    = "shader"
 }
 
-enum MTR_NodeAttrib : int (inline String name)
+// NOTE(HM) This represents the atributes assigned to a xml node
+enum NodeAttrib : int (inline String str)
 {
     NAME     = "name",
     PATH     = "path",
     KIND     = "kind",
 }
 
-enum MTR_MapArgs : int (inline String name)
+// NOTE(HM) The same as above but particular to the "map" and "video_map" nodes
+// and are called arguments instead of attributes...
+enum MapArgs : int (inline String name)
 {
+    CLAMP    = "clamp",
     TILE_H   = "tileH",
     TILE_V   = "tileV",
-    CLAMP    = "clamp",
-    NAME     = "name",
-    KIND     = "kind",
+    SCROLL_X = "scrollX",
+    SCROLL_Y = "scrollY",
+    TRANSLATE_X = "translateX",
+    TRANSLATE_Y = "translateY",
 }
 
-const String INVALID_NODE_NAME = "[35, 116, 101, 120, 116]";
-const String MATERIAL_NODE     = "MATERIAL";
 
-struct MTR_MatMap
+struct MatMap
 {
-    Texture2D* tex;
+    Texture2D* tex; //NOTE(HM) width and Height are encoded on the Texture2D data
     Color color;
-    MTR_MatMapArgs args;
+    MaterialMapArgList args;
 }
 
-fn void MTR_MatMap.clear(&self) 
+fn void MatMap.clear(&self) 
 {
     if(self.tex) self.tex = null;
     foreach (arg : self.args)
@@ -114,13 +119,78 @@ fn void MTR_MatMap.clear(&self)
     }
 }
 
-struct HMaterial
+struct MatVidMap
 {
-    String name, comment;
+    inline MatMap super;
+}
+
+enum MatMC //Material Coverage
+{
+	BAD,
+	OPAQUE,			// completely fills the triangle, will have black drawn on fillDepthBuffer
+	PERFORATED,		// may have alpha tested holes
+	TRANSLUCENT		// blended with background
+}
+
+// contents flags max 31 bits
+enum Contents : int (inline int flag)
+{
+	SOLID				= misc::@bit(0),	// an eye is never valid in a solid
+	OPAQUE				= misc::@bit(1),	// blocks visibility (for ai)
+	WATER				= misc::@bit(2),	// used for water
+	PLAYERCLIP			= misc::@bit(3),	// solid to players
+	MONSTERCLIP		    = misc::@bit(4),	// solid to monsters
+	MOVEABLECLIP		= misc::@bit(5),	// solid to moveable entities
+	BLOOD				= misc::@bit(6),	// used to detect blood decals
+	BODY				= misc::@bit(7),	// used for actors
+	PROJECTILE			= misc::@bit(8),	// used for projectiles
+	CORPSE				= misc::@bit(9),	// used for dead bodies
+	RENDERMODEL		    = misc::@bit(10),	// used for render models for collision detection
+	TRIGGER			    = misc::@bit(11),	// used for triggers
+	FLASHLIGHT_TRIGGER	= misc::@bit(12),	// used for triggers that are activated by the flashlight
+	TERRAIN			    = misc::@bit(13),	// used to mark surfaces as terrain for the grass system
+    ///
+    PLACEHOLDER0	    = misc::@bit(14),
+    PLACEHOLDER1	    = misc::@bit(15),
+    PLACEHOLDER2	    = misc::@bit(16),
+    PLACEHOLDER3	    = misc::@bit(17),
+    PLACEHOLDER4	    = misc::@bit(18),
+    PLACEHOLDER5	    = misc::@bit(19),
+    PLACEHOLDER6	    = misc::@bit(20),
+    PLACEHOLDER7	    = misc::@bit(21),
+    PLACEHOLDER8	    = misc::@bit(22),
+    PLACEHOLDER9	    = misc::@bit(23),
+    PLACEHOLDER10	    = misc::@bit(24),
+    PLACEHOLDER11	    = misc::@bit(25),
+    PLACEHOLDER12	    = misc::@bit(26),
+    PLACEHOLDER13	    = misc::@bit(27),
+    PLACEHOLDER14	    = misc::@bit(28),
+    PLACEHOLDER15	    = misc::@bit(28),
+    PLACEHOLDER16	    = misc::@bit(30),
+    PLACEHOLDER17	    = misc::@bit(31),
+}
+
+bitstruct Flags : char
+{
+    bool has_AlphaTest;
+	bool has_defaulted;
+    bool ignoreAlphaTest;
+	bool noShadows;
+	bool forceShadows;
+	bool editor_visible; // in use (visible) per editor
+}
+
+struct HMaterial  (SaveSystemInterface)
+{
+    String name;
+    String comment;
     
-    MTR_MatMap diffuse;
-    //MTR_MatMap normal;
-    //MTR_MatMap spec;
+    MatMC coverage;
+    Flags flags;
+    
+    MatMap diffuse;
+    //MatMap normal;
+    //MatMap spec;
     //Texture2D* bump;
     //Texture2D* rough;
     //Texture2D* metal;
@@ -130,392 +200,18 @@ struct HMaterial
     //shdshd::Sound* sound;
 }
 
-struct HM_mtr_Data
-{
-    String path;
-    MaterialList mats;
+fn void HMaterial.save(&self, SaveFile* file) @dynamic {
+// todo
 }
 
-fn void HM_mtr_Data.unload(&self) @inline 
-{
-	foreach(mat: self.mats) mat.free();
-    self.mats.free();
+fn void HMaterial.reload(&self, SaveFile* file) @dynamic {
+// todo
 }
 
-// This will probably be very slow...
-fn HMaterial* HM_mtr_Data.getMaterial(&self, String name) @inline 
+fn void HMaterial.init(&self)
 {
-	foreach(mat: self.mats) {
-		if(mat.name == name) return mat;
-	}
-    
-	return null;
-}
-
-fn void print_material_map_data(HMaterial* mat) @local @inline
-{
-    if(mat)
-    {
-        io::printfn("   [map : 'Diffuse']");
-        io::printfn("       tex: \"%s\"", mat.diffuse.tex);
-        io::printfn("       color: \"%s\"", mat.diffuse.color);
-        foreach(i, arg : mat.diffuse.args) io::printfn("       arg%d: \"%s = %s\"", i, arg.first, arg.second);
-    }
-}
-
-fn void HM_mtr_Data.printMaterials(&self) @inline 
-{
-    if(self.mats.len()) 
-    {
-        foreach(mat: self.mats) 
-        {
-             io::printfn("[material : '%s']", mat.name);
-             if(mat.comment.len) {
-                io::printfn("   comment = \"%s\"", mat.comment);
-             }
-             print_material_map_data(mat);
-        }
-    }
-}
-
-fn bool? HM_mtr_Data.load(&self, String file_path) @inline
-{
-    if(self.parse(file_path) == false) {
-        return MATERIAL_PARSING_ERROR?;
-    }
-    
-    return true;
-}
-
-fn bool HM_mtr_Data.parse(&self, String file_path)
-{
-    // load mtr file
-    MTRFile? file = fs::openFile(file_path, "r");
-    defer file.close()!!;
-    
-    if(catch excuse = file) 
-    {
-       lgr::warning(Where.FILE, " Failed to open mtr file at [%s] with excuse: %s", file_path, excuse);
-       // DOC(HM) I need to return from a catch or the excuse will not unwrap,
-       // and causes variable shadow error, preventing me from using excuse again bellow.
-       return false; 
-    }
-    
-    self.path = file_path;
-    
-    XmlDoc*? doc = xml::read_file(file);
-    defer doc.free()!!;
-    
-    if(catch excuse = doc) 
-    {
-       lgr::warning(Where.FILE, " Failed to open xml file [%s] with excuse: %s", file_path, excuse);
-       // DOC(HM) I need to return from a catch or the excuse will not unwrap,
-       // and causes variable shadow error, preventing me from using excuse again.
-       return false; 
-    }
-    
-    bool invalid_mtr = doc.rootNode.name != MTR_Node.ROOT.name;
-    if(invalid_mtr) 
-    {
-       lgr::error(Where.FILE, " Invalid root node found in mtr file [%s], expected 'MTR' found '%s'", file_path, doc.rootNode.name);
-       return false;
-    }
-    
-    foreach (node : doc.rootNode.children)
-    {
-       if(node == null) continue;
-       if(node.name == INVALID_NODE_NAME) continue;
-       if(node.name != MATERIAL_NODE) 
-       {
-            lgr::warning(Where.FILE, " Non material node [%s] found in mtr '%s'", node.name, file_path);
-            continue;
-       }
-       
-       self.mats.push(parse_material_node(node, self));
-    }
-    
-    return true;
-}
-
-<*
-    @param [in] node : "node to compare the name"
-    @require node != null
-*>
-fn bool XmlNode.isNode(XmlNode* node, MTR_Node kind) @inline @local => (node.name == kind.name) ? true : false;
-
-<*
-    @param [in] mat_node : "material node we are currently parsing"
-    @param [in] mtr_file : "parsed mtr file data"
-    @require mat_node != null && mtr_file != null
-*>
-fn HMaterial* parse_material_node(XmlNode* mat_node, HM_mtr_Data* mtr_file)
-{
-    //XmlNodeList materialNodes;
-    //defer materialNodes.free();
-   
-    //doc.find_nodes_by_tag_name("MATERIAL", &materialNodes);
-    //assert(materialNodes.len() > 0);
-    //XmlNode* main_node = doc.rootNode; //doc.get_node("MATERIAL");
-    //assert(main_node != null);
-    
-    // create the material structure to save the parsed data into
-    HMaterial* mat = mem::new(HMaterial);
-    
-    // get material name
-    String? mat_name = (String)mat_node.get_attrib_value(MTR_NodeAttrib.NAME);
-    if (catch excuse = mat_name)
-    {
-        lgr::error(Where.FILE, "Failed to get a material name attribute in %s with excuse: %s\n", mtr_file.path, excuse);
-        mem::free(mat);
-        return null;
-    }
-    
-    mat.name = mat_name;
-    if (mat_name == "")
-    {
-        lgr::error(Where.FILE, "material with empty name attribute in %s\n", mtr_file.path);
-        mem::free(mat);
-        return null;
-    }
-    
-    // parse extra material atribbutes if any
-    if(mat_node.attributes.len() > 1) 
-    {
-        parse_material_atributes(mat_node, mat, mtr_file);
-    }
-
-    // start parsing the material internal nodes
-    foreach (node : mat_node.children)
-    {
-       // in case...
-       if(node == null) continue;
-       if(node.name == INVALID_NODE_NAME) continue;
-       //
-       if(node.isNode(MTR_Node.COMMENT)) parse_material_comment(*node, mat, *mtr_file);
-       
-       if(node.isNode(MTR_Node.MAPS))
-       {
-            parse_material_maps(node, mat, mtr_file);
-       }
-       
-       if(node.isNode(MTR_Node.SOUND))
-       {
-            parse_material_sound(*node, mat, *mtr_file);
-       }
-    }
-    
-    return mat;
-}
-
-fn String getNodeText(XmlNode* node) @local
-{
-    usz child_count = node.children.len();
-    if(child_count >= 1) {
-        String result = node.children[0].value;
-        if(child_count > 1) {
-            for(int i = 1; i < child_count; i++) {
-                result = result.tconcat(node.children[i].value);
-            }
-        }
-        return result;
-    }
-    
-    return "";
-}
-<*
-    @param [inout] mat : "material to save parsed data into"
-    @require mat != null
-*>
-fn void parse_material_comment(XmlNode node, HMaterial* mat, HM_mtr_Data mtr_file) @inline @local
-{
-    mat.comment = getNodeText(&node);
-}
-
-<*
-    @param [inout] mat : "material to save parsed data into"
-    @param node : "node we are currently parsing"
-    @require mat != null && node.asAttributes() == true
-*>
-fn void parse_material_sound(XmlNode node, HMaterial* mat, HM_mtr_Data mtr_file) @inline @local
-{
-   parse_node_atributes(&node, mat, &mtr_file);
-            
-   // TODO make sound shaders
-   //self.sound = astmng::assetManager.getSound(sound_shader_name);
-}
-
-fn void parse_material_maps(XmlNode* maps_node, HMaterial* mat, HM_mtr_Data* mtr_file) 
-{
-    foreach(node: maps_node.children)
-    {
-        if(node.name == INVALID_NODE_NAME) continue;
-        switch(node.name)
-        {
-            case MTR_Node.ALBEDO:
-                foreach(child: node.children)
-                {
-                    if(child == null) continue;
-                    if(child.isNode(MTR_Node.MAP))
-                    {
-                        String texture_name = getNodeText(child).extractFileBaseByCopy();
-                        if(texture_name == "default.png") {
-                            mat.diffuse.tex = &main::gpGame.default_texture;
-                        } else {
-                            mat.diffuse.tex = (Texture2D*)main::asstManager.getAssetExt(texture_name, Texture2D.typeid).data.ptr;
-                        }
-                    }
-                    if(child.isNode(MTR_Node.COLOR))
-                    {
-                        mat.diffuse.color = xmlStrColorToColor(getNodeText(child));
-                    }
-                    if(child.isNode(MTR_Node.ARGS) || child.asAttributes()) {
-                        parse_material_map_args(&mat.diffuse, child);
-                        handle_material_map_args(&mat.diffuse, child, mat, mtr_file);
-                    }
-                }
-            case MTR_Node.VIDEO_MAP: break;
-                if(node.asAttributes())
-                {
-                   parse_node_atributes(node, mat, mtr_file);
-                }
-            case MTR_Node.NORMAL: break;
-                // foreach(child: node.children)
-                // {
-                    // if(child == null) continue;
-                    // if(child.isNode(MTR_Node.MAP))
-                    // {
-                        // mat.normal.tex = astmng::assetManager.getTexture(child.value);
-                    // }
-                    // if(child.isNode(MTR_Node.ARGS) || child.asAttributes()) {
-                        // get_material_map_atributes_data(&mat.normal, child);
-                        // parse_material_map_args(&mat.normal, child, mat, mtr_data);
-                    // }
-                // }
-            case MTR_Node.SPECULAR: break;
-                // foreach(child: node.children)
-                // {
-                    // if(child == null) continue;
-                    // if(child.isNode(MTR_Node.MAP))
-                    // {
-                        // mat.spec.tex = astmng::assetManager.getTexture(child.value);
-                    // }
-                    // if(child.isNode(MTR_Node.ARGS) || child.asAttributes()) {
-                        // get_material_map_atributes_data(&mat.spec, child);
-                        // parse_material_map_args(&mat.spec, child, mat, mtr_data);
-                    // }
-                // }
-            default:
-               unreachable("invalid material maps node found!!");
-        }
-    }
-}
-
-fn Color xmlStrColorToColor(String value) @local
-{
-    String[] chars = value.tsplit(" ");
-    assert(chars.len == 4);
-    
-    Color result;
-    
-    result.r = chars[0].to_uchar()!!;
-    result.g = chars[1].to_uchar()!!;
-    result.b = chars[2].to_uchar()!!;
-    result.a = chars[3].to_uchar()!!;
-    
-    return result;
-}
-
-<*
-    @param [in] node : "node we are parsing"
-    @param [inout] mat : "material to save parsed data into"
-    @param [in] mtr_file : "the parsed file data, mostly used to get the file path for logging"
-    @require node != null && mat != null && mtr_file != null && node.asAttributes() == true
-*>
-fn void parse_material_atributes(XmlNode* node, HMaterial* mat, HM_mtr_Data* mtr_file)
-{
-    //io::printfn("START parsing Material '%s' attributes:", node.name);
-    foreach (atrb : node.attributes)
-    {
-       if(atrb == null) continue;
-       
-       switch(atrb.name)
-       {
-        case MTR_NodeAttrib.NAME:
-            continue; // name atrribute is handled seperatly
-        default:
-           io::printfn("Unnused atribute '%s' found in node '%s' of material '%s' in file '%s'!", atrb.name, node.name, mat.name, mtr_file.path);
-       }
-    }
-    //io::printfn("END parsing Material '%s' attributes:", node.name);
-}
-
-<*
-    @param [in] node : "current node we are parsing"
-    @param [inout] mat : "the material we are saving data into"
-    @param [in] mtr_file : "the parsed file data, mostly used to get the file path for logging"
-    @require node != null && mat != null && mtr_file != null && node.asAttributes() == true
-*>
-fn void parse_node_atributes(XmlNode* node, HMaterial* mat, HM_mtr_Data* mtr_file)
-{
-    //io::printfn("START parsing node '%s' attributes:", node.name);
-    foreach (atrb : node.attributes)
-    {
-       if(atrb == null) continue;
-       
-       switch(atrb.name)
-       {
-        case MTR_NodeAttrib.NAME: continue;
-        case MTR_NodeAttrib.PATH:
-        case MTR_NodeAttrib.KIND:
-           io::printfn("  %s = %s,", atrb.name, atrb.value);
-        default:
-           io::printfn("Unnused node attribute '%s' found in node '%s' of material '%s' in file '%s'!", atrb.name, node.name, mat.name, mtr_file.path);
-       }
-    }
-    //io::printfn("END parsing node '%s' attributes:", node.name);
-}
-
-<*
-    @param [in] node : "node we are parsing"
-    @param [inout] map : "the texture map we are saving parsed data into"
-    @require node != null && map != null && node.asAttributes() == true
-*>
-fn void parse_material_map_args(MTR_MatMap* map, XmlNode* node)
-{
-    foreach (arg : node.attributes)
-    {
-       if(arg == null) continue;
-       // else
-       map.args.push(mem::new(StringTuple, {arg.name, arg.value}));
-    }
-}
-
-<*
-    @param [inout] map : "the texture map we are getting parsed data from"
-    @param [in] node : "current node we are parsing"
-    @param [inout] mat : "the material we are saving data into"
-    @param [in] mtr_file : "the parsed file data, mostly used to get the file path for logging"
-    @require map != null && node != null && mat != null && mtr_file != null
-*>
-fn void handle_material_map_args(MTR_MatMap* map, XmlNode* node, HMaterial* mat, HM_mtr_Data* mtr_file)
-{
-    //io::printfn("START parsing map '%s' arguments:", node.name);
-    foreach (arg : map.args)
-    {
-       if(arg == null) continue;
-       
-       switch(arg.first)
-       {
-        case MTR_MapArgs.TILE_H:
-        case MTR_MapArgs.TILE_V:
-        case MTR_MapArgs.CLAMP:
-        case MTR_MapArgs.KIND:
-           io::printfn("  %s = %s,", arg.first, arg.second);
-        default:
-           io::printfn("Unnused map argument '%s' found in node '%s' of material '%s' in file '%s'!", arg.first, node.name, mat.name, mtr_file.path);
-       }
-    }
-    //io::printfn("END parsing map '%s' arguments:", node.name);
+	self.coverage = MatMC.OPAQUE;
+    self.comment  = "<none>";
 }
 
 fn void HMaterial.free(&self)
@@ -568,6 +264,408 @@ fn Texture2D* HMaterial.getTexture(&self, rl::MaterialMapIndex index = ALBEDO, b
     }
 }
 
+fn String HMaterial.defaultDefinition(self) @inline
+{
+    String matdef = `
+    <MATERIAL name="default">
+        <maps>
+            <albedo>
+                <map>images/default.png</map>
+            </albedo>
+        </maps> 
+    </MATERIAL>
+    `;
+    
+	return string::format(mem, "%s", matdef);
+}
+
+struct MTRFile
+{
+    String path;
+    MaterialList mats;
+}
+
+fn void MTRFile.unload(&self) @inline 
+{
+	foreach(mat: self.mats) mat.free();
+    self.mats.free();
+}
+
+// This will probably be very slow with many materials...
+fn HMaterial* MTRFile.getMaterial(&self, String name) @inline 
+{
+	foreach(mat: self.mats) {
+		if(mat.name == name) return mat;
+	}
+    
+	return null;
+}
+
+fn void MTRFile.printMaterials(&self) @inline 
+{
+    if(self.mats.len()) 
+    {
+        foreach(mat: self.mats) 
+        {
+             io::printfn("[material : '%s']", mat.name);
+             if(mat.comment.len) {
+                io::printfn("   comment = \"%s\"", mat.comment);
+             }
+             print_material_map_data(mat);
+        }
+    }
+}
+
+fn bool? MTRFile.load(&self, File file) @inline
+{
+    if(self.parse(file) == false) {
+        return MATERIAL_PARSING_ERROR?;
+    }
+    
+    return true;
+}
+
+fn bool MTRFile.parse(&self, File file)
+{
+    XmlDoc*? doc = xml::read_file(file);
+    defer doc.free()!!;
+    
+    if(catch excuse = doc)
+    {
+       lgr::warning(Where.FILE, " Failed to open xml file [%s] with excuse: %s", self.path, excuse);
+       return false;
+    }
+    
+    bool invalid_mtr = doc.rootNode.name != Node.ROOT.str;
+    if(invalid_mtr)
+    {
+       lgr::error(Where.FILE, " Malformed mtr file '%s', root node expected to be 'MTR' but is '%s' instead.", self.path, doc.rootNode.name);
+       return false;
+    }
+    
+    // now parse each material node
+    foreach (node : doc.rootNode.children)
+    {
+       if(node == null || node.isNode(Node.INVALID)) continue;
+       if(node.isNode(Node.MATERIAL)) {
+            HMaterial* mat = parse_material_node(node, self);
+            if(mat) self.mats.push(mat);
+       } else {
+            lgr::warning(Where.FILE, " Unexpected node in mtr file '%s', expected <MATERIAL> found <%s>", self.path, node.name);
+            continue;
+       }
+    }
+    
+    return true;
+}
+
+<*
+    @param [in] mat_node : "material node we are currently parsing"
+    @param [in] file : "parsed mtr file data"
+    @require mat_node != null && file != null
+*>
+fn HMaterial* parse_material_node(XmlNode* mat_node, MTRFile* file)
+{
+    // create the material structure to save the parsed data into
+    HMaterial* mat = mem::new(HMaterial);
+    mat.init();
+    
+    // first get material name
+    String? mat_name = (String)mat_node.get_attrib_value(NodeAttrib.NAME);
+    if (catch excuse = mat_name)
+    {
+        lgr::error(Where.FILE, "Failed to get material name attribute in %s with excuse: %s\n", file.path, excuse);
+        mem::free(mat);
+        return null;
+    }
+    
+    if (mat_name == "")
+    {
+        lgr::error(Where.FILE, "material with empty name attribute in %s\n", file.path);
+        mem::free(mat);
+        return null;
+    }
+    
+    mat.name = mat_name.copy(mem); //string::format(mem, "%s", mat_name);
+    
+    // parse extra material attributes if any
+    if(mat_node.attributes.len() > 1)
+    {
+        parse_material_atributes(mat_node, mat, file);
+    }
+
+    // start parsing the material internal child nodes
+    foreach (node : mat_node.children)
+    {
+       // in case...
+       if(node == null || node.isNode(Node.INVALID)) continue;
+       //
+       if(node.isNode(Node.COMMENT)) 
+       {
+            parse_material_comment(node, mat);
+       }
+       
+       if(node.isNode(Node.MAPS))
+       {
+            parse_material_maps(node, mat, file);
+       }
+       
+       if(node.isNode(Node.SOUND))
+       {
+            parse_material_sound(node, mat, file);
+       }
+    }
+    
+    return mat;
+}
+
+<*
+    @param [inout] mat : "material to save parsed data into"
+    @require mat != null
+*>
+fn void parse_material_comment(XmlNode* node, HMaterial* mat) @inline @local
+{
+    String str  = getNodeText(node);
+    if(str != "") mat.comment = str.copy(mem);
+}
+
+<*
+    @param [inout] mat : "material to save parsed data into"
+    @param node : "node we are currently parsing"
+    @require mat != null && node.asAttributes() == true
+*>
+fn void parse_material_sound(XmlNode* node, HMaterial* mat, MTRFile* file) @inline @local
+{
+   parse_node_atributes(node, mat, file);
+            
+   // TODO make sound shaders
+   //self.sound = astmng::assetManager.getSound(sound_shader_name);
+}
+
+fn void parse_material_maps(XmlNode* maps_node, HMaterial* mat, MTRFile* file) 
+{
+    foreach(node: maps_node.children)
+    {
+        if(node.isNode(Node.INVALID)) continue;
+        
+        switch(node.name)
+        {
+            case Node.ALBEDO:
+                foreach(child: node.children)
+                {
+                    if(child == null) continue;
+                    if(child.isNode(Node.MAP))
+                    {
+                        String texture_name = getNodeText(child).extractFileBaseByCopy();
+                        if(texture_name == "default.png") {
+                            mat.diffuse.tex = &main::gpGame.default_texture;
+                        } else {
+                            mat.diffuse.tex = (Texture2D*)main::asstManager.getAssetExt(texture_name, Texture2D.typeid).data.ptr;
+                        }
+                    }
+                    if(child.isNode(Node.COLOR))
+                    {
+                        mat.diffuse.color = xmlStrColorToColor(getNodeText(child));
+                    }
+                    if(child.isNode(Node.ARGS) || child.asAttributes()) {
+                        parse_material_map_args(&mat.diffuse, child);
+                        handle_material_map_args(&mat.diffuse, child, mat, file);
+                    }
+                }
+            case Node.VIDEO_MAP: break;
+                if(node.asAttributes())
+                {
+                   parse_node_atributes(node, mat, file);
+                }
+            case Node.NORMAL: break;
+                // foreach(child: node.children)
+                // {
+                    // if(child == null) continue;
+                    // if(child.isNode(Node.MAP))
+                    // {
+                        // mat.normal.tex = astmng::assetManager.getTexture(child.value);
+                    // }
+                    // if(child.isNode(Node.ARGS) || child.asAttributes()) {
+                        // get_material_map_atributes_data(&mat.normal, child);
+                        // parse_material_map_args(&mat.normal, child, mat, mtr_data);
+                    // }
+                // }
+            case Node.SPECULAR: break;
+                // foreach(child: node.children)
+                // {
+                    // if(child == null) continue;
+                    // if(child.isNode(Node.MAP))
+                    // {
+                        // mat.spec.tex = astmng::assetManager.getTexture(child.value);
+                    // }
+                    // if(child.isNode(Node.ARGS) || child.asAttributes()) {
+                        // get_material_map_atributes_data(&mat.spec, child);
+                        // parse_material_map_args(&mat.spec, child, mat, mtr_data);
+                    // }
+                // }
+            default:
+               unreachable("invalid material maps node found!!");
+        }
+    }
+}
+
+<*
+    @param [in] node : "node we are parsing"
+    @param [inout] mat : "material to save parsed data into"
+    @param [in] mtr_file : "the parsed file data, mostly used to get the file path for logging"
+    @require node != null && mat != null && mtr_file != null && node.asAttributes() == true
+*>
+fn void parse_material_atributes(XmlNode* node, HMaterial* mat, MTRFile* mtr_file)
+{
+    //io::printfn("START parsing Material '%s' attributes:", node.name);
+    foreach (atrb : node.attributes)
+    {
+       if(atrb == null) continue;
+       
+       switch(atrb.name)
+       {
+        case NodeAttrib.NAME:
+            continue; // name atrribute is handled seperatly
+        default:
+           io::printfn("Unnused atribute '%s' found in node '%s' of material '%s' in file '%s'!", atrb.name, node.name, mat.name, mtr_file.path);
+       }
+    }
+    //io::printfn("END parsing Material '%s' attributes:", node.name);
+}
+
+<*
+    @param [in] node : "current node we are parsing"
+    @param [inout] mat : "the material we are saving data into"
+    @param [in] mtr_file : "the parsed file data, mostly used to get the file path for logging"
+    @require node != null && mat != null && mtr_file != null && node.asAttributes() == true
+*>
+fn void parse_node_atributes(XmlNode* node, HMaterial* mat, MTRFile* mtr_file)
+{
+    //io::printfn("START parsing node '%s' attributes:", node.name);
+    foreach (atrb : node.attributes)
+    {
+       if(atrb == null) continue;
+       
+       switch(atrb.name)
+       {
+        case NodeAttrib.NAME: continue;
+        case NodeAttrib.PATH:
+        case NodeAttrib.KIND:
+           io::printfn("  %s = %s,", atrb.name, atrb.value);
+        default:
+           io::printfn("Unnused node attribute '%s' found in node '%s' of material '%s' in file '%s'!", atrb.name, node.name, mat.name, mtr_file.path);
+       }
+    }
+    //io::printfn("END parsing node '%s' attributes:", node.name);
+}
+
+<*
+    @param [in] node : "node we are parsing"
+    @param [inout] map : "the texture map we are saving parsed data into"
+    @require node != null && map != null && node.asAttributes() == true
+*>
+fn void parse_material_map_args(MatMap* map, XmlNode* node)
+{
+    foreach (arg : node.attributes)
+    {
+       if(arg == null) continue;
+       // else
+       map.args.push(mem::new(StringTuple, {arg.name.copy(mem), arg.value.copy(mem)}));
+    }
+}
+
+<*
+    @param [inout] map : "the texture map we are getting parsed data from"
+    @param [in] node : "current node we are parsing"
+    @param [inout] mat : "the material we are saving data into"
+    @param [in] mtr_file : "the parsed file data, mostly used to get the file path for logging"
+    @require map != null && node != null && mat != null && mtr_file != null
+*>
+fn void handle_material_map_args(MatMap* map, XmlNode* node, HMaterial* mat, MTRFile* mtr_file)
+{
+    //io::printfn("START parsing map '%s' arguments:", node.name);
+    foreach (arg : map.args)
+    {
+       if(arg == null) continue;
+       
+       switch(arg.first)
+       {
+        case MapArgs.CLAMP:
+        case MapArgs.TILE_H:
+        case MapArgs.TILE_V:
+        case MapArgs.SCROLL_X:
+        case MapArgs.SCROLL_Y:
+        case MapArgs.TRANSLATE_X:
+        case MapArgs.TRANSLATE_Y:
+           io::printfn("  %s = %s,", arg.first, arg.second);
+        default:
+           io::printfn("Unnused map argument '%s' found in node '%s' of material '%s' in file '%s'!", arg.first, node.name, mat.name, mtr_file.path);
+       }
+    }
+    //io::printfn("END parsing map '%s' arguments:", node.name);
+}
+
+// region private
+
+<*
+    @param [in] node : "node to compare the name"
+    @require node != null
+*>
+fn bool XmlNode.isNode(XmlNode* node, Node kind) @inline @local => (node.name == kind.str) ? true : false;
+
+<*
+    @param [in] node : "node to get text from"
+    @require node != null
+*>
+fn String getNodeText(XmlNode* node) @local
+{
+    usz child_count = node.children.len();
+    if(child_count >= 1) {
+        String result = node.children[0].value;
+        if(child_count > 1) {
+            for(int i = 1; i < child_count; i++) {
+                result = result.tconcat(node.children[i].value);
+            }
+        }
+        return result;
+    }
+    
+    return "";
+}
+
+fn Color xmlStrColorToColor(String value) @local
+{
+    String[] chars = value.tsplit(" ");
+    assert(chars.len == 4);
+    
+    Color result;
+    
+    result.r = chars[0].to_uchar()!!;
+    result.g = chars[1].to_uchar()!!;
+    result.b = chars[2].to_uchar()!!;
+    result.a = chars[3].to_uchar()!!;
+    
+    return result;
+}
+
+<*
+    @param [in] mat : "material data to print"
+    @require mat != null
+*>
+fn void print_material_map_data(HMaterial* mat) @local
+{
+    if(mat)
+    {
+        io::printfn("   [map : 'Diffuse']");
+        io::printfn("       tex: \"%s\"", mat.diffuse.tex);
+        io::printfn("       color: \"%s\"", mat.diffuse.color);
+        foreach(i, arg : mat.diffuse.args) {
+            io::printfn("       arg%d: \"%s = %s\"", i, arg.first, arg.second);
+        }
+    }
+}
+
+// end_region private
 
 module game::material::database::mtrdb;
 
@@ -584,7 +682,7 @@ import thirdparty::raylib5::rl;
 import thirdparty::library::xml;
 // end_region
 
-alias MTR_FileList = List{HM_mtr_Data*};
+alias MTR_FileList = List{MTRFile*};
 
 struct MTR_DataBase 
 {
@@ -636,12 +734,27 @@ fn void? load_mtr_files(String search_path, MTR_DataBase* database) @local
 				continue; // to next file
 			}
 			
+            //****
 			// from here should be a valid mtr file
-			
-            HM_mtr_Data* mtr_file = mem::new(HM_mtr_Data);
-            if(catch excuse = mtr_file.load(asset_path))
+            //****
+            
+            File? file = fs::openFile(asset_path, "r");
+            defer file.close()!!;
+            
+            if(catch excuse = file) 
             {
-                lgr::warning(Where.FILE, " Failed to parse [%s]", asset_path);
+               lgr::warning(Where.FILE, " Failed to open mtr file at [%s] with excuse: %s", asset_path, excuse);
+               // DOC(HM) I need to return from a catch or the excuse will not unwrap,
+               // and causes variable shadow error, preventing me from using excuse again bellow.
+               continue; // to next file
+            }
+			
+            MTRFile* mtr_file = mem::new(MTRFile);
+            mtr_file.path = asset_path;
+            
+            if(catch excuse = mtr_file.load(file))
+            {
+                lgr::warning(Where.FILE, " Failed to load [%s]", asset_path);
                 mem::free(mtr_file);
                 continue; // to next file
             }
@@ -681,7 +794,7 @@ fn HMaterial* MTR_DataBase.findMaterial(&self, String name) @inline
 * @param [inout] mtr : "the mtr file to register"
 * @require mtr != null
 *>
-fn void MTR_DataBase.register(&self, HM_mtr_Data* mtr) @local @inline {
+fn void MTR_DataBase.register(&self, MTRFile* mtr) @local @inline {
 	self.data.push(mtr);
 }
 

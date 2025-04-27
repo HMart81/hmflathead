@@ -198,6 +198,8 @@ macro uint bytes2MB(x)        => ((x) >> 20);
 
 macro float @percent(float p, #x) => p * $x;
 
+macro int @bit($x) => 1 << $x;
+
 macro Vec2f worldToScreen(Vec2f wpos) => rl::getWorldToScreen2D(wpos, main::gpGame.cameraView);
 macro Vec2f screenToWorld(spos) => rl::getScreenToWorld2D(wpos, main::gpGame.cameraView);
 // end_region MATH misc
