@@ -21,20 +21,21 @@
     + r_fullscreen (screen mode 0 = window, 1 = borderless, 2 = dedicated, -1 = ini file setting)
     + ui_debugDraw (show debug visualization for gui development) **not fully implemented**
     + fs_base ( sets name for default base folder, for the game data, right now is called `base`)
+    + more...
  - **Complex Immediate-mode gui system, using raygui** mostly recomended for tools.
- - XML file reading and writting (using a third party C3 simple xml parser).
+ - XML file reading (using a third party C3 simple xml parser).
  - Very basic INI file parsing.
- - A Tokanizer to make it easy to parse custom files languages.
+ - A simple Tokanizer to make it easy to parse custom files.
  - Boids system.
- - Particle System (very basic and simplistic) **not working for now**.
  ## Game
- - Ability to create game menus using **Basic Custom Immediate-mode GUI system**
+ - Ability to create simple game menus using **Basic Custom Retained-Mode GUI system**
  - Import fonts, textures, sounds and music inside the game base folder, at game loading time.
  - Entity System inspired by engines like idTech4 and Source Engine (no component system).
+ - Material files definition and data base, using xml syntax (still WIP)
 
 ## compiling
 
-`hmflathead` is written using the C3 language version (0.6.8 (Pre-release, Feb 26 2025)), so you need the C3 compiler;  go to (https://c3-lang.org/) and setup it for your OS of choice.
+`hmflathead` is written using the C3 language version, so you need the C3 compiler;  go to (https://c3-lang.org/) and setup it for your OS of choice.
              To make things easy to compile, make the c3c.exe compiler globally accessible to all users, by putting it in the OS path.
              
 ## building
