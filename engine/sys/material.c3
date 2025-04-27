@@ -467,18 +467,16 @@ fn void parse_material_maps(XmlNode* maps_node, HMaterial* mat, MTRFile* file)
 
                     if(child.isNode(Node.MAP))
                     {
-                        String texture_name = getNodeText(child).extractFileBaseByCopy();
-                        if(texture_name == "default.png") {
+                        String texture_path = main::gpGame.app_base_folder.tconcat(getNodeText(child));
+                        if(texture_path.extractFileBaseByCopy() == "default.png")
+                        {
                             mat.diffuse.tex = main::gpGame.default_texture;
                         } else {
                             //mat.diffuse.tex = (Texture2D*)main::asstManager.getAssetExt(texture_name, Texture2D.typeid).data.ptr;
-                            mat.diffuse.tex = rl::loadTexture(texture_name.zstr_tcopy());
-                            if(mat.diffuse.tex.id == 0) {
-                                lgr::error(Where.FILE, "Failed to load texture '%s' for material '%s' in file '%s'", texture_name, mat.name, file.path);
-                                mat.diffuse.tex = main::gpGame.default_texture;
-                            } else {
-                                lgr::info(Where.FILE, "Loaded texture '%s' for material '%s' in file '%s'", texture_name, mat.name, file.path);
-                            }
+                            mat.diffuse.tex = misc::loadTexture(texture_path);
+                        $if $feature(_DEBUG):
+                            lgr::info(Where.FILE, "Loaded texture '%s' for material '%s' in file '%s'", texture_path, mat.name, file.path);
+                        $endif
                         }
                     }
                     if(child.isNode(Node.COLOR))

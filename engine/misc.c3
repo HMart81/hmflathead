@@ -287,16 +287,20 @@ fn Vec2f Rectangle.getPosCameraCoords(&self) @if ($defined(ENABLE_CAMERA_VIEW))
 // end_region raylib Rectangle extensions
 
 // region Texture stuff
-// NOTE(HM) Raylib doesn't support .tga's with RLE compression...
-fn rl::Texture2D loadTexture(String image_path) @inline {
-    if(rl::isWindowReady()) {
-        Texture2D tex = rl::loadTexture(stringTotempzstring(image_path));
-        assert(rl::isTextureValid(tex));
-        return tex;
-    }
+// WARNING(HM) Raylib doesn't support .tga's with RLE compression...
+fn rl::Texture2D loadTexture(String image_path) @inline 
+{
+    assert(rl::isWindowReady() == true, "Window not ready! Unable to load texture");
     
-    lgr::warning(Where.CONSOLE, "Unable to load » %s", image_path);
+    Texture2D tex = rl::loadTexture(stringTotempzstring(image_path));
+
+$if $feature(_DEBUG):
+    assert(rl::isTextureValid(tex));
+    return tex;
+$else
+    lgr::warning(Where.FILE, "Failed to load Texture '%s' returning default texture...", image_path);
     return main::gpGame.default_texture;
+$endif
 }
 
 fn bool rl::Texture2D.isInvalid(&self) @inline {
