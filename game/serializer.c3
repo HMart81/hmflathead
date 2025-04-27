@@ -294,7 +294,7 @@ fn void	writeShader(SaveFile* savefile, Shader* shd) {
     }
     
     writeInt(savefile, shd.id);
-    for(int i = 0; i < rl::ShaderLocationIndex.elements; i++) {
+    for(int i = 0; i < ShdLocInd.elements; i++) {
         writeInt(savefile, shd.locs[i]);
     }
 }

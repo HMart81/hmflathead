@@ -324,6 +324,10 @@ struct Game (SaveSystemInterface) @local
     // defaults
     // required default assets
     Texture2D default_texture;
+    Texture2D tex_white;
+    Texture2D tex_black;
+    Texture2D tex_gray;
+    
     Shader    default_shader;
     Shader*   current_global_shader;
     Sound     default_sound;
@@ -578,8 +582,75 @@ fn void Game.clearFonts(&self) @inline {
     self.trojan_pro_font    = null;
 }
 
+
+fn void? Game.loadDefaultAssets(&self) 
+{
+    // get required default game texture
+    self.default_texture = rl::loadTexture(self.app_base_folder.tconcat("images//default.png").zstr_tcopy());
+    if(self.default_texture.isInvalid()) {
+        lgr::fatal(Where.FILE, "Required asset: images//default.png failed to load!");
+        return MISSING_REQUIRED_ASSET?;
+    }
+    
+    Image white = rl::genImageColor(32, 32, rl::WHITE);
+    self.tex_white = rl::loadTextureFromImage(white);
+    rl::unloadImage(white);
+    
+    Image black = rl::genImageColor(32, 32, rl::BLACK);
+    self.tex_black = rl::loadTextureFromImage(black);
+    rl::unloadImage(black);
+    
+    Image gray = rl::genImageColor(32, 32, rl::GRAY);
+    self.tex_gray = rl::loadTextureFromImage(gray);
+    rl::unloadImage(gray);
+    
+    // get required default game shader
+    self.default_shader = rl::loadShader(
+        self.app_base_folder.tconcat("shaders//default.vs").zstr_tcopy(),
+        self.app_base_folder.tconcat("shaders//default.fs").zstr_tcopy()
+    );
+    if(rl::isShaderValid(self.default_shader) == false) {
+        lgr::fatal(Where.FILE, "Required default shader not found in folder %s!", self.app_base_folder.tconcat("//shaders"));
+        return MISSING_REQUIRED_ASSET?;
+    }
+    
+    /*int test_tex_loc = rl::getShaderLocation(self.default_shader, "texture0");
+    rl::setShaderValue(
+        local_game.default_shader, 
+        test_tex_loc, 
+        &local_game.default_texture,
+        ShdUniTyp.SAMPLER2D);*/
+    self.current_global_shader = &self.default_shader;
+    //self.current_global_shader.locs[ShdLocInd.MAP_ALBEDO] = test_tex_loc;
+    //
+        
+    // load required default sound
+    self.default_sound = rl::loadSound(self.app_base_folder.tconcat("sounds//default.wav").zstr_tcopy());
+    if(rl::isSoundValid(self.default_sound)) {
+        $if $feature(_DEBUG):
+            if(rl::isAudioDeviceReady()) rl::playSound(self.default_sound);
+        $endif
+    } else {
+        lgr::fatal(Where.FILE, "Required default asset: \"sounds/default.wav\" failed to load!");
+        return MISSING_REQUIRED_ASSET?;
+    }
+    
+    // load required default music
+    self.default_music = rl::loadMusicStream(self.app_base_folder.tconcat("music//default.mp3").zstr_tcopy());
+    if(rl::isMusicValid(self.default_music) == false) {
+        lgr::fatal(Where.FILE, "Required default asset: \"music/default.mp3\" failed to load!");
+        return MISSING_REQUIRED_ASSET?;
+    }
+    
+    // get the default game font
+    local_game.default_font = rl::getFontDefault();
+}
+
 fn void Game.unloadDefaultAssets(&self) {
     rl::unloadTexture(self.default_texture);
+    rl::unloadTexture(self.tex_white);
+    rl::unloadTexture(self.tex_black);
+    rl::unloadTexture(self.tex_gray);
     rl::unloadShader(self.default_shader);
     self.current_global_shader = null;
     rl::unloadSound(self.default_sound);
@@ -870,7 +941,7 @@ fn void gameDraw(int screenWidth, int screenHeight) @local
         if(rl::isShaderValid(*local_game.current_global_shader)) 
         {
             rl::beginShaderMode(*local_game.current_global_shader);
-            
+                
                 local_game.view.draw();
                 
             rl::endShaderMode();
@@ -1866,24 +1937,6 @@ $endif
     } else {
         lgr::warning(Where.FILE, "AudioDevice: Not ready, sound will be disabled! %s:%s", $$MODULE, $$FUNC );
     }
-    
-    // load required default sound
-    local_game.default_sound = rl::loadSound(local_game.app_base_folder.tconcat("sounds//default.wav").zstr_tcopy());
-    if(rl::isSoundValid(local_game.default_sound)) {
-        $if $feature(_DEBUG):
-            if(rl::isAudioDeviceReady()) rl::playSound(local_game.default_sound);
-        $endif
-    } else {
-        lgr::fatal(Where.FILE, "Required default asset: \"sounds/default.wav\" failed to load!");
-        return MISSING_REQUIRED_ASSET?;
-    }
-    
-    // load required default music
-    local_game.default_music = rl::loadMusicStream(local_game.app_base_folder.tconcat("music//default.mp3").zstr_tcopy());
-    if(rl::isMusicValid(local_game.default_music) == false) {
-        lgr::fatal(Where.FILE, "Required default asset: \"music/default.mp3\" failed to load!");
-        return MISSING_REQUIRED_ASSET?;
-    }
 // end_region AUDIO DEVICE initialization
 
     
@@ -1891,33 +1944,16 @@ $endif
     lgr::info(Where.FILE,  "** Starting Assets Loading **");
     
     // first load default assets
-    
-    // get the default game font
-    local_game.default_font = rl::getFontDefault();
+    @catch(local_game.loadDefaultAssets());
     //
-    // get required default game shader
-    local_game.default_shader = rl::loadShader(
-        local_game.app_base_folder.tconcat("shaders//default.vs").zstr_tcopy(),
-        local_game.app_base_folder.tconcat("shaders//default.fs").zstr_tcopy()
-    );
-    if(rl::isShaderValid(local_game.default_shader) == false) {
-        lgr::fatal(Where.FILE, "Required default shader not found in folder %s!", local_game.app_base_folder.tconcat("//shaders"));
-        return MISSING_REQUIRED_ASSET?;
-    }
-    //local_game.default_shader.locs[rl::ShaderLocationIndex.COLOR_DIFFUSE] = rl::getShaderLocation(local_game.default_shader, "DestinationColor");
-    local_game.current_global_shader = &local_game.default_shader;
-    //
-    // get required default game texture
-    local_game.default_texture = rl::loadTexture(local_game.app_base_folder.tconcat("images//default.png").zstr_tcopy());
-    if(local_game.default_texture.isInvalid()) {
-        lgr::fatal(Where.FILE, "Required asset: images//default.png failed to load!");
-        return MISSING_REQUIRED_ASSET?;
-    }
-    
-    // now load all assets and catch a error if any
+    // now load all other assets and catch a error if any
     @catch(astmng::loadAssets());
     
     // new material testing
+    // load all material files from the material folder
+    mtrdb::loadMaterialFiles(&local_game.mtrDB)!!;
+    local_game.mtrDB.listMTRs();
+    local_game.mtrDB.data[0].printMaterials();
     //mtr::Material default_mat;
     //default_mat.load(local_game.app_base_folder.tconcat("images/default.mtr"));
     //defer default_mat.free();
@@ -1928,12 +1964,6 @@ $endif
         
     lgr::info(Where.FILE,  "** done **.");
 // end_region Asset manager
-    
-    // load all material files from the material folder
-    mtrdb::loadMaterialFiles(&local_game.mtrDB)!!;
-    
-    local_game.mtrDB.listMTRs();
-    local_game.mtrDB.data[0].printMaterials();
     
     // init intro stuff here
     intro::initIntroAnimation(&local_game.intro);

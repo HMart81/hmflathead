@@ -525,7 +525,7 @@ $assert(MaterialMapIndex.ALBEDO.ordinal == 0);
 // #define MATERIAL_MAP_SPECULAR     MATERIAL_MAP_METALNESS
 
 // Shader location index
-enum ShaderLocationIndex : int
+enum ShdLocInd : inline int
 {
     VERTEX_POSITION,     // Shader location: vertex attribute: position
     VERTEX_TEXCOORD01,   // Shader location: vertex attribute: texcoord01
@@ -559,13 +559,13 @@ enum ShaderLocationIndex : int
     DEPTH3               // Shader location: sampler2d texture: depth map 3
 }
 
-$assert(ShaderLocationIndex.VERTEX_POSITION.ordinal == 0);
+$assert(ShdLocInd.VERTEX_POSITION.ordinal == 0);
 
 //#define SHADER_LOC_MAP_DIFFUSE      SHADER_LOC_MAP_ALBEDO
 //#define SHADER_LOC_MAP_SPECULAR     SHADER_LOC_MAP_METALNESS
 
 // Shader uniform data type
-enum ShaderUniformDataType
+enum ShdUniTyp : inline int
 {
     FLOAT,           // Shader uniform type: float
     VEC2,            // Shader uniform type: vec2 (2 float)
@@ -578,7 +578,7 @@ enum ShaderUniformDataType
     SAMPLER2D        // Shader uniform type: sampler2d
 }
 
-$assert(ShaderUniformDataType.FLOAT.ordinal == 0);
+$assert(ShdUniTyp.FLOAT.ordinal == 0);
 
 // Shader attribute data types
 enum ShaderAttributeDataType

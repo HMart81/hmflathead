@@ -493,7 +493,7 @@ fn B2AABBox RenderView.fromBoundsToPhysicsAABB(&self)
 
 <*
     @param [in] view : "the view to render to the framebuffer layer" 
-    @param [inout] layer : "the framebuffer layer to render to"
+    @param [inout] layer : "the framebuffer layer to render into"
     @require view != null && layer != null
 *>
 fn void renderGameFBO(RenderView* view, RenderLayer* layer) @local 
