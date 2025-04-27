@@ -62,7 +62,7 @@ faultdef INVALID_PATH_STRING,
 	     MISSING_MTR;
 
 
-// NOTE(HM) This represents every usefull node in the xml file 
+// NOTE(HM) This represents every usefull node in the mtr xml file 
 enum Node : int (inline String str)
 {
     INVALID   = "[35, 116, 101, 120, 116]", // for some reason the current third party xml reader I use, creates this invalid node with this particular signture...
@@ -103,16 +103,19 @@ enum MapArgs : int (inline String name)
 }
 
 
+// TODO(HM) rename this to shader stage or something like that
 struct MatMap
 {
-    Texture2D* tex; //NOTE(HM) width and Height are encoded on the Texture2D data
+    //Texture2D* tex; //NOTE(HM) width and Height are encoded on the Texture2D data
+    Texture2D tex;
     Color color;
     MaterialMapArgList args;
 }
 
 fn void MatMap.clear(&self) 
 {
-    if(self.tex) self.tex = null;
+    //if(self.tex) self.tex = null;
+    rl::unloadTexture(self.tex);
     foreach (arg : self.args)
     {
        if(arg != null) mem::free(arg);
@@ -212,6 +215,7 @@ fn void HMaterial.init(&self)
 {
 	self.coverage = MatMC.OPAQUE;
     self.comment  = "<none>";
+    self.diffuse.color = rl::WHITE;
 }
 
 fn void HMaterial.free(&self)
@@ -260,19 +264,20 @@ fn Texture2D* HMaterial.getTexture(&self, rl::MaterialMapIndex index = ALBEDO, b
             return self.cube.tex;*/
         case ALBEDO:
         default:
-            return self.diffuse.tex;
+            return &self.diffuse.tex;
     }
 }
 
 fn String HMaterial.defaultDefinition(self) @inline
 {
     String matdef = `
-    <MATERIAL name="default">
+    <MATERIAL name="default_material">
+        <comments>This is the required default material</comments>
         <maps>
             <albedo>
                 <map>images/default.png</map>
             </albedo>
-        </maps> 
+        </maps>
     </MATERIAL>
     `;
     
@@ -289,6 +294,11 @@ fn void MTRFile.unload(&self) @inline
 {
 	foreach(mat: self.mats) mat.free();
     self.mats.free();
+}
+
+fn void MTRFile.register(&self, HMaterial* mat) @inline 
+{
+    self.mats.push(mat);
 }
 
 // This will probably be very slow with many materials...
@@ -349,7 +359,7 @@ fn bool MTRFile.parse(&self, File file)
        if(node == null || node.isNode(Node.INVALID)) continue;
        if(node.isNode(Node.MATERIAL)) {
             HMaterial* mat = parse_material_node(node, self);
-            if(mat) self.mats.push(mat);
+            if(mat) self.register(mat);
        } else {
             lgr::warning(Where.FILE, " Unexpected node in mtr file '%s', expected <MATERIAL> found <%s>", self.path, node.name);
             continue;
@@ -386,7 +396,7 @@ fn HMaterial* parse_material_node(XmlNode* mat_node, MTRFile* file)
         return null;
     }
     
-    mat.name = mat_name.copy(mem); //string::format(mem, "%s", mat_name);
+    mat.name = mat_name.copy(mem);
     
     // parse extra material attributes if any
     if(mat_node.attributes.len() > 1)
@@ -454,13 +464,21 @@ fn void parse_material_maps(XmlNode* maps_node, HMaterial* mat, MTRFile* file)
                 foreach(child: node.children)
                 {
                     if(child == null) continue;
+
                     if(child.isNode(Node.MAP))
                     {
                         String texture_name = getNodeText(child).extractFileBaseByCopy();
                         if(texture_name == "default.png") {
-                            mat.diffuse.tex = &main::gpGame.default_texture;
+                            mat.diffuse.tex = main::gpGame.default_texture;
                         } else {
-                            mat.diffuse.tex = (Texture2D*)main::asstManager.getAssetExt(texture_name, Texture2D.typeid).data.ptr;
+                            //mat.diffuse.tex = (Texture2D*)main::asstManager.getAssetExt(texture_name, Texture2D.typeid).data.ptr;
+                            mat.diffuse.tex = rl::loadTexture(texture_name.zstr_tcopy());
+                            if(mat.diffuse.tex.id == 0) {
+                                lgr::error(Where.FILE, "Failed to load texture '%s' for material '%s' in file '%s'", texture_name, mat.name, file.path);
+                                mat.diffuse.tex = main::gpGame.default_texture;
+                            } else {
+                                lgr::info(Where.FILE, "Loaded texture '%s' for material '%s' in file '%s'", texture_name, mat.name, file.path);
+                            }
                         }
                     }
                     if(child.isNode(Node.COLOR))
@@ -657,8 +675,8 @@ fn void print_material_map_data(HMaterial* mat) @local
     if(mat)
     {
         io::printfn("   [map : 'Diffuse']");
-        io::printfn("       tex: \"%s\"", mat.diffuse.tex);
-        io::printfn("       color: \"%s\"", mat.diffuse.color);
+        io::printfn("       tex: \"id: %s, w: %s, h: %s, mp: %s, pf: %s\"", mat.diffuse.tex.id, mat.diffuse.tex.width, mat.diffuse.tex.height, mat.diffuse.tex.mipmaps, mat.diffuse.tex.format);
+        io::printfn("       color: \"%s, %s , %s, %s\"", mat.diffuse.color.r, mat.diffuse.color.g, mat.diffuse.color.b, mat.diffuse.color.a);
         foreach(i, arg : mat.diffuse.args) {
             io::printfn("       arg%d: \"%s = %s\"", i, arg.first, arg.second);
         }
@@ -667,7 +685,7 @@ fn void print_material_map_data(HMaterial* mat) @local
 
 // end_region private
 
-module game::material::database::mtrdb;
+module game::material::manager::mtrmng @private;
 
 // region imports
 import std::io;
@@ -684,9 +702,28 @@ import thirdparty::library::xml;
 
 alias MTR_FileList = List{MTRFile*};
 
-struct MTR_DataBase 
+struct MaterialDataBase @public
 {
     MTR_FileList data;
+}
+
+<*
+    This will probably be very slow...
+
+    @param [in] material_name : "name of the material to search for"
+    @require material_name.len > 0
+    @require self.data.len() > 0
+*>
+fn HMaterial* MaterialDataBase.getMaterial(&self, String material_name) @public
+{
+    HMaterial* mat;
+    usz count = self.data.len();
+    usz index;
+    do {
+        mat = self.data[index++].getMaterial(material_name);
+    } while(mat == null && index < count);
+    
+	return mat;
 }
 
 faultdef INVALID_PATH_STRING,
@@ -704,7 +741,7 @@ faultdef INVALID_PATH_STRING,
     @param [inout] database : "the database where to register the mtr files"
     @require database != null && search_path.len >= 2
 *>
-fn void? load_mtr_files(String search_path, MTR_DataBase* database) @local 
+fn void? load_mtr_files(String search_path, MaterialDataBase* database) @local
 {
 	PathList? paths = path::ls(tmem, path::temp(search_path));
 	if(catch excuse = paths) {
@@ -771,34 +808,58 @@ fn void? load_mtr_files(String search_path, MTR_DataBase* database) @local
     @param [inout] db : "material file data base"
     @require main::gpGame.app_base_folder.len > 0
 *>
-fn void? loadMaterialFiles(MTR_DataBase* db) @inline
+fn void? loadMaterialFilesTo(MaterialDataBase* db) @inline @public
 {
     String material_folder = main::gpGame.app_base_folder.tconcat("materials").tconcat("\\");
 	load_mtr_files(material_folder, db)!!;
+
+    // see if we have a default material file, if not create one
+    HMaterial* default_material = db.getMaterial("default_material");
+    if(default_material == null) {
+        lgr::error(Where.FILE, "Default material not found in mtr database, creating one...");
+        default_material = mem::new(HMaterial);
+        default_material.init();
+        default_material.name = "default_material";
+        default_material.diffuse.tex = main::gpGame.default_texture;
+        default_material.diffuse.color = rl::WHITE;
+        db.data[0].register(default_material);
+    }
 }
 
+<*
+    This will probably be very slow...
 
-// This will probably be very slow...
-fn HMaterial* MTR_DataBase.findMaterial(&self, String name) @inline 
+    @param [in] material_name : "name of the material to search for"
+    @require material_name.len > 0
+    @require main::gpGame.mtrDB.data.len() > 0
+*>
+fn HMaterial* getMaterial(String material_name) @public
 {
-	foreach(mtr: self.data)
+    HMaterial* mat;
+    usz count = main::gpGame.mtrDB.data.len();
+    usz index;
+    do {
+        mat = main::gpGame.mtrDB.data[index++].getMaterial(material_name);
+    } while(mat == null && index < count);
+	
+    /*foreach(mtr: self.data)
     {
-        HMaterial* mat = mtr.getMaterial(name);
+        HMaterial* mat = mtr.getMaterial(material_name);
 		if(mat != null) return mat;
-	}
+	}*/
     
-	return null;
+	return mat;
 }
 
 <*
 * @param [inout] mtr : "the mtr file to register"
 * @require mtr != null
 *>
-fn void MTR_DataBase.register(&self, MTRFile* mtr) @local @inline {
+fn void MaterialDataBase.register(&self, MTRFile* mtr) @local @inline {
 	self.data.push(mtr);
 }
 
-fn void MTR_DataBase.listMTRs(&self) @if($feature(_DEBUG)) 
+fn void MaterialDataBase.listMTRs(&self) @public @if($feature(_DEBUG)) 
 {
 	if(self.data.len())
 	{
@@ -816,7 +877,7 @@ fn void MTR_DataBase.listMTRs(&self) @if($feature(_DEBUG))
 // if that changes someday I will refactor this,
 // for now getting them hot from RAM, is very fast, compared
 // 	to reading the data from the HD/SSD/MD2 drive.
-fn void MTR_DataBase.clear(&self) @inline
+fn void MaterialDataBase.clear(&self) @inline @public
 {
 	if(self.data.len()) 
     {

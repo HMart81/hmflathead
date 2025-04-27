@@ -45,7 +45,7 @@ import game::intro;
 import game::gui::menu;
 import engine::assets_api::asapi; // for the asset system
 import engine::assets::astmng; // asset manager
-import game::material::database::mtrdb; // material database
+import game::material::manager::mtrmng; // material database
 import game::assets::sprt; // sprites
 import game::assets::part; // particles
 //import game::assets::mtr; // materials
@@ -82,6 +82,7 @@ const TRACY_ENABLE_ZONE @if($feature(TRACY_ENABLE)) = 1;
 */
 const DEFAULT_PIXELS_PER_METER @public @Hardcode = 10;
 const String MOUSE_IMAGE_NAME          @Hardcode = "pointer.png";
+const String MOUSE_POINTER_MAT         @Hardcode = "gui/pointer"; // game assets folder
 const GAME_CURSOR_SCALER               @Hardcode = 0.025f;
 const int MAX_ENTITY_COUNT     @public @Hardcode = 1 << 12; //int.max;
 
@@ -367,7 +368,7 @@ struct Game (SaveSystemInterface) @local
     List{Sprite*} sprites;
     BoidManager boidManager1;
     
-    MTR_DataBase mtrDB;
+    MaterialDataBase mtrDB;
     
     // physics engine world
     B2WorldId physWorldId;
@@ -728,7 +729,7 @@ fn void init_game_cursor() @inline {
         {GAME_CURSOR_SCALER*gpGame.screen.h, GAME_CURSOR_SCALER*gpGame.screen.h},
         rl::WHITE,
         SpriteKind.CURSOR,
-        MOUSE_IMAGE_NAME
+        MOUSE_POINTER_MAT
     );
 }
 
@@ -1951,7 +1952,7 @@ $endif
     
     // new material testing
     // load all material files from the material folder
-    mtrdb::loadMaterialFiles(&local_game.mtrDB)!!;
+    mtrmng::loadMaterialFilesTo(&local_game.mtrDB)!!;
     local_game.mtrDB.listMTRs();
     local_game.mtrDB.data[0].printMaterials();
     //mtr::Material default_mat;
@@ -2058,7 +2059,8 @@ $endif
         
         Entity* test_ent = ent::create_ex("", origin, rl::WHITE);
         test_ent.scaleV({16.0f, 16.0f});
-        test_ent.setTexture("figure.png");
+        //test_ent.setTexture("figure.png");
+        test_ent.setMaterial("figure");
     }
     
     lgr::info(Where.FILE,  "** Done. **");

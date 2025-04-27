@@ -192,6 +192,10 @@ fn void Entity.setTexture(&self, String texture_name_with_ext) @inline {
 	self.vs.tex = main::asstManager.getAssetExt(texture_name_with_ext, Texture2D.typeid);
 }
 
+fn void Entity.setMaterial(&self, String material_name) @inline {
+	self.vs.setMaterial(material_name);
+}
+
 <*
 * @ensure return != null
 *>

@@ -36,8 +36,10 @@ import std::collections::map;
 import game::main;
 import engine::misc;
 import game::camview;
-import engine::assets::astmng; // asset manager
-import engine::assets_api::asapi; // for the asset
+import engine::assets::astmng; //@deprecated;  // asset manager 
+import engine::assets_api::asapi; //@deprecated; // for the asset
+import game::material::mtr;
+import game::material::manager::mtrmng;
 import engine::logging::lgr;
 import game::serialize::svs; // save system
 import game::lowlevel::bounds;
@@ -81,8 +83,8 @@ struct Sprite (SaveSystemInterface)
     //
     Rectangle rect;
     RColor color;
-    Asset* tex;
-    //HMaterial mat;
+    Asset* tex @deprecated;
+    HMaterial* mat;
     Bounds bounds; // will be equal to the rectangle
     //
     union {
@@ -113,7 +115,8 @@ fn void Sprite.update(&self) @inline {
     }
 }
 
-fn void Sprite.init(&self, float x, float y, int width, int height, RColor color, SpriteKind kind = GENERIC, String asset_name = "") @inline {
+fn void Sprite.init(&self, float x, float y, int width, int height, RColor color, SpriteKind kind = GENERIC, String material_name = "")
+{
     self.type  = Sprite.typeid;
     //
     self.kind  = kind;
@@ -122,19 +125,16 @@ fn void Sprite.init(&self, float x, float y, int width, int height, RColor color
     self.setSize( width, height );
     // now set the Bounds
     self.bounds.fromRect(&self.rect);
-    self.setTexture(asset_name);
-$if $feature(_DEBUG):   
-    //assert(self.isValid() == true);
-$endif
+    self.setMaterial(material_name);
     self.register();
 }
 
-fn void Sprite.initRec(&self, Rectangle rect, RColor color = rl::COLOR_WHITE, SpriteKind kind = GENERIC, String asset_texture_name = "") @inline {
-    self.init(rect.x, rect.y, (int)rect.width, (int)rect.height, color, kind, asset_texture_name);
+fn void Sprite.initRec(&self, Rectangle rect, RColor color = rl::COLOR_WHITE, SpriteKind kind = GENERIC, String material_name = "") @inline {
+    self.init(rect.x, rect.y, (int)rect.width, (int)rect.height, color, kind, material_name);
 }
 
-fn void Sprite.initV(&self, Vec2f pos, Vec2f size, RColor color, SpriteKind kind = GENERIC, String asset_texture_name = "") @inline {
-    self.initRec({ pos.x, pos.y, size.x, size.y }, color, kind, asset_texture_name);
+fn void Sprite.initV(&self, Vec2f pos, Vec2f size, RColor color, SpriteKind kind = GENERIC, String material_name = "") @inline {
+    self.initRec({ pos.x, pos.y, size.x, size.y }, color, kind, material_name);
 }
 
 fn void Sprite.resetPosSize(&self) @inline {
@@ -301,28 +301,54 @@ fn void Sprite.setTexture(&self, String texture_name_with_ext) @inline {
     assert(rl::isTextureValid(*(Texture2D*)self.tex.data.ptr));
 }
 
+fn void Sprite.setMaterial(&self, String material_name) @inline {
+
+    if(material_name) 
+    {
+        self.mat = mtrmng::getMaterial(material_name);
+        if(self.mat == null || rl::isTextureValid(self.mat.diffuse.tex) == false) {
+            lgr::error(Where.FILE, "Unnable to set Sprite material '%s'.\n", material_name);
+            unreachable("Unnable to set Sprite material.");
+        }
+    } else {
+        self.mat = mtrmng::getMaterial("default_material");
+    }
+}
+
 <*
 * @param out texture "pointer to sprite image texture"
 * @ensure return != null
 *>
 fn Texture2D* Sprite.getTexture(&self) @inline {
-    if(self.asTexture()) return (Texture2D*)self.tex.data.ptr;
+    if(self.asTexture()) {
+        if(self.tex) {
+            return (Texture2D*)self.tex.data.ptr;
+        } else if(self.mat) {
+            return &self.mat.diffuse.tex;
+        }
+    }
     
     return null;
 }
 
 fn bool Sprite.asTexture(&self) @inline {
-   return self.tex != null;
+   return self.tex != null || (self.mat != null && rl::isTextureValid(self.mat.diffuse.tex));
 }
 
 // in screen pixel coordinates
 fn Vec2i Sprite.getTextureSize(&self) @inline {
+    if(self.asTexture() == false) return {0,0};
+
     int w,h;
-    w = (int)((Texture2D*)self.tex.data.ptr).width;
-    h = (int)((Texture2D*)self.tex.data.ptr).height;
-    if(self.asTexture()) return {w,h};
+    if(self.tex) {
+        w = (int)((Texture2D*)self.tex.data.ptr).width;
+        h = (int)((Texture2D*)self.tex.data.ptr).height;
+    } else if(self.mat) {
+        w = (int)self.mat.diffuse.tex.width;
+        h = (int)self.mat.diffuse.tex.height;
+    }
     
-    return {0,0};
+    return {w,h};
 }
 
 fn void Sprite.hide(&self) @inline {
@@ -364,7 +390,14 @@ fn void Sprite.draw(&self)  @inline
             // is relative to destination rectangle size/area NOT the screen!!!
             Vector2 image_center       = {0, 0};
             const float IMAGE_ROTATION = 0.0f;
-            rl::drawTexturePro(*(Texture2D*)self.tex.data.ptr, source, *dist, image_center, IMAGE_ROTATION, self.color);
+            if(self.tex) {
+                rl::drawTexturePro(*(Texture2D*)self.tex.data.ptr, source, *dist, image_center, IMAGE_ROTATION, self.color);
+            } else if(self.mat) {
+                rl::drawTexturePro(self.mat.diffuse.tex, source, *dist, image_center, IMAGE_ROTATION, self.mat.diffuse.color);
+            } else {
+                //lgr::error(Where.CONSOLE, "Sprite '%s' set to have a texture but has none.\n", self.name);
+                unreachable("Sprite set to have a texture but has none.");
+            }
         } else {
             rl::drawRectangleRec(self.rect, self.color);
         }
@@ -438,7 +471,8 @@ const int DEFAULT_PARTICLES_SIZE               = 10;
 const int DEFAULT_PARTICLES_SPAWNER_LIFETIME   = 5000; // ms
 
 // UNFINISHED...
-struct ParticleSpawner {
+struct ParticleSpawner
+{
     inline Entity super;
     
     int max_amount;

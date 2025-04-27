@@ -165,4 +165,14 @@ debug($(APPLICATION_DEBUG_NAME)) : $(GAME_ROOT_SOURCES) $(ENGINE_ROOT_SOURCES) $
 	$(comand_debug_compile)
 	$(comand_debug_run)
 
+release: $(GAME_ROOT_SOURCES) $(ENGINE_ROOT_SOURCES) $(ENGINE_CHILD_SOURCES)
+	$(info   work_dir ${CURDIR} )
+	$(comand_release_compile)
+	$(comand_release_run)
+	
+debug: $(GAME_ROOT_SOURCES) $(ENGINE_ROOT_SOURCES) $(ENGINE_CHILD_SOURCES)
+	$(info   work_dir ${CURDIR} )
+	$(comand_debug_compile)
+	$(comand_debug_run)
+
 ################################## END RULES ################################################
