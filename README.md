@@ -35,7 +35,7 @@
 
 ## compiling
 
-`hmflathead` is written using the C3 language version, so you need the C3 compiler;  go to (https://c3-lang.org/) and setup it for your OS of choice.
+`hmflathead` is written using the C3 programming language, so you need the C3 compiler;  go to (https://c3-lang.org/) and setup it for your OS of choice.
              To make things easy to compile, make the c3c.exe compiler globally accessible to all users, by putting it in the OS path.
              
 ## building
