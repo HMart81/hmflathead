@@ -253,9 +253,30 @@ fn void Panel.draw(&self, bool selected = false)
         // TODO(HM) find how to draw a image on a rounded rectangle!?
         Vec2f tex_size = {self.mat.diffuse.tex.width, self.mat.diffuse.tex.height};
         Rectangle source = {0, 0, tex_size.x, tex_size.y};
-        // NOTE(HM) 
-        // center of the texture (rotation/scale point), it's relative to destination rectangle dimentions, not the screen
-        rl::drawTexturePro(self.mat.diffuse.tex, source, self.rect, {0, 0}, 0.0f, (selected) ? self.selected_color : self.color);
+
+        BlendMode blending;
+        switch (self.mat.coverage)
+        {
+            case MatMC.PERFORATED:
+                blending = BlendMode.ALPHA_PREMUL;
+                rl::@blendMode(blending)
+                {
+                    rl::drawTexturePro(self.mat.diffuse.tex, source, self.rect, {0, 0}, 0.0f, (selected) ? self.selected_color : self.mat.diffuse.color);
+                };
+            case MatMC.TRANSLUCENT:
+                blending = BlendMode.ALPHA;
+                rl::@blendMode(blending)
+                {
+                    rl::drawTexturePro(self.mat.diffuse.tex, source, self.rect, {0, 0}, 0.0f, (selected) ? self.selected_color : self.mat.diffuse.color);
+                };
+            case MatMC.OPAQUE:
+                // NOTE(HM) 
+                // center of the texture (rotation/scale point), it's relative to destination rectangle dimentions, not the screen
+                rl::drawTexturePro(self.mat.diffuse.tex, source, self.rect, {0, 0}, 0.0f, (selected) ? self.selected_color : self.mat.diffuse.color);
+            case MatMC.BAD:
+                lgr::error(Where.FILE, "Panel with material %s has a bad material coverage type.", self.mat.name);
+            break;
+        }
     } else {
         if(self.shape == BOX) {
             misc::@drawRect(self.rect, (selected) ? self.selected_color : self.color);

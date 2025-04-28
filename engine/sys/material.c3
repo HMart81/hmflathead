@@ -87,6 +87,7 @@ enum NodeAttrib : int (inline String str)
     NAME     = "name",
     PATH     = "path",
     KIND     = "kind",
+    TRANSLUCENT = "translucent",
 }
 
 // NOTE(HM) The same as above but particular to the "map" and "video_map" nodes
@@ -106,7 +107,7 @@ enum MapArgs : int (inline String name)
 // TODO(HM) rename this to shader stage or something like that
 struct MatMap
 {
-    //Texture2D* tex; //NOTE(HM) width and Height are encoded on the Texture2D data
+    //NOTE(HM) width and Height are encoded on the Texture2D data
     Texture2D tex;
     Color color;
     MaterialMapArgList args;
@@ -414,6 +415,11 @@ fn HMaterial* parse_material_node(XmlNode* mat_node, MTRFile* file)
        {
             parse_material_comment(node, mat);
        }
+
+       if(node.isNode(Node.ARGS))
+       {
+            parse_node_atributes(node, mat, file);
+       }
        
        if(node.isNode(Node.MAPS))
        {
@@ -489,10 +495,10 @@ fn void parse_material_maps(XmlNode* maps_node, HMaterial* mat, MTRFile* file)
                     }
                 }
             case Node.VIDEO_MAP: break;
-                if(node.asAttributes())
+                /*if(node.asAttributes())
                 {
                    parse_node_atributes(node, mat, file);
-                }
+                }*/
             case Node.NORMAL: break;
                 // foreach(child: node.children)
                 // {
@@ -565,6 +571,12 @@ fn void parse_node_atributes(XmlNode* node, HMaterial* mat, MTRFile* mtr_file)
        switch(atrb.name)
        {
         case NodeAttrib.NAME: continue;
+        case NodeAttrib.TRANSLUCENT:
+            if(atrb.value == "1") {
+                mat.coverage = MatMC.TRANSLUCENT;
+            } else {
+                mat.coverage = MatMC.OPAQUE;
+            }
         case NodeAttrib.PATH:
         case NodeAttrib.KIND:
            io::printfn("  %s = %s,", atrb.name, atrb.value);
