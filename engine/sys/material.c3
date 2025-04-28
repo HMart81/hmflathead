@@ -136,15 +136,15 @@ enum MatMC //Material Coverage
 	TRANSLUCENT		// blended with background
 }
 
-// contents flags max 31 bits
+// contents flags used to mark entities in the game, max 31 bits
 enum Contents : int (inline int flag)
 {
 	SOLID				= misc::@bit(0),	// an eye is never valid in a solid
 	OPAQUE				= misc::@bit(1),	// blocks visibility (for ai)
 	WATER				= misc::@bit(2),	// used for water
-	PLAYERCLIP			= misc::@bit(3),	// solid to players
-	MONSTERCLIP		    = misc::@bit(4),	// solid to monsters
-	MOVEABLECLIP		= misc::@bit(5),	// solid to moveable entities
+	PLAYERSOLID			= misc::@bit(3),	// solid to players
+	MONSTERSOLID		= misc::@bit(4),	// solid to monsters
+	MOVEABLESOLID		= misc::@bit(5),	// solid to moveable entities
 	BLOOD				= misc::@bit(6),	// used to detect blood decals
 	BODY				= misc::@bit(7),	// used for actors
 	PROJECTILE			= misc::@bit(8),	// used for projectiles
@@ -152,7 +152,7 @@ enum Contents : int (inline int flag)
 	RENDERMODEL		    = misc::@bit(10),	// used for render models for collision detection
 	TRIGGER			    = misc::@bit(11),	// used for triggers
 	FLASHLIGHT_TRIGGER	= misc::@bit(12),	// used for triggers that are activated by the flashlight
-	TERRAIN			    = misc::@bit(13),	// used to mark surfaces as terrain for the grass system
+	TERRAIN			    = misc::@bit(13),	// used to mark surfaces as terrain
     ///
     PLACEHOLDER0	    = misc::@bit(14),
     PLACEHOLDER1	    = misc::@bit(15),
@@ -188,8 +188,11 @@ struct HMaterial  (SaveSystemInterface)
 {
     String name;
     String comment;
+
+    MTRFile* mtrfile;
     
     MatMC coverage;
+    Contents contentes;
     Flags flags;
     
     MatMap diffuse;
@@ -215,6 +218,7 @@ fn void HMaterial.reload(&self, SaveFile* file) @dynamic {
 fn void HMaterial.init(&self)
 {
 	self.coverage = MatMC.OPAQUE;
+    //self.contentes |= (Contents.SOLID.flag & Contents.OPAQUE.flag);
     self.comment  = "<none>";
     self.diffuse.color = rl::WHITE;
 }
@@ -222,6 +226,7 @@ fn void HMaterial.init(&self)
 fn void HMaterial.free(&self)
 {
 	self.diffuse.clear();
+    if(self.mtrfile) self.mtrfile = null;
 }
 
 fn void HMaterial.copy(&self, HMaterial* other)
@@ -269,6 +274,7 @@ fn Texture2D* HMaterial.getTexture(&self, rl::MaterialMapIndex index = ALBEDO, b
     }
 }
 
+
 fn String HMaterial.defaultDefinition(self) @inline
 {
     String matdef = `
@@ -311,6 +317,7 @@ fn HMaterial* MTRFile.getMaterial(&self, String name) @inline
     
 	return null;
 }
+
 
 fn void MTRFile.printMaterials(&self) @inline 
 {
@@ -370,6 +377,20 @@ fn bool MTRFile.parse(&self, File file)
     return true;
 }
 
+fn bool check_existance(String name) @inline
+{
+    foreach(mtr: main::gpGame.mtrDB.data) 
+    {
+        if(mtr.getMaterial(name) != null) 
+        {
+            lgr::warning(Where.FILE, "material with name '%s' already exists in %s\n", name, mtr.path);
+            return true;
+        }
+    }
+    
+    return false;
+}
+
 <*
     @param [in] mat_node : "material node we are currently parsing"
     @param [in] file : "parsed mtr file data"
@@ -392,43 +413,50 @@ fn HMaterial* parse_material_node(XmlNode* mat_node, MTRFile* file)
     
     if (mat_name == "")
     {
-        lgr::error(Where.FILE, "material with empty name attribute in %s\n", file.path);
+        lgr::warning(Where.FILE, "material with empty name attribute in %s\n", file.path);
         mem::free(mat);
         return null;
     }
+
+    if(check_existance(mat_name) == true) { return null; }
     
+    // else everthing fine with the name so keep parse this material data
     mat.name = mat_name.copy(mem);
+    mat.mtrfile = file;
     
     // parse extra material attributes if any
     if(mat_node.attributes.len() > 1)
     {
-        parse_material_atributes(mat_node, mat, file);
+        parse_node_atributes(mat_node, mat);
     }
 
     // start parsing the material internal child nodes
     foreach (node : mat_node.children)
     {
-       // in case...
+       // just in case...
        if(node == null || node.isNode(Node.INVALID)) continue;
        //
-       if(node.isNode(Node.COMMENT)) 
+
+       if(node.isNode(Node.COMMENT))
        {
             parse_material_comment(node, mat);
        }
 
        if(node.isNode(Node.ARGS))
        {
-            parse_node_atributes(node, mat, file);
+            parse_node_atributes(node, mat);
        }
        
        if(node.isNode(Node.MAPS))
        {
-            parse_material_maps(node, mat, file);
+            parse_material_maps(node, mat);
        }
+
+       // TODO(HM) Parse the video_map node...
        
        if(node.isNode(Node.SOUND))
        {
-            parse_material_sound(node, mat, file);
+            parse_material_sound(node, mat);
        }
     }
     
@@ -450,15 +478,15 @@ fn void parse_material_comment(XmlNode* node, HMaterial* mat) @inline @local
     @param node : "node we are currently parsing"
     @require mat != null && node.asAttributes() == true
 *>
-fn void parse_material_sound(XmlNode* node, HMaterial* mat, MTRFile* file) @inline @local
+fn void parse_material_sound(XmlNode* node, HMaterial* mat) @inline @local
 {
-   parse_node_atributes(node, mat, file);
+   parse_node_atributes(node, mat);
             
    // TODO make sound shaders
    //self.sound = astmng::assetManager.getSound(sound_shader_name);
 }
 
-fn void parse_material_maps(XmlNode* maps_node, HMaterial* mat, MTRFile* file) 
+fn void parse_material_maps(XmlNode* maps_node, HMaterial* mat) 
 {
     foreach(node: maps_node.children)
     {
@@ -478,20 +506,26 @@ fn void parse_material_maps(XmlNode* maps_node, HMaterial* mat, MTRFile* file)
                         {
                             mat.diffuse.tex = main::gpGame.default_texture;
                         } else {
-                            //mat.diffuse.tex = (Texture2D*)main::asstManager.getAssetExt(texture_name, Texture2D.typeid).data.ptr;
                             mat.diffuse.tex = misc::loadTexture(texture_path);
                         $if $feature(_DEBUG):
-                            lgr::info(Where.FILE, "Loaded texture '%s' for material '%s' in file '%s'", texture_path, mat.name, file.path);
+                            lgr::info(Where.FILE, "Loaded texture '%s' for material '%s' in file '%s'", texture_path, mat.name, mat.mtrfile.path);
                         $endif
                         }
                     }
+
                     if(child.isNode(Node.COLOR))
                     {
+                        // TODO(HM) handle bad color definitions...
                         mat.diffuse.color = xmlStrColorToColor(getNodeText(child));
                     }
-                    if(child.isNode(Node.ARGS) || child.asAttributes()) {
-                        parse_material_map_args(&mat.diffuse, child);
-                        handle_material_map_args(&mat.diffuse, child, mat, file);
+
+                    if(child.isNode(Node.ARGS)) 
+                    {
+                        if(child.asAttributes()) 
+                        {
+                            register_material_map_args(&mat.diffuse, child);
+                            handle_material_map_args(&mat.diffuse, child, mat);
+                        }
                     }
                 }
             case Node.VIDEO_MAP: break;
@@ -531,37 +565,13 @@ fn void parse_material_maps(XmlNode* maps_node, HMaterial* mat, MTRFile* file)
     }
 }
 
-<*
-    @param [in] node : "node we are parsing"
-    @param [inout] mat : "material to save parsed data into"
-    @param [in] mtr_file : "the parsed file data, mostly used to get the file path for logging"
-    @require node != null && mat != null && mtr_file != null && node.asAttributes() == true
-*>
-fn void parse_material_atributes(XmlNode* node, HMaterial* mat, MTRFile* mtr_file)
-{
-    //io::printfn("START parsing Material '%s' attributes:", node.name);
-    foreach (atrb : node.attributes)
-    {
-       if(atrb == null) continue;
-       
-       switch(atrb.name)
-       {
-        case NodeAttrib.NAME:
-            continue; // name atrribute is handled seperatly
-        default:
-           io::printfn("Unnused atribute '%s' found in node '%s' of material '%s' in file '%s'!", atrb.name, node.name, mat.name, mtr_file.path);
-       }
-    }
-    //io::printfn("END parsing Material '%s' attributes:", node.name);
-}
 
 <*
     @param [in] node : "current node we are parsing"
     @param [inout] mat : "the material we are saving data into"
-    @param [in] mtr_file : "the parsed file data, mostly used to get the file path for logging"
-    @require node != null && mat != null && mtr_file != null && node.asAttributes() == true
+    @require node != null && mat != null && node.asAttributes() == true
 *>
-fn void parse_node_atributes(XmlNode* node, HMaterial* mat, MTRFile* mtr_file)
+fn void parse_node_atributes(XmlNode* node, HMaterial* mat)
 {
     //io::printfn("START parsing node '%s' attributes:", node.name);
     foreach (atrb : node.attributes)
@@ -570,7 +580,9 @@ fn void parse_node_atributes(XmlNode* node, HMaterial* mat, MTRFile* mtr_file)
        
        switch(atrb.name)
        {
-        case NodeAttrib.NAME: continue;
+        case NodeAttrib.NAME:
+            if(node.name == "MATERIAL") continue; // name atrribute is handled seperately
+            nextcase default;
         case NodeAttrib.TRANSLUCENT:
             if(atrb.value == "1") {
                 mat.coverage = MatMC.TRANSLUCENT;
@@ -581,18 +593,18 @@ fn void parse_node_atributes(XmlNode* node, HMaterial* mat, MTRFile* mtr_file)
         case NodeAttrib.KIND:
            io::printfn("  %s = %s,", atrb.name, atrb.value);
         default:
-           io::printfn("Unnused node attribute '%s' found in node '%s' of material '%s' in file '%s'!", atrb.name, node.name, mat.name, mtr_file.path);
+           io::printfn("Unnused attribute '%s' found in node '%s' of material '%s' in file '%s'!", atrb.name, node.name, mat.name, mat.mtrfile.path);
        }
     }
     //io::printfn("END parsing node '%s' attributes:", node.name);
 }
 
 <*
-    @param [in] node : "node we are parsing"
-    @param [inout] map : "the texture map we are saving parsed data into"
+    @param [in] node : "node we are looking at"
+    @param [inout] map : "the texture map we are registing data into"
     @require node != null && map != null && node.asAttributes() == true
 *>
-fn void parse_material_map_args(MatMap* map, XmlNode* node)
+fn void register_material_map_args(MatMap* map, XmlNode* node)
 {
     foreach (arg : node.attributes)
     {
@@ -606,10 +618,9 @@ fn void parse_material_map_args(MatMap* map, XmlNode* node)
     @param [inout] map : "the texture map we are getting parsed data from"
     @param [in] node : "current node we are parsing"
     @param [inout] mat : "the material we are saving data into"
-    @param [in] mtr_file : "the parsed file data, mostly used to get the file path for logging"
-    @require map != null && node != null && mat != null && mtr_file != null
+    @require map != null && node != null && mat != null
 *>
-fn void handle_material_map_args(MatMap* map, XmlNode* node, HMaterial* mat, MTRFile* mtr_file)
+fn void handle_material_map_args(MatMap* map, XmlNode* node, HMaterial* mat)
 {
     //io::printfn("START parsing map '%s' arguments:", node.name);
     foreach (arg : map.args)
@@ -627,7 +638,7 @@ fn void handle_material_map_args(MatMap* map, XmlNode* node, HMaterial* mat, MTR
         case MapArgs.TRANSLATE_Y:
            io::printfn("  %s = %s,", arg.first, arg.second);
         default:
-           io::printfn("Unnused map argument '%s' found in node '%s' of material '%s' in file '%s'!", arg.first, node.name, mat.name, mtr_file.path);
+           io::printfn("Unnused map argument '%s' found in node '%s' of material '%s' in file '%s'!", arg.first, node.name, mat.name, mat.mtrfile.path);
        }
     }
     //io::printfn("END parsing map '%s' arguments:", node.name);
