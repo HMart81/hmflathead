@@ -1205,6 +1205,8 @@ fn void Desktop.show(&self) {
 }
 
 fn void Desktop.drawCursor(&self) {
+    if(!main::gpGame.editor.isOpened()) return;
+    
 	if ( self.isInteractive ) {
 		main::show_game_cursor();
 	} else {
@@ -1397,7 +1399,7 @@ fn void DesktopManager.update(&self) {
         foreach(desk: self.desktops) {
             if(desk.active) {
                 desk.update();
-                if(self.mode == EDITOR) {
+                if(self.mode == EDITOR && !main::gpGame.editor.isOpened()) {
                     updateGuiEditor(desk);
                 }
             }
@@ -1412,8 +1414,8 @@ fn void DesktopManager.draw(&self, int screenWidth, int screenHeight) @inline {
         foreach(desk: self.desktops) {
             desk.draw(main::gpGame.time_ms);
             
-            if(self.mode == EDITOR) {
-                drawGuiEditor(desk);
+            if(self.mode == EDITOR && !main::gpGame.editor.isOpened()) {
+                //drawGuiEditor(desk); TODO(HM) draw this through the new editor
             }
         }
     }
