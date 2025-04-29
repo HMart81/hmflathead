@@ -29,7 +29,7 @@
 // NOTE(HM) This is the main game module, is where the game initializes almost all its systems and where the entry point is
 module game::main @private;
 
-// region imports
+// #region imports
 import std::io, std::thread, std::os;
 import std::math;
 import std::ascii;
@@ -65,9 +65,9 @@ import thirdparty::raygui5::rgui;
 import thirdparty::library::xml;
 import engine::physics::box2d;
 import thirdparty::tracy;
-// end_region
+// #endregion
 
-// region Constants
+// #region Constants
 
 const TRACY_ENABLE_ZONE @if($feature(TRACY_ENABLE)) = 1;
 
@@ -220,9 +220,9 @@ move_right = "D|d"
 quit       = "F10"
 editor     = "F1"
 `;
-// end_region Constants
+// #endregion Constants
 
-// region Alias
+// #region Alias
 // DOC(HM) Alias definitions, always follow the same naming rules of the thing they are alising.
 // If alising a type the alias name, should start uppercase, if alising a function, it should start lowercase, 
 // if alising a Constant the alias also needs to be all caps, etc.
@@ -233,9 +233,9 @@ alias StringTuple    @public = Tuple{String, String};
 alias IniFileCMDList = List{StringTuple*};
 alias asstManager    @public= astmng::assetManager;
 
-// end_region Alias
+// #endregion Alias
 
-// region Cvars
+// #region Cvars
 Cvar developer      @public = { "developer"     , CvarType.BOOLEAN, "0",    "enables developer mode"};
 Cvar editor         @public = { "editor"        , CvarType.BOOLEAN, "0",    "enables the game editor (requires developer mode)"};
 Cvar r_mode         @public = { "r_mode"        , CvarType.INT,     "-1",   "window resolution index 0.."};
@@ -273,7 +273,7 @@ fn void register_modulo_cvars() @local {
     bounds::register_cvars();
 }
 
-// end_region Cvars
+// #endregion Cvars
 
 faultdef WINDOW_INIT_FAILED, 
          MISSING_REQUIRED_ASSET,
@@ -282,14 +282,16 @@ faultdef WINDOW_INIT_FAILED,
 
 enum GameMode @public 
 {
+    NONE,
+    STARTING,
     INTRO,
     MENU,
-    GAME,
+    PLAYING,
     EDITOR
 }
 
 // ********************
-// region game manager
+// #region game manager
 // ********************
 
 // The type of menu gui set right now
@@ -351,7 +353,8 @@ struct Game (SaveSystemInterface) @local
     RenderView view;
     
     struct screen {
-        int id; // monitor id
+        int id; // monitor id (index + 1)
+        int index; // monitor index
         int  w;
         int  h;
         struct state {
@@ -405,7 +408,7 @@ Game local_game @local; // global game singleton
 Game* gpGame @public = &local_game;
 
 // ***********************
-// end_region game manager
+// #endregion game manager
 // ***********************
 
 fn void Game.freeGameEntities(&self) @inline {
@@ -686,7 +689,7 @@ fn void Game.unload(&self) {
     self.boidManager1.release();
 }
 
-// region System OS Cursor
+// #region System OS Cursor
 
 fn void enable_system_cursor() @inline {
     rl::enableCursor();
@@ -719,9 +722,9 @@ fn void hide_system_cursor() @public {
     rl::hideCursor();
 }
 
-// end_region System OS Cursor
+// #endregion System OS Cursor
 
-// region Game Custom Cursor functions
+// #region Game Custom Cursor functions
 
 fn void init_game_cursor() @inline {
     local_game.mouse_cursor.initV(
@@ -785,7 +788,7 @@ fn bool game_cursor_visible() @public @inline {
     return !local_game.mouse_cursor.hidden();
 }
 
-// end_region Game Custom Cursor functions
+// #endregion Game Custom Cursor functions
 
 fn void drawGameVersion(int screenWidth, int screenHeight) @inline
 {
@@ -1244,10 +1247,9 @@ fn void gameOnPostGUIDraw(int screenWidth, int screenHeight) @public
         
         drawWorkInProgressMessage(screenWidth, screenHeight);
         
-        //if(local_game.mode == EDITOR) {
-            // todo draw this only in editor mode only
+        if(local_game.mode == EDITOR || local_game.mode == PLAYING) {
             drawGameOnScreenDebugInfo(screenWidth, screenHeight);
-        //}
+        }
         
         // draw debug_lines 
         // NOTE(HM) should this be allowed in normal gaming as well?
@@ -1290,31 +1292,57 @@ fn void gameOnPostBufferSwap() @local @inline {
     // TODO
 }
 
-// region ARGS HANDLING ************************
+// #region ARGS HANDLING ************************
 
-// NOTE(HM) 
-// I'm handling the cmdline in this function, as a pointer to a array of Strings
-// all to avoid a copy, is faster and also makes it easy to skip the work if null.
-// Also cmdline args require a full game restart, this may change when I create a game console...
-<*
-* @param [in] args `A pointer to an array of tokens`
-* @require args != null && args.len >= 2
-*>
-fn void handle_cmdline(String[]* args) {
+fn void handle_boolean_cmd(String cmd) @inline 
+{
+    // NOTE(HM) changing this cmds values will require a full game restart.
+    // special bool cmds (comands with no values, who's existance is enough to be set to true)
+    switch(cmd)
+    {
+        case "developer":
+            developer.set("1");
+        case "g_log":
+            lgr::g_log.set("true"); 
+        case "editor":
+            editor.set("1");
+        case "window": nextcase;
+        case "w":      nextcase;
+        case "win":
+            int value = r_fullscreen.getInt();
+            if(value > 0) {
+                r_fullscreen.set("0");
+                lgr::warning(Where.CONSOLE, "cmdline arg '%s' is overriding the value set by r_fullscreen.", cmd); 
+            } else {
+                lgr::warning(Where.CONSOLE, "cmdline arg '%s' is not doing anything as r_fullscreen is already zero.", cmd); 
+            }
+        default:
+            lgr::warning(Where.CONSOLE, "Invalid cmdline argument '%s'!", cmd);
+    }
+}
+/*
+NOTE(HM) 
+The first argument in a cmdline, is just the full path to the exe, 
+    so if there's only one argument, there's no need to run handle_cmdline().
+Also cmdline arguments require a full game restart, this may change,
+    if and when I create a game console...
+*/
+fn void handle_cmdline(String[] args) 
+{
 
-    if(args == null) return;
+    if(args.len == 0 || args.len == 1) return;
     
     String cmd_arg;
     
-    lgr::info(Where.CONSOLE, "handling cmd line args: %s", *args);
+    lgr::info(Where.FILE, "handling cmd line args: %s", args);
     
-    foreach(arg_index, &arg : *args)
+    foreach(arg_index, arg : args)
     {
         // skip argument zero, is only the path to the executable.
         if(arg_index == 0) continue;
         
         // skip equals sign or a space
-        if(*arg == "=" || *arg == " ") continue;
+        if(arg == "=" || arg == " ") continue;
         
         bool cmd_is_boolean;
         bool arg_is_number;
@@ -1322,85 +1350,69 @@ fn void handle_cmdline(String[]* args) {
         bool invalid_value_arg;
         
         // start of a cmdline cmd
-        if(arg.starts_with("+")) 
+        if(arg.starts_with("+"))
         {
             cmd_arg = arg.trim("+");
             
-            // if the next cmd starts with a plus then the current cmd is a boolean cmd
-            if((*args)[arg_index + 1].starts_with("+")) {
-                cmd_is_boolean = true;
-            } else {
-                cmd_is_boolean = false;
-            }
+            // if the next cmd starts with a plus then the current cmd as no assignment 
+            // and so should be considered a boolean argument.
+            cmd_is_boolean = (args[arg_index + 1].starts_with("+")) ? true : false;
             
-            if(cmd_is_boolean) {
-                // special bool cmds (comands with no values, who's existance is enough to be set to true)
-                switch(cmd_arg)
-                {
-                    case "developer":
-                        developer.set("1");
-                    case "g_log":
-                        lgr::g_log.set("true"); 
-                    case "editor":
-                        editor.set("1");
-                    case "window": nextcase;
-                    case "w":      nextcase;
-                    case "win":
-                        //nextcase default;
-                        int value = r_fullscreen.getInt();
-                        if(value > 0) {
-                            r_fullscreen.set("0");
-                            lgr::warning(Where.CONSOLE, "cmdline arg '%s' is overriding the value set by r_fullscreen.", cmd_arg); 
-                        } else {
-                            lgr::warning(Where.CONSOLE, "cmdline arg '%s' is not doing anything as r_fullscreen is already zero.", cmd_arg); 
-                        }
-                    //default:
-                        //lgr::warning(Where.CONSOLE, "cmdline arg '%s' with value = %s is still not handled.", cmd_arg, arg);
-                } 
+            if(cmd_is_boolean) 
+            {
+                handle_boolean_cmd(cmd_arg);
             }
             
             continue;
         }
         
         // from here should be the value assigned to a cmd
-        io::printfn("Arg: %s", *arg);
+        io::printfn("Arg: %s", arg);
         bool single_char_value = arg.len == 1;
-        switch {
-            case ascii::is_digit((*arg)[0]):
+        switch
+        {
+            case ascii::is_digit(arg[0]):
                 arg_is_number = true;
                 if(single_char_value) break;
                 // else
-                foreach(ch: (*arg)) {
-                    if(ascii::is_digit(ch) == false && ch != '.') {
+                foreach(ch: arg) 
+                {
+                    if(ascii::is_digit(ch) == false && ch != '.') 
+                    {
                         arg_is_number = false;
                         nextcase default;
                     }
                 }
             case arg.starts_with("-"): // negative numbers
-                if(single_char_value) {
+                if(single_char_value) 
+                {
                     lgr::warning(Where.CONSOLE, "rogue minus sign found in value of cmd \"%s\".", cmd_arg);
                     continue;
                 }
+
                 arg_is_number = true;
-                for(int i = 1; i < (*arg).len; i++) {
-                    char ch = (*arg)[i];
-                    if(ascii::is_digit(ch) == false && ch != '.') {
+                for(int i = 1; i < arg.len; i++) 
+                {
+                    char ch = arg[i];
+                    if(ascii::is_digit(ch) == false && ch != '.') 
+                    {
                         arg_is_number = false;
                         nextcase default;
                     }
                 }
             case arg.starts_with("\""):
-                if(!single_char_value && arg.ends_with("\"")) {
+                if(!single_char_value && arg.ends_with("\"")) 
+                {
                     arg_is_string = true;
                 } else {
-                    lgr::warning(Where.CONSOLE, "malformed string assigned to \"%s\", strings most be defined between two \"\".", *arg, cmd_arg);
+                    lgr::warning(Where.CONSOLE, "malformed string assigned to \"%s\", strings most be defined between two \"\".", arg, cmd_arg);
                     continue;
                 }
-            case ascii::is_alpha((*arg)[0]):
-                lgr::warning(Where.CONSOLE, "malformed string assigned to \"%s\", strings most be defined between two \"\".", *arg, cmd_arg);
+            case ascii::is_alpha(arg[0]):
+                lgr::warning(Where.CONSOLE, "malformed string assigned to \"%s\", strings most be defined between two \"\".", arg, cmd_arg);
                 continue;
             default:
-                lgr::warning(Where.CONSOLE, "invalid value '%s' assigned to cmd '%s'.", *arg, cmd_arg);
+                lgr::warning(Where.CONSOLE, "invalid value '%s' assigned to cmd '%s'.", arg, cmd_arg);
                 continue;
         }
         
@@ -1408,16 +1420,20 @@ fn void handle_cmdline(String[]* args) {
         {
             bool arg_is_float;
             
-            if(!single_char_value) {
+            if(!single_char_value) 
+            {
                 // detect floats
-                foreach(ch : *arg) {
-                    if(ch == '.') {
+                foreach(ch : arg) 
+                {
+                    if(ch == '.') 
+                    {
                         arg_is_float = true;
                         break;
                     }
-                        
-                    if(ch == ',') {
-                        lgr::warning(Where.CONSOLE, "value %s in cmdline has a comma seperator.\n   -That is not supported for numbers, please use dot instead.", *arg);
+                    
+                    if(ch == ',') 
+                    {
+                        lgr::warning(Where.CONSOLE, "value %s in cmdline has a comma seperator.\n   -That is not supported for numbers, please use dot instead.", arg);
                         invalid_value_arg = true;
                     }
                 }
@@ -1428,14 +1444,17 @@ fn void handle_cmdline(String[]* args) {
                 int ivalue;
                 float fvalue;
                     
-                if(arg_is_float) {
-                    if(try value = arg.to_float()) {
+                if(arg_is_float) 
+                {
+                    if(try value = arg.to_float()) 
+                    {
                         fvalue = value;
                     } else {
                         lgr::warning(Where.CONSOLE, "Unnable to convert value \"%s\" of cmdline arg \"%s\" to float value!", arg, cmd_arg);
                     }
                 } else {
-                    if(try value = arg.to_int()) {
+                    if(try value = arg.to_int()) 
+                    {
                         ivalue = value;
                     } else {
                         lgr::warning(Where.CONSOLE, "Unnable to convert value \"%s\" of cmdline arg \"%s\" to integer value!", arg, cmd_arg);
@@ -1446,9 +1465,11 @@ fn void handle_cmdline(String[]* args) {
                 switch(cmd_arg)
                 {
                     case "g_log":
-                        if(ivalue >= 1) {
-                            if(ivalue <= 4) {
-                                lgr::g_log.set(*arg);
+                        if(ivalue >= 1)
+                        {
+                            if(ivalue <= 4)
+                            {
+                                lgr::g_log.set(arg);
                             } else { // clamp it
                                 lgr::g_log.set("4");
                             }
@@ -1456,19 +1477,21 @@ fn void handle_cmdline(String[]* args) {
                             lgr::g_log.set("0");
                         } 
                     case "r_mode":
-                        if(ivalue >= 0 && ivalue <= SCREEN_RES.len - 1) {
-                            r_mode.set(*arg);
+                        if(ivalue >= 0 && ivalue <= SCREEN_RES.len - 1) 
+                        {
+                            r_mode.set(arg);
                         } else {
-                            lgr::warning(Where.CONSOLE, "Ignoring cmdline arg '%s' invalid resolution index, expected '0..%s' found \"%s\".", cmd_arg, SCREEN_RES.len - 1, *arg);
+                            lgr::warning(Where.CONSOLE, "Ignoring cmdline arg '%s' invalid resolution index, expected '0..%s' found \"%s\".", cmd_arg, SCREEN_RES.len - 1, arg);
                         }
                     case "r_fullscreen":
-                        if(ivalue >= 0 && ivalue <= 2) {
-                            r_fullscreen.set(*arg);
+                        if(ivalue >= 0 && ivalue <= 2) 
+                        {
+                            r_fullscreen.set(arg);
                         } else {
                             lgr::warning(Where.CONSOLE, "Ignoring cmdline arg '%s' invalid value, should be from '0..2'.", cmd_arg); 
                         }
                     default:
-                        lgr::warning(Where.CONSOLE, "cmdline arg '%s' with value = %s is still not handled.", cmd_arg, *arg);
+                        lgr::warning(Where.CONSOLE, "cmdline arg '%s' with value = %s is still not handled.", cmd_arg, arg);
                 }
             }
         }
@@ -1477,29 +1500,27 @@ fn void handle_cmdline(String[]* args) {
             switch(cmd_arg)
             {
                 case "fs_base":
-                    fs_base.set(*arg);
+                    fs_base.set(arg);
                 case "fs_mod_name":
-                    fs_mod_name.set(*arg);
+                    fs_mod_name.set(arg);
                 case "fs_mod_base":
-                    fs_mod_base.set(*arg);
+                    fs_mod_base.set(arg);
                 default:
-                    lgr::warning(Where.CONSOLE, "cmdline arg '%s' with string = %s is still not handled.", cmd_arg, *arg);
+                    lgr::warning(Where.CONSOLE, "cmdline arg '%s' with string = %s is still not handled.", cmd_arg, arg);
             }
         }
     }
 }
 
-// end_region ARGS HANDLING ******************
+// #endregion ARGS HANDLING ******************
 
 /* This is where game execution begins */
 fn void? gameOnStart(String[]* args) @local 
 {
+    local_game.mode = STARTING;
+    
     // Handle cmdline arguments if any.
-    // NOTE(HM) the first argument in cmdline, is just the full path to the exe, 
-    // so if there's only one arg, there's no need to call handle_cmdline().
-    if(args.len > 1) {
-        handle_cmdline(args);
-    }
+    handle_cmdline(*args);
     
      // NOTE(HM) 
     // This will save cvars in a global array for later looping through if needed
@@ -1510,7 +1531,7 @@ fn void? gameOnStart(String[]* args) @local
     
     // TODO load the user.ini at this time?
     
-// region Paths/Folders Setup
+// #region Paths/Folders Setup
 
     String app_exe_path = (*args)[0];
     
@@ -1628,10 +1649,10 @@ fn void? gameOnStart(String[]* args) @local
             }
         }
     }
-// end_region
+// #endregion
 
 
-// region InitRaylib library stuff
+// #region InitRaylib library stuff
     
     // init rand count generator for rl
     rl::setRandomSeed(69);
@@ -1643,16 +1664,12 @@ fn void? gameOnStart(String[]* args) @local
     window_flags |= (int)rl::FLAG_WINDOW_HIGHDPI;
     
     // TODO(HM)
-    //Create a console here for error displaying...
-    
-    // TODO(HM)
-    //Display help text in the console
-    // if any of char* helpArgs[] = { "--help", "-h", "-help", "-?", "/?" }; cvar is provided
-    
-    // TODO(HM)
+    // Create a console here for error displaying...
+    // Display help text in the console
+    //  if any of char* helpArgs[] = { "--help", "-h", "-help", "-?", "/?" }; cvar is provided
     // Print engine version in the console
 
-// region Ini file handling
+// #region Ini file handling
     String ini_file_path = local_game.app_base_folder.tconcat(INI_SETTINGS_FILE_NAME);
     bool settings_file_missing = fs::fileExists(ini_file_path) == false;
     if (settings_file_missing) // create it with default settings
@@ -1669,7 +1686,7 @@ fn void? gameOnStart(String[]* args) @local
         return excuse?;
     }
     defer if(settings_file) ini::unload(settings_file);
-// end_region Ini file handling
+// #endregion Ini file handling
 
     // log the amount of screen resolutions and their Mode
     lgr::info(Where.FILE, "Total video modes : %d", SCREEN_RES.len);
@@ -1697,27 +1714,23 @@ fn void? gameOnStart(String[]* args) @local
     else {
         res_index = settings_file.getIntValue("r_mode")!;
         // DOC(HM) the above is the same as doing:
-        // int! res_index  = settings_file.getIntValue("r_mode");
-        // if(catch excuse = res_index ) { return excuse?; }
-        if(res_index == -1) {
+        // int? res_index  = settings_file.getIntValue("r_mode");
+        // if(catch excuse = res_index ) { return excuse; }
+        if(res_index == -1) 
+        {
             int w_value, h_value;
             // then use ini defined custom resolutions
             if(try value =  settings_file.getIntValue("r_custom_width"))  w_value = value;
             if(try value =  settings_file.getIntValue("r_custom_heigth")) h_value = value;
             
-            if(!resValuesSafe(w_value, h_value)) {
+            if(!resValuesSafe(w_value, h_value)) 
+            {
                 lgr::warning(Where.FILE, "Invalid custom resolution values {%s, %s} in %s setting defaults.", w_value, h_value, INI_SETTINGS_FILE_NAME);
                 res_index = (int)DEFAULT_SCREEN_INDEX;
             } else {
                 res_index = (int)getResolutionIndexFromValues(w_value, h_value);
             }
         }
-        
-        // // prevent array overflow
-        // if(res_index >= SCREEN_RES.len) {
-            // lgr::warning(Where.FILE, "-Array index overflow, ini r_mode = %d is not valid, clamping to: %d", res_index, SCREEN_RES.len - 1);
-            // res_index = SCREEN_RES.len - 1; // last screen resolution
-        // }
     }
     
     assert(res_index >= 0);
@@ -1726,7 +1739,8 @@ fn void? gameOnStart(String[]* args) @local
     lgr::info(Where.FILE,  "Video mode set -> %s", SCREEN_RES[res_index].str);
     
     // Vertical sync (may or may not apply...)
-    if(try settings_file.getBoolValue("vsync")) {
+    if(try settings_file.getBoolValue("vsync")) 
+    {
         window_flags |= (int)rl::FLAG_VSYNC_HINT;
         local_game.screen.vsync_hint = true;
     }
@@ -1737,7 +1751,8 @@ fn void? gameOnStart(String[]* args) @local
     if(fullscreen_choice == -1) fullscreen_choice = settings_file.getIntValue("r_fullscreen")!;
     
     // prevent under or overflow
-    if(fullscreen_choice < -1 || fullscreen_choice > 2) {
+    if(fullscreen_choice < -1 || fullscreen_choice > 2) 
+    {
         int choice = fullscreen_choice;
         lgr::warning(Where.FILE, "invalid value: %d for r_fullscreen, using default. Valid values are '-1, 0, 1, 2'", choice);
         if(choice < -1) {
@@ -1762,12 +1777,15 @@ fn void? gameOnStart(String[]* args) @local
     }
     
     // DOC(HM) MSAA anti-alising (ONLY 0 or 4x is supported by Raylib, there's no inbetween)
-    if(local_game.screen.state.fullscreen) {
-        if(try msaa_samples = settings_file.getIntValue("msaa")) {
-            if(msaa_samples > 0) {
+    if(local_game.screen.state.fullscreen) 
+    {
+        if(try msaa_samples = settings_file.getIntValue("msaa")) 
+        {
+            if(msaa_samples > 0) 
+            {
                 window_flags |= (int)rl::FLAG_MSAA_4X_HINT;
                 local_game.screen.multiSamples = msaa_samples;
-                lgr::info(Where.FILE, "MSAA enabled (Raylib only supports 4x).");
+                lgr::info(Where.FILE, "MSAA enabled (Raylib only supports no msaa or 4x msaa).");
             }
         }
     }
@@ -1781,10 +1799,10 @@ fn void? gameOnStart(String[]* args) @local
         // }
     // }
 
-    // now set/apply the final window flags
+// #region Window initialization
+    // set/apply the final window flags
     rl::setConfigFlags((ConfigFlag)window_flags);
     
-// region Window initialization
     int screenWidth     = local_game.screen.w;
     int screenHeight    = local_game.screen.h;
     ZString window_name = string::tformat_zstr("%s version: (%s, %s, %s)", local_game.app_name.zstr_tcopy(), MAX_VERSION, MIN_VERSION, BABY_VERSION);
@@ -1794,23 +1812,24 @@ fn void? gameOnStart(String[]* args) @local
     rl::initWindow(screenWidth, screenHeight, window_name);
     //============================== //
     
-    if(rl::isWindowReady() == false) {
+    if(rl::isWindowReady() == false) 
+    {
         lgr::fatal(Where.FILE, "Failed to init rl window and OpenGL context!");
         return WINDOW_INIT_FAILED?;
     }
     
-    // NOTE(HM) timing, is always counted since initWindow above;
+    // NOTE(HM) Gameplay timing, is always counted since initWindow above;
     local_game.time_sec = (float)rl::getTime();
     local_game.time_ms  = misc::sec2ms(local_game.time_sec);
     
-    // region MONITOR STATES    
+// #region MONITOR STATES
     // See how many monitors user has and change the window placement if necessary.
     // WARNING(HM) This is not guarantied to work for all multi-monitor setups, 
     // it seems that even glfw, that rl uses internally, fails to set the correct monitor on some setups :(
-    int current_monitor = 0; //= rl::getCurrentMonitor();
-    int monitor_count   = rl::getMonitorCount();
-    if(monitor_count >= 2) {
-        lgr::info(Where.FILE, "Multi-Monitor setup:");
+    int monitor_count = rl::getMonitorCount();
+    if(monitor_count >= 2) // is multi-monitor setup
+    {
+        lgr::info(Where.FILE, "Multi-Monitor setup found:");
         bool chose_screen_pos_by_mouse = true; // @Hardcode
         if(chose_screen_pos_by_mouse)
         {
@@ -1822,13 +1841,14 @@ fn void? gameOnStart(String[]* args) @local
             
             // current_monitor = monitor_index;
             
-            int displayIndex = 0;
+            int displayIndex;
             // try to put the window on the display the mousecursor is currently on
                 
             int x = rl::getMouseX();
             int y = rl::getMouseY();
 
-            for (int i = 0; i < monitor_count; ++i) {
+            for (int i = 0; i < monitor_count; ++i) 
+            {
                 int w = rl::getMonitorPhysicalWidth(i);
                 int h = rl::getMonitorPhysicalHeight(i);
                 Vec2f mpos = rl::getMonitorPosition(i).toVec2f();
@@ -1841,52 +1861,49 @@ fn void? gameOnStart(String[]* args) @local
                 }
             }
             
-            if(displayIndex >= 0 && displayIndex <= (monitor_count - 1)) {
-                rl::setWindowMonitor(displayIndex);
-            } else {
+            if(displayIndex < 0 && displayIndex > (monitor_count - 1))
+            {
                 // NOTE(HM) If all else fails, set the game to first monitor index
-                rl::setWindowMonitor(0); // @Hardcode
+                displayIndex = 0;
             }
-            current_monitor = rl::getCurrentMonitor();
-            local_game.screen.id = current_monitor;
+
+            rl::setWindowMonitor(displayIndex);
+            local_game.screen.index = displayIndex;
+            local_game.screen.id = ++local_game.screen.index;
         }
     }
     
-    lgr::info(Where.FILE,  "Window put on monitor id: '%d'", ++current_monitor);
+    lgr::info(Where.FILE,  "Window put on monitor id: '%d'", local_game.screen.id);
     
     // @Todo 
     // support unlocked framerates? 
     // Support user setting frame rate on main menu?
     
-    if(rl::isWindowFullscreen() && rl::isWindowFocused()) {
-        local_game.screen.displayHz = rl::getMonitorRefreshRate(current_monitor);
+    if(rl::isWindowFullscreen() && rl::isWindowFocused()) 
+    {
+        local_game.screen.displayHz = rl::getMonitorRefreshRate(local_game.screen.index);
     } else {
         local_game.screen.displayHz = 15;
     }
     rl::setTargetFPS(local_game.screen.displayHz);
     lgr::info(Where.FILE,  "Game set to %shz update rate.", local_game.screen.displayHz);
 
-// end_region MONITOR STATES
+// #endregion MONITOR STATES
     
-    // setup/init game view (for now is a static)
+    // setup/init game view (for now is a static view)
     local_game.view.init(screenWidth, screenHeight);
     
-    // Todo(HM) create pre loading logo videos?
-    //
-    // Set the current program mode to the intro mode
-    local_game.mode = INTRO;
-    
 $if $feature(_DEBUG):
-    // TODO(HM) On release version quit should only be done from main menu. 
+    // TODO(HM) On release version quit should only be done from main menu (or alt+f4...).
     // NOTE(HM) This needs to run after initWindow,
-    //          also changes the default exit key (default is ESC key)
+    //          it changes the default exit key (default was ESC key)
     rl::setExitKey(rl::KEY_F10);
 $endif
 
-// end_region Window initialization
+// #endregion Window initialization
 
-// region physics engine
-// TODO(HM) refactor this into a physics engine module that wraps box2d? 
+// #region physics engine
+    // TODO(HM) refactor this into a physics engine module that wraps box2d? 
     B2Version version      = box2d::getVersion();
     lgr::info(Where.FILE, "Starting Box2D physics engine v: %d.%d.%d", version.major, version.minor, version.revision);
     
@@ -1925,9 +1942,9 @@ $endif
     box2d::createPolygonShape(local_game.phys_grd_bodyid, &grd_shpdef, &local_game.phys_grd_box);
     
     box2d::initDebugDraw(&local_game.phys_debug, &local_game.view);
-// end_region physics engine
+// #endregion physics engine
     
-// region AUDIO DEVICE initialization
+// #region AUDIO DEVICE initialization
     rl::initAudioDevice();
     
     if(rl::isAudioDeviceReady() == false) {
@@ -1938,10 +1955,10 @@ $endif
     } else {
         lgr::warning(Where.FILE, "AudioDevice: Not ready, sound will be disabled! %s:%s", $$MODULE, $$FUNC );
     }
-// end_region AUDIO DEVICE initialization
+// #endregion AUDIO DEVICE initialization
 
     
-// region Asset manager
+// #region Asset manager
     lgr::info(Where.FILE,  "** Starting Assets Loading **");
     
     // first load default assets
@@ -1964,9 +1981,13 @@ $endif
     //
         
     lgr::info(Where.FILE,  "** done **.");
-// end_region Asset manager
+// #endregion Asset manager
     
     // init intro stuff here
+    // Todo(HM) create real pre loading logo videos?
+    //
+    // Set the current program mode to the intro mode
+    local_game.mode = INTRO;
     intro::initIntroAnimation(&local_game.intro);
     
     // Load custom shader to be used on some parts drawing
@@ -1982,18 +2003,17 @@ $endif
         //local_game.def_shader_time_loc = rl::getShaderLocation(local_game.default_shader, "uTime");
         //rl::setShaderValue(local_game.default_shader, local_game.def_shader_time_loc, &time, rl::SHADER_UNIFORM_FLOAT);
     //}
-// end_region InitRaylib stuff
+// #endregion InitRaylib stuff
     
-// region MAIN MENU 
+// #region MAIN MENU 
     // NOTE(HM) Create main menu here but don't show it now
     local_game.main_menu = menu::mainMenuCreate(screenWidth, screenHeight);
     if(local_game.main_menu == null) {
         lgr::fatal(Where.FILE, "Something when very wrong, failed to init Main Menu!");
         unreachable("!!!!!!!!! Failed to create main menu. !!!!!!!!!!!!!!");
     }
-    
-    //local_game.mode = MENU;
-    
+// #endregion MAIN MENU
+
     if(developer.getBool() && local_game.mode == EDITOR)
     {
         if(!system_cursor_enabled()) enable_system_cursor();
@@ -2004,14 +2024,15 @@ $endif
 
     // TODO(HM) do this only in the main menu
     // custom game cursor
-    if(local_game.mode == MENU) {
+    if(local_game.mode == MENU) 
+    {
         // just in case...
         if(system_cursor_enabled()) disable_system_cursor();
         init_game_cursor();
         //show_game_cursor(); now done in menus.c3
     }
     
-// region Test game stuff
+// #region Test game stuff
 $if $feature(_DEBUG):
     input::makeKeyboardAction("screenshots", rl::KEY_F2, rl::KEY_NULL, (ActionCallBack)&camview::moveScreenShots);
 $endif
@@ -2089,7 +2110,7 @@ $endif
     
     
     lgr::info(Where.FILE,  "** Done. **");
-// end_region Test game stuff
+// #endregion Test game stuff
     
     local_game.should_quit = false;
     //if(local_game.numEntitiesToDeactivate) local_game.numEntitiesToDeactivate = 0;
@@ -2357,7 +2378,7 @@ fn void pos_MainFunc() @finalizer
 }
 
 
-// region testing area
+// #region testing area
 
 // fn int loadAssets(void* args) {
     // assetsLoadingMutex.lock()!!;
@@ -2509,4 +2530,4 @@ fn void parse_user_settings(FileData* settings, int* window_flags)
     }
 }
 
-// end_region
+// #endregion
