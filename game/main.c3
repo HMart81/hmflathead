@@ -51,6 +51,7 @@ import game::assets::part; // particles
 //import game::assets::mtr; // materials
 import game::serialize::svs; // save system
 import game::logic::timer;
+import engine::editor::ed; // editor (WIP)
 import engine::logging::lgr;
 import game::actors::ent::pl;  // player module
 import engine::misc; // misc code
@@ -244,10 +245,11 @@ Cvar fs_base        @public = { "fs_base"       , CvarType.STRING,  "data", "def
 Cvar fs_mod_name    @public = { "fs_mod_name"   , CvarType.STRING,  "",     "folder name of mod to run"};
 Cvar fs_mod_base    @public = { "fs_mod_base"   , CvarType.STRING,  "",     "folder name for custom database of running mod"};
 Cvar db_drawPhysics @public = { "db_drawPhysics", CvarType.BOOLEAN, "1",    "show debug visualization for world physics" };
+// TODO(HM) disable editor cvar, when not used anymore
 //Cvar r_window_resizable @public = { "r_window_resizable", CvarType.BOOLEAN,  "0",   "makes window resizable, window mode only."};
-//Cvar g_log              @public = { "g_log"             , CvarType.INT,      "0",   "loggin for debuggin, int value from 0 to 4, 0 = off, larger values prints more stuff."};
 
-fn void register_cvars() @local {
+fn void register_cvars() @local 
+{
     cvar::@register(&developer);
     cvar::@register(&editor);
     cvar::@register(&r_mode);
@@ -258,7 +260,6 @@ fn void register_cvars() @local {
     cvar::@register(&fs_mod_base);
     cvar::@register(&db_drawPhysics);
     //cvar::@register(r_window_resizable);
-    //cvar::@register(g_log);
     
     //if(cvar::cvars.len()) foreach(cv: cvar::cvars) {lgr::info(Where.CONSOLE, cv.name);}
 }
@@ -323,6 +324,9 @@ struct Game (SaveSystemInterface) @local
     gui::Desktop* main_menu;
     
     GameMode mode;
+
+    // ingame editor
+    Editor editor;
     
     // defaults
     // required default assets
@@ -726,6 +730,10 @@ fn void hide_system_cursor() @public {
     rl::hideCursor();
 }
 
+fn bool system_cursor_visible() @public @inline {
+    return !rl::isCursorHidden();
+}
+
 // #endregion System OS Cursor
 
 // #region Game Custom Cursor functions
@@ -991,13 +999,13 @@ fn EscReply handleESC( Desktop** gui ) {
 	return EscReply.ESC_MAIN;
 }
 
-fn void gameHandleGeneralControls() @local 
+fn void gameHandleGeneralControls() @local
 {
     input::gpManager.update();
     
-    if(rl::isKeyPressed(rl::KEY_F1) && !local_game.msgbox_showing) {
-        local_game.msgbox_showing = true;
-    }
+    //if(rl::isKeyPressed(rl::KEY_F1) && !local_game.msgbox_showing) {
+        //local_game.msgbox_showing = true;
+    //}
     
     if (rl::isKeyPressed(rl::KEY_P)) {
         local_game.pause_phys_simulation = !local_game.pause_phys_simulation;
@@ -1011,6 +1019,18 @@ fn void gameHandleGeneralControls() @local
                 gui::editor_close();
             } else {
                 gui::editor_open();
+            }
+        }
+    }
+
+    if(input::Action* toggle_editor = input::getAction("toggle_editor")) {
+        if(toggle_editor.fnIsTriggered() && (local_game.mode != STARTING && local_game.mode != INTRO)) {
+            if(editor.getBool()) {
+                if(local_game.editor.isOpened()) {
+                    local_game.editor.close();
+                } else {
+                    local_game.editor.open();
+                }
             }
         }
     }
@@ -1134,6 +1154,10 @@ fn void gameUpdate() @local
         }
         
         gameHandleGeneralControls();
+
+        if(editor.getBool()) {
+            local_game.editor.update();
+        }
         
         // physics engine
         if(local_game.pause_phys_simulation == false) {
@@ -1250,6 +1274,10 @@ fn void gameOnPostGUIDraw(int screenWidth, int screenHeight) @public
         drawGameVersion(screenWidth, screenHeight);
         
         drawWorkInProgressMessage(screenWidth, screenHeight);
+
+        if(editor.getBool()) {
+            local_game.editor.draw(screenWidth, screenHeight);
+        }
         
         if(local_game.mode == EDITOR || local_game.mode == PLAYING) {
             drawGameOnScreenDebugInfo(screenWidth, screenHeight);
@@ -1994,6 +2022,9 @@ $endif
         
     lgr::info(Where.FILE,  "** done **.");
 // #endregion Asset manager
+
+    // init the game editor defaults
+    local_game.editor.initDefaults();
     
     // init intro stuff here
     // Todo(HM) create real pre loading logo videos?
@@ -2060,6 +2091,9 @@ $endif
     input::makeKeyboardAction("particles", rl::KEY_INSERT);
     // ingame gui editor
     input::makeKeyboardAction("edit_gui", rl::KEY_F3);
+
+    // game main editor
+    input::makeKeyboardAction("toggle_editor", rl::KEY_F1, rl::KEY_LEFT_SHIFT);
     
     // close the main menu
     input::makeKeyboardAction("close_main_menu", rl::KEY_ESCAPE);

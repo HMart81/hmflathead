@@ -60,7 +60,8 @@ struct GuiTextStyle {
 
 
 // Gui control state
-enum GuiState {
+enum GuiState : inline int
+{
   STATE_NORMAL,
   STATE_FOCUSED,
   STATE_PRESSED,

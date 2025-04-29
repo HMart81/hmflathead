@@ -94,6 +94,7 @@ fn void play(IntroAnimation* anim) @inline {
     if(skip_intro.getBool()) return;
     
     anim.should_play = true;
+    main::gpGame.mode = GameMode.INTRO;
 
     if(main::game_cursor_visible()) main::hide_game_cursor();
     if(main::gpGame.screen.state.fullscreen || main::gpGame.screen.state.borderless) 
@@ -112,6 +113,7 @@ fn void play(IntroAnimation* anim) @inline {
 
 fn void stop(IntroAnimation* anim) @inline {
     anim.should_play = false;
+    main::gpGame.mode = GameMode.NONE;
 }
 
 fn void loop(IntroAnimation* anim) @inline {

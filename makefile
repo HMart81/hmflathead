@@ -98,7 +98,7 @@ PDBS_TO_CLEAN := $(wildcard $(BUILD_PATH)/*.pdb)
 EXES_TO_CLEAN := $(wildcard $(BUILD_PATH)/*.exe)
 
 # arguments to set at game start
-GAME_ARGUMENTS := +developer +g_log +r_mode 9
+GAME_ARGUMENTS := +developer +editor +g_log +r_mode 9
 
 # in c3 you need to use $feature(_DEBUG) to check for this defines, C3 $define doesn't work for this...
 DEBUG_DEFINES   := -D _DEBUG -D TRACY_ENABLE
