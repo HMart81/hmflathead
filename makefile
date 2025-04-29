@@ -67,6 +67,7 @@ RAYLIB := raylib55\lib\raylibdll.lib
 BOX2D := box2d\box2d.lib
 RAYGUI := raygui\raygui.obj
 TRACY := tracy\TracyClient.lib
+##
 LIBRARY_ROOT_PATH := .\thirdparty\include\libs\\
 LINKER_SEARCH_PATHS := -L $(LIBRARY_ROOT_PATH)
 LINKED_LIBRARIES := -l $(RAYLIB) -l $(BOX2D) -l kernel32.lib -z $(RAYGUI) -l $(TRACY)
