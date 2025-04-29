@@ -80,18 +80,24 @@ enum TraceLogLevel : int
     File gfile               @local;    // the file handle itself
 // end_region
 
-fn void setLogLevel(TraceLogLevel level) @inline {
+fn void setLogLevel(TraceLogLevel level) @inline 
+{
 	glevel = level;
 }
 
-fn void initGlobalLoggingDir() {
+fn void initGlobalLoggingDir() 
+{
     gpath = rl::getWorkingDirectory().str_view().tconcat("\\debug.log").zstr_tcopy();
 }
 
-fn void closeLogFile() {
+fn void closeLogFile() 
+{
     if(catch excuse = gfile.close()) {
-        warning(Where.CONSOLE, "failed to close log file!!!");
-    }
+		warning(Where.CONSOLE, "failed to close log file!!!\n	- %s", excuse);
+		unreachable("failed to close log file!!!");
+	} else {
+		info(Where.CONSOLE, "log file closed successfully!!!");
+	}
 }
 
 fn String getfilepath() @inline => gpath.str_view();

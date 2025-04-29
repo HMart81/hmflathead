@@ -68,7 +68,6 @@ import thirdparty::tracy;
 // #endregion
 
 // #region Constants
-
 const TRACY_ENABLE_ZONE @if($feature(TRACY_ENABLE)) = 1;
 
 /*
@@ -278,6 +277,7 @@ fn void register_modulo_cvars() @local {
 faultdef WINDOW_INIT_FAILED, 
          MISSING_REQUIRED_ASSET,
          INVALID_WORK_DIR,
+         NO_USER_SAVE_FOLDER,
          NO_DATA_FOLDER;
 
 enum GameMode @public 
@@ -691,21 +691,25 @@ fn void Game.unload(&self) {
 
 // #region System OS Cursor
 
-fn void enable_system_cursor() @inline {
+fn void enable_system_cursor() @inline @public
+{
     rl::enableCursor();
     local_game.system_cursor_enabled = true;
 }
 
-fn void disable_system_cursor() @inline {
+fn void disable_system_cursor() @inline @public
+{
     rl::disableCursor();
     local_game.system_cursor_enabled = false;
 }
 
-fn bool system_cursor_enabled() @public @inline {
+fn bool system_cursor_enabled() @public @inline 
+{
     return local_game.system_cursor_enabled;
 }
 
-fn bool system_cursor_disabled() @public @inline {
+fn bool system_cursor_disabled() @public @inline 
+{
     return !system_cursor_enabled();
 }
 
@@ -1535,13 +1539,13 @@ fn void? gameOnStart(String[]* args) @local
 
     String app_exe_path = (*args)[0];
     
-    // Now create the game name 
-    if(GAME_NAME.len > 0) {
-        local_game.app_name = GAME_NAME;
-        if(GAME_SUB_NAME.len > 0) {
-            local_game.app_name = local_game.app_name.tconcat(string::tformat("_%s",GAME_SUB_NAME));
-        } else {
-            local_game.app_name = local_game.app_name.tconcat("_app");
+    // Set the game name
+    local_game.app_name = GAME_NAME;
+    if(local_game.app_name != "")
+    {
+        if(GAME_SUB_NAME.len > 0)
+        {
+            local_game.app_name = local_game.app_name.tconcat(GAME_SUB_NAME);
         }
     } else {
         // take the name from the exe path
@@ -1553,10 +1557,11 @@ fn void? gameOnStart(String[]* args) @local
     //          rl::getWorkingDirectory() removes the name and gets the required path.
     // This also saves original work dir, in case a mod is being used.
     local_game.app_default_workdir = fs::getWorkingDirectory().tconcat("\\");
-    if(fs::directoryExists(local_game.app_default_workdir)) {
+    if(fs::directoryExists(local_game.app_default_workdir)) 
+    {
         lgr::info(Where.FILE, "Working from default Dir: %s", local_game.app_default_workdir);
     } else { 
-        return INVALID_WORK_DIR?; // will this ever happen? 
+        return INVALID_WORK_DIR?; // will this ever happen?
     }
     // Detect and Setup the base folder where required game assets/data live.
     local_game.app_default_base_folder = local_game.app_default_workdir.tconcat(fs_base.getString()).tconcat("\\");
@@ -1601,17 +1606,23 @@ fn void? gameOnStart(String[]* args) @local
     }
     
     // make sure required work dir exists
-    if(fs::directoryExists(local_game.app_work_dir)) {
-        lgr::info(Where.FILE,  "Working from Dir: %s", local_game.app_work_dir);
+    if(fs::directoryExists(local_game.app_work_dir)) 
+    {
+        if(local_game.app_work_dir != local_game.app_default_workdir) 
+        {
+            lgr::info(Where.FILE,  "Working now from Dir: %s", local_game.app_work_dir);
+        }
     } else {
         return INVALID_WORK_DIR?;
     }
     
     // make sure required base folder exists
-    if(fs::directoryExists(local_game.app_base_folder)) {
-        lgr::info(Where.FILE,  "Base Dir set as: %s", local_game.app_base_folder);
+    if(fs::directoryExists(local_game.app_base_folder)) 
+    {
+        lgr::info(Where.FILE,  "Base Dir set to: %s", local_game.app_base_folder);
     } else {
-        if(local_game.mod_set) {
+        if(local_game.mod_set) 
+        {
             lgr::error(Where.FILE,`Required base folder inside %s not found!\n
                        A non-empty folder called '%s' (case sensitive) most exist!`, 
                        local_game.app_work_dir, 
@@ -1627,25 +1638,25 @@ fn void? gameOnStart(String[]* args) @local
     
     // get the home folder to save necessary game data
     local_game.app_save_folder = fs::getSystemSpecialPath(fs::SystemPath.PERSONAL);
-    if(local_game.app_save_folder.len > 0) {
-        lgr::info(Where.FILE,  "OS save dir set to: %s", local_game.app_save_folder);
+    if(local_game.app_save_folder.len > 0) 
+    {
         
         // NOTE(HM) append the desired final folder 
         // and look in the OS user save directory, to see if folder is already there 
         // if not create it.
         local_game.app_save_folder = local_game.app_save_folder.tconcat("\\").tconcat(local_game.app_name);
-        if(fs::directoryExists(local_game.app_save_folder)) {
-            lgr::info(Where.CONSOLE, "Save Dir at: %s", local_game.app_save_folder);
+        if(fs::directoryExists(local_game.app_save_folder)) 
+        {
+            lgr::info(Where.FILE, "User Save folder set to: %s", local_game.app_save_folder);
         } else { // create it
             //Path? save_path = path::temp_new(save_folder)!;
             //bool? sucess    = path::mkdir(save_path);
             bool? sucess    = fs::makeDirectory(local_game.app_save_folder);
-            if(catch excuse = sucess) {
-                lgr::warning(Where.FILE,"Failed to create %s folder inside %s with excuse: %s", 
+            if(catch excuse = sucess) 
+            {
+                lgr::warning(Where.FILE,"Failed to create user folder %s inside %s with excuse: %s", 
                            local_game.app_name, local_game.app_save_folder, excuse);
-                $if $feature(_DEBUG):
-                unreachable();
-                $endif
+                return NO_USER_SAVE_FOLDER?;
             }
         }
     }
@@ -1674,13 +1685,13 @@ fn void? gameOnStart(String[]* args) @local
     bool settings_file_missing = fs::fileExists(ini_file_path) == false;
     if (settings_file_missing) // create it with default settings
     {
-        File? data      = file::open(ini_file_path, "w");
-        if(catch excuse = data)                      { return excuse?; }
-        if(catch excuse = data.write(SAFE_SETTINGS)) { return excuse?; }
-        if(catch excuse = data.close())              { return excuse?; }
+        File data = file::open(ini_file_path, "w")!;
+        @catch(data.write(SAFE_SETTINGS));
+        data.close()!;
+        lgr::info(Where.FILE, "Creating default settings file: %s", ini_file_path);
     }
     
-     ini::FileData*? settings_file = ini::load(ini_file_path, false); //ini::load(SETTINGS_FILE_NAME);
+    ini::FileData*? settings_file = ini::load(ini_file_path, false); //ini::load(SETTINGS_FILE_NAME);
     if( catch excuse = settings_file) {
         lgr::warning(Where.FILE, "Failed to load %s file with excuse: %s", ini_file_path, excuse);
         return excuse?;
@@ -1882,11 +1893,12 @@ fn void? gameOnStart(String[]* args) @local
     if(rl::isWindowFullscreen() && rl::isWindowFocused()) 
     {
         local_game.screen.displayHz = rl::getMonitorRefreshRate(local_game.screen.index);
+        lgr::info(Where.FILE,  "Game set to %shz update rate.", local_game.screen.displayHz);
     } else {
         local_game.screen.displayHz = 15;
+        lgr::info(Where.FILE,  "Game set to %shz update rate because lost focus.", local_game.screen.displayHz);
     }
     rl::setTargetFPS(local_game.screen.displayHz);
-    lgr::info(Where.FILE,  "Game set to %shz update rate.", local_game.screen.displayHz);
 
 // #endregion MONITOR STATES
     
@@ -2141,10 +2153,11 @@ fn void gameOnExit() @local
     rl::closeWindow();
     local_game.unload();
     //rl::memFree(memory_pool);
-    lgr::info(Where.FILE,  "clearing game singletons and log system!\n\t** Printing done on console from this point on **");
-    lgr::closeLogFile();
+    //lgr::info(Where.FILE,  "clearing game singletons and log system!\n\t** Printing done on OS terminal from this point on **");
+    lgr::info(Where.FILE,  "clearing game singletons!");
     clear_game_singletons();
-    io::printfn("Game shutdown done!\n");
+    lgr::info(Where.FILE,  "Game shutdown done!!");
+    lgr::closeLogFile();
 }
 
 fn void clear_game_singletons() @inline {
@@ -2155,6 +2168,7 @@ fn void clear_game_singletons() @inline {
     //
     gui::gpDeskManager.free();
     gui::gpDeskManager = null;
+     lgr::info(Where.FILE,  "**done**");
 }
 
 fn void saveGame() {
