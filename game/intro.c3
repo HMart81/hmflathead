@@ -94,6 +94,12 @@ fn void play(IntroAnimation* anim) @inline {
     if(skip_intro.getBool()) return;
     
     anim.should_play = true;
+
+    if(main::game_cursor_visible()) main::hide_game_cursor();
+    if(main::gpGame.screen.state.fullscreen || main::gpGame.screen.state.borderless) 
+    {
+        if(main::system_cursor_enabled()) main::disable_system_cursor();
+    }
     
     if(!anim.timing_initialized) {
         // each frame duration

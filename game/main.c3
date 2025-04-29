@@ -2009,13 +2009,14 @@ $endif
     // NOTE(HM) Create main menu here but don't show it now
     local_game.main_menu = menu::mainMenuCreate(screenWidth, screenHeight);
     if(local_game.main_menu == null) {
-        lgr::fatal(Where.FILE, "Something when very wrong, failed to init Main Menu!");
+        lgr::fatal(Where.FILE, "Something went very wrong, failed to init Main Menu!");
         unreachable("!!!!!!!!! Failed to create main menu. !!!!!!!!!!!!!!");
     }
 // #endregion MAIN MENU
 
     if(developer.getBool() && local_game.mode == EDITOR)
     {
+        if(game_cursor_visible()) hide_game_cursor();
         if(!system_cursor_enabled()) enable_system_cursor();
         show_system_cursor();
     } else {
