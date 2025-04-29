@@ -1016,16 +1016,17 @@ fn void gameHandleGeneralControls() @local
         if(enable_gui_editor.fnIsTriggered() && main::gpGame.guiActive) 
         {
             if(gui::editor_enabled()) {
-                gui::editor_close();
+                //gui::editor_close();
             } else {
-                gui::editor_open();
+                //gui::editor_open();
             }
         }
     }
 
     if(input::Action* toggle_editor = input::getAction("toggle_editor")) {
-        if(toggle_editor.fnIsTriggered() && (local_game.mode != STARTING && local_game.mode != INTRO)) {
-            if(editor.getBool()) {
+        if(toggle_editor.fnBecameTriggered() && (local_game.mode != STARTING && local_game.mode != INTRO)) {
+            if(editor.getBool()) 
+            {
                 if(local_game.editor.isOpened()) {
                     local_game.editor.close();
                 } else {
