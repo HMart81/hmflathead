@@ -218,6 +218,8 @@ fn void HMaterial.reload(&self, SaveFile* file) @dynamic {
 fn void HMaterial.init(&self)
 {
 	self.coverage = MatMC.OPAQUE;
+    // TODO(HM) solve this stuff with c3 enums not being able to be used as flags
+    // use constants instead of enums for this?
     //self.contentes |= (Contents.SOLID.flag & Contents.OPAQUE.flag);
     self.comment  = "<none>";
     self.diffuse.color = rl::WHITE;
@@ -229,6 +231,7 @@ fn void HMaterial.free(&self)
     if(self.mtrfile) self.mtrfile = null;
 }
 
+// @untested
 fn void HMaterial.copy(&self, HMaterial* other)
 {
 	self.diffuse.tex = other.diffuse.tex;
@@ -309,6 +312,7 @@ fn void MTRFile.register(&self, HMaterial* mat) @inline
 }
 
 // This will probably be very slow with many materials...
+// TODO(HM) make this faster by using a hash table
 fn HMaterial* MTRFile.getMaterial(&self, String name) @inline 
 {
 	foreach(mat: self.mats) {
