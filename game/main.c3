@@ -738,7 +738,8 @@ fn bool system_cursor_visible() @public @inline {
 
 // #region Game Custom Cursor functions
 
-fn void init_game_cursor() @inline {
+fn void init_game_cursor() @inline
+{
     local_game.mouse_cursor.initV(
         {0,0},
         {GAME_CURSOR_SCALER*gpGame.screen.h, GAME_CURSOR_SCALER*gpGame.screen.h},
@@ -798,6 +799,10 @@ fn void hide_game_cursor() @public @inline {
 
 fn bool game_cursor_visible() @public @inline {
     return !local_game.mouse_cursor.hidden();
+}
+
+fn bool game_cursor_hidden() @public @inline {
+    return !game_cursor_visible();
 }
 
 // #endregion Game Custom Cursor functions

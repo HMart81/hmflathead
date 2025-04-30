@@ -34,6 +34,17 @@ import thirdparty::raylib5::rl;
 import thirdparty::raygui5::rgui;
 import game::main;
 
+//const Icon[] ICONS = {
+    // Icon.FILE_SAVE,
+    // Icon.FILE_OPEN,
+    // Icon.FILE_NEW,
+    // Icon.FILE_ADD,
+    // Icon.FILE_DELETE,
+    // Icon.FOLDER_FILE_OPEN,
+    // Icon.FOLDER_OPEN,
+    // Icon.FOLDER_SAVE,
+    // Icon.FILE_SAVE_CLASSIC,
+// //};
 
 struct EditorFlags @local
 {
@@ -66,7 +77,15 @@ fn void Editor.initDefaults(&self) @inline
     self.flags.is_closable = true;
 
     self.background_color = {0x18, 0x18, 0x18, 0xFF};
-    self.main_window = (Rectangle){0, 0, (float)rl::getScreenWidth() / 2.0f, (float)rl::getScreenHeight() / 2.0f};
+
+    float scr_width = (float)rl::getScreenWidth();
+    float scr_height = (float)rl::getScreenHeight();
+    float x, y, w, h;
+    x = 0.25f * scr_width;
+    y = 0.05f * scr_height;
+    w = scr_width / 2.0f;
+    h = scr_height / 2.0f;
+    self.main_window = { x, y, w, h };
 }
 
 fn void Editor.open(&self) @inline
@@ -80,6 +99,8 @@ fn void Editor.open(&self) @inline
     main::gpGame.mode = GameMode.EDITOR;
 }
 
+fn bool Editor.isOpened(&self) => self.flags.is_opened;
+
 fn void Editor.close(&self) @inline
 {
     if (!self.flags.is_opened) {
@@ -90,7 +111,6 @@ fn void Editor.close(&self) @inline
     main::gpGame.mode = GameMode.NONE;
 }
 
-fn bool Editor.isOpened(&self) => self.flags.is_opened;
 
 fn void Editor.setFocused(&self) @inline
 {
@@ -118,8 +138,11 @@ fn void Editor.setActive(&self) @inline
         return;
     }
     self.flags.is_active = true;
-    rgui::setState(STATE_NORMAL);
+    rgui::enable();
+    //rgui::setState(STATE_NORMAL);
 }
+
+fn bool Editor.isActive(&self) => self.flags.is_active;
 
 fn void Editor.setInactive(&self) @inline
 {
@@ -127,7 +150,8 @@ fn void Editor.setInactive(&self) @inline
         return;
     }
     self.flags.is_active = false;
-    rgui::setState(STATE_DISABLED);
+    rgui::disable();
+    //rgui::setState(STATE_DISABLED);
 }
 
 fn void Editor.setVisible(&self) @inline
@@ -156,6 +180,7 @@ fn void Editor.setResizable(&self) @inline
         return;
     }
     self.flags.is_resizable = true;
+    rgui::unlock();
 }
 
 fn void Editor.setUnresizable(&self) @inline
@@ -164,54 +189,56 @@ fn void Editor.setUnresizable(&self) @inline
         return;
     }
     self.flags.is_resizable = false;
+    rgui::lock();
 }
 
 fn void Editor.setMinimizable(&self) @inline
 {
-    if (self.flags.is_minimizable) {
-        return;
-    }
-    self.flags.is_minimizable = true;
+    // TODO(HM): Implement minimizable window when possible.
+    // if (self.flags.is_minimizable) {
+    //     return;
+    // }
+    // self.flags.is_minimizable = true;
 }
 
 fn void Editor.setUnminimizable(&self) @inline
 {
-    if (!self.flags.is_minimizable) {
-        return;
-    }
-    self.flags.is_minimizable = false;
+    // if (!self.flags.is_minimizable) {
+    //     return;
+    // }
+    // self.flags.is_minimizable = false;
 }
 
 fn void Editor.setMaximizable(&self) @inline
 {
-    if (self.flags.is_maximizable) {
-        return;
-    }
-    self.flags.is_maximizable = true;
+    // if (self.flags.is_maximizable) {
+    //     return;
+    // }
+    // self.flags.is_maximizable = true;
 }
 
 fn void Editor.setUnmaximizable(&self) @inline
 {
-    if (!self.flags.is_maximizable) {
-        return;
-    }
-    self.flags.is_maximizable = false;
+    // if (!self.flags.is_maximizable) {
+    //     return;
+    // }
+    // self.flags.is_maximizable = false;
 }
 
 fn void Editor.setClosable(&self) @inline
 {
-    if (self.flags.is_closable) {
-        return;
-    }
-    self.flags.is_closable = true;
+    // if (self.flags.is_closable) {
+    //     return;
+    // }
+    // self.flags.is_closable = true;
 }
 
 fn void Editor.setUnclosable(&self) @inline
 {
-    if (!self.flags.is_closable) {
-        return;
-    }
-    self.flags.is_closable = false;
+    // if (!self.flags.is_closable) {
+    //     return;
+    // }
+    // self.flags.is_closable = false;
 }
 
 fn void Editor.setFullscreenable(&self) @inline
@@ -268,16 +295,19 @@ fn bool Editor.isMouseOver(&self) @local
 
 fn void Editor.update(&self) @inline
 {
-    if (self.isVisible() == false) {
+    if (self.isOpened() == false && self.isVisible() == false && self.isActive() == false) {
         return;
     }
 
-    if (self.isMouseOver()) {
+    if (self.isMouseOver()) 
+    {
         self.setFocused();
+
         if(main::game_cursor_visible()) main::hide_game_cursor();
         if(!main::system_cursor_visible()) main::show_system_cursor();
     } else {
         self.unfocus();
+
         if(main::system_cursor_visible()) main::hide_system_cursor();
         main::show_game_cursor();
     }
@@ -285,18 +315,65 @@ fn void Editor.update(&self) @inline
 
 fn void Editor.draw(&self, int screenWidth, int screenHeight) 
 {
-    if (self.isVisible() == false) {
+    if (self.isActive() == false || self.isVisible() == false) {
         return;
     }
 
     // draw the entire editor here
     if (self.flags.is_active)
     {
-       self.flags.is_active = !rgui::windowBox(self.main_window, "Editor");
-       float xpos = self.main_window.x + self.main_window.width - 1.0f;
-       float ypos = self.main_window.y + self.main_window.height - 1.0f;
-       rgui::button((Rectangle){xpos, ypos, 20.0f, 20.0f}, "#1#X");
+        // draw the background
+        rl::drawRectangleRec(self.main_window, self.background_color);
+
+        // draw the main window
+        //rgui::setStyle(DEFAULT, rgui::BORDER, (int)self.background_color.r);
+        //rgui::setStyle(DEFAULT, rgui::BASE,   (int)self.background_color.g);
+        //rgui::setStyle(DEFAULT, rgui::TEXT,   (int)self.background_color.b);
+        //rgui::setStyle(DEFAULT, rgui::OTHER,  (int)self.background_color.a);
+
+        //rgui::setStyle(DEFAULT, 4, (int)self.main_window.x);
+        //rgui::setStyle(DEFAULT, 5, (int)self.main_window.y);
+        //rgui::setStyle(DEFAULT, 6, (int)self.main_window.width);
+        //rgui::setStyle(DEFAULT, 7, (int)self.main_window.height);
+
+        // draw the editor window
+       if(rgui::windowBox(self.main_window, "Editor")) {
+            self.close();
+       }
+       drawEditorMainToolBar(self.main_window);
     }
+}
+
+fn void drawEditorMainToolBar(Rectangle area)
+{
+    Vec2f anchor = {area.x, area.y};
+    float tb_y_anchor = 0.0075f * area.height;
+    Vec2f btn_size = {20.0f, 20.0f};
+
+
+    // Open Folder Button
+    Vec2f btn0_pos = anchor + misc::VEC_RIGHT * 0.08f * area.width;
+    btn0_pos.y += tb_y_anchor;
+    String btn0_type = Icon.FOLDER_OPEN.str;
+
+    @button(btn0_pos, btn_size, btn0_type, &openFolderButtonCallback){};
+
+    // Save Button
+    Vec2f btn1_pos = btn0_pos + misc::VEC_RIGHT * btn_size.x * 1.5f;
+    String btn1_type = Icon.FILE_SAVE_CLASSIC.str;
+
+    @button(btn1_pos, btn_size, btn1_type, &saveButtonCallback){};
+
+    // Undo Button
+    Vec2f btn2_pos = btn1_pos + misc::VEC_RIGHT * btn_size.x * 1.5f;
+    String btn2_type = Icon.UNDO_FILL.str;
+
+    @button(btn2_pos, btn_size, btn2_type, &undoButtonCallback){};
+
+    // Redo Button
+    Vec2f btn3_pos = btn2_pos + misc::VEC_RIGHT * btn_size.x * 1.5f;
+    String btn3_type = Icon.REDO_FILL.str;
+    @button(btn3_pos, btn_size, btn3_type, &redoButtonCallback){};
 }
 
 // #region DRAWING HELPERS
@@ -304,4 +381,41 @@ fn void drawLine(float start, float end, float w, float h) @inline @local
 {
     rgui::line((Rectangle){ start, end, w, h }, "");
 }
+
+alias ButtonfuncCallback = fn void(void*);
+
+macro @button(Vec2f pos, Vec2f size, String text, ButtonfuncCallback callback = null; @body) @local
+{
+    var rec = (Rectangle){pos.x, pos.y, size.x, size.y};
+    if(rgui::button(rec, text.zstr_tcopy())) {
+        if (callback != null) {
+            callback(null);
+        }
+        @body();
+    }
+}
 // #endregion DRAWING HELPERS
+
+
+// #region EDITOR BUTTONS CALLBACKS
+fn void openFolderButtonCallback(void* data) @inline @local
+{
+    io::printfn("Open folder button pressed.");
+}
+
+fn void saveButtonCallback(void* data) @inline @local
+{
+    io::printfn("Save button pressed.");
+}
+
+fn void undoButtonCallback(void* data) @inline @local
+{
+    io::printfn("Undo button pressed.");
+}
+
+fn void redoButtonCallback(void* data) @inline @local
+{
+    io::printfn("Redo button pressed.");
+}
+
+// #endregion EDITOR BUTTONS CALLBACKS

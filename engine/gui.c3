@@ -1205,12 +1205,12 @@ fn void Desktop.show(&self) {
 }
 
 fn void Desktop.drawCursor(&self) {
-    if(!main::gpGame.editor.isOpened()) return;
+    if(main::gpGame.editor.isOpened()) return;
     
 	if ( self.isInteractive ) {
-		main::show_game_cursor();
+		if(main::game_cursor_hidden()) main::show_game_cursor();
 	} else {
-		main::hide_game_cursor();
+		if(main::game_cursor_visible()) main::hide_game_cursor();
 	}
 }
 

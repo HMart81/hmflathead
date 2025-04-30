@@ -74,7 +74,9 @@ fn void setGUI(Desktop* menu) {
 
     // todo
 	if ( guiActive == main::gpGame.main_menu ) {
-        if(!main::gpGame.editor.isOpened()) main::show_game_cursor();
+        if(main::gpGame.editor.isOpened() == false) {
+           if(main::game_cursor_hidden()) main::show_game_cursor();
+        }
 		//SetSaveGameGuiVars();
 		//SetMainMenuGuiVars();
 	} /*else if ( guiActive == main::gpGame.restart_menu ) {
