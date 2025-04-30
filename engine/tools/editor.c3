@@ -26,6 +26,29 @@
 # 
 *********************************************************************************************************************************************/
 
+/* TODO(HM): 
+    - Implement the editor console.
+    - Implement the editor file system.
+    - Implement the editor undo/redo system.
+    - Implement the editor save/load system.
+    - Implement the editor settings system.
+
+    - Implement file drop system.
+    // example from raygui c code:
+    if (IsFileDropped())
+        {
+            FilePathList droppedFiles = LoadDroppedFiles();
+
+            if ((droppedFiles.count > 0) && IsFileExtension(droppedFiles.paths[0], ".rgs")) GuiLoadStyle(droppedFiles.paths[0]);
+
+            UnloadDroppedFiles(droppedFiles);    // Clear internal buffers
+        }
+
+        example of a text input box made using raylib instead:
+        https://github.com/raysan5/raylib/blob/master/examples/text/text_input_box.c
+*/
+
+
 module engine::editor::ed;
 
 import std::io;
@@ -45,6 +68,9 @@ import game::main;
     // Icon.FOLDER_SAVE,
     // Icon.FILE_SAVE_CLASSIC,
 // //};
+
+const CInt CONSOLE_FONT_SIZE = 12;
+const CInt CONSOLE_MAX_LINES = 1000;
 
 struct EditorFlags @local
 {
@@ -341,6 +367,7 @@ fn void Editor.draw(&self, int screenWidth, int screenHeight)
             self.close();
        }
        drawEditorMainToolBar(self.main_window);
+       drawEditorConsole(self.main_window);
     }
 }
 
@@ -376,10 +403,61 @@ fn void drawEditorMainToolBar(Rectangle area)
     @button(btn3_pos, btn_size, btn3_type, &redoButtonCallback){};
 }
 
-// #region DRAWING HELPERS
-fn void drawLine(float start, float end, float w, float h) @inline @local
+
+fn void drawEditorConsole(Rectangle area)
 {
-    rgui::line((Rectangle){ start, end, w, h }, "");
+    // top left corner of the editor window
+    Vec2f anchor = {area.x, area.y};
+    float lft_lip = 0.008f * area.width;
+    float rgt_lip = 0.008f * area.width;
+    float buttom_lip = 0.020f * area.height;
+    Vec2f console_size = {
+        area.width - (lft_lip + rgt_lip),
+        0.25f * area.height
+    };
+
+    Vec2f console_pos = anchor + lft_lip + misc::VEC_DOWN * area.height;
+    console_pos.y -= (console_size.y + buttom_lip);
+
+    //rgui::setStyle(TEXTBOX, rgui::TEXT_READONLY, 1);
+    //rgui::textBox(misc::makeRect(console_pos, console_size), "Console", CONSOLE_FONT_SIZE, false);
+
+    Vec2f textInputePos = console_pos + misc::VEC_DOWN * console_size.y;
+    Vec2f textInputSize = {console_size.x, console_size.y};
+    ZString buttons = string::tformat_zstr("%s", "OK;Cancel");
+    DString textInputBuffer = dstring::new_with_capacity(tmem, 256);
+    defer textInputBuffer.free();
+    CInt textMaxSize = 256;
+    // Text Input Box control, ask for text, supports secret
+    int interaction = rgui::textInputBox(misc::makeRect(textInputePos, textInputSize), "", "Console Input", buttons, textInputBuffer.zstr_view(), textMaxSize, null);
+    if(interaction == 1) {
+        io::printfn("Text input box OK button pressed.");
+    } else if(interaction == 2) {
+        io::printfn("Text input box Cancel button pressed.");
+    } else if(interaction == 0) {
+        io::printfn("Text input box closed.");
+    }
+}
+
+// #region DRAWING HELPERS
+
+// coordinates are in pixels
+fn void drawVerticalLine(Vec2f start, float lenght) @inline @local
+{
+    float w = 2.0f;
+    start += misc::VEC_DOWN * lenght;
+    Vec2f end = start + misc::VEC_DOWN * lenght;
+
+    rgui::line({ start.x, start.y, w, end.y }, "");
+}
+
+fn void drawHorizontalLine(Vec2f start, float lenght) @inline @local
+{
+    float h = 2.0f;
+    start += misc::VEC_RIGHT * lenght;
+    Vec2f end = start + misc::VEC_RIGHT * lenght;
+
+    rgui::line({ start.x, start.y, end.x, h }, "");
 }
 
 alias ButtonfuncCallback = fn void(void*);
