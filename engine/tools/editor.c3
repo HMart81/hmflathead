@@ -46,6 +46,8 @@
 
         example of a text input box made using raylib instead:
         https://github.com/raysan5/raylib/blob/master/examples/text/text_input_box.c
+
+        // https://www.youtube.com/watch?v=w6Q-xmW729Y -- raygui tutorial on how to use the text input box.
 */
 
 
