@@ -25,6 +25,13 @@
 # Hilario Martins, Rua de Sanguinhedo 1010 4850-545 Vieira Do Minho Portugal.
 # 
 *********************************************************************************************************************************************/
+
+// TODO(HM)
+// implement cvar reset see L:\dark_dev\dhewm\neo\framework\CVarSystem.cpp for a good example
+// convert L:\dark_dev\dhewm\neo\idlib\CmdArgs.cpp to C3 to use it as a base for our command arguments system
+// bring L:\dark_dev\dhewm\neo\framework\CmdSystem.h to C3 to use it as a base for our command system
+
+
 module game::low_level::cvar;
 
 // region C3 modules
@@ -60,7 +67,8 @@ struct Cvar
     String   name;
     CvarType type;
     String   value;
-    String   discription;
+    //String   resetvalue; // resetting will change to this value (not used yet)
+    String   description;
     
     //Cvar* next;
     // NOTE(HM) 
@@ -76,7 +84,7 @@ CvarList cvars;
 macro @register(#cvar) {
     cvars.push(#cvar);
 $if $feature(_DEBUG):
-    io::printfn("[INFO] Registered Cvar %s (%s).", #cvar.name, #cvar.discription);
+    io::printfn("[INFO] Registered Cvar %s (%s).", #cvar.name, #cvar.description);
 $endif
 }
 
@@ -154,6 +162,96 @@ $if $feature(_DEBUG):
 $endif
     return self;
 }
+
+fn Cvar* findCvar( String name ) @local @inline {
+    foreach( cvar : cvars ) {
+        if ( cvar.name == name ) {
+            return cvar;
+        }
+    }
+	return null;
+}
+
+
+fn String getCVarString( String name ) @inline {
+    Cvar* internal = findCvar( name );
+    if ( internal ) {
+        return internal.getString();
+    }
+    return "";
+}
+
+fn bool getCVarBool( String name ) @inline {
+    Cvar* internal = findCvar( name );
+    if ( internal ) {
+        return internal.getBool();
+    }
+    return false;
+}
+
+fn int getCVarInteger( String name ) @inline {
+    Cvar* internal = findCvar( name );
+    if ( internal ) {
+        return internal.getInt();
+    }
+    return 0;
+}
+
+fn float getCVarFloat( String name ) @inline {
+    Cvar* internal = findCvar( name );
+    if ( internal ) {
+        return internal.getfloat();
+    }
+    return 0.0f;
+}
+
+
+fn bool command( String[] args ) {
+	Cvar *internal = findCvar( args[0]);
+
+	if ( internal == null ) {
+		return false;
+	}
+
+	if ( args.len == 1 ) {
+		// print the variable
+		//io::printfn( "\"%s\" is:\"%s\" default:\"%s\"\n", internal.name, internal.value, (internal.resetvalue) ? internal.resetvalue : "" );
+		io::printfn( "\"%s\" is:\"%s\"", internal.name, internal.value);
+		if ( internal.description.len > 0 ) {
+			io::printfn("%s", internal.description );
+		}
+	} else {
+		// set the value
+        // todo(HM) convert this function
+		//internal.set( args.Args(), false, false );
+	}
+	return true;
+}
+
+alias CvarCompletionCallback = fn void( String s );
+fn void commandCompletion( CvarCompletionCallback callback ) {
+	for( int i = 0; i < cvars.len(); i++ ) {
+		callback( cvars[i].name );
+	}
+}
+
+// unfinished
+fn void argCompletion( String cmdString, CvarCompletionCallback callback ) {
+	/*CmdArgs args;
+
+	args.tokenizeString( cmdString, false );
+
+	for( int i = 0; i < cvars.len; i++ ) {
+		if ( !cvars[i].valueCompletion ) {
+			continue;
+		}
+		if ( args[0] == cvars[i].name) {
+			cvars[i].valueCompletion( args, callback );
+			break;
+		}
+	}*/
+}
+
 
 /*fn void Cvar.init(&self, String name, CvarType _type, String value, String description) {
     self.name  = name;

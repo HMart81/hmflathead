@@ -51,14 +51,30 @@
 
 module engine::editor::ed;
 
-import std::io;
+import std::io, std::ascii;
 import engine::misc;
+import game::low_level::cvar;
 import thirdparty::raylib5::rl;
 import thirdparty::raygui5::rgui;
 import game::main;
 
-const CInt CONSOLE_FONT_SIZE = 12;
-const CInt CONSOLE_MAX_LINES = 1000;
+const CInt CONSOLE_FONT_SIZE @local = 12;
+const CInt CONSOLE_MAX_LINES @local = 1000;
+const CInt CONSOLE_INPUT_MAX_LINE_LENGTH @local = 256;
+
+const MAX_EDIT_LINE @local = CONSOLE_INPUT_MAX_LINE_LENGTH;
+struct AutoComplete @local
+{
+	bool valid;
+	int	 length;
+	char[MAX_EDIT_LINE] completionString;
+	char[MAX_EDIT_LINE] currentMatch;
+	int	 matchCount;
+	int	 matchIndex;
+	int	 findMatchIndex;
+}
+
+AutoComplete globalAutoComplete @local;
 
 enum EditorOpen @local
 {
@@ -95,9 +111,12 @@ struct Editor {
     GuiState gui_state;
 
     EditorOpen editor_opened; // the editor type that is currently opened
+    int input_dialog_open_count; // the number of input dialogs opened
 
     // shows or hides the console input window
     bool con_input_showWindow;
+    char[CONSOLE_INPUT_MAX_LINE_LENGTH] con_input_buffer; // maximum length of the input line
+    AutoComplete autoComplete; // auto complete struct for the console input
 }
 
 fn void Editor.initDefaults(&self) @inline
@@ -358,6 +377,10 @@ fn void Editor.update(&self) @inline
         if(main::system_cursor_visible()) main::hide_system_cursor();
         main::show_game_cursor();
     }
+
+    if(self.input_dialog_open_count > 1) {
+        unreachable("input_dialog_open_count > 1, this should never happen.");
+    }
 }
 
 fn void Editor.draw(&self, int screenWidth, int screenHeight) 
@@ -456,26 +479,43 @@ fn void drawEditorConsole(Rectangle area, Editor* editor)
     rgui::textBox(misc::makeRect(console_pos, console_size), "Console", CONSOLE_FONT_SIZE, false);
     //rgui::setStyle(TEXTBOX, rgui::TEXT_READONLY, prevTextBoxStyle);
 
-    if(editor.con_input_showWindow)
+    if(editor.con_input_showWindow && editor.input_dialog_open_count <= 1)
     {
+        editor.input_dialog_open_count = 1;
         Vec2f textInputePos = console_pos + misc::VEC_DOWN * console_size.y;
         Vec2f textInputSize = {console_size.x, console_size.y};
 
-        ZString buttons = string::tformat_zstr("%s", "OK;Cancel");
-        CInt textMaxSize = 256;
-        DString textInputBuffer = dstring::new_with_capacity(tmem, textMaxSize);
-        defer textInputBuffer.free();
+        const BTN_CLOSE = 0;
+        const BTN_OK    = 1;
+        const BTN_CLEAR = 2;
+        ZString buttons = string::tformat_zstr("%s", "OK;Clear");
         // Text Input Box control, ask for text, supports secret
-        int pressed = rgui::textInputBox(misc::makeRect(textInputePos, textInputSize), "", "Console Input", buttons, textInputBuffer.zstr_view(), textMaxSize, null);
-        if(pressed == rgui::BTN_OK) {
-            io::printfn("Text input box OK button pressed.");
-            io::printfn("Text input box text: %s", textInputBuffer.str_view());
-        } else if(pressed == rgui::BTN_CANCEL) {
-            io::printfn("Text input box Cancel button pressed.");
-        } else if(pressed == rgui::BTN_CLOSE) {
+        int pressed = rgui::textInputBox(misc::makeRect(textInputePos, textInputSize), "", "Console Input", buttons, (ZString)&editor.con_input_buffer[0], CONSOLE_INPUT_MAX_LINE_LENGTH, null);
+        if(pressed == BTN_OK) {
+            io::printfn("Text input box OK button pressed. : %s", pressed);
+            String input_text = ((ZString)&editor.con_input_buffer[0]).str_view();
+            parse_console_input(input_text);
+            mem::clear(&editor.con_input_buffer, CONSOLE_INPUT_MAX_LINE_LENGTH);
+        } else if(pressed == BTN_CLEAR) {
+            mem::clear(&editor.con_input_buffer, CONSOLE_INPUT_MAX_LINE_LENGTH);
+            io::printfn("Text input box CLEAR button pressed: %s", pressed);
+        } else if(pressed == BTN_CLOSE) {
+            mem::clear(&editor.con_input_buffer, CONSOLE_INPUT_MAX_LINE_LENGTH);
             editor.con_input_showWindow = false;
+            editor.input_dialog_open_count = 0;
+            io::printfn("Text input box Close button pressed: %s", pressed);
+        } else if(pressed != -1) {
+            io::printfn("button pressed was value: %s", pressed);
         }
     }
+}
+
+fn void parse_console_input(String input_text)
+{
+    // TODO(HM): Implement the console input parser.
+    // This function should parse the console input and execute the command.
+    // For now it will just print the input text to the console.
+    io::printfn("Console input: %s", input_text);
 }
 
 // #region DRAWING HELPERS
@@ -536,3 +576,67 @@ fn void redoButtonCallback(void* data) @inline @local
 }
 
 // #endregion EDITOR BUTTONS CALLBACKS
+
+
+// #region CONSOLE INPUT
+
+fn void Editor.autoCompleteClear(&self) @inline
+{
+    self.autoComplete.valid = false;
+    self.autoComplete.length = 0;
+    self.autoComplete.matchCount = 0;
+    self.autoComplete.matchIndex = 0;
+    self.autoComplete.findMatchIndex = 0;
+    mem::clear(&globalAutoComplete.completionString, MAX_EDIT_LINE);
+    mem::clear(&globalAutoComplete.currentMatch, MAX_EDIT_LINE);
+}
+
+fn void findMatches( String s ) 
+{
+	if ( s != globalAutoComplete.completionString[..] ) {
+		return;
+	}
+	globalAutoComplete.matchCount++;
+	if ( globalAutoComplete.matchCount == 1 ) {
+        globalAutoComplete.currentMatch = s[0:globalAutoComplete.currentMatch.len];
+		return;
+	}
+
+    int i;
+	// cut currentMatch to the amount common with s
+	for ( i; s[i]; i++ ) {
+		if ( ascii::to_lower( globalAutoComplete.currentMatch[i] ) != ascii::to_lower( s[i] ) ) {
+			globalAutoComplete.currentMatch[i] = 0;
+			break;
+		}
+	}
+	globalAutoComplete.currentMatch[i] = 0;
+}
+
+fn void findIndexMatch( String s )
+{
+	if ( s != globalAutoComplete.completionString[..] ) {
+		return;
+	}
+
+	if( globalAutoComplete.findMatchIndex == globalAutoComplete.matchIndex ) {
+        globalAutoComplete.currentMatch = s[0:globalAutoComplete.currentMatch.len];
+	}
+
+	globalAutoComplete.findMatchIndex++;
+}
+
+
+fn void printMatches( String s ) {
+	if ( s == globalAutoComplete.currentMatch[..] ) {
+		io::printfn( "    %s", s );
+	}
+}
+
+
+fn void printCvarMatches( String s ) {
+    if ( s == globalAutoComplete.currentMatch[..] ) {
+		io::printfn( "    %s = \"%s\"", s, cvar::getCVarString( s ) );
+	}
+}
+// #endregion CONSOLE INPUT

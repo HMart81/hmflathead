@@ -38,10 +38,6 @@ const RAYGUI_VERSION = "4.0";
 const SCROLLBAR_LEFT_SIDE @builtin = 0;
 const SCROLLBAR_RIGHT_SIDE @builtin = 1;
 
-const BTN_CLOSE  = 0;
-const BTN_OK     = 1;
-const BTN_CANCEL = 2;
-
 // Style property
 // NOTE: Used when exporting style as code for convenience
 struct GuiStyleProp {
@@ -64,7 +60,7 @@ struct GuiTextStyle {
 
 
 // Gui control state
-enum GuiState : inline int
+enum GuiState
 {
   STATE_NORMAL,
   STATE_FOCUSED,
@@ -503,7 +499,7 @@ const GuiControlProperty TEXT   = 2;
 const GuiControlProperty OTHER  = 3;
 // #endregion property_element
 
-// region control_property;
+// #region control_property;
 
 const GuiControlProperty BORDER_COLOR_NORMAL = 0;        // Control border color in STATE_NORMAL
 const GuiControlProperty BASE_COLOR_NORMAL = 1;          // Control base color in STATE_NORMAL
@@ -571,4 +567,4 @@ const GuiControlProperty HUEBAR_PADDING = 18;             // ColorPicker right h
 const GuiControlProperty HUEBAR_SELECTOR_HEIGHT = 19;     // ColorPicker right hue bar selector height
 const GuiControlProperty HUEBAR_SELECTOR_OVERFLOW = 20;   // ColorPicker right hue bar selector overflow
 
-// end_region control_property
+// #endregion control_property
