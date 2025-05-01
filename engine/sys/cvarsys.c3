@@ -32,27 +32,51 @@
 // bring L:\dark_dev\dhewm\neo\framework\CmdSystem.h to C3 to use it as a base for our command system
 
 
-module game::low_level::cvar;
+module engine::sys::cvar;
 
-// region C3 modules
+// #region import modules
 import std::io;
 import std::collections::list;
-// end_region
-
-// region custom modules
+import engine::misc;
+//import engine::sys::cmd; still not fully implemented
 import engine::logging::lgr;
 import thirdparty::raylib5::rl;
 import game::main;
-// end_region
+// #endregion
 
-// region defines
+// #region defines
 alias CvarList = List{Cvar*};
-// end_region
+// #endregion
 
 // region constantes
 //const int PRINT_CVAR_SETTING = 1;
 // end_region
 
+enum CvarFlags : (inline int val) // not used yet
+{
+	CVAR_ALL				= -1,		// all flags
+	CVAR_BOOL				= misc::@bit(0),	// variable is a boolean
+	CVAR_INTEGER			= misc::@bit(1),	// variable is an integer
+	CVAR_FLOAT				= misc::@bit(2),	// variable is a float
+	CVAR_SYSTEM				= misc::@bit(3),	// system variable
+	CVAR_RENDERER			= misc::@bit(4),	// renderer variable
+	CVAR_SOUND				= misc::@bit(5),	// sound variable
+	CVAR_GUI				= misc::@bit(6),	// gui variable
+	CVAR_GAME				= misc::@bit(7),	// game variable
+	CVAR_TOOL				= misc::@bit(8),	// tool variable
+	CVAR_USERINFO			= misc::@bit(9),	// sent to servers, available to menu
+	CVAR_SERVERINFO			= misc::@bit(10),	// sent from servers, available to menu
+	CVAR_NETWORKSYNC		= misc::@bit(11),	// cvar is synced from the server to clients
+	CVAR_STATIC				= misc::@bit(12),	// statically declared, not user created
+	CVAR_CHEAT				= misc::@bit(13),	// variable is considered a cheat
+	CVAR_NOCHEAT			= misc::@bit(14),	// variable is not considered a cheat
+	CVAR_INIT				= misc::@bit(15),	// can only be set from the command-line
+	CVAR_ROM				= misc::@bit(16),	// display only, cannot be set by user at all
+	CVAR_ARCHIVE			= misc::@bit(17),	// set to cause it to be saved to a config file
+	CVAR_MODIFIED			= misc::@bit(18)	// set when the variable is modified
+}
+
+// todo(HM) replace this with the cvar flags
 enum CvarType : char
 {
     NONE,
@@ -69,7 +93,17 @@ struct Cvar
     String   value;
     //String   resetvalue; // resetting will change to this value (not used yet)
     String   description;
-    
+    //int      flags; // flags for the cvar (not used yet)
+    //float valueMin; // min value for the cvar (not used yet)
+    //float valueMax; // max value for the cvar (not used yet)
+
+    // this could be done by using function -> fn String[] String.tsplit(s, String delimiter, usz max = 0, bool skip_empty = false) => s.split(tmem, delimiter, max, skip_empty)
+    /*
+    // not sure if the best example, but is enough for now
+    String[*] menuResolutionList = {"800x600", "1024x720"}; // resolution strings to show on the main menu options (not used yet)
+    r_res.initWithStrings("r_res", "640x480", CVAR_GUI | CVAR_NOCHEAT | CVAR_ARCHIVE, "resolution to show on the main menu", string::tformat("%s", "800x600;1024x720").split(";"), cmd::SystemPtr.argCompletion_String(&menuResolutionList));
+    */
+    //String[] valueStrings; // list of strings for the cvar (not used yet)
     //Cvar* next;
     // NOTE(HM) 
     // The pointer was a idea I saw on Star Trek Elite Force 1 SDK game code
@@ -87,6 +121,66 @@ $if $feature(_DEBUG):
     io::printfn("[INFO] Registered Cvar %s (%s).", #cvar.name, #cvar.description);
 $endif
 }
+
+/*
+    How to use the macros:
+    1. Declare the cvar in your code at the top of the file, like this:
+    Cvar someCvar;
+
+    2. Use the macro to initialize the cvar, like this inside a function:
+    OnGameStart() {
+        someCvar.init("someCvar", "0", CVAR_SYSTEM | CVAR_NOCHEAT, "some cvar description");
+    }
+
+*/
+/*
+// Always use one of the following initializers.
+macro Cvar.init(&self, String name, String value, int flags, String description, ArgCompletionCallback valueCompletion = null ) {
+    self.name  = name;
+    self.type  = CvarType.NONE;
+    self.value = value.copy(mem);
+    //self.resetvalue = ""; // not used yet
+    self.description = description.copy(mem);
+    //self.valueCompletion = valueCompletion; // not used yet
+    //self.flags = flags; // not used yet
+    //self.valueMin = 0.0f; // not used yet
+    //self.valueMax = 0.0f; // not used yet
+    //self.valueStrings = null; // not used yet
+    //self.next = null; // not used yet
+
+    @register(self);
+}
+macro Cvar.initMinMax( String name, String value, int flags, const String description, float valueMin, float valueMax, ArgCompletionCallback valueCompletion = null ) {
+    self.name  = name;
+    self.type  = CvarType.NONE;
+    self.value = value.copy(mem);
+    //self.resetvalue = ""; // not used yet
+    self.description = description.copy(mem);
+    //self.valueCompletion = valueCompletion; // not used yet
+    //self.flags = flags; // not used yet
+    self.valueMin = valueMin; // not used yet
+    self.valueMax = valueMax; // not used yet
+    //self.valueStrings = null; // not used yet
+    //self.next = null; // not used yet
+
+    @register(self);
+}
+macro Cvar.initWithStrings( String name, String value, int flags, String description, String[] valueStrings, ArgCompletionCallback valueCompletion = null ) {
+    self.name  = name;
+    self.type  = CvarType.NONE;
+    self.value = value.copy(mem);
+    //self.resetvalue = ""; // not used yet
+    self.description = description.copy(mem);
+    //self.valueCompletion = valueCompletion; // not used yet
+    //self.flags = flags; // not used yet
+    //self.valueMin = 0.0f; // not used yet
+    //self.valueMax = 0.0f; // not used yet
+    self.valueStrings = valueStrings.copy(mem); // not used yet
+    //self.next = null; // not used yet
+
+    @register(self);
+}
+*/
 
 // fn void register_cvars(Cvar*[] cvars) {
     // foreach(cv: cvars) {

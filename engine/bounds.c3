@@ -30,7 +30,7 @@ module game::lowlevel::bounds;
 
 import std::math;
 import engine::misc;
-import game::low_level::cvar;
+import engine::sys::cvar;
 import thirdparty::raylib5::rl;
 
 const float	INFINITY = 1e30f;

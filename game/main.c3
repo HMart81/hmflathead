@@ -56,7 +56,7 @@ import engine::logging::lgr;
 import game::actors::ent::pl;  // player module
 import engine::misc; // misc code
 import game::camview;
-import game::low_level::cvar;
+import engine::sys::cvar;
 import game::files::ini @public;
 import game::effects::boid;
 import game::lowlevel::bounds;

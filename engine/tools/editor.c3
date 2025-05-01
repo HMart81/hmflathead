@@ -53,7 +53,7 @@ module engine::editor::ed;
 
 import std::io, std::ascii;
 import engine::misc;
-import game::low_level::cvar;
+import engine::sys::cvar;
 import thirdparty::raylib5::rl;
 import thirdparty::raygui5::rgui;
 import game::main;

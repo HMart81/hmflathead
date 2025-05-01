@@ -40,7 +40,7 @@ import thirdparty::tracy;  // profiling
 import engine::misc;
 import game::assets::sprt;
 import game::serialize::svs; // save system
-import game::low_level::cvar;
+import engine::sys::cvar;
 import game::lowlevel::bounds;
 import engine::physics::box2d;
 // end_region
