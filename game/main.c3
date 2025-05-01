@@ -635,9 +635,9 @@ fn void? Game.loadDefaultAssets(&self)
     // load required default sound
     self.default_sound = rl::loadSound(self.app_base_folder.tconcat("sounds//default.wav").zstr_tcopy());
     if(rl::isSoundValid(self.default_sound)) {
-        $if $feature(_DEBUG):
-            if(rl::isAudioDeviceReady()) rl::playSound(self.default_sound);
-        $endif
+        //$if $feature(_DEBUG):
+            //if(rl::isAudioDeviceReady()) rl::playSound(self.default_sound);
+        //$endif
     } else {
         lgr::fatal(Where.FILE, "Required default asset: \"sounds/default.wav\" failed to load!");
         return MISSING_REQUIRED_ASSET?;
@@ -1563,7 +1563,7 @@ fn void? gameOnStart(String[]* args) @local
      // NOTE(HM) 
     // This will save cvars in a global array for later looping through if needed
     register_modulo_cvars();
-    
+
     // ******* Main Game Start *******
     lgr::info(Where.FILE, "Initializing game:");
     
@@ -1993,7 +1993,7 @@ $endif
 // #region AUDIO DEVICE initialization
     rl::initAudioDevice();
     
-    if(rl::isAudioDeviceReady() == false) {
+    if(rl::isAudioDeviceReady()) {
         if(rl::getMasterVolume() < 1.0f) {
             rl::setMasterVolume(1.0f);
             lgr::info(Where.FILE, "Audio Master Volume set to = %s", 1.0f);

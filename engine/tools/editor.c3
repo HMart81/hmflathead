@@ -57,20 +57,19 @@ import thirdparty::raylib5::rl;
 import thirdparty::raygui5::rgui;
 import game::main;
 
-//const Icon[] ICONS = {
-    // Icon.FILE_SAVE,
-    // Icon.FILE_OPEN,
-    // Icon.FILE_NEW,
-    // Icon.FILE_ADD,
-    // Icon.FILE_DELETE,
-    // Icon.FOLDER_FILE_OPEN,
-    // Icon.FOLDER_OPEN,
-    // Icon.FOLDER_SAVE,
-    // Icon.FILE_SAVE_CLASSIC,
-// //};
-
 const CInt CONSOLE_FONT_SIZE = 12;
 const CInt CONSOLE_MAX_LINES = 1000;
+
+enum EditorOpen @local
+{
+    MAIN_EDITOR,
+    MATERIAL_EDITOR,
+    GUI_EDITOR,
+    SCENE_EDITOR,
+    ANIMATION_EDITOR,
+    SOUND_EDITOR,
+    SCRIPT_EDITOR,
+}
 
 struct EditorFlags @local
 {
@@ -94,6 +93,11 @@ struct Editor {
     Rectangle main_window;
 
     GuiState gui_state;
+
+    EditorOpen editor_opened; // the editor type that is currently opened
+
+    // shows or hides the console input window
+    bool con_input_showWindow;
 }
 
 fn void Editor.initDefaults(&self) @inline
@@ -112,6 +116,22 @@ fn void Editor.initDefaults(&self) @inline
     w = scr_width / 2.0f;
     h = scr_height / 2.0f;
     self.main_window = { x, y, w, h };
+
+    // for some reason this does not work and crash's de game... :(
+    // so this means I'm totally cut out from working with raygui styles for now. ;(
+    // if(rl::isWindowReady()) 
+    // {
+    //      // load raygui style
+    //      const String GUI_STYLE_FILE_NAME = "style_dark.rgs";
+    //      String gui_styles_path = main::gpGame.app_default_workdir.tconcat(GUI_STYLE_FILE_NAME);
+    //      ZString final_path = gui_styles_path.zstr_tcopy();
+    //      if(rl::fileExists(final_path)) {
+    //         io::printfn("Loading raygui style from file: %s", final_path.str_view());
+    //         rgui::loadStyle(final_path);
+    //      } else {
+    //         io::printfn("Raygui style file not found: %s", final_path.str_view());
+    //      }
+    // }
 }
 
 fn void Editor.open(&self) @inline
@@ -120,6 +140,7 @@ fn void Editor.open(&self) @inline
         return;
     }
     self.flags.is_opened = true;
+    self.editor_opened = EditorOpen.MAIN_EDITOR;
     self.setActive();
     self.setVisible();
     main::gpGame.mode = GameMode.EDITOR;
@@ -362,16 +383,18 @@ fn void Editor.draw(&self, int screenWidth, int screenHeight)
         //rgui::setStyle(DEFAULT, 6, (int)self.main_window.width);
         //rgui::setStyle(DEFAULT, 7, (int)self.main_window.height);
 
-        // draw the editor window
+        // draw the main editor window
        if(rgui::windowBox(self.main_window, "Editor")) {
             self.close();
        }
-       drawEditorMainToolBar(self.main_window);
-       drawEditorConsole(self.main_window);
+       // draw the main editor tool bar
+       drawEditorMainToolBar(self.main_window, self);
+       // draw the main editor console
+       drawEditorConsole(self.main_window, self);
     }
 }
 
-fn void drawEditorMainToolBar(Rectangle area)
+fn void drawEditorMainToolBar(Rectangle area, Editor* editor)
 {
     Vec2f anchor = {area.x, area.y};
     float tb_y_anchor = 0.0075f * area.height;
@@ -393,18 +416,27 @@ fn void drawEditorMainToolBar(Rectangle area)
 
     // Undo Button
     Vec2f btn2_pos = btn1_pos + misc::VEC_RIGHT * btn_size.x * 1.5f;
-    String btn2_type = Icon.UNDO_FILL.str;
+    String btn2_type = Icon.UNDO.str;
 
     @button(btn2_pos, btn_size, btn2_type, &undoButtonCallback){};
 
     // Redo Button
     Vec2f btn3_pos = btn2_pos + misc::VEC_RIGHT * btn_size.x * 1.5f;
-    String btn3_type = Icon.REDO_FILL.str;
+    String btn3_type = Icon.REDO.str;
     @button(btn3_pos, btn_size, btn3_type, &redoButtonCallback){};
+
+    // open Console Button
+    // TODO(HM): this should open the console window only, but for now it will open the console input box.
+    Vec2f btn4_pos = btn3_pos + misc::VEC_RIGHT * btn_size.x * 1.5f;
+    String btn4_type = Icon.WINDOW.str;
+    @button(btn4_pos, btn_size, btn4_type) {
+        // open console window
+        editor.con_input_showWindow = !editor.con_input_showWindow;
+    };
 }
 
 
-fn void drawEditorConsole(Rectangle area)
+fn void drawEditorConsole(Rectangle area, Editor* editor)
 {
     // top left corner of the editor window
     Vec2f anchor = {area.x, area.y};
@@ -419,23 +451,30 @@ fn void drawEditorConsole(Rectangle area)
     Vec2f console_pos = anchor + lft_lip + misc::VEC_DOWN * area.height;
     console_pos.y -= (console_size.y + buttom_lip);
 
+    //int prevTextBoxStyle = rgui::getStyle(TEXTBOX, rgui::TEXT_READONLY);
     //rgui::setStyle(TEXTBOX, rgui::TEXT_READONLY, 1);
-    //rgui::textBox(misc::makeRect(console_pos, console_size), "Console", CONSOLE_FONT_SIZE, false);
+    rgui::textBox(misc::makeRect(console_pos, console_size), "Console", CONSOLE_FONT_SIZE, false);
+    //rgui::setStyle(TEXTBOX, rgui::TEXT_READONLY, prevTextBoxStyle);
 
-    Vec2f textInputePos = console_pos + misc::VEC_DOWN * console_size.y;
-    Vec2f textInputSize = {console_size.x, console_size.y};
-    ZString buttons = string::tformat_zstr("%s", "OK;Cancel");
-    DString textInputBuffer = dstring::new_with_capacity(tmem, 256);
-    defer textInputBuffer.free();
-    CInt textMaxSize = 256;
-    // Text Input Box control, ask for text, supports secret
-    int interaction = rgui::textInputBox(misc::makeRect(textInputePos, textInputSize), "", "Console Input", buttons, textInputBuffer.zstr_view(), textMaxSize, null);
-    if(interaction == 1) {
-        io::printfn("Text input box OK button pressed.");
-    } else if(interaction == 2) {
-        io::printfn("Text input box Cancel button pressed.");
-    } else if(interaction == 0) {
-        io::printfn("Text input box closed.");
+    if(editor.con_input_showWindow)
+    {
+        Vec2f textInputePos = console_pos + misc::VEC_DOWN * console_size.y;
+        Vec2f textInputSize = {console_size.x, console_size.y};
+
+        ZString buttons = string::tformat_zstr("%s", "OK;Cancel");
+        CInt textMaxSize = 256;
+        DString textInputBuffer = dstring::new_with_capacity(tmem, textMaxSize);
+        defer textInputBuffer.free();
+        // Text Input Box control, ask for text, supports secret
+        int pressed = rgui::textInputBox(misc::makeRect(textInputePos, textInputSize), "", "Console Input", buttons, textInputBuffer.zstr_view(), textMaxSize, null);
+        if(pressed == rgui::BTN_OK) {
+            io::printfn("Text input box OK button pressed.");
+            io::printfn("Text input box text: %s", textInputBuffer.str_view());
+        } else if(pressed == rgui::BTN_CANCEL) {
+            io::printfn("Text input box Cancel button pressed.");
+        } else if(pressed == rgui::BTN_CLOSE) {
+            editor.con_input_showWindow = false;
+        }
     }
 }
 

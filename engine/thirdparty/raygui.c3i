@@ -38,6 +38,10 @@ const RAYGUI_VERSION = "4.0";
 const SCROLLBAR_LEFT_SIDE @builtin = 0;
 const SCROLLBAR_RIGHT_SIDE @builtin = 1;
 
+const BTN_CLOSE  = 0;
+const BTN_OK     = 1;
+const BTN_CANCEL = 2;
+
 // Style property
 // NOTE: Used when exporting style as code for convenience
 struct GuiStyleProp {
