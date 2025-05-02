@@ -53,7 +53,7 @@
 
 module engine::editor::ed;
 
-import std::io, std::ascii;
+import std::io, std::ascii, std::collections::list;
 import engine::misc;
 import engine::sys::cvar;
 import thirdparty::raylib5::rl;
@@ -102,6 +102,8 @@ const Color[*] EDITOR_BORDER_COLORS = {
     {0xFF, 0x00, 0xFF, 0xFF}, // 7 magenta
 };
 
+alias ConsoleHistory = List{String};
+
 struct EditorFlags @local
 {
     bool is_opened;
@@ -131,8 +133,10 @@ struct Editor {
     int input_dialog_open_count; // the number of input dialogs opened
 
     // shows or hides the console input window
-    bool con_input_showWindow;
+    ConsoleHistory con_history;
+    bool con_input_showWindow @if($defined(TextInputBox));
     char[CONSOLE_INPUT_MAX_LINE_LENGTH] con_input_buffer; // maximum length of the input line
+    String con_display_buffer; // the console display buffer, this is used to display the console input
     AutoComplete autoComplete; // auto complete struct for the console input
 }
 
@@ -168,6 +172,20 @@ fn void Editor.initDefaults(&self) @inline
     //         io::printfn("Raygui style file not found: %s", final_path.str_view());
     //      }
     // }
+}
+
+fn void Editor.deinit(&self) @inline
+{
+    self.screen_box_border_color = null;
+    
+    // free the editor console history
+    if (self.con_history.len() > 0) {
+        self.con_history.free();
+    }
+    // free the editor input buffer
+    if(self.con_input_buffer.len) mem::clear(&self.con_input_buffer, CONSOLE_INPUT_MAX_LINE_LENGTH);
+    // clear the auto complete buffer
+    self.autoCompleteClear();
 }
 
 fn void Editor.open(&self) @inline
@@ -467,6 +485,7 @@ fn void drawEditorMainToolBar(Rectangle area, Editor* editor)
     String btn3_type = Icon.REDO.str;
     @button(btn3_pos, btn_size, btn3_type, &redoButtonCallback){};
 
+$if $defined(TextInputBox):
     // open Console Button
     // TODO(HM): this should open the console window only, but for now it will open the console input box.
     Vec2f btn4_pos = btn3_pos + misc::VEC_RIGHT * btn_size.x * 1.5f;
@@ -475,8 +494,11 @@ fn void drawEditorMainToolBar(Rectangle area, Editor* editor)
         // open console window
         editor.con_input_showWindow = !editor.con_input_showWindow;
     };
+$endif
 }
 
+
+// #region editor console
 
 fn void drawEditorConsole(Rectangle area, Editor* editor)
 {
@@ -489,53 +511,146 @@ fn void drawEditorConsole(Rectangle area, Editor* editor)
         area.width - (lft_lip + rgt_lip),
         0.25f * area.height
     };
+    Vec2f input_area = {console_size.x, 0.15f * console_size.y};
+    Vec2f total_console_area = {console_size.x, console_size.y + input_area.y};
 
-    Vec2f console_pos = anchor + lft_lip + misc::VEC_DOWN * area.height;
-    console_pos.y -= (console_size.y + buttom_lip);
+    Vec2f console_pos = anchor + misc::VEC_RIGHT * lft_lip + misc::VEC_DOWN * (area.height - total_console_area.y - buttom_lip);
+    //console_pos.y -= (console_size.y + buttom_lip);
 
     //int prevTextBoxStyle = rgui::getStyle(TEXTBOX, rgui::TEXT_READONLY);
     //rgui::setStyle(TEXTBOX, rgui::TEXT_READONLY, 1);
-    rgui::textBox(misc::makeRect(console_pos, console_size), "Console", CONSOLE_FONT_SIZE, false);
+
+    //rgui::textBox(misc::makeRect(console_pos, console_size), &editor.con_display_buffer, CONSOLE_FONT_SIZE, false);
+    ZString console_hist_text; //= editor.con_history.first().zstr_tcopy();
+    if(editor.con_history.len() > 0) 
+    {
+        if(editor.con_history.len() > 1) {
+            foreach(str : editor.con_history)
+            {
+                if(console_hist_text == "") {
+                    console_hist_text = string::tformat_zstr("%s\n", str.zstr_tcopy());
+                } else {
+                    console_hist_text = string::tformat_zstr("%s%s\n", console_hist_text, str.zstr_tcopy());
+                }
+            }
+        } else {
+            console_hist_text = editor.con_history.first()!!.zstr_tcopy();
+        }
+        //console_hist_text = editor.con_history.last()!!.zstr_tcopy();
+    } else {
+        console_hist_text = "Console is empty.";
+    }
+    rgui::textBox(misc::makeRect(console_pos, console_size), console_hist_text, MAX_EDIT_LINE, false);
+
+    //rgui::dummyRec(misc::makeRect(console_pos, console_size), "Console");
     //rgui::setStyle(TEXTBOX, rgui::TEXT_READONLY, prevTextBoxStyle);
 
+     // draw the console input box
+    //misc::drawDebugPoint(console_pos, rl::RED);
+    //misc::drawDebugLine(console_pos, console_pos + misc::VEC_DOWN * console_size.y, rl::RED);
+    Vec2f inputeBoxPos = console_pos + misc::VEC_DOWN * (console_size.y + input_area.y - buttom_lip);
+    //misc::drawDebugPoint(inputeBoxPos, rl::GREEN);
+
+$if $defined(TextInputBox):
     if(editor.con_input_showWindow && editor.input_dialog_open_count <= 1)
     {
         editor.input_dialog_open_count = 1;
-        Vec2f textInputePos = console_pos + misc::VEC_DOWN * console_size.y;
-        Vec2f textInputSize = {console_size.x, console_size.y};
+       
 
+        input_area = {console_size.x, console_size.y};
         const BTN_CLOSE = 0;
         const BTN_OK    = 1;
         const BTN_CLEAR = 2;
         ZString buttons = string::tformat_zstr("%s", "OK;Clear");
         // Text Input Box control, ask for text, supports secret
-        int pressed = rgui::textInputBox(misc::makeRect(textInputePos, textInputSize), "", "Console Input", buttons, (ZString)&editor.con_input_buffer[0], CONSOLE_INPUT_MAX_LINE_LENGTH, null);
+        int pressed = rgui::textInputBox(misc::makeRect(inputeBoxPos, input_area), "", "Console Input", buttons, (ZString)&editor.con_input_buffer[0], CONSOLE_INPUT_MAX_LINE_LENGTH, null);
         if(pressed == BTN_OK) {
-            io::printfn("Text input box OK button pressed. : %s", pressed);
-            String input_text = ((ZString)&editor.con_input_buffer[0]).str_view();
-            parse_console_input(input_text);
-            mem::clear(&editor.con_input_buffer, CONSOLE_INPUT_MAX_LINE_LENGTH);
+            parse_console_input(editor);
         } else if(pressed == BTN_CLEAR) {
-            mem::clear(&editor.con_input_buffer, CONSOLE_INPUT_MAX_LINE_LENGTH);
-            io::printfn("Text input box CLEAR button pressed: %s", pressed);
+            clearConsoleInputBuffer(editor);
         } else if(pressed == BTN_CLOSE) {
-            mem::clear(&editor.con_input_buffer, CONSOLE_INPUT_MAX_LINE_LENGTH);
-            editor.con_input_showWindow = false;
-            editor.input_dialog_open_count = 0;
-            io::printfn("Text input box Close button pressed: %s", pressed);
+            exitConsoleInput(editor);
         } else if(pressed != -1) {
             io::printfn("button pressed was value: %s", pressed);
         }
+      
+    }
+$else
+    bool enter_pressed = rgui::textBox(misc::makeRect(inputeBoxPos, input_area), (ZString)&editor.con_input_buffer[0], CONSOLE_FONT_SIZE, true);
+    if(enter_pressed) {
+        parse_console_input(editor);
+    }
+$endif
+}
+
+fn void clearConsole(Editor* editor) @inline
+{
+    if(editor.con_history.len() > 0) {
+        editor.con_history.clear();
     }
 }
 
-fn void parse_console_input(String input_text)
+fn void eatConsoleInput(Editor* editor) @inline
 {
-    // TODO(HM): Implement the console input parser.
-    // This function should parse the console input and execute the command.
-    // For now it will just print the input text to the console.
-    io::printfn("Console input: %s", input_text);
+    if(editor.con_input_buffer[0] != 0) {
+        mem::clear(&editor.con_input_buffer, CONSOLE_INPUT_MAX_LINE_LENGTH);
+    }
 }
+
+
+fn void exitConsoleInput(Editor* editor) @inline @if($defined(TextInputBox))
+{
+    mem::clear(&editor.con_input_buffer, CONSOLE_INPUT_MAX_LINE_LENGTH);
+    editor.con_input_showWindow = false; 
+    editor.input_dialog_open_count = 0;
+}
+
+fn void addToConsoleHistory(Editor* editor, String input_text) @inline
+{
+    float console_size_y = 0.25f * editor.main_window.height;
+    int max_lines = (int)console_size_y / CONSOLE_FONT_SIZE;
+    if (editor.con_history.len() >= max_lines) {
+        editor.con_history.pop()!!;
+    }
+    editor.con_history.push(input_text);
+}
+
+fn void parse_console_input(Editor* editor) @inline
+{
+    String input_text = ((ZString)&editor.con_input_buffer[0]).str_view();
+
+    // TODO(HM): Implement a better console input parser.
+    // This function should parse the console input and execute the command.
+    io::printfn("Console input: %s", input_text);
+    switch(input_text) 
+    {
+//$if $defined(TextInputBox):
+//        case "exit":
+//            exitConsoleInput(editor);
+//$else
+        case "exit":
+            nextcase "quit";
+//$endif
+        case "quit":
+$if $defined(TextInputBox):
+            exitConsoleInput(editor);
+$endif
+            editor.close();
+        case "clear":
+            // todo(HM): ability to clear the console input buffer using key combination
+            clearConsole(editor);
+        default:
+            io::printfn("Unknown command: %s", input_text);
+    }
+
+    if(input_text != "") {
+        if(input_text != "clear") addToConsoleHistory(editor, input_text.copy(mem));
+        eatConsoleInput(editor);
+        //mem::clear(&editor.con_input_buffer, CONSOLE_INPUT_MAX_LINE_LENGTH);
+    }
+}
+
+// #endregion editor console
 
 fn void drawOpenEditorBorder(Editor* editor) @inline
 {

@@ -175,6 +175,19 @@ fn bool debugLineIsValid(DebugLine* line) {
 }
 // end_region Debug Lines
 
+// some debug functions
+fn void drawDebugPoint(Vec2f pos, Color color) @inline {
+    rl::drawCircleV(pos.toVector2(), 3.0f, color);
+}
+
+fn void drawDebugLine(Vec2f start, Vec2f end, Color color) @inline {
+    rl::drawLineV(start.toVector2(), end.toVector2(), color);
+}
+
+fn void drawDebugBox(Vec2f pos, Vec2f size, Color color) @inline {
+    rl::drawRectangleV(pos.toVector2(), size.toVector2(), color);
+}
+
 // region MATH misc
 macro float square(float x) {
     return x * x;

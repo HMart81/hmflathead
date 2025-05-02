@@ -691,6 +691,7 @@ fn void Game.unload(&self) {
     }
     self.view.deinit();
     self.boidManager1.release();
+    self.editor.deinit();
 }
 
 // #region System OS Cursor
