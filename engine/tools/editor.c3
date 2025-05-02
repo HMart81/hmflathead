@@ -89,6 +89,19 @@ enum EditorOpen @local
     SCRIPT_EDITOR,
 }
 
+// Editor border colors for the editor window.
+// This is used to set the screen box border color of the current open editor window.
+const Color[*] EDITOR_BORDER_COLORS = {
+    {0xFF, 0xFF, 0xFF, 0xFF}, // 0 white
+    {0x00, 0x00, 0x00, 0xFF}, // 1 black
+    {0xFF, 0x00, 0x00, 0xFF}, // 2 red
+    {0x00, 0xFF, 0x00, 0xFF}, // 3 green
+    {0x00, 0x00, 0xFF, 0xFF}, // 4 blue
+    {0xFF, 0xFF, 0x00, 0xFF}, // 5 yellow
+    {0x00, 0xFF, 0xFF, 0xFF}, // 6 cyan
+    {0xFF, 0x00, 0xFF, 0xFF}, // 7 magenta
+};
+
 struct EditorFlags @local
 {
     bool is_opened;
@@ -113,6 +126,8 @@ struct Editor {
     GuiState gui_state;
 
     EditorOpen editor_opened; // the editor type that is currently opened
+    EditorOpen editor_opened_prev; // the editor type that was previously opened
+    Color* screen_box_border_color; // the color of the screen box border of the current open editor window
     int input_dialog_open_count; // the number of input dialogs opened
 
     // shows or hides the console input window
@@ -416,6 +431,8 @@ fn void Editor.draw(&self, int screenWidth, int screenHeight)
        drawEditorMainToolBar(self.main_window, self);
        // draw the main editor console
        drawEditorConsole(self.main_window, self);
+
+       drawOpenEditorBorder(self);
     }
 }
 
@@ -518,6 +535,38 @@ fn void parse_console_input(String input_text)
     // This function should parse the console input and execute the command.
     // For now it will just print the input text to the console.
     io::printfn("Console input: %s", input_text);
+}
+
+fn void drawOpenEditorBorder(Editor* editor) @inline
+{
+    switch(editor.editor_opened) {
+        case EditorOpen.MAIN_EDITOR:
+            editor.screen_box_border_color = &EDITOR_BORDER_COLORS[0]; // white
+            break;
+        case EditorOpen.MATERIAL_EDITOR:
+            editor.screen_box_border_color = &EDITOR_BORDER_COLORS[3]; // green
+            break;
+        case EditorOpen.GUI_EDITOR:
+            editor.screen_box_border_color = &EDITOR_BORDER_COLORS[5]; // yellow
+            break;
+        case EditorOpen.SCENE_EDITOR:
+            editor.screen_box_border_color = &EDITOR_BORDER_COLORS[4]; // blue
+            break;
+        case EditorOpen.ANIMATION_EDITOR:
+            editor.screen_box_border_color = &EDITOR_BORDER_COLORS[2]; // red
+            break;
+        case EditorOpen.SOUND_EDITOR:
+            editor.screen_box_border_color = &EDITOR_BORDER_COLORS[6]; // cyan
+            break;
+        case EditorOpen.SCRIPT_EDITOR:
+            editor.screen_box_border_color = &EDITOR_BORDER_COLORS[7]; // magenta
+            break;
+    }
+
+    int w, h;
+    w = (int)main::gpGame.screen.w;
+    h = (int)main::gpGame.screen.h;
+    rl::drawRectangleLinesEx({0, 0, w, h}, 2.0f, *editor.screen_box_border_color);
 }
 
 // #region DRAWING HELPERS

@@ -347,7 +347,8 @@ struct Widget (WidgetInterface)
     WidgetFlags flags;
     
 
-    Widget* next;
+    Widget* next; // for linked widgets
+    // for binding widgets
     struct parent {
         Desktop* desktop;
         Widget* other;
@@ -357,6 +358,7 @@ struct Widget (WidgetInterface)
     WidgetCallback onOver;
     WidgetCallback onStopOver;
     WidgetCallback onPress;
+    WidgetCallback onPressed;
     WidgetCallback onSinglePress;
     WidgetCallback onDoublePress;
     WidgetCallback onRelease;
@@ -371,14 +373,21 @@ fn void Widget.init(&self) @dynamic {
 }
 
 fn void Widget.deinit(&self) @dynamic{
-    self.super.deinit();
     self.unlink();
     self.unbind();
     self.parent.desktop = null;
+    self.super.deinit();
 }
 
 fn void Widget.editor_interactions(&self) @local
 {
+    // cannot select widgets that are not visible
+    // todo(HM) make a force visible flag for edit mode?
+    if (self.hidden()) return;
+    // when in gui edit mode, we can select widgets with the mouse
+    // and they should all be set to not interactive, as that is part of
+    // the gui logic and the editor doesn't care what widget is interactive
+    // or not, no matter their state all should be selectable.
     if (self.isInteractive()) return;
     
     if (self.asFocus())
@@ -390,7 +399,7 @@ fn void Widget.editor_interactions(&self) @local
 }
 
 fn void Widget.update(&self) @dynamic {
-    if(self.hidden()) return;
+    if(self.hidden() && !editor_enabled()) return;
 
     if (self.isMouseOver()) {
         self.flags.asFocus = true;
@@ -1431,7 +1440,9 @@ fn void DesktopManager.editor(&self, bool choice = false) {
     self.mode = (choice) ? EDITOR : NORMAL;
 }
 
-// region GUI EDITOR ****************************
+// *****************************************************************************
+// NOTE(HM) TODO(HM) move this to a better place, like a gui editor file
+// #region ***************************** GUI EDITOR ****************************
 
 const GUIE_MAJOR    = 0;
 const GUIE_MINOR    = 1;
