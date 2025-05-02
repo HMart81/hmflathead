@@ -1372,7 +1372,7 @@ fn void handle_cmdline(String[] args)
     
     String cmd_arg;
     
-    lgr::info(Where.FILE, "handling cmd line args: %s", args);
+    lgr::info(Where.FILE, "Handling cmd line args: %s\n", args);
     
     foreach(arg_index, arg : args)
     {
@@ -1556,6 +1556,9 @@ fn void handle_cmdline(String[] args)
 fn void? gameOnStart(String[]* args) @local 
 {
     local_game.mode = STARTING;
+    String game_version = string::tformat("\"%s.%s.%s\"", MAX_VERSION, MIN_VERSION, BABY_VERSION);
+    lgr::info(Where.FILE, "Game Version: %s\n", game_version);
+    lgr::info(Where.FILE, "-------- THE <toname> ENGINE LOG ------------");
     
     // Handle cmdline arguments if any.
     handle_cmdline(*args);
@@ -1565,12 +1568,15 @@ fn void? gameOnStart(String[]* args) @local
     register_modulo_cvars();
 
     // ******* Main Game Start *******
+
     lgr::info(Where.FILE, "Initializing game:");
+    lgr::info(Where.FILE, "---------------------------------------------");
     
     // TODO load the user.ini at this time?
     
 // #region Paths/Folders Setup
-
+    lgr::info(Where.FILE, "Registering game paths:");
+    lgr::info(Where.FILE, "---------------------------------------------");
     String app_exe_path = (*args)[0];
     
     // Set the game name
@@ -1593,7 +1599,7 @@ fn void? gameOnStart(String[]* args) @local
     local_game.app_default_workdir = fs::getWorkingDirectory().tconcat("\\");
     if(fs::directoryExists(local_game.app_default_workdir)) 
     {
-        lgr::info(Where.FILE, "Working from default Dir: %s", local_game.app_default_workdir);
+        lgr::info(Where.FILE, "\tWorking from default Dir: %s", local_game.app_default_workdir);
     } else { 
         return INVALID_WORK_DIR?; // will this ever happen?
     }
@@ -1644,7 +1650,7 @@ fn void? gameOnStart(String[]* args) @local
     {
         if(local_game.app_work_dir != local_game.app_default_workdir) 
         {
-            lgr::info(Where.FILE,  "Working now from Dir: %s", local_game.app_work_dir);
+            lgr::info(Where.FILE,  "\tWorking now from Dir: %s", local_game.app_work_dir);
         }
     } else {
         return INVALID_WORK_DIR?;
@@ -1653,7 +1659,7 @@ fn void? gameOnStart(String[]* args) @local
     // make sure required base folder exists
     if(fs::directoryExists(local_game.app_base_folder)) 
     {
-        lgr::info(Where.FILE,  "Base Dir set to: %s", local_game.app_base_folder);
+        lgr::info(Where.FILE,  "\tBase Dir set to: %s", local_game.app_base_folder);
     } else {
         if(local_game.mod_set) 
         {
@@ -1681,7 +1687,7 @@ fn void? gameOnStart(String[]* args) @local
         local_game.app_save_folder = local_game.app_save_folder.tconcat("\\").tconcat(local_game.app_name);
         if(fs::directoryExists(local_game.app_save_folder)) 
         {
-            lgr::info(Where.FILE, "User Save folder set to: %s", local_game.app_save_folder);
+            lgr::info(Where.FILE, "\tUser Save folder set to: %s", local_game.app_save_folder);
         } else { // create it
             //Path? save_path = path::temp_new(save_folder)!;
             //bool? sucess    = path::mkdir(save_path);
@@ -1694,6 +1700,8 @@ fn void? gameOnStart(String[]* args) @local
             }
         }
     }
+
+    lgr::info(Where.FILE, "---------------------------------------------\n");
 // #endregion
 
 
@@ -1715,6 +1723,8 @@ fn void? gameOnStart(String[]* args) @local
     // Print engine version in the console
 
 // #region Ini file handling
+    lgr::info(Where.FILE, "Loading settings file:");
+    lgr::info(Where.FILE, "---------------------------------------------");
     String ini_file_path = local_game.app_base_folder.tconcat(INI_SETTINGS_FILE_NAME);
     bool settings_file_missing = fs::fileExists(ini_file_path) == false;
     if (settings_file_missing) // create it with default settings
@@ -1722,7 +1732,7 @@ fn void? gameOnStart(String[]* args) @local
         File data = file::open(ini_file_path, "w")!;
         @catch(data.write(SAFE_SETTINGS));
         data.close()!;
-        lgr::info(Where.FILE, "Creating default settings file: %s", ini_file_path);
+        lgr::warning(Where.FILE, "Settings file missing, creating one with default settings at: %s", ini_file_path);
     }
     
     ini::FileData*? settings_file = ini::load(ini_file_path, false); //ini::load(SETTINGS_FILE_NAME);
@@ -1731,11 +1741,14 @@ fn void? gameOnStart(String[]* args) @local
         return excuse?;
     }
     defer if(settings_file) ini::unload(settings_file);
+
+    lgr::info(Where.FILE, "Settings file loaded: %s", ini_file_path);
+    lgr::info(Where.FILE, "---------------------------------------------\n");
 // #endregion Ini file handling
 
     // log the amount of screen resolutions and their Mode
     lgr::info(Where.FILE, "Total video modes : %d", SCREEN_RES.len);
-    lgr::info(Where.FILE, "Enumerate rendering video modes:");
+    lgr::info(Where.FILE, "Enumerating rendering video modes:");
     foreach(res: SCREEN_RES) {
         lgr::info(Where.FILE, "\t%s", res.str);
     }
@@ -1782,12 +1795,16 @@ fn void? gameOnStart(String[]* args) @local
     local_game.screen.w = SCREEN_RES[res_index].w;
     local_game.screen.h = SCREEN_RES[res_index].h;
     lgr::info(Where.FILE,  "Video mode set -> %s", SCREEN_RES[res_index].str);
-    
+
+    lgr::info(Where.FILE, "---------------------------------------------\n");
+    lgr::info(Where.FILE, "Window settings:");
+    lgr::info(Where.FILE, "---------------------------------------------");
     // Vertical sync (may or may not apply...)
     if(try settings_file.getBoolValue("vsync")) 
     {
         window_flags |= (int)rl::FLAG_VSYNC_HINT;
         local_game.screen.vsync_hint = true;
+        lgr::info(Where.FILE, "VSync enabled.");
     }
     
     // NOTE(HM) cvar r_fullscreen has top priority
@@ -1819,6 +1836,7 @@ fn void? gameOnStart(String[]* args) @local
             lgr::info(Where.FILE,  "Game window set to Borderless fullscreen mode.");
         default: // fullscreen_choice = -1 or = 0
             local_game.screen.state.window = true;
+            lgr::info(Where.FILE,  "Game window set to Windowed mode.");
     }
     
     // DOC(HM) MSAA anti-alising (ONLY 0 or 4x is supported by Raylib, there's no inbetween)
@@ -1843,8 +1861,11 @@ fn void? gameOnStart(String[]* args) @local
             // local_game.screen.state.resizable = true;
         // }
     // }
+lgr::info(Where.FILE, "---------------------------------------------\n");
 
 // #region Window initialization
+    lgr::info(Where.FILE, "Initializing window:");
+    lgr::info(Where.FILE, "---------------------------------------------");
     // set/apply the final window flags
     rl::setConfigFlags((ConfigFlag)window_flags);
     
@@ -1861,20 +1882,25 @@ fn void? gameOnStart(String[]* args) @local
     {
         lgr::fatal(Where.FILE, "Failed to init rl window and OpenGL context!");
         return WINDOW_INIT_FAILED?;
+    } else {
+        lgr::info(Where.FILE, "Window initialized successfully.");
     }
     
     // NOTE(HM) Gameplay timing, is always counted since initWindow above;
     local_game.time_sec = (float)rl::getTime();
     local_game.time_ms  = misc::sec2ms(local_game.time_sec);
-    
+    lgr::info(Where.FILE, "---------------------------------------------\n");
+
 // #region MONITOR STATES
+    lgr::info(Where.FILE, "Setting up monitor states:");
+    lgr::info(Where.FILE, "---------------------------------------------");
     // See how many monitors user has and change the window placement if necessary.
     // WARNING(HM) This is not guarantied to work for all multi-monitor setups, 
     // it seems that even glfw, that rl uses internally, fails to set the correct monitor on some setups :(
     int monitor_count = rl::getMonitorCount();
     if(monitor_count >= 2) // is multi-monitor setup
     {
-        lgr::info(Where.FILE, "Multi-Monitor setup found:");
+        lgr::info(Where.FILE, "\tMulti-Monitor setup found:");
         bool chose_screen_pos_by_mouse = true; // @Hardcode
         if(chose_screen_pos_by_mouse)
         {
@@ -1918,7 +1944,7 @@ fn void? gameOnStart(String[]* args) @local
         }
     }
     
-    lgr::info(Where.FILE,  "Window put on monitor id: '%d'", local_game.screen.id);
+    lgr::info(Where.FILE,  "\tWindow put on monitor id: '%d'", local_game.screen.id);
     
     // @Todo 
     // support unlocked framerates? 
@@ -1927,18 +1953,22 @@ fn void? gameOnStart(String[]* args) @local
     if(rl::isWindowFullscreen() && rl::isWindowFocused()) 
     {
         local_game.screen.displayHz = rl::getMonitorRefreshRate(local_game.screen.index);
-        lgr::info(Where.FILE,  "Game set to %shz update rate.", local_game.screen.displayHz);
+        lgr::info(Where.FILE,  "\tGame set to %shz update rate.", local_game.screen.displayHz);
     } else {
         local_game.screen.displayHz = 15;
-        lgr::info(Where.FILE,  "Game set to %shz update rate because lost focus.", local_game.screen.displayHz);
+        lgr::info(Where.FILE,  "\tGame set to %shz update rate because lost focus.", local_game.screen.displayHz);
     }
     rl::setTargetFPS(local_game.screen.displayHz);
 
+    lgr::info(Where.FILE, "---------------------------------------------\n");
 // #endregion MONITOR STATES
     
+    lgr::info(Where.FILE, "Setting up game view:");
+    lgr::info(Where.FILE, "---------------------------------------------");
     // setup/init game view (for now is a static view)
     local_game.view.init(screenWidth, screenHeight);
-    
+    lgr::info(Where.FILE, "---------------------------------------------\n");
+
 $if $feature(_DEBUG):
     // TODO(HM) On release version quit should only be done from main menu (or alt+f4...).
     // NOTE(HM) This needs to run after initWindow,
@@ -1949,9 +1979,11 @@ $endif
 // #endregion Window initialization
 
 // #region physics engine
+    lgr::info(Where.FILE, "Starting Box2D physics engine:");
+    lgr::info(Where.FILE, "---------------------------------------------");
     // TODO(HM) refactor this into a physics engine module that wraps box2d? 
     B2Version version      = box2d::getVersion();
-    lgr::info(Where.FILE, "Starting Box2D physics engine v: %d.%d.%d", version.major, version.minor, version.revision);
+    lgr::info(Where.FILE, "\tBox2D version: \"%d.%d.%d\"", version.major, version.minor, version.revision);
     
     // NOTE(HM) This needs to be done before any box2d function requiring units is used!!!
 	box2d::setLengthUnitsPerMeter(DEFAULT_PIXELS_PER_METER);
@@ -1970,7 +2002,7 @@ $endif
     //
 	local_game.physWorldId = box2d::createWorld(&physWorld);
     if(box2d::world_IsValid(local_game.physWorldId)) {
-        lgr::info(Where.FILE, "Box2D Started.");
+        lgr::info(Where.FILE, "\tBox2D Started.");
     } else {
         lgr::error(Where.FILE, "Failed to start Box2D physics engine! Halting game initialization.");
         unreachable();
@@ -1988,25 +2020,35 @@ $endif
     box2d::createPolygonShape(local_game.phys_grd_bodyid, &grd_shpdef, &local_game.phys_grd_box);
     
     box2d::initDebugDraw(&local_game.phys_debug, &local_game.view);
+
+    lgr::info(Where.FILE, "---------------------------------------------\n");
 // #endregion physics engine
     
 // #region AUDIO DEVICE initialization
+    lgr::info(Where.FILE, "Initializing Audio Device:");
+    lgr::info(Where.FILE, "---------------------------------------------");
+
     rl::initAudioDevice();
     
-    if(rl::isAudioDeviceReady()) {
+    if(rl::isAudioDeviceReady()) 
+    {
         if(rl::getMasterVolume() < 1.0f) {
             rl::setMasterVolume(1.0f);
-            lgr::info(Where.FILE, "Audio Master Volume set to = %s", 1.0f);
+            lgr::info(Where.FILE, "\tAudio Master Volume set to = %s", 1.0f);
+        } else {
+            lgr::info(Where.FILE, "\tAudio Master Volume is = %s", rl::getMasterVolume());
         }
     } else {
         lgr::warning(Where.FILE, "AudioDevice: Not ready, sound will be disabled! %s:%s", $$MODULE, $$FUNC );
     }
+
+    lgr::info(Where.FILE, "---------------------------------------------\n");
 // #endregion AUDIO DEVICE initialization
 
     
 // #region Asset manager
-    lgr::info(Where.FILE,  "** Starting Assets Loading **");
-    
+    lgr::info(Where.FILE, "Loading game assets:");
+    lgr::info(Where.FILE, "---------------------------------------------");
     // first load default assets
     @catch(local_game.loadDefaultAssets());
     //
@@ -2026,12 +2068,16 @@ $endif
     local_game.initFonts();
     //
         
-    lgr::info(Where.FILE,  "** done **.");
+    lgr::info(Where.FILE,  "** done **");
+    lgr::info(Where.FILE, "---------------------------------------------\n");
 // #endregion Asset manager
 
+    lgr::info(Where.FILE, "Initializing game editor:");
+    lgr::info(Where.FILE, "---------------------------------------------");
     // init the game editor defaults
     local_game.editor.initDefaults();
-    
+    lgr::info(Where.FILE, "---------------------------------------------\n");
+
     // init intro stuff here
     // Todo(HM) create real pre loading logo videos?
     //
