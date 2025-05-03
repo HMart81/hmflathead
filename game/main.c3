@@ -51,7 +51,7 @@ import game::assets::part; // particles
 //import game::assets::mtr; // materials
 import game::serialize::svs; // save system
 import game::logic::timer;
-import engine::editor::ed; // editor (WIP)
+import engine::tools::editor;
 import engine::logging::lgr;
 import game::actors::ent::pl;  // player module
 import engine::misc; // misc code
@@ -271,6 +271,7 @@ fn void register_modulo_cvars() @local {
     lgr::register_cvars();
     ent::register_cvars();
     bounds::register_cvars();
+    editor::register_cvars();
 }
 
 // #endregion Cvars

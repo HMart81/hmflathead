@@ -51,7 +51,7 @@
 */
 
 
-module engine::editor::ed;
+module engine::tools::editor;
 
 import std::io, std::ascii, std::collections::list;
 import engine::misc;
@@ -62,7 +62,14 @@ import game::main;
 
 const CInt CONSOLE_FONT_SIZE @local = 12;
 const CInt CONSOLE_MAX_LINES @local = 1000;
-const CInt CONSOLE_INPUT_MAX_LINE_LENGTH @local = 256;
+const CInt CONSOLE_INPUT_MAX_LINE_LENGTH @local = 1024;
+
+Cvar con_debug @public = { "con_debug", CvarType.BOOLEAN, "0", "enables console debugging mode"};
+
+fn void register_cvars() @inline
+{
+    cvar::@register(&con_debug);
+}
 
 const MAX_EDIT_LINE @local = CONSOLE_INPUT_MAX_LINE_LENGTH;
 struct AutoComplete @local
@@ -522,23 +529,27 @@ fn void drawEditorConsole(Rectangle area, Editor* editor)
 
     //rgui::textBox(misc::makeRect(console_pos, console_size), &editor.con_display_buffer, CONSOLE_FONT_SIZE, false);
     ZString console_hist_text; //= editor.con_history.first().zstr_tcopy();
-    if(editor.con_history.len() > 0) 
+    if(editor.con_history.len() > 0)
     {
-        if(editor.con_history.len() > 1) {
+        if(editor.con_history.len() > 1)
+        {
+            String previous;
             foreach(str : editor.con_history)
             {
-                if(console_hist_text == "") {
-                    console_hist_text = string::tformat_zstr("%s\n", str.zstr_tcopy());
+                if(previous != "") {
+                    console_hist_text = string::tformat_zstr("%s%s\n", previous, str.zstr_tcopy());
                 } else {
-                    console_hist_text = string::tformat_zstr("%s%s\n", console_hist_text, str.zstr_tcopy());
+                    console_hist_text = string::tformat_zstr("%s\n", str.zstr_tcopy());
                 }
+                previous = console_hist_text.str_view();
             }
         } else {
-            console_hist_text = editor.con_history.first()!!.zstr_tcopy();
+            if(try line = editor.con_history.first()) {
+                console_hist_text = line.zstr_tcopy();
+            }
         }
-        //console_hist_text = editor.con_history.last()!!.zstr_tcopy();
     } else {
-        console_hist_text = "Console is empty.";
+        console_hist_text = "";
     }
     rgui::textBox(misc::makeRect(console_pos, console_size), console_hist_text, MAX_EDIT_LINE, false);
 
@@ -605,7 +616,7 @@ fn void exitConsoleInput(Editor* editor) @inline @if($defined(TextInputBox))
     editor.input_dialog_open_count = 0;
 }
 
-fn void addToConsoleHistory(Editor* editor, String input_text) @inline
+fn void addToConsoleHistory(Editor* editor, String input_text) //@inline
 {
     float console_size_y = 0.25f * editor.main_window.height;
     int max_lines = (int)console_size_y / CONSOLE_FONT_SIZE;
@@ -613,6 +624,12 @@ fn void addToConsoleHistory(Editor* editor, String input_text) @inline
         editor.con_history.pop()!!;
     }
     editor.con_history.push(input_text);
+}
+
+macro void con_printfn(String fmt, ...) @public @builtin {
+	DString str = dstring::temp_with_capacity(fmt.len + $vacount * 8);
+	str.appendf(fmt, $vasplat);
+	main::gpGame.editor.con_history.push(str.str_view().copy(mem));
 }
 
 fn void parse_console_input(Editor* editor) @inline
@@ -639,6 +656,8 @@ $endif
         case "clear":
             // todo(HM): ability to clear the console input buffer using key combination
             clearConsole(editor);
+        case "help":
+            con_printfn("Console help: \n - exit/quit: exits the editor \n - clear: clears the console history \n - help: shows this help message \n - debug: enables console debug mode \n - debug off: disables console debug mode \n - debug info: shows debug info");
         default:
             io::printfn("Unknown command: %s", input_text);
     }
