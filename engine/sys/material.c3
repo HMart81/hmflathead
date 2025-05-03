@@ -368,8 +368,8 @@ fn bool MTRFile.parse(&self, File file)
     // now parse each material node
     foreach (node : doc.rootNode.children)
     {
-       if(node == null || node.isNode(Node.INVALID)) continue;
-       if(node.isNode(Node.MATERIAL)) {
+       if(node == null || isXmlNode(node, Node.INVALID)) continue;
+       if(isXmlNode(node, Node.MATERIAL)) {
             HMaterial* mat = parse_material_node(node, self);
             if(mat) self.register(mat);
        } else {
@@ -438,27 +438,27 @@ fn HMaterial* parse_material_node(XmlNode* mat_node, MTRFile* file)
     foreach (node : mat_node.children)
     {
        // just in case...
-       if(node == null || node.isNode(Node.INVALID)) continue;
+       if(node == null || isXmlNode(node, Node.INVALID)) continue;
        //
 
-       if(node.isNode(Node.COMMENT))
+       if(isXmlNode(node, Node.COMMENT))
        {
             parse_material_comment(node, mat);
        }
 
-       if(node.isNode(Node.ARGS))
+       if(isXmlNode(node, Node.ARGS))
        {
             parse_node_atributes(node, mat);
        }
        
-       if(node.isNode(Node.MAPS))
+       if(isXmlNode(node, Node.MAPS))
        {
             parse_material_maps(node, mat);
        }
 
        // TODO(HM) Parse the video_map node...
        
-       if(node.isNode(Node.SOUND))
+       if(isXmlNode(node, Node.SOUND))
        {
             parse_material_sound(node, mat);
        }
@@ -494,7 +494,7 @@ fn void parse_material_maps(XmlNode* maps_node, HMaterial* mat)
 {
     foreach(node: maps_node.children)
     {
-        if(node.isNode(Node.INVALID)) continue;
+        if(isXmlNode(node, Node.INVALID)) continue;
         
         switch(node.name)
         {
@@ -503,7 +503,7 @@ fn void parse_material_maps(XmlNode* maps_node, HMaterial* mat)
                 {
                     if(child == null) continue;
 
-                    if(child.isNode(Node.MAP))
+                    if(isXmlNode(child, Node.MAP))
                     {
                         String texture_path = main::gpGame.app_base_folder.tconcat(getNodeText(child));
                         if(texture_path.extractFileBaseByCopy() == "default.png")
@@ -517,13 +517,13 @@ fn void parse_material_maps(XmlNode* maps_node, HMaterial* mat)
                         }
                     }
 
-                    if(child.isNode(Node.COLOR))
+                    if(isXmlNode(child, Node.COLOR))
                     {
                         // TODO(HM) handle bad color definitions...
                         mat.diffuse.color = xmlStrColorToColor(getNodeText(child));
                     }
 
-                    if(child.isNode(Node.ARGS)) 
+                    if(isXmlNode(child, Node.ARGS)) 
                     {
                         if(child.asAttributes()) 
                         {
@@ -650,11 +650,16 @@ fn void handle_material_map_args(MatMap* map, XmlNode* node, HMaterial* mat)
 
 // region private
 
+// TODO(HM) change this to the function bellow and do not make it a menber of XmlNode,
+// this because Node is really unique to this file and to the material xml file
+// and so is not generic, using it as a menber prevents me from using xmlnode.isNode() with other
+// xml based files with diferent types of nodes.
+// fn isNode(XmlNode* node, Node kind)
 <*
     @param [in] node : "node to compare the name"
     @require node != null
 *>
-fn bool XmlNode.isNode(XmlNode* node, Node kind) @inline @local => (node.name == kind.str) ? true : false;
+fn bool isXmlNode(XmlNode* node, Node kind) @inline @local => (node.name == kind.str) ? true : false;
 
 <*
     @param [in] node : "node to get text from"
