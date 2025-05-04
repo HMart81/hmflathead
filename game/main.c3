@@ -2074,7 +2074,8 @@ $endif
     svg::SVGData svgfile;
     svgfile.path = local_game.app_base_folder.tconcat("levels/test.svg").copy(mem);
     svgfile.load(fs::openFile(svgfile.path)!)!;
-    svgfile.print();
+    //svgfile.printTofile(local_game.app_base_folder.tconcat("levels/test.txt"));
+    //svgfile.print();
         
     lgr::info(Where.FILE,  "** done **");
     lgr::info(Where.FILE, "---------------------------------------------\n");

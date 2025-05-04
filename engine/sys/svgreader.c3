@@ -30,6 +30,7 @@ module engine::sys::reader::svg;
 
 import std::io, std::collections::list;
 import thirdparty::library::xml;
+import engine::filesystem::fs;
 import engine::logging::lgr;
 import game::main;
 
@@ -130,10 +131,11 @@ enum ElemType : int (inline String name)
 
 alias AttrData = StringTuple;
 alias ListOfAttributes = List{AttrData*};
+//alias ListOfAttributes = List{Attribute*};
 
 // NOTE(HM) acording to Zeal Doc there's 239 attributes so this is mostly incomplete
 // NOTE(HM) Using still some necessary deprecated attributes
-enum AttrType : int (inline String name)
+enum AttrID : int (inline String name)
 {
     INVALID             = "",     // not really a real svg attribute just used to mark invalid ones
     WIDTH               = "width",
@@ -159,6 +161,31 @@ enum AttrType : int (inline String name)
     CLIPPATH            = "clip-path",
 }
 
+/*
+enum AttrType
+{
+    INT,
+    FLOAT,
+    STRING
+}
+
+struct AttrData 
+{
+    union {
+        int i;
+        float f;
+    }
+    String s;
+}
+
+struct Attribute 
+{
+    AttrID id;
+    AttrType type;
+    AttrData data;
+}
+*/
+
 alias ListOfElements = List{Element*};
 
 struct Element
@@ -177,7 +204,7 @@ fn void Element.freeAttributes(&self) @inline
     if(self.attributes.len()) self.attributes.free();
 }
 
-fn AttrData* Element.getAttrib(&self, AttrType type) @inline
+fn AttrData* Element.getAttrib(&self, AttrID type) @inline
 {
 	foreach(atrb: self.attributes) {
 		if(atrb.first == type.name) return atrb;
@@ -229,29 +256,57 @@ fn Element* SVGData.getElement(&self, String name) @inline
 
 fn void SVGData.print(&self) @inline 
 {
-    io::printfn("[SVG: '%s']", self.path);
+    io::printfn("\n***************************************************");
+    io::printfn("\n[SVG: '%s']", self.path);
     if(self.elements.len())
     {
         usz count = self.elements.len();
-        io::printfn("\t[element count: '%s']", count);
+        io::printfn("['%s' %s]", count, (count == 1) ? "element" : "elements" );
         foreach(elem: self.elements)
         {
-            if(count == 1) {
-                io::printfn("\t[element : '%s']", elem.name);
-            } else { 
-                io::printfn("\t[elements : '%s']", elem.name);
-            }
+            io::printfn("('%s')", elem.name);
             if(elem.attributes.len()) 
             {
-                io::printfn("\t{");
+                io::printfn("{");
                 foreach (atrb : elem.attributes)
                 {
                     if(atrb == null) continue;
                     io::printfn("\t%s = \"%s\";", atrb.first, atrb.second);
                 }
-                io::printfn("\t{");
+                io::printfn("}\n");
             }
         }
+    }
+    io::printfn("***************************************************");
+}
+
+fn void SVGData.printTofile(&self, String path) @inline
+{
+    if(try file = fs::openFile(path, "w"))
+    {
+        io::fprintfn(&file, "[SVG: \"%s\"]", self.path);
+        if(self.elements.len())
+        {
+            usz count = self.elements.len();
+            io::fprintfn(&file, "['%s' %s]", count, (count == 1) ? "element" : "elements" );
+            foreach(elem: self.elements)
+            {
+                io::fprintfn(&file, "(%s)", elem.name);
+                if(elem.attributes.len()) 
+                {
+                    io::fprintfn(&file, "{");
+                    foreach (atrb : elem.attributes)
+                    {
+                        if(atrb == null) continue;
+                        io::fprintfn(&file, "\t%s = \"%s\";", atrb.first, atrb.second);
+                    }
+                    io::fprintfn(&file, "}\n");
+                }
+            }
+        }
+    } else {
+        lgr::warning(Where.CONSOLE, "Failed to save svg '%s' parsed data to optimized file '%s'.", self.path, path);
+        return;
     }
 }
 
@@ -266,32 +321,47 @@ fn bool SVGData.parse(&self, File file)
        return false;
     }
     
-    bool invalid_mtr = doc.rootNode.name != ElemType.SVG;
+    bool invalid_mtr = (doc.rootNode.name == "" || doc.rootNode.name != ElemType.SVG);
     if(invalid_mtr)
     {
-       lgr::error(Where.FILE, " Malformed svg file '%s', root node expected to be 'svg' but is '%s' instead.", self.path, doc.rootNode.name);
+       lgr::error(Where.FILE, " Invalid svg file '%s', root node expected to be 'svg' but is '%s' instead.", self.path, doc.rootNode.name);
        return false;
     }
 
-    // register the root element
-    Element* main_elem = mem::new(Element);
-    main_elem.name = ElemType.SVG;
-    self.register(main_elem);
-
-    // get the root element attributes
-    get_element_Attributes(doc.rootNode, self, main_elem);
-    
-    // now get the necessary data from the rest of the svg file
-    foreach (node : doc.rootNode.children)
-    {
-       if(node == null || node.isNode(ElemType.INVALID)) continue;
-       Element* elem = mem::new(Element);
-       elem.name = node.name.copy(mem);
-       self.register(elem);
-       get_element_Attributes(node, self, elem);
+     if(doc.rootNode.children.len() == 0) {
+        lgr::error(Where.FILE, " Empty svg file '%s', root node <%s> has no children!", self.path, doc.rootNode.name);
+        return false;
     }
-    
+
+    create_and_register_element_data(doc.rootNode, ElemType.SVG, self);
+
     return true;
+}
+
+<*
+    @param [in] xmlnode : "the current xml node we are handling"
+    @param [in] elemName : "the name to give to the svg element"
+    @param [inout] svgfile : "pointer to the main svg struct"
+    @require xmlnode != null && elemName != "" && svgfile != null
+*>
+fn void create_and_register_element_data(XmlNode* xmlnode, String elemName, SVGData* svgfile) 
+{
+    Element* elem = mem::new(Element);
+    elem.name = elemName.copy(mem);
+    svgfile.register(elem);
+    
+    if(xmlnode.attributes.len()) {
+        get_element_Attributes(xmlnode, svgfile, elem);
+    }
+
+    if(xmlnode.children.len())
+    {
+        foreach (node : xmlnode.children)
+        {
+            if(node == null || node.isNode(ElemType.INVALID)) continue;
+            create_and_register_element_data(node, node.name, svgfile);
+        }
+    }
 }
 
 fn void get_element_Attributes(XmlNode* node, SVGData* svgfile, Element* inElem = null)
@@ -305,6 +375,7 @@ fn void get_element_Attributes(XmlNode* node, SVGData* svgfile, Element* inElem 
         {
             if(atrb == null) continue;
             elem.register(mem::new(AttrData, {atrb.name.copy(mem), atrb.value.copy(mem)}));
+            //prepare_element_attribute_data(atrb, elem);
         }
     } else {
         lgr::error(Where.FILE, " Failed to get attribute data for <%s> in svg file '%s'!!!", node.name, svgfile.path);
@@ -318,7 +389,100 @@ fn void get_element_Attributes(XmlNode* node, SVGData* svgfile, Element* inElem 
 *>
 fn bool XmlNode.isNode(XmlNode* node, String name) @inline @local => (node.name == name) ? true : false;
 
+/*
+// from here is code to prepare the already pre parsed xml file
 
+<*
+    @param [inout] elem : "svg Element whose attributes we are looking at"
+    @param [in] inAtrb : "the attribute data from the xml file we are looking at"
+    @require elem != null && inAtrb != null
+*>
+fn void prepare_element_attribute_data(XmlAttribute* inAtrb, Element* elem) //@inline
+{
+    Attribute* new_atrb = mem::new(Attribute);
+    switch(inAtrb.name)
+    {
+        case AttrID.WIDTH:
+            new_atrb.id   = AttrID.WIDTH;
+        case AttrID.HEIGHT:
+        case AttrID.VIEWBOX:
+        case AttrID.VERSION:
+        case AttrID.ID:
+        case AttrID.XMLSPACE:
+        case AttrID.XMLNSXLINK:
+        case AttrID.XMLNS:
+        case AttrID.CLIPPATHUNITS:
+        case AttrID.STYLE:
+        case AttrID.X:
+        case AttrID.Y:
+        case AttrID.TRANSFORM:
+        case AttrID.CX:
+        case AttrID.CY:
+        case AttrID.RX:
+        case AttrID.RY:
+        case AttrID.D:
+        case AttrID.PRESERVEASPECTRATIO:
+        case AttrID.XLINKHREF:
+        case AttrID.CLIPPATH:
+            return; // to not spawn print into the file for now
+        case AttrID.INVALID:
+            lgr::warning(Where.FILE,  "SVG attrb <%s> in file '%s' is marked invalid", elem.name, svgfile.path);
+            return;
+        default:
+            lgr::warning(Where.FILE,  "SVG attrb <%s> in file '%s' is still not supported or valid", elem.name, svgfile.path);
+            return;
+    }
+
+    get_data_from_xml_string_value(inAtrb.value, &new_atrb.type, &new_atrb.data);
+}
+
+fn void get_data_from_xml_string_value(XmlAttribute* inAtrb, AttrType* outype, AttrData* outdata) 
+{
+    bool isfloat;
+
+    char first = inAtrb.value[0];
+    if(inAtrb.value.len > 1 && inAtrb.value.contains(".") && !inAtrb.value.contains(":")) {
+        isfloat = true;
+        outype = AttrType.FLOAT;
+        outdata.f = get_float_value_from(inAtrb.value);
+    } 
+    else if(ascii::is_digit(first)) {
+        if(inAtrb.value.contains(" ")) {
+            // todo handle vec4 values
+        } else {
+            outype = AttrType.INT;
+            outdata.i = inAtrb.value.to_int();
+        }
+    } else if(ascii::is_alpha(first)) {
+        outype = AttrType.STRING;
+        outdata.s = inAtrb.value.copy(mem);
+    }
+}
+
+fn bool valid_number(String data) {
+    foreach(c : data) {
+        if(c != '.' && !ascii::is_digit(c)) return false;
+    }
+
+    return true;
+}
+
+fn float get_float_value_from(String data) 
+{
+    if(data.contains("m")) {
+        data.trim_right("mm");
+    } else if(data.contains("p")) {
+        data.trim_right("px");
+    }
+
+    if(valid_number(data)) {
+        return data.to_float();
+    } else {
+        lgr::warning(Where.FILE,  "== Unable to take float value from string \"%s\" ==", data);
+        return 0.0f;
+    }
+}
+*/
 fn bool handle_svg_elements(XmlNode* elem, SVGData* svgfile)
 {
     switch(elem.name)
