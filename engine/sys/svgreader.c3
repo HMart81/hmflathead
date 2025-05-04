@@ -227,21 +227,29 @@ fn Element* SVGData.getElement(&self, String name) @inline
 	return null;
 }
 
-fn void SVGData.printElements(&self) @inline 
+fn void SVGData.print(&self) @inline 
 {
+    io::printfn("[SVG: '%s']", self.path);
     if(self.elements.len())
     {
+        usz count = self.elements.len();
+        io::printfn("\t[element count: '%s']", count);
         foreach(elem: self.elements)
         {
-            io::printfn("[element : '%s']", elem.name);
-            if(elem.attributes.len()) {
-                io::printfn("{");
+            if(count == 1) {
+                io::printfn("\t[element : '%s']", elem.name);
+            } else { 
+                io::printfn("\t[elements : '%s']", elem.name);
+            }
+            if(elem.attributes.len()) 
+            {
+                io::printfn("\t{");
                 foreach (atrb : elem.attributes)
                 {
                     if(atrb == null) continue;
-                    io::printfn("   %s = \"%s\";", atrb.first, atrb.second);
+                    io::printfn("\t%s = \"%s\";", atrb.first, atrb.second);
                 }
-                io::printfn("{");
+                io::printfn("\t{");
             }
         }
     }
@@ -258,7 +266,7 @@ fn bool SVGData.parse(&self, File file)
        return false;
     }
     
-    bool invalid_mtr = doc.rootNode.name != ElemType.SVG.name;
+    bool invalid_mtr = doc.rootNode.name != ElemType.SVG;
     if(invalid_mtr)
     {
        lgr::error(Where.FILE, " Malformed svg file '%s', root node expected to be 'svg' but is '%s' instead.", self.path, doc.rootNode.name);
@@ -267,7 +275,7 @@ fn bool SVGData.parse(&self, File file)
 
     // register the root element
     Element* main_elem = mem::new(Element);
-    main_elem.name = ElemType.SVG.name;
+    main_elem.name = ElemType.SVG;
     self.register(main_elem);
 
     // get the root element attributes
@@ -277,8 +285,8 @@ fn bool SVGData.parse(&self, File file)
     foreach (node : doc.rootNode.children)
     {
        if(node == null || node.isNode(ElemType.INVALID)) continue;
-        Element* elem = mem::new(Element);
-        elem.name = node.name;
+       Element* elem = mem::new(Element);
+       elem.name = node.name.copy(mem);
        self.register(elem);
        get_element_Attributes(node, self, elem);
     }
@@ -288,7 +296,6 @@ fn bool SVGData.parse(&self, File file)
 
 fn void get_element_Attributes(XmlNode* node, SVGData* svgfile, Element* inElem = null)
 {
-    
     Element* elem;
     if(inElem) { elem = inElem; } else { elem = svgfile.getElement(node.name); }
 
@@ -297,7 +304,7 @@ fn void get_element_Attributes(XmlNode* node, SVGData* svgfile, Element* inElem 
         foreach (atrb : node.attributes)
         {
             if(atrb == null) continue;
-            elem.register(mem::new(AttrData, {atrb.name, atrb.value}));
+            elem.register(mem::new(AttrData, {atrb.name.copy(mem), atrb.value.copy(mem)}));
         }
     } else {
         lgr::error(Where.FILE, " Failed to get attribute data for <%s> in svg file '%s'!!!", node.name, svgfile.path);

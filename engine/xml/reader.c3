@@ -30,6 +30,7 @@ module thirdparty::library::xml;
 
 import std::core;
 import std::io;
+import std::ascii;
 
 const char[] TEXT_NODE_NAME = "#text";
 
@@ -62,7 +63,8 @@ struct XmlReaderImpl @local {
 fn XmlReader* new_reader(XmlDoc* doc, Allocator allocator = allocator::heap()) {
 	XmlReaderImpl* reader = allocator::new(allocator, XmlReaderImpl);
 	reader.doc = doc;
-	reader.buffer = allocator::new_array(allocator, char, 2048);
+	//reader.buffer = allocator::new_array(allocator, char, 2048);
+	reader.buffer = allocator::new_array(allocator, char, doc.contents_size);
 	reader.allocator = allocator;
 	reader.state = BEGIN_READ_TAG;
 	return (XmlReader*)reader;
@@ -185,13 +187,13 @@ fn XmlAttribute* XmlReaderImpl.create_attribute(&self) @local {
 }
 
 fn void XmlReaderImpl.read_tag_name(&self, char c) @local {
-	if (c == '/' || c == '>' || c == ' ') {
+	if (c == '/' || c == '>' || /*c == ' '*/ascii::is_space(c)) {
 		XmlNode* nodeBeingParsed = self.peek_node();
 		nodeBeingParsed.name = self.copy_write_buffer();
 		if (c == '>') {
 			self.writeHead = 0;
 			self.state = ReaderState.READ_TEXT_NODE;
-		} else if (c == ' ') {
+		} else if (/*c == ' '*/ascii::is_space(c)) {
 			self.writeHead = 0;
 			self.attributeBeingParsed = self.create_attribute();
 			self.state = ReaderState.READ_ATTRIBUTE_NAME;
@@ -222,8 +224,8 @@ fn void XmlReaderImpl.read_attribute_name(&self, char c) @local {
 		self.state = ReaderState.READ_CLOSING_TAG;
 	} else if (c == '>') {
 		self.enterReadTextNodeState();
-	} else if (c == ' ') {
-		// Skip space
+	} else if (/*c == ' '*/ascii::is_space(c)) {
+		// Skip space (NOTE(HM) and any other white space character...)
 	} else if (c == '=') {
 		self.attributeBeingParsed.name = self.copy_write_buffer();
 		self.state = ReaderState.BEGIN_READ_ATTRIBUTE_VALUE;
@@ -234,8 +236,8 @@ fn void XmlReaderImpl.read_attribute_name(&self, char c) @local {
 }
 
 fn void XmlReaderImpl.begin_read_attribute_value(&self, char c) @local {
-	if (c == ' ') {
-		// Skip space
+	if (/*c == ' '*/ascii::is_space(c)) {
+		// Skip space (NOTE(HM) and any other white space character...)
 	} else if (c == '"') {
 		self.state = ReaderState.END_READ_ATTRIBUTE_VALUE;
 	} else {

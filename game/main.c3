@@ -45,6 +45,7 @@ import game::intro;
 import game::gui::menu;
 import engine::assets_api::asapi; // for the asset system
 import engine::assets::astmng; // asset manager
+import engine::sys::reader::svg;
 import game::material::manager::mtrmng; // material database
 import game::assets::sprt; // sprites
 import game::assets::part; // particles
@@ -2069,6 +2070,11 @@ $endif
     // now that the assets are loaded get a pointer to the game fonts
     local_game.initFonts();
     //
+
+    svg::SVGData svgfile;
+    svgfile.path = local_game.app_base_folder.tconcat("levels/test.svg").copy(mem);
+    svgfile.load(fs::openFile(svgfile.path)!)!;
+    svgfile.print();
         
     lgr::info(Where.FILE,  "** done **");
     lgr::info(Where.FILE, "---------------------------------------------\n");

@@ -79,7 +79,7 @@ fn bool? fileSaveEntireText(String fileName, String text) {
 }
 
 
-fn File? openFile(String path, String mode) @inline
+fn File? openFile(String path, String mode = "r") @inline
 {
     return io::file::open(path, mode)!;
 }

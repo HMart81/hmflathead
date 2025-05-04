@@ -53,14 +53,19 @@ struct XmlNode {
 struct XmlDoc {
 	Allocator allocator;
 	XmlNode* rootNode;
+    usz contents_size;
 }
 
 fn XmlDoc*? read_file(File file, Allocator allocator = allocator::heap()) {
-	char[] buff = allocator::new_array(allocator, char, 2048);
+	usz contents_size = file.seek(0, Seek.END)!;
+	file.seek(0, Seek.SET)!; // return to the start
+	//char[] buff = allocator::new_array(allocator, char, 2048);
+	char[] buff = allocator::new_array(allocator, char, contents_size);
 	defer allocator::free(allocator, buff);
 
 	XmlDoc* doc   = allocator::new(allocator, XmlDoc);
 	doc.allocator = allocator;
+    doc.contents_size = contents_size;
 
 	XmlReader* reader = new_reader(doc, allocator);
 	defer reader.free();
