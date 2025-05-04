@@ -152,7 +152,7 @@ fn void fatal(Where where, String fmt, args...) @public {
     unreachable();
 }
 
-fn void logTofile(TraceLogLevel level, String fmt, args...) @local
+fn void logTofile(TraceLogLevel level, String fmt, args...) @local @format(1)
 {
 	bool not_should_log = !g_log.getBool() || fmt.len == 0;
 	if(not_should_log) return;
@@ -219,7 +219,7 @@ $if $feature(_DEBUG):
 $endif
 }
 
-fn void logToConsole(TraceLogLevel level, String fmt, args...) @local {
+fn void logToConsole(TraceLogLevel level, String fmt, args...) @format(1) @local {
 	DString str = dstring::temp_with_capacity(fmt.len + args.len * 8);
 	str.appendf(fmt, ...args);
 	rl::traceLog(level, str.zstr_view());
