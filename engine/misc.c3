@@ -45,6 +45,8 @@ import game::camview;
 // end
 
 alias Vec2f  = float[<2>];
+alias Vec3f  = float[<3>];
+alias Vec4f  = float[<4>];
 alias Vec2i  = int[<2>];
 alias Vec3i  = int[<3>];
 
@@ -58,6 +60,15 @@ const Vec2f VEC_RIGHT = {1.0f,  0.0f};
 macro @makeVec2f(#x, #y) => (Vec2f){#x, #y};
 macro @makeVec2fExt(#x) => (Vec2f){#x, #x};
 //
+
+macro @forange($a, $b, arr; @body(x, y)) @builtin
+{
+    for(usz index = $a; index <= (usz)$b; index++) {
+        assert($a >= 0 && $b < arr.len); // did you forgot len - 1? ;)
+        var it = (*arr)[index];
+        @body(index, it);
+    }
+}
 
 const MINIMUM_SIZE_IN_PIXELS = 1;    //
 const MINIMUM_SIZE_IN_METERS = 0.1f; // 10 cm

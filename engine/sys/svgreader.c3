@@ -28,11 +28,13 @@
 
 module engine::sys::reader::svg;
 
-import std::io, std::collections::list;
+import std::io, std::collections::list, std::io::path;
 import thirdparty::library::xml;
 import engine::filesystem::fs;
 import engine::logging::lgr;
+import engine::misc;
 import game::main;
+import std::ascii;
 
 /* DOC(HM)
 
@@ -60,8 +62,15 @@ faultdef MALFORMED_SVG_FILE,
 	     SVG_RETRIVAL_ERROR,
 	     MISSING_SVG;
 
+
+<*
+    @param [in] node : "xml node to compare the given name with"
+    @require node != null
+*>
+fn bool XmlNode.isNode(XmlNode* node, String name) @inline @local => (node.name == name) ? true : false;
+
 // NOTE(HM) acording to Zeal Doc this is mostly complete (minus deprecated elements)
-enum ElemType : int (inline String name)
+enum ElemID : int (inline String name)
 {
     INVALID             = "",     // not really a real svg element just used to mark invalid elements
     ANIMATE             = "animate",
@@ -130,12 +139,14 @@ enum ElemType : int (inline String name)
 
 
 alias AttrData = StringTuple;
-alias ListOfAttributes = List{AttrData*};
-//alias ListOfAttributes = List{Attribute*};
+alias ListOfXmlAttributes = List{AttrData*};
+alias ListOfAttributes    = List{Attribute*};
 
-// NOTE(HM) acording to Zeal Doc there's 239 attributes so this is mostly incomplete
-// NOTE(HM) Using still some necessary deprecated attributes
-enum AttrID : int (inline String name)
+// NOTE(HM) acording to Zeal application documentation there's 239 attributes 
+// so this is very much incomplete.
+// NOTE(HM) I'm still using here some deprecated attributes because the svg tool
+// I use still relies on them, at lest for now.
+enum AttrID : char (inline String name)
 {
     INVALID             = "",     // not really a real svg attribute just used to mark invalid ones
     WIDTH               = "width",
@@ -146,6 +157,8 @@ enum AttrID : int (inline String name)
     XMLSPACE            = "xml:space", // deprecated
     XMLNSXLINK          = "xmlns:xlink",
     XMLNS               = "xmlns",
+    XMLNSSVG            = "xmlns:svg",
+    XLINKHREF           = "xlink:href", // deprecated
     CLIPPATHUNITS       = "clipPathUnits",
     STYLE               = "style",
     X                   = "x",
@@ -157,61 +170,87 @@ enum AttrID : int (inline String name)
     RY                  = "ry",
     D                   = "d",
     PRESERVEASPECTRATIO = "preserveAspectRatio",
-    XLINKHREF           = "xlink:href", // deprecated
     CLIPPATH            = "clip-path",
 }
 
-/*
-enum AttrType
+enum AttrType : char
 {
     INT,
     FLOAT,
-    STRING
+    STRING,
+    VEC2,
+    VEC3,
+    VEC4
 }
 
-struct AttrData 
+struct AttrValue @packed // 32 bytes
 {
-    union {
+    union { // 4 bytes
         int i;
         float f;
     }
-    String s;
+
+    union { // 16 bytes
+        Vec2f v2;
+        Vec3f v3;
+        Vec4f v4; // this one sets the real union size
+    }
+
+    String s; // 12 bytes
 }
 
-struct Attribute 
+struct Attribute
 {
     AttrID id;
     AttrType type;
-    AttrData data;
+    AttrValue value;
 }
-*/
 
 alias ListOfElements = List{Element*};
-
+alias ListOfPaths    = List{Path*};
 struct Element
 {
     String name;
+    //ListOfXmlAttributes xmlAtrb;
     ListOfAttributes attributes;
+    ListOfElements others; // for the url(#element_id) support
+    ListOfPaths paths;
 }
 
-fn void Element.register(&self, AttrData* elem) @inline
+// fn void Element.register(&self, AttrData* elem) @inline
+// {
+//     self.attributes.push(elem);
+// }
+
+fn void Element.register(&self, Attribute* atrb) @inline
 {
-    self.attributes.push(elem);
+    self.attributes.push(atrb);
 }
 
-fn void Element.freeAttributes(&self) @inline
-{
-    if(self.attributes.len()) self.attributes.free();
-}
-
-fn AttrData* Element.getAttrib(&self, AttrID type) @inline
+fn Attribute* Element.getAttrib(&self, AttrID type) @inline
 {
 	foreach(atrb: self.attributes) {
-		if(atrb.first == type.name) return atrb;
+		if(atrb.id == type.name) return atrb;
 	}
     
 	return null;
 }
+
+fn void Element.free(&self) @inline
+{
+    if(self.attributes.len()) self.attributes.free();
+    if(self.others.len()) self.others.free();
+    if(self.paths.len()) self.paths.free();
+}
+
+// fn AttrData* Element.getAttrib(&self, AttrID type) @inline
+// {
+// 	foreach(atrb: self.attributes) {
+// 	 	if(atrb.first == type.name) return atrb;
+// 	}
+
+// 	return null;
+// }
 
 struct SVGData 
 {
@@ -224,6 +263,27 @@ fn void SVGData.register(&self, Element* elem) @inline
     self.elements.push(elem);
 }
 
+fn void SVGData.freeElements(&self)
+{
+	if(self.elements.len()) {
+        foreach(elem: self.elements) {
+		    if(elem.attributes.len()) elem.free();
+	    }
+        self.elements.free();
+    }
+}
+
+// This will probably be very slow with many materials...
+// TODO(HM) make this faster by using a hash table
+fn Element* SVGData.find_element(&self, String name) @inline 
+{
+	foreach(elem: self.elements) {
+		if(elem.name == name) return elem;
+	}
+    
+	return null;
+}
+
 fn bool? SVGData.load(&self, File file)
 {
     if(self.parse(file) == false) {
@@ -233,30 +293,627 @@ fn bool? SVGData.load(&self, File file)
     return true;
 }
 
-fn void SVGData.freeElements(&self)
+fn bool SVGData.parse(&self, File file)
 {
-	if(self.elements.len()) {
-        foreach(elem: self.elements) {
-		    if(elem.attributes.len()) elem.freeAttributes();
-	    }
-        self.elements.free();
+    XmlDoc*? doc = xml::read_file(file);
+    defer doc.free()!!;
+    
+    if(catch excuse = doc)
+    {
+       lgr::warning(Where.FILE, " Failed to open xml file [%s] with excuse: %s", self.path, excuse);
+       return false;
+    }
+    
+    bool invalid_mtr = (doc.rootNode.name == "" || doc.rootNode.name != ElemID.SVG);
+    if(invalid_mtr)
+    {
+       lgr::error(Where.FILE, " Invalid svg file '%s', root node expected to be 'svg' but is '%s' instead.", self.path, doc.rootNode.name);
+       return false;
+    }
+
+     if(doc.rootNode.children.len() == 0) {
+        lgr::error(Where.FILE, " Empty svg file '%s', root node <%s> has no children!", self.path, doc.rootNode.name);
+        return false;
+    }
+
+    // create and register all elements and its attributes using recursion
+    // starting at and including the root xml node
+    register_xmlnode_data(doc.rootNode, self);
+
+    return true;
+}
+
+<*
+    @param [in] xmlnode : "the current xml node we are parsing"
+    @param [inout] svgfile : "pointer to the main svg struct to save the element"
+    @require xmlnode != null && svgfile != null
+*>
+fn void register_xmlnode_data(XmlNode* xmlnode, SVGData* svgfile) 
+{
+    Element* elem = mem::new(Element);
+    elem.name = xmlnode.name.copy(mem);
+    svgfile.register(elem);
+    
+    // handle attributes if any
+    if(xmlnode.attributes.len())
+    {
+        foreach (atrb : xmlnode.attributes)
+        {
+            if(atrb == null) continue;
+            //elem.register(mem::new(AttrData, {atrb.name.copy(mem), atrb.value.copy(mem)}));
+            parse_attribute_data(atrb, elem, svgfile);
+        }
+    }
+
+    if(xmlnode.children.len())
+    {
+        foreach (node : xmlnode.children)
+        {
+            if(node == null || node.isNode(ElemID.INVALID)) continue;
+            register_xmlnode_data(node, svgfile);
+        }
     }
 }
 
-// This will probably be very slow with many materials...
-// TODO(HM) make this faster by using a hash table
-fn Element* SVGData.getElement(&self, String name) @inline 
+/*
+fn void get_node_Attributes(XmlNode* node, SVGData* svgfile, Element* inElem = null)
 {
-	foreach(elem: self.elements) {
-		if(elem.name == name) return elem;
-	}
-    
-	return null;
+    Element* elem;
+    if(inElem) { elem = inElem; } else { elem = svgfile.getElement(node.name); }
+
+    if(elem)
+    {
+        foreach (atrb : node.attributes)
+        {
+            if(atrb == null) continue;
+            //elem.register(mem::new(AttrData, {atrb.name.copy(mem), atrb.value.copy(mem)}));
+            parse_attribute_data(atrb, elem);
+        }
+    } else {
+        lgr::error(Where.FILE, " Failed to get attribute data for <%s> in svg file '%s'!!!", node.name, svgfile.path);
+        unreachable();
+    }
+}
+*/
+
+enum TransfType : char (inline String str)
+{
+    NONE      = "none",
+    ROTATE    = "rotate",
+    TRANSLATE = "translate",
+    SCALE     = "scale"
 }
 
+<*
+    @param [inout] elem : "svg Element whose attributes we are looking at"
+    @param [in] inAtrb : "the attribute data from the xml file we are looking at"
+    @param [inout] svgfile : "pointer to the main svg struct to save the element"
+    @require elem != null && svgfile != null && inAtrb != null && inAtrb.value.len > 1
+*>
+fn void parse_attribute_data(XmlAttribute* inAtrb, Element* elem, SVGData* svgfile) //@inline
+{
+    bool isfloat, isint, isstring, isvec2, isvec3, isvec4, isPath, isPointer, should_register;
+
+    should_register = true;
+    Attribute* new_atrb = mem::new(Attribute);
+    defer { 
+        if(should_register) {
+            elem.register(new_atrb); 
+        } else {
+            mem::free(new_atrb);
+        }
+    }
+
+    // set attribute id's
+    @forange(0, AttrID.elements - 1, &&AttrID.values; i, id) {
+        if(inAtrb.name == id)
+        {
+            new_atrb.id = id;
+        }
+    };
+    /*foreach(id, AttrID.values)
+    {
+        if(inAtrb.name == id)
+        {
+            new_atrb.id = id;
+        }
+    }*/
+
+    switch(new_atrb.id)
+    {
+        case AttrID.WIDTH:
+        case AttrID.HEIGHT:
+        case AttrID.VERSION:
+        case AttrID.X:
+        case AttrID.Y:
+        case AttrID.CX:
+        case AttrID.CY:
+        case AttrID.RX:
+        case AttrID.RY:
+            //new_atrb.id = AttrID.WIDTH;
+            //new_atrb.id = AttrID.HEIGHT;
+            //new_atrb.id = AttrID.VERSION;
+            //new_atrb.id = AttrID.X;
+            //new_atrb.id = AttrID.Y;
+            //new_atrb.id = AttrID.CX;
+            //new_atrb.id = AttrID.CY;
+            //new_atrb.id = AttrID.RX;
+            //new_atrb.id = AttrID.RY;
+            if(is_integer_number(inAtrb.value)) {
+                isint = true;
+                break;
+            } else if(is_float_number(inAtrb.value)) {
+                isfloat = true;
+            } else {
+                nextcase AttrID.INVALID;
+            }
+        case AttrID.VIEWBOX:
+            //new_atrb.id   = AttrID.VIEWBOX;
+            int count;
+            if(is_vector_number(inAtrb.value, count)) {
+                switch(count) {
+                    case 1: isvec2 = true;
+                    case 2: isvec3 = true;
+                    case 3: isvec4 = true;
+                }
+                break;
+            } else {
+                nextcase AttrID.INVALID;
+            }
+        case AttrID.ID:
+        case AttrID.XMLSPACE:
+        case AttrID.CLIPPATHUNITS:
+        case AttrID.STYLE:
+        case AttrID.PRESERVEASPECTRATIO:
+            //new_atrb.id   = AttrID.ID;
+            //new_atrb.id   = AttrID.XMLSPACE;
+            //new_atrb.id   = AttrID.CLIPPATHUNITS;
+            //new_atrb.id   = AttrID.STYLE;
+            //new_atrb.id   = AttrID.PRESERVEASPECTRATIO;
+            isstring = true;
+        case AttrID.XMLNSXLINK:
+        case AttrID.XMLNS:
+        case AttrID.XMLNSSVG:
+        case AttrID.XLINKHREF:
+            //new_atrb.id   = AttrID.XMLNSXLINK;
+            //new_atrb.id   = AttrID.XMLNS;
+            //new_atrb.id   = AttrID.XMLNSSVG;
+            //new_atrb.id   = AttrID.XLINKHREF;
+            //elem.paths.push(&path::new(inAtrb.value)!);
+            isPath = true;
+        case AttrID.TRANSFORM:
+            //new_atrb.id   = AttrID.TRANSFORM;
+            if(inAtrb.value.starts_with("translate")) {
+                new_atrb.type  = AttrType.VEC2;
+                new_atrb.value.v2 = get_transform_translation(inAtrb.value);
+            } else if(inAtrb.value.starts_with("rotate")) {
+                new_atrb.type  = AttrType.VEC3;
+                new_atrb.value.v3 = get_transform_rotation(inAtrb.value);
+            } else if(inAtrb.value.starts_with("scale")) {
+                new_atrb.type  = AttrType.VEC2;
+                new_atrb.value.v2 = get_transform_scale(inAtrb.value);
+            } else {
+                lgr::warning(Where.FILE,  "Unknown transform value <%s> in file '%s'", inAtrb.value, svgfile.path);
+            }
+        case AttrID.D:
+            //new_atrb.id   = AttrID.D;
+            isstring = true;
+            // todo handle path data...
+        case AttrID.CLIPPATH:
+            //new_atrb.id   = AttrID.CLIPPATH;
+            isstring = true;
+            elem.others.push(get_element_from_url(inAtrb.value, svgfile));
+        case AttrID.INVALID:
+            lgr::warning(Where.FILE,  "SVG attrb <%s> in file '%s' is invalid", elem.name, svgfile.path);
+            should_register = false;
+            return;
+        default:
+            lgr::warning(Where.FILE,  "SVG attrb <%s> in file '%s' is still not supported or valid", elem.name, svgfile.path);
+            should_register = false;
+            return;
+    }
+
+
+
+    if(isfloat) {
+        new_atrb.type  = AttrType.FLOAT;
+        if(try value = to_float(inAtrb.value)) new_atrb.value.f = value;
+    }
+    else if(isPath) {
+        if(inAtrb.value.starts_with("http") || inAtrb.value.starts_with("../") || inAtrb.value.contains("/") ) 
+        {
+            Path path;
+            $switch:
+            $case env::WIN32:
+                if(try result = path::for_windows(mem, inAtrb.value.copy(mem))) path = result;
+            $case env::LINUX:
+                if(try result = path::for_posix(mem, inAtrb.value.copy(mem))) path = result;
+            $default:
+                unreachable();
+            $endswitch
+
+            elem.paths.push(&path);
+        } else {
+            unreachable();
+        }
+    }
+    else if(isint) {
+        new_atrb.type  = AttrType.INT;
+       if(try value = to_int(inAtrb.value)) new_atrb.value.i = value;
+    } 
+    else if(isstring) {
+        new_atrb.type  = AttrType.STRING;
+        new_atrb.value.s = inAtrb.value.copy(mem);
+    }
+    else if(isvec4) {
+        new_atrb.type  = AttrType.VEC4;
+        if(try value = to_vec4(inAtrb.value)) new_atrb.value.v4 = value;
+    } 
+    else if(isvec2) {
+        new_atrb.type  = AttrType.VEC2;
+        if(try value = to_vec2(inAtrb.value)) new_atrb.value.v2 = value;
+    }
+}
+
+fn bool is_integer_number(String value) @inline
+{
+    const char[*] INVALIDLIST = {'.', ',', ' ', '/', ':'};
+    foreach(c : value) {
+        if(ascii::is_digit(c) == false) {
+            if(c != '%' && c != '#') return false;
+        }
+        foreach(x : INVALIDLIST) {
+            if(c == x) return false;
+        }
+    }
+
+    return true;
+}
+
+fn bool is_float_number(String value) @inline
+{
+    const char[*] INVALIDLIST = {'%', ',', '#', ' ', '/', ':'};
+    foreach(c : value) {
+        if(ascii::is_digit(c) == false) {
+            if(c != '.') return false;
+        }
+        foreach(x : INVALIDLIST) {
+            if(c == x) return false;
+        }
+    }
+
+    return true;
+}
+
+fn bool is_vector_number(String value, int out_count = 0) @inline
+{
+    bool result = true;
+    const char[*] INVALIDLIST = {'%', '#', '/', ':'};
+    foreach(c : value) {
+        if(ascii::is_digit(c) == false) {
+            if(c != ',' && c != ' ') return false;
+        }
+        foreach(x : INVALIDLIST) {
+            if(c == x) {
+                result = false;
+                if(c == ' ' || c == ',') out_count++;
+            } 
+        }
+    }
+
+    return result;
+}
+
+fn void clean_float(String* value) @inline {
+   if(value.contains("mm")) {
+        (*value) = value.trim_right("mm");
+    } else if(value.contains("px")) {
+        (*value) = value.trim_right("px");
+    }
+}
+
+fn float? to_float(String value) @local @inline
+{
+    clean_float(&value);
+
+    return value.to_float()!;
+}
+
+fn int? to_int(String value) @local @inline
+{
+    char first = value[0];
+    if(value.len == 1) {
+        if(ascii::is_digit(first)) {
+             return value.to_int()!;
+        } else {
+            unreachable();
+        }
+    } else if(value.len == 0) {
+        unreachable();
+    }
+
+    if(value.starts_with("#")) {
+        value = value.trim_left("#");
+        value = "0x".tconcat(value);
+
+        return value.to_int()!;
+    }
+
+    bool ispercent = value.ends_with("%");
+    if(ispercent) {
+        value = value.trim_right("%");
+        int result = value.to_int()!;
+        assert(result >= 0 && result <= 100);
+        return result;
+    }
+
+    return 0;
+}
+
+fn Vec2f? to_vec2(String value) @local @inline
+{
+    String[] values = value.tsplit(",");
+    assert(values.len == 2);
+    return {values[0].to_float()!, values[1].to_float()!};
+}
+
+fn Vec3f? to_vec3(String value) @local @inline
+{
+    assert(!value.contains(",") && value.contains(" "));
+    String[] values = value.tsplit(" ");
+    assert(values.len == 3);
+    return {values[0].to_float()!,values[1].to_float()!,values[2].to_float()!};
+}
+
+fn Vec4f? to_vec4(String value) @local @inline
+{
+    assert(!value.contains(",") && value.contains(" "));
+    String[] values = value.tsplit(" ");
+    assert(values.len == 4);
+    return {values[0].to_float()!,values[1].to_float()!,values[2].to_float()!,values[3].to_float()!};
+}
+
+fn Vec2f get_transform_translation(String value) {
+    /*
+        The translate(<x> [<y>]) transform function moves the object by x and y. If y is not provided, it is assumed to be 0.
+        transform="translate(x) == transform="translate(x 0)
+        transform="translate(0 y)
+        transform="translate(x y)
+    */
+    // first remove the transform word
+    String result = value.trim_left("translate");
+    // now trim  '(' and ')'
+    result = result.trim_left("(");
+    result = result.trim_right(")");
+    // now see if we are just passing x alone or not
+    if(result.contains(",")) {
+        Vec2f val;
+        if(try v = to_vec2(result)) {
+            val = v;
+            return val;
+        } else { 
+            return {0, 0}; 
+        }
+    } else { // passing a single x coord
+        if(try v = result.to_float()) {
+            return {v, 0.0f};
+        } else { 
+            return {0, 0};
+        }
+    }
+}
+
+fn Vec2f get_transform_scale(String value) {
+     /*
+        The scale(<x> [<y>]) transform function specifies a scale operation by x and y. If y is not provided, it is assumed to be equal to x.
+        transform="scale(x) == transform="scale(x x) scale equaly in x and y
+        transform="scale(0 y)
+        transform="scale(x y)
+    */
+    // first remove the starting word
+    String result = value.trim_left("scale");
+    // now trim  '(' and ')'
+    result = result.trim_left("(");
+    result = result.trim_right(")");
+    // now see if we are just passing x alone or not
+    if(result.contains(",")) {
+        Vec2f val;
+        if(try v = to_vec2(result)) {
+            val = v;
+            return val;
+        } else { 
+            return {0, 0};
+        }
+    } else { // passing a single x coord
+        if(try x = result.to_float()) {
+            return {x, x};
+        } else { 
+            return {0, 0};
+        }
+    }
+}
+
+fn Vec3f get_transform_rotation(String value) {
+    /*
+        The rotate(<a> [<x> <y>]) transform function specifies a rotation by a degrees about a given point. 
+        If optional parameters x and y are not supplied, the rotation is about the origin of the current user coordinate system. 
+        If optional parameters x and y are supplied, the rotation is about the point (x, y).
+
+        <svg viewBox="-12 -2 34 14" xmlns="http://www.w3.org/2000/svg">
+        <rect x="0" y="0" width="10" height="10" />
+
+        <!-- rotation is done around the point 0,0 -->
+        <rect x="0" y="0" width="10" height="10" fill="red" transform="rotate(100)" />
+
+        <!-- rotation is done around the point 10,10 -->
+        <rect
+            x="0"
+            y="0"
+            width="10"
+            height="10"
+            fill="green"
+            transform="rotate(100, 10, 10)" />
+        </svg>
+    */
+    // first remove the first word
+    String result = value.trim_left("rotate");
+    // now trim  '(' and ')'
+    result = result.trim_left("(");
+    result = result.trim_right(")");
+    // now see if we are just passing a single value alone
+    if(result.contains(",")) {
+        Vec3f val;
+        if(try v = to_vec3(result)) {
+            val = v;
+            return val;
+        } else { 
+            return {0, 0, 0};
+        }
+    } else { // passing a single value
+        if(try v = result.to_float()) {
+            return {v, 0.0f, 0.0f};
+        } else { 
+            return {0, 0, 0};
+        }
+    }
+}
+
+fn Element* get_element_from_url(String value, SVGData* dbase) {
+    assert(value.starts_with("url"));
+
+    // first remove the first word
+    String result = value.trim_left("url");
+    // now trim  '(#' and ')'
+    result = result.trim_left("(#");
+    result = result.trim_right(")");
+    // now get the element by name
+    return dbase.find_element(result);
+}
+
+/*
+fn void get_data_from_xml_string_value(XmlAttribute* inAtrb, AttrType* outype, AttrData* outdata) 
+{
+    bool isfloat, isint, isString;
+
+    char first = inAtrb.value[0];
+    if(inAtrb.value.len > 1)
+    {
+        // else is a integer
+        
+        // else is a string
+        if(!isfloat && !isint && first != '#') 
+        {
+            outype = AttrType.STRING;
+            outdata.s = inAtrb.value.copy(mem);
+            return true;
+        }
+
+        return false;
+    } 
+    else if(inAtrb.len == 1)
+    {
+        if(ascii::is_digit(first)) {
+            outype = AttrType.INT;
+            outdata.i = inAtrb.value.to_int();
+
+            return true;
+        } else { // Todo rethink
+            assert(ascii::is_alpha(first));
+            outype = AttrType.STRING;
+            outdata.s = inAtrb.value.copy(mem);
+        }
+    }
+}
+*/
+
+fn bool valid_number(String data) {
+    foreach(c : data) {
+        if(c != '.' && (ascii::is_alpha(c) || ascii::is_blank(c))) return false;
+    }
+
+    return true;
+}
+
+fn bool handle_svg_elements(XmlNode* elem, SVGData* svgfile)
+{
+    switch(elem.name)
+    {
+        case ElemID.ANIMATE:
+        case ElemID.ANIMATEMOTION:
+        case ElemID.ANIMATETRANSFORM:
+        case ElemID.CIRCLE:
+        case ElemID.CLIPPATH:
+        case ElemID.DEFS:
+        case ElemID.DESC:
+        case ElemID.ELLIPSE:
+        case ElemID.FEBLEND:
+        case ElemID.FECOLORMATRIX:
+        case ElemID.FECOMPONENTTRANSFER:
+        case ElemID.FECOMPOSITE:
+        case ElemID.FECONVOLVEMATRIX:
+        case ElemID.FEDIFFUSELIGHTING:
+        case ElemID.FEDISPLACEMENTMAP:
+        case ElemID.FEDISTANTLIGHT:
+        case ElemID.FEDROPSHADOW:
+        case ElemID.FEFLOOD:
+        case ElemID.FEFUNCA:
+        case ElemID.FEFUNCB:
+        case ElemID.FEFUNCG:
+        case ElemID.FEFUNCR:
+        case ElemID.FEGAUSSIANBLUR:
+        case ElemID.FEIMAGE:
+        case ElemID.FEMERGE:
+        case ElemID.FEMERGENODE:
+        case ElemID.FEMORPHOLOGY:
+        case ElemID.FEOFFSET:
+        case ElemID.FEPOINTLIGHT:
+        case ElemID.FESPECULARLIGHTING:
+        case ElemID.FESPOTLIGHT:
+        case ElemID.FETILE:
+        case ElemID.FETURBULENCE:
+        case ElemID.FILTER:
+        case ElemID.FOREIGNOBJECT:
+        case ElemID.G:
+        case ElemID.IMAGE:
+        case ElemID.LINE:
+        case ElemID.LINEARGRADIENT:
+        case ElemID.MARKER:
+        case ElemID.MASK:
+        case ElemID.METADATA:
+        case ElemID.MPATH:
+        case ElemID.PATH:
+        case ElemID.PATTERN:
+        case ElemID.POLYGON:
+        case ElemID.POLYLINE:
+        case ElemID.RADIALGRADIENT:
+        case ElemID.RECT:
+        case ElemID.SCRIPT:
+        case ElemID.SET:
+        case ElemID.STOP:
+        case ElemID.STYLE:
+        case ElemID.SVG:
+        case ElemID.SWITCH:
+        case ElemID.SYMBOL:
+        case ElemID.TEXT:
+        case ElemID.TEXTPATH:
+        case ElemID.TITLE:
+        case ElemID.TSPAN:
+        case ElemID.USE:
+        case ElemID.VIEW:
+            nextcase default;
+        case ElemID.INVALID:
+            lgr::warning(Where.FILE,  "SVG element <%s> in file '%s' is marked invalid", elem.name, svgfile.path);
+        default:
+            lgr::warning(Where.FILE,  "SVG element <%s> in file '%s' is still not supported or valid", elem.name, svgfile.path);
+    }
+
+    return true;
+}
+
+/*
 fn void SVGData.print(&self) @inline 
 {
-    io::printfn("\n***************************************************");
+    io::printfn("\n%51s", "*");
     io::printfn("\n[SVG: '%s']", self.path);
     if(self.elements.len())
     {
@@ -277,7 +934,7 @@ fn void SVGData.print(&self) @inline
             }
         }
     }
-    io::printfn("***************************************************");
+    io::printfn("\n%51s", "*");
 }
 
 fn void SVGData.printTofile(&self, String path) @inline
@@ -309,269 +966,12 @@ fn void SVGData.printTofile(&self, String path) @inline
         return;
     }
 }
-
-fn bool SVGData.parse(&self, File file)
-{
-    XmlDoc*? doc = xml::read_file(file);
-    defer doc.free()!!;
-    
-    if(catch excuse = doc)
-    {
-       lgr::warning(Where.FILE, " Failed to open xml file [%s] with excuse: %s", self.path, excuse);
-       return false;
-    }
-    
-    bool invalid_mtr = (doc.rootNode.name == "" || doc.rootNode.name != ElemType.SVG);
-    if(invalid_mtr)
-    {
-       lgr::error(Where.FILE, " Invalid svg file '%s', root node expected to be 'svg' but is '%s' instead.", self.path, doc.rootNode.name);
-       return false;
-    }
-
-     if(doc.rootNode.children.len() == 0) {
-        lgr::error(Where.FILE, " Empty svg file '%s', root node <%s> has no children!", self.path, doc.rootNode.name);
-        return false;
-    }
-
-    create_and_register_element_data(doc.rootNode, ElemType.SVG, self);
-
-    return true;
-}
-
-<*
-    @param [in] xmlnode : "the current xml node we are handling"
-    @param [in] elemName : "the name to give to the svg element"
-    @param [inout] svgfile : "pointer to the main svg struct"
-    @require xmlnode != null && elemName != "" && svgfile != null
-*>
-fn void create_and_register_element_data(XmlNode* xmlnode, String elemName, SVGData* svgfile) 
-{
-    Element* elem = mem::new(Element);
-    elem.name = elemName.copy(mem);
-    svgfile.register(elem);
-    
-    if(xmlnode.attributes.len()) {
-        get_element_Attributes(xmlnode, svgfile, elem);
-    }
-
-    if(xmlnode.children.len())
-    {
-        foreach (node : xmlnode.children)
-        {
-            if(node == null || node.isNode(ElemType.INVALID)) continue;
-            create_and_register_element_data(node, node.name, svgfile);
-        }
-    }
-}
-
-fn void get_element_Attributes(XmlNode* node, SVGData* svgfile, Element* inElem = null)
-{
-    Element* elem;
-    if(inElem) { elem = inElem; } else { elem = svgfile.getElement(node.name); }
-
-    if(elem)
-    {
-        foreach (atrb : node.attributes)
-        {
-            if(atrb == null) continue;
-            elem.register(mem::new(AttrData, {atrb.name.copy(mem), atrb.value.copy(mem)}));
-            //prepare_element_attribute_data(atrb, elem);
-        }
-    } else {
-        lgr::error(Where.FILE, " Failed to get attribute data for <%s> in svg file '%s'!!!", node.name, svgfile.path);
-        unreachable();
-    }
-}
-
-<*
-    @param [in] node : "xml node to compare the given name with"
-    @require node != null
-*>
-fn bool XmlNode.isNode(XmlNode* node, String name) @inline @local => (node.name == name) ? true : false;
-
-/*
-// from here is code to prepare the already pre parsed xml file
-
-<*
-    @param [inout] elem : "svg Element whose attributes we are looking at"
-    @param [in] inAtrb : "the attribute data from the xml file we are looking at"
-    @require elem != null && inAtrb != null
-*>
-fn void prepare_element_attribute_data(XmlAttribute* inAtrb, Element* elem) //@inline
-{
-    Attribute* new_atrb = mem::new(Attribute);
-    switch(inAtrb.name)
-    {
-        case AttrID.WIDTH:
-            new_atrb.id   = AttrID.WIDTH;
-        case AttrID.HEIGHT:
-        case AttrID.VIEWBOX:
-        case AttrID.VERSION:
-        case AttrID.ID:
-        case AttrID.XMLSPACE:
-        case AttrID.XMLNSXLINK:
-        case AttrID.XMLNS:
-        case AttrID.CLIPPATHUNITS:
-        case AttrID.STYLE:
-        case AttrID.X:
-        case AttrID.Y:
-        case AttrID.TRANSFORM:
-        case AttrID.CX:
-        case AttrID.CY:
-        case AttrID.RX:
-        case AttrID.RY:
-        case AttrID.D:
-        case AttrID.PRESERVEASPECTRATIO:
-        case AttrID.XLINKHREF:
-        case AttrID.CLIPPATH:
-            return; // to not spawn print into the file for now
-        case AttrID.INVALID:
-            lgr::warning(Where.FILE,  "SVG attrb <%s> in file '%s' is marked invalid", elem.name, svgfile.path);
-            return;
-        default:
-            lgr::warning(Where.FILE,  "SVG attrb <%s> in file '%s' is still not supported or valid", elem.name, svgfile.path);
-            return;
-    }
-
-    get_data_from_xml_string_value(inAtrb.value, &new_atrb.type, &new_atrb.data);
-}
-
-fn void get_data_from_xml_string_value(XmlAttribute* inAtrb, AttrType* outype, AttrData* outdata) 
-{
-    bool isfloat;
-
-    char first = inAtrb.value[0];
-    if(inAtrb.value.len > 1 && inAtrb.value.contains(".") && !inAtrb.value.contains(":")) {
-        isfloat = true;
-        outype = AttrType.FLOAT;
-        outdata.f = get_float_value_from(inAtrb.value);
-    } 
-    else if(ascii::is_digit(first)) {
-        if(inAtrb.value.contains(" ")) {
-            // todo handle vec4 values
-        } else {
-            outype = AttrType.INT;
-            outdata.i = inAtrb.value.to_int();
-        }
-    } else if(ascii::is_alpha(first)) {
-        outype = AttrType.STRING;
-        outdata.s = inAtrb.value.copy(mem);
-    }
-}
-
-fn bool valid_number(String data) {
-    foreach(c : data) {
-        if(c != '.' && !ascii::is_digit(c)) return false;
-    }
-
-    return true;
-}
-
-fn float get_float_value_from(String data) 
-{
-    if(data.contains("m")) {
-        data.trim_right("mm");
-    } else if(data.contains("p")) {
-        data.trim_right("px");
-    }
-
-    if(valid_number(data)) {
-        return data.to_float();
-    } else {
-        lgr::warning(Where.FILE,  "== Unable to take float value from string \"%s\" ==", data);
-        return 0.0f;
-    }
-}
 */
-fn bool handle_svg_elements(XmlNode* elem, SVGData* svgfile)
-{
-    switch(elem.name)
-    {
-        case ElemType.ANIMATE:
-        case ElemType.ANIMATEMOTION:
-        case ElemType.ANIMATETRANSFORM:
-        case ElemType.CIRCLE:
-        case ElemType.CLIPPATH:
-        case ElemType.DEFS:
-        case ElemType.DESC:
-        case ElemType.ELLIPSE:
-        case ElemType.FEBLEND:
-        case ElemType.FECOLORMATRIX:
-        case ElemType.FECOMPONENTTRANSFER:
-        case ElemType.FECOMPOSITE:
-        case ElemType.FECONVOLVEMATRIX:
-        case ElemType.FEDIFFUSELIGHTING:
-        case ElemType.FEDISPLACEMENTMAP:
-        case ElemType.FEDISTANTLIGHT:
-        case ElemType.FEDROPSHADOW:
-        case ElemType.FEFLOOD:
-        case ElemType.FEFUNCA:
-        case ElemType.FEFUNCB:
-        case ElemType.FEFUNCG:
-        case ElemType.FEFUNCR:
-        case ElemType.FEGAUSSIANBLUR:
-        case ElemType.FEIMAGE:
-        case ElemType.FEMERGE:
-        case ElemType.FEMERGENODE:
-        case ElemType.FEMORPHOLOGY:
-        case ElemType.FEOFFSET:
-        case ElemType.FEPOINTLIGHT:
-        case ElemType.FESPECULARLIGHTING:
-        case ElemType.FESPOTLIGHT:
-        case ElemType.FETILE:
-        case ElemType.FETURBULENCE:
-        case ElemType.FILTER:
-        case ElemType.FOREIGNOBJECT:
-        case ElemType.G:
-        case ElemType.IMAGE:
-        case ElemType.LINE:
-        case ElemType.LINEARGRADIENT:
-        case ElemType.MARKER:
-        case ElemType.MASK:
-        case ElemType.METADATA:
-        case ElemType.MPATH:
-        case ElemType.PATH:
-        case ElemType.PATTERN:
-        case ElemType.POLYGON:
-        case ElemType.POLYLINE:
-        case ElemType.RADIALGRADIENT:
-        case ElemType.RECT:
-        case ElemType.SCRIPT:
-        case ElemType.SET:
-        case ElemType.STOP:
-        case ElemType.STYLE:
-        case ElemType.SVG:
-        case ElemType.SWITCH:
-        case ElemType.SYMBOL:
-        case ElemType.TEXT:
-        case ElemType.TEXTPATH:
-        case ElemType.TITLE:
-        case ElemType.TSPAN:
-        case ElemType.USE:
-        case ElemType.VIEW:
-            nextcase default;
-        case ElemType.INVALID:
-            lgr::warning(Where.FILE,  "SVG element <%s> in file '%s' is marked invalid", elem.name, svgfile.path);
-        default:
-            lgr::warning(Where.FILE,  "SVG element <%s> in file '%s' is still not supported or valid", elem.name, svgfile.path);
-    }
-
-    return true;
-}
-
 
 /* 
 
 
 ************************************************ old design **************************
-
-enum TransfType : inline int (String str)
-{
-    NONE      = "none",
-    ROTATE    = "rotate",
-    TRANSLATE = "translate",
-    SCALE     = "scale"
-}
 
 enum PathIdent : inline int (String str)
 {
