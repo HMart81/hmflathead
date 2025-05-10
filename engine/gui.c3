@@ -26,13 +26,13 @@
 # 
 *********************************************************************************************************************************************/
 
+module engine::gui;
 
 /*
-    TODO: 
+    TODO:
         A ingame gui edit mode for easy placement of widgets
         Perhaps even create a simple gui editor using raygui buttons and such...
 */
-module engine::gui;
 
 // region modules
 import std::io;
@@ -76,7 +76,7 @@ fn void register_cvars() @public
 }
 // end_region
 
-enum PanelShape : inline int 
+enum PanelShape : inline int
 {
     BOX,
     ROUNDED_BOX
@@ -139,8 +139,8 @@ fn void Panel.deinit(&self) @inline {if(self.mat) self.mat = null;}
 fn void Panel.setShape(&self, PanelShape shape) @inline => self.shape = shape;
 
 <*
-    @param w_scaler "value to scale x coordinate with"
-    @param h_scaler "value to scale y coordinate with"
+    @param w_scaler : "value to scale x coordinate with"
+    @param h_scaler : "value to scale y coordinate with"
     @require w_scaler >= 0.0 && w_scaler <= 1.0f
     @require h_scaler >= 0.0 && h_scaler <= 1.0f
 *>
@@ -151,14 +151,14 @@ fn void Panel.scale(&self, float w_scaler, float h_scaler) @inline
 }
 
 <*
-    @param scale "vector to scale the panel with"
+    @param scale : "vector to scale the panel with"
     @require scale.x >= 0.0 && scale.x <= 1.0f
     @require scale.y >= 0.0 && scale.y <= 1.0f
 *>
 fn void Panel.scaleV(&self, Vec2f scale) @inline => self.scale(scale.x, scale.y);
 
 <*
-    @param amount "value to scale equaly both coordinates with"
+    @param amount : "value to scale equaly both coordinates with"
     @require amount >= 0.0 && amount <= 1.0f
 *>
 fn void Panel.scale_equaly(&self, float amount) @inline => self.scale(amount, amount);
@@ -556,7 +556,7 @@ fn bool Widget.isWithinScreenBounds(&self) @dynamic
 }
 
 <*
-* @param in desktop "parent desktop"
+* @param [in] desktop : "parent desktop"
 * @require desktop != null
 *>
 fn void Widget.addTo(&self, Desktop* desktop, String name) @dynamic {
@@ -602,7 +602,7 @@ fn bool Widget.isInteractive(&self) @inline @dynamic => self.flags.isInteractive
 fn Desktop* Widget.getDesktop(&self) @dynamic => self.parent.desktop;
 
 <*
-* @param in other "parent widget"
+* @param [in] other : "parent widget"
 * @require other != null
 *>
 fn void Widget.bindTo(&self, Widget* other) @dynamic {
@@ -791,7 +791,7 @@ fn void WidgetText.draw(&self) @inline {
 }
 
 <*
-* @param in menu "desktop where this widget will live"
+* @param [in] menu : "desktop where this widget will live"
 * @require menu != null
 * @ensure return != null
 *>
@@ -830,7 +830,7 @@ struct WidgetButton {
 }
 
 <*
-* @param in desk "desktop where this widget will live"
+* @param [in] desk : "desktop where this widget will live"
 * @require desk != null
 *>
 fn void WidgetButton.init(&self) @inline {
@@ -933,7 +933,7 @@ fn void WidgetButton.draw(&self) {
 }
 
 <*
-* @param in menu "desktop where this widget will live"
+* @param [in] menu : "desktop where this widget will live"
 * @require menu != null
 * @ensure return != null
 *>
@@ -1365,7 +1365,7 @@ DesktopManager local_manager @local;
 DesktopManager* gpDeskManager = &local_manager;
 
 <*
-* @param in desk "the desktop to register"
+* @param [in] desk : "the desktop to register"
 * @require desk != null
 *>
 fn void DesktopManager.register(&self, Desktop* _desk) @inline {
@@ -1380,7 +1380,7 @@ fn void DesktopManager.register(&self, Desktop* _desk) @inline {
 }
 
 <*
-* @param in desk "the desktop to remove"
+* @param [inout] _desk : "the desktop to remove"
 * @require desk != null
 *>
 fn void DesktopManager.unregister(&self, Desktop* _desk) @inline {

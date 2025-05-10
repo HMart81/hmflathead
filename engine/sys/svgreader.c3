@@ -513,8 +513,6 @@ fn void parse_attribute_data(XmlAttribute* inAtrb, Element* elem, SVGData* svgfi
             return;
     }
 
-
-
     if(isfloat) {
         new_atrb.type  = AttrType.FLOAT;
         if(try value = to_float(inAtrb.value)) new_atrb.value.f = value;
@@ -523,6 +521,8 @@ fn void parse_attribute_data(XmlAttribute* inAtrb, Element* elem, SVGData* svgfi
         if(inAtrb.value.starts_with("http") || inAtrb.value.starts_with("../") || inAtrb.value.contains("/") ) 
         {
             Path path;
+            new_atrb.type    = AttrType.STRING;
+            new_atrb.value.s = inAtrb.value.copy(mem);
             $switch:
             $case env::WIN32:
                 if(try result = path::for_windows(mem, inAtrb.value.copy(mem))) path = result;

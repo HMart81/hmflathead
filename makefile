@@ -150,7 +150,8 @@ comand_debug_run := cd ${CURDIR}/build/ & start $(APPLICATION_DEBUG_NAME).exe $(
 #################################### RULES ###################################################
 
 # rule run when inputing "make" alone in the console
-all: release($(APPLICATION_RELEASE_NAME)) debug($(APPLICATION_DEBUG_NAME))
+#all: debug release release($(APPLICATION_RELEASE_NAME)) debug($(APPLICATION_DEBUG_NAME))
+all: debug release
 
 clean: func_clean
 

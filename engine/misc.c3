@@ -63,7 +63,7 @@ macro @makeVec2fExt(#x) => (Vec2f){#x, #x};
 
 macro @forange($a, $b, arr; @body(x, y)) @builtin
 {
-    for(usz index = $a; index <= (usz)$b; index++) {
+    for(usz index = (usz)$a; index <= (usz)$b; index++) {
         assert($a >= 0 && $b < arr.len); // did you forgot len - 1? ;)
         var it = (*arr)[index];
         @body(index, it);

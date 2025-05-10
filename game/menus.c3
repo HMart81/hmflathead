@@ -326,7 +326,7 @@ fn void button_onRelease(Widget* widget) {
 <*
     generic button callback
     
-    @param [in] widget "widget calling this function"
+    @param [in] widget : "widget calling this function"
     @require widget != null
 *>
 fn void button_onPress(Widget* widget) {
@@ -346,7 +346,7 @@ fn void button_onPress(Widget* widget) {
 <*
     generic button callback
     
-    @param [in] widget "widget calling this function"
+    @param [in] widget : "widget calling this function"
     @require widget != null
 *>
 fn void button_onSinglePress(Widget* widget) {
