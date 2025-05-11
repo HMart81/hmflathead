@@ -50,12 +50,82 @@
         // https://www.youtube.com/watch?v=w6Q-xmW729Y -- raygui tutorial on how to use the text input box.
 */
 
+/*
+module engine::tools::editor::anchor @private;
+
+import engine::misc;
+import std::collections::list;
+
+// A Anchor is just a point where all editor widgets get connected
+alias AnchorListPtrs = List{Anchor*};
+
+struct Anchor @public @packed
+{
+    uint id;
+    Vec2f point;
+}
+
+macro Anchor create(uint id, float x, float y) @public {
+    Anchor local_anchor;
+    local_anchor.id = id;
+    local_anchor.point = {x, y};
+    return local_anchor;
+}
+
+macro bool Anchor.equal(self, Anchor other) @operator(==)
+{
+    if(self.id == other.id && self.point == other.point) return true;
+
+    return false;
+}
+
+macro bool Anchor.nequal(self, Anchor other) @operator(!=)
+{
+    return ((self == other) == false);
+}
+
+macro Vec2f Anchor.add(self, Vec2f vec) @operator(+)
+{
+    return self.point + vec;
+}
+
+macro Vec2f Anchor.sub(self, Vec2f vec) @operator(-)
+{
+    return self.point - vec;
+}
+
+macro Vec2f Anchor.addequals(self, Vec2f vec) @operator(+=)
+{
+    return self.point += vec;
+}
+
+macro Vec2f Anchor.subequals(self, Vec2f vec) @operator(-=)
+{
+    return self.point -= vec;
+}
+
+macro Vec2f Anchor.mul(self, Vec2f vec) @operator(*)
+{
+    return self.point * vec;
+}
+
+macro Vec2f Anchor.mulScaler(self, float sc) @operator(*)
+{
+    return self.point * sc;
+}
+
+macro Vec2f Anchor.mulScalerEqual(self, float sc) @operator(*=)
+{
+    return self.point *= sc;
+}
+*/
 
 module engine::tools::editor;
 
 import std::io, std::ascii, std::collections::list;
 import engine::misc;
 import engine::sys::cvar;
+//import engine::tools::editor::anchor;
 import thirdparty::raylib5::rl;
 import thirdparty::raygui5::rgui;
 import game::main;
@@ -467,37 +537,28 @@ fn void drawEditorMainToolBar(Rectangle area, Editor* editor)
     float tb_y_anchor = 0.0075f * area.height;
     Vec2f btn_size = {20.0f, 20.0f};
 
-
     // Open Folder Button
     Vec2f btn0_pos = anchor + misc::VEC_RIGHT * 0.08f * area.width;
     btn0_pos.y += tb_y_anchor;
-    String btn0_type = Icon.FOLDER_OPEN.str;
-
-    @button(btn0_pos, btn_size, btn0_type, &openFolderButtonCallback){};
+    @button(btn0_pos, btn_size, Icon.FOLDER_OPEN, &openFolderButtonCallback){};
 
     // Save Button
     Vec2f btn1_pos = btn0_pos + misc::VEC_RIGHT * btn_size.x * 1.5f;
-    String btn1_type = Icon.FILE_SAVE_CLASSIC.str;
-
-    @button(btn1_pos, btn_size, btn1_type, &saveButtonCallback){};
+    @button(btn1_pos, btn_size, Icon.FILE_SAVE_CLASSIC, &saveButtonCallback){};
 
     // Undo Button
     Vec2f btn2_pos = btn1_pos + misc::VEC_RIGHT * btn_size.x * 1.5f;
-    String btn2_type = Icon.UNDO.str;
-
-    @button(btn2_pos, btn_size, btn2_type, &undoButtonCallback){};
+    @button(btn2_pos, btn_size, Icon.UNDO, &undoButtonCallback){};
 
     // Redo Button
     Vec2f btn3_pos = btn2_pos + misc::VEC_RIGHT * btn_size.x * 1.5f;
-    String btn3_type = Icon.REDO.str;
-    @button(btn3_pos, btn_size, btn3_type, &redoButtonCallback){};
+    @button(btn3_pos, btn_size, Icon.REDO, &redoButtonCallback){};
 
 $if $defined(TextInputBox):
     // open Console Button
     // TODO(HM): this should open the console window only, but for now it will open the console input box.
     Vec2f btn4_pos = btn3_pos + misc::VEC_RIGHT * btn_size.x * 1.5f;
-    String btn4_type = Icon.WINDOW.str;
-    @button(btn4_pos, btn_size, btn4_type) {
+    @button(btn4_pos, btn_size, Icon.WINDOW) {
         // open console window
         editor.con_input_showWindow = !editor.con_input_showWindow;
     };
@@ -726,10 +787,10 @@ fn void drawHorizontalLine(Vec2f start, float lenght) @inline @local
 
 alias ButtonfuncCallback = fn void(void*);
 
-macro @button(Vec2f pos, Vec2f size, String text, ButtonfuncCallback callback = null; @body) @local
+macro @button(Vec2f pos, Vec2f size, ZString text, ButtonfuncCallback callback = null; @body) @local
 {
     var rec = (Rectangle){pos.x, pos.y, size.x, size.y};
-    if(rgui::button(rec, text.zstr_tcopy())) {
+    if(rgui::button(rec, text)) {
         if (callback != null) {
             callback(null);
         }

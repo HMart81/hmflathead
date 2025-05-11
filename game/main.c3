@@ -63,7 +63,7 @@ import game::effects::boid;
 import game::lowlevel::bounds;
 // third party libraries
 import thirdparty::raylib5::rl;
-import thirdparty::raygui5::rgui;
+import thirdparty::raygui5::rgui/*, thirdparty::raygui5::rgui::style::dark*/;
 import thirdparty::library::xml;
 import engine::physics::box2d;
 import thirdparty::tracy;
@@ -1894,6 +1894,12 @@ lgr::info(Where.FILE, "---------------------------------------------\n");
     local_game.time_ms  = misc::sec2ms(local_game.time_sec);
     lgr::info(Where.FILE, "---------------------------------------------\n");
 
+    // init raygui dark style
+    // lgr::info(Where.FILE, "loading raygui dark style:");
+    // lgr::info(Where.FILE, "---------------------------------------------\n");
+    // rgui::style::dark::load();
+    // lgr::info(Where.FILE, "- done -\n");
+
 // #region MONITOR STATES
     lgr::info(Where.FILE, "Setting up monitor states:");
     lgr::info(Where.FILE, "---------------------------------------------");
@@ -1984,8 +1990,8 @@ $endif
 // #region physics engine
     lgr::info(Where.FILE, "Starting Box2D physics engine:");
     lgr::info(Where.FILE, "---------------------------------------------");
-    // TODO(HM) refactor this into a physics engine module that wraps box2d? 
-    B2Version version      = box2d::getVersion();
+    // TODO(HM) refactor this into a physics engine module that wraps box2d?
+    B2Version version = box2d::getVersion();
     lgr::info(Where.FILE, "\tBox2D version: \"%d.%d.%d\"", version.major, version.minor, version.revision);
     
     // NOTE(HM) This needs to be done before any box2d function requiring units is used!!!
@@ -2018,6 +2024,7 @@ $endif
     pos                   += misc::VEC_DOWN * (0.75f* local_game.screen.h);
     grd_bodydef.position   = (B2Vec2)pos;//.toVector2();
     local_game.phys_grd_bodyid  = box2d::createBody(local_game.physWorldId, &grd_bodydef);
+    //
     local_game.phys_grd_box     = box2d::makeBox(20.0f, 10.0f);
     B2ShapeDef  grd_shpdef      = box2d::defaultShapeDef();
     box2d::createPolygonShape(local_game.phys_grd_bodyid, &grd_shpdef, &local_game.phys_grd_box);
