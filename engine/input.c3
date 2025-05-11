@@ -268,11 +268,6 @@ fn void Action.updateLogic(&self, float timeStep) @dynamic
 
 fn String Action.getName(&self) => self.name;
 
-
-<*
-* @param [in] func "pointer to function to call"
-* @require func != null "A action requires a function to do anything"
-*>
 fn void makeKeyboardAction(String name, KeyboardKey key1, KeyboardKey key2 = rl::KEY_NULL, ActionCallBack func = null)  @inline
 {
     Action* action       = mem::new(Action);
@@ -285,10 +280,6 @@ fn void makeKeyboardAction(String name, KeyboardKey key1, KeyboardKey key2 = rl:
     local_manager.actions.push(action);
 }
 
-<*
-* @param [in] func "pointer to function to call"
-* @require func != null "A action requires a function to do anything"
-*>
 fn void makeMouseAction(String name, MouseButton btn, KeyboardKey key = rl::KEY_NULL, ActionCallBack func = null)  @inline
 {
     Action* action       = mem::new(Action);
@@ -301,11 +292,7 @@ fn void makeMouseAction(String name, MouseButton btn, KeyboardKey key = rl::KEY_
     local_manager.actions.push(action);
 }
 
-<*
-* @param [in] func "pointer to function to call"
-* @require func != null "A action requires a function to do anything"
-*>
-fn void makeGamepadAction(String name, ActionCallBack func, GamepadButton btn, GamepadAxis axis)  @inline
+fn void makeGamepadAction(String name, GamepadButton btn, GamepadAxis axis, ActionCallBack func = null)  @inline
 {
     Action* action      = mem::new(Action);
     action.type         = Action.typeid;
@@ -325,7 +312,7 @@ fn Action* getAction(String name) @inline {
     return local_manager.getActionByName(name);
 }
 
-fn void removeAction(String name) {
+fn void removeAction(String name) @inline {
     if(name == "") return;
     
     foreach(act : local_manager.actions) {
@@ -498,7 +485,7 @@ fn ActionQueue ActionManager.getActionsByKind(&self, ActionKind kind) @inline {
     
    ActionQueue actions;
     
-    foreach(i, action : self.actions) {
+    foreach(action : self.actions) {
         if(action.kind == kind) {
             actions.push(action);
         }
@@ -523,47 +510,15 @@ fn void ActionManager.remove(&self, Action* action) @inline {
     self.unregister(action);
 }
 
-
-///////// JUST FOR TESTING DELETE THIS PLEASE!!!!!
-////
-// Function to check if a string is a duplicate
-fn int is_duplicate(String[] array, String str) {
-    foreach(s : array) {
-        if(s == str) return 1; // a duplicate
-    }
-    return 0; // Not a duplicate
-}
-
-// Function to detect duplicates in an array of strings
-fn void detect_duplicates(String[] array, int size) {
-    List{String} seen;
-    for (int i = 0; i < size; i++) {
-        if (is_duplicate(array, array[i])) {
-            seen.push(array[i]);
-        }
-    }
-    // Print all duplicate strings
-    foreach(s : seen) {
-        io::printfn("%s is a duplicate", s);
-    }
-    if(seen.len()) seen.clear();
-}
-////
-////////////////////////////////////////////
-
 fn void ActionManager.update(&self) @inline {
-
-    float dt = main::gpGame.dt;
-
     usz count = self.actions.len();
     if(count >= 1) {
         foreach(act: self.actions) {
-            act.update(dt);
+            act.update(main::gpGame.dt);
         }
     }
     
     // detect actions with the same keys
-    
 }
 
 fn void ActionManager.free(&self) {
@@ -576,18 +531,19 @@ fn void ActionManager.free(&self) {
     self.actions.free();
 }
 
-fn void ActionManager.listActions(&self) @local {
+fn void ActionManager.listActions(&self) @local @inline
+{
     if(self.actions.len()) {
         lgr::info(Where.FILE, "[ KEY ACTIONS ]");
         foreach(action: self.actions) {
-           lgr::info(Where.FILE, "    -> \"%s\" : {%s, %s},", action.name, getKeyboardKeyName(action.keyboard.key1), getKeyboardKeyName(action.keyboard.key2));
+           lgr::info(Where.FILE, "\t-> \"%s\" : {%s, %s},", action.name, getKeyboardKeyName(action.keyboard.key1), getKeyboardKeyName(action.keyboard.key2));
         }
         lgr::info(Where.FILE, "[ END ACTIONS ]]");
     }
 }
 
 
-
+// TODO(HM) Move this to the cmds module
 // region input cmds
 fn void quitGame() {
     main::gpGame.should_quit = true;

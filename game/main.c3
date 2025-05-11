@@ -2145,28 +2145,7 @@ $endif
     }
     
 // #region Test game stuff
-$if $feature(_DEBUG):
-    input::makeKeyboardAction("screenshots", rl::KEY_F2, rl::KEY_NULL, (ActionCallBack)&camview::moveScreenShots);
-$endif
-
-$if !$feature(_DEBUG):
-    input::makeKeyboardAction("quit", rl::KEY_F10, rl::KEY_NULL, (ActionCallBack)&input::quitGame);
-$endif
-
-    input::makeKeyboardAction("quicksave", rl::KEY_F5, rl::KEY_NULL, (ActionCallBack)&saveGame);
-    input::makeKeyboardAction("quickload", rl::KEY_F9, rl::KEY_NULL, (ActionCallBack)&loadGame);
-    
-    input::makeKeyboardAction("particles", rl::KEY_INSERT);
-    // ingame gui editor
-    input::makeKeyboardAction("edit_gui", rl::KEY_F3);
-
-    // game main editor
-    input::makeKeyboardAction("toggle_editor", rl::KEY_F1, rl::KEY_LEFT_SHIFT);
-    
-    // close the main menu
-    input::makeKeyboardAction("close_main_menu", rl::KEY_ESCAPE);
-    
-    input::listActions();
+    createGameInputActions();
     
     // Create the main Single Player
     // NOTE(HM) todo: the player and ingame entities should be created only at spawn of a level 
@@ -2384,6 +2363,38 @@ fn void loadGame() {
 */
 }
 
+
+fn void createGameInputActions() @inline @local
+{
+    defer input::listActions();
+
+    $if $feature(_DEBUG):
+    input::makeKeyboardAction("screenshots", rl::KEY_F2, rl::KEY_NULL, (ActionCallBack)&camview::moveScreenShots);
+$endif
+
+$if !$feature(_DEBUG):
+    input::makeKeyboardAction("quit", rl::KEY_F10, rl::KEY_NULL, (ActionCallBack)&input::quitGame);
+$endif
+
+    input::makeKeyboardAction("quicksave", rl::KEY_F5, rl::KEY_NULL, (ActionCallBack)&saveGame);
+    input::makeKeyboardAction("quickload", rl::KEY_F9, rl::KEY_NULL, (ActionCallBack)&loadGame);
+    
+    input::makeKeyboardAction("particles", rl::KEY_INSERT);
+    // ingame gui editor
+    input::makeKeyboardAction("edit_gui", rl::KEY_F3);
+
+    // game main editor
+    input::makeKeyboardAction("toggle_editor", rl::KEY_F1, rl::KEY_LEFT_SHIFT);
+    
+    // close the main menu
+    input::makeKeyboardAction("close_main_menu", rl::KEY_ESCAPE);
+
+    // mouse actions
+    input::makeMouseAction("Single Press", MouseButton.LEFT);
+    input::makeMouseAction("Double Press", MouseButton.LEFT);
+    // for the WIP game editor
+    input::makeMouseAction("editor_select", MouseButton.LEFT, rl::KEY_LEFT_SHIFT);
+}
 
 ////////////////////////////////// GAME LOOP ////////////////////////////////////////////////////////////////
 

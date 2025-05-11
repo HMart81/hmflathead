@@ -316,7 +316,7 @@ interface WidgetInterface
     fn bool hidden();
     fn bool isMouseOver() @optional;
     fn bool isWithinScreenBounds() @optional;
-    fn void addTo(Desktop*, String);
+    fn void addTo(Desktop*);
     fn void setInteractive(bool);
     fn bool isInteractive();
     fn Desktop* getDesktop();
@@ -330,8 +330,9 @@ interface WidgetInterface
     fn void setColor(rl::Color);
 }
 
-const KIND_TEXT    = 1;
-const KIND_BUTTON  = 2;
+const KIND_TEXT      = 1;
+const KIND_BUTTON    = 2;
+const KIND_CONTAINER = 3;
 
 alias WidgetCallback = fn void(Widget*);
 
@@ -345,14 +346,14 @@ struct Widget (WidgetInterface)
     //int layer;
     int kind;
     WidgetFlags flags;
-    
 
-    Widget* next; // for linked widgets
-    // for binding widgets
+    // for binding
     struct parent {
         Desktop* desktop;
         Widget* other;
     }
+    // for linking
+    Widget* next; // for linked list of widgets
 
     // callbacks
     WidgetCallback onOver;
@@ -367,9 +368,6 @@ struct Widget (WidgetInterface)
 
 fn void Widget.init(&self) @dynamic {
     self.super.init();
-    
-    // key actions
-    input::makeMouseAction("editor_select", MouseButton.LEFT, rl::KEY_LEFT_SHIFT);
 }
 
 fn void Widget.deinit(&self) @dynamic{
@@ -559,7 +557,7 @@ fn bool Widget.isWithinScreenBounds(&self) @dynamic
 * @param [in] desktop : "parent desktop"
 * @require desktop != null
 *>
-fn void Widget.addTo(&self, Desktop* desktop, String name) @dynamic {
+fn void Widget.addTo(&self, Desktop* desktop) @dynamic {
     self.parent.desktop = desktop;
     if (self.parent.desktop.isInteractive) {
         self.flags.wasInteractive = true;
@@ -568,22 +566,16 @@ fn void Widget.addTo(&self, Desktop* desktop, String name) @dynamic {
 
     self.id = (int)self.parent.desktop.children.len() + 1;
     
-    // set name based on desktop name
-    if(name == "") {
-        name = "Widget";
-    } else {
-        name.tconcat("_Widget");
-    }
-    
+    // concatenate with desktop name
     if (self.id < 10) {
-        self.name = string::tformat("%s_%s%d", self.parent.desktop.name, name.tconcat("0"), self.id);
+        self.name = string::tformat("%s_%s%d", self.parent.desktop.name, self.name.tconcat("0"), self.id);
         if (self.bound()) {
-            self.name = string::tformat("%s_%s_%s%d", self.parent.desktop.name, self.parent.other.name, name.tconcat("0"), self.id);
+            self.name = string::tformat("%s_%s_%s%d", self.parent.desktop.name, self.parent.other.name, self.name.tconcat("0"), self.id);
         }
     } else {
-      self.name = string::tformat("%s_%s%d", self.parent.desktop.name, name, self.id);
+      self.name = string::tformat("%s_%s%d", self.parent.desktop.name, self.name, self.id);
       if (self.bound()) {
-          self.name = string::tformat("%s_%s_%s%d", self.parent.desktop.name, self.parent.other.name, name, self.id);
+          self.name = string::tformat("%s_%s_%s%d", self.parent.desktop.name, self.parent.other.name, self.name, self.id);
       }
     }
     
@@ -707,6 +699,7 @@ struct WidgetText
 fn void WidgetText.init(&self) @inline 
 {
     self.super.init();
+    self.name = "TextLabel";
     self.setColor({0, 0, 0, 0});
     self.kind       = KIND_TEXT;
     self.font_size  = 20; //@hardcode
@@ -798,12 +791,8 @@ fn void WidgetText.draw(&self) @inline {
 fn WidgetText* createLabel(String name, String text, Color text_color, Desktop* menu) {
     WidgetText* label = mem::new(WidgetText);
     label.init();
-    if(name == "") {
-        name = "Label";
-    } else {
-        name.tconcat("_Label");
-    }
-    label.addTo(menu, name);
+    label.name = label.name.tconcat(text);
+    label.addTo(menu);
     // labels shouldn't be interactive (to save perf...)
     label.flags.wasInteractive = false;
     label.setInteractive(false);
@@ -833,26 +822,21 @@ struct WidgetButton {
 * @param [in] desk : "desktop where this widget will live"
 * @require desk != null
 *>
-fn void WidgetButton.init(&self) @inline {
+fn void WidgetButton.init(&self) @inline 
+{
     self.super.init();
     self.kind = KIND_BUTTON;
+    self.name = "Button";
     self.setColor(rl::WHITE); //@hardcode
     self.setOverColor(rl::RED); //@hardcode
     self.setPressedColor(rl::GREEN); //@hardcode
     self.setActivatedColor(rl::BLUE); //@hardcode
     self.setSound(&main::gpGame.default_sound); //@hardcode todo give this a better sound
-    
-    //input::makeKeyboardAction("MMenu Enter", MouseButton.LEFT);
-    input::makeMouseAction("Single Press", MouseButton.LEFT);
-    input::makeMouseAction("Double Press", MouseButton.LEFT);
 }
 
 fn void WidgetButton.deinit(&self) @inline {
     self.super.deinit();
     if (self.interaction_sound) self.interaction_sound = null;
-    
-    input::removeAction("Single Press");
-    input::removeAction("Double Press");
 }
 
 fn void WidgetButton.setColor(&self, Color color) @dynamic {
@@ -933,22 +917,36 @@ fn void WidgetButton.draw(&self) {
 }
 
 <*
-* @param [in] menu : "desktop where this widget will live"
-* @require menu != null
 * @ensure return != null
 *>
-fn WidgetButton* createButton(String name, Desktop* menu) {
+fn WidgetButton* createButton() @inline {
     WidgetButton* button = mem::new(WidgetButton);
     button.init();
-    if(name == "") {
-        name = "Button";
-    } else {
-        name.tconcat("_Button");
-    }
-    button.addTo(menu, name);
     return button;
 }
 
+//////////////////////////////////// CONTAINER //////////////////////////////////////
+
+struct WidgetContainer 
+{
+    inline Widget super;
+
+    ChildrenQueue children;
+}
+
+<*
+* @param [in] desk : "desktop where this widget will live"
+* @require desk != null
+*>
+fn void WidgetContainer.init(&self) @inline {
+    self.super.init();
+    self.kind = KIND_CONTAINER;
+    self.setColor(rl::WHITE); //@hardcode
+}
+
+fn void WidgetContainer.deinit(&self) @inline {
+    self.super.deinit();
+}
 
 //////////////////////////////////// DESKTOP //////////////////////////////////////
 
@@ -972,9 +970,15 @@ fn WidgetButton* createButton(String name, Desktop* menu) {
         main_menu_button.addTo(&main_menu);
 */
 
+// This should have been done using a list of 'any' types but I did this before
+// really knowing that was a option and now changing this is a big refactor 
+// and i'm to lazy to change this, at lest for now...
+// todo change this to use the any list bellow...
 alias ChildrenQueue = List{Widget*};
+//alias ChildrenQueue = List{any};
 
-struct Desktop (SaveSystemInterface) {
+struct Desktop (SaveSystemInterface) 
+{
     // id
     String name;
     
@@ -1007,7 +1011,7 @@ fn void Desktop.reload(&self, SaveFile* file) @dynamic {
 // todo
 }
 
-// todo
+// todo init this from a svg file
 fn bool Desktop.initFromFile(&self, ZString path, bool cache ) {
 /*
 
@@ -1140,6 +1144,15 @@ fn void Desktop.clear(&self) @inline
                 default:
                    ((Widget*)child).deinit(); 
             }
+            // switch (child.type) 
+            // {
+            //     case WidgetButton.typeid:
+            //     case WidgetText.typeid:
+            //     case WidgetContainer.typeid:
+            //         child.ptr.deinit();
+            //     default:
+            //         unreachable("unkown gui widget typeid");
+            // }
         }
     }
 }

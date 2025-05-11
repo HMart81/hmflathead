@@ -170,7 +170,9 @@ struct MenuButtonDef
 }
 
 macro create_menu_button(Vec2f pos, String text, MenuButtonDef* bdef, Desktop* menu) @local {
-    WidgetButton* button = gui::createButton(text, menu);
+    WidgetButton* button = gui::createButton();
+    button.name = button.name.tconcat(text);
+    button.addTo(menu);
     button.setSizeV(bdef.size);
     button.setPositionV(pos);
     button.setDefaultColor(bdef.default_color);
