@@ -422,7 +422,7 @@ fn void Entity.draw(&self)
 
 		// todo selection
         //Color color = (selected) ? self.selected_color : self.mat.diffuse.color;
-		Color color = self.vs.color;
+		Color color = self.vs.mat.diffuse.color;
 
         BlendMode blending;
         switch (self.vs.mat.coverage)

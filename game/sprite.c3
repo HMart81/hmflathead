@@ -82,7 +82,7 @@ struct Sprite (SaveSystemInterface)
     SpriteKind kind; // object type
     //
     Rectangle rect;
-    RColor color;
+    RColor color;  // only used for when a material is not defined.
     Asset* tex @deprecated;
     HMaterial* mat;
     Bounds bounds; // will be equal to the rectangle
@@ -383,27 +383,77 @@ fn void Sprite.draw(&self)  @inline
             rl::drawRectangleLinesEx(self.rect, 1.0f, rl::RED);
         $endif
         
-        if(self.asTexture())
+        if(self.hasMaterial())
         {
-            // Source rectangle (part of the texture to use for drawing)
-            Vec2i texture_size = self.getTextureSize();
-            Rectangle source = {0.0f, 0.0f, (float)texture_size.x, (float)texture_size.y};
-            // Destination rectangle (screen rectangle where to draw part of texture)
-            Rectangle* dist  = &self.rect;
-            // Origin of the texture (rotation/scale point), 
-            // is relative to destination rectangle size/area NOT the screen!!!
-            Vector2 image_center       = {0, 0};
-            const float IMAGE_ROTATION = 0.0f;
-            if(self.tex) {
-                rl::drawTexturePro(*(Texture2D*)self.tex.data.ptr, source, *dist, image_center, IMAGE_ROTATION, self.color);
-            } else if(self.mat) {
-                rl::drawTexturePro(self.mat.diffuse.tex, source, *dist, image_center, IMAGE_ROTATION, self.mat.diffuse.color);
-            } else {
-                //lgr::error(Where.CONSOLE, "Sprite '%s' set to have a texture but has none.\n", self.name);
-                unreachable("Sprite set to have a texture but has none.");
+            Texture2D* texture = &self.mat.diffuse.tex;
+            Vec2f texture_size = { texture.width, texture.height };
+            Rectangle source = { 0, 0, texture_size.x, texture_size.y };
+            Rectangle* dist = &self.rect;
+
+            Color color = self.mat.diffuse.color;
+
+            BlendMode blending;
+            switch (self.mat.coverage)
+            {
+                case MatMC.OPAQUE: break; // do nothing here
+                case MatMC.PERFORATED:
+                    blending = BlendMode.ALPHA;
+                case MatMC.TRANSLUCENT:
+                    blending = BlendMode.ALPHA_PREMUL;
+                    if(color.a >= 1.0f)
+                    {
+                        color.a = 128; // half transparent
+                        float r = misc::@mapValueRangeToOther(color.r, 0, 255, 0.0f, 1.0f);
+                        float g = misc::@mapValueRangeToOther(color.g, 0, 255, 0.0f, 1.0f);
+                        float b = misc::@mapValueRangeToOther(color.b, 0, 255, 0.0f, 1.0f);
+                        float a = misc::@mapValueRangeToOther(color.a, 0, 255, 0.0f, 1.0f);
+
+                        color.r = (char)math::floor((r * a) * 255);
+                        color.g = (char)math::floor((g * a) * 255);
+                        color.b = (char)math::floor((b * a) * 255);
+                    }
+                case MatMC.BAD:
+                    lgr::error(Where.FILE, "Panel with material %s has a bad material coverage type.", self.mat.name);
+                    unreachable();
+                break;
+            }
+
+            switch (blending)
+            {
+                case BlendMode.ALPHA:
+                case BlendMode.ALPHA_PREMUL:
+                    rl::@blendMode(blending)
+                    {
+                        rl::drawTexturePro(*texture, source, *dist, {0, 0}, 0.0f, color);
+                    };
+                default: // opaque unless the image has invisible pixels...
+                    // NOTE(HM) center of the texture (rotation/scale point), 
+                    // it's relative to destination rectangle dimentions, not the screen dimentions.
+                    rl::drawTexturePro(*texture, source, *dist, {0, 0}, 0.0f, color);
             }
         } else {
-            rl::drawRectangleRec(self.rect, self.color);
+            if(self.asTexture())
+            {
+                // Source rectangle (part of the texture to use for drawing)
+                Vec2i texture_size = self.getTextureSize();
+                Rectangle source = {0.0f, 0.0f, (float)texture_size.x, (float)texture_size.y};
+                // Destination rectangle (screen rectangle where to draw part of texture)
+                Rectangle* dist  = &self.rect;
+                // Origin of the texture (rotation/scale point), 
+                // is relative to destination rectangle size/area NOT the screen!!!
+                Vector2 image_center       = {0, 0};
+                const float IMAGE_ROTATION = 0.0f;
+                if(self.tex) {
+                    rl::drawTexturePro(*(Texture2D*)self.tex.data.ptr, source, *dist, image_center, IMAGE_ROTATION, self.color);
+                } else if(self.mat) {
+                    rl::drawTexturePro(self.mat.diffuse.tex, source, *dist, image_center, IMAGE_ROTATION, self.mat.diffuse.color);
+                } else {
+                    //lgr::error(Where.CONSOLE, "Sprite '%s' set to have a texture but has none.\n", self.name);
+                    unreachable("Sprite set to have a texture but has none.");
+                }
+            } else {
+                rl::drawRectangleRec(self.rect, self.color);
+            }
         }
     };//tracy::@zoneN
     }; // misc::@profile_zone

@@ -370,7 +370,8 @@ fn bool MTRFile.parse(&self, File file)
     foreach (node : doc.rootNode.children)
     {
        if(node == null || isXmlNode(node, Node.INVALID)) continue;
-       if(isXmlNode(node, Node.MATERIAL)) {
+       if(isXmlNode(node, Node.MATERIAL)) 
+       {
             HMaterial* mat = parse_material_node(node, self);
             if(mat) self.register(mat);
        } else {
@@ -418,14 +419,19 @@ fn HMaterial* parse_material_node(XmlNode* mat_node, MTRFile* file)
     
     if (mat_name == "")
     {
-        lgr::warning(Where.FILE, "material with empty name attribute in %s\n", file.path);
+        lgr::warning(Where.FILE, "material with empty or no name in %s\n", file.path);
         mem::free(mat);
         return null;
     }
 
-    if(check_existance(mat_name) == true) { return null; }
+    if(check_existance(mat_name) == true)
+    {
+        // warning already done on check_existance() function
+        mem::free(mat);
+        return null; 
+    }
     
-    // else everthing fine with the name so keep parse this material data
+    // else everything should be fine with the name, so keep parsing this material data
     mat.name = mat_name.copy(mem);
     mat.mtrfile = file;
     
@@ -435,7 +441,7 @@ fn HMaterial* parse_material_node(XmlNode* mat_node, MTRFile* file)
         parse_node_atributes(mat_node, mat);
     }
 
-    // start parsing the material internal child nodes
+    // start parsing the material child nodes
     foreach (node : mat_node.children)
     {
        // just in case...
@@ -491,6 +497,11 @@ fn void parse_material_sound(XmlNode* node, HMaterial* mat) @inline @local
    //self.sound = astmng::assetManager.getSound(sound_shader_name);
 }
 
+<*
+    @param [inout] mat : "material to save parsed data into"
+    @param [in] maps_node : "node we are currently parsing"
+    @require mat != null && maps_node != null
+*>
 fn void parse_material_maps(XmlNode* maps_node, HMaterial* mat) 
 {
     foreach(node: maps_node.children)
@@ -928,12 +939,13 @@ fn void MaterialDataBase.listMTRs(&self) @public @if($feature(_DEBUG))
 }
 
 // WARNING(HM) 06/11/2024
-// To be used only at game exit, for now mtr files are loaded at game start and stay in RAM, 
+// To be used only at game exit, 
+// for now mtr files are loaded at game start and stay in RAM, 
 // during the entire game run, they only get freed at game end.
-// This is done this way for now, because I don't have many mtr files in this game for now,
-// if that changes someday I will refactor this,
-// for now getting them hot from RAM, is very fast, compared
-// 	to reading the data from the HD/SSD/MD2 drive.
+// This is done this way, because I don't have many mtr files in this game, for now,
+// if that changes someday I will refactor this.
+// Also getting them hot from RAM, is very fast, compared
+// to reading the data from the HD/SSD/MD2 drive.
 fn void MaterialDataBase.clear(&self) @inline @public
 {
 	if(self.data.len()) 
