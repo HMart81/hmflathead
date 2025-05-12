@@ -810,192 +810,8 @@ fn bool game_cursor_hidden() @public @inline {
 
 // #endregion Game Custom Cursor functions
 
-fn void drawGameVersion(int screenWidth, int screenHeight) @inline
+fn EscReply handleESC( Desktop** gui ) 
 {
-    // draw game version
-        const VERSION_FONT_SCALE = 12;
-        ZString game_version     = string::tformat_zstr("version: (%s, %s, %s)", MAX_VERSION, MIN_VERSION, BABY_VERSION);
-        int version_text_len     = rl::measureText(game_version, VERSION_FONT_SCALE);
-        rl::drawText(
-            game_version,
-            (int)(screenWidth - (2.0f * version_text_len)), //(float)(font_w * libc::strlen(game_version))),
-            (int)0.25f*screenHeight,
-            VERSION_FONT_SCALE,
-            {127, 127, 255, 255} // @Hardcode color
-        );
-}
-
-fn void drawWorkInProgressMessage(int screen_w, int screen_h) @local 
-{
-    const RColor COLOR @Hardcode = {223, 196, 125, 127};
-    Font* font = (Font*)local_game.candara_font.data.ptr;
-    if(!rl::isFontValid(*font))  font = &local_game.default_font;
-    
-    //int font_w = (int)font.recs.width;
-
-    //String message   = string::tformat_zstr("Total entities alive: None");
-    String message    = "WORK IN PROGRESS";
-    int text_len      = rl::measureText(message.zstr_tcopy(), TITLE_FONT_SCALE);
-    int screen_middle = (int)math::floor(0.5f*screen_w);
-    //int x = (int)(0.65f * ((float)(screen_middle + (font_w * message.len))));
-    int x = (int)(0.60f * ((float)(screen_middle + text_len)));
-    int y = (int)math::floor(0.01f*screen_h);
-    rl::drawText(string::tformat_zstr("%s (Raylib %s)", message, rl::VERSION), x, y, TITLE_FONT_SCALE, COLOR);
-    //rl::drawTextEx(*font, string::tformat_zstr("%s (Raylib %s)", message, rl::VERSION), {x, y}, TITLE_FONT_SCALE, 1.0f, rl::RED);
-}
-
-fn void drawGameOnScreenDebugInfo(int screen_w, int screen_h) @local
-{
-    if(gui::editor_enabled()) return;
-    
-    ZString slot1;
-    ZString slot2;
-    ZString slot3;
-    ZString slot4;
-    ZString slot5;
-    ZString slot6;
-    ZString slot7;
-    ZString slot8;
-    ZString slot9;
-    ZString slot10;
-    ZString slot11;
-    ZString slot12;
-
-    // slot 1
-
-    if (int entity_count = (int)local_game.entityList.len()) {
-        slot1 = string::tformat_zstr("Total entities alive: %d", entity_count);
-        //slot1 = (String)io::bprintf(&buffer, "Total entities alive: %d", entity_count)!!;
-    } else {
-        slot1 = string::tformat_zstr("Total entities alive: None");
-    }
-    
-    //sprintf(slot3, "Player view is Zoomed: %s", (view_is_Zoomed) ? "^2TRUE" : "^1FALSE");
-    slot2 = string::tformat_zstr("Game Mode = %s ", local_game.mode);
-    //slot3 = string::tformat_zstr("Screen W/H: [%d | %d] ", screen_w, screen_h);
-    slot3 = string::tformat_zstr("Game time: %d(ms) ", local_game.time_ms);
-    slot4 = string::tformat_zstr("Mouse delta X: %.2f ", rl::getMouseDelta().x);
-    slot5 = string::tformat_zstr("Mouse delta Y: %.2f ", rl::getMouseDelta().y);
-    slot6 = string::tformat_zstr("Mouse Y: %.2f ", rl::getMousePosition().y); // same as rl::getMouseY()
-    slot7 = string::tformat_zstr("Mouse X: %.2f ", rl::getMousePosition().x); // same as rl::getMouseX()
-    slot8 = string::tformat_zstr("Debug Lines count: %d", misc::g_debugLines.len());
-    //slot8 = string::tformat_zstr("Window Focus State: %s", (rl::isWindowFocused()) ? "focused" : "unfocused");
-    slot9 = string::tformat_zstr("Key Press: %s", local_game.last_key_pressed);
-    slot10 = string::tformat_zstr("Canonical mouse coords = %s", local_game.view.toCanonicalViewSpace(rl::getMousePosition().toVec2i()));
-    slot11 = string::tformat_zstr("current menu: %s", (local_game.guiActive) ? local_game.guiActive.getName() : "none");
-    slot12 = string::tformat_zstr("none");
-    
-    // switch (action)
-    // {
-    // case ACTION_FROBBING:
-        // sprintf(slot12, "Interaction: ^1%s", "FROBBING");
-        // break;
-    // case ACTION_GRABBING:
-        // sprintf(slot12, "Interaction: ^1%s", "GRABBING");
-        // break;
-    // case ACTION_HIDDING:
-        // sprintf(slot12, "Interaction: ^1%s", "HIDDING");
-        // break;
-    // case ACTION_PICKING_OBJCT:
-        // sprintf(slot12, "Interaction: ^1%s", "PICKING_OBJCT");
-        // break;
-    // case ACTION_SAVING:
-        // sprintf(slot12, "Interaction: ^1%s", "SAVING");
-        // break;
-    // case ACTION_PUSHING:
-        // sprintf(slot12, "Interaction: ^1%s", "PUSHING");
-        // break;
-    // default:
-        // sprintf(slot12, "Interaction: ^1%s", "NULL");
-        // break;
-    // }
-    
-    RenderView* view = &local_game.view;
-    const rl::Color* COLOR = &rl::YELLOW;
-    int x = (int)math::floor(0.01f*view.w);
-    int y = view.h;
-    
-    rl::drawText(slot1, x, (int)math::floor(0.01f*y), SMALL_FONT_SCALE, *COLOR);
-    rl::drawText(slot2, x, (int)math::floor(0.03f*y), SMALL_FONT_SCALE, *COLOR);
-    rl::drawText(slot3, x, (int)math::floor(0.05f*y), SMALL_FONT_SCALE, *COLOR);
-    rl::drawText(slot4, x, (int)math::floor(0.07f*y), SMALL_FONT_SCALE, *COLOR);
-    rl::drawText(slot5, x, (int)math::floor(0.09f*y), SMALL_FONT_SCALE, *COLOR);
-    rl::drawText(slot6, x, (int)math::floor(0.11f*y), SMALL_FONT_SCALE, *COLOR);
-    rl::drawText(slot7, x, (int)math::floor(0.13f*y), SMALL_FONT_SCALE, *COLOR);
-    rl::drawText(slot8, x, (int)math::floor(0.15f*y), SMALL_FONT_SCALE, *COLOR);
-    rl::drawText(slot9, x, (int)math::floor(0.17f*y), SMALL_FONT_SCALE, *COLOR);
-    rl::drawText(slot10, x, (int)math::floor(0.19f*y), SMALL_FONT_SCALE, *COLOR);
-    rl::drawText(slot11, x, (int)math::floor(0.21f*y), SMALL_FONT_SCALE, *COLOR);
-    rl::drawText(slot12, x, (int)math::floor(0.23f*y), SMALL_FONT_SCALE, *COLOR);
-    //***************************************************************************************************************************************
-    
-    // draw gui coords
-    /*rl::drawRectangle(0, 0, 8, 8, rl::SKYBLUE);
-    Vec2f x_line_end = {0.85f*screen_w, 0.0f};
-    rl::drawLineV({0.0f, 0.0f}, x_line_end, rl::RED);
-    rl::drawText(
-        string::tformat_zstr("width = %s", screen_w), 
-        (int)x_line_end.x + 5, // x
-        (int)x_line_end.y, // y
-        12,
-        rl::WHITE//{127, 127, 127, 127}
-    );
-    */
-    // TODO(HM) make this work
-    // misc::draw_arrow({0.0f, 0.0f}, {0.85f*screen_w, 0.0f}, rl::RED);
-}
-
-// local Game functions NOTE(HM) local cannot be overriden when importing modules
-
-fn void gameDraw(int screenWidth, int screenHeight) @local 
-{
-    //float gameDraw_start = @start_profile_zone();
-    //defer @end_profile_zone(gameDraw_start);
-    misc::@profile_zone("Game Draw", false)
-    {
-        local_game.view.renderToFBO();
-        
-        // Main Basic rendering
-        rl::beginDrawing();
-        
-        rl::clearBackground({0x18, 0x18, 0x18, 0xFF});
-        //rl::clearBackground(*(Color*)&&((uint[1]){ 0x181818FF }));
-        
-        // draw the view FBO's
-        if(rl::isShaderValid(*local_game.current_global_shader)) 
-        {
-            rl::beginShaderMode(*local_game.current_global_shader);
-                
-                local_game.view.draw();
-                
-            rl::endShaderMode();
-        } else {
-            // render using raylib default shader
-            local_game.view.draw();
-        }
-        
-        // NOTE(HM) 
-        // drawing after the scene is draw but before the GUI
-        gameOnPostSceneDraw(screenWidth, screenHeight);
-        //
-        //gameOnGuiDraw(screenWidth, screenHeight);
-        // NOTE(HM) 
-        // drawing after the GUI is draw
-        //gameOnPostGUIDraw(screenWidth, screenHeight);
-        
-        // this is where input pooling and swapping buffers happens
-        rl::endDrawing();
-        tracy::frameMark();
-        
-        // NOTE(HM) 1)
-        // drawing after the frame buffer is swapped/updated
-        // NOTE(HM) 2)
-        // Not sure for what this is usefull, but I saw this when studing the Penumbra engine
-        gameOnPostBufferSwap();
-    }; // profile_zone
-}
-
-fn EscReply handleESC( Desktop** gui ) {
 	Player* player = local_game.getLocalPlayer();
 	if ( player ) {
 		if ( player.handleESC() ) {
@@ -1262,6 +1078,191 @@ fn void gameUpdate() @local
 
 fn void gameReset() @local {
 // for future
+}
+
+fn void drawGameVersion(int screenWidth, int screenHeight) @inline @local
+{
+    // draw game version
+        const VERSION_FONT_SCALE = 12;
+        ZString game_version     = string::tformat_zstr("version: (%s, %s, %s)", MAX_VERSION, MIN_VERSION, BABY_VERSION);
+        int version_text_len     = rl::measureText(game_version, VERSION_FONT_SCALE);
+        rl::drawText(
+            game_version,
+            (int)(screenWidth - (2.0f * version_text_len)), //(float)(font_w * libc::strlen(game_version))),
+            (int)0.25f*screenHeight,
+            VERSION_FONT_SCALE,
+            {127, 127, 255, 255} // @Hardcode color
+        );
+}
+
+fn void drawWorkInProgressMessage(int screen_w, int screen_h) @local 
+{
+    const RColor COLOR @Hardcode = {223, 196, 125, 127};
+    Font* font = (Font*)local_game.candara_font.data.ptr;
+    if(!rl::isFontValid(*font))  font = &local_game.default_font;
+    
+    //int font_w = (int)font.recs.width;
+
+    //String message   = string::tformat_zstr("Total entities alive: None");
+    String message    = "WORK IN PROGRESS";
+    int text_len      = rl::measureText(message.zstr_tcopy(), TITLE_FONT_SCALE);
+    int screen_middle = (int)math::floor(0.5f*screen_w);
+    //int x = (int)(0.65f * ((float)(screen_middle + (font_w * message.len))));
+    int x = (int)(0.60f * ((float)(screen_middle + text_len)));
+    int y = (int)math::floor(0.01f*screen_h);
+    rl::drawText(string::tformat_zstr("%s (Raylib %s)", message, rl::VERSION), x, y, TITLE_FONT_SCALE, COLOR);
+    //rl::drawTextEx(*font, string::tformat_zstr("%s (Raylib %s)", message, rl::VERSION), {x, y}, TITLE_FONT_SCALE, 1.0f, rl::RED);
+}
+
+fn void drawGameOnScreenDebugInfo(int screen_w, int screen_h) @local
+{
+    if(gui::editor_enabled()) return;
+    
+    ZString slot1;
+    ZString slot2;
+    ZString slot3;
+    ZString slot4;
+    ZString slot5;
+    ZString slot6;
+    ZString slot7;
+    ZString slot8;
+    ZString slot9;
+    ZString slot10;
+    ZString slot11;
+    ZString slot12;
+
+    // slot 1
+
+    if (int entity_count = (int)local_game.entityList.len()) {
+        slot1 = string::tformat_zstr("Total entities alive: %d", entity_count);
+        //slot1 = (String)io::bprintf(&buffer, "Total entities alive: %d", entity_count)!!;
+    } else {
+        slot1 = string::tformat_zstr("Total entities alive: None");
+    }
+    
+    //sprintf(slot3, "Player view is Zoomed: %s", (view_is_Zoomed) ? "^2TRUE" : "^1FALSE");
+    slot2 = string::tformat_zstr("Game Mode = %s ", local_game.mode);
+    //slot3 = string::tformat_zstr("Screen W/H: [%d | %d] ", screen_w, screen_h);
+    slot3 = string::tformat_zstr("Game time: %d(ms) ", local_game.time_ms);
+    slot4 = string::tformat_zstr("Mouse delta X: %.2f ", rl::getMouseDelta().x);
+    slot5 = string::tformat_zstr("Mouse delta Y: %.2f ", rl::getMouseDelta().y);
+    slot6 = string::tformat_zstr("Mouse Y: %.2f ", rl::getMousePosition().y); // same as rl::getMouseY()
+    slot7 = string::tformat_zstr("Mouse X: %.2f ", rl::getMousePosition().x); // same as rl::getMouseX()
+    slot8 = string::tformat_zstr("Debug Lines count: %d", misc::g_debugLines.len());
+    //slot8 = string::tformat_zstr("Window Focus State: %s", (rl::isWindowFocused()) ? "focused" : "unfocused");
+    slot9 = string::tformat_zstr("Key Press: %s", local_game.last_key_pressed);
+    slot10 = string::tformat_zstr("Canonical mouse coords = %s", local_game.view.toCanonicalViewSpace(rl::getMousePosition().toVec2i()));
+    slot11 = string::tformat_zstr("current menu: %s", (local_game.guiActive) ? local_game.guiActive.getName() : "none");
+    slot12 = string::tformat_zstr("none");
+    
+    // switch (action)
+    // {
+    // case ACTION_FROBBING:
+        // sprintf(slot12, "Interaction: ^1%s", "FROBBING");
+        // break;
+    // case ACTION_GRABBING:
+        // sprintf(slot12, "Interaction: ^1%s", "GRABBING");
+        // break;
+    // case ACTION_HIDDING:
+        // sprintf(slot12, "Interaction: ^1%s", "HIDDING");
+        // break;
+    // case ACTION_PICKING_OBJCT:
+        // sprintf(slot12, "Interaction: ^1%s", "PICKING_OBJCT");
+        // break;
+    // case ACTION_SAVING:
+        // sprintf(slot12, "Interaction: ^1%s", "SAVING");
+        // break;
+    // case ACTION_PUSHING:
+        // sprintf(slot12, "Interaction: ^1%s", "PUSHING");
+        // break;
+    // default:
+        // sprintf(slot12, "Interaction: ^1%s", "NULL");
+        // break;
+    // }
+    
+    RenderView* view = &local_game.view;
+    const rl::Color* COLOR = &rl::YELLOW;
+    int x = (int)math::floor(0.01f*view.w);
+    int y = view.h;
+    
+    rl::drawText(slot1, x, (int)math::floor(0.01f*y), SMALL_FONT_SCALE, *COLOR);
+    rl::drawText(slot2, x, (int)math::floor(0.03f*y), SMALL_FONT_SCALE, *COLOR);
+    rl::drawText(slot3, x, (int)math::floor(0.05f*y), SMALL_FONT_SCALE, *COLOR);
+    rl::drawText(slot4, x, (int)math::floor(0.07f*y), SMALL_FONT_SCALE, *COLOR);
+    rl::drawText(slot5, x, (int)math::floor(0.09f*y), SMALL_FONT_SCALE, *COLOR);
+    rl::drawText(slot6, x, (int)math::floor(0.11f*y), SMALL_FONT_SCALE, *COLOR);
+    rl::drawText(slot7, x, (int)math::floor(0.13f*y), SMALL_FONT_SCALE, *COLOR);
+    rl::drawText(slot8, x, (int)math::floor(0.15f*y), SMALL_FONT_SCALE, *COLOR);
+    rl::drawText(slot9, x, (int)math::floor(0.17f*y), SMALL_FONT_SCALE, *COLOR);
+    rl::drawText(slot10, x, (int)math::floor(0.19f*y), SMALL_FONT_SCALE, *COLOR);
+    rl::drawText(slot11, x, (int)math::floor(0.21f*y), SMALL_FONT_SCALE, *COLOR);
+    rl::drawText(slot12, x, (int)math::floor(0.23f*y), SMALL_FONT_SCALE, *COLOR);
+    //***************************************************************************************************************************************
+    
+    // draw gui coords
+    /*rl::drawRectangle(0, 0, 8, 8, rl::SKYBLUE);
+    Vec2f x_line_end = {0.85f*screen_w, 0.0f};
+    rl::drawLineV({0.0f, 0.0f}, x_line_end, rl::RED);
+    rl::drawText(
+        string::tformat_zstr("width = %s", screen_w), 
+        (int)x_line_end.x + 5, // x
+        (int)x_line_end.y, // y
+        12,
+        rl::WHITE//{127, 127, 127, 127}
+    );
+    */
+    // TODO(HM) make this work
+    // misc::draw_arrow({0.0f, 0.0f}, {0.85f*screen_w, 0.0f}, rl::RED);
+}
+
+// local Game functions NOTE(HM) local cannot be overriden when importing modules
+
+fn void gameDraw(int screenWidth, int screenHeight) @local 
+{
+    //float gameDraw_start = @start_profile_zone();
+    //defer @end_profile_zone(gameDraw_start);
+    misc::@profile_zone("Game Draw", false)
+    {
+        local_game.view.renderToFBO();
+        
+        // Main Basic rendering
+        rl::beginDrawing();
+        
+        rl::clearBackground({0x18, 0x18, 0x18, 0xFF});
+        //rl::clearBackground(*(Color*)&&((uint[1]){ 0x181818FF }));
+        
+        // draw the view FBO's
+        if(rl::isShaderValid(*local_game.current_global_shader)) 
+        {
+            rl::beginShaderMode(*local_game.current_global_shader);
+                
+                local_game.view.draw();
+                
+            rl::endShaderMode();
+        } else {
+            // render using raylib default shader
+            local_game.view.draw();
+        }
+        
+        // NOTE(HM) 
+        // drawing after the scene is draw but before the GUI
+        gameOnPostSceneDraw(screenWidth, screenHeight);
+        //
+        //gameOnGuiDraw(screenWidth, screenHeight);
+        // NOTE(HM) 
+        // drawing after the GUI is draw
+        //gameOnPostGUIDraw(screenWidth, screenHeight);
+        
+        // this is where input pooling and swapping buffers happens
+        rl::endDrawing();
+        tracy::frameMark();
+        
+        // NOTE(HM) 1)
+        // drawing after the frame buffer is swapped/updated
+        // NOTE(HM) 2)
+        // Not sure for what this is usefull, but I saw this when studing the Penumbra engine
+        gameOnPostBufferSwap();
+    }; // profile_zone
 }
 
 // NOTE(HM) Any code here draws before the game user interface

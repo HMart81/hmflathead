@@ -30,7 +30,7 @@
 module game::material::mtr;
 
 // region imports
-import std::io;
+import std::io, std::math;
 import game::main; // for file logging or console logging
 import engine::misc;
 import game::serialize::svs;
@@ -101,6 +101,7 @@ enum MapArgs : int (inline String name)
     SCROLL_Y = "scrollY",
     TRANSLATE_X = "translateX",
     TRANSLATE_Y = "translateY",
+    ALPHA = "alpha"
 }
 
 
@@ -634,6 +635,29 @@ fn void handle_material_map_args(MatMap* map, XmlNode* node, HMaterial* mat)
        switch(arg.first)
        {
         case MapArgs.CLAMP:
+        case MapArgs.ALPHA:
+            float alpha = misc::clamp01f(arg.second.to_float()!!);
+             // multiply previous alpha values by our new value
+            if(alpha > 0.0f && alpha < 1.0f) {
+                map.color.a = (char)(math::floor(misc::@mapValueRangeToOther(map.color.a, 0, 255, 0.0f, 1.0f) * alpha)) * 255;
+                // set the material coverage to match
+                mat.coverage = MatMC.TRANSLUCENT;
+            }
+            // if (rl::isTextureValid(map.tex))
+            // {
+            //     // get current GPU VRAM image into RAM for easy manipulation
+            //     Image image = rl::loadImageFromTexture(map.tex);
+               
+            //     // create a alpha mask from the new alpha channel data
+            //     Image imageAlpha = rl::imageFromChannel(image, 3);
+            //     // apply its data to the entire image
+            //     rl::imageAlphaMask(&image, imageAlpha);
+            //     //
+            //     // clear older GPU VRAM image data
+            //     rl::unloadTexture(map.tex);
+            //     // load the new data to GPU VRAM
+            //     map.tex = rl::loadTextureFromImage(image);
+            // }
         case MapArgs.TILE_H:
         case MapArgs.TILE_V:
         case MapArgs.SCROLL_X:

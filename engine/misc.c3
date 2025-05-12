@@ -804,7 +804,7 @@ macro clamp01f(x) => math::clamp((float)x, 0.0f, 1.0f);
 macro float @clamp01fMapToRange(#x, #min, #max) {
     var result = 0.0f;
     var range  = (float)#max - (float)#min;
-    if(range != 0.0f){
+    if(range != 0.0f) {
         result = clamp01f((float)(#x - #min) / range);
     }
     return result;

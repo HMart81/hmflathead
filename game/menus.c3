@@ -152,10 +152,11 @@ fn void exit() {
 
 // region MAIN MENU
 
-fn void create_menu_label(Vec2f pos, String text, int font_size, Color color, Desktop* menu) @local @inline {
+fn WidgetText* create_menu_label(Vec2f pos, String text, int font_size, Color color, Desktop* menu) @local @inline {
     WidgetText* label = gui::createLabel("", text, color, menu);
     label.setFontSize(font_size);
     label.setPositionV(pos);
+    return label;
 }
 
 const MAX_CALLBACK_PTRS @local = 10;
@@ -218,6 +219,19 @@ fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
     button_height = default_button_size.y;
     
 // region widgets
+
+    gui::WidgetContainer ct;
+
+    ct.@container( {
+        .direction = gui::TOP_TO_BOTTOM,
+        .background = rl::RED,
+        .padding = {8, 8, 8, 8},
+        .itemGap = 16,
+        .minSize = { .w = 200 },
+        .border.between = {2, rl::GREEN }
+    }; WidgetContainer* pct ) {
+        pct.register(any_make(create_menu_label({200, 200}, "test", 12, rl::GRAY, menu), WidgetText.typeid));
+    };
 
     // region LABELS
     //*************

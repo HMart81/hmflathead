@@ -54,16 +54,6 @@ import thirdparty::raylib5::rl;
 import thirdparty::raygui5::rgui;
 // end_region
 
-// region alias
-//alias assetManager @private = astmng::assetManager;
-// end_region
-
-// region constants
-//const bool PANEL_PROFILE = true;
-const bool DEBUG_PANELS   = true;
-const int  MIN_PANEL_SIZE = 32;
-// end_region
-
 // region cvars
 Cvar ui_debugDraw @public = { "ui_debugDraw", CvarType.BOOLEAN, "0", "show debug visualization for gui development" };
 Cvar ui_editGUI   @public = { "ui_editGUI", CvarType.BOOLEAN, "0", "turn on gui editing functionality for gui development" };
@@ -76,16 +66,37 @@ fn void register_cvars() @public
 }
 // end_region
 
+
+///////////////////////////////////////////////////////////////////////////
+//
+//                                  PANEL
+//
+///////////////////////////////////////////////////////////////////////////
+
+// region alias
+//alias assetManager @private = astmng::assetManager;
+// end_region
+
+// region constants
+//const bool PANEL_PROFILE = true;
+const bool DEBUG_PANELS   = true;
+const int  MIN_PANEL_SIZE = 32;
+// end_region
+
+// mostly for the panel texture inversion ability
+const uint HORIZONTAL_DIR = 1;
+const uint VERTICAL_DIR   = 2;
+
 enum PanelShape : inline int
 {
     BOX,
     ROUNDED_BOX
 }
 
-/////////////////////////////////// ************** /////////////////////////
-
-// NOTE(HM) Panel is a simple data structure representing a big square or image, 
-// used for background images or single color rectangles, buttons, etc...
+/* 
+    NOTE(HM) Panel is a simple data structure representing a big square or image, 
+    used for background images or single color rectangles, buttons, etc...
+*/
 struct Panel (SaveSystemInterface)
 {
    PanelShape shape;
@@ -130,38 +141,58 @@ fn void Panel.initV(&self, Vec2f pos, Vec2f size, RColor color) @inline
 
 fn void Panel.init(&self) @inline 
 {
-    Rectangle temp = {0, 0, MIN_PANEL_SIZE, MIN_PANEL_SIZE};
-    self.initRec(temp, rl::WHITE);
+    self.initRec({0, 0, MIN_PANEL_SIZE, MIN_PANEL_SIZE}, rl::WHITE);
 }
 
-fn void Panel.deinit(&self) @inline {if(self.mat) self.mat = null;}
+fn void Panel.deinit(&self) @inline 
+{ 
+    if(self.mat) self.mat = null;
+}
 
 fn void Panel.setShape(&self, PanelShape shape) @inline => self.shape = shape;
 
 <*
-    @param w_scaler : "value to scale x coordinate with"
-    @param h_scaler : "value to scale y coordinate with"
-    @require w_scaler >= 0.0 && w_scaler <= 1.0f
-    @require h_scaler >= 0.0 && h_scaler <= 1.0f
+    Todo(HM) Make a way to select or view pannels with very low sizes or huge sizes
+
+    @param w_scaler : "vector to scale the panel horizontally, from 0.05f to INF"
+    @param h_scaler : "vector to scale the panel verticaly, from 0.05f to INF"
+    @require w_scaler >= 0.05f && h_scaler >= 0.05f
 *>
 fn void Panel.scale(&self, float w_scaler, float h_scaler) @inline 
 {
+    if( w_scaler >= 0.05f && w_scaler < 0.06f &&
+        h_scaler >= 0.05f && h_scaler < 0.06f )
+    {
+        lgr::warning(Where.FILE, "scaled a panel to almost invisible size! Was that desired?");
+    }
+
     self.rect.width  *= w_scaler;
     self.rect.height *= h_scaler;
 }
 
 <*
-    @param scale : "vector to scale the panel with"
-    @require scale.x >= 0.0 && scale.x <= 1.0f
-    @require scale.y >= 0.0 && scale.y <= 1.0f
+    @param scale : "vector to scale the panel with, from 0.05f to INF"
+    @require scale.x >= 0.05f && scale.y >= 0.05f
 *>
 fn void Panel.scaleV(&self, Vec2f scale) @inline => self.scale(scale.x, scale.y);
 
 <*
-    @param amount : "value to scale equaly both coordinates with"
-    @require amount >= 0.0 && amount <= 1.0f
+    @param amount : "value to scale equaly both coordinates with, from 0.05f to INF"
+    @require amount >= 0.05f
 *>
 fn void Panel.scale_equaly(&self, float amount) @inline => self.scale(amount, amount);
+
+<*
+    @param w_scaler : "value to scale x coordinate with"
+    @param h_scaler : "value to scale y coordinate with"
+    @require w_scaler >= 0.05f && w_scaler <= 1.0f
+    @require h_scaler >= 0.05f && h_scaler <= 1.0f
+*>
+fn void Panel.scaleNormalized(&self, float w_scaler, float h_scaler) @inline 
+{
+    self.rect.width  *= w_scaler;
+    self.rect.height *= h_scaler;
+}
 
 <*
     Sets the size of the Panel, units is in pixels.
@@ -251,37 +282,59 @@ fn void Panel.draw(&self, bool selected = false)
     if(self.asMaterial())
     {
         // TODO(HM) find how to draw a image on a rounded rectangle!?
-        Vec2f tex_size = {self.mat.diffuse.tex.width, self.mat.diffuse.tex.height};
-        Rectangle source = {0, 0, tex_size.x, tex_size.y};
+
+        Texture2D* texture = &self.mat.diffuse.tex;
+        Vec2f texture_size = { texture.width, texture.height };
+        Rectangle source = { 0, 0, texture_size.x, texture_size.y };
+        Rectangle* dist = &self.rect;
+
+        Color color = (selected) ? self.selected_color : self.mat.diffuse.color;
 
         BlendMode blending;
         switch (self.mat.coverage)
         {
+            case MatMC.OPAQUE: break; // do nothing here
             case MatMC.PERFORATED:
-                blending = BlendMode.ALPHA_PREMUL;
-                rl::@blendMode(blending)
-                {
-                    rl::drawTexturePro(self.mat.diffuse.tex, source, self.rect, {0, 0}, 0.0f, (selected) ? self.selected_color : self.mat.diffuse.color);
-                };
-            case MatMC.TRANSLUCENT:
                 blending = BlendMode.ALPHA;
-                rl::@blendMode(blending)
-                {
-                    rl::drawTexturePro(self.mat.diffuse.tex, source, self.rect, {0, 0}, 0.0f, (selected) ? self.selected_color : self.mat.diffuse.color);
-                };
-            case MatMC.OPAQUE:
-                // NOTE(HM) 
-                // center of the texture (rotation/scale point), it's relative to destination rectangle dimentions, not the screen
-                rl::drawTexturePro(self.mat.diffuse.tex, source, self.rect, {0, 0}, 0.0f, (selected) ? self.selected_color : self.mat.diffuse.color);
+            case MatMC.TRANSLUCENT:
+                blending = BlendMode.ALPHA_PREMUL;
+                if(color.a >= 1.0f)
+				{
+					color.a = 128; // half transparent
+					float r = misc::@mapValueRangeToOther(color.r, 0, 255, 0.0f, 1.0f);
+					float g = misc::@mapValueRangeToOther(color.g, 0, 255, 0.0f, 1.0f);
+					float b = misc::@mapValueRangeToOther(color.b, 0, 255, 0.0f, 1.0f);
+					float a = misc::@mapValueRangeToOther(color.a, 0, 255, 0.0f, 1.0f);
+
+					color.r = (char)math::floor((r * a) * 255);
+					color.g = (char)math::floor((g * a) * 255);
+					color.b = (char)math::floor((b * a) * 255);
+				}
             case MatMC.BAD:
                 lgr::error(Where.FILE, "Panel with material %s has a bad material coverage type.", self.mat.name);
+                unreachable();
             break;
         }
+
+        switch (blending)
+        {
+            case BlendMode.ALPHA:
+            case BlendMode.ALPHA_PREMUL:
+                rl::@blendMode(blending)
+                {
+                    rl::drawTexturePro(*texture, source, *dist, {0, 0}, 0.0f, color);
+                };
+            default: // opaque unless the image has invisible pixels...
+                // NOTE(HM) center of the texture (rotation/scale point), 
+                // it's relative to destination rectangle dimentions, not the screen dimentions.
+                rl::drawTexturePro(*texture, source, *dist, {0, 0}, 0.0f, color);
+        }
     } else {
-        if(self.shape == BOX) {
-            misc::@drawRect(self.rect, (selected) ? self.selected_color : self.color);
-        } else if(self.shape == ROUNDED_BOX) {
-            rl::drawRectangleRounded(self.rect, 0.65f, 6, (selected) ? self.selected_color : self.color);
+        switch(self.shape)
+        {
+            case BOX:         misc::@drawRect(self.rect, (selected) ? self.selected_color : self.color);
+            case ROUNDED_BOX: rl::drawRectangleRounded(self.rect, 0.65f, 6, (selected) ? self.selected_color : self.color);
+            default: unreachable();
         }
     }
 }
@@ -927,26 +980,113 @@ fn WidgetButton* createButton() @inline {
 
 //////////////////////////////////// CONTAINER //////////////////////////////////////
 
+alias ContainerQueue = List{any};
+
+const uint TOP_TO_BOTTOM = 1;
+const uint BOTTOM_TO_TOP = 2;
+const uint LEFT_TO_RIGHT = 3;
+const uint RIGHT_TO_LEFT = 4;
+
+struct ContainerParams
+{
+    uint direction;
+    Color background;
+    Vec4f padding;
+    uint itemGap;
+    struct minSize 
+    {
+        uint w;
+        uint h;
+    }
+    struct border
+    {
+        struct between
+        {
+            uint count;
+            Color color;
+        }
+    }
+}
+
 struct WidgetContainer 
 {
     inline Widget super;
+    ContainerQueue children;
+}
 
-    ChildrenQueue children;
+macro WidgetContainer.@container(&self, ContainerParams params; @body(self)) {
+    self.init(params);
+    @body(self);
 }
 
 <*
 * @param [in] desk : "desktop where this widget will live"
 * @require desk != null
 *>
-fn void WidgetContainer.init(&self) @inline {
+fn void WidgetContainer.init(&self, ContainerParams params) @inline {
     self.super.init();
+    //params.direction;
+    self.color = params.background;
+    // params.padding;
+    // params.itemGap;
+    // params.border.between;
+    if(params.minSize.w != 0 && params.minSize.h == 0) {
+        self.setSize(params.minSize.w, 200);
+    } else if(params.minSize.w == 0 && params.minSize.h != 0) {
+        self.setSize(200, params.minSize.h);
+    } else if(params.minSize.w == 0 && params.minSize.h == 0) {
+        self.setSize(200, 200);
+    } else {
+        self.setSize(params.minSize.w, params.minSize.h);
+    }
     self.kind = KIND_CONTAINER;
-    self.setColor(rl::WHITE); //@hardcode
 }
 
 fn void WidgetContainer.deinit(&self) @inline {
     self.super.deinit();
 }
+
+fn void WidgetContainer.update(&self) {
+    self.super.update();
+
+    foreach(child : self.children) {
+        switch (child.type)
+        {
+            case WidgetButton.typeid:
+                anycast(child, WidgetButton)!!.update();
+            case WidgetText.typeid:
+                anycast(child, WidgetText)!!.update();
+            case WidgetContainer.typeid: // container inside another
+                anycast(child, WidgetContainer)!!.update();
+            default:
+                unreachable("unkown gui widget typeid");
+        }
+    }
+}
+
+fn void WidgetContainer.draw(&self) {
+    self.super.draw();
+
+    foreach(child : self.children) {
+        switch (child.type)
+        {
+            case WidgetButton.typeid:
+                anycast(child, WidgetButton)!!.draw();
+            case WidgetText.typeid:
+                anycast(child, WidgetText)!!.draw();
+            case WidgetContainer.typeid: // container inside another
+                anycast(child, WidgetContainer)!!.draw();
+            default:
+                unreachable("unkown gui widget typeid");
+        }
+    }
+}
+
+fn void WidgetContainer.register(&self, any child) @inline {
+    self.children.push(child);
+    @catch(anycast(child, Widget).bindTo((Widget*)self));
+}
+
 
 //////////////////////////////////// DESKTOP //////////////////////////////////////
 

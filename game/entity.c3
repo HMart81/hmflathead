@@ -39,6 +39,7 @@ import thirdparty::raylib5::rl;
 import thirdparty::tracy;  // profiling
 import engine::misc;
 import game::assets::sprt;
+import game::material::mtr;
 import game::serialize::svs; // save system
 import engine::sys::cvar;
 import game::lowlevel::bounds;
@@ -410,29 +411,83 @@ fn void Entity.draw(&self)
 	if(self.hidden() || self.isdead()) return;
 	
 	//
-	if(self.vs.asTexture()) {
-        Vec2f tex_size = self.vs.getTextureSize();
-		//rl::drawTextureRec(*self.tex, self.rect, self.origin, self.color);
-		//rl::drawTextureV(*self.tex, self.origin, self.color);
-		Rectangle source = {0, 0, tex_size.x, tex_size.y};
-		// center of the texture (rotation/scale point), it's relative to destination rectangle dimentions, not the screen
-		rl::drawTexturePro(*self.vs.getTexture(), source, self.vs.rect, {0, 0}, 0.0f, self.vs.color);
-		//rl::drawTextureEx(*self.tex, self.origin, 0, 1.0f, self.color);
-//$if $feature(_DEBUG):
-	//	rl::drawRectangleLinesEx(self.rect, 1.0f, rl::RED);
-//	$endif
-	} else {
-		rl::drawRectangleRec(self.vs.rect, self.vs.color);
-	}
-    
-    if(ent_debugBounds.getBool())
+	if(self.vs.hasMaterial())
     {
-        rl::drawCircle((int)self.bounds.maxc.x, (int)self.bounds.maxc.y, 2.0f, rl::SKYBLUE);
-        rl::drawCircle((int)self.bounds.minc.x, (int)self.bounds.minc.y, 2.0f, rl::SKYBLUE);
-        Vec2f size = self.bounds.minc - self.bounds.maxc;
-        Rectangle rect = {self.vs.rect.x, self.vs.rect.y, size.x, size.y};
-        rl::drawRectangleLinesEx(rect, 1.0f, rl::YELLOW);
-    }
+        // TODO(HM) find how to draw a image on a rounded rectangle!?
+
+        Texture2D* texture = &self.vs.mat.diffuse.tex;
+        Vec2f texture_size = { texture.width, texture.height };
+        Rectangle source = { 0, 0, texture_size.x, texture_size.y };
+        Rectangle* dist = &self.vs.rect;
+
+		// todo selection
+        //Color color = (selected) ? self.selected_color : self.mat.diffuse.color;
+		Color color = self.vs.color;
+
+        BlendMode blending;
+        switch (self.vs.mat.coverage)
+        {
+            case MatMC.OPAQUE: break; // do nothing here
+            case MatMC.PERFORATED:
+                blending = BlendMode.ALPHA;
+            case MatMC.TRANSLUCENT:
+                blending = BlendMode.ALPHA_PREMUL;
+                if(color.a >= 1.0f)
+				{
+					color.a = 128; // half transparent
+					float r = misc::@mapValueRangeToOther(color.r, 0, 255, 0.0f, 1.0f);
+					float g = misc::@mapValueRangeToOther(color.g, 0, 255, 0.0f, 1.0f);
+					float b = misc::@mapValueRangeToOther(color.b, 0, 255, 0.0f, 1.0f);
+					float a = misc::@mapValueRangeToOther(color.a, 0, 255, 0.0f, 1.0f);
+
+					color.r = (char)math::floor((r * a) * 255);
+					color.g = (char)math::floor((g * a) * 255);
+					color.b = (char)math::floor((b * a) * 255);
+				}
+            case MatMC.BAD:
+                lgr::error(Where.FILE, "Entity material %s has a bad material coverage type.", self.vs.mat.name);
+                unreachable();
+            break;
+        }
+
+		switch (blending)
+        {
+            case BlendMode.ALPHA:
+            case BlendMode.ALPHA_PREMUL:
+                rl::@blendMode(blending)
+                {
+                    rl::drawTexturePro(*texture, source, *dist, {0, 0}, 0.0f, color);
+                };
+            default: // opaque unless the image has invisible pixels...
+                // NOTE(HM) center of the texture (rotation/scale point), 
+                // it's relative to destination rectangle dimentions, not the screen dimentions.
+                rl::drawTexturePro(*texture, source, *dist, {0, 0}, 0.0f, color);
+        }
+    } else {
+		if(self.vs.asTexture()) {
+			Vec2f tex_size = self.vs.getTextureSize();
+			//rl::drawTextureRec(*self.tex, self.rect, self.origin, self.color);
+			//rl::drawTextureV(*self.tex, self.origin, self.color);
+			Rectangle source = {0, 0, tex_size.x, tex_size.y};
+			// center of the texture (rotation/scale point), it's relative to destination rectangle dimentions, not the screen
+			rl::drawTexturePro(*self.vs.getTexture(), source, self.vs.rect, {0, 0}, 0.0f, self.vs.color);
+			//rl::drawTextureEx(*self.tex, self.origin, 0, 1.0f, self.color);
+	//$if $feature(_DEBUG):
+		//	rl::drawRectangleLinesEx(self.rect, 1.0f, rl::RED);
+	//	$endif
+		} else {
+			rl::drawRectangleRec(self.vs.rect, self.vs.color);
+		}
+	}
+
+	if(ent_debugBounds.getBool())
+	{
+		rl::drawCircle((int)self.bounds.maxc.x, (int)self.bounds.maxc.y, 2.0f, rl::SKYBLUE);
+		rl::drawCircle((int)self.bounds.minc.x, (int)self.bounds.minc.y, 2.0f, rl::SKYBLUE);
+		Vec2f size = self.bounds.minc - self.bounds.maxc;
+		Rectangle rect = {self.vs.rect.x, self.vs.rect.y, size.x, size.y};
+		rl::drawRectangleLinesEx(rect, 1.0f, rl::YELLOW);
+	}
 }
 
 fn void Entity.startThinking(&self) @inline {

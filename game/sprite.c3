@@ -315,6 +315,10 @@ fn void Sprite.setMaterial(&self, String material_name) @inline {
     }
 }
 
+fn bool Sprite.hasMaterial(&self) @inline {
+   return self.mat != null && rl::isTextureValid(self.mat.diffuse.tex);
+}
+
 <*
 * @param out texture "pointer to sprite image texture"
 * @ensure return != null
@@ -332,7 +336,7 @@ fn Texture2D* Sprite.getTexture(&self) @inline {
 }
 
 fn bool Sprite.asTexture(&self) @inline {
-   return self.tex != null || (self.mat != null && rl::isTextureValid(self.mat.diffuse.tex));
+   return self.tex != null;
 }
 
 // in screen pixel coordinates
