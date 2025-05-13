@@ -222,15 +222,17 @@ fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
 
     gui::WidgetContainer ct;
 
-    ct.@container( {
+    ct.@container( menu, {
         .direction = gui::TOP_TO_BOTTOM,
         .background = rl::RED,
         .padding = {8, 8, 8, 8},
         .itemGap = 16,
         .minSize = { .w = 200 },
-        .border.between = {2, rl::GREEN }
-    }; WidgetContainer* pct ) {
-        pct.register(any_make(create_menu_label({200, 200}, "test", 12, rl::GRAY, menu), WidgetText.typeid));
+        .border_between = {2, rl::GREEN }
+    }; WidgetContainer* pct )
+    {
+        //pct.register(any_make(create_menu_label({200, 200}, "test", 12, rl::GRAY, menu), WidgetText.typeid));
+        //pct.register(any_make(create_menu_label({200, 200}, "test2", 12, rl::GRAY, menu), WidgetText.typeid));
     };
 
     // region LABELS

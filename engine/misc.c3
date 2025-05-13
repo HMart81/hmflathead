@@ -61,6 +61,13 @@ macro @makeVec2f(#x, #y) => (Vec2f){#x, #y};
 macro @makeVec2fExt(#x) => (Vec2f){#x, #x};
 //
 
+macro @todo($a = 0) @builtin
+{
+    $if $feature(_DEBUG):
+        unreachable("==> Not yet implemented! <==");
+    $endif
+}
+
 macro @forange($a, $b, arr; @body(x, y)) @builtin
 {
     for(usz index = (usz)$a; index <= (usz)$b; index++) {
@@ -1163,8 +1170,8 @@ macro reverse_digits(num)
         return Vec3f(result);
     }
 
-macro percent(double percent, float value) 
-{
+//macro percent(double percent, float value) 
+//{
     /*
     local_percent = cMath::Clamp(local_percent, 0.0, 100.0);
     float result = (local_percent / 100.0);

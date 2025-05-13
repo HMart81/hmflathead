@@ -101,9 +101,8 @@ struct Panel (SaveSystemInterface)
 {
    PanelShape shape;
    Rectangle  rect;
-   Color      color; // main color
+   Color      color; // material color overrides this color
    Color      selected_color; // for gui editor functionality
-   //Texture2D* tex;
    HMaterial* mat;
 }
 
@@ -126,20 +125,19 @@ fn void Panel.reload(&self, SaveFile* file) @dynamic
     svs::readColor(file, &self.color);
 }
 
-fn void Panel.initRec(&self, Rectangle rect, Color color = rl::COLOR_RED) @inline 
+fn void Panel.initRec(&self, Rectangle rect, Color color) @inline
 {
-    self.shape = BOX;  // @hardcode
     self.rect  = rect;
     self.color = color;
+    self.mat   = null;
 }
 
-fn void Panel.initV(&self, Vec2f pos, Vec2f size, RColor color) @inline 
+fn void Panel.initV(&self, Vec2f pos, Vec2f size, RColor color) @inline
 {
-    Rectangle temp = {pos.x, pos.y, size.x, size.y};
-    self.initRec(temp, color);
+    self.initRec({pos.x, pos.y, size.x, size.y}, color);
 }
 
-fn void Panel.init(&self) @inline 
+fn void Panel.init(&self) @inline
 {
     self.initRec({0, 0, MIN_PANEL_SIZE, MIN_PANEL_SIZE}, rl::WHITE);
 }
@@ -986,35 +984,36 @@ const uint BOTTOM_TO_TOP = 2;
 const uint LEFT_TO_RIGHT = 3;
 const uint RIGHT_TO_LEFT = 4;
 
-struct ContainerParams
+struct ContainerParams @packed
 {
     uint direction;
     Color background;
     Vec4f padding;
     uint itemGap;
-    struct minSize 
+    struct minSize
     {
         uint w;
         uint h;
     }
-    struct border
+    struct border_between
     {
-        struct between
-        {
-            uint count;
-            Color color;
-        }
+        uint lineThick;
+        Color color;
     }
 }
 
 struct WidgetContainer 
 {
     inline Widget super;
+
+    ContainerParams params;
     ContainerQueue children;
 }
 
-macro WidgetContainer.@container(&self, ContainerParams params; @body(self)) {
+macro WidgetContainer.@container(&self, Desktop* desk, ContainerParams params; @body(self)) 
+{
     self.init(params);
+    desk.addChild(self);
     @body(self);
 }
 
@@ -1022,22 +1021,29 @@ macro WidgetContainer.@container(&self, ContainerParams params; @body(self)) {
 * @param [in] desk : "desktop where this widget will live"
 * @require desk != null
 *>
-fn void WidgetContainer.init(&self, ContainerParams params) @inline {
+fn void WidgetContainer.init(&self, ContainerParams params) @inline 
+{
+    self.params = params;
     self.super.init();
-    //params.direction;
     self.color = params.background;
-    // params.padding;
-    // params.itemGap;
-    // params.border.between;
-    if(params.minSize.w != 0 && params.minSize.h == 0) {
+
+    if(params.minSize.w != 0 && params.minSize.h == 0) 
+    {
         self.setSize(params.minSize.w, 200);
-    } else if(params.minSize.w == 0 && params.minSize.h != 0) {
+    } 
+    else if(params.minSize.w == 0 && params.minSize.h != 0) 
+    {
         self.setSize(200, params.minSize.h);
-    } else if(params.minSize.w == 0 && params.minSize.h == 0) {
+    } 
+    else if(params.minSize.w == 0 && params.minSize.h == 0) 
+    {
         self.setSize(200, 200);
-    } else {
+    } 
+    else 
+    {
         self.setSize(params.minSize.w, params.minSize.h);
     }
+
     self.kind = KIND_CONTAINER;
 }
 
@@ -1048,7 +1054,50 @@ fn void WidgetContainer.deinit(&self) @inline {
 fn void WidgetContainer.update(&self) {
     self.super.update();
 
-    foreach(child : self.children) {
+    float pad_left, pad_right, pad_top, pad_bottom;
+    pad_left   = self.params.padding[0];
+    pad_right  = self.params.padding[1];
+    pad_top    = self.params.padding[2];
+    pad_bottom = self.params.padding[3];
+    
+    Widget* previous;
+    Vec2f offset;
+    Vec2f anchor = self.getPosition() + misc::VEC_LEFT * pad_left;
+    anchor += misc::VEC_DOWN * pad_top;
+
+    foreach(i, child : self.children)
+    {
+        Widget* wdg = anycast(child, Widget)!!;
+        defer previous = wdg;
+
+        // todo
+        switch(self.params.direction)
+        {
+            case TOP_TO_BOTTOM:
+                if(i == 0) {
+                    offset = anchor;
+                    wdg.setPositionV(offset);
+                } else {
+                    offset += misc::VEC_DOWN * ( previous.getHeight() + self.params.itemGap);
+                    wdg.setPositionV(offset);
+                }
+
+                if(i != 0, self.children.len() >= 2 && self.params.border_between.lineThick != 0)
+                {
+                    Vec2f start, end;
+                    start = offset + misc::VEC_UP * ((float)self.params.itemGap / 2.0f);
+                    end   = start + misc::VEC_LEFT * (self.getWidth() - pad_right);
+                    rl::drawLineEx( start.toVector2(), end.toVector2(), 
+                        self.params.border_between.lineThick, self.params.border_between.color
+                    );
+                }
+            case BOTTOM_TO_TOP: @todo();
+            case LEFT_TO_RIGHT: @todo();
+            case RIGHT_TO_LEFT: @todo();
+            default:
+                unreachable("invalid WidgetContainer direction");
+        }
+
         switch (child.type)
         {
             case WidgetButton.typeid:
@@ -1298,27 +1347,6 @@ fn void Desktop.clear(&self) @inline
 
 fn bool Desktop.hidden(&self) @inline => !self.visible;
 
-fn void Desktop.update(&self) 
-{
-    if(self.hidden()) return;
-    
-    if (self.children.len()) 
-    {
-        foreach(child: self.children) 
-        {
-            switch (child.kind) 
-            {
-                case KIND_BUTTON:
-                    ((WidgetButton*)child).update(); 
-                case KIND_TEXT:
-                    ((WidgetText*)child).update(); 
-                default:
-                   ((Widget*)child).update(); 
-            }
-        }
-    }
-}
-
 fn void Desktop.hide(&self) 
 {
     if(self.hidden()) return;
@@ -1365,7 +1393,8 @@ fn void Desktop.show(&self) {
     }
 }
 
-fn void Desktop.drawCursor(&self) {
+fn void Desktop.drawCursor(&self) @inline
+{
     if(main::gpGame.editor.isOpened()) return;
     
 	if ( self.isInteractive ) {
@@ -1373,6 +1402,29 @@ fn void Desktop.drawCursor(&self) {
 	} else {
 		if(main::game_cursor_visible()) main::hide_game_cursor();
 	}
+}
+
+fn void Desktop.update(&self) 
+{
+    if(self.hidden()) return;
+    
+    if (self.children.len())
+    {
+        foreach(child: self.children)
+        {
+            switch (child.kind)
+            {
+                case KIND_BUTTON:
+                    ((WidgetButton*)child).update(); 
+                case KIND_TEXT:
+                    ((WidgetText*)child).update();
+                case KIND_CONTAINER:
+                    ((WidgetContainer*)child).update();
+                default:
+                   ((Widget*)child).update(); 
+            }
+        }
+    }
 }
 
 fn void Desktop.redraw(&self, int _time)  {
@@ -1406,7 +1458,9 @@ fn void Desktop.redraw(&self, int _time)  {
                 case KIND_BUTTON:
                     ((WidgetButton*)child).draw(); 
                 case KIND_TEXT:
-                    ((WidgetText*)child).draw(); 
+                    ((WidgetText*)child).draw();
+                case KIND_CONTAINER:
+                    ((WidgetContainer*)child).draw();
                 default:
                    ((Widget*)child).draw(); 
             }

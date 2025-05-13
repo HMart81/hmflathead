@@ -965,12 +965,16 @@ fn void gameUpdate() @local
     tracy::@zoneN("gameUpdate", 1)
     {
         // make game run at lower rate in case window loses focus
-        if(rl::isWindowFocused()) {
-            if(local_game.screen.displayHz == 15) {
+        if(rl::isWindowFocused())
+        {
+            if(local_game.screen.displayHz == 15)
+            {
                 local_game.screen.displayHz = rl::getMonitorRefreshRate(local_game.screen.id);
                 rl::setTargetFPS(local_game.screen.displayHz);
             }
-        } else if(local_game.screen.displayHz != 15) {
+        }
+        else if(local_game.screen.displayHz != 15)
+        {
             $if !$feature(TRACY_ENABLE):
                 local_game.screen.displayHz = 15;
                 rl::setTargetFPS(local_game.screen.displayHz);
