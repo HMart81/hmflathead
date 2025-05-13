@@ -450,7 +450,7 @@ fn void parse_attribute_data(XmlAttribute* inAtrb, Element* elem, SVGData* svgfi
         case AttrID.VIEWBOX:
             //new_atrb.id   = AttrID.VIEWBOX;
             int count;
-            if(is_vector_number(inAtrb.value, count)) {
+            if(is_vector_number(inAtrb.value, &count)) {
                 switch(count) {
                     case 1: isvec2 = true;
                     case 2: isvec3 = true;
@@ -557,14 +557,16 @@ fn void parse_attribute_data(XmlAttribute* inAtrb, Element* elem, SVGData* svgfi
 
 fn bool is_integer_number(String value) @inline
 {
-    const char[*] INVALIDLIST = {'.', ',', ' ', '/', ':'};
+    //const char[*] INVALIDLIST = {'.', ',', ' ', '/', ':'};
+    bool not_number;
     foreach(c : value) {
-        if(ascii::is_digit(c) == false) {
+        not_number = ascii::is_digit(c) == false;
+        if(not_number) {
             if(c != '%' && c != '#') return false;
         }
-        foreach(x : INVALIDLIST) {
-            if(c == x) return false;
-        }
+        // foreach(x : INVALIDLIST) {
+        //     if(c == x) return false;
+        // }
     }
 
     return true;
@@ -572,49 +574,69 @@ fn bool is_integer_number(String value) @inline
 
 fn bool is_float_number(String value) @inline
 {
-    const char[*] INVALIDLIST = {'%', ',', '#', ' ', '/', ':'};
-    foreach(c : value) {
-        if(ascii::is_digit(c) == false) {
-            if(c != '.') return false;
-        }
-        foreach(x : INVALIDLIST) {
-            if(c == x) return false;
-        }
+    if(value.len == 1) return false;
+
+    //const char[*] INVALIDLIST = {'%', ',', '#', ' ', '/', ':'};
+    foreach(i, c : value)
+    {
+        if(ascii::is_digit(c)) continue;
+        // if is a dot and next character is a number we assume is a float
+        if(c == '.' && ascii::is_digit(value[++i])) return true;
+
+        // foreach(x : INVALIDLIST) {
+        //     if(c == x) return false;
+        // }
     }
 
-    return true;
+    return false;
 }
 
-fn bool is_vector_number(String value, int out_count = 0) @inline
+fn bool is_vector_number(String value, int* out_count) @inline
 {
     bool result = true;
+    bool not_number;
+
     const char[*] INVALIDLIST = {'%', '#', '/', ':'};
-    foreach(c : value) {
-        if(ascii::is_digit(c) == false) {
-            if(c != ',' && c != ' ') return false;
-        }
-        foreach(x : INVALIDLIST) {
-            if(c == x) {
-                result = false;
-                if(c == ' ' || c == ',') out_count++;
-            } 
+    foreach OUTER: (c : value)
+    {
+        not_number = ascii::is_digit(c) == false;
+        if(not_number)
+        {
+            if(c == ',' || c == ' ')
+            {
+                (*out_count)++;
+                continue;
+            }
+            else
+            {
+                foreach(x : INVALIDLIST)
+                {
+                    if(c == x) 
+                    {
+                        result = false;
+                        break OUTER;
+                    } 
+                }
+            }
         }
     }
 
     return result;
 }
 
-fn void clean_float(String* value) @inline {
-   if(value.contains("mm")) {
+fn void clean_value(String* value) @inline {
+   if(value.ends_with("mm")) {
         (*value) = value.trim_right("mm");
-    } else if(value.contains("px")) {
+    } else if(value.ends_with("px")) {
         (*value) = value.trim_right("px");
+    } else if(value.ends_with("%")) {
+        (*value) = value.trim_right("%");
     }
 }
 
 fn float? to_float(String value) @local @inline
 {
-    clean_float(&value);
+    clean_value(&value);
 
     return value.to_float()!;
 }

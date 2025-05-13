@@ -313,7 +313,6 @@ fn void Panel.draw(&self, bool selected = false)
             case MatMC.BAD:
                 lgr::error(Where.FILE, "Panel with material %s has a bad material coverage type.", self.mat.name);
                 unreachable();
-            break;
         }
 
         switch (blending)

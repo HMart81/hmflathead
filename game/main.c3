@@ -48,8 +48,7 @@ import engine::assets::astmng; // asset manager
 import engine::sys::reader::svg;
 import game::material::manager::mtrmng; // material database
 import game::assets::sprt; // sprites
-import game::assets::part; // particles
-//import game::assets::mtr; // materials
+//import game::assets::part; // particles
 import game::serialize::svs; // save system
 import game::logic::timer;
 import engine::tools::editor;
@@ -407,7 +406,7 @@ struct Game (SaveSystemInterface) @local
     int last_key_pressed;
     
     timer::Timer testTimer;
-    ParticleSpawner particleSpawner1;
+    //ParticleSpawner particleSpawner1;
 }
 
 Game local_game @local; // global game singleton
@@ -2158,10 +2157,10 @@ $endif
     local_game.entityList.push((Entity*)local_game.main_player);
     lgr::info(Where.FILE,  "** Done **.");
     
-    local_game.particleSpawner1.init({
-        0.5f*local_game.screen.w,
-        0.85f*local_game.screen.h
-    });
+    // local_game.particleSpawner1.init({
+    //     0.5f*local_game.screen.w,
+    //     0.85f*local_game.screen.h
+    // });
     
     // Create test entities @delete
     lgr::info(Where.FILE,  "** Creating test entities. **");

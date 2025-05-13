@@ -190,7 +190,8 @@ $endif
 }
 
 fn void Entity.setTexture(&self, String texture_name_with_ext) @inline {
-	self.vs.tex = main::asstManager.getAssetExt(texture_name_with_ext, Texture2D.typeid);
+	unreachable();
+	//self.vs.tex = main::asstManager.getAssetExt(texture_name_with_ext, Texture2D.typeid);
 }
 
 fn void Entity.setMaterial(&self, String material_name) @inline {
@@ -201,7 +202,7 @@ fn void Entity.setMaterial(&self, String material_name) @inline {
 * @ensure return != null
 *>
 fn Texture2D* Entity.getTexture(&self) @inline {
-	return (Texture2D*)self.vs.tex.data.ptr;
+	return (Texture2D*)&self.vs.mat.diffuse.tex;
 }
 
 fn void Entity.setSize(&self, int w, int h) @inline {
@@ -447,7 +448,6 @@ fn void Entity.draw(&self)
             case MatMC.BAD:
                 lgr::error(Where.FILE, "Entity material %s has a bad material coverage type.", self.vs.mat.name);
                 unreachable();
-            break;
         }
 
 		switch (blending)
@@ -463,21 +463,10 @@ fn void Entity.draw(&self)
                 // it's relative to destination rectangle dimentions, not the screen dimentions.
                 rl::drawTexturePro(*texture, source, *dist, {0, 0}, 0.0f, color);
         }
-    } else {
-		if(self.vs.asTexture()) {
-			Vec2f tex_size = self.vs.getTextureSize();
-			//rl::drawTextureRec(*self.tex, self.rect, self.origin, self.color);
-			//rl::drawTextureV(*self.tex, self.origin, self.color);
-			Rectangle source = {0, 0, tex_size.x, tex_size.y};
-			// center of the texture (rotation/scale point), it's relative to destination rectangle dimentions, not the screen
-			rl::drawTexturePro(*self.vs.getTexture(), source, self.vs.rect, {0, 0}, 0.0f, self.vs.color);
-			//rl::drawTextureEx(*self.tex, self.origin, 0, 1.0f, self.color);
-	//$if $feature(_DEBUG):
-		//	rl::drawRectangleLinesEx(self.rect, 1.0f, rl::RED);
-	//	$endif
-		} else {
-			rl::drawRectangleRec(self.vs.rect, self.vs.color);
-		}
+    } 
+	else // draw simple flat shape
+	{
+		rl::drawRectangleRec(self.vs.rect, self.vs.color);
 	}
 
 	if(ent_debugBounds.getBool())

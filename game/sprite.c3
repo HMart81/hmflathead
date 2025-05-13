@@ -83,8 +83,12 @@ struct Sprite (SaveSystemInterface)
     //
     Rectangle rect;
     RColor color;  // only used for when a material is not defined.
-    Asset* tex @deprecated;
+
+    // Todo(HM) rethink this, should the material be a pointer to a data saved on a data base
+    // or each entity, should copy the material data from the data base
+    // and deal with its own copy?
     HMaterial* mat;
+
     Bounds bounds; // will be equal to the rectangle
     //
     union {
@@ -143,10 +147,7 @@ fn void Sprite.resetPosSize(&self) @inline {
 }
 
 fn void Sprite.deinit(&self) @inline {
-    //self.rect  = {};
-    //self.color = {0xFF, 0xFF, 0xFF, 0x00}; // INVISIBLE_COLOR
-    //self.isHidden         = true;
-    if(self.asTexture()) self.tex = null;
+//
 }
 
 fn bool Sprite.equal(&self, Sprite* other) //@operator(==) 
@@ -293,14 +294,6 @@ fn bool Sprite.isValid(&self) {
     return false;
 }
 
-fn void Sprite.setTexture(&self, String texture_name_with_ext) @inline {
-
-    if(texture_name_with_ext == "") return;
-    
-    self.tex = main::asstManager.getAssetExt(texture_name_with_ext, Texture2D.typeid);
-    assert(rl::isTextureValid(*(Texture2D*)self.tex.data.ptr));
-}
-
 fn void Sprite.setMaterial(&self, String material_name) @inline {
 
     if(material_name) 
@@ -324,34 +317,19 @@ fn bool Sprite.hasMaterial(&self) @inline {
 * @ensure return != null
 *>
 fn Texture2D* Sprite.getTexture(&self) @inline {
-    if(self.asTexture()) {
-        if(self.tex) {
-            return (Texture2D*)self.tex.data.ptr;
-        } else if(self.mat) {
-            return &self.mat.diffuse.tex;
-        }
-    }
+    if(self.hasMaterial()) { return &self.mat.diffuse.tex; }
     
     return null;
 }
 
-fn bool Sprite.asTexture(&self) @inline {
-   return self.tex != null;
-}
-
 // in screen pixel coordinates
-fn Vec2i Sprite.getTextureSize(&self) @inline {
-    if(self.asTexture() == false) return {0,0};
+fn Vec2i Sprite.getTextureSize(&self) @inline 
+{
+    if(self.hasMaterial() == false) return {0,0};
 
-    int w,h;
-    if(self.tex) {
-        w = (int)((Texture2D*)self.tex.data.ptr).width;
-        h = (int)((Texture2D*)self.tex.data.ptr).height;
-    } else if(self.mat) {
-        w = (int)self.mat.diffuse.tex.width;
-        h = (int)self.mat.diffuse.tex.height;
-    }
-    
+    int w = (int)self.mat.diffuse.tex.width;
+    int h = (int)self.mat.diffuse.tex.height;
+
     return {w,h};
 }
 
@@ -415,7 +393,6 @@ fn void Sprite.draw(&self)  @inline
                 case MatMC.BAD:
                     lgr::error(Where.FILE, "Panel with material %s has a bad material coverage type.", self.mat.name);
                     unreachable();
-                break;
             }
 
             switch (blending)
@@ -431,34 +408,16 @@ fn void Sprite.draw(&self)  @inline
                     // it's relative to destination rectangle dimentions, not the screen dimentions.
                     rl::drawTexturePro(*texture, source, *dist, {0, 0}, 0.0f, color);
             }
-        } else {
-            if(self.asTexture())
-            {
-                // Source rectangle (part of the texture to use for drawing)
-                Vec2i texture_size = self.getTextureSize();
-                Rectangle source = {0.0f, 0.0f, (float)texture_size.x, (float)texture_size.y};
-                // Destination rectangle (screen rectangle where to draw part of texture)
-                Rectangle* dist  = &self.rect;
-                // Origin of the texture (rotation/scale point), 
-                // is relative to destination rectangle size/area NOT the screen!!!
-                Vector2 image_center       = {0, 0};
-                const float IMAGE_ROTATION = 0.0f;
-                if(self.tex) {
-                    rl::drawTexturePro(*(Texture2D*)self.tex.data.ptr, source, *dist, image_center, IMAGE_ROTATION, self.color);
-                } else if(self.mat) {
-                    rl::drawTexturePro(self.mat.diffuse.tex, source, *dist, image_center, IMAGE_ROTATION, self.mat.diffuse.color);
-                } else {
-                    //lgr::error(Where.CONSOLE, "Sprite '%s' set to have a texture but has none.\n", self.name);
-                    unreachable("Sprite set to have a texture but has none.");
-                }
-            } else {
-                rl::drawRectangleRec(self.rect, self.color);
-            }
+        } 
+        else // draw simple flat shape
+        {
+            rl::drawRectangleRec(self.rect, self.color);
         }
     };//tracy::@zoneN
     }; // misc::@profile_zone
 }
 
+/*
 ///////////////////////////////////// PARTICLE ///////////////
 module game::assets::part;
 // UNFINISHED...
@@ -492,7 +451,7 @@ struct Particle
 fn void Particle.create(&self, Vec2f pos, Vec2f size, RColor color = rl::WHITE, int lifetime_ms = DEFAULT_PARTICLE_LIFETIME, String tex_name = "") {
     // init the inline sprite data
     self.initV(pos, size, color);
-    self.tex          = assetManager.getAssetExt(tex_name, Texture2D.typeid);
+    //self.tex          = assetManager.getAssetExt(tex_name, Texture2D.typeid);
     self.lifetime     = main::gpGame.time_ms + lifetime_ms;
     self.dir          = misc::VEC_UP;
     self.velocity     = self.dir;
