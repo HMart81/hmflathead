@@ -1184,6 +1184,8 @@ struct Desktop (SaveSystemInterface)
     //
     // to handle timing while the desktop is open/active
     int time; // milliseconds
+
+    Music music_stream; // any music stream that we may want to attach to a desktop
     
     // Lists
     ChildrenQueue children;
@@ -1343,6 +1345,12 @@ fn void Desktop.clear(&self) @inline
             // }
         }
     }
+
+    if(rl::isMusicValid(self.music_stream)) {
+        // todo fade out the music stream
+        if(rl::isMusicStreamPlaying(self.music_stream)) rl::stopMusicStream(self.music_stream);
+        rl::unloadMusicStream(self.music_stream);
+    }
 }
 
 fn bool Desktop.hidden(&self) @inline => !self.visible;
@@ -1370,6 +1378,10 @@ fn void Desktop.hide(&self)
             }
         }
     }
+
+    if(rl::isMusicValid(self.music_stream)) {
+        if(rl::isMusicStreamPlaying(self.music_stream)) rl::pauseMusicStream(self.music_stream);
+    }
 }
 
 fn void Desktop.show(&self) {
@@ -1390,6 +1402,10 @@ fn void Desktop.show(&self) {
                    ((Widget*)child).show(); 
             }
         }
+    }
+
+    if(rl::isMusicValid(self.music_stream)) {
+        if(!rl::isMusicStreamPlaying(self.music_stream)) rl::resumeMusicStream(self.music_stream);
     }
 }
 
@@ -1424,6 +1440,10 @@ fn void Desktop.update(&self)
                    ((Widget*)child).update(); 
             }
         }
+    }
+
+    if(rl::isMusicValid(self.music_stream)) {
+        rl::updateMusicStream(self.music_stream);
     }
 }
 

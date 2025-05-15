@@ -51,6 +51,7 @@ import game::main;
 import engine::gui;
 import engine::misc;
 import engine::logging::lgr;
+import engine::filesystem::fs;
 import thirdparty::raylib5::rl;
 // end_region
 
@@ -61,16 +62,24 @@ import thirdparty::raylib5::rl;
 const SCREEN_TOP_CORNER = (Vec2f) {0.0f, 0.0f};
 // end_region
 
-fn Desktop* getActiveMenu() @local {
+fn Desktop* getActiveMenu() @local @inline {
 	return main::gpGame.guiActive;
 }
 
-fn void setGUI(Desktop* menu) {
-    main::gpGame.guiActive = menu;
-    Desktop* guiActive     = main::gpGame.guiActive;
-	if ( !guiActive ) {
+fn void setGUI(Desktop* menu) 
+{
+    Desktop* guiActive;
+	if (menu == null)
+    {
+        if ( guiActive = getActiveMenu() ) {
+            guiActive.activate(false, main::gpGame.time_ms);
+            main::gpGame.guiActive = null;
+        }
 		return;
 	}
+    //
+    guiActive = main::gpGame.guiActive = menu;
+    //guiActive = main::gpGame.guiActive;
 
     // todo
 	if ( guiActive == main::gpGame.main_menu ) {
@@ -93,10 +102,8 @@ fn void setGUI(Desktop* menu) {
 }
 
 fn void start(Desktop* gui) {
-    Desktop* guiActive = getActiveMenu();
-    
     // if already started
-	if ( guiActive == gui ) {
+	if ( getActiveMenu() == gui ) {
 		return;
 	}
 
@@ -107,6 +114,9 @@ fn void start(Desktop* gui) {
 
 	// start playing the menu sounds
 	//soundSystem->SetPlayingSoundWorld( menuSoundWorld );
+    if(rl::isMusicValid(gui.music_stream)) {
+        if(!rl::isMusicStreamPlaying(gui.music_stream)) rl::playMusicStream(gui.music_stream);
+    }
 
     setGUI(gui);
 
@@ -114,6 +124,7 @@ fn void start(Desktop* gui) {
 }
 
 fn void stop() {
+    Desktop* guiActive = getActiveMenu();
 	//ClearWipe();
 
 	// clear mapSpawned and demo playing flags
@@ -126,6 +137,14 @@ fn void stop() {
 	//idAsyncNetwork::server.Kill();
 
     // stop sound world
+    if(guiActive)
+    {
+        if(rl::isMusicValid(guiActive.music_stream)) {
+            // todo fade out the music stream
+            if(rl::isMusicStreamPlaying(guiActive.music_stream)) rl::stopMusicStream(guiActive.music_stream);
+            //rl::unloadMusicStream(guiActive.music_stream);
+        }
+    }
 	//if ( sw ) {
 		//sw->StopAllSounds();
 	//}
@@ -138,7 +157,7 @@ fn void stop() {
 }
 
 fn void exit() {
-	main::gpGame.guiActive = null;
+	stop(); // menu
 
 	// go back to the game sounds
 	//soundSystem->SetPlayingSoundWorld( sw );
@@ -208,6 +227,16 @@ fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
     
     main::gpGame.mode = main::GameMode.MENU;
 
+    String music_path = main::gpGame.app_base_folder.tconcat("music\\main_menu\\Swallow.ogg");
+    if(fs::fileExists(music_path))
+    {
+        lgr::info(Where.FILE, "\tloading %s music: %s", menu.name, music_path);
+    } else { 
+        unreachable("music path not found: %s", music_path);
+    }
+    menu.music_stream = rl::loadMusicStream(music_path.zstr_tcopy());
+    rl::setMusicVolume(menu.music_stream, 1.0f);
+
     Vec2f screen_center       = (Vec2f) {(float)screenWidth/2.0f, (float)screenHeight / 2.0f};
     Vec2f screen_top_center   = (Vec2f) {(float)screenWidth/2.0f, 0.0f};
     float screen_half_width   = screen_center.x;
@@ -220,6 +249,7 @@ fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
     
 // region widgets
 
+    /*
     gui::WidgetContainer ct;
 
     ct.@container( menu, {
@@ -234,6 +264,7 @@ fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
         //pct.register(any_make(create_menu_label({200, 200}, "test", 12, rl::GRAY, menu), WidgetText.typeid));
         //pct.register(any_make(create_menu_label({200, 200}, "test2", 12, rl::GRAY, menu), WidgetText.typeid));
     };
+    */
 
     // region LABELS
     //*************
