@@ -1372,7 +1372,7 @@ The first argument in a cmdline, is just the full path to the exe,
 Also cmdline arguments require a full game restart, this may change,
     if and when I create a game console...
 */
-fn void handle_cmdline(String[] args) 
+fn void handle_cmdline(String[] args)
 {
 
     if(args.len == 0 || args.len == 1) return;
@@ -1389,18 +1389,15 @@ fn void handle_cmdline(String[] args)
         // skip equals sign or a space
         if(arg == "=" || arg == " ") continue;
         
-        bool cmd_is_boolean;
-        bool arg_is_number;
-        bool arg_is_string;
-        bool invalid_value_arg;
+        bool cmd_is_boolean, arg_is_number, arg_is_string, invalid_value_arg;
         
         // start of a cmdline cmd
         if(arg.starts_with("+"))
         {
             cmd_arg = arg.trim("+");
             
-            // if the next cmd starts with a plus then the current cmd as no assignment 
-            // and so should be considered a boolean argument.
+            // if the next cmd starts with a plus then the current cmd has no assignment operator
+            // and should be considered a boolean argument.
             cmd_is_boolean = (args[arg_index + 1].starts_with("+")) ? true : false;
             
             if(cmd_is_boolean) 
@@ -1619,36 +1616,50 @@ fn void? gameOnStart(String[]* args) @local
     // NOTE(HM) support for mods.
     // WARNING(HM) This is needs more testing...
     bool using_mod     = fs_mod_name.getString().len > 0;
-    local_game.mod_set = using_mod; 
-    if(using_mod) 
+    local_game.mod_set = using_mod;
+    if(using_mod)
     {
         String mods_dir, mod_name, mod_work_dir, mod_base_folder;
+        bool mod_handling_failed;
+
         mod_name = fs_mod_name.getString();
-        if(mod_name.len <=2) 
-        {
+        if(mod_name.len <= 2) {
             lgr::warning(Where.FILE, "mod name: \"%s\" seems to be very small are you sure that is correct?", mod_name);
         }
+
         mods_dir = local_game.app_default_workdir.tconcat("mods");
-        if(fs::directoryExists(mods_dir)) 
+        if(fs::directoryExists(mods_dir)) // look inside
         {
             mod_work_dir = mods_dir.tconcat("\\").tconcat(mod_name).tconcat("\\");
-            // make sure this work dir exists as well
-            if(fs::directoryExists(mod_work_dir)) {
+            // make sure mod work dir exists as well
+            if(fs::directoryExists(mod_work_dir))
+            {
                 // set the game work dir to the mod work dir
                 local_game.app_work_dir = mod_work_dir;
                 // now set the game base dir for the mod base dir
                 mod_base_folder = mod_work_dir.tconcat(fs_mod_base.getString()).tconcat("\\");
-                // also make sure this work dir exists
-                if(fs::directoryExists(mod_base_folder)) {
+                // also make sure the mod base dir exists
+                if(fs::directoryExists(mod_base_folder))
+                {
                     local_game.app_base_folder = mod_base_folder;
                 } else { 
                     lgr::warning(Where.FILE, "base directory for mod \"%s\" is missing cannot run mod!", mod_name);
+                    mod_handling_failed = true;
                 }
             } else { 
                 lgr::warning(Where.FILE, "Work directory for mod \"%s\" is missing cannot run mod!", mod_name);
+                mod_handling_failed = true;
             }
         } else {
             lgr::warning(Where.FILE, "Mod %s has to be run from inside folder \"mods\" but none was found at: %s", mod_name, local_game.app_default_workdir);
+            mod_handling_failed = true;
+        }
+
+        if(mod_handling_failed)
+        {
+            lgr::warning(Where.FILE, "Mod handling failed, using default work dir: %s", local_game.app_default_workdir);
+            local_game.app_work_dir    = local_game.app_default_workdir;
+            local_game.app_base_folder = local_game.app_default_base_folder;
         }
     }
     
@@ -1667,7 +1678,9 @@ fn void? gameOnStart(String[]* args) @local
     if(fs::directoryExists(local_game.app_base_folder)) 
     {
         lgr::info(Where.FILE,  "\tBase Dir set to: %s", local_game.app_base_folder);
-    } else {
+    } 
+    else
+    {
         if(local_game.mod_set) 
         {
             lgr::error(Where.FILE,`Required base folder inside %s not found!\n
@@ -1685,9 +1698,8 @@ fn void? gameOnStart(String[]* args) @local
     
     // get the home folder to save necessary game data
     local_game.app_save_folder = fs::getSystemSpecialPath(fs::SystemPath.PERSONAL);
-    if(local_game.app_save_folder.len > 0) 
+    if(local_game.app_save_folder.len > 0)
     {
-        
         // NOTE(HM) append the desired final folder 
         // and look in the OS user save directory, to see if folder is already there 
         // if not create it.
