@@ -1367,50 +1367,52 @@ fn void handle_boolean_cmd(String cmd) @inline
 }
 /*
 NOTE(HM) 
-The first argument in a cmdline, is just the full path to the exe, 
-    so if there's only one argument, there's no need to run handle_cmdline().
-Also cmdline arguments require a full game restart, this may change,
-    if and when I create a game console...
+The first argument in a cmdline, is just the path to the executable, 
+so if there's only one argument, there's no need to run handle_cmdline().
+Also cmdline arguments require a full game restart, this may change, 
+if and when I create a game console...
 */
 fn void handle_cmdline(String[] args)
 {
-
     if(args.len == 0 || args.len == 1) return;
     
-    String cmd_arg;
-    
     lgr::info(Where.FILE, "Handling cmd line args: %s\n", args);
-    
+
+    String cmd_arg;
+
     foreach(arg_index, arg : args)
     {
-        // skip argument zero, is only the path to the executable.
+        // skip first argument, is only the path to the executable or its name.
         if(arg_index == 0) continue;
         
         // skip equals sign or a space
         if(arg == "=" || arg == " ") continue;
         
-        bool cmd_is_boolean, arg_is_number, arg_is_string, invalid_value_arg;
+        bool cmd_is_boolean, 
+             arg_is_number, 
+             arg_is_string, 
+             invalid_value_arg,
+             single_char_value;
         
-        // start of a cmdline cmd
+        single_char_value = arg.len == 1;
+
+        // start of a command
         if(arg.starts_with("+"))
         {
             cmd_arg = arg.trim("+");
             
             // if the next cmd starts with a plus then the current cmd has no assignment operator
-            // and should be considered a boolean argument.
+            // or extra value and should be considered a boolean argument.
             cmd_is_boolean = (args[arg_index + 1].starts_with("+")) ? true : false;
             
-            if(cmd_is_boolean) 
-            {
+            if(cmd_is_boolean) {
                 handle_boolean_cmd(cmd_arg);
             }
             
-            continue;
+            continue; // skip to the next argument
         }
         
         // from here should be the value assigned to a cmd
-        io::printfn("Arg: %s", arg);
-        bool single_char_value = arg.len == 1;
         switch
         {
             case ascii::is_digit(arg[0]):
@@ -1429,7 +1431,7 @@ fn void handle_cmdline(String[] args)
                 if(single_char_value) 
                 {
                     lgr::warning(Where.CONSOLE, "rogue minus sign found in value of cmd \"%s\".", cmd_arg);
-                    continue;
+                    continue; // skip to next argument
                 }
 
                 arg_is_number = true;
@@ -1448,7 +1450,7 @@ fn void handle_cmdline(String[] args)
                     arg_is_string = true;
                 } else {
                     lgr::warning(Where.CONSOLE, "malformed string assigned to \"%s\", strings most be defined between two \"\".", arg, cmd_arg);
-                    continue;
+                    continue; // skip to next argument
                 }
             case ascii::is_alpha(arg[0]):
                 lgr::warning(Where.CONSOLE, "malformed string assigned to \"%s\", strings most be defined between two \"\".", arg, cmd_arg);

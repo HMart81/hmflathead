@@ -68,10 +68,18 @@ macro @todo($a = 0) @builtin
     $endif
 }
 
-macro @forange($a, $b, arr; @body(x, y)) @builtin
+<*
+ * @param $a : `start index`
+ * @param #b : `end index`
+ * @param arr : `array to iterate`
+ * @param @body : `code to execute for each element in the array`
+ * @require arr != null && arr.len > 0
+ * @require types::is_intlike($typeof($a)) && types::is_intlike($typeof(#b))
+ * @require $a >= 0 && #b < arr.len
+ *>
+macro @forange($a, #b, arr; @body(x, y)) @builtin
 {
-    for(usz index = (usz)$a; index <= (usz)$b; index++) {
-        assert($a >= 0 && $b < arr.len); // did you forgot len - 1? ;)
+    for(usz index = (usz)$a; index <= (usz)#b; index++) {
         var it = (*arr)[index];
         @body(index, it);
     }
