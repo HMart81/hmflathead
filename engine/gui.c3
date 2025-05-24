@@ -1458,8 +1458,6 @@ fn void Desktop.redraw(&self, int _time)  {
 		self.time = _time;
 	}
     
-    self.drawCursor();
-    
     // draw Desktop background
     if(self.tex) {
         assert(rl::isTextureValid(*self.tex));
@@ -1467,6 +1465,8 @@ fn void Desktop.redraw(&self, int _time)  {
     } else {
         misc::@drawRect(self.rect, self.color);
     }
+
+    self.drawCursor();
     
     // draw Desktop content/children
     if (self.children.len())
@@ -1500,6 +1500,26 @@ fn void Desktop.draw(&self, int time) {
 
 fn void Desktop.addChild(&self, Widget* child) @inline @local {
     self.children.push(child);
+}
+
+macro Desktop.@addChild(&self, Widget* child; @body(self)) 
+{
+    self.addChild(child);
+    @body(self);
+}
+
+macro Desktop.@addChildren(&self; @body(self))
+{
+    @body(self);
+}
+
+macro Desktop.getChild(&self, int id) {
+    Widget* child = self.children[id];
+    if (child == null) {
+        lgr::warning(Where.CONSOLE, "Cannot get child %d from %s because is null.", id, self.name);
+        return null;
+    }
+    return child;
 }
 
 fn void Desktop.debug(&self) 

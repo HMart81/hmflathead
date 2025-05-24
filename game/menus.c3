@@ -26,9 +26,11 @@
 # 
 *********************************************************************************************************************************************/
 
+// TODO(HM) Remake the menu system to be imediate mode?
+// TODO(HM) Add a options menu
 module game::gui::menu;
 
-/**
+/*
     GUI creation process:
 
     - Create a Desktop
@@ -40,7 +42,25 @@ module game::gui::menu;
     - init the Widget and add it to Desktop
     main_menu_button.init();
     main_menu_button.addTo(&main_menu);
-**/
+
+    or
+
+    - Create a Desktop
+    gui::Desktop menu;
+    - init the Desktop
+    menu.ini(...);
+
+    menu.@addChildren() 
+    {
+        // create any children panels/widgets
+        {
+            gui::WidgetButton button0;
+            // init the Widget
+            button0.init();
+            button0.addTo(self);
+        }
+    };
+*/
 
 // region modules
 import std::io;

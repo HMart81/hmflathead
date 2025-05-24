@@ -342,7 +342,8 @@ fn bool detect_comment_char_in_line(String str, usz where_index = 0) @local @inl
 <*
 * DOC where_index is the index in the string where the next section starts
 *>
-fn bool detect_child_section_in_name(String str, usz where_index = 0) @local @inline {
+fn bool detect_child_section_in_name(String str, usz where_index = 0) @local @inline 
+{
     if(string::char_in_set('.', str)) {
         where_index = str.index_of_char('.')!!;
         // skip the dot
@@ -421,43 +422,47 @@ fn FileData*? parse_file(String[] lines) @local {
     return file_data;
 }
 
-fn void parse_section_name(String line, FileData* file) @local @inline {
-    assert(file != null);
-    
-    // create a new section
-    // IniSection* section = mem::new(IniSection);
-    // section.name = line[1..line.index_of_char(SECTION_NAME_END[0])!! - 1];//(*line).strip(SECTION_NAME_START).strip_end(SECTION_NAME_END).copy();
-    // file.register(section);
-    
-    usz char_index;
-    if(detect_child_section_in_name(line, char_index)) {
+<*
+ * DOC Parse a section name from a line of text
+ *
+ * @param [in] line    : "the line of text to parse"
+ * @param [inout] file : "the file data structure to register the section into"
+ * @require file != null
+*>
+fn void parse_section_name(String line, FileData* file) @local 
+{
+    String section_name = line.trim("[]");
+    if(section_name.contains("."))
+    {
+        String[] split = section_name.tsplit(".");
         // WARNING(HM) 
-        // child sections ARE NOT registered by the main file 
+        // child sections (section_parent.section_child) ARE NOT registered by the main file 
         // they are only acessible thought their parent section.
-        // Also any cmds define in the ini section, are not registered 
-        // to the parent section but the child, the parent section cmds
-        // stay empty and it serves only has a link/path to the real section
-        // where the cmds are saved.
-        String main_section_name = line[1:char_index-1];
-        IniSection* section1;
+        // Also any cmds defined in a dotted/dual ini section, are not registered 
+        // to the parent section but the child section (section name after the dot), 
+        // the parent section cmds stay empty, it only serves has a link/path to the real section
+        // where the cmds will be saved.
+        IniSection* section1, section2;
+
+        String parent_section_name = split[0];
         
-        if(file.hasSection(main_section_name)) {
-            section1 = file.getSection(main_section_name);
+        if(file.hasSection(parent_section_name)) {
+            section1 = file.getSection(parent_section_name);
         } else {
-            // create a new main section 
+            // create a new main section as well
             section1      = mem::new(IniSection);
-            section1.name = main_section_name;
+            section1.name = parent_section_name;
             file.register(section1);
         }
         
         // create the child section to link to
-        IniSection* section2 = mem::new(IniSection);
-        section2.name        = line[char_index..line.index_of_char(']')!! - 1];
+        section2 = mem::new(IniSection);
+        section2.name = split[1];
         section1.link(section2);
     } else {
-        // create the single main section
+        // create a single section
         IniSection* section = mem::new(IniSection);
-        section.name = line[1..line.index_of_char(']')!! - 1];
+        section.name = section_name; //line[1..line.index_of_char(']')!! - 1];
         file.register(section);
     }
 }

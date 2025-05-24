@@ -69,7 +69,7 @@ enum SpriteKind : int {
 
 <*
     @param value "the inderlying ordinal value from the kind enum"
-    @require value >= 0 && value < SpriteKind.elements
+    @require value >= 0 && value < SpriteKind.values.len
 *>
 fn SpriteKind kindFrom(int value) @inline {
   return SpriteKind.from_ordinal(value);

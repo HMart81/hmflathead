@@ -405,7 +405,7 @@ fn void parse_attribute_data(XmlAttribute* inAtrb, Element* elem, SVGData* svgfi
     }
 
     // set attribute id's
-    @forange(0, AttrID.elements - 1, &&AttrID.values; i, id) {
+    @forange(0, AttrID.values.len - 1, &&AttrID.values; i, id) {
         if(inAtrb.name == id)
         {
             new_atrb.id = id;

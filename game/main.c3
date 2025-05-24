@@ -2470,11 +2470,12 @@ fn void pre_InitFunc() @init {
     // anything bellow this level will not log
     rl::setTraceLogLevel(rl::TraceLogLevel.INFO);
     
-    // controls file and Console logging
-    // NOTE(HM) 
-    lgr::initGlobalLoggingDir(); // sets where the log file is saved
+    // My own logging system
+    // NOTE(HM) controls file and Console logging 
+    // plus sets where the log file is saved as well.
+    lgr::initGlobalLoggingDir(); 
     
-    // NOTE(HM) This means the MINIMUM log level not the only level to log
+    // This means the MINIMUM log level not the only level to log
     // anything bellow this level will not log
     lgr::setLogLevel(rl::TraceLogLevel.INFO);
     
