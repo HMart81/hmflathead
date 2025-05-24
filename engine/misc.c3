@@ -71,7 +71,7 @@ macro @todo($a = 0) @builtin
 <*
  * @param $a : `start index`
  * @param #b : `end index`
- * @param arr : `array to iterate`
+ * @param [in] arr : `array to iterate`
  * @param @body : `code to execute for each element in the array`
  * @require arr != null && arr.len > 0
  * @require types::is_intlike($typeof($a)) && types::is_intlike($typeof(#b))
@@ -82,6 +82,129 @@ macro @forange($a, #b, arr; @body(x, y)) @builtin
     for(usz index = (usz)$a; index <= (usz)#b; index++) {
         var it = (*arr)[index];
         @body(index, it);
+    }
+}
+
+fn KeyboardKey getKeyValueFromName(String name) @inline
+{
+    // NOTE(HM) this is used to get the key value from a string
+    // like "KEY_A" or "KEY_LEFT" etc.
+    //return rl::getKeyPressedFromName(stringTotempzstring(name));
+    switch(name)
+    {
+        case "KEY_NULL":            return rl::KEY_NULL;
+        case "KEY_APOSTROPHE":      return rl::KEY_APOSTROPHE;
+        case "KEY_COMMA":           return rl::KEY_COMMA;
+        case "KEY_MINUS":           return rl::KEY_MINUS;
+        case "KEY_PERIOD":          return rl::KEY_PERIOD;
+        case "KEY_SLASH":           return rl::KEY_SLASH;
+        case "KEY_ZERO":            return rl::KEY_ZERO;
+        case "KEY_ONE":             return rl::KEY_ONE;
+        case "KEY_TWO":             return rl::KEY_TWO;
+        case "KEY_THREE":           return rl::KEY_THREE;
+        case "KEY_FOUR":            return rl::KEY_FOUR;
+        case "KEY_FIVE":            return rl::KEY_FIVE;
+        case "KEY_SIX":             return rl::KEY_SIX;
+        case "KEY_SEVEN":           return rl::KEY_SEVEN;
+        case "KEY_EIGHT":           return rl::KEY_EIGHT;
+        case "KEY_NINE":            return rl::KEY_NINE;
+        case "KEY_SEMICOLON":       return rl::KEY_SEMICOLON;
+        case "KEY_EQUAL":           return rl::KEY_EQUAL;
+        case "KEY_A":               return rl::KEY_A;
+        case "KEY_B":               return rl::KEY_B;
+        case "KEY_C":               return rl::KEY_C;
+        case "KEY_D":               return rl::KEY_D;
+        case "KEY_E":               return rl::KEY_E;
+        case "KEY_F":               return rl::KEY_F;
+        case "KEY_G":               return rl::KEY_G;
+        case "KEY_H":               return rl::KEY_H;
+        case "KEY_I":               return rl::KEY_I;
+        case "KEY_J":               return rl::KEY_J;
+        case "KEY_K":               return rl::KEY_K;
+        case "KEY_L":               return rl::KEY_L;
+        case "KEY_M":               return rl::KEY_M;
+        case "KEY_N":               return rl::KEY_N;
+        case "KEY_O":               return rl::KEY_O;
+        case "KEY_P":               return rl::KEY_P;
+        case "KEY_Q":               return rl::KEY_Q;
+        case "KEY_R":               return rl::KEY_R;
+        case "KEY_S":               return rl::KEY_S;
+        case "KEY_T":               return rl::KEY_T;
+        case "KEY_U":               return rl::KEY_U;
+        case "KEY_V":               return rl::KEY_V;
+        case "KEY_W":               return rl::KEY_W;
+        case "KEY_X":               return rl::KEY_X;
+        case "KEY_Y":               return rl::KEY_Y;
+        case "KEY_Z":               return rl::KEY_Z;
+        case "KEY_LEFT_BRACKET":    return rl::KEY_LEFT_BRACKET;
+        case "KEY_BACKSLASH":       return rl::KEY_BACKSLASH;
+        case "KEY_RIGHT_BRACKET":   return rl::KEY_RIGHT_BRACKET;
+        case "KEY_GRAVE":           return rl::KEY_GRAVE;
+        case "KEY_SPACE":           return rl::KEY_SPACE;
+        case "KEY_ESCAPE":          return rl::KEY_ESCAPE;
+        case "KEY_ENTER":           return rl::KEY_ENTER;
+        case "KEY_TAB":             return rl::KEY_TAB;
+        case "KEY_BACKSPACE":       return rl::KEY_BACKSPACE;
+        case "KEY_INSERT":          return rl::KEY_INSERT;
+        case "KEY_DELETE":          return rl::KEY_DELETE;
+        case "KEY_RIGHT":           return rl::KEY_RIGHT;
+        case "KEY_LEFT":            return rl::KEY_LEFT;
+        case "KEY_DOWN":            return rl::KEY_DOWN;
+        case "KEY_UP":              return rl::KEY_UP;
+        case "KEY_PAGE_UP":         return rl::KEY_PAGE_UP;
+        case "KEY_PAGE_DOWN":       return rl::KEY_PAGE_DOWN;
+        case "KEY_HOME":            return rl::KEY_HOME;
+        case "KEY_END":             return rl::KEY_END;
+        case "KEY_CAPS_LOCK":       return rl::KEY_CAPS_LOCK;
+        case "KEY_SCROLL_LOCK":     return rl::KEY_SCROLL_LOCK;
+        case "KEY_NUM_LOCK":        return rl::KEY_NUM_LOCK;
+        case "KEY_PRINT_SCREEN":    return rl::KEY_PRINT_SCREEN;
+        case "KEY_PAUSE":           return rl::KEY_PAUSE;
+        case "KEY_F1":              return rl::KEY_F1;
+        case "KEY_F2":              return rl::KEY_F2;
+        case "KEY_F3":              return rl::KEY_F3;
+        case "KEY_F4":              return rl::KEY_F4;
+        case "KEY_F5":              return rl::KEY_F5;
+        case "KEY_F6":              return rl::KEY_F6;
+        case "KEY_F7":              return rl::KEY_F7;
+        case "KEY_F8":              return rl::KEY_F8;
+        case "KEY_F9":              return rl::KEY_F9;
+        case "KEY_F10":             return rl::KEY_F10;
+        case "KEY_F11":             return rl::KEY_F11;
+        case "KEY_F12":             return rl::KEY_F12;
+        case "KEY_LEFT_SHIFT":      return rl::KEY_LEFT_SHIFT;
+        case "KEY_LEFT_CONTROL":    return rl::KEY_LEFT_CONTROL;
+        case "KEY_LEFT_ALT":        return rl::KEY_LEFT_ALT;
+        case "KEY_LEFT_SUPER":      return rl::KEY_LEFT_SUPER;
+        case "KEY_RIGHT_SHIFT":     return rl::KEY_RIGHT_SHIFT;
+        case "KEY_RIGHT_CONTROL":   return rl::KEY_RIGHT_CONTROL;
+        case "KEY_RIGHT_ALT":       return rl::KEY_RIGHT_ALT;
+        case "KEY_RIGHT_SUPER":     return rl::KEY_RIGHT_SUPER;
+        case "KEY_KB_MENU":         return rl::KEY_KB_MENU;
+        case "KEY_KP_0":            return rl::KEY_KP_0;
+        case "KEY_KP_1":            return rl::KEY_KP_1;
+        case "KEY_KP_2":            return rl::KEY_KP_2;
+        case "KEY_KP_3":            return rl::KEY_KP_3;
+        case "KEY_KP_4":            return rl::KEY_KP_4;
+        case "KEY_KP_5":            return rl::KEY_KP_5;
+        case "KEY_KP_6":            return rl::KEY_KP_6;
+        case "KEY_KP_7":            return rl::KEY_KP_7;
+        case "KEY_KP_8":            return rl::KEY_KP_8;
+        case "KEY_KP_9":            return rl::KEY_KP_9;
+        case "KEY_KP_DECIMAL":      return rl::KEY_KP_DECIMAL;
+        case "KEY_KP_DIVIDE":       return rl::KEY_KP_DIVIDE;
+        case "KEY_KP_MULTIPLY":     return rl::KEY_KP_MULTIPLY;
+        case "KEY_KP_SUBTRACT":     return rl::KEY_KP_SUBTRACT;
+        case "KEY_KP_ADD":          return rl::KEY_KP_ADD;
+        case "KEY_KP_ENTER":        return rl::KEY_KP_ENTER;
+        case "KEY_KP_EQUAL":        return rl::KEY_KP_EQUAL;
+        case "KEY_BACK":            return rl::KEY_BACK;
+        case "KEY_MENU":            return rl::KEY_MENU;
+        case "KEY_VOLUME_UP":       return rl::KEY_VOLUME_UP;
+        case "KEY_VOLUME_DOWN":     return rl::KEY_VOLUME_DOWN;
+        default:
+            lgr::error(Where.FILE, "Unknown key name: %s", name);
+            return rl::KEY_NULL; // unknown key
     }
 }
 

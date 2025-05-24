@@ -213,12 +213,14 @@ brightness      = 1.0
 
 ; action = key name
 [keys]
-move_up    = "W|w"
-move_down  = "S|s"
-move_left  = "A|a"
-move_right = "D|d"
-quit       = "F10"
-editor     = "F1"
+move_up    = "KEY_W"
+move_down  = "KEY_S"
+move_left  = "KEY_A"
+move_right = "KEY_D"
+quit       = "KEY_F10"
+editor     = "KEY_F1"
+quicksave  = "KEY_F5"
+quickload  = "KEY_F9"
 `;
 // #endregion Constants
 
@@ -2000,7 +2002,10 @@ $if $feature(_DEBUG):
     // TODO(HM) On release version quit should only be done from main menu (or alt+f4...).
     // NOTE(HM) This needs to run after initWindow,
     //          it changes the default exit key (default was ESC key)
-    rl::setExitKey(rl::KEY_F10);
+    //rl::setExitKey(rl::KEY_F10);
+    String key_name = settings_file.getValue("quit");
+    rl::setExitKey(misc::getKeyValueFromName(key_name));
+    lgr::info(Where.FILE, "Exit key set to: %s", key_name);
 $endif
 
 // #endregion Window initialization
@@ -2163,7 +2168,7 @@ $endif
     }
     
 // #region Test game stuff
-    createGameInputActions();
+    createGameInputActions(settings_file);
     
     // Create the main Single Player
     // NOTE(HM) todo: the player and ingame entities should be created only at spawn of a level 
@@ -2381,21 +2386,26 @@ fn void loadGame() {
 */
 }
 
-
-fn void createGameInputActions() @inline @local
+<*
+* @param [in] settings_file : "the ini file to read the game input actions from."
+* @require settings_file != null
+*>
+fn void createGameInputActions(ini::FileData* settings_file) @inline @local
 {
     defer input::listActions();
+
+    String key_name;
 
     $if $feature(_DEBUG):
     input::makeKeyboardAction("screenshots", rl::KEY_F2, rl::KEY_NULL, (ActionCallBack)&camview::moveScreenShots);
 $endif
 
 $if !$feature(_DEBUG):
-    input::makeKeyboardAction("quit", rl::KEY_F10, rl::KEY_NULL, (ActionCallBack)&input::quitGame);
+    input::makeKeyboardAction("quit", misc::getKeyValueFromName(settings_file.getValue("quit")), rl::KEY_NULL, (ActionCallBack)&input::quitGame);
 $endif
 
-    input::makeKeyboardAction("quicksave", rl::KEY_F5, rl::KEY_NULL, (ActionCallBack)&saveGame);
-    input::makeKeyboardAction("quickload", rl::KEY_F9, rl::KEY_NULL, (ActionCallBack)&loadGame);
+    input::makeKeyboardAction("quicksave", misc::getKeyValueFromName(settings_file.getValue("quicksave")), rl::KEY_NULL, (ActionCallBack)&saveGame);
+    input::makeKeyboardAction("quickload", misc::getKeyValueFromName(settings_file.getValue("quickload")), rl::KEY_NULL, (ActionCallBack)&loadGame);
     
     input::makeKeyboardAction("particles", rl::KEY_INSERT);
     // ingame gui editor

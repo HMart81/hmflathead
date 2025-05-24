@@ -176,18 +176,20 @@ fn bool FileData.hasSection(&self, String name) @local {
 * @param key `The cmd name`
 * @require key != "" @if $feature(_DEBUG)
 *>
-fn String FileData.getValue(&self, String key) {
-    foreach(section : self.sections) {
+fn String FileData.getValue(&self, String key) 
+{
+    foreach(section : self.sections) 
+    {
         if(section.isLinked()) { // first section name didn't match see if it's child is the one
             foreach(inicmd : section.next.cmds) {
                 if(inicmd.cmd.first == key) {
-                    return inicmd.cmd.second;
+                    return inicmd.cmd.second.trim("\"");
                 }
             }
         } else {
             foreach(inicmd : section.cmds) {
                 if(inicmd.cmd.first == key) {
-                    return inicmd.cmd.second;
+                    return inicmd.cmd.second.trim("\"");
                 }
             }
         }
@@ -462,7 +464,7 @@ fn void parse_section_name(String line, FileData* file) @local
     } else {
         // create a single section
         IniSection* section = mem::new(IniSection);
-        section.name = section_name; //line[1..line.index_of_char(']')!! - 1];
+        section.name = section_name;
         file.register(section);
     }
 }
@@ -474,35 +476,39 @@ struct IniCMD_TempData @local {
 }
 
 <*
- * @param [in] file
- * @require file   != null
+ * @param [inout] file
+ * @require file != null
  *>
-fn void parse_section_cmd(String line, FileData* file) @local {
-
+fn void parse_section_cmd(String line, FileData* file) @local
+{
     IniCMD_TempData cmdTempData;
     
-    String[] tokens = misc::cut_by_spaces(line);
+    //String[] tokens = misc::cut_by_spaces(line);
+    String[] tokens = line.tsplit(ASSIGNMENT_CHAR);
     
     foreach(int i, word : tokens)
     {
         if(word == ASSIGNMENT_CHAR || word == SPACE_CHAR || word.len == 0) continue;
-        
-        //if(token == '\n') break;
+
+        word = word.trim(); // cleans the word
+        // NOTE(HM) we don't care about comments here, they are ignored
         
         // key is always the first word
-        if(i == 0) {  cmdTempData.key = word;
+        bool is_key = i == 0;
+        if(is_key) {  
+            cmdTempData.key = word;
             continue; // to next word
         }
         
-        // data is always the word after the ASSIGNMENT_CHAR '=' ignored above
-        // so shouldn't be part of the data
-        cmdTempData.value = word.trim();
+        // data is always the next word after the ASSIGNMENT_CHAR '=' ignored above
+        // so shouldn't be part of the data at this point
+        cmdTempData.value = word;
         
         // this shouldn't happen but just in case... 
         // if we think we are writting C/C++ or C3 code
         // and put a semicolon at the end of the line...
         if(word.ends_with(COMMENT_CHAR)) {
-            lgr::warning(Where.CONSOLE, "Ini File: A Semicolon was found at end of cmd: %s\n\t-> In ini files, \';\' is for single line comments.", cmdTempData.key);
+            lgr::warning(Where.CONSOLE, "Ini File: Semicolon found at end of cmd: %s\n\t-> In ini files, \';\' is for single line comments.", cmdTempData.key);
             cmdTempData.value = cmdTempData.value.strip_end(COMMENT_CHAR);
         }
         
@@ -531,26 +537,33 @@ fn void parse_section_cmd(String line, FileData* file) @local {
     }
 }
 
-fn void get_cmd_type_from_value(IniCMD_TempData* cmd_data) @local {
-    assert(cmd_data != null);
-    
-    String* value = &cmd_data.value;
+<*
+ * DOC Get the type of a cmd value from its string representation
+ *
+ * @param [inout] cmd_data : "the cmd data to set the type"
+ * @require cmd_data != null
+ * @ensure cmd_data.type != 0
+ *>
+fn void get_cmd_type_from_value(IniCMD_TempData* cmd_data) @local
+{
+    String value = (*cmd_data).value;
     
     // default type is integer
     cmd_data.type = INT;
     
-    if(*value == "" || *value == "true" || *value == "false") {
+    if(value == "" || value == "true" || value == "false") {
         cmd_data.type = BOOLEAN;
         return;
     }
-    else if((*value).len >= 2) {
-         // see if is a float and ovarride the type if necessary
-        if(string::char_in_set('.', *value))  cmd_data.type = FLOAT;
-    }
-    else if((*value).starts_with(STR_CHAR)) {
+    
+    if(value.starts_with(STR_CHAR)) {
         cmd_data.type = STRING;
         // just in case
-        testCmdValueStringValidity(*value, "");
+        testCmdValueStringValidity(value, "");
+    }
+    else if(value.len >= 2) {
+         // see if is a float and ovarride the type if necessary
+        if(string::char_in_set('.', value))  cmd_data.type = FLOAT;
     }
 }
 
