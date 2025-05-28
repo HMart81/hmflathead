@@ -61,6 +61,35 @@ macro @makeVec2f(#x, #y) => (Vec2f){#x, #y};
 macro @makeVec2fExt(#x) => (Vec2f){#x, #x};
 //
 
+macro endianSwap(x) {
+    // NOTE(HM) this is used to swap the endianness of a 32-bit integer
+    // this is used to convert from little-endian to big-endian and vice-versa
+    return ((x << 24) |
+            ((x & 0xFF00) << 8) | 
+            ((x >> 8) & 0xFF00) |
+            (x >> 24));
+}
+
+<*
+    NOTE(HM) used to create a fourcc code from a string,
+    this is used to create a fourcc code for file formats,
+    do not use this macro with a string that is not 4 characters long.
+
+ * @param string : `string to convert to a fourcc code`
+ * @require string.len == 4
+ *>
+macro fourcc(string) {
+    return (((uint)(string[0]) << 0) |
+           ((uint)(string[1]) << 8) |
+           ((uint)(string[2]) << 16) |
+           ((uint)(string[3]) << 24));
+}
+
+// NOTE(HM) this is used to create a fourcc code from a string
+// do not use this macro with a string that is not 4 characters long
+// do not evaluates to a constant expression
+//macro fourcc(string) => (*(uint*)(string));
+
 macro @todo($a = 0) @builtin
 {
     $if $feature(_DEBUG):
@@ -85,6 +114,8 @@ macro @forange($a, #b, arr; @body(x, y)) @builtin
     }
 }
 
+
+// TODO(HM) put this in a better place
 fn KeyboardKey getKeyValueFromName(String name) @inline
 {
     // NOTE(HM) this is used to get the key value from a string
@@ -315,7 +346,7 @@ fn void freeDebugLines() @inline {
     g_debugLines.free();
 }
 
-<*
+<*
 * @param [in] line "pointer to a DebugLine"
 * @require line != null
 *>
