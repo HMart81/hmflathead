@@ -300,13 +300,19 @@ fn String HMaterial.defaultDefinition(self) @inline
 }
 
 
+////////////////////////////////////////////////
+//
+// MTRFile - Material file data structure
+//
+///////////////////////////////////////////////
+
 const MTR_VERSION_STRING = "1.0.0"; // the version of the mtr file format
 
 struct MTRFile
 {
-    String path;
-    String version;
-    MaterialList mats;
+    String path;        // path to the mtr file.
+    String version;     // version of the mtr file format, should be MTR_VERSION_STRING.
+    MaterialList mats;  // list of materials in this file.
 }
 
 fn void MTRFile.unload(&self) @inline 
@@ -315,6 +321,10 @@ fn void MTRFile.unload(&self) @inline
     self.mats.free();
 }
 
+<*
+    @param [in] mat : "material to register"
+    @require mat != null
+*>
 fn void MTRFile.register(&self, HMaterial* mat) @inline 
 {
     self.mats.push(mat);
@@ -334,17 +344,19 @@ fn HMaterial* MTRFile.getMaterial(&self, String name) @inline
 
 fn void MTRFile.printMaterials(&self) @inline
 {
-    if(self.mats.len()) 
-    {
-        foreach(mat: self.mats) 
+    io::printfn("[MTR '%s' v: %s]", fs::getFileNameWithoutExt(self.path), self.version);
+    io::printfn("{");
+    if(self.mats.len()) {
+        foreach(mat: self.mats)
         {
              io::printfn("[material : '%s']", mat.name);
              if(mat.comment.len) {
-                io::printfn("   comment = \"%s\"", mat.comment);
+                io::printfn("\tcomment = \"%s\"", mat.comment);
              }
              print_material_map_data(mat);
         }
     }
+    io::printfn("};");
 }
 
 fn bool? MTRFile.load(&self, File file) @inline
@@ -393,14 +405,30 @@ fn bool MTRFile.parse(&self, File file)
     foreach (node : doc.rootNode.children)
     {
        if(node == null) continue;
-       if(isXmlNode(node, Node.TEXT)) {
-            // skip text nodes
-            continue;
+       if(isXmlNode(node, Node.TEXT)) 
+       {
+            // skip any text nodes assigned to the root node (shouldn't happen now though)
+            // this was something the xml reader did, because it treats any '>', 
+            // as a start of a potencial Text node (free text after the close symbol). 
+            // Even thou this is true sometimes, is not always, sometimes next just comes
+            // the start of another node, like a comment or a material node, but the way the xml reader 
+            // is written, just doesn't care what really comes next after a '>', so it was creating bugos 
+            // empty text nodes and registering them in the xml doc file. 
+            // I now solved that in the xml reader by detecting if a Text node is empty, 
+            // if it don't create and register a new text node.
+            //continue;
+            unreachable("Unexpected text node found in body of MTR '%s'! Text = '%s' ", fs::getFileNameWithoutExt(self.path), node.value);
        }
+
        if(isXmlNode(node, Node.MATERIAL)) 
        {
             HMaterial* mat = parse_material_node(node, self);
-            if(mat) self.register(mat);
+            if(mat) {
+                self.register(mat);
+            } else {
+                //lgr::error(Where.FILE, "Failed to parse material node '%s' in mtr file '%s'", node.name, self.path);
+                unreachable("Failed to parse material node '%s' in mtr file '%s'", node.name, self.path);
+            }
        } else {
             lgr::warning(Where.FILE, " Unexpected node in mtr file '%s', expected <MATERIAL> found <%s>", self.path, node.name);
             continue;
