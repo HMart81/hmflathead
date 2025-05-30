@@ -42,11 +42,13 @@ import thirdparty::library::xml;
 import std::collections::list, std::collections::tuple;
 // end_region
 
-/*****************************************************************************
+/*
+****************************************************************************
 *
 *                   Bellow is still very WIP
 *
-******************************************************************************/
+*****************************************************************************
+*/
 
 alias MaterialList       = List{HMaterial*};
 alias MaterialMapArgList = List{StringTuple*};
@@ -65,8 +67,9 @@ faultdef INVALID_PATH_STRING,
 // NOTE(HM) This represents every usefull node in the mtr xml file 
 enum Node : int (inline String str)
 {
-    INVALID   = "[35, 116, 101, 120, 116]", // for some reason the current third party xml reader I use, creates this invalid node with this particular signture...
+    //INVALID   = "[35, 116, 101, 120, 116]", // = "[#text]" for some reason the current third party xml reader I use, creates this invalid #text node...
     ROOT      = "MTR",
+    TEXT      = "#text",
     MATERIAL  = "MATERIAL",
     COMMENT   = "comments",
     MAPS      = "maps",
@@ -312,7 +315,7 @@ fn void MTRFile.register(&self, HMaterial* mat) @inline
     self.mats.push(mat);
 }
 
-// This will probably be very slow with many materials...
+// @Performance This will probably be very slow with many materials...
 // TODO(HM) make this faster by using a hash table
 fn HMaterial* MTRFile.getMaterial(&self, String name) @inline 
 {
@@ -324,7 +327,7 @@ fn HMaterial* MTRFile.getMaterial(&self, String name) @inline
 }
 
 
-fn void MTRFile.printMaterials(&self) @inline 
+fn void MTRFile.printMaterials(&self) @inline
 {
     if(self.mats.len()) 
     {
@@ -355,21 +358,25 @@ fn bool MTRFile.parse(&self, File file)
     
     if(catch excuse = doc)
     {
-       lgr::warning(Where.FILE, " Failed to open xml file [%s] with excuse: %s", self.path, excuse);
+       lgr::warning(Where.FILE, " Failed to open MTR xml file [%s] with excuse: %s", self.path, excuse);
        return false;
     }
     
     bool invalid_mtr = doc.rootNode.name != Node.ROOT.str;
     if(invalid_mtr)
     {
-       lgr::error(Where.FILE, " Malformed mtr file '%s', root node expected to be 'MTR' but is '%s' instead.", self.path, doc.rootNode.name);
+       lgr::error(Where.FILE, " Malformed material data file '%s', root node expected to be 'MTR' but is '%s' instead.", self.path, doc.rootNode.name);
        return false;
     }
     
     // now parse each material node
     foreach (node : doc.rootNode.children)
     {
-       if(node == null || isXmlNode(node, Node.INVALID)) continue;
+       if(node == null) continue;
+       if(isXmlNode(node, Node.TEXT)) {
+            // skip text nodes
+            continue;
+       }
        if(isXmlNode(node, Node.MATERIAL)) 
        {
             HMaterial* mat = parse_material_node(node, self);
@@ -445,7 +452,9 @@ fn HMaterial* parse_material_node(XmlNode* mat_node, MTRFile* file)
     foreach (node : mat_node.children)
     {
        // just in case...
-       if(node == null || isXmlNode(node, Node.INVALID)) continue;
+       if(node == null) continue;
+       // free text nodes are not supported
+       if(isXmlNode(node, Node.TEXT)) continue;
        //
 
        if(isXmlNode(node, Node.COMMENT))
@@ -506,7 +515,7 @@ fn void parse_material_maps(XmlNode* maps_node, HMaterial* mat)
 {
     foreach(node: maps_node.children)
     {
-        if(isXmlNode(node, Node.INVALID)) continue;
+        if(isXmlNode(node, Node.TEXT)) continue;
         
         switch(node.name)
         {
@@ -702,8 +711,15 @@ fn bool isXmlNode(XmlNode* node, Node kind) @inline @local => (node.name == kind
 *>
 fn String getNodeText(XmlNode* node) @local
 {
+    String result;
     usz child_count = node.children.len();
-    if(child_count >= 1) {
+    while(child_count > 0 && node.children[child_count - 1].name == Node.TEXT.str) {
+        result = result.tconcat(node.children[child_count - 1].value);
+        child_count--;
+    }
+    
+    /*if(child_count >= 1) {
+        assert(isXmlNode(node.children[0], Node.TEXT));
         String result = node.children[0].value;
         if(child_count > 1) {
             for(int i = 1; i < child_count; i++) {
@@ -711,9 +727,9 @@ fn String getNodeText(XmlNode* node) @local
             }
         }
         return result;
-    }
+    }*/
     
-    return "";
+    return result;
 }
 
 fn Color xmlStrColorToColor(String value) @local

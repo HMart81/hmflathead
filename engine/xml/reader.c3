@@ -32,7 +32,8 @@ import std::core;
 import std::io;
 import std::ascii;
 
-const char[] TEXT_NODE_NAME = "#text";
+//const char[] TEXT_NODE_NAME = "#text";
+const String TEXT_NODE_NAME = "#text";
 
 typedef XmlReader = void;
 
@@ -273,10 +274,12 @@ fn void XmlReaderImpl.read_header(&self, char c) @local {
 
 fn void XmlReaderImpl.read_text_node(&self, char c) @local {
 	if (c == '<') {
-		if (self.writeHead > 0) {
+        String textValue = self.copy_write_buffer();
+        bool emptyText   = textValue.trim().len == 0;
+		if (!emptyText && self.writeHead > 0) {
 			XmlNode* textNode = self.create_node();
 			textNode.name = string::format(self.allocator, "%s", TEXT_NODE_NAME);
-			textNode.value = self.copy_write_buffer();
+			textNode.value = textValue.copy(self.allocator); //self.copy_write_buffer();
 			XmlNode* nodeBeingParsed = self.peek_node();
 			nodeBeingParsed.children.push(textNode);
 		}
