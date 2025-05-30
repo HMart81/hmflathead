@@ -88,6 +88,7 @@ enum Node : int (inline String str)
 enum NodeAttrib : int (inline String str)
 {
     NAME     = "name",
+    VERSION  = "version",
     PATH     = "path",
     KIND     = "kind",
     TRANSLUCENT = "translucent",
@@ -298,9 +299,13 @@ fn String HMaterial.defaultDefinition(self) @inline
 	return string::format(mem, "%s", matdef);
 }
 
+
+const MTR_VERSION_STRING = "1.0.0"; // the version of the mtr file format
+
 struct MTRFile
 {
     String path;
+    String version;
     MaterialList mats;
 }
 
@@ -368,6 +373,21 @@ fn bool MTRFile.parse(&self, File file)
        lgr::error(Where.FILE, " Malformed material data file '%s', root node expected to be 'MTR' but is '%s' instead.", self.path, doc.rootNode.name);
        return false;
     }
+
+    String? version = (String)doc.rootNode.get_attrib_value(NodeAttrib.VERSION);
+    if (catch excuse = version)
+    {
+        lgr::error(Where.FILE, "Failed to get material version attribute in %s with excuse: %s\n", self.path, excuse);
+        return false;
+    }
+    // else got version, so check if it matches the current version
+    if(version != MTR_VERSION_STRING)
+    {
+        lgr::error(Where.FILE, " Invalid material data file '%s', version expected to be '%s' but is '%s' instead.", self.path, MTR_VERSION_STRING, version);
+        return false;
+    }
+
+    self.version = version.copy(mem);
     
     // now parse each material node
     foreach (node : doc.rootNode.children)
