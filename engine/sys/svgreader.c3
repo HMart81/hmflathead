@@ -222,6 +222,10 @@ struct Element
 //     self.attributes.push(elem);
 // }
 
+<* 
+    @param [in] atrb : "attribute to register in the element"
+    @require atrb != null
+*>
 fn void Element.register(&self, Attribute* atrb) @inline
 {
     self.attributes.push(atrb);
@@ -258,6 +262,10 @@ struct SVGData
     ListOfElements elements;
 }
 
+<*
+    @param [in] elem : "elem to register in svg data"
+    @require elem != null
+*>
 fn void SVGData.register(&self, Element* elem) @inline 
 {
     self.elements.push(elem);
@@ -304,7 +312,9 @@ fn bool SVGData.parse(&self, File file)
        return false;
     }
     
-    bool invalid_mtr = (doc.rootNode.name == "" || doc.rootNode.name != ElemID.SVG);
+    assert(doc.rootNode.name != "");
+
+    bool invalid_mtr = (doc.rootNode.name != ElemID.SVG);
     if(invalid_mtr)
     {
        lgr::error(Where.FILE, " Invalid svg file '%s', root node expected to be 'svg' but is '%s' instead.", self.path, doc.rootNode.name);
@@ -396,6 +406,7 @@ fn void parse_attribute_data(XmlAttribute* inAtrb, Element* elem, SVGData* svgfi
 
     should_register = true;
     Attribute* new_atrb = mem::new(Attribute);
+    
     defer { 
         if(should_register) {
             elem.register(new_atrb); 
