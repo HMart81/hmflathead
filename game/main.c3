@@ -66,6 +66,7 @@ import thirdparty::raygui5::rgui/*, thirdparty::raygui5::rgui::style::dark*/;
 import thirdparty::library::xml;
 import engine::physics::box2d;
 import thirdparty::tracy;
+import thirdparty::tsoding::fg; // flaglib
 // #endregion
 
 // #region Constants
@@ -280,6 +281,7 @@ fn void register_modulo_cvars() @local {
 
 faultdef WINDOW_INIT_FAILED, 
          MISSING_REQUIRED_ASSET,
+         GAME_START_FAILED,
          INVALID_WORK_DIR,
          NO_USER_SAVE_FOLDER,
          NO_DATA_FOLDER;
@@ -1569,8 +1571,22 @@ fn void? gameOnStart(String[]* args) @local
     lgr::info(Where.FILE, "-------- THE <toname> ENGINE LOG ------------");
     
     // Handle cmdline arguments if any.
+$if $feature(TSODING_FLAG):
+    List{ZString} argv;
+    defer argv.clear();
+    for(int i = 0; i < args.len; i++) {
+        argv.push((*args)[i].zstr_tcopy());
+    }
+
+    if (!fg::flag_parse(args.len, argv.to_tarray())) {
+        //usage(stderr);
+        fg::flag_print_error(&&io::stderr());
+        return GAME_START_FAILED?;
+        //exit(1);
+    }
+$else
     handle_cmdline(*args);
-    
+$endif
      // NOTE(HM) 
     // This will save cvars in a global array for later looping through if needed
     register_modulo_cvars();

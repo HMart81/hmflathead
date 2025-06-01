@@ -66,12 +66,12 @@ BUILD_PATH := ${CURDIR}/$(BUILD_DIR)
 RAYLIB := raylib55\lib\raylibdll.lib
 BOX2D := box2d\box2d.lib
 RAYGUI := raygui\raygui.obj
-#RAYGUI := raygui\raygui.lib
+TSOD_FLAG := flaglib\flaglib.lib
 TRACY := tracy\TracyClient.lib
 ##
 LIBRARY_ROOT_PATH := .\thirdparty\include\libs\\
 LINKER_SEARCH_PATHS := -L $(LIBRARY_ROOT_PATH)
-LINKED_LIBRARIES := -l $(RAYLIB) -l $(BOX2D) -l kernel32.lib -z $(RAYGUI) -l $(TRACY)
+LINKED_LIBRARIES := -l $(RAYLIB) -l $(BOX2D) -l kernel32.lib -z $(RAYGUI) -l $(TSOD_FLAG) -l $(TRACY)
 #LINKED_LIBRARIES := -l $(RAYLIB) -l $(BOX2D) -l kernel32.lib -l $(RAYGUI) -l $(TRACY)
 ##
 

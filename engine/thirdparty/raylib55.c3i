@@ -907,13 +907,13 @@ fn ZString getWorkingDirectory() @extern("GetWorkingDirectory");
 // Get the directory if the running application (uses static string)
 fn ZString getApplicationDirectory() @extern("GetApplicationDirectory");
 // Create directories (including full path requested), returns 0 on success
-fn int makeDirectory(char *dirPath) @extern("MakeDirectory");
+fn int makeDirectory(ZString dirPath) @extern("MakeDirectory");
 // Change working directory, return true on success
 fn bool changeDirectory(ZString dir) @extern("ChangeDirectory");
 // Check if a given path is a file or a directory
 fn bool isPathFile(ZString path) @extern("IsPathFile");
 // Check if fileName is valid for the platform/OS
-fn bool isFileNameValid(char *fileName)@extern("IsFileNameValid");
+fn bool isFileNameValid(ZString fileName)@extern("IsFileNameValid");
 // Load directory filepaths
 fn FilePathList loadDirectoryFiles(ZString dirPath) @extern("LoadDirectoryFiles");
 // Load directory filepaths with extension filtering and recursive directory scan
