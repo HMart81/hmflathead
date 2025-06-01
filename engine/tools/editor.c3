@@ -123,6 +123,7 @@ macro Vec2f Anchor.mulScalerEqual(self, float sc) @operator(*=)
 module engine::tools::editor;
 
 import std::io, std::ascii, std::collections::list;
+import engine::gui;
 import engine::misc;
 import engine::sys::cvar;
 //import engine::tools::editor::anchor;
@@ -211,8 +212,15 @@ struct Editor {
 
     // shows or hides the console input window
     ConsoleHistory con_history;
+    usz listView_scrollIndex; // scroll index for the list view of the console history
+    int listView_Active;
+    int listView_Focus;
     bool con_input_showWindow @if($defined(TextInputBox));
+
+
     char[CONSOLE_INPUT_MAX_LINE_LENGTH] con_input_buffer; // maximum length of the input line
+    bool con_input_edit_mode; // if true, the console input is in edit mode, this means that the user can edit the input line
+   
     String con_display_buffer; // the console display buffer, this is used to display the console input
     AutoComplete autoComplete; // auto complete struct for the console input
 }
@@ -233,6 +241,10 @@ fn void Editor.initDefaults(&self) @inline
     w = scr_width / 2.0f;
     h = scr_height / 2.0f;
     self.main_window = { x, y, w, h };
+
+    //self.con_input_edit_mode = true; // the console input is in edit mode by default
+    self.listView_Active = 1; // the active item in the list view of the console history
+    self.listView_Focus = -1; // the focused item in the list view of the console history
 
     // for some reason this does not work and crash's de game... :(
     // so this means I'm totally cut out from working with raygui styles for now. ;(
@@ -612,7 +624,28 @@ fn void drawEditorConsole(Rectangle area, Editor* editor)
     } else {
         console_hist_text = "";
     }
-    rgui::textBox(misc::makeRect(console_pos, console_size), console_hist_text, MAX_EDIT_LINE, false);
+
+    Rectangle bounds = misc::makeRect(console_pos, console_size);
+    // Rectangle content = {rect.x, rect.y, rect.width, rect.height - input_area.y};
+    // Rectangle view = {};
+    // Vector2 scroll = {0.0f, 0.0f};
+    // rgui::scrollPanel(rect, console_hist_text, content, &scroll, &view);
+
+    List{ZString} console_hist_text_lines;
+    foreach(str : editor.con_history)
+    {
+        if(str.len > 0) {
+            console_hist_text_lines.push(str.zstr_tcopy());
+        }
+    }
+
+    if(console_hist_text_lines.len() == 0) {
+        console_hist_text_lines.push("No console history available.");
+        rgui::listViewEx(bounds, &&console_hist_text_lines.first()!!, (CInt)console_hist_text.len(), (CInt*)&editor.listView_scrollIndex, &(CInt)editor.listView_Active, &(CInt)editor.listView_Focus);
+    } else {
+        rgui::textBox(misc::makeRect(console_pos, console_size), console_hist_text, MAX_EDIT_LINE, false);
+    }
+
 
     //rgui::dummyRec(misc::makeRect(console_pos, console_size), "Console");
     //rgui::setStyle(TEXTBOX, rgui::TEXT_READONLY, prevTextBoxStyle);
@@ -648,8 +681,11 @@ $if $defined(TextInputBox):
       
     }
 $else
-    bool enter_pressed = rgui::textBox(misc::makeRect(inputeBoxPos, input_area), (ZString)&editor.con_input_buffer[0], CONSOLE_FONT_SIZE, true);
-    if(enter_pressed) {
+    //rgui::textBox(misc::makeRect(inputeBoxPos, input_area), (ZString)&editor.con_input_buffer[0], CONSOLE_FONT_SIZE, true);
+    if(rgui::textBox(misc::makeRect(inputeBoxPos, input_area), (ZString)&editor.con_input_buffer[0], CONSOLE_FONT_SIZE, editor.con_input_edit_mode)) editor.con_input_edit_mode = !editor.con_input_edit_mode;
+    String input_text = ((ZString)&editor.con_input_buffer[0]).str_view();
+    if(input_text != "" && rl::isKeyPressed(rl::KEY_ENTER)) {
+        // if the input text is not empty and the enter key is pressed, parse the console input
         parse_console_input(editor);
     }
 $endif
@@ -664,7 +700,8 @@ fn void clearConsole(Editor* editor) @inline
 
 fn void eatConsoleInput(Editor* editor) @inline
 {
-    if(editor.con_input_buffer[0] != 0) {
+     String input_text = ((ZString)&editor.con_input_buffer[0]).str_view();
+    if(input_text != "") {
         mem::clear(&editor.con_input_buffer, CONSOLE_INPUT_MAX_LINE_LENGTH);
     }
 }
@@ -680,7 +717,7 @@ fn void exitConsoleInput(Editor* editor) @inline @if($defined(TextInputBox))
 fn void addToConsoleHistory(Editor* editor, String input_text) //@inline
 {
     float console_size_y = 0.25f * editor.main_window.height;
-    int max_lines = (int)console_size_y / CONSOLE_FONT_SIZE;
+    int max_lines = ((int)console_size_y / CONSOLE_FONT_SIZE) - 1; // -1 to account for the input box line
     if (editor.con_history.len() >= max_lines) {
         editor.con_history.pop()!!;
     }
@@ -693,10 +730,11 @@ macro void con_printfn(String fmt, ...) @public @builtin {
 	main::gpGame.editor.con_history.push(str.str_view().copy(mem));
 }
 
-fn void parse_console_input(Editor* editor) @inline
+fn void parse_console_input(Editor* editor) //@inline
 {
     String input_text = ((ZString)&editor.con_input_buffer[0]).str_view();
 
+    bool add_to_history = true;
     // TODO(HM): Implement a better console input parser.
     // This function should parse the console input and execute the command.
     io::printfn("Console input: %s", input_text);
@@ -707,26 +745,42 @@ fn void parse_console_input(Editor* editor) @inline
 //            exitConsoleInput(editor);
 //$else
         case "exit":
+            add_to_history = false; // do not add the exit command to the console history
             nextcase "quit";
 //$endif
         case "quit":
 $if $defined(TextInputBox):
+            add_to_history = false; // do not add the quit command to the console history
             exitConsoleInput(editor);
 $endif
             editor.close();
         case "clear":
             // todo(HM): ability to clear the console input buffer using key combination
+            add_to_history = false; // do not add the clear command to the console history
             clearConsole(editor);
         case "help":
+        case "h":
+            add_to_history = false; // do not add the help command to the console history
             con_printfn("Console help: \n - exit/quit: exits the editor \n - clear: clears the console history \n - help: shows this help message \n - debug: enables console debug mode \n - debug off: disables console debug mode \n - debug info: shows debug info");
+        case "editgui":
+            add_to_history = false; // do not add the ui_editGUI command to the console history
+            /*editor.editor_opened_prev = editor.editor_opened;
+            editor.editor_opened = EditorOpen.GUI_EDITOR;
+            editor.setActive();
+            editor.setVisible();
+            main::gpGame.mode = GameMode.EDITOR;
+            con_printfn("GUI Editor opened.");*/
+            (gui::ui_editGUI.getBool()) ? gui::ui_editGUI.set("0") : gui::ui_editGUI.set("1");
         default:
+            con_printfn("Unknown command: %s", input_text);
             io::printfn("Unknown command: %s", input_text);
     }
 
-    if(input_text != "") {
-        if(input_text != "clear") addToConsoleHistory(editor, input_text.copy(mem));
+    if(input_text != "" && add_to_history != false)
+    {
+        // if the input text is not empty and not 'clear' or 'help' command, add it to the console history
+        addToConsoleHistory(editor, input_text.copy(mem));
         eatConsoleInput(editor);
-        //mem::clear(&editor.con_input_buffer, CONSOLE_INPUT_MAX_LINE_LENGTH);
     }
 }
 
