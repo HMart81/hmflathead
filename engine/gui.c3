@@ -455,7 +455,10 @@ fn void Widget.update(&self) @dynamic {
         self.flags.asFocus = false;
     }
     
-    if(editor_enabled()) {
+    if(editor_as_focus()) 
+    {
+        self.flags.asFocus = false;
+
         if(self.isInteractive()) {
             self.setInteractive(false);
         }
@@ -509,6 +512,10 @@ fn Color selected_color_anim(Widget* wgt) @inline @local
     return color;
 }
 
+<*
+* @param [in] wgt : "widget to draw the origin coordinates for"
+* @require wgt != null
+*>
 fn void draw_origin_coordinates(Widget* wgt) @local @inline {
     if(!wgt.selected()) return;
     
@@ -576,8 +583,7 @@ fn bool Widget.isMouseOver(&self) @dynamic
     // gets windows mouse position...
     Vec2f mouseWorldPos = rl::getMousePosition().toVec2f();
 
-    // a small 32x32 pixels box
-    Vec2f mouse_size = main::getGameCursorSize();
+    Vec2f mouse_size = main::getGameCursorSize() * 0.5f; // half size of the cursor
     Rectangle mouseRect = misc::@recFromVecs(mouseWorldPos, mouse_size);
 
     if (rl::checkCollisionRecs(mouseRect, self.rect)) return true;
@@ -589,15 +595,11 @@ fn bool Widget.isWithinScreenBounds(&self) @dynamic
 {
     //if (self.hidden()) return false;
 
-    int w, h;
-    w = main::gpGame.screen.w;
-    h = main::gpGame.screen.h;
-
     Rectangle screen_bounds = {
     .x      = 0,
     .y      = 0,
-    .width  = w,
-    .height = h
+    .width  = main::gpGame.screen.w,
+    .height = main::gpGame.screen.h
     };
 
     return rl::checkCollisionRecs(screen_bounds, self.rect) ? true : false;
@@ -1641,20 +1643,21 @@ fn void DesktopManager.unregister(&self, Desktop* _desk) @inline {
 
 fn void DesktopManager.update(&self) {
 
-    if(ui_editGUI.getBool()) {
+    /*if(ui_editGUI.getBool()) {
         // enable edit mode
         if(self.mode != EDITOR) self.editor(true);
     } else {
         // disable edit mode
        if(self.mode == EDITOR) self.editor(false);
-    }
+    }*/
+    self.editor(ui_editGUI.getBool());
 
     usz desktop_count = self.desktops.len();
     if(desktop_count >= 1) {
         foreach(desk: self.desktops) {
             if(desk.active) {
                 desk.update();
-                if(self.mode == EDITOR && !main::gpGame.editor.isOpened()) {
+                if(self.mode == EDITOR && !main::gpGame.editor.focused()) {
                     updateGuiEditor(desk);
                 }
             }
@@ -1688,6 +1691,8 @@ fn void DesktopManager.editor(&self, bool choice = false) {
 
 // *****************************************************************************
 // NOTE(HM) TODO(HM) move this to a better place, like a gui editor file
+// @deprecated 
+// this should be renamed to something like gui_editor because we already have a editor in the game
 // #region ***************************** GUI EDITOR ****************************
 
 const GUIE_MAJOR    = 0;
@@ -1713,6 +1718,9 @@ fn void editor_disable_widget_debug() @local @inline => ui_debugDraw.set("0");
 fn bool editor_is_widget_debug_on()   @local @inline => ui_debugDraw.getBool();
 
 fn bool editor_enabled() @inline => local_manager.mode == EDITOR;
+fn bool editor_as_focus() @inline {
+    return (editor_enabled() && main::gpGame.editor.focused());
+}
 
 fn void editor_move_selected(Widget* wgt)
 {

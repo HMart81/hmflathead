@@ -284,12 +284,13 @@ fn void Editor.open(&self) @inline
     }
     self.flags.is_opened = true;
     self.editor_opened = EditorOpen.MAIN_EDITOR;
-    self.setActive();
-    self.setVisible();
+    self.setVisible(); // also sets the editor to active
     main::gpGame.mode = GameMode.EDITOR;
 }
 
 fn bool Editor.isOpened(&self) => self.flags.is_opened;
+
+fn EditorOpen Editor.getEditorOpenType(&self) => self.editor_opened;
 
 fn void Editor.close(&self) @inline
 {
@@ -297,7 +298,7 @@ fn void Editor.close(&self) @inline
         return;
     }
     self.flags.is_opened = false;
-    self.setInvisible();
+    self.setInvisible(); // also sets the editor to inactive and unfocused
     main::gpGame.mode = GameMode.NONE;
 }
 
@@ -350,6 +351,7 @@ fn void Editor.setVisible(&self) @inline
         return;
     }
     self.flags.is_visible = true;
+    self.setActive();
 }
 
 fn void Editor.setInvisible(&self) @inline
@@ -466,7 +468,7 @@ fn void Editor.setUndockable(&self) @inline
 //    WARNING(HM)
 //    If the 2D camera view is changed in any way besides moving in x and y
 //    like if the camera is zoomed or the camera is rotated, this will break.
-//    If so it will require conversion from world space coordinates to camera space.
+//    it will require conversion from world space coordinates to camera space.
 fn bool Editor.isMouseOver(&self) @local
 {
     if (self.isVisible() == false) return false;
@@ -474,9 +476,8 @@ fn bool Editor.isMouseOver(&self) @local
     // gets windows mouse position...
     Vec2f mouseWorldPos = rl::getMousePosition().toVec2f();
 
-    // a small 32x32 pixels box
-    const Vec2f MOUSE_SIZE = {32, 32};
-    Rectangle mouseRect = misc::@recFromVecs(mouseWorldPos, MOUSE_SIZE);
+    Vec2f mouse_rect_size = main::getGameCursorSize() * 0.5f; // half the size of the game cursor
+    Rectangle mouseRect = misc::@recFromVecs(mouseWorldPos, mouse_rect_size);
 
     if (rl::checkCollisionRecs(mouseRect, self.main_window)) return true;
 
@@ -485,7 +486,7 @@ fn bool Editor.isMouseOver(&self) @local
 
 fn void Editor.update(&self) @inline
 {
-    if (self.isOpened() == false && self.isVisible() == false && self.isActive() == false) {
+    if (self.isVisible() == false && self.isActive() == false) {
         return;
     }
 

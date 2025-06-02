@@ -316,7 +316,7 @@ struct Game (SaveSystemInterface) @local
     //int numEntitiesToDeactivate; // todo
     bool should_quit;
     bool msgbox_showing;
-    bool mod_set;
+    bool is_modded_game; // is the game running a mod?
     
     
     IntroAnimation intro;
@@ -324,9 +324,9 @@ struct Game (SaveSystemInterface) @local
     
     // menus
     gui::Desktop* guiActive; // to handle all guis
-    //
     gui::Desktop* main_menu;
-    
+    //
+
     GameMode mode;
 
     // ingame editor
@@ -433,7 +433,7 @@ fn void Game.save(&self, SaveFile* file) @dynamic {
     svs::writeBool(file, self.system_cursor_enabled);
     svs::writeBool(file, self.should_quit);
     svs::writeBool(file, self.msgbox_showing);
-    svs::writeBool(file, self.mod_set);
+    svs::writeBool(file, self.is_modded_game);
     self.intro.save(file);
     svs::writeInt(file, self.mode.ordinal);
     svs::writeTexture2D(file, &self.default_texture);
@@ -483,7 +483,7 @@ fn void Game.reload(&self, SaveFile* file) @dynamic {
     svs::readBool(file, &self.system_cursor_enabled);
     svs::readBool(file, &self.should_quit);
     svs::readBool(file, &self.msgbox_showing);
-    svs::readBool(file, &self.mod_set);
+    svs::readBool(file, &self.is_modded_game);
     self.intro.reload(file);
     svs::readInt(file, &self.mode.ordinal);
     svs::readTexture2D(file, &self.default_texture);
@@ -986,7 +986,7 @@ fn void gameUpdate() @local
         
         gameHandleGeneralControls();
 
-        if(editor.getBool()) {
+        if(editor.getBool() && local_game.editor.isOpened()) {
             local_game.editor.update();
         }
         
@@ -997,6 +997,7 @@ fn void gameUpdate() @local
         }
         //
         
+        // updates all fullscreen menus state like the main menu
         gui::gpDeskManager.update();
         
         // if(rl::isCursorOnScreen()) {
@@ -1635,7 +1636,7 @@ $endif
     // NOTE(HM) support for mods.
     // WARNING(HM) This is needs more testing...
     bool using_mod     = fs_mod_name.getString().len > 0;
-    local_game.mod_set = using_mod;
+    local_game.is_modded_game = using_mod;
     if(using_mod)
     {
         String mods_dir, mod_name, mod_work_dir, mod_base_folder;
@@ -1700,7 +1701,7 @@ $endif
     } 
     else
     {
-        if(local_game.mod_set) 
+        if(local_game.is_modded_game) 
         {
             lgr::error(Where.FILE,`Required base folder inside %s not found!\n
                        A non-empty folder called '%s' (case sensitive) most exist!`, 

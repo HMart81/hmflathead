@@ -89,21 +89,30 @@ fn Desktop* getActiveMenu() @local @inline {
 fn void setGUI(Desktop* menu) 
 {
     Desktop* guiActive;
+
+    // if the menu is set to null, deactivate the current menu
 	if (menu == null)
     {
-        if ( guiActive = getActiveMenu() ) {
+        guiActive = getActiveMenu();
+        if ( guiActive != null ) {
             guiActive.activate(false, main::gpGame.time_ms);
             main::gpGame.guiActive = null;
         }
 		return;
 	}
-    //
+
+    //else set the current menu
     guiActive = main::gpGame.guiActive = menu;
-    //guiActive = main::gpGame.guiActive;
 
     // todo
-	if ( guiActive == main::gpGame.main_menu ) {
-        if(main::gpGame.editor.isOpened() == false) {
+	if (guiActive == main::gpGame.main_menu) 
+    {
+        if(main::gpGame.editor.isOpened()) 
+        {
+            if(main::game_cursor_hidden() == false) main::hide_game_cursor();
+        } 
+        else 
+        {
            if(main::game_cursor_hidden()) main::show_game_cursor();
         }
 		//SetSaveGameGuiVars();
