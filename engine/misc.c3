@@ -951,8 +951,8 @@ fn long roundDoubleToLong(double value) @inline {
 <*
  Convert an type to another type safely, returning an failure if there is a type mismatch.
 
- @param #value `the value to convert to the given type.`
- @param $Type `the type to convert to`
+ @param #value : `the value to convert to the given type.`
+ @param $Type : `the type to convert to`
  @return `The value converted to its type.`
  @ensure @typeis(return, $Type*)
 *>

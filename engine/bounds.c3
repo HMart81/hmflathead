@@ -186,7 +186,7 @@ fn Bounds Bounds.addBB(self, Bounds other) @operator_s(+)
 // }
 
 <*
-    @param [in] other "other bounds to do somation with"
+    @param [in] other : "other bounds to do somation with"
     @require other != null
 *>
 fn void Bounds.pequals(&self, Bounds* other) @operator(+=)
@@ -216,7 +216,7 @@ fn void Bounds.setRect(&self, Rectangle rect) @inline {
 }
 
 <*
-    @param [in] a "other bounds to compare too"
+    @param [in] a : "other bounds to compare too"
     @require a != null
 *>
 fn bool Bounds.compare(&self, Bounds* a ) @operator(==)
@@ -225,7 +225,7 @@ fn bool Bounds.compare(&self, Bounds* a ) @operator(==)
 }
 
 <*
-    @param [in] a "other bounds to compare too"
+    @param [in] a : "other bounds to compare too"
     @require a != null
 *>
 fn bool Bounds.compare2(&self, Bounds* a ) @operator(!=)
@@ -281,7 +281,7 @@ fn bool Bounds.addPoint(&self, Vec2f* v ) @inline {
 }
 
 <*
-    @param [in] a "other bounds to add to us"
+    @param [in] a : "other bounds to add to us"
     @require a != null
 *>
 fn bool Bounds.addBounds(&self, Bounds* a ) @inline {
@@ -394,7 +394,7 @@ fn bool Bounds.containsPoint(&self, Vec2f p ) @inline {
 }
 
 <*
-    @param [in] a "other bounds to test with"
+    @param [in] a : "other bounds to test with"
     @require a != null
 *>
 fn bool Bounds.intersectsOther(&self, Bounds* a) @inline {

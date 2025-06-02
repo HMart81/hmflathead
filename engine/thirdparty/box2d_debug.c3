@@ -75,8 +75,8 @@ m_debugDraw = { DrawPolygonFcn,
 */
 
 <*
-    @param [inout] dd "the debugDraw struct to init"
-    @param [in] view "the view where to draw the stuff"
+    @param [inout] dd : "the debugDraw struct to init"
+    @param [in] view : "the view where to draw the stuff"
     @require dd != null && view != null
 *>
 fn void initDebugDraw(B2DebugDraw* dd, RenderView* view) {
@@ -114,7 +114,7 @@ fn void initDebugDraw(B2DebugDraw* dd, RenderView* view) {
 }
 
 <*
-    @param [inout] dd "the debugDraw struct to deinit"
+    @param [inout] dd : "the debugDraw struct to deinit"
     @require dd != null
 *>
 fn void deinitDebugDraw(B2DebugDraw* dd) {
@@ -157,10 +157,10 @@ fn void dbgDrawTransformLocal(B2Transform transform) @local
 <*
     Draw a closed polygon provided in CCW order.
     
-    @param [in] vertices "polygon vertices"
-    @param vertexCount   "amount of vertices"
-    @param color         "polygon color passed as a hexValue"
-    @param [in] context  "opengl/drawing context is null by default"
+    @param [in] vertices : "polygon vertices"
+    @param vertexCount   : "amount of vertices"
+    @param color         : "polygon color passed as a hexValue"
+    @param [in] context  : "opengl/drawing context is null by default"
     @require vertices != null
 *>
 fn void dbgDrawPolygon(B2Vec2* vertices, int vertexCount, B2HexColor color, void* context = null ) {
