@@ -178,19 +178,20 @@ fn bool FileData.hasSection(&self, String name) @local {
 *>
 fn String FileData.getValue(&self, String key) 
 {
+   ListIniCMDPrts* cmds;
+
     foreach(section : self.sections) 
     {
-        if(section.isLinked()) { // first section name didn't match see if it's child is the one
-            foreach(inicmd : section.next.cmds) {
-                if(inicmd.cmd.first == key) {
-                    return inicmd.cmd.second.trim("\"");
-                }
-            }
+        // if the section is linked, we need to use the child section cmds
+        if(section.isLinked()) {
+            cmds = &section.next.cmds; // use the child section cmds
         } else {
-            foreach(inicmd : section.cmds) {
-                if(inicmd.cmd.first == key) {
-                    return inicmd.cmd.second.trim("\"");
-                }
+            cmds = &section.cmds; // use the current section cmds
+        }
+
+        foreach(inicmd : *cmds) {
+            if(inicmd.cmd.first == key) {
+                return inicmd.cmd.second.trim("\"");
             }
         }
     }
@@ -203,20 +204,20 @@ fn String FileData.getValue(&self, String key)
 * @require key != "" @if $feature(_DEBUG)
 *>
 fn float? FileData.getFloatValue(&self, String key) {
+    ListIniCMDPrts* cmds;
+
     foreach(section : self.sections) {
-        if(section.isLinked()) { // first section name didn't match see if it's child is the one
-            foreach(inicmd : section.next.cmds) {
-                if(inicmd.cmd.first == key) {
-                    assert(inicmd.type == FLOAT);
-                    return inicmd.cmd.second.to_float()!;
-                }
-            }
+        // if the section is linked, we need to use the child section cmds
+        if(section.isLinked()) {
+            cmds = &section.next.cmds; // use the child section cmds
         } else {
-            foreach(inicmd : section.cmds) {
-                if(inicmd.cmd.first == key) {
-                    assert(inicmd.type == FLOAT);
-                    return inicmd.cmd.second.to_float()!;
-                }
+            cmds = &section.cmds; // use the current section cmds
+        }
+
+        foreach(inicmd : *cmds) {
+            if(inicmd.cmd.first == key) {
+                assert(inicmd.type == FLOAT);
+                return inicmd.cmd.second.to_float()!;
             }
         }
     }
@@ -229,20 +230,20 @@ fn float? FileData.getFloatValue(&self, String key) {
 * @require key != "" @if $feature(_DEBUG)
 *>
 fn int? FileData.getIntValue(&self, String key) {
+    ListIniCMDPrts* cmds;
+
     foreach(section : self.sections) {
-        if(section.isLinked()) { // first section name didn't match see if it's child is the one
-            foreach(inicmd : section.next.cmds) {
-                if(inicmd.cmd.first == key) {
-                    assert(inicmd.type == INT);
-                    return inicmd.cmd.second.to_int()!;
-                }
-            }
+        // if the section is linked, we need to use the child section cmds
+        if(section.isLinked()) {
+            cmds = &section.next.cmds; // use the child section cmds
         } else {
-            foreach(inicmd : section.cmds) {
-                if(inicmd.cmd.first == key) {
-                    assert(inicmd.type == INT);
-                    return inicmd.cmd.second.to_int()!;
-                }
+            cmds = &section.cmds; // use the current section cmds
+        }
+
+        foreach(inicmd : *cmds) {
+            if(inicmd.cmd.first == key) {
+                assert(inicmd.type == INT);
+                return inicmd.cmd.second.to_int()!;
             }
         }
     }
@@ -255,22 +256,21 @@ fn int? FileData.getIntValue(&self, String key) {
 * @require key != "" @if $feature(_DEBUG)
 *>
 fn bool? FileData.getBoolValue(&self, String key) {
+    ListIniCMDPrts* cmds;
+
     foreach(section : self.sections) {
-        if(section.isLinked()) { // first section name didn't match see if it's child is the one
-            foreach(inicmd : section.next.cmds) {
-                if(inicmd.cmd.first == key) {
-                    assert(inicmd.type == BOOLEAN);
-                    String value = inicmd.cmd.second;
-                    return (value == "true") ? true : false;
-                }
-            }
+        // if the section is linked, we need to use the child section cmds
+        if(section.isLinked()) {
+            cmds = &section.next.cmds; // use the child section cmds
         } else {
-            foreach(inicmd : section.cmds) {
-                if(inicmd.cmd.first == key) {
-                    assert(inicmd.type == BOOLEAN);
-                    String value = inicmd.cmd.second;
-                    return (value == "true") ? true : false;
-                }
+            cmds = &section.cmds; // use the current section cmds
+        }
+
+        foreach(inicmd : *cmds) {
+            if(inicmd.cmd.first == key) {
+                assert(inicmd.type == BOOLEAN);
+                String value = inicmd.cmd.second;
+                return (value == "true" || value == "1") ? true : false;
             }
         }
     }
@@ -364,7 +364,7 @@ fn bool detect_child_section_in_name(String str, usz where_index = 0) @local @in
 */
 fn String[]? cutIniFileByLines(String filepath, bool isrelative) @local {
     if(filepath == "") {
-        return MISSING_FILE_PATH?; // does this even happens when we have a contract in place?
+        return MISSING_FILE_PATH?;
     }
     
     if(isrelative) filepath = game.app_base_folder.tconcat(filepath);
@@ -400,7 +400,7 @@ fn FileData*? parse_file(String[] lines) @local {
     FileData* file_data = mem::new(FileData);
     
     foreach(line : lines) {
-        if(!line.len) continue;
+        if(line == "") continue;
         if(line.starts_with(COMMENT_CHAR)) continue; // to next line
         
         //
@@ -429,7 +429,7 @@ fn FileData*? parse_file(String[] lines) @local {
  *
  * @param [in] line    : "the line of text to parse"
  * @param [inout] file : "the file data structure to register the section into"
- * @require file != null
+ * @require file != null && line.len > 0
 *>
 fn void parse_section_name(String line, FileData* file) @local 
 {

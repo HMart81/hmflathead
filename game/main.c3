@@ -150,7 +150,7 @@ fn bool resValuesSafe(int w_value, int h_value) @inline {
 
 <*
 * @param index "the index of a resolution on the resolution array"
-* @require index >= 0 && index <= (ScreenRes.len - 1)
+* @require index >= 0 && index < ScreenRes.len
 * @ensure return != null
 *>
 macro ScreenRes* @getResolutionFromIndex(#index) => &ScreenRes[#index];
@@ -167,7 +167,6 @@ Mutex  introMutex;
 //
 
 // TODO make font sizes dependent on the screen size?
-const int TITLE_FONT_SCALE           @Hardcode = 12;
 const int SUBTITLE_FONT_SCALE        @Hardcode = 10;
 const int BIG_FONT_SCALE             @Hardcode = 14;
 const int SMALL_FONT_SCALE           @Hardcode = 6;
@@ -184,7 +183,7 @@ const Vec2f DEFAULT_WORLD_CENTER   = {0, 0}; // top left coorner of screen (this
 // Game Info
 const int MAX_VERSION                = 0;
 const int MIN_VERSION                = 0;
-const int BABY_VERSION               = 2;
+const int BABY_VERSION               = 3;
 const String GAME_NAME     @Hardcode = "hmflathead"; // TODO(HM) give me a final name!!!!
 const String GAME_SUB_NAME @Hardcode = "engine"; // NOTE(HM) optional...
 //
@@ -1112,13 +1111,13 @@ fn void drawWorkInProgressMessage(int screen_w, int screen_h) @local
 
     //String message   = string::tformat_zstr("Total entities alive: None");
     String message    = "WORK IN PROGRESS";
-    int text_len      = rl::measureText(message.zstr_tcopy(), TITLE_FONT_SCALE);
+    int text_len      = rl::measureText(message.zstr_tcopy(), 12);
     int screen_middle = (int)math::floor(0.5f*screen_w);
     //int x = (int)(0.65f * ((float)(screen_middle + (font_w * message.len))));
     int x = (int)(0.60f * ((float)(screen_middle + text_len)));
     int y = (int)math::floor(0.01f*screen_h);
-    rl::drawText(string::tformat_zstr("%s (Raylib %s)", message, rl::VERSION), x, y, TITLE_FONT_SCALE, COLOR);
-    //rl::drawTextEx(*font, string::tformat_zstr("%s (Raylib %s)", message, rl::VERSION), {x, y}, TITLE_FONT_SCALE, 1.0f, rl::RED);
+    rl::drawText(string::tformat_zstr("%s (Raylib %s)", message, rl::VERSION), x, y, 12, COLOR);
+    //rl::drawTextEx(*font, string::tformat_zstr("%s (Raylib %s)", message, rl::VERSION), {x, y}, 12, 1.0f, rl::RED);
 }
 
 fn void drawGameOnScreenDebugInfo(int screen_w, int screen_h) @local
