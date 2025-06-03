@@ -836,18 +836,6 @@ fn void gameHandleGeneralControls() @local
     if (rl::isKeyPressed(rl::KEY_P)) {
         local_game.pause_phys_simulation = !local_game.pause_phys_simulation;
     }
-    
-    if(input::Action* enable_gui_editor = input::getAction("edit_gui")) {
-        //local_game.testTimer.init(5.0f);
-        if(enable_gui_editor.fnIsTriggered() && main::gpGame.guiActive) 
-        {
-            if(gui::editor_enabled()) {
-                //gui::editor_close();
-            } else {
-                //gui::editor_open();
-            }
-        }
-    }
 
     if(input::Action* toggle_editor = input::getAction("toggle_editor")) {
         if(toggle_editor.fnBecameTriggered() && (local_game.mode != STARTING && local_game.mode != INTRO)) {
@@ -862,6 +850,7 @@ fn void gameHandleGeneralControls() @local
         }
     }
     
+    // handle ESC key press
     if (!local_game.guiActive && rl::isKeyPressed(rl::KEY_ESCAPE) &&
         !rl::isKeyDown(rl::KEY_LEFT_SHIFT) && !rl::isKeyDown(rl::KEY_RIGHT_SHIFT)) 
     {
@@ -872,19 +861,9 @@ fn void gameHandleGeneralControls() @local
         } else if(op == ESC_MAIN) {
             menu::start(local_game.main_menu);
         } else {
-            menu::setGUI(null);
+            menu::setGUI(null); // disable any gui
         }
 	}
-    
-    if(developer.getBool()) 
-    {
-        if (local_game.guiActive && local_game.guiActive == local_game.main_menu) 
-        {
-            if(input::Action* close_menu = input::getAction("close_main_menu")) {
-                if(close_menu.fnIsTriggered() && !local_game.intro_playing) menu::setGUI(null);
-            }
-        }
-    }
     
     /*
     if(rl::isKeyPressed(rl::KEY_SPACE)) {
@@ -2424,14 +2403,9 @@ $endif
     input::makeKeyboardAction("quickload", misc::getKeyValueFromName(settings_file.getValue("quickload")), rl::KEY_NULL, (ActionCallBack)&loadGame);
     
     input::makeKeyboardAction("particles", rl::KEY_INSERT);
-    // ingame gui editor
-    input::makeKeyboardAction("edit_gui", rl::KEY_F3);
 
     // game main editor
     input::makeKeyboardAction("toggle_editor", rl::KEY_F1, rl::KEY_LEFT_SHIFT);
-    
-    // close the main menu
-    input::makeKeyboardAction("close_main_menu", rl::KEY_ESCAPE);
 
     // mouse actions
     input::makeMouseAction("Single Press", MouseButton.LEFT);

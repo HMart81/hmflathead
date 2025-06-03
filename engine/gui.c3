@@ -56,13 +56,13 @@ import thirdparty::raygui5::rgui;
 
 // region cvars
 Cvar ui_debugDraw @public = { "ui_debugDraw", CvarType.BOOLEAN, "0", "show debug visualization for gui development" };
-Cvar ui_editGUI   @public = { "ui_editGUI", CvarType.BOOLEAN, "0", "turn on gui editing functionality for gui development" };
+Cvar ui_editGui   @public = { "ui_editGui", CvarType.BOOLEAN, "0", "turn on gui editing functionality for gui development" };
 
 
 fn void register_cvars() @public 
 {
     cvar::@register(&ui_debugDraw);
-    cvar::@register(&ui_editGUI);
+    cvar::@register(&ui_editGui);
 }
 // end_region
 
@@ -516,7 +516,8 @@ fn Color selected_color_anim(Widget* wgt) @inline @local
 * @param [in] wgt : "widget to draw the origin coordinates for"
 * @require wgt != null
 *>
-fn void draw_origin_coordinates(Widget* wgt) @local @inline {
+fn void Widget.draw_origin_coordinates(Widget* wgt) @local @inline 
+{
     if(!wgt.selected()) return;
     
     int scr_w, scr_h;
@@ -557,13 +558,14 @@ fn void draw_origin_coordinates(Widget* wgt) @local @inline {
     );
 }
 
-fn void Widget.draw(&self) @dynamic {
+fn void Widget.draw(&self) @dynamic 
+{
     if(self.hidden()) return;
     
     if(self.selected())
     {
         self.setSelectedColor(selected_color_anim(self));
-        draw_origin_coordinates(self);
+        self.draw_origin_coordinates();
     }
     
     self.super.draw(self.selected());
@@ -1643,14 +1645,14 @@ fn void DesktopManager.unregister(&self, Desktop* _desk) @inline {
 
 fn void DesktopManager.update(&self) {
 
-    /*if(ui_editGUI.getBool()) {
+    /*if(ui_editGui.getBool()) {
         // enable edit mode
         if(self.mode != EDITOR) self.editor(true);
     } else {
         // disable edit mode
        if(self.mode == EDITOR) self.editor(false);
     }*/
-    self.editor(ui_editGUI.getBool());
+    self.editor(ui_editGui.getBool());
 
     usz desktop_count = self.desktops.len();
     if(desktop_count >= 1) {
@@ -1705,12 +1707,20 @@ macro bool drawEditorButton(String text, Vector2 pos) @local
 }
 
 fn void editor_open() @inline {
-    ui_editGUI.set("1");
+    if(main::gpGame.guiActive == null) {
+        lgr::error(Where.CONSOLE, "Cannot open gui editor because no gui is active.");
+        return;
+    }
+    ui_editGui.set("1");
 }
 
 fn void editor_close() @inline {
-    ui_editGUI.set("0");
+    ui_editGui.set("0");
     if(editor_is_widget_debug_on()) editor_disable_widget_debug();
+}
+
+fn bool editor_is_opened() @inline {
+    return ui_editGui.getBool();
 }
 
 fn void editor_enable_widget_debug()  @local @inline => ui_debugDraw.set("1");
@@ -1741,10 +1751,12 @@ fn void editor_move_selected(Widget* wgt)
     }
 }
 
-fn void updateGuiEditor(Desktop* mng) {
+fn void updateGuiEditor(Desktop* mng) 
+{
     if(!mng || editor_enabled() == false) return;
     
-    foreach(wgt : mng.children) {
+    foreach(wgt : mng.children) 
+    {
         if(wgt.selected()) {
             if(rl::isKeyPressed(rl::KEY_ESCAPE)) {
                 wgt.deselect();
@@ -1755,7 +1767,8 @@ fn void updateGuiEditor(Desktop* mng) {
     }
 }
 
-fn void drawGuiEditor(Desktop* mng) {
+fn void drawGuiEditor(Desktop* mng) 
+{
     if(!mng || editor_enabled() == false) return;
     
     int scr_w, scr_h;

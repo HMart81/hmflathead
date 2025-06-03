@@ -33,7 +33,7 @@ import std::io;
 import std::core::mem; // for malloc/new
 import std::math;
 import std::collections::list;
-import game::projectiles::ammo;
+//import game::projectiles::ammo;
 import game::serialize::svs; // save system
 import game::main;
 //import game::actors::ent;
@@ -90,7 +90,7 @@ struct Player (SaveSystemInterface)
     inline Entity super;
     
     Move_Dir move_dir; // todo put this on the main entity seems logical to be there as well...
-    ammo::ProjectilePtrList projectiles;
+    //ammo::ProjectilePtrList projectiles;
 }
 
 fn void Player.save(&self, SaveFile* file) @dynamic {
@@ -195,9 +195,9 @@ fn void Player.updateInteraction(&self, float dt)
     }
     
     // shot
-    if(rl::isKeyPressed(rl::KEY_SPACE)) {
-        self.projectiles.push(ammo::create(self.getPosition()));
-    }
+    // if(rl::isKeyPressed(rl::KEY_SPACE)) {
+    //     self.projectiles.push(ammo::create(self.getPosition()));
+    // }
     
     self.move(speed);
 }
@@ -313,7 +313,7 @@ fn InputAction* create(String _name, KeyboardKey key, MouseButton mbtn = MouseBu
 }
 
 
-
+/*
 // not working for now UNFINISHED
 
 // TODO(HM) to support multiple players make a seperate player array.

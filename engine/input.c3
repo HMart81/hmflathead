@@ -138,7 +138,8 @@ struct Action (ActionInterface)
 
 fn bool Action.fnIsTriggered(&self) @dynamic
 {
-    switch (self.kind) {
+    switch (self.kind) 
+    {
         case KEYBOARD:
             bool hasExtKey = self.keyboard.key2 != rl::KEY_NULL;
             if (rl::isKeyDown(self.keyboard.key1)) 

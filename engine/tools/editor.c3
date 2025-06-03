@@ -763,7 +763,7 @@ $endif
         case "h":
             add_to_history = false; // do not add the help command to the console history
             con_printfn("Console help: \n - exit/quit: exits the editor \n - clear: clears the console history \n - help: shows this help message \n - debug: enables console debug mode \n - debug off: disables console debug mode \n - debug info: shows debug info");
-        case "editgui":
+        case gui::ui_editGui.name:
             add_to_history = false; // do not add the ui_editGUI command to the console history
             /*editor.editor_opened_prev = editor.editor_opened;
             editor.editor_opened = EditorOpen.GUI_EDITOR;
@@ -771,7 +771,7 @@ $endif
             editor.setVisible();
             main::gpGame.mode = GameMode.EDITOR;
             con_printfn("GUI Editor opened.");*/
-            (gui::ui_editGUI.getBool()) ? gui::ui_editGUI.set("0") : gui::ui_editGUI.set("1");
+            (gui::editor_is_opened()) ?  gui::editor_close() : gui::editor_open();
         default:
             con_printfn("Unknown command: %s", input_text);
             io::printfn("Unknown command: %s", input_text);
