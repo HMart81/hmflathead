@@ -308,7 +308,7 @@ fn bool SVGData.parse(&self, File file)
     
     if(catch excuse = doc)
     {
-       lgr::warning(Where.FILE, " Failed to open xml file [%s] with excuse: %s", self.path, excuse);
+       lgr::warning(Where.FILE, " Failed to open svg file [%s] with excuse: %s", self.path, excuse);
        return false;
     }
     
@@ -317,12 +317,12 @@ fn bool SVGData.parse(&self, File file)
     bool invalid_mtr = (doc.rootNode.name != ElemID.SVG);
     if(invalid_mtr)
     {
-       lgr::error(Where.FILE, " Invalid svg file '%s', root node expected to be 'svg' but is '%s' instead.", self.path, doc.rootNode.name);
+       lgr::error(Where.FILE, " Invalid svg file '%s', root expected to be 'svg' but is '%s' instead.", self.path, doc.rootNode.name);
        return false;
     }
 
      if(doc.rootNode.children.len() == 0) {
-        lgr::error(Where.FILE, " Empty svg file '%s', root node <%s> has no children!", self.path, doc.rootNode.name);
+        lgr::error(Where.FILE, " Invalid svg file '%s', root <%s> has no children!", self.path, doc.rootNode.name);
         return false;
     }
 
@@ -347,12 +347,7 @@ fn void register_xmlnode_data(XmlNode* xmlnode, SVGData* svgfile)
     // handle attributes if any
     if(xmlnode.attributes.len())
     {
-        foreach (atrb : xmlnode.attributes)
-        {
-            if(atrb == null) continue;
-            //elem.register(mem::new(AttrData, {atrb.name.copy(mem), atrb.value.copy(mem)}));
-            parse_attribute_data(atrb, elem, svgfile);
-        }
+        parse_xmlnode_attributes(xmlnode, elem, svgfile);
     }
 
     if(xmlnode.children.len())
@@ -395,17 +390,41 @@ enum TransfType : char (inline String str)
 }
 
 <*
-    @param [inout] elem : "svg Element whose attributes we are looking at"
+    @param [in] xmlnode : "the xml node we are looking at"
+    @param [inout] elem : "svg Element whose attributes we are creating"
+    @param [inout] svgfile : "pointer to the main svg struct to save the element"
+    @require xmlnode != null && elem != null && svgfile != null
+*>
+fn void parse_xmlnode_attributes(XmlNode* xmlnode, Element* elem, SVGData* svgfile) //@inline
+{
+    foreach (atrb : xmlnode.attributes)
+    {
+        if(atrb == null) continue;
+        foreach (atrbID : AttrID.values)
+        {
+            if(atrb.name == atrbID.name)
+            {
+                parse_attribute_data(atrb, atrbID, elem, svgfile);
+                break;
+            }
+        }
+    }
+}
+
+<*
     @param [in] inAtrb : "the attribute data from the xml file we are looking at"
+    @param atrbID : "the attribute id we are looking at"
+    @param [inout] elem : "svg Element whose attributes we are looking at"
     @param [inout] svgfile : "pointer to the main svg struct to save the element"
     @require elem != null && svgfile != null && inAtrb != null && inAtrb.value.len > 1
 *>
-fn void parse_attribute_data(XmlAttribute* inAtrb, Element* elem, SVGData* svgfile) //@inline
+fn void parse_attribute_data(XmlAttribute* inAtrb, AttrID atrbID, Element* elem, SVGData* svgfile) //@inline
 {
     bool isfloat, isint, isstring, isvec2, isvec3, isvec4, isPath, isPointer, should_register;
 
     should_register = true;
     Attribute* new_atrb = mem::new(Attribute);
+    new_atrb.id = atrbID;
     
     defer { 
         if(should_register) {
@@ -414,21 +433,6 @@ fn void parse_attribute_data(XmlAttribute* inAtrb, Element* elem, SVGData* svgfi
             mem::free(new_atrb);
         }
     }
-
-    // set attribute id's
-    @forange(0, AttrID.values.len - 1, &&AttrID.values; i, id) {
-        if(inAtrb.name == id)
-        {
-            new_atrb.id = id;
-        }
-    };
-    /*foreach(id, AttrID.values)
-    {
-        if(inAtrb.name == id)
-        {
-            new_atrb.id = id;
-        }
-    }*/
 
     switch(new_atrb.id)
     {
@@ -441,25 +445,14 @@ fn void parse_attribute_data(XmlAttribute* inAtrb, Element* elem, SVGData* svgfi
         case AttrID.CY:
         case AttrID.RX:
         case AttrID.RY:
-            //new_atrb.id = AttrID.WIDTH;
-            //new_atrb.id = AttrID.HEIGHT;
-            //new_atrb.id = AttrID.VERSION;
-            //new_atrb.id = AttrID.X;
-            //new_atrb.id = AttrID.Y;
-            //new_atrb.id = AttrID.CX;
-            //new_atrb.id = AttrID.CY;
-            //new_atrb.id = AttrID.RX;
-            //new_atrb.id = AttrID.RY;
             if(is_integer_number(inAtrb.value)) {
                 isint = true;
-                break;
             } else if(is_float_number(inAtrb.value)) {
                 isfloat = true;
             } else {
                 nextcase AttrID.INVALID;
             }
         case AttrID.VIEWBOX:
-            //new_atrb.id   = AttrID.VIEWBOX;
             int count;
             if(is_vector_number(inAtrb.value, &count)) {
                 switch(count) {
@@ -476,24 +469,14 @@ fn void parse_attribute_data(XmlAttribute* inAtrb, Element* elem, SVGData* svgfi
         case AttrID.CLIPPATHUNITS:
         case AttrID.STYLE:
         case AttrID.PRESERVEASPECTRATIO:
-            //new_atrb.id   = AttrID.ID;
-            //new_atrb.id   = AttrID.XMLSPACE;
-            //new_atrb.id   = AttrID.CLIPPATHUNITS;
-            //new_atrb.id   = AttrID.STYLE;
-            //new_atrb.id   = AttrID.PRESERVEASPECTRATIO;
             isstring = true;
         case AttrID.XMLNSXLINK:
         case AttrID.XMLNS:
         case AttrID.XMLNSSVG:
         case AttrID.XLINKHREF:
-            //new_atrb.id   = AttrID.XMLNSXLINK;
-            //new_atrb.id   = AttrID.XMLNS;
-            //new_atrb.id   = AttrID.XMLNSSVG;
-            //new_atrb.id   = AttrID.XLINKHREF;
             //elem.paths.push(&path::new(inAtrb.value)!);
             isPath = true;
         case AttrID.TRANSFORM:
-            //new_atrb.id   = AttrID.TRANSFORM;
             if(inAtrb.value.starts_with("translate")) {
                 new_atrb.type  = AttrType.VEC2;
                 new_atrb.value.v2 = get_transform_translation(inAtrb.value);
@@ -507,11 +490,9 @@ fn void parse_attribute_data(XmlAttribute* inAtrb, Element* elem, SVGData* svgfi
                 lgr::warning(Where.FILE,  "Unknown transform value <%s> in file '%s'", inAtrb.value, svgfile.path);
             }
         case AttrID.D:
-            //new_atrb.id   = AttrID.D;
             isstring = true;
             // todo handle path data...
         case AttrID.CLIPPATH:
-            //new_atrb.id   = AttrID.CLIPPATH;
             isstring = true;
             elem.others.push(get_element_from_url(inAtrb.value, svgfile));
         case AttrID.INVALID:
@@ -519,7 +500,7 @@ fn void parse_attribute_data(XmlAttribute* inAtrb, Element* elem, SVGData* svgfi
             should_register = false;
             return;
         default:
-            lgr::warning(Where.FILE,  "SVG attrb <%s> in file '%s' is still not supported or valid", elem.name, svgfile.path);
+            lgr::warning(Where.FILE,  "SVG attrb <%s> in file '%s' is still not supported", elem.name, svgfile.path);
             should_register = false;
             return;
     }
@@ -528,7 +509,24 @@ fn void parse_attribute_data(XmlAttribute* inAtrb, Element* elem, SVGData* svgfi
         new_atrb.type  = AttrType.FLOAT;
         if(try value = to_float(inAtrb.value)) new_atrb.value.f = value;
     }
-    else if(isPath) {
+    else if(isint) {
+        new_atrb.type  = AttrType.INT;
+       if(try value = to_int(inAtrb.value)) new_atrb.value.i = value;
+    } 
+    else if(isstring) {
+        new_atrb.type  = AttrType.STRING;
+        new_atrb.value.s = inAtrb.value.copy(mem);
+    }
+    else if(isvec4) {
+        new_atrb.type  = AttrType.VEC4;
+        if(try value = to_vec4(inAtrb.value)) new_atrb.value.v4 = value;
+    } 
+    else if(isvec2) {
+        new_atrb.type  = AttrType.VEC2;
+        if(try value = to_vec2(inAtrb.value)) new_atrb.value.v2 = value;
+    }
+    else if(isPath) 
+    {
         if(inAtrb.value.starts_with("http") || inAtrb.value.starts_with("../") || inAtrb.value.contains("/") ) 
         {
             Path path;
@@ -547,22 +545,6 @@ fn void parse_attribute_data(XmlAttribute* inAtrb, Element* elem, SVGData* svgfi
         } else {
             unreachable();
         }
-    }
-    else if(isint) {
-        new_atrb.type  = AttrType.INT;
-       if(try value = to_int(inAtrb.value)) new_atrb.value.i = value;
-    } 
-    else if(isstring) {
-        new_atrb.type  = AttrType.STRING;
-        new_atrb.value.s = inAtrb.value.copy(mem);
-    }
-    else if(isvec4) {
-        new_atrb.type  = AttrType.VEC4;
-        if(try value = to_vec4(inAtrb.value)) new_atrb.value.v4 = value;
-    } 
-    else if(isvec2) {
-        new_atrb.type  = AttrType.VEC2;
-        if(try value = to_vec2(inAtrb.value)) new_atrb.value.v2 = value;
     }
 }
 
