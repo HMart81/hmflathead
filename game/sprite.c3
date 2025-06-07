@@ -45,6 +45,7 @@ import game::serialize::svs; // save system
 import game::lowlevel::bounds;
 import game::actors::ent;
 import thirdparty::raylib5::rl;
+import engine::sys::render2d::r2d; // 2D rendering
 import thirdparty::tracy;
 // end_region
 
@@ -133,12 +134,12 @@ fn void Sprite.init(&self, float x, float y, int width, int height, RColor color
     self.register();
 }
 
-fn void Sprite.initRec(&self, Rectangle rect, RColor color = rl::COLOR_WHITE, SpriteKind kind = GENERIC, String material_name = "") @inline {
+fn void Sprite.initRect(&self, Rectangle rect, RColor color = rl::COLOR_WHITE, SpriteKind kind = GENERIC, String material_name = "") @inline {
     self.init(rect.x, rect.y, (int)rect.width, (int)rect.height, color, kind, material_name);
 }
 
 fn void Sprite.initV(&self, Vec2f pos, Vec2f size, RColor color, SpriteKind kind = GENERIC, String material_name = "") @inline {
-    self.initRec({ pos.x, pos.y, size.x, size.y }, color, kind, material_name);
+    self.initRect({ pos.x, pos.y, size.x, size.y }, color, kind, material_name);
 }
 
 fn void Sprite.resetPosSize(&self) @inline {
@@ -358,7 +359,7 @@ fn void Sprite.draw(&self)  @inline
         if(self.should_hide) return;
         
         $if $defined(DEBUG_SPRITES):
-            rl::drawRectangleLinesEx(self.rect, 1.0f, rl::RED);
+            r2d::drawRectangleLinesEx(self.rect, 1.0f, rl::RED);
         $endif
         
         if(self.hasMaterial())
@@ -411,10 +412,27 @@ fn void Sprite.draw(&self)  @inline
         } 
         else // draw simple flat shape
         {
-            rl::drawRectangleRec(self.rect, self.color);
+            r2d::drawRectangleRec(self.rect, self.color);
         }
     };//tracy::@zoneN
     }; // misc::@profile_zone
+}
+
+// draws a immediate sprite (per frame) with the given position, size and color
+// NOTE(HM) this is a generic sprite, not a sprite entity, so it does not have a name or any other data
+fn void drawImmediate(int posX, int posY, int width, int height, Color color, String material_name = "") @inline 
+{
+    @pool() {
+        Sprite sptr;
+        sptr.type  = Sprite.typeid;
+        sptr.kind  = SpriteKind.GENERIC;
+        sptr.color = color;
+        sptr.setPosition( posX, posY );
+        sptr.setSize( width, height );
+        // now set the Bounds
+        sptr.bounds.fromRect(&sptr.rect);
+        if(material_name.len) sptr.setMaterial(material_name);
+    };
 }
 
 /*

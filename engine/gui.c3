@@ -52,6 +52,7 @@ import game::serialize::svs; // save system
 import engine::sys::cvar;
 import thirdparty::raylib5::rl;
 import thirdparty::raygui5::rgui;
+import engine::sys::render2d::r2d; // 2D rendering
 // end_region
 
 // region cvars
@@ -329,8 +330,8 @@ fn void Panel.draw(&self, bool selected = false)
     } else {
         switch(self.shape)
         {
-            case BOX:         misc::@drawRect(self.rect, (selected) ? self.selected_color : self.color);
-            case ROUNDED_BOX: rl::drawRectangleRounded(self.rect, 0.65f, 6, (selected) ? self.selected_color : self.color);
+            case BOX:         r2d::@drawRect(self.rect, (selected) ? self.selected_color : self.color);
+            case ROUNDED_BOX: r2d::drawRectangleRounded(self.rect, 0.65f, 6, (selected) ? self.selected_color : self.color);
             default: unreachable();
         }
     }
@@ -537,22 +538,22 @@ fn void Widget.draw_origin_coordinates(Widget* wgt) @local @inline
         (int)dbg_text_pos.x, (int)dbg_text_pos.y, 16, rl::RED
     );
     // draw widget center
-    rl::drawCircle((int)widget_center.x, (int)widget_center.y, 2.0f, rl::SKYBLUE);
+    r2d::drawCircle((int)widget_center.x, (int)widget_center.y, 2.0f, rl::SKYBLUE);
     
     // draw lines going from widget center to the screen ends
-    rl::drawLineEx(widget_center.toVector2(),
+    r2d::drawLineEx(widget_center.toVector2(),
         (widget_center + misc::VEC_LEFT * (scr_w - widget_center.x)).toVector2(),
         lineThick, rl::RED
     );
-    rl::drawLineEx(widget_center.toVector2(),
+    r2d::drawLineEx(widget_center.toVector2(),
         (widget_center + misc::VEC_RIGHT * (scr_w - widget_center.x)).toVector2(),
         lineThick, rl::RED
     );
-    rl::drawLineEx(widget_center.toVector2(),
+    r2d::drawLineEx(widget_center.toVector2(),
         (widget_center + misc::VEC_UP * (scr_h - widget_center.y)).toVector2(),
         lineThick, rl::RED
     );
-    rl::drawLineEx(widget_center.toVector2(),
+    r2d::drawLineEx(widget_center.toVector2(),
         (widget_center + misc::VEC_DOWN * (scr_h - widget_center.y)).toVector2(),
         lineThick, rl::RED
     );
@@ -1467,7 +1468,7 @@ fn void Desktop.redraw(&self, int _time)  {
         assert(rl::isTextureValid(*self.tex));
         rl::drawTexture(*self.tex, (int)self.rect.x, (int)self.rect.y, self.color);
     } else {
-        misc::@drawRect(self.rect, self.color);
+        r2d::@drawRect(self.rect, self.color);
     }
 
     self.drawCursor();
@@ -1480,13 +1481,13 @@ fn void Desktop.redraw(&self, int _time)  {
            switch (child.kind) 
            {
                 case KIND_BUTTON:
-                    ((WidgetButton*)child).draw(); 
+                    ((WidgetButton*)child).draw();
                 case KIND_TEXT:
                     ((WidgetText*)child).draw();
                 case KIND_CONTAINER:
                     ((WidgetContainer*)child).draw();
                 default:
-                   ((Widget*)child).draw(); 
+                   ((Widget*)child).draw();
             }
         }
     }

@@ -299,8 +299,6 @@ const int COORD_360_EAST    = 360; // cardinal direction
 ***************************************************************************************/
 
 
-macro void @drawRect(#rect, color) => rl::drawRectangleRec(#rect, color);
-
 
 // region Debug Lines
 alias ArrayOfLinesPtr @local = List{DebugLine*};

@@ -88,14 +88,14 @@ import engine::physics::box2d;
     
     -z is towards the viewer (not used for now...)
     
-    WARNING: Y coordinate will get inverted if using the framebuffer textures!!!
-             so Y going up becomes +Y and down becomes -Y!!!!!
-             functions similar to rl::getMouseY() getting the screen Y coord 
-             will return the value has if Y is NOT inverted, so have that in mind!!!
+    WARNING: When displaying framebuffer textures the Y coordinate, will be inverted!!!
+             Meaning, Y up becomes +Y and down becomes -Y!!!!!
+             Functions getting screen coordinates like rl::getMouseY() will return 
+             the value has if Y is NOT inverted, so have that in mind!!!
     
     ** entity/model space **
     
-    [3D]
+    [3D] (not used for now)
     
     +z up
     ^
@@ -137,12 +137,13 @@ struct RenderView (SaveSystemInterface)
     RenderLayer gameFrameBuffer;
     RenderLayer guiFrameBuffer;
     RenderLayer postGuiFrameBuffer;
-    // function pointers
+
+    // function pointers callbacks for functions rendering into the render targets
     RenderFunctionCallback gameFrameBufferCallback;
     RenderFunctionCallback guiFrameBufferCallback;
     RenderFunctionCallback postGuiFrameBufferCallback;
     //
-    RenderLayer* currentRender;
+    RenderLayer* currentRender; // current render target/layer displayed
     bool taking_screenshot;
     
     // render view size
@@ -176,6 +177,7 @@ fn void RenderView.init(&self, int screenWidth, int screenHeight) @inline
     self.gameFrameBufferCallback    = &renderGameFBO;
     self.guiFrameBufferCallback     = &renderGuiFBO;
     self.postGuiFrameBufferCallback = &renderPostGuiFBO;
+    //
     // NOTE(HM) used to point to the main render layer to be used for shaders and such if necessary
     self.currentRender              = &self.gameFrameBuffer;
     
@@ -183,6 +185,7 @@ fn void RenderView.init(&self, int screenWidth, int screenHeight) @inline
     self.h = screenHeight;
     
 $if $defined(ENABLE_CAMERA_VIEW):
+    // middle of the screen is the origin
     self.origin = { self.w / 2.0f, self.h / 2.0f };
     self.default_origin = self.origin;
     // sets camera view target and view direction
@@ -195,10 +198,12 @@ $if $defined(ENABLE_CAMERA_VIEW):
     self.camera.offset = self.camera.target;
    
     // NOTE(HM) To simplify things camera rotation will not be possible
-    //self.camera.rotation = 0; /s zero by defaul in C3 language
+    //self.camera.rotation = 0;
     //
     self.camera.zoom = 1.0f;
 $endif
+
+    // view bounds
     Vec2f bb_maxc = self.origin + misc::VEC_UP * (float)(self.h / 2) + misc::VEC_LEFT * (float)(self.w / 2);  
     Rectangle bb_def = misc::makeRect(bb_maxc, {self.w, self.h});
     self.bounds.setRect(bb_def);
@@ -250,11 +255,12 @@ fn void RenderView.debug(&self)
 
 
 // NOTE(HM) This is now really inconvinient
-// This is because I found Raysan decided to not give a way 
-// to override the screenshot key, or the quit key,
+// This because I found Raysan decided to not give a way 
+// to override the screenshot key, or the quit key for that matter,
 // so if I use this with another key than F12 or 
 // I call rl::takeScreenshot() I will take TWO screenshots!! :(
-fn void takeScreenShot() {
+fn void takeScreenShot() 
+{
     unreachable();
     /*
     String shots_dir = main::gpGame.app_work_dir.tconcat("screenshots\\");
@@ -310,7 +316,8 @@ fn void takeScreenShot() {
     */
 }
 
-fn void moveScreenShots() {
+fn void moveScreenShots() 
+{
     String shots_dir = main::gpGame.app_work_dir.tconcat("screenshots\\");
     if(fs::directoryExists(shots_dir) == false) {
         bool? sucess = fs::makeDirectory(shots_dir);
@@ -344,8 +351,8 @@ fn void moveScreenShots() {
     fs::unloadDirectoryFiles(files);
 }
 
-fn void RenderView.showModelViewAxis(&self) {
-
+fn void RenderView.showModelViewAxis(&self) 
+{
     /*
     // Matrix, 4x4 components, column major, OpenGL style, right handed
     {                            identity Matrix     X   Y   Z
@@ -492,6 +499,10 @@ fn B2AABBox RenderView.fromBoundsToPhysicsAABB(&self)
 }
 
 <*
+    This renders the game world into a framebuffer layer.
+    This is the main game rendering function, it draws all the game sprites and entities
+    and also the physics debug drawing if enabled.
+
     @param [in] view : "the view to render to the framebuffer layer" 
     @param [inout] layer : "the framebuffer layer to render into"
     @require view != null && layer != null
@@ -507,16 +518,21 @@ $if $defined(ENABLE_CAMERA_VIEW):
 $endif
 
         // draw general game sprites
-        if(main::gpGame.sprites.len()) {
-            foreach(sprite : main::gpGame.sprites) {
-                bool not_game_cursor = sprite.kind != SpriteKind.CURSOR;
-                if(not_game_cursor) {
+        if(main::gpGame.sprites.len()) 
+        {
+            foreach(sprite : main::gpGame.sprites)
+            {
+                if(sprite.kind == SpriteKind.CURSOR) { continue; } // skip game cursor sprite
+                else
+                {
                     bool out_of_view = !view.bounds.intersectsOther(&sprite.bounds);
                     if(out_of_view) {
                         sprite.hide();
-                    } else if(sprite.hidden()) { sprite.show(); }
-                    
-                    sprite.draw();
+                    } else if(sprite.hidden()) { 
+                        sprite.show(); 
+                    } else {
+                        sprite.draw();
+                    }
                 }
             }
         }
@@ -529,12 +545,15 @@ $endif
                 bool ent_out_of_view = !view.bounds.intersectsOther(&ent.bounds);
                 if(ent_out_of_view) {
                     ent.hide();
-                } else if(ent.hidden()) { ent.show(); }
-                
-                ent.draw();
+                } else if(ent.hidden()) { 
+                    ent.show(); 
+                } else {
+                    ent.draw();
+                }
             }
         }
         
+        // draw the boid entities
         main::gpGame.boidManager1.draw();
         
         // physics debug drawing
@@ -558,7 +577,7 @@ $endif
 }
 
 <*
-    // NOTE(HM) This renders AFTER the game gui layer
+    // NOTE(HM) This renders AFTER the game layer
     
     @param [in] view : "the view to render to the framebuffer layer" 
     @param [inout] layer : "the framebuffer layer to render to"
@@ -567,14 +586,12 @@ $endif
 fn void renderGuiFBO(RenderView* view, RenderLayer* layer) @local 
 {
     rl::beginTextureMode(*layer);
-    rl::clearBackground(rl::fade(rl::WHITE, 0.0f));
+        rl::clearBackground(rl::fade(rl::WHITE, 0.0f));
     
 $if $defined(ENABLE_CAMERA_VIEW):
         rl::beginMode2D(view.camera);
 $endif
-
-        main::gameOnGuiDraw(view.w, view.h);
-        
+            main::gameOnGuiDraw(view.w, view.h);
 $if $defined(ENABLE_CAMERA_VIEW):
         rl::endMode2D();
 $endif
@@ -592,14 +609,12 @@ $endif
 fn void renderPostGuiFBO(RenderView* view, RenderLayer* layer) @local 
 {
     rl::beginTextureMode(*layer);
-    rl::clearBackground(rl::fade(rl::WHITE, 0.0f));
+        rl::clearBackground(rl::fade(rl::WHITE, 0.0f));
     
 $if $defined(ENABLE_CAMERA_VIEW):
         rl::beginMode2D(view.camera);
 $endif
-
         main::gameOnPostGUIDraw(view.w, view.h);
-        
 $if $defined(ENABLE_CAMERA_VIEW):
         rl::endMode2D();
 $endif
@@ -607,18 +622,26 @@ $endif
     rl::endTextureMode(); // End drawing to texture (now we have a texture available for next passes)
 }
 
-fn void RenderView.renderToFBO(&self) @inline 
+
+fn void RenderView.renderToFBO(&self) @inline
 {
+    // render to the game layer
     self.gameFrameBufferCallback(self, &self.gameFrameBuffer);
+    // render to the gui layer
     self.guiFrameBufferCallback(self, &self.guiFrameBuffer);
+    // render to the post gui layer
     self.postGuiFrameBufferCallback(self, &self.postGuiFrameBuffer);
 }
 
 fn void RenderView.draw(&self) @inline 
 {
     // NOTE: Render texture must be y-flipped due to default OpenGL coordinates (left-bottom)
+
+    // draw the game framebuffer
     rl::drawTextureRec(self.gameFrameBuffer.texture, { 0, 0, (float)self.w, (float)-self.h }, { 0, 0 }, rl::WHITE);
+    // draw the gui framebuffer
     rl::drawTextureRec(self.guiFrameBuffer.texture, { 0, 0, (float)self.w, (float)-self.h }, { 0, 0 }, rl::WHITE);
+    // draw the post gui framebuffer
     rl::drawTextureRec(self.postGuiFrameBuffer.texture, { 0, 0, (float)self.w, (float)-self.h }, { 0, 0 }, rl::WHITE);
 }
 
@@ -628,7 +651,8 @@ fn void RenderView.draw(&self) @inline
 |rx sy ty| = |m10 m11 m12|
 | 0  0  1|   |m20 m21 m22|
 */
-fn Vec2f RenderView.fromWorldSpaceToView(&self, Vec2f vec) {
+fn Vec2f RenderView.fromWorldSpaceToView(&self, Vec2f vec) 
+{
     // Matrix3f transform = VIEW_AXIS_IDENTITY;
     // transform.m02 *= vec.x;
     // transform.m12 *= vec.y;
@@ -636,12 +660,13 @@ fn Vec2f RenderView.fromWorldSpaceToView(&self, Vec2f vec) {
     // transform =  self.axis.mul(transform);
     
     // return {transform.m02, transform.m12};
-    return {};
+    return {0, 0};
 }
 
 // NOTE(HM) 
 // Transforms the view coords from screen coords to -1 to 1
-fn Vec2f RenderView.toCanonicalViewSpace(&self, Vec2i vec) {
+fn Vec2f RenderView.toCanonicalViewSpace(&self, Vec2i vec) 
+{
     float x, y;
     int width  = self.currentRender.texture.width;
     int height = self.currentRender.texture.height;

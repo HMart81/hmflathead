@@ -11,6 +11,7 @@ import engine::input;
 import thirdparty::raylib5::rl;
 import game::serialize::svs; // save system
 import engine::sys::cvar;
+import engine::sys::render2d::r2d; // 2D rendering
 // end_region
 
 // region defines
@@ -156,7 +157,7 @@ fn void drawIntroAnimation(IntroAnimation* anim, int w, int h) {
     if(anim == null) return;
     
     //misc::@drawRect({0, 0, w, h}, (Color){0x18, 0x18, 0x18, 0xFF});
-    misc::@drawRect({0, 0, w, h}, rl::BLACK);
+    r2d::@drawRect({0, 0, w, h}, rl::BLACK);
     
     if(main::gpGame.time_ms <= anim.next_frame_time - FADE_IN_TIME) {
         anim.frames[anim.current_frame_index].image.fadeIn(0.1f);

@@ -144,8 +144,8 @@ alias ListOfAttributes    = List{Attribute*};
 
 // NOTE(HM) acording to Zeal application documentation there's 239 attributes 
 // so this is very much incomplete.
-// NOTE(HM) I'm still using here some deprecated attributes because the svg tool
-// I use still relies on them, at lest for now.
+// NOTE(HM) I'm still using here some deprecated attributes because the svg tool I use 
+// still relies on them, at lest for now.
 enum AttrID : char (inline String name)
 {
     INVALID             = "",     // not really a real svg attribute just used to mark invalid ones
