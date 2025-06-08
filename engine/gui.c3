@@ -968,7 +968,10 @@ fn void WidgetButton.update(&self)
 }
 
 fn void WidgetButton.draw(&self) {
-    self.super.draw();
+    rl::@scissorMode((int)self.rect.x, (int)self.rect.y, (int)self.rect.width, (int)self.rect.height)
+    {
+        self.super.draw();
+    };
 }
 
 <*
@@ -1559,7 +1562,7 @@ fn void Desktop.debug(&self)
         }
 */
         // draw a react around the destop area itself
-        rl::drawRectangleLinesEx(self.rect, 2.0f, rl::RED);
+        r2d::drawRectangleLinesEx(self.rect, 2.0f, rl::RED);
         // show destop name
         Vec2f dbg_text_pos;
         dbg_text_pos += misc::VEC_RIGHT * (0.10f * scr_w);
@@ -1587,8 +1590,8 @@ fn void Desktop.debug(&self)
                     (int)dbg_text_pos.x, (int)dbg_text_pos.y, 9, rl::RED
                );
                // draw widget center
-               rl::drawCircle((int)child.rect.x, (int)child.rect.y, 2.0f, rl::SKYBLUE);
-               rl::drawRectangleLinesEx(child.rect, 1.5f, rl::RED);
+               r2d::drawCircle((int)child.rect.x, (int)child.rect.y, 2.0f, rl::SKYBLUE);
+               r2d::drawRectangleLinesEx(child.rect, 1.5f, rl::RED);
             }
         }
     }

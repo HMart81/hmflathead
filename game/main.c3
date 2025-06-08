@@ -359,6 +359,7 @@ struct Game (SaveSystemInterface) @local
     Player* main_player;
     pl::PersistentInfo playerPersistentInfo; // to save any info that the player carries along for each level
     RenderView view;
+
     
     struct screen {
         int id; // monitor id (index + 1)
@@ -370,6 +371,7 @@ struct Game (SaveSystemInterface) @local
             bool fullscreen;
             bool borderless;
         }
+        Win32_HWND handle @if(env::WIN32); // window handle, used for win32 specific stuff
         bool vsync_hint;
         int  displayHz;
         int  multiSamples; // MSAA
@@ -1541,6 +1543,8 @@ fn void handle_cmdline(String[] args)
 
 // #endregion ARGS HANDLING ******************
 
+
+
 /* This is where game execution begins */
 fn void? gameOnStart(String[]* args) @local 
 {
@@ -1570,7 +1574,9 @@ $endif
     // This will save cvars in a global array for later looping through if needed
     register_modulo_cvars();
 
+    //
     // ******* Main Game Start *******
+    //
 
     lgr::info(Where.FILE, "Initializing game:");
     lgr::info(Where.FILE, "---------------------------------------------");
@@ -1781,8 +1787,8 @@ $endif
     if(res_index >= 0) {
         // prevent array overflow
         if(res_index >= SCREEN_RES.len) {
-            lgr::warning(Where.FILE, "Array index overflow, r_mode = %d is not valid, clamping to: %d", res_index, SCREEN_RES.len - 1);
-            res_index = SCREEN_RES.len - 1; // last screen resolution
+            lgr::warning(Where.FILE, "Array index overflow, r_mode = %d is not valid, setting to default: %d", res_index, DEFAULT_SCREEN_INDEX);
+            res_index = DEFAULT_SCREEN_INDEX;
         }
     }
     // NOTE(HM) if cmdline cvar was NOT set or is -1,
@@ -1817,12 +1823,12 @@ $endif
     lgr::info(Where.FILE, "---------------------------------------------\n");
     lgr::info(Where.FILE, "Window settings:");
     lgr::info(Where.FILE, "---------------------------------------------");
-    // Vertical sync (may or may not apply...)
+    // Vertical sync (this is a hint so may or may not apply...)
     if(try settings_file.getBoolValue("vsync")) 
     {
         window_flags |= (int)rl::FLAG_VSYNC_HINT;
         local_game.screen.vsync_hint = true;
-        lgr::info(Where.FILE, "VSync enabled.");
+        lgr::info(Where.FILE, "VSync hint enabled. (This is a hint, not a guarantee!)");
     }
     
     // NOTE(HM) cvar r_fullscreen has top priority
@@ -1852,12 +1858,12 @@ $endif
             window_flags |= (int)rl::FLAG_WINDOW_UNDECORATED;
             local_game.screen.state.borderless = true;
             lgr::info(Where.FILE,  "Game window set to Borderless fullscreen mode.");
-        default: // fullscreen_choice = -1 or = 0
+        default: // fullscreen_choice -1 or 0
             local_game.screen.state.window = true;
             lgr::info(Where.FILE,  "Game window set to Windowed mode.");
     }
     
-    // DOC(HM) MSAA anti-alising (ONLY 0 or 4x is supported by Raylib, there's no inbetween)
+    // DOC(HM) Multi-sampling AA (ONLY 0 or 4x is supported by Raylib, there's no inbetween)
     if(local_game.screen.state.fullscreen) 
     {
         if(try msaa_samples = settings_file.getIntValue("msaa")) 
@@ -1866,13 +1872,12 @@ $endif
             {
                 window_flags |= (int)rl::FLAG_MSAA_4X_HINT;
                 local_game.screen.multiSamples = msaa_samples;
-                lgr::info(Where.FILE, "MSAA enabled (Raylib only supports no msaa or 4x msaa).");
+                lgr::info(Where.FILE, "MSAA hint enabled (Raylib only supports single 4x msaa, also this is a hint, so may not apply).");
             }
         }
     }
     
     // NOTE(HM) Decided to disable the ability to resize the window to simplify things
-    // see if we can set the window to resizable
     // if(local_game.screen.state.window) {
         // if(try settings_file.getBoolValue("r_window_resizable")) {
             // window_flags |= rl::FLAG_WINDOW_RESIZABLE;
@@ -1903,7 +1908,19 @@ lgr::info(Where.FILE, "---------------------------------------------\n");
     } else {
         lgr::info(Where.FILE, "Window initialized successfully.");
     }
-    
+
+$if env::WIN32:
+    Win32_HWND window_handle = (Win32_HWND)rl::getWindowHandle();
+    if(window_handle == null) 
+    {
+        lgr::fatal(Where.FILE, "Failed to get window handle!");
+        //return WINDOW_HANDLE_FAILED?;
+    } else {
+        lgr::info(Where.FILE, "Window handle obtained successfully.");
+        local_game.screen.handle = window_handle;
+    }
+$endif
+
     // NOTE(HM) Gameplay timing, is always counted since initWindow above;
     local_game.time_sec = (float)rl::getTime();
     local_game.time_ms  = misc::sec2ms(local_game.time_sec);

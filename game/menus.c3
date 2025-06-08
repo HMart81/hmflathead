@@ -234,6 +234,7 @@ macro create_menu_button(Vec2f pos, String text, MenuButtonDef* bdef, Desktop* m
     /*Vec2f label_offset  = pos + misc::VEC_RIGHT * (button_width / 2);
     label_offset       += misc::VEC_DOWN * (button_height / 2) * 0.5f;
     label_offset.x     -= (float)label.textlen() / 2;*/
+    //label.setFontSize(60);
     label.setPositionV(label_offset);
     label.addToPosition(
        x: 0.5f * button_width - (float)label.textlen() / 2,
