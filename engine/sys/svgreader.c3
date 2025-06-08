@@ -216,11 +216,6 @@ struct SVGElement
     ListOfPaths paths;
 }
 
-// fn void SVGElement.register(&self, AttrData* elem) @inline
-// {
-//     self.attributes.push(elem);
-// }
-
 <* 
     @param [in] atrb : "attribute to register in the element"
     @require atrb != null
@@ -230,10 +225,10 @@ fn void SVGElement.register(&self, SVGAttribute* atrb) @inline
     self.attributes.push(atrb);
 }
 
-fn SVGAttribute* SVGElement.getAttrib(&self, AttrID type) @inline
+fn SVGAttribute* SVGElement.getAttrib(&self, AttrID id) @inline
 {
 	foreach(atrb: self.attributes) {
-		if(atrb.id == type.name) return atrb;
+		if(atrb.id.ordinal == id.ordinal) return atrb;
 	}
     
 	return null;
@@ -246,15 +241,8 @@ fn void SVGElement.free(&self) @inline
     if(self.paths.len()) self.paths.free();
 }
 
-// fn AttrData* SVGElement.getAttrib(&self, AttrID type) @inline
-// {
-// 	foreach(atrb: self.attributes) {
-// 	 	if(atrb.first == type.name) return atrb;
-// 	}
 
-// 	return null;
-// }
-
+// NOTE(HM) this is the main struct that holds all the parsed svg data
 struct SVGData 
 {
     String path;
