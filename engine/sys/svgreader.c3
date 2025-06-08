@@ -126,7 +126,7 @@ enum ElemID : int (inline String name)
     SET                 = "set",
     STOP                = "stop",
     STYLE               = "style",
-    SVG                 = "svg",
+    SVG                 = "svg",   // this is the root element of the svg file
     SWITCH              = "switch",
     SYMBOL              = "symbol",
     TEXT                = "text",
@@ -140,7 +140,7 @@ enum ElemID : int (inline String name)
 
 alias AttrData = StringTuple;
 alias ListOfXmlAttributes = List{AttrData*};
-alias ListOfAttributes    = List{Attribute*};
+alias ListOfAttributes    = List{SVGAttribute*};
 
 // NOTE(HM) acording to Zeal application documentation there's 239 attributes 
 // so this is very much incomplete.
@@ -183,41 +183,40 @@ enum AttrType : char
     VEC4
 }
 
-struct AttrValue @packed // 32 bytes
+struct SVGAttribute
 {
-    union { // 4 bytes
-        int i;
-        float f;
-    }
-
-    union { // 16 bytes
-        Vec2f v2;
-        Vec3f v3;
-        Vec4f v4; // this one sets the real union size
-    }
-
-    String s; // 12 bytes
-}
-
-struct Attribute
-{
-    AttrID id;
     AttrType type;
-    AttrValue value;
+    AttrID id;
+
+    struct value
+    {
+        union {
+             union {
+                int i;
+                float f;
+            }
+            Vec2f v2;
+            Vec3f v3;
+            Vec4f v4; // this one sets the real union size
+        }
+
+        String s;
+    }
 }
 
-alias ListOfElements = List{Element*};
+alias ListOfElements = List{SVGElement*};
 alias ListOfPaths    = List{Path*};
-struct Element
+
+// NOTE(HM) this represents a single svg element, it can be a group, a path, a circle, etc
+struct SVGElement
 {
-    String name;
-    //ListOfXmlAttributes xmlAtrb;
+    ElemID id;
     ListOfAttributes attributes;
     ListOfElements others; // for the url(#element_id) support
     ListOfPaths paths;
 }
 
-// fn void Element.register(&self, AttrData* elem) @inline
+// fn void SVGElement.register(&self, AttrData* elem) @inline
 // {
 //     self.attributes.push(elem);
 // }
@@ -226,12 +225,12 @@ struct Element
     @param [in] atrb : "attribute to register in the element"
     @require atrb != null
 *>
-fn void Element.register(&self, Attribute* atrb) @inline
+fn void SVGElement.register(&self, SVGAttribute* atrb) @inline
 {
     self.attributes.push(atrb);
 }
 
-fn Attribute* Element.getAttrib(&self, AttrID type) @inline
+fn SVGAttribute* SVGElement.getAttrib(&self, AttrID type) @inline
 {
 	foreach(atrb: self.attributes) {
 		if(atrb.id == type.name) return atrb;
@@ -240,14 +239,14 @@ fn Attribute* Element.getAttrib(&self, AttrID type) @inline
 	return null;
 }
 
-fn void Element.free(&self) @inline
+fn void SVGElement.free(&self) @inline
 {
     if(self.attributes.len()) self.attributes.free();
     if(self.others.len()) self.others.free();
     if(self.paths.len()) self.paths.free();
 }
 
-// fn AttrData* Element.getAttrib(&self, AttrID type) @inline
+// fn AttrData* SVGElement.getAttrib(&self, AttrID type) @inline
 // {
 // 	foreach(atrb: self.attributes) {
 // 	 	if(atrb.first == type.name) return atrb;
@@ -266,7 +265,7 @@ struct SVGData
     @param [in] elem : "elem to register in svg data"
     @require elem != null
 *>
-fn void SVGData.register(&self, Element* elem) @inline 
+fn void SVGData.register(&self, SVGElement* elem) @inline 
 {
     self.elements.push(elem);
 }
@@ -283,12 +282,13 @@ fn void SVGData.freeElements(&self)
 
 // This will probably be very slow with many materials...
 // TODO(HM) make this faster by using a hash table
-fn Element* SVGData.find_element(&self, String name) @inline 
+fn SVGElement* SVGData.find_element(&self, ElemID id) @inline 
 {
 	foreach(elem: self.elements) {
-		if(elem.name == name) return elem;
+		if(elem.id.ordinal == id.ordinal) return elem;
 	}
-    
+
+    lgr::error(Where.FILE, "Failed to find element '%s' in svg file '%s'", id.name, self.path);
 	return null;
 }
 
@@ -340,8 +340,16 @@ fn bool SVGData.parse(&self, File file)
 *>
 fn void register_xmlnode_data(XmlNode* xmlnode, SVGData* svgfile) 
 {
-    Element* elem = mem::new(Element);
-    elem.name = xmlnode.name.copy(mem);
+    SVGElement* elem = mem::new(SVGElement);
+    foreach (elemID : ElemID.values)
+    {
+        if(xmlnode.name == elemID.name)
+        {
+            elem.id = elemID;
+            break;
+        }
+    }
+    //elem.name = xmlnode.name.copy(mem);
     svgfile.register(elem);
     
     // handle attributes if any
@@ -361,9 +369,9 @@ fn void register_xmlnode_data(XmlNode* xmlnode, SVGData* svgfile)
 }
 
 /*
-fn void get_node_Attributes(XmlNode* node, SVGData* svgfile, Element* inElem = null)
+fn void get_node_Attributes(XmlNode* node, SVGData* svgfile, SVGElement* inElem = null)
 {
-    Element* elem;
+    SVGElement* elem;
     if(inElem) { elem = inElem; } else { elem = svgfile.getElement(node.name); }
 
     if(elem)
@@ -391,11 +399,11 @@ enum TransfType : char (inline String str)
 
 <*
     @param [in] xmlnode : "the xml node we are looking at"
-    @param [inout] elem : "svg Element whose attributes we are creating"
+    @param [inout] elem : "svg SVGElement whose attributes we are creating"
     @param [inout] svgfile : "pointer to the main svg struct to save the element"
     @require xmlnode != null && elem != null && svgfile != null
 *>
-fn void parse_xmlnode_attributes(XmlNode* xmlnode, Element* elem, SVGData* svgfile) //@inline
+fn void parse_xmlnode_attributes(XmlNode* xmlnode, SVGElement* elem, SVGData* svgfile) //@inline
 {
     foreach (atrb : xmlnode.attributes)
     {
@@ -418,12 +426,12 @@ fn void parse_xmlnode_attributes(XmlNode* xmlnode, Element* elem, SVGData* svgfi
     @param [inout] svgfile : "pointer to the main svg struct to save the element"
     @require elem != null && svgfile != null && inAtrb != null && inAtrb.value.len > 1
 *>
-fn void parse_attribute_data(XmlAttribute* inAtrb, AttrID atrbID, Element* elem, SVGData* svgfile) //@inline
+fn void parse_attribute_data(XmlAttribute* inAtrb, AttrID atrbID, SVGElement* elem, SVGData* svgfile) //@inline
 {
     bool isfloat, isint, isstring, isvec2, isvec3, isvec4, isPath, isPointer, should_register;
 
     should_register = true;
-    Attribute* new_atrb = mem::new(Attribute);
+    SVGAttribute* new_atrb = mem::new(SVGAttribute);
     new_atrb.id = atrbID;
     
     defer { 
@@ -496,11 +504,11 @@ fn void parse_attribute_data(XmlAttribute* inAtrb, AttrID atrbID, Element* elem,
             isstring = true;
             elem.others.push(get_element_from_url(inAtrb.value, svgfile));
         case AttrID.INVALID:
-            lgr::warning(Where.FILE,  "SVG attrb <%s> in file '%s' is invalid", elem.name, svgfile.path);
+            lgr::warning(Where.FILE,  "SVG attrb <%s> in file '%s' is invalid", elem.id.name, svgfile.path);
             should_register = false;
             return;
         default:
-            lgr::warning(Where.FILE,  "SVG attrb <%s> in file '%s' is still not supported", elem.name, svgfile.path);
+            lgr::warning(Where.FILE,  "SVG attrb <%s> in file '%s' is still not supported", elem.id.name, svgfile.path);
             should_register = false;
             return;
     }
@@ -793,7 +801,7 @@ fn Vec3f get_transform_rotation(String value) {
     }
 }
 
-fn Element* get_element_from_url(String value, SVGData* dbase) {
+fn SVGElement* get_element_from_url(String value, SVGData* dbase) {
     assert(value.starts_with("url"));
 
     // first remove the first word
@@ -802,7 +810,15 @@ fn Element* get_element_from_url(String value, SVGData* dbase) {
     result = result.trim_left("(#");
     result = result.trim_right(")");
     // now get the element by name
-    return dbase.find_element(result);
+    ElemID elemID;
+    foreach (id : ElemID.values) {
+        if(result == id.name) {
+            elemID = id;
+            break;
+        }
+    }
+
+    return dbase.find_element(elemID);
 }
 
 /*
