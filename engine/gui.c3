@@ -78,11 +78,11 @@ fn void register_cvars() @public
 //alias assetManager @private = astmng::assetManager;
 // end_region
 
-// region constants
+// #region constants
 //const bool PANEL_PROFILE = true;
 const bool DEBUG_PANELS   = true;
 const int  MIN_PANEL_SIZE = 32;
-// end_region
+// #endregion
 
 // mostly for the panel texture inversion ability
 const uint HORIZONTAL_DIR = 1;
@@ -96,7 +96,7 @@ enum PanelShape : inline int
 
 /* 
     NOTE(HM) Panel is a simple data structure representing a big square or image, 
-    used for background images or single color rectangles, buttons, etc...
+    used for background images or single color rectangles.
 */
 struct Panel (SaveSystemInterface)
 {
@@ -112,9 +112,9 @@ fn void Panel.save(&self, SaveFile* file) @dynamic
     svs::writeInt(file, self.shape);
     svs::writeRect(file, self.rect);
     svs::writeColor(file, self.color);
-    // cannot save pointers
-    // cannot save Texture2D's because they are saved on GPU memoru
-    // TODO(HM) turn textures into a asset that can be saved and reloaded...
+    svs::writeColor(file, self.selected_color);
+    // cannot save pointers so just save the material name
+    svs::writeString(file, (self.mat != null) ? self.mat.name : "");
 }
 
 fn void Panel.reload(&self, SaveFile* file) @dynamic 
@@ -124,13 +124,16 @@ fn void Panel.reload(&self, SaveFile* file) @dynamic
     self.shape = PanelShape.from_ordinal(value);
     svs::readRect(file, &self.rect);
     svs::readColor(file, &self.color);
+    svs::readColor(file, &self.selected_color);
+    String mat_name;
+    svs::readString(file, &mat_name);
+    self.mat = main::gpGame.mtrDB.getMaterial(mat_name);
 }
 
 fn void Panel.initRec(&self, Rectangle rect, Color color) @inline
 {
     self.rect  = rect;
     self.color = color;
-    self.mat   = null;
 }
 
 fn void Panel.initV(&self, Vec2f pos, Vec2f size, RColor color) @inline
@@ -259,7 +262,7 @@ fn void Panel.setMaterial(&self, String material_name) @inline
     self.mat = mtrmng::getMaterial(material_name);
 }
 
-fn bool Panel.asMaterial(&self) @inline => self.mat != null;
+fn bool Panel.hasMaterial(&self) @inline => self.mat != null;
 
 fn void Panel.fadeIn(&self, float factor) {
     self.color = rl::colorLerp(self.color, rl::WHITE, factor);
@@ -278,7 +281,7 @@ fn bool Panel.isValid(&self) @inline {
 
 fn void Panel.draw(&self, bool selected = false)
 {
-    if(self.asMaterial())
+    if(self.hasMaterial())
     {
         // TODO(HM) find how to draw a image on a rounded rectangle!?
 
@@ -341,6 +344,11 @@ fn void Panel.draw(&self, bool selected = false)
 
 // NOTE(HM) Widget is a data structure representing anything inside a gui, like buttons and such.
 
+const KIND_TEXT      = 1;
+const KIND_BUTTON    = 2;
+const KIND_CONTAINER = 3;
+
+alias WidgetCallback = fn void(Widget*);
 
 struct WidgetFlags 
 {
@@ -381,12 +389,6 @@ interface WidgetInterface
     fn void setColor(rl::Color);
 }
 
-const KIND_TEXT      = 1;
-const KIND_BUTTON    = 2;
-const KIND_CONTAINER = 3;
-
-alias WidgetCallback = fn void(Widget*);
-
 struct Widget (WidgetInterface) 
 {
     // extends Panel (super/base class)
@@ -399,7 +401,8 @@ struct Widget (WidgetInterface)
     WidgetFlags flags;
 
     // for binding
-    struct parent {
+    struct parent 
+    {
         Desktop* desktop;
         Widget* other;
     }
@@ -419,6 +422,10 @@ struct Widget (WidgetInterface)
 
 fn void Widget.init(&self) @dynamic {
     self.super.init();
+    self.flags = {
+        .wasInteractive = true, // widgets are interactive by default
+        .isInteractive  = true, // widgets are interactive by default
+    };
 }
 
 fn void Widget.deinit(&self) @dynamic{
@@ -451,27 +458,26 @@ fn void Widget.update(&self) @dynamic {
     if(self.hidden() && !editor_enabled()) return;
 
     if (self.isMouseOver()) {
-        self.flags.asFocus = true;
+       if(!editor_as_focus()) self.flags.asFocus = true;
     } else {
-        self.flags.asFocus = false;
+       if(self.flags.asFocus) self.flags.asFocus = false;
     }
     
     if(editor_as_focus()) 
     {
-        self.flags.asFocus = false;
+        if(self.isInteractive()) self.setInteractive(false);
 
-        if(self.isInteractive()) {
-            self.setInteractive(false);
-        }
+        // run editor keyboard interactions
         self.editor_interactions();
     } else {
         if(!self.isInteractive() && self.flags.wasInteractive) self.setInteractive(true);
     }
     
-    if(self.bound()) {
-        // if bound our position is updated to always be relative to the parent origin
+    // if we are bound to a parent widget, we need to update our position each frame
+    // to always be relative to the parent origin
+    if(self.bound())
+    {
         Vec2f parent_origin = self.parent.other.getPosition();
-        //self.setPositionV(self.getPosition() + parent_origin);
         Vec2f new_offset    = (self.getPosition() + parent_origin) - parent_origin;
         self.setPositionV(new_offset);
     }
@@ -926,30 +932,33 @@ fn void WidgetButton.manage_interactions(&self) @local
     {
         if(self.onOver) self.onOver(self);
 
-        if (rl::isMouseButtonDown(MouseButton.LEFT) && self.press_count >= 1) {
-            //main::lgr::info(Where.CONSOLE, "Gui: I'm pressing button: %s", self.name);
-            if (self.onPress) self.onPress(self);
-        }
-        
-        if (Action* action = input::getAction("Double Press")) {
-            if (action.fnDoubleTriggered(0.250f) && self.onDoublePress) self.onDoublePress(self);
-        }
-        
-        if (Action* action = input::getAction("Single Press")) {
-            if (action.fnBecameTriggered() && self.onSinglePress) self.onSinglePress(self);
-            // if(action.fnBecameTriggered()) {
-                // String[] array = {"apple", "banana", "apple", "orange", "banana"};
-                // int size = array.len;
-                // input::detect_duplicates(array, size);
-            // }
-        }
+        if(!ui_editGui.getBool()) 
+        {
+            if (rl::isMouseButtonDown(MouseButton.LEFT) && self.press_count >= 1) {
+                //main::lgr::info(Where.CONSOLE, "Gui: I'm pressing button: %s", self.name);
+                if (self.onPress) self.onPress(self);
+            }
+            
+            if (Action* action = input::getAction("Double Press")) {
+                if (action.fnDoubleTriggered(0.250f) && self.onDoublePress) self.onDoublePress(self);
+            }
+            
+            if (Action* action = input::getAction("Single Press")) {
+                if (action.fnBecameTriggered() && self.onSinglePress) self.onSinglePress(self);
+                // if(action.fnBecameTriggered()) {
+                    // String[] array = {"apple", "banana", "apple", "orange", "banana"};
+                    // int size = array.len;
+                    // input::detect_duplicates(array, size);
+                // }
+            }
 
-        if (rl::isMouseButtonReleased(MouseButton.LEFT)) {
-            if (self.onRelease) self.onRelease(self);
-        }
+            if (rl::isMouseButtonReleased(MouseButton.LEFT)) {
+                if (self.onRelease) self.onRelease(self);
+            }
 
-        if (rl::isKeyPressed(rl::KEY_ENTER) && !rl::isKeyPressedRepeat(rl::KEY_ENTER)) {
-            if (self.onEnterKey) self.onEnterKey(self);
+            if (rl::isKeyPressed(rl::KEY_ENTER) && !rl::isKeyPressedRepeat(rl::KEY_ENTER)) {
+                if (self.onEnterKey) self.onEnterKey(self);
+            }
         }
     } else {
         if (self.onStopOver) self.onStopOver(self);
@@ -1664,6 +1673,10 @@ fn void DesktopManager.update(&self) {
             if(desk.active) {
                 desk.update();
                 if(self.mode == EDITOR && !main::gpGame.editor.focused()) {
+                    // put something here
+                }
+
+                if(ui_editGui.getBool()) {
                     updateGuiEditor(desk);
                 }
             }
@@ -1680,6 +1693,11 @@ fn void DesktopManager.draw(&self, int screenWidth, int screenHeight) @inline {
             
             if(self.mode == EDITOR && !main::gpGame.editor.isOpened()) {
                 //drawGuiEditor(desk); TODO(HM) draw this through the new editor
+            }
+
+            if(ui_editGui.getBool()) {
+                // draw the gui editor
+                drawGuiEditor(desk);
             }
         }
     }

@@ -104,13 +104,14 @@ struct Cvar
     r_res.initWithStrings("r_res", "640x480", CVAR_GUI | CVAR_NOCHEAT | CVAR_ARCHIVE, "resolution to show on the main menu", string::tformat("%s", "800x600;1024x720").split(";"), cmd::SystemPtr.argCompletion_String(&menuResolutionList));
     */
     //String[] valueStrings; // list of strings for the cvar (not used yet)
-    //Cvar* next;
+
     // NOTE(HM) 
     // The pointer was a idea I saw on Star Trek Elite Force 1 SDK game code
     // they used a linked list of cvars, to loop through them.
     // But I think it makes the cvar declaration and looping through more involved as well,
     // so for the time being, I decided for a global dynamic list instead.
     // But this is still a cool idea to save for the future if needed....
+    //Cvar* next;
 }
 
 CvarList cvars;
