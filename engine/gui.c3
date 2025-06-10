@@ -127,7 +127,7 @@ fn void Panel.reload(&self, SaveFile* file) @dynamic
     svs::readColor(file, &self.selected_color);
     String mat_name;
     svs::readString(file, &mat_name);
-    self.mat = main::gpGame.mtrDB.getMaterial(mat_name);
+    self.mat = mtrmng::getMaterial(mat_name);
 }
 
 fn void Panel.initRec(&self, Rectangle rect, Color color) @inline

@@ -332,7 +332,7 @@ fn void MTRFile.register(&self, HMaterial* mat) @inline
 
 // @Performance This will probably be very slow with many materials...
 // TODO(HM) make this faster by using a hash table
-fn HMaterial* MTRFile.getMaterial(&self, String name) @inline 
+fn HMaterial* MTRFile.findMaterial(&self, String name) @inline 
 {
 	foreach(mat: self.mats) {
 		if(mat.name == name) return mat;
@@ -442,7 +442,7 @@ fn bool check_existance(String name) @inline
 {
     foreach(mtr: main::gpGame.mtrDB.data) 
     {
-        if(mtr.getMaterial(name) != null) 
+        if(mtr.findMaterial(name) != null) 
         {
             lgr::warning(Where.FILE, "material with name '%s' already exists in %s\n", name, mtr.path);
             return true;
@@ -836,24 +836,12 @@ struct MaterialDataBase @public
     MTR_FileList data;
 }
 
-<*
-    This will probably be very slow...
 
-    @param [in] material_name : "name of the material to search for"
-    @require material_name.len > 0
-    @require self.data.len() > 0
-*>
-fn HMaterial* MaterialDataBase.getMaterial(&self, String material_name) @public
+fn HMaterial* MaterialDataBase.getMaterial(&self, String material_name) @local
 {
-    HMaterial* mat;
-    usz count = self.data.len();
-    usz index;
-    do {
-        mat = self.data[index++].getMaterial(material_name);
-    } while(mat == null && index < count);
-    
-	return mat;
+    return getMaterial(material_name);
 }
+
 
 faultdef INVALID_PATH_STRING,
 	     MALFORMED_MTR_FILE,
@@ -896,25 +884,34 @@ fn void? load_mtr_files(String search_path, MaterialDataBase* database) @local
 			
 			if(fs::getFileExtension(asset_path) != ".mtr") 
             {
-                lgr::warning(Where.FILE, " unexpected non mtr file '%s' found inside material folder.", file_name);
+                lgr::warning(Where.FILE, " unexpected file type '%s' found inside material folder.", file_name);
 				continue; // to next file
 			}
 			
             //****
-			// from here should be a valid mtr file
+			// from here should be a mtr file
             //****
+
+            if(file::get_size(asset_path)! < 10) // TODO(HM) make this a constant
+            {
+                lgr::warning(Where.FILE, " mtr file [%s] is too small to be valid, skipping it.", asset_path);
+                continue; // to next file
+            }
             
+            // we have a valid size file, so now try to open it
+
             File? file = fs::openFile(asset_path, "r");
             defer file.close()!!;
             
             if(catch excuse = file) 
             {
-               lgr::warning(Where.FILE, " Failed to open mtr file at [%s] with excuse: %s", asset_path, excuse);
-               // DOC(HM) I need to return from a catch or the excuse will not unwrap,
-               // and causes variable shadow error, preventing me from using excuse again bellow.
+               lgr::warning(Where.FILE, " Failed to open mtr file [%s] with excuse: %s", asset_path, excuse);
+               // DOC(HM) I need to always return from a catch or the excuse will not unwrap,
+               // causing variable shadow error, preventing me from using excuse again bellow.
                continue; // to next file
             }
-			
+
+            // we could open it, so now try to load and save it's data
             MTRFile* mtr_file = mem::new(MTRFile);
             mtr_file.path = asset_path;
             
@@ -925,7 +922,7 @@ fn void? load_mtr_files(String search_path, MaterialDataBase* database) @local
                 continue; // to next file
             }
 			
-            // every thing is fine save the mtr file in database
+            // every thing was fine, so save the mtr file, in material files database
             database.register(mtr_file);
 		}
         
@@ -943,10 +940,12 @@ fn void? loadMaterialFilesTo(MaterialDataBase* db) @inline @public
 	load_mtr_files(material_folder, db)!!;
 
     // see if we have a default material file, if not create one
-    HMaterial* default_material = db.getMaterial("default_material");
-    if(default_material == null) {
+    if(db.getMaterial("default_material") == null)
+    {
+        // TODO(HM) Makes this use the default material definition
+        // from the HMaterial.defaultDefinition() function
         lgr::error(Where.FILE, "Default material not found in mtr database, creating one...");
-        default_material = mem::new(HMaterial);
+        HMaterial* default_material = mem::new(HMaterial);
         default_material.init();
         default_material.name = "default_material";
         default_material.diffuse.tex = main::gpGame.default_texture;
@@ -956,7 +955,7 @@ fn void? loadMaterialFilesTo(MaterialDataBase* db) @inline @public
 }
 
 <*
-    This will probably be very slow...
+    Performance: This will probably be very slow with many materials...
 
     @param [in] material_name : "name of the material to search for"
     @require material_name.len > 0
@@ -965,20 +964,25 @@ fn void? loadMaterialFilesTo(MaterialDataBase* db) @inline @public
 fn HMaterial* getMaterial(String material_name) @public
 {
     HMaterial* mat;
-    usz count = main::gpGame.mtrDB.data.len();
-    usz index;
+    usz index, count;
+
+    count = main::gpGame.mtrDB.data.len();
+    if(count == 0) {
+        lgr::error(Where.FILE, "No material files loaded in the game, cannot get material '%s'", material_name);
+        return null;
+    }
+
     do {
-        mat = main::gpGame.mtrDB.data[index++].getMaterial(material_name);
+        // NOTE(HM): This is done this way because getMaterial() from MTRFile returns null 
+        // if the material is not found in the mtr data, so while we have materials in the data base
+        // we need to keep looking through all of them.
+        mat = main::gpGame.mtrDB.data[index++].findMaterial(material_name);
     } while(mat == null && index < count);
 
     // just for testing purposes
-	assert(rl::isTextureValid(mat.diffuse.tex));
-    
-    /*foreach(mtr: self.data)
-    {
-        HMaterial* mat = mtr.getMaterial(material_name);
-		if(mat != null) return mat;
-	}*/
+    if(mat != null) {
+	    assert(rl::isTextureValid(mat.diffuse.tex));
+    }
     
 	return mat;
 }
@@ -1004,12 +1008,11 @@ fn void MaterialDataBase.listMTRs(&self) @public @if($feature(_DEBUG))
 
 // WARNING(HM) 06/11/2024
 // To be used only at game exit, 
-// for now mtr files are loaded at game start and stay in RAM, 
-// during the entire game run, they only get freed at game end.
+// for now ALL mtr files, are loaded at game start and stay in RAM, 
+// during the entire game run. They only get freed at game end.
 // This is done this way, because I don't have many mtr files in this game, for now,
-// if that changes someday I will refactor this.
-// Also getting them hot from RAM, is very fast, compared
-// to reading the data from the HD/SSD/MD2 drive.
+// if that ever changes someday, I will have to refactor all of this.
+// For now getting them hot from RAM, is faster then reading the data from the HD/SSD/MD2 drive.
 fn void MaterialDataBase.clear(&self) @inline @public
 {
 	if(self.data.len()) 
