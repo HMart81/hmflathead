@@ -71,9 +71,6 @@ faultdef MISSING_FILE_PATH,
 
 // end_region
 
-// region Globals
-// end_region
-
 struct SaveFile {
     io::File file   @tag("version", 1);
     String path     @tag("version", 1);
@@ -133,7 +130,7 @@ fn void? close(SaveFile* save) @inline {
 
 ////////////////////////////// Writting /////////////////////////////////
 <*
-* @param in savefile "the file to write the data to"
+* @param in savefile : "the file to write the data to"
 * @require savefile != null @if $feature(_DEBUG)
 *>
 fn void	write(SaveFile* savefile, void* buffer, int bytes_len ) {
@@ -298,9 +295,9 @@ fn void	writeShader(SaveFile* savefile, Shader* shd) {
         writeInt(savefile, shd.locs[i]);
     }
 }
-fn void	writeSound(SaveFile* savefile, Sound* snd) {}
-fn void	writeMusic(SaveFile* savefile, Music* music) {}
-fn void	writeFont(SaveFile* savefile, Font* font) {}
+fn void	writeSound(SaveFile* savefile, Sound* snd) { @todo(); }
+fn void	writeMusic(SaveFile* savefile, Music* music) { @todo();}
+fn void	writeFont(SaveFile* savefile, Font* font) { @todo();}
 //
 //fn void	writeVec2(rl::Vec2* vec ) {}
 //fn void	writeVec3(rl::Vec3* vec ) {}
@@ -315,7 +312,11 @@ fn void	writeFont(SaveFile* savefile, Font* font) {}
 //fn void	writeBuildNumber( int value ) {}
 
 
+
+
+////////////////////////////////////////////////////////////////////
 /////////////////////////////// READ ///////////////////////////////
+////////////////////////////////////////////////////////////////////
 
 <*
 * @param n
@@ -345,7 +346,7 @@ fn void advance_reading_position(SaveFile* f, usz n) @inline @local {
 
 fn void read(SaveFile* savefile, void *buffer, usz bytes_len) {
     if(@catch(savefile.file.read(((char*)buffer)[:bytes_len]))) {
-        lgr::warning(Where.CONSOLE, "failed to write data to file %s! : %s:%s", savefile.path, $$FUNC, $$LINE);
+        lgr::warning(Where.CONSOLE, "failed to read data from file %s! : %s:%s", savefile.path, $$FUNC, $$LINE);
         return;
     }
     advance_reading_position(savefile, bytes_len);
@@ -384,7 +385,7 @@ fn void readBool(SaveFile* file, bool* value) {
 
 fn void readString(SaveFile* savefile, String* string) {
     if(@catch(savefile.file.read(*string))) {
-        lgr::warning(Where.CONSOLE, "failed to write data to file %s! : %s:%s", savefile.path, $$FUNC, $$LINE);
+        lgr::warning(Where.CONSOLE, "failed to read data from file %s! : %s:%s", savefile.path, $$FUNC, $$LINE);
         return;
     }
      advance_reading_position(savefile, string.len);
@@ -393,7 +394,7 @@ fn void readString(SaveFile* savefile, String* string) {
 fn void readZString(SaveFile* savefile, ZString* string) {
     String result;
     if(@catch(savefile.file.read(result))) {
-        lgr::warning(Where.CONSOLE, "failed to write data to file %s! : %s:%s", savefile.path, $$FUNC, $$LINE);
+        lgr::warning(Where.CONSOLE, "failed to read data from file %s! : %s:%s", savefile.path, $$FUNC, $$LINE);
         return;
     }
     *string = result.zstr_tcopy();
@@ -419,7 +420,7 @@ fn void readAsset(SaveFile* savefile, Asset* asset, typeid type) {
 }
 
 
-fn void readTexture2D(SaveFile* file, Texture2D* tex ) {}
+fn void readTexture2D(SaveFile* file, Texture2D* tex ) { @todo(); }
 
 <*
 * @param in savefile  "the file to read the data from"

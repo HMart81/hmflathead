@@ -27,13 +27,14 @@
 *********************************************************************************************************************************************/
 
 // region module
-module game::material::mtr;
+module game::material::mtr @private;
 
 // region imports
 import std::io, std::math;
 import game::main; // for file logging or console logging
 import engine::misc;
 import game::serialize::svs;
+import game::material::manager::mtrmng;
 import engine::logging::lgr;
 import engine::filesystem::fs;
 import engine::assets::astmng;
@@ -133,7 +134,7 @@ struct MatVidMap
     inline MatMap super;
 }
 
-enum MatMC //Material Coverage
+enum MatMC @public //Material Coverage
 {
 	BAD,
 	OPAQUE,			// completely fills the triangle, will have black drawn on fillDepthBuffer
@@ -189,7 +190,7 @@ bitstruct Flags : char
 	bool editor_visible; // in use (visible) per editor
 }
 
-struct HMaterial  (SaveSystemInterface)
+struct HMaterial  (SaveSystemInterface) @public
 {
     String name;
     String comment;
@@ -212,15 +213,15 @@ struct HMaterial  (SaveSystemInterface)
     //shdshd::Sound* sound;
 }
 
-fn void HMaterial.save(&self, SaveFile* file) @dynamic {
+fn void HMaterial.save(&self, SaveFile* file) @dynamic @public {
 // todo
 }
 
-fn void HMaterial.reload(&self, SaveFile* file) @dynamic {
+fn void HMaterial.reload(&self, SaveFile* file) @dynamic @public {
 // todo
 }
 
-fn void HMaterial.init(&self)
+fn void HMaterial.init(&self) @public
 {
 	self.coverage = MatMC.OPAQUE;
     // TODO(HM) solve this stuff with c3 enums not being able to be used as flags
@@ -308,14 +309,14 @@ fn String HMaterial.defaultDefinition(self) @inline
 
 const MTR_VERSION_STRING = "1.0.0"; // the version of the mtr file format
 
-struct MTRFile
+struct MTRFile @public
 {
     String path;        // path to the mtr file.
     String version;     // version of the mtr file format, should be MTR_VERSION_STRING.
     MaterialList mats;  // list of materials in this file.
 }
 
-fn void MTRFile.unload(&self) @inline 
+fn void MTRFile.unload(&self) @inline @public
 {
 	foreach(mat: self.mats) mat.free();
     self.mats.free();
@@ -325,14 +326,14 @@ fn void MTRFile.unload(&self) @inline
     @param [in] mat : "material to register"
     @require mat != null
 *>
-fn void MTRFile.register(&self, HMaterial* mat) @inline 
+fn void MTRFile.register(&self, HMaterial* mat) @inline @public
 {
     self.mats.push(mat);
 }
 
 // @Performance This will probably be very slow with many materials...
 // TODO(HM) make this faster by using a hash table
-fn HMaterial* MTRFile.findMaterial(&self, String name) @inline 
+fn HMaterial* MTRFile.findMaterial(&self, String name) @inline @public
 {
 	foreach(mat: self.mats) {
 		if(mat.name == name) return mat;
@@ -342,7 +343,7 @@ fn HMaterial* MTRFile.findMaterial(&self, String name) @inline
 }
 
 
-fn void MTRFile.printMaterials(&self) @inline
+fn void MTRFile.printMaterials(&self) @inline @public
 {
     io::printfn("[MTR '%s' v: %s]", fs::getFileNameWithoutExt(self.path), self.version);
     io::printfn("{");
@@ -359,7 +360,7 @@ fn void MTRFile.printMaterials(&self) @inline
     io::printfn("};");
 }
 
-fn bool? MTRFile.load(&self, File file) @inline
+fn bool? MTRFile.load(&self, File file) @inline @public
 {
     if(self.parse(file) == false) {
         return MATERIAL_PARSING_ERROR?;
@@ -393,6 +394,7 @@ fn bool MTRFile.parse(&self, File file)
         return false;
     }
     // else got version, so check if it matches the current version
+    // TODO(HM) handle version changes.
     if(version != MTR_VERSION_STRING)
     {
         lgr::error(Where.FILE, " Invalid material data file '%s', version expected to be '%s' but is '%s' instead.", self.path, MTR_VERSION_STRING, version);
@@ -401,21 +403,26 @@ fn bool MTRFile.parse(&self, File file)
 
     self.version = version.copy(mem);
     
-    // now parse each material node
+    // now parse each MTR xml node
     foreach (node : doc.rootNode.children)
     {
-       if(node == null) continue;
+       if(node == null) {
+            lgr::warning(Where.FILE, "Null node found in mtr file '%s', skipping it.", self.path);
+            continue;
+       }
+
+       // Skip any text nodes assigned to the root node (shouldn't happen now though).
+       // Text nodes are handled further by the material parser, so we don't need to handle them here.
        if(isXmlNode(node, Node.TEXT)) 
        {
-            // skip any text nodes assigned to the root node (shouldn't happen now though)
-            // this was something the xml reader did, because it treats any '>', 
-            // as a start of a potencial Text node (free text after the close symbol). 
-            // Even thou this is true sometimes, is not always, sometimes next just comes
-            // the start of another node, like a comment or a material node, but the way the xml reader 
-            // is written, just doesn't care what really comes next after a '>', so it was creating bugos 
-            // empty text nodes and registering them in the xml doc file. 
-            // I now solved that in the xml reader by detecting if a Text node is empty, 
-            // if it don't create and register a new text node.
+            // This is caused by a bug in the xml reader code (not easy to solve but I worked around it). 
+            // The xml reader, treats any end char '>', as always being followed by a Text "node", 
+            //  (text between a '>' and a '<'), so in some situtions, it creates empty text nodes, 
+            //  like when after a '>' char, came the start char '<' of another node but you add in between them,
+            //  spaces or new lines, the xml reader still considers those as valid "text", 
+            //  the reader, reads character by character so is not easy to solve this, 
+            //  so it will create a text node, regardless if will be empty or not in the end.  
+            // The workaround, it now tests for empty text nodes and doesn't register them, in the xml doc file. 
             //continue;
             unreachable("Unexpected text node found in body of MTR '%s'! Text = '%s' ", fs::getFileNameWithoutExt(self.path), node.value);
        }
@@ -438,11 +445,13 @@ fn bool MTRFile.parse(&self, File file)
     return true;
 }
 
-fn bool check_existance(String name) @inline
+fn bool check_material_existance(String name) @inline
 {
-    foreach(mtr: main::gpGame.mtrDB.data) 
+    MaterialDataBase* mtr_db = &main::gpGame.mtrDB;
+    foreach(mtr: mtr_db.data)
     {
-        if(mtr.findMaterial(name) != null) 
+        bool material_exists = mtr.findMaterial(name) != null;
+        if(material_exists) 
         {
             lgr::warning(Where.FILE, "material with name '%s' already exists in %s\n", name, mtr.path);
             return true;
@@ -468,25 +477,29 @@ fn HMaterial* parse_material_node(XmlNode* mat_node, MTRFile* file)
     if (catch excuse = mat_name)
     {
         lgr::error(Where.FILE, "Failed to get material name attribute in %s with excuse: %s\n", file.path, excuse);
+        mat.free();
         mem::free(mat);
         return null;
     }
     
     if (mat_name == "")
     {
-        lgr::warning(Where.FILE, "material with empty or no name in %s\n", file.path);
+        lgr::error(Where.FILE, "material with empty or no name in %s\n", file.path);
+        mat.free();
         mem::free(mat);
         return null;
     }
 
-    if(check_existance(mat_name) == true)
+    // check if the material name already exists in the game
+    if(check_material_existance(mat_name) == true)
     {
-        // warning already done on check_existance() function
+        // file warning print is done inside check_material_existance() function
+        mat.free();
         mem::free(mat);
-        return null; 
+        return null;
     }
     
-    // else everything should be fine with the name, so keep parsing this material data
+    // else everything should be fine from here, so keep parsing this material data
     mat.name = mat_name.copy(mem);
     mat.mtrfile = file;
     
@@ -500,31 +513,43 @@ fn HMaterial* parse_material_node(XmlNode* mat_node, MTRFile* file)
     foreach (node : mat_node.children)
     {
        // just in case...
-       if(node == null) continue;
-       // free text nodes are not supported
-       if(isXmlNode(node, Node.TEXT)) continue;
-       //
-
-       if(isXmlNode(node, Node.COMMENT))
-       {
-            parse_material_comment(node, mat);
+       if(node == null) {
+            lgr::warning(Where.FILE, "Null child node found for material '%s', skipping it.", mat.name);
+            continue;
        }
 
-       if(isXmlNode(node, Node.ARGS))
+       //(node.name == kind.str)
+       switch(node.name)
        {
-            parse_node_atributes(node, mat);
-       }
-       
-       if(isXmlNode(node, Node.MAPS))
-       {
-            parse_material_maps(node, mat);
-       }
-
-       // TODO(HM) Parse the video_map node...
-       
-       if(isXmlNode(node, Node.SOUND))
-       {
-            parse_material_sound(node, mat);
+            // free text nodes are not supported
+            case Node.TEXT.str:
+            {
+                // this is a text node, so we just skip it, as it should not be here
+                // TODO(HM) handle this better, maybe by removing it from the xml doc?
+                lgr::warning(Where.FILE, "Unexpected text node found in material '%s'! Text = '%s' ", mat.name, node.value);
+                continue;
+            }
+            case Node.COMMENT.str: 
+                parse_material_comment(node, mat);
+            case Node.ARGS.str: 
+            {
+                if(node.asAttributes() == true) {
+                    parse_node_atributes(node, mat);
+                } else {
+                    lgr::warning(Where.FILE, "Malformed node '%s' found in material '%s', expected attributes.", node.name, mat.name);
+                }
+                continue;
+            }
+            case Node.MAPS.str: 
+            {
+                parse_material_maps(node, mat);
+                continue;
+            }
+            case Node.SOUND.str: 
+            {
+                parse_material_sound(node, mat);
+                continue;
+            }
        }
     }
     
@@ -740,13 +765,10 @@ fn void handle_material_map_args(MatMap* map, XmlNode* node, HMaterial* mat)
     //io::printfn("END parsing map '%s' arguments:", node.name);
 }
 
-// region private
+//////////////////
+// #region private
+//////////////////
 
-// TODO(HM) change this to the function bellow and do not make it a menber of XmlNode,
-// this because Node is really unique to this file and to the material xml file
-// and so is not generic, using it as a menber prevents me from using xmlnode.isNode() with other
-// xml based files with diferent types of nodes.
-// fn isNode(XmlNode* node, Node kind)
 <*
     @param [in] node : "node to compare the name"
     @require node != null
@@ -812,7 +834,11 @@ fn void print_material_map_data(HMaterial* mat) @local
     }
 }
 
-// end_region private
+// #endregion private
+
+//////////////////////////
+// Material Manager
+//////////////////////////
 
 module game::material::manager::mtrmng @private;
 
