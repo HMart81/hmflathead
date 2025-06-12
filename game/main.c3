@@ -78,8 +78,8 @@ const TRACY_ENABLE_ZONE @if($feature(TRACY_ENABLE)) = 1;
    1 meter = 10 pixels
    
    NOTE(HM): 
-   minimum scale for physics objects is 10 cm 
-   this is a hard limit imposed by the box2d physics engine.
+   Minimum scale for physics objects is 10 cm, this is a hard limit 
+   imposed by box2d physics engine.
 */
 const DEFAULT_PIXELS_PER_METER @public @Hardcode = 10;
 const String MOUSE_IMAGE_NAME          @Hardcode = "pointer.png";
@@ -133,20 +133,26 @@ const ScreenRes[*] SCREEN_RES = {
 const usz DEFAULT_SCREEN_INDEX     = 9;
 const ScreenRes DEFAULT_SCREEN_REZ = SCREEN_RES[DEFAULT_SCREEN_INDEX];
 
-fn usz getResolutionIndexFromValues(int w, int h) @local @inline {
-    foreach(i, &res: SCREEN_RES) {
-        if(res.w == w && res.h == h) return i;
-    }
-    
-    return DEFAULT_SCREEN_INDEX;
-}
-
 fn bool resValuesSafe(int w_value, int h_value) @inline {
     if(w_value < SCREEN_RES[0].w || w_value > SCREEN_RES[SCREEN_RES.len - 1].w) return false;
     if(h_value < SCREEN_RES[0].h || h_value > SCREEN_RES[SCREEN_RES.len - 1].h) return false;
     
     return true;
 }
+
+fn int getResolutionIndexFromValues(int w, int h) @local @inline
+{
+    if(resValuesSafe(w, h))
+    {
+        foreach(i, &res: SCREEN_RES) {
+            if(res.w == w && res.h == h) return (int)i;
+        }
+    }
+
+    // if we reach here, the resolution is not found
+    return -1;
+}
+
 
 <*
 * @param index "the index of a resolution on the resolution array"
@@ -280,6 +286,7 @@ fn void register_modulo_cvars() @local {
 
 faultdef WINDOW_INIT_FAILED, 
          MISSING_REQUIRED_ASSET,
+         INVALID_SCREEN_RESOLUTION,
          GAME_START_FAILED,
          INVALID_WORK_DIR,
          NO_USER_SAVE_FOLDER,
@@ -1784,40 +1791,56 @@ $endif
     // if cmdline has r_mode set, it has top priority and overrides 
     // the value written in the ini file and the default cvar value
     int res_index = r_mode.getInt();
-    if(res_index >= 0) {
-        // prevent array overflow
+    if(res_index != -1)
+    {
+        // first prevent array overflow
         if(res_index >= SCREEN_RES.len) {
             lgr::warning(Where.FILE, "Array index overflow, r_mode = %d is not valid, setting to default: %d", res_index, DEFAULT_SCREEN_INDEX);
             res_index = DEFAULT_SCREEN_INDEX;
         }
+        local_game.screen.w = SCREEN_RES[res_index].w;
+        local_game.screen.h = SCREEN_RES[res_index].h;
     }
     // NOTE(HM) if cmdline cvar was NOT set or is -1,
     // look into the ini file for its r_mode instead
-    else {
-        res_index = settings_file.getIntValue("r_mode")!;
-        // DOC(HM) the above is the same as doing:
+    else
+    {
+        // DOC(HM) this is the same as doing:
         // int? res_index  = settings_file.getIntValue("r_mode");
         // if(catch excuse = res_index ) { return excuse; }
-        if(res_index == -1) 
+        if(settings_file.getIntValue("r_mode")! == -1)
         {
             int w_value, h_value;
-            // then use ini defined custom resolutions
+            // use ini defined custom resolutions
             if(try value =  settings_file.getIntValue("r_custom_width"))  w_value = value;
             if(try value =  settings_file.getIntValue("r_custom_heigth")) h_value = value;
             
-            if(!resValuesSafe(w_value, h_value)) 
+            // see if the custom resolution exists in the list of resolutions
+            // NOTE(HM) if the custom resolution is not found, it will return -1
+            res_index = getResolutionIndexFromValues(w_value, h_value);
+            if(res_index == -1) 
             {
-                lgr::warning(Where.FILE, "Invalid custom resolution values {%s, %s} in %s setting defaults.", w_value, h_value, INI_SETTINGS_FILE_NAME);
-                res_index = (int)DEFAULT_SCREEN_INDEX;
-            } else {
-                res_index = (int)getResolutionIndexFromValues(w_value, h_value);
+                local_game.screen.w = w_value;
+                local_game.screen.h = h_value;
+                lgr::warning(Where.FILE, "Custom resolution %dx%d not found in the list of video modes, using it as is.", w_value, h_value);
+            }
+            else 
+            {
+                local_game.screen.w = SCREEN_RES[res_index].w;
+                local_game.screen.h = SCREEN_RES[res_index].h;
+                lgr::info(Where.FILE, "Custom resolution %dx%d found in the list of video modes, using it.", 
+                          local_game.screen.w, local_game.screen.h);
             }
         }
     }
     
-    assert(res_index >= 0);
-    local_game.screen.w = SCREEN_RES[res_index].w;
-    local_game.screen.h = SCREEN_RES[res_index].h;
+    // at this point we should have a valid screen resolution
+    if(res_index == -1 || local_game.screen.w <= 0 || local_game.screen.h <= 0) 
+    {
+        lgr::error(Where.FILE, "Invalid screen resolution %dx%d, cannot continue!", local_game.screen.w, local_game.screen.h);
+        return INVALID_SCREEN_RESOLUTION?;
+    }
+    
     lgr::info(Where.FILE,  "Video mode set -> %s", SCREEN_RES[res_index].str);
 
     lgr::info(Where.FILE, "---------------------------------------------\n");
