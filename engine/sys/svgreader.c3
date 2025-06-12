@@ -208,9 +208,15 @@ alias ListOfElements = List{SVGElement*};
 alias ListOfPaths    = List{Path*};
 
 // NOTE(HM) this represents a single svg element, it can be a group, a path, a circle, etc
+struct SVGElemID 
+{
+    ElemID kind; // the kind of element
+    String name; // the node id, this is used to identify the element in the svg file
+}
+
 struct SVGElement
 {
-    ElemID id;
+    SVGElemID id;
     ListOfAttributes attributes;
     ListOfElements others; // for the url(#element_id) support
     ListOfPaths paths;
@@ -270,13 +276,31 @@ fn void SVGData.freeElements(&self)
 
 // This will probably be very slow with many materials...
 // TODO(HM) make this faster by using a hash table
-fn SVGElement* SVGData.find_element(&self, ElemID id) @inline 
+fn SVGElement* SVGData.findElementByID(&self, ElemID id) 
 {
 	foreach(elem: self.elements) {
-		if(elem.id.ordinal == id.ordinal) return elem;
+		if(elem.id.kind.ordinal == id.ordinal) return elem;
 	}
 
     lgr::error(Where.FILE, "Failed to find element '%s' in svg file '%s'", id.name, self.path);
+	return null;
+}
+
+fn SVGElement* SVGData.findElementByName(&self, String name) 
+{
+	foreach(elem: self.elements) 
+    {
+        if(elem.id.name == name) return elem;
+        // check if the element has others, like url(#element_id)
+        // and search there too
+        if(elem.others.len()) {
+            foreach(other : elem.others) {
+                if(other.id.name == name) return other;
+            }
+        }
+	}
+
+    lgr::error(Where.FILE, "Failed to find element '%s' in svg file '%s'", name, self.path);
 	return null;
 }
 
@@ -333,7 +357,7 @@ fn void register_xmlnode_data(XmlNode* xmlnode, SVGData* svgfile)
     {
         if(xmlnode.name == elemID.name)
         {
-            elem.id = elemID;
+            elem.id.kind = elemID;
             break;
         }
     }
@@ -461,6 +485,8 @@ fn void parse_attribute_data(XmlAttribute* inAtrb, AttrID atrbID, SVGElement* el
                 nextcase AttrID.INVALID;
             }
         case AttrID.ID:
+            isstring = true;
+            elem.id.name = inAtrb.value.copy(mem);
         case AttrID.XMLSPACE:
         case AttrID.CLIPPATHUNITS:
         case AttrID.STYLE:
@@ -790,23 +816,15 @@ fn Vec3f get_transform_rotation(String value) {
 }
 
 fn SVGElement* get_element_from_url(String value, SVGData* dbase) {
-    assert(value.starts_with("url"));
+    assert(value.starts_with("url(#") && value.ends_with(")"));
 
     // first remove the first word
     String result = value.trim_left("url");
     // now trim  '(#' and ')'
     result = result.trim_left("(#");
     result = result.trim_right(")");
-    // now get the element by name
-    ElemID elemID;
-    foreach (id : ElemID.values) {
-        if(result == id.name) {
-            elemID = id;
-            break;
-        }
-    }
-
-    return dbase.find_element(elemID);
+    // now get the linked element by its name
+    return dbase.findElementByName(result);
 }
 
 /*

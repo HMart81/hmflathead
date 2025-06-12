@@ -1788,8 +1788,10 @@ $endif
     local_game.screen.w = DEFAULT_SCREEN_REZ.w;
     local_game.screen.h = DEFAULT_SCREEN_REZ.h;
     
-    // if cmdline has r_mode set, it has top priority and overrides 
-    // the value written in the ini file and the default cvar value
+    // NOTE(HM): 
+    // If we set r_mode at game start in the cmdline, it will have top priority 
+    // and will override the value, written in the ini file 
+    // and also replace the value, originally assigned to the r_mode cvar.
     int res_index = r_mode.getInt();
     if(res_index != -1)
     {
@@ -1798,16 +1800,18 @@ $endif
             lgr::warning(Where.FILE, "Array index overflow, r_mode = %d is not valid, setting to default: %d", res_index, DEFAULT_SCREEN_INDEX);
             res_index = DEFAULT_SCREEN_INDEX;
         }
+
         local_game.screen.w = SCREEN_RES[res_index].w;
         local_game.screen.h = SCREEN_RES[res_index].h;
     }
-    // NOTE(HM) if cmdline cvar was NOT set or is -1,
-    // look into the ini file for its r_mode instead
+    // NOTE(HM): If cmdline/cvar was NOT set or is -1,
+    // then look into the ini file for its r_mode instead.
     else
     {
-        // DOC(HM) this is the same as doing:
+        // DOC(HM) '!' at the expression end, is the same as doing:
         // int? res_index  = settings_file.getIntValue("r_mode");
         // if(catch excuse = res_index ) { return excuse; }
+
         if(settings_file.getIntValue("r_mode")! == -1)
         {
             int w_value, h_value;
@@ -1820,9 +1824,9 @@ $endif
             res_index = getResolutionIndexFromValues(w_value, h_value);
             if(res_index == -1) 
             {
+                lgr::warning(Where.FILE, "Custom resolution %dx%d not found in the list of video modes, using it as is.", w_value, h_value);
                 local_game.screen.w = w_value;
                 local_game.screen.h = h_value;
-                lgr::warning(Where.FILE, "Custom resolution %dx%d not found in the list of video modes, using it as is.", w_value, h_value);
             }
             else 
             {
@@ -1876,17 +1880,15 @@ $endif
         case 1:
             window_flags |= (int)rl::FLAG_FULLSCREEN_MODE;
             local_game.screen.state.fullscreen = true;
-            lgr::info(Where.FILE,  "Game window set to Real/Dedicated Fullscreen mode.");
         case 2:
             window_flags |= (int)rl::FLAG_WINDOW_UNDECORATED;
             local_game.screen.state.borderless = true;
-            lgr::info(Where.FILE,  "Game window set to Borderless fullscreen mode.");
         default: // fullscreen_choice -1 or 0
             local_game.screen.state.window = true;
-            lgr::info(Where.FILE,  "Game window set to Windowed mode.");
     }
     
-    // DOC(HM) Multi-sampling AA (ONLY 0 or 4x is supported by Raylib, there's no inbetween)
+    // DOC(HM) 
+    // Multi-sampling AA (ONLY 0 or 4x is supported by Raylib, there's no inbetween)
     if(local_game.screen.state.fullscreen) 
     {
         if(try msaa_samples = settings_file.getIntValue("msaa")) 
@@ -1895,7 +1897,7 @@ $endif
             {
                 window_flags |= (int)rl::FLAG_MSAA_4X_HINT;
                 local_game.screen.multiSamples = msaa_samples;
-                lgr::info(Where.FILE, "MSAA hint enabled (Raylib only supports single 4x msaa, also this is a hint, so may not apply).");
+                lgr::info(Where.FILE, "4x MSAA hint enabled (as a hint, may not apply).");
             }
         }
     }
@@ -1930,6 +1932,24 @@ lgr::info(Where.FILE, "---------------------------------------------\n");
         return WINDOW_INIT_FAILED?;
     } else {
         lgr::info(Where.FILE, "Window initialized successfully.");
+
+        if(local_game.screen.state.fullscreen == true)
+        {
+            lgr::info(Where.FILE,  "Game window set to Real/Dedicated Fullscreen mode.");
+        }
+        else if(local_game.screen.state.borderless == true)
+        {
+            lgr::info(Where.FILE,  "Game window set to Borderless fullscreen mode.");
+        }
+        else if(local_game.screen.state.window == true)
+        {
+            lgr::info(Where.FILE,  "Game window set to Windowed mode.");
+        }
+        else
+        {
+            unreachable("Game window is not set to any known state, this should never happen!");
+            //return WINDOW_INIT_FAILED?;
+        }
     }
 
 $if env::WIN32:
@@ -2041,6 +2061,7 @@ $if $feature(_DEBUG):
     String key_name = settings_file.getValue("quit");
     rl::setExitKey(misc::getKeyValueFromName(key_name));
     lgr::info(Where.FILE, "Exit key set to: %s", key_name);
+    lgr::info(Where.FILE, "---------------------------------------------\n");
 $endif
 
 // #endregion Window initialization
@@ -2104,7 +2125,13 @@ $endif
             rl::setMasterVolume(1.0f);
             lgr::info(Where.FILE, "\tAudio Master Volume set to = %s", 1.0f);
         } else {
-            lgr::info(Where.FILE, "\tAudio Master Volume is = %s", rl::getMasterVolume());
+            float master_volume = rl::getMasterVolume();
+            if(master_volume > 1.0f) {
+                lgr::warning(Where.FILE, "\tAudio Master Volume is set to %.2f, this is not recommended!", master_volume);
+                rl::setMasterVolume(1.0f); // clamp it
+            } else {
+                lgr::info(Where.FILE, "\tAudio Master Volume is = %.1f", master_volume);
+            }
         }
     } else {
         lgr::warning(Where.FILE, "AudioDevice: Not ready, sound will be disabled! %s:%s", $$MODULE, $$FUNC );
