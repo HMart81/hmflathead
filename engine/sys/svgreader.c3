@@ -183,6 +183,7 @@ enum AttrType : char
     VEC4
 }
 
+// NOTE(HM) this is the attribute struct that holds each SVGElement attribute data
 struct SVGAttribute
 {
     AttrType type;
@@ -207,13 +208,13 @@ struct SVGAttribute
 alias ListOfElements = List{SVGElement*};
 alias ListOfPaths    = List{Path*};
 
-// NOTE(HM) this represents a single svg element, it can be a group, a path, a circle, etc
 struct SVGElemID 
 {
     ElemID kind; // the kind of element
     String name; // the node id, this is used to identify the element in the svg file
 }
 
+// NOTE(HM) this represents a single svg element, it can be a group, a path, a circle, etc
 struct SVGElement
 {
     SVGElemID id;
@@ -242,12 +243,15 @@ fn SVGAttribute* SVGElement.getAttrib(&self, AttrID id) @inline
 
 fn void SVGElement.free(&self) @inline
 {
+    self.id.kind = ElemID.INVALID; // mark as invalid
+    self.id.name.free(mem);
     if(self.attributes.len()) self.attributes.free();
     if(self.others.len()) self.others.free();
     if(self.paths.len()) self.paths.free();
 }
 
 
+//////////////////////////////////////////////////////////////////////
 // NOTE(HM) this is the main struct that holds all the parsed svg data
 struct SVGData 
 {
@@ -266,10 +270,11 @@ fn void SVGData.register(&self, SVGElement* elem) @inline
 
 fn void SVGData.freeElements(&self)
 {
-	if(self.elements.len()) {
-        foreach(elem: self.elements) {
-		    if(elem.attributes.len()) elem.free();
-	    }
+	if(self.elements.len())
+    {
+        // free all child elements own data
+        foreach(elem: self.elements) { elem.free(); }
+        // now free our elements list
         self.elements.free();
     }
 }
@@ -313,7 +318,7 @@ fn bool? SVGData.load(&self, File file)
     return true;
 }
 
-fn bool SVGData.parse(&self, File file)
+fn bool SVGData.parse(&self, File file) @local
 {
     XmlDoc*? doc = xml::read_file(file);
     defer doc.free()!!;
@@ -815,14 +820,20 @@ fn Vec3f get_transform_rotation(String value) {
     }
 }
 
-fn SVGElement* get_element_from_url(String value, SVGData* dbase) {
+<*
+    @param [in] value : "the url(#element_id) value to get the element from"
+    @param [inout] dbase : "the svg data base to search the element in"
+    @require value != "" && dbase != null
+*>
+fn SVGElement* get_element_from_url(String value, SVGData* dbase)
+{
     assert(value.starts_with("url(#") && value.ends_with(")"));
 
     // first remove the first word
-    String result = value.trim_left("url");
+    String result = value.trim_left("url(#").trim_right(")");
     // now trim  '(#' and ')'
-    result = result.trim_left("(#");
-    result = result.trim_right(")");
+    //result = result.trim_left("(#");
+    //result = result.trim_right(")");
     // now get the linked element by its name
     return dbase.findElementByName(result);
 }
