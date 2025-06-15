@@ -301,13 +301,21 @@ fn void SVGData.freeElements(&self)
 
 // This will probably be very slow with many materials...
 // TODO(HM) make this faster by using a hash table
-fn SVGElement* SVGData.findElementByID(&self, ElemID id) 
+fn SVGElement* SVGData.findElementByID(&self, String id)
 {
-	foreach(elem: self.elements) {
-		if(elem.id.kind.ordinal == id.ordinal) return elem;
+	foreach(elem: self.elements) 
+    {   
+        foreach(atrb: elem.attributes) 
+        {
+            // check if the element has an id attribute
+            if(atrb.id == AttrID.ID && atrb.value.s == id) 
+            {
+                return elem;
+            }
+        }
 	}
 
-    lgr::error(Where.FILE, "Failed to find element '%s' in svg file '%s'", id.name, self.path);
+    lgr::error(Where.FILE, "Failed to find element '%s' in svg file '%s'", id, self.path);
 	return null;
 }
 
@@ -671,7 +679,7 @@ fn void parse_attribute_data(SVGElemNodeAttribute* inAtrb, SVGElement* elem, SVG
             if(inAtrb.value.starts_with("url(#") && inAtrb.value.ends_with(")"))
             {
                 String value = inAtrb.value.trim_left("url(#").trim_right(")");
-                new_atrb.value.pelem = svgdata.findElementByName(value);
+                new_atrb.value.pelem = svgdata.findElementByID(value);
                 if(new_atrb.value.pelem == null) {
                     lgr::error(Where.FILE, "Failed to get element pointed by url '%s' in file '%s'", value, svgdata.path);
                 }
