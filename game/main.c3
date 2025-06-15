@@ -2165,9 +2165,13 @@ $endif
 
     svg::SVGData svgfile;
     svgfile.path = local_game.app_base_folder.tconcat("levels/test.svg").copy(mem);
-    svgfile.load(fs::openFile(svgfile.path)!)!;
-    //svgfile.printTofile(local_game.app_base_folder.tconcat("levels/test.txt"));
-    //svgfile.print();
+    if(svgfile.load()!) {
+        lgr::info(Where.FILE, "SVG file loaded successfully: %s", svgfile.path);
+        //svgfile.printTofile(local_game.app_base_folder.tconcat("levels/test.txt"));
+        //svgfile.print();
+    } else {
+        lgr::warning(Where.FILE, "Failed to load SVG file: %s", svgfile.path);
+    }
         
     lgr::info(Where.FILE,  "** done **");
     lgr::info(Where.FILE, "---------------------------------------------\n");

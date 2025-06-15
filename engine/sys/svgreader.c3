@@ -60,6 +60,7 @@ faultdef MALFORMED_SVG_FILE,
          SVG_PARSING_ERROR,
 	     SVG_LOAD_ERROR,
 	     SVG_RETRIVAL_ERROR,
+         SVG_FILE_PATH_EMPTY,
 	     MISSING_SVG;
 
 
@@ -252,7 +253,15 @@ fn void SVGElement.free(&self) @inline
 
 
 //////////////////////////////////////////////////////////////////////
-// NOTE(HM) this is the main struct that holds all the parsed svg data
+// Runtime SVG File Data
+//////////////////////////////////////////////////////////////////////
+
+// NOTE(HM) this is the file type we use to read svg files
+typedef SVGFile = inline XmlDoc;
+typedef SVGElemNode = inline XmlNode;
+typedef SVGElemNodeAttribute = inline XmlAttribute;
+
+// NOTE(HM) this is the main struct that holds all the parsed svg file data
 struct SVGData 
 {
     String path;
@@ -309,32 +318,44 @@ fn SVGElement* SVGData.findElementByName(&self, String name)
 	return null;
 }
 
-fn bool? SVGData.load(&self, File file)
+fn bool? SVGData.load(&self)
 {
-    if(self.parse(file) == false) {
+    if(self.path == "") {
+        lgr::error(Where.FILE, "SVG file path is empty, cannot load svg file data!");
+        return SVG_FILE_PATH_EMPTY?;
+    }
+    // check if the file exists
+    File file = fs::openFile(self.path)!;
+    defer file.close()!!;
+    if(file.file == null) {
+        lgr::error(Where.FILE, "Failed to open svg file '%s'", self.path);
+        return SVG_LOAD_ERROR?;
+    }
+
+    SVGFile* svg_file = (SVGFile*)xml::read_file(file)!;
+    defer svg_file.free();
+    if(svg_file == null) {
+        lgr::error(Where.FILE, "Failed to read svg file '%s'", self.path);
+        return SVG_LOAD_ERROR?;
+    }
+
+    if(self.parse(svg_file) == false) {
         return SVG_PARSING_ERROR?;
     }
     
     return true;
 }
 
-fn bool SVGData.parse(&self, File file) @local
+<*
+    @param [in] doc : "the svg file document to parse"
+    @require doc != null
+*>
+fn bool SVGData.parse(&self, SVGFile* doc) @local
 {
-    XmlDoc*? doc = xml::read_file(file);
-    defer doc.free()!!;
-    
-    if(catch excuse = doc)
-    {
-       lgr::warning(Where.FILE, " Failed to open svg file [%s] with excuse: %s", self.path, excuse);
-       return false;
-    }
-    
-    assert(doc.rootNode.name != "");
-
-    bool invalid_mtr = (doc.rootNode.name != ElemID.SVG);
+    bool invalid_mtr = (doc.rootNode.name == "" && doc.rootNode.name != ElemID.SVG);
     if(invalid_mtr)
     {
-       lgr::error(Where.FILE, " Invalid svg file '%s', root expected to be 'svg' but is '%s' instead.", self.path, doc.rootNode.name);
+       lgr::error(Where.FILE, " Invalid svg file '%s', root element should be 'svg' but is '%s' instead.", self.path, doc.rootNode.name);
        return false;
     }
 
@@ -344,23 +365,23 @@ fn bool SVGData.parse(&self, File file) @local
     }
 
     // create and register all elements and its attributes using recursion
-    // starting at and including the root xml node
-    register_xmlnode_data(doc.rootNode, self);
+    // starting at and including the root node
+    register_SVGElemNode_data((SVGElemNode*)doc.rootNode, self);
 
     return true;
 }
 
 <*
-    @param [in] xmlnode : "the current xml node we are parsing"
+    @param [in] svgElemNode : "the current node we are parsing"
     @param [inout] svgfile : "pointer to the main svg struct to save the element"
-    @require xmlnode != null && svgfile != null
+    @require svgElemNode != null && svgfile != null
 *>
-fn void register_xmlnode_data(XmlNode* xmlnode, SVGData* svgfile) 
+fn void register_SVGElemNode_data(SVGElemNode* svgElemNode, SVGData* svgfile) 
 {
     SVGElement* elem = mem::new(SVGElement);
     foreach (elemID : ElemID.values)
     {
-        if(xmlnode.name == elemID.name)
+        if(svgElemNode.name == elemID.name)
         {
             elem.id.kind = elemID;
             break;
@@ -370,17 +391,17 @@ fn void register_xmlnode_data(XmlNode* xmlnode, SVGData* svgfile)
     svgfile.register(elem);
     
     // handle attributes if any
-    if(xmlnode.attributes.len())
+    if(svgElemNode.attributes.len())
     {
-        parse_xmlnode_attributes(xmlnode, elem, svgfile);
+        parse_SVGElemNode_attributes(svgElemNode, elem, svgfile);
     }
 
-    if(xmlnode.children.len())
+    if(svgElemNode.children.len())
     {
-        foreach (node : xmlnode.children)
+        foreach (node : svgElemNode.children)
         {
             if(node == null || node.isNode(ElemID.INVALID)) continue;
-            register_xmlnode_data(node, svgfile);
+            register_SVGElemNode_data((SVGElemNode*)node, svgfile);
         }
     }
 }
@@ -415,21 +436,21 @@ enum TransfType : char (inline String str)
 }
 
 <*
-    @param [in] xmlnode : "the xml node we are looking at"
+    @param [in] svgElemNode : "the node we are looking at"
     @param [inout] elem : "svg SVGElement whose attributes we are creating"
     @param [inout] svgfile : "pointer to the main svg struct to save the element"
-    @require xmlnode != null && elem != null && svgfile != null
+    @require svgElemNode != null && elem != null && svgfile != null
 *>
-fn void parse_xmlnode_attributes(XmlNode* xmlnode, SVGElement* elem, SVGData* svgfile) //@inline
+fn void parse_SVGElemNode_attributes(SVGElemNode* svgElemNode, SVGElement* elem, SVGData* svgfile) //@inline
 {
-    foreach (atrb : xmlnode.attributes)
+    foreach (atrb : svgElemNode.attributes)
     {
         if(atrb == null) continue;
         foreach (atrbID : AttrID.values)
         {
             if(atrb.name == atrbID.name)
             {
-                parse_attribute_data(atrb, atrbID, elem, svgfile);
+                parse_attribute_data((SVGElemNodeAttribute*)atrb, atrbID, elem, svgfile);
                 break;
             }
         }
@@ -443,7 +464,7 @@ fn void parse_xmlnode_attributes(XmlNode* xmlnode, SVGElement* elem, SVGData* sv
     @param [inout] svgfile : "pointer to the main svg struct to save the element"
     @require elem != null && svgfile != null && inAtrb != null && inAtrb.value.len > 1
 *>
-fn void parse_attribute_data(XmlAttribute* inAtrb, AttrID atrbID, SVGElement* elem, SVGData* svgfile) //@inline
+fn void parse_attribute_data(SVGElemNodeAttribute* inAtrb, AttrID atrbID, SVGElement* elem, SVGData* svgfile) //@inline
 {
     bool isfloat, isint, isstring, isvec2, isvec3, isvec4, isPath, isPointer, should_register;
 
@@ -839,7 +860,7 @@ fn SVGElement* get_element_from_url(String value, SVGData* dbase)
 }
 
 /*
-fn void get_data_from_xml_string_value(XmlAttribute* inAtrb, AttrType* outype, AttrData* outdata) 
+fn void get_data_from_xml_string_value(SVGElemNodeAttribute* inAtrb, AttrType* outype, AttrData* outdata) 
 {
     bool isfloat, isint, isString;
 
