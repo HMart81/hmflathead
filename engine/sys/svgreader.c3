@@ -60,6 +60,7 @@ faultdef MALFORMED_SVG_FILE,
          SVG_PARSING_ERROR,
 	     SVG_LOAD_ERROR,
 	     SVG_RETRIVAL_ERROR,
+         SVG_VALUE_ERROR,
          SVG_FILE_PATH_EMPTY,
 	     MISSING_SVG;
 
@@ -461,12 +462,12 @@ fn void parse_SVGElemNode_attributes(SVGElemNode* svgElemNode, SVGElement* elem,
     @param [in] inAtrb : "the attribute data from the xml file we are looking at"
     @param atrbID : "the attribute id we are looking at"
     @param [inout] elem : "svg Element whose attributes we are looking at"
-    @param [inout] svgfile : "pointer to the main svg struct to save the element"
-    @require elem != null && svgfile != null && inAtrb != null && inAtrb.value.len > 1
+    @param [inout] svgdata : "pointer to the main svg struct to save the element"
+    @require elem != null && svgdata != null && inAtrb != null && inAtrb.value.len > 1
 *>
-fn void parse_attribute_data(SVGElemNodeAttribute* inAtrb, AttrID atrbID, SVGElement* elem, SVGData* svgfile) //@inline
+fn void parse_attribute_data(SVGElemNodeAttribute* inAtrb, AttrID atrbID, SVGElement* elem, SVGData* svgdata)
 {
-    bool isfloat, isint, isstring, isvec2, isvec3, isvec4, isPath, isPointer, should_register;
+    bool isPath, isPointer, should_register;
 
     should_register = true;
     SVGAttribute* new_atrb = mem::new(SVGAttribute);
@@ -492,9 +493,9 @@ fn void parse_attribute_data(SVGElemNodeAttribute* inAtrb, AttrID atrbID, SVGEle
         case AttrID.RX:
         case AttrID.RY:
             if(is_integer_number(inAtrb.value)) {
-                isint = true;
+                new_atrb.type = AttrType.INT;
             } else if(is_float_number(inAtrb.value)) {
-                isfloat = true;
+                new_atrb.type = AttrType.FLOAT;
             } else {
                 nextcase AttrID.INVALID;
             }
@@ -502,22 +503,22 @@ fn void parse_attribute_data(SVGElemNodeAttribute* inAtrb, AttrID atrbID, SVGEle
             int count;
             if(is_vector_number(inAtrb.value, &count)) {
                 switch(count) {
-                    case 1: isvec2 = true;
-                    case 2: isvec3 = true;
-                    case 3: isvec4 = true;
+                    case 1: new_atrb.type = AttrType.VEC2;
+                    case 2: new_atrb.type = AttrType.VEC3;
+                    case 3: new_atrb.type = AttrType.VEC4;
                 }
                 break;
             } else {
                 nextcase AttrID.INVALID;
             }
         case AttrID.ID:
-            isstring = true;
+            new_atrb.type = AttrType.STRING;
             elem.id.name = inAtrb.value.copy(mem);
         case AttrID.XMLSPACE:
         case AttrID.CLIPPATHUNITS:
         case AttrID.STYLE:
         case AttrID.PRESERVEASPECTRATIO:
-            isstring = true;
+            new_atrb.type = AttrType.STRING;
         case AttrID.XMLNSXLINK:
         case AttrID.XMLNS:
         case AttrID.XMLNSSVG:
@@ -535,45 +536,72 @@ fn void parse_attribute_data(SVGElemNodeAttribute* inAtrb, AttrID atrbID, SVGEle
                 new_atrb.type  = AttrType.VEC2;
                 new_atrb.value.v2 = get_transform_scale(inAtrb.value);
             } else {
-                lgr::warning(Where.FILE,  "Unknown transform value <%s> in file '%s'", inAtrb.value, svgfile.path);
+                lgr::warning(Where.FILE,  "Unknown transform value <%s> in file '%s'", inAtrb.value, svgdata.path);
             }
         case AttrID.D:
-            isstring = true;
+            new_atrb.type  = AttrType.STRING;
             // todo handle path data...
         case AttrID.CLIPPATH:
-            isstring = true;
-            elem.others.push(get_element_from_url(inAtrb.value, svgfile));
+            new_atrb.type  = AttrType.STRING;
+            isPointer = true;
         case AttrID.INVALID:
-            lgr::warning(Where.FILE,  "SVG attrb <%s> in file '%s' is invalid", elem.id.name, svgfile.path);
+            lgr::warning(Where.FILE,  "SVG attrb <%s> in file '%s' is invalid", elem.id.name, svgdata.path);
             should_register = false;
             return;
         default:
-            lgr::warning(Where.FILE,  "SVG attrb <%s> in file '%s' is still not supported", elem.id.name, svgfile.path);
+            lgr::warning(Where.FILE,  "SVG attrb <%s> in file '%s' is still not supported", elem.id.name, svgdata.path);
             should_register = false;
             return;
     }
 
-    if(isfloat) {
-        new_atrb.type  = AttrType.FLOAT;
-        if(try value = to_float(inAtrb.value)) new_atrb.value.f = value;
+    switch(new_atrb.type) 
+    {
+        case AttrType.INT:
+            if(try value = to_int(inAtrb.value)) {
+                new_atrb.value.i = value;
+            } else {
+                lgr::warning(Where.FILE, "Failed to convert attribute '%s' value '%s' to int in file '%s'", 
+                             elem.id.name, inAtrb.value, svgdata.path);
+                should_register = false;
+            }
+        case AttrType.FLOAT:
+            if(try value = to_float(inAtrb.value)) {
+                new_atrb.value.f = value;
+            } else {
+                lgr::warning(Where.FILE, "Failed to convert attribute '%s' value '%s' to float in file '%s'", 
+                             elem.id.name, inAtrb.value, svgdata.path);
+                should_register = false;
+            }
+        case AttrType.STRING:
+            new_atrb.value.s = inAtrb.value.copy(mem);
+        case AttrType.VEC2:
+            if(try value = to_vec2(inAtrb.value)) {
+                new_atrb.value.v2 = value;
+            } else {
+                lgr::warning(Where.FILE, "Failed to convert attribute '%s' value '%s' to vec2 in file '%s'", 
+                             elem.id.name, inAtrb.value, svgdata.path);
+                should_register = false;
+            }
+        case AttrType.VEC3:
+            if(try value = to_vec3(inAtrb.value)) {
+                new_atrb.value.v3 = value;
+            } else {
+                lgr::warning(Where.FILE, "Failed to convert attribute '%s' value '%s' to vec3 in file '%s'", 
+                             elem.id.name, inAtrb.value, svgdata.path);
+                should_register = false;
+            }
+        case AttrType.VEC4:
+            if(try value = to_vec4(inAtrb.value)) {
+                new_atrb.value.v4 = value;
+            } else {
+                lgr::warning(Where.FILE, "Failed to convert attribute '%s' value '%s' to vec4 in file '%s'", 
+                             elem.id.name, inAtrb.value, svgdata.path);
+                should_register = false;
+            }
     }
-    else if(isint) {
-        new_atrb.type  = AttrType.INT;
-       if(try value = to_int(inAtrb.value)) new_atrb.value.i = value;
-    } 
-    else if(isstring) {
-        new_atrb.type  = AttrType.STRING;
-        new_atrb.value.s = inAtrb.value.copy(mem);
-    }
-    else if(isvec4) {
-        new_atrb.type  = AttrType.VEC4;
-        if(try value = to_vec4(inAtrb.value)) new_atrb.value.v4 = value;
-    } 
-    else if(isvec2) {
-        new_atrb.type  = AttrType.VEC2;
-        if(try value = to_vec2(inAtrb.value)) new_atrb.value.v2 = value;
-    }
-    else if(isPath) 
+
+   
+    if(isPath)
     {
         if(inAtrb.value.starts_with("http") || inAtrb.value.starts_with("../") || inAtrb.value.contains("/") ) 
         {
@@ -594,41 +622,53 @@ fn void parse_attribute_data(SVGElemNodeAttribute* inAtrb, AttrID atrbID, SVGEle
             unreachable();
         }
     }
+    
+    if(isPointer)
+    {
+        // this is a pointer to another element, like url(#element_id)
+        if(inAtrb.value.starts_with("url(#") && inAtrb.value.ends_with(")")) 
+        {
+            String value = inAtrb.value.trim_left("url(#").trim_right(")");
+            SVGElement* other = svgdata.findElementByName(value);
+            if(other != null) {
+                elem.others.push(other);
+            } else {
+                lgr::error(Where.FILE, "Failed to get element from url '%s' in file '%s'", value, svgdata.path);
+            }
+        } else {
+            lgr::warning(Where.FILE, "SVG attrb <%s> in file '%s' is not a valid pointer", elem.id.name, svgdata.path);
+        }
+    }
 }
 
+
+<*
+    @param [in] value : "the string value to check if is a valid integer number"
+    @require value != "" && value.len > 0
+*>
 fn bool is_integer_number(String value) @inline
 {
-    //const char[*] INVALIDLIST = {'.', ',', ' ', '/', ':'};
-    bool not_number;
-    foreach(c : value) {
-        not_number = ascii::is_digit(c) == false;
-        if(not_number) {
-            if(c != '%' && c != '#') return false;
-        }
-        // foreach(x : INVALIDLIST) {
-        //     if(c == x) return false;
-        // }
-    }
+    if(value.contains(".")) return false;
 
     return true;
 }
 
-fn bool is_float_number(String value) @inline
+<*
+    @param [in] value : "the string value to check if is a valid integer number"
+    @require value != "" && value.len > 0
+*>
+fn bool is_float_number(String value) //@inline
 {
-    if(value.len == 1) return false;
-
-    //const char[*] INVALIDLIST = {'%', ',', '#', ' ', '/', ':'};
-    foreach(i, c : value)
+    if(value.contains(".") && value.count(".") == 1) 
     {
-        if(ascii::is_digit(c)) continue;
-        // if is a dot and next character is a number we assume is a float
-        if(c == '.' && ascii::is_digit(value[++i])) return true;
-
-        // foreach(x : INVALIDLIST) {
-        //     if(c == x) return false;
-        // }
+        foreach(i, c : value)
+        {
+            // we found the dot see if the next character is a valid digit
+            // NOTE(HM) according to svg spec floats like ".5" are valid, while "5." are not, so we don't allow them.
+            if(c == '.' && ascii::is_digit(value[++i])) return true;
+        }
     }
-
+    // if we reach here then the value is not a float
     return false;
 }
 
@@ -665,13 +705,43 @@ fn bool is_vector_number(String value, int* out_count) @inline
     return result;
 }
 
-fn void clean_value(String* value) @inline {
-   if(value.ends_with("mm")) {
+
+/*
+    12          A raw <integer> is also a <number>.
+    4.01        Positive fraction
+    -456.8      Negative fraction
+    0.0         Zero
+    +0.0        Zero, with a leading +
+    -0.0        Zero, with a leading -
+    .60         Fractional number without a leading zero
+    10e3        Scientific notation
+    -3.4e-2     Complicated scientific notation
+*/
+
+<*  @param [inout] value : "the string value to clean"
+    @require value != null && value.len > 0
+*>
+fn void clean_value(String* value) @inline 
+{
+    if(value.ends_with("mm"))
+    {
         (*value) = value.trim_right("mm");
-    } else if(value.ends_with("px")) {
+    } 
+    else if(value.ends_with("px")) 
+    {
         (*value) = value.trim_right("px");
-    } else if(value.ends_with("%")) {
+    } 
+    else if(value.ends_with("%")) 
+    {
         (*value) = value.trim_right("%");
+    }
+    else if(value.starts_with("+")) 
+    {
+        (*value) = value.trim_left("+");
+    }
+    else if(value.starts_with("#")) 
+    {
+        (*value) = value.trim_left("#");
     }
 }
 
@@ -679,35 +749,66 @@ fn float? to_float(String value) @local @inline
 {
     clean_value(&value);
 
+    // if value starts with a dot we need to add a 0 before it
+    if(value.starts_with(".")) 
+    {
+        value = "0".tconcat(value);
+    }
+
+    if(value.contains("e") || value.contains("E")) 
+    {
+        // NOTE(HM) we don't support scientific notation here, so we return an error
+        return SVG_VALUE_ERROR?;
+    }
+
     return value.to_float()!;
 }
 
 fn int? to_int(String value) @local @inline
 {
     char first = value[0];
-    if(value.len == 1) {
+    if(value.len == 1) 
+    {
         if(ascii::is_digit(first)) {
              return value.to_int()!;
         } else {
-            unreachable();
+            unreachable("Expected a digit in the first character of the value '%s'", value);
         }
     } else if(value.len == 0) {
-        unreachable();
+        unreachable("Expected a value with at least one character, found an empty string");
     }
 
-    if(value.starts_with("#")) {
+    // check if the value is a hex number
+    if(value.starts_with("#")) 
+    {
         value = value.trim_left("#");
         value = "0x".tconcat(value);
-
         return value.to_int()!;
+    } 
+    else if(value.starts_with("+")) // this is optional in svg files
+    {
+        value = value.trim_left("+");
     }
 
-    bool ispercent = value.ends_with("%");
-    if(ispercent) {
-        value = value.trim_right("%");
+    // TODO(HM) we should support float point percentages too, but for now we don't.
+    if(value.ends_with("%") || value.ends_with("px")) 
+    {
+        // NOTE(HM) we don't support negative percentages or pixel count.
+        if(value.starts_with("-")) {
+            return SVG_VALUE_ERROR?;
+        }
+        // if we reach here then the value is a percentage or pixel count
+        // so we need to remove the % or px from the end of the value
+        value = value.trim_right("%").trim_right("px");
         int result = value.to_int()!;
-        assert(result >= 0 && result <= 100);
+        assert(result >= 0);
         return result;
+    }
+
+    if(value.contains("e") || value.contains("E")) 
+    {
+        // NOTE(HM) we don't support scientific notation here, so we return an error
+        return SVG_VALUE_ERROR?;
     }
 
     return 0;
@@ -841,24 +942,6 @@ fn Vec3f get_transform_rotation(String value) {
     }
 }
 
-<*
-    @param [in] value : "the url(#element_id) value to get the element from"
-    @param [inout] dbase : "the svg data base to search the element in"
-    @require value != "" && dbase != null
-*>
-fn SVGElement* get_element_from_url(String value, SVGData* dbase)
-{
-    assert(value.starts_with("url(#") && value.ends_with(")"));
-
-    // first remove the first word
-    String result = value.trim_left("url(#").trim_right(")");
-    // now trim  '(#' and ')'
-    //result = result.trim_left("(#");
-    //result = result.trim_right(")");
-    // now get the linked element by its name
-    return dbase.findElementByName(result);
-}
-
 /*
 fn void get_data_from_xml_string_value(SVGElemNodeAttribute* inAtrb, AttrType* outype, AttrData* outdata) 
 {
@@ -903,7 +986,7 @@ fn bool valid_number(String data) {
     return true;
 }
 
-fn bool handle_svg_elements(XmlNode* elem, SVGData* svgfile)
+fn bool handle_svg_elements(XmlNode* elem, SVGData* svgdata)
 {
     switch(elem.name)
     {
@@ -971,9 +1054,9 @@ fn bool handle_svg_elements(XmlNode* elem, SVGData* svgfile)
         case ElemID.VIEW:
             nextcase default;
         case ElemID.INVALID:
-            lgr::warning(Where.FILE,  "SVG element <%s> in file '%s' is marked invalid", elem.name, svgfile.path);
+            lgr::warning(Where.FILE,  "SVG element <%s> in file '%s' is marked invalid", elem.name, svgdata.path);
         default:
-            lgr::warning(Where.FILE,  "SVG element <%s> in file '%s' is still not supported or valid", elem.name, svgfile.path);
+            lgr::warning(Where.FILE,  "SVG element <%s> in file '%s' is still not supported or valid", elem.name, svgdata.path);
     }
 
     return true;
