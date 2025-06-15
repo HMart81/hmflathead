@@ -182,7 +182,9 @@ enum AttrType : char
     STRING,
     VEC2,
     VEC3,
-    VEC4
+    VEC4,
+    FILE_PATH,
+    URL
 }
 
 // NOTE(HM) this is the attribute struct that holds each SVGElement attribute data
@@ -204,6 +206,7 @@ struct SVGAttribute
         }
 
         String s;
+        SVGElement* pelem; // this is used for url(#element_id) support
     }
 }
 
@@ -221,7 +224,6 @@ struct SVGElement
 {
     SVGElemID id;
     ListOfAttributes attributes;
-    ListOfElements others; // for the url(#element_id) support
     ListOfPaths paths;
 }
 
@@ -243,12 +245,20 @@ fn SVGAttribute* SVGElement.getAttrib(&self, AttrID id) @inline
 	return null;
 }
 
+fn SVGAttribute* SVGElement.findAttrib(&self, AttrType type) @inline
+{
+	foreach(atrb: self.attributes) {
+		if(atrb.type == type) return atrb;
+	}
+    
+	return null;
+}
+
 fn void SVGElement.free(&self) @inline
 {
     self.id.kind = ElemID.INVALID; // mark as invalid
     self.id.name.free(mem);
     if(self.attributes.len()) self.attributes.free();
-    if(self.others.len()) self.others.free();
     if(self.paths.len()) self.paths.free();
 }
 
@@ -306,12 +316,16 @@ fn SVGElement* SVGData.findElementByName(&self, String name)
 	foreach(elem: self.elements) 
     {
         if(elem.id.name == name) return elem;
-        // check if the element has others, like url(#element_id)
-        // and search there too
-        if(elem.others.len()) {
-            foreach(other : elem.others) {
-                if(other.id.name == name) return other;
+        // check if the element has url attribute, like url(#element_id)
+        // and see if it points to the currect element
+        SVGAttribute* url_atrb = elem.getAttrib(AttrID.CLIPPATH);
+        while(url_atrb != null) 
+        {
+            if(url_atrb.value.pelem != null && url_atrb.value.pelem.id.name == name) {
+                return url_atrb.value.pelem;
             }
+            // try to find another url attribute
+            url_atrb = elem.findAttrib(AttrType.URL);
         }
 	}
 
@@ -444,7 +458,7 @@ enum TransfType : char (inline String str)
 *>
 fn void parse_SVGElemNode_attributes(SVGElemNode* svgElemNode, SVGElement* elem, SVGData* svgfile) //@inline
 {
-    foreach (atrb : svgElemNode.attributes)
+    /*foreach (atrb : svgElemNode.attributes)
     {
         if(atrb == null) continue;
         foreach (atrbID : AttrID.values)
@@ -455,23 +469,33 @@ fn void parse_SVGElemNode_attributes(SVGElemNode* svgElemNode, SVGElement* elem,
                 break;
             }
         }
+    }*/
+    foreach (atrb : svgElemNode.attributes)
+    {
+        if(atrb == null) continue;
+        parse_attribute_data((SVGElemNodeAttribute*)atrb, elem, svgfile);
     }
 }
 
 <*
     @param [in] inAtrb : "the attribute data from the xml file we are looking at"
-    @param atrbID : "the attribute id we are looking at"
     @param [inout] elem : "svg Element whose attributes we are looking at"
     @param [inout] svgdata : "pointer to the main svg struct to save the element"
-    @require elem != null && svgdata != null && inAtrb != null && inAtrb.value.len > 1
+    @require inAtrb != null && inAtrb.value.len > 1 && elem != null && svgdata != null
 *>
-fn void parse_attribute_data(SVGElemNodeAttribute* inAtrb, AttrID atrbID, SVGElement* elem, SVGData* svgdata)
+fn void parse_attribute_data(SVGElemNodeAttribute* inAtrb, SVGElement* elem, SVGData* svgdata)
 {
-    bool isPath, isPointer, should_register;
-
-    should_register = true;
+    bool should_register = true;
     SVGAttribute* new_atrb = mem::new(SVGAttribute);
-    new_atrb.id = atrbID;
+    foreach (atrbID : AttrID.values)
+    {
+        if(inAtrb.name == atrbID.name)
+        {
+            new_atrb.id = atrbID;
+            elem.id.name = new_atrb.id.name.copy(mem);
+            break;
+        }
+    }
     
     defer { 
         if(should_register) {
@@ -513,7 +537,6 @@ fn void parse_attribute_data(SVGElemNodeAttribute* inAtrb, AttrID atrbID, SVGEle
             }
         case AttrID.ID:
             new_atrb.type = AttrType.STRING;
-            elem.id.name = inAtrb.value.copy(mem);
         case AttrID.XMLSPACE:
         case AttrID.CLIPPATHUNITS:
         case AttrID.STYLE:
@@ -524,17 +547,12 @@ fn void parse_attribute_data(SVGElemNodeAttribute* inAtrb, AttrID atrbID, SVGEle
         case AttrID.XMLNSSVG:
         case AttrID.XLINKHREF:
             //elem.paths.push(&path::new(inAtrb.value)!);
-            isPath = true;
+            new_atrb.type  = AttrType.FILE_PATH;
         case AttrID.TRANSFORM:
-            if(inAtrb.value.starts_with("translate")) {
+            if(inAtrb.value.starts_with("translate") || inAtrb.value.starts_with("scale")) {
                 new_atrb.type  = AttrType.VEC2;
-                new_atrb.value.v2 = get_transform_translation(inAtrb.value);
             } else if(inAtrb.value.starts_with("rotate")) {
                 new_atrb.type  = AttrType.VEC3;
-                new_atrb.value.v3 = get_transform_rotation(inAtrb.value);
-            } else if(inAtrb.value.starts_with("scale")) {
-                new_atrb.type  = AttrType.VEC2;
-                new_atrb.value.v2 = get_transform_scale(inAtrb.value);
             } else {
                 lgr::warning(Where.FILE,  "Unknown transform value <%s> in file '%s'", inAtrb.value, svgdata.path);
             }
@@ -542,8 +560,7 @@ fn void parse_attribute_data(SVGElemNodeAttribute* inAtrb, AttrID atrbID, SVGEle
             new_atrb.type  = AttrType.STRING;
             // todo handle path data...
         case AttrID.CLIPPATH:
-            new_atrb.type  = AttrType.STRING;
-            isPointer = true;
+            new_atrb.type  = AttrType.URL;
         case AttrID.INVALID:
             lgr::warning(Where.FILE,  "SVG attrb <%s> in file '%s' is invalid", elem.id.name, svgdata.path);
             should_register = false;
@@ -575,20 +592,52 @@ fn void parse_attribute_data(SVGElemNodeAttribute* inAtrb, AttrID atrbID, SVGEle
         case AttrType.STRING:
             new_atrb.value.s = inAtrb.value.copy(mem);
         case AttrType.VEC2:
-            if(try value = to_vec2(inAtrb.value)) {
+            if(new_atrb.id == AttrID.TRANSFORM)
+            {
+                if(inAtrb.value.starts_with("translate")) {
+                    new_atrb.value.v2 = get_transform_translation(inAtrb.value);
+                } 
+                else if(inAtrb.value.starts_with("scale")) {
+                    new_atrb.value.v2 = get_transform_scale(inAtrb.value);
+                }
+                else if(inAtrb.value.starts_with("rotate")) {
+                    nextcase AttrType.VEC3;
+                } else {
+                    lgr::warning(Where.FILE,  "Unknown transform value <%s> in file '%s'", inAtrb.value, svgdata.path);
+                }
+            } 
+            else 
+            {
+                 if(try value = to_vec2(inAtrb.value)) {
                 new_atrb.value.v2 = value;
-            } else {
-                lgr::warning(Where.FILE, "Failed to convert attribute '%s' value '%s' to vec2 in file '%s'", 
-                             elem.id.name, inAtrb.value, svgdata.path);
-                should_register = false;
+                } else {
+                    lgr::warning(Where.FILE, "Failed to convert attribute '%s' value '%s' to vec2 in file '%s'", 
+                                elem.id.name, inAtrb.value, svgdata.path);
+                    should_register = false;
+                }
             }
         case AttrType.VEC3:
-            if(try value = to_vec3(inAtrb.value)) {
+            if(new_atrb.id == AttrID.TRANSFORM)
+            {
+                if(inAtrb.value.starts_with("translate") || inAtrb.value.starts_with("scale")) 
+                {
+                    nextcase AttrType.VEC2;
+                } 
+                else if(inAtrb.value.starts_with("rotate")) {
+                    new_atrb.value.v3 = get_transform_rotation(inAtrb.value);
+                } else {
+                    lgr::warning(Where.FILE,  "Unknown transform value <%s> in file '%s'", inAtrb.value, svgdata.path);
+                }
+            } 
+            else 
+            {
+                if(try value = to_vec3(inAtrb.value)) {
                 new_atrb.value.v3 = value;
-            } else {
-                lgr::warning(Where.FILE, "Failed to convert attribute '%s' value '%s' to vec3 in file '%s'", 
-                             elem.id.name, inAtrb.value, svgdata.path);
-                should_register = false;
+                } else {
+                    lgr::warning(Where.FILE, "Failed to convert attribute '%s' value '%s' to vec3 in file '%s'", 
+                                elem.id.name, inAtrb.value, svgdata.path);
+                    should_register = false;
+                }
             }
         case AttrType.VEC4:
             if(try value = to_vec4(inAtrb.value)) {
@@ -598,46 +647,37 @@ fn void parse_attribute_data(SVGElemNodeAttribute* inAtrb, AttrID atrbID, SVGEle
                              elem.id.name, inAtrb.value, svgdata.path);
                 should_register = false;
             }
-    }
+        case AttrType.FILE_PATH:
+            if(inAtrb.value.starts_with("http") || inAtrb.value.starts_with("../") || inAtrb.value.contains("/") ) 
+            {
+                Path path;
+                new_atrb.value.s = inAtrb.value.copy(mem);
+                $switch:
+                $case env::WIN32:
+                    if(try result = path::for_windows(mem, inAtrb.value.copy(mem))) path = result;
+                $case env::LINUX:
+                    if(try result = path::for_posix(mem, inAtrb.value.copy(mem))) path = result;
+                $default:
+                    unreachable();
+                $endswitch
 
-   
-    if(isPath)
-    {
-        if(inAtrb.value.starts_with("http") || inAtrb.value.starts_with("../") || inAtrb.value.contains("/") ) 
-        {
-            Path path;
-            new_atrb.type    = AttrType.STRING;
-            new_atrb.value.s = inAtrb.value.copy(mem);
-            $switch:
-            $case env::WIN32:
-                if(try result = path::for_windows(mem, inAtrb.value.copy(mem))) path = result;
-            $case env::LINUX:
-                if(try result = path::for_posix(mem, inAtrb.value.copy(mem))) path = result;
-            $default:
-                unreachable();
-            $endswitch
-
-            elem.paths.push(&path);
-        } else {
-            unreachable();
-        }
-    }
-    
-    if(isPointer)
-    {
-        // this is a pointer to another element, like url(#element_id)
-        if(inAtrb.value.starts_with("url(#") && inAtrb.value.ends_with(")")) 
-        {
-            String value = inAtrb.value.trim_left("url(#").trim_right(")");
-            SVGElement* other = svgdata.findElementByName(value);
-            if(other != null) {
-                elem.others.push(other);
+                elem.paths.push(&path);
             } else {
-                lgr::error(Where.FILE, "Failed to get element from url '%s' in file '%s'", value, svgdata.path);
+                unreachable("Expected a valid file path in attribute '%s' with value '%s' in file '%s'", 
+                            elem.id.name, inAtrb.value, svgdata.path);
             }
-        } else {
-            lgr::warning(Where.FILE, "SVG attrb <%s> in file '%s' is not a valid pointer", elem.id.name, svgdata.path);
-        }
+        case AttrType.URL:
+           // this is a pointer to another element, like url(#element_id)
+            if(inAtrb.value.starts_with("url(#") && inAtrb.value.ends_with(")"))
+            {
+                String value = inAtrb.value.trim_left("url(#").trim_right(")");
+                new_atrb.value.pelem = svgdata.findElementByName(value);
+                if(new_atrb.value.pelem == null) {
+                    lgr::error(Where.FILE, "Failed to get element pointed by url '%s' in file '%s'", value, svgdata.path);
+                }
+            } else {
+                lgr::warning(Where.FILE, "SVG attrb <%s> in file '%s' is not a valid pointer", elem.id.name, svgdata.path);
+            }
     }
 }
 
