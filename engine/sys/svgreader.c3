@@ -747,18 +747,18 @@ fn void clean_value(String* value) @inline
 
 fn float? to_float(String value) @local @inline
 {
+    if(value.contains("e") || value.contains("E")) 
+    {
+        // NOTE(HM) we don't support scientific notation here, so we return an error
+        return SVG_VALUE_ERROR?;
+    }
+    
     clean_value(&value);
 
     // if value starts with a dot we need to add a 0 before it
     if(value.starts_with(".")) 
     {
         value = "0".tconcat(value);
-    }
-
-    if(value.contains("e") || value.contains("E")) 
-    {
-        // NOTE(HM) we don't support scientific notation here, so we return an error
-        return SVG_VALUE_ERROR?;
     }
 
     return value.to_float()!;
