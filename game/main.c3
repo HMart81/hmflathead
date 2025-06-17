@@ -890,30 +890,11 @@ $if $feature(MICROUI_ENABLE):
     if(local_game.mu_ctx != null) 
     {
         float scroll_speed = -30.0f; // scroll speed for mouse wheel.
-        local_game.mu_ctx.input_mousemove((int)rl::getMouseX(), (int)rl::getMouseY());
-        local_game.mu_ctx.input_scroll(0, (int)(rl::getMouseWheelMoveV().y * scroll_speed));
-        local_game.mu_ctx.input_textfn(string::tformat_zstr("%c", rl::getCharPressed()));
-
-        if (rl::isMouseButtonDown(rl::MouseButton.LEFT)) {
-            local_game.mu_ctx.input_mousedown(rl::getMouseX(), rl::getMouseY(), rl::MouseButton.LEFT);
-        } else if (rl::isMouseButtonPressed(rl::MouseButton.LEFT) && 
-                   rl::isMouseButtonUp(rl::MouseButton.LEFT)) 
-        {
-            local_game.mu_ctx.input_mouseup(rl::getMouseX(), rl::getMouseY(), rl::MouseButton.LEFT);
-        }
-
-        KeyboardKey key = (KeyboardKey)rl::getKeyPressed();
-        if (key != 0)
-        {
-            if (rl::isKeyDown(key))
-            {
-                local_game.mu_ctx.input_keydown((int)key);
-            } 
-            else if (rl::isKeyUp(key))
-            {
-                local_game.mu_ctx.input_keyup((int)key);
-            }
-        }
+        //local_game.mu_ctx.input_mousemove((int)rl::getMouseX(), (int)rl::getMouseY());
+        //local_game.mu_ctx.input_scroll(0, (int)(rl::getMouseWheelMoveV().y * scroll_speed));
+        mu::forward_mouse_input(local_game.mu_ctx);
+        mu::forward_text_input(local_game.mu_ctx);
+        mu::forward_keyboard_input(local_game.mu_ctx);
     }
 $endif
     
@@ -1315,7 +1296,7 @@ $if $feature(MICROUI_ENABLE) :
     {
       switch (cmd.type)
       {
-        case mu::MU_COMMAND_TEXT: mu::draw_text(string::tformat_zstr("%s", cmd.text.str), cmd.text.pos, cmd.text.color);
+        case mu::MU_COMMAND_TEXT: mu::draw_text((ZString)&cmd.text.str, cmd.text.pos, cmd.text.color);
         case mu::MU_COMMAND_RECT: mu::draw_rect(cmd.rect.rect, cmd.rect.color);
         case mu::MU_COMMAND_ICON: mu::draw_icon(cmd.icon.id, cmd.icon.rect, cmd.icon.color);
         case mu::MU_COMMAND_CLIP: mu::set_clip_rect(cmd.clip.rect);
@@ -1326,6 +1307,25 @@ $if $feature(MICROUI_ENABLE) :
    // and obstruct stuff until the next clip command from microui is handled!
    rl::endScissorMode();
 $endif
+
+    // draw game cursor sprite
+    draw_game_cursor();
+
+}
+
+fn void draw_game_cursor() @local @inline
+{
+    if(game_cursor_visible()) 
+    {
+        hide_system_cursor(); // hide operating system cursor
+        foreach(sprite : local_game.sprites) 
+        {
+            if(sprite.kind == SpriteKind.CURSOR) 
+            {
+                sprite.draw();
+            }
+        }
+    }
 }
 
 // NOTE(HM) Any code here draws on top of the game user interface
@@ -1369,15 +1369,15 @@ fn void gameOnGuiDraw(int screenWidth, int screenHeight) @public @inline {
         intro::drawIntroAnimation(&local_game.intro, screenWidth, screenHeight);
     }
     
-    // update & draw cursor sprite
-    if(game_cursor_visible()) {
-        hide_system_cursor();
-        foreach(sprite : local_game.sprites) {
-            if(sprite.kind == SpriteKind.CURSOR) {
-                sprite.draw();
-            }
-        }
-    }
+    // // update & draw cursor sprite
+    // if(game_cursor_visible()) {
+    //     hide_system_cursor();
+    //     foreach(sprite : local_game.sprites) {
+    //         if(sprite.kind == SpriteKind.CURSOR) {
+    //             sprite.draw();
+    //         }
+    //     }
+    // }
     
     if(local_game.msgbox_showing) {
         ZString message_box_title = rgui::iconText(Icon.INFO, "Message Box"); // "#191#Message Box"

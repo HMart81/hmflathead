@@ -39,6 +39,7 @@ struct MU_Stack
 module thirdparty::microui::mu @if($feature(MICROUI_ENABLE));
 
 import std::io;
+import std::core::string::conv;
 import thirdparty::raylib5::rl;
 //import std::collections::elastic_array;
 import mu_stack @public;
@@ -58,7 +59,7 @@ const MU_REAL_FMT             = "%.3g";
 const MU_SLIDER_FMT           = "%.2f";
 const MU_MAX_FMT              = 127;
 // The default font size for MicroUI is set to 12 pixels.
-const MICROUI_FONT_SIZE 	  = 12; 
+const MICROUI_FONT_SIZE 	    = 9; 
 const MICROUI_FONT_SPACING    = 1; // This is the spacing between characters in the font, used for text rendering.
 
 const MU_COMMAND_JUMP = 1;
@@ -149,26 +150,39 @@ enum MU_Opt : int (inline int v)
 
 enum MU_Mouse : int (inline int v)
 {
-	LEFT   = (1 << 0),
-	RIGHT  = (1 << 1),
-	MIDDLE = (1 << 2)
+  LEFT    = (1 << 0),
+  RIGHT   = (1 << 1),
+  MIDDLE  = (1 << 2),
+  SIDE    = (1 << 3),   // Mouse button side (advanced mouse device)
+  EXTRA   = (1 << 4),   // Mouse button extra (advanced mouse device)
+  FORWARD = (1 << 5),   // Mouse button fordward (advanced mouse device)
+  BACK    = (1 << 6),   // Mouse button back (advanced mouse device)
 }
 
 enum MU_Key : int (inline int v)
 {
-	SHIFT     = (1 << 0),
-	CTRL      = (1 << 1),
-	ALT       = (1 << 2),
-	BACKSPACE = (1 << 3),
-	RETURN    = (1 << 4)
+  SHIFT     = (1 << 0),
+  CTRL      = (1 << 1),
+  ALT       = (1 << 2),
+  BACKSPACE = (1 << 3),
+  RETURN    = (1 << 4),
+  DELETE    = (1 << 5),
+  END       = (1 << 6),
+  HOME      = (1 << 7),
+  LEFT      = (1 << 8),
+  RIGHT     = (1 << 9),
+  KEY_A     = (1 << 10),
+  KEY_C     = (1 << 11),
+  KEY_V     = (1 << 12),
+  KEY_X     = (1 << 13),
 }
 
 
-//typedef struct MU_Context MU_Context;
-alias MU_Id = uint;
+alias MU_Id   = uint;
 alias MU_Real = float;
 alias MU_Font = void*;
 
+// TODO(HM) make use of operator overloading for MU_Vec2 and MU_Rect to simplify math operations
 struct MU_Vec2 @compact
 { 
 	int x, y;
@@ -211,7 +225,7 @@ struct MU_BaseCommand @compact
 struct MU_JumpCommand { MU_BaseCommand base; void *dst; }
 struct MU_ClipCommand { MU_BaseCommand base; MU_Rect rect; }
 struct MU_RectCommand { MU_BaseCommand base; MU_Rect rect; MU_Color color; }
-struct MU_TextCommand { MU_BaseCommand base; MU_Font font; MU_Vec2 pos; MU_Color color; char[1] str; }
+struct MU_TextCommand { MU_BaseCommand base; MU_Font font; MU_Vec2 pos; MU_Color color; CChar[1] str; }
 struct MU_IconCommand { MU_BaseCommand base; MU_Rect rect; int id; MU_Color color; }
 
 struct MU_Command
@@ -373,14 +387,14 @@ extern fn void MU_Context.draw_control_text(&self, ZString str, MU_Rect rect, in
 extern fn int MU_Context.mouse_over(&self, MU_Rect rect) @extern("mu_mouse_over");
 extern fn void MU_Context.update_control(&self, MU_Id id, MU_Rect rect, int opt) @extern("mu_update_control");
 
-macro MU_Context.button(ctx, label)             => ctx.button_ex(label.zstr_tcopy(), 0, MU_Opt.ALIGNCENTER.v);
-macro MU_Context.textbox(ctx, buf, bufsz)       => ctx.textbox_ex(buf, bufsz, 0);
-macro MU_Context.slider(ctx, value, lo, hi)     => ctx.slider_ex(value, lo, hi, 0, MU_SLIDER_FMT, MU_Opt.ALIGNCENTER.v);
-macro MU_Context.number(ctx, value, step)       => ctx.number_ex(value, step, MU_SLIDER_FMT, MU_Opt.ALIGNCENTER.v);
-macro MU_Context.header(ctx, label)             => ctx.header_ex(label.zstr_tcopy(), 0);
-macro MU_Context.begin_treenode(ctx, label)     => ctx.begin_treenode_ex(label.zstr_tcopy(), 0);
-macro MU_Context.begin_window(ctx, title, rect) => ctx.begin_window_ex(title.zstr_tcopy(), rect, 0);
-macro MU_Context.begin_panel(ctx, name)         => ctx.begin_panel_ex(name.zstr_tcopy(), 0);
+macro MU_Context.button(&self, label)             => self.button_ex(label.zstr_tcopy(), 0, MU_Opt.ALIGNCENTER.v);
+macro MU_Context.textbox(&self, buf, bufsz)       => self.textbox_ex(buf, bufsz, 0);
+macro MU_Context.slider(&self, value, lo, hi)     => self.slider_ex(value, lo, hi, 0, MU_SLIDER_FMT, MU_Opt.ALIGNCENTER.v);
+macro MU_Context.number(&self, value, step)       => self.number_ex(value, step, MU_SLIDER_FMT, MU_Opt.ALIGNCENTER.v);
+macro MU_Context.header(&self, label)             => self.header_ex(label.zstr_tcopy(), 0);
+macro MU_Context.begin_treenode(&self, label)     => self.begin_treenode_ex(label.zstr_tcopy(), 0);
+macro MU_Context.begin_window(&self, title, rect) => self.begin_window_ex(title.zstr_tcopy(), rect, 0);
+macro MU_Context.begin_panel(&self, name)         => self.begin_panel_ex(name.zstr_tcopy(), 0);
 
 extern fn void MU_Context.text(&self, ZString text) @extern("mu_text");
 extern fn void MU_Context.label(&self, ZString text) @extern("mu_label");
@@ -402,7 +416,7 @@ extern fn void MU_Context.begin_panel_ex(&self, ZString name, int opt) @extern("
 extern fn void MU_Context.end_panel(&self) @extern("mu_end_panel");
 
 
-macro void MU_Context.@make_window(self, name, rect; @body) 
+macro void MU_Context.@make_window(&self, name, rect; @body) 
 {
 	if (self.begin_window(name, rect)) {
 		defer self.end_window();
@@ -419,7 +433,7 @@ macro void @render(MU_Context* ctx; @body)
 	@body();
 }
 
-macro void MU_Context.@make_popup(self, name; @body)
+macro void MU_Context.@make_popup(&self, name; @body)
 {
 	if (self.begin_popup(name.zstr_tcopy())) {
 		defer self.end_popup();
@@ -427,7 +441,7 @@ macro void MU_Context.@make_popup(self, name; @body)
 	}
 }
 
-macro void MU_Context.@make_treenode(self, name; @body)
+macro void MU_Context.@make_treenode(&self, name; @body)
 {
 	if (self.begin_treenode(name)) {
 		defer self.end_treenode();
@@ -435,7 +449,7 @@ macro void MU_Context.@make_treenode(self, name; @body)
 	}
 }
 
-macro void MU_Context.@layout_make_column(self; @body)
+macro void MU_Context.@layout_make_column(&self; @body)
 {
 	self.layout_begin_column();
 	defer self.layout_end_column();
@@ -459,97 +473,97 @@ fn void test_window(MU_Context* ctx)
 
     /* window info */
     if (ctx.header("Window Info")) 
-	{
-		win = ctx.get_current_container();
-		ZString buf;
-		ctx.layout_row(2, (int[]) { 54, -1 }, 0);
-		ctx.label("Position:");
-		buf = string::tformat_zstr("%d, %d", win.rect.x, win.rect.y); ctx.label(buf);
-		ctx.label("Size:");
-		buf = string::tformat_zstr("%d, %d", win.rect.w, win.rect.h); ctx.label(buf);
+    {
+      win = ctx.get_current_container();
+      ZString buf;
+      ctx.layout_row(2, (int[]) { 54, -1 }, 0);
+      ctx.label("Position:");
+      buf = string::tformat_zstr("%d, %d", win.rect.x, win.rect.y); ctx.label(buf);
+      ctx.label("Size:");
+      buf = string::tformat_zstr("%d, %d", win.rect.w, win.rect.h); ctx.label(buf);
     }
 
     /* labels + buttons */
     if (ctx.header_ex("Test Buttons", MU_Opt.EXPANDED.v)) 
-	{
-		ctx.layout_row(3, &&(int[*]) { 86, -110, -1 }, 0);
-		ctx.label("Test buttons 1:");
-		if (ctx.button("Button 1")) { io::printfn("Pressed button 1"); }
-		if (ctx.button("Button 2")) { io::printfn("Pressed button 2"); }
-		ctx.label("Test buttons 2:");
-		if (ctx.button("Button 3")) { io::printfn("Pressed button 3"); }
-		if (ctx.button("Popup")) { ctx.open_popup("Test Popup"); }
-		ctx.@make_popup("Test Popup") 
-		{
-		ctx.button("Hello");
-		ctx.button("World");
-		};
+	  {
+      ctx.layout_row(3, &&(int[*]) { 86, -110, -1 }, 0);
+      ctx.label("Test buttons 1:");
+      if (ctx.button("Button 1")) { io::printfn("Pressed button 1"); }
+      if (ctx.button("Button 2")) { io::printfn("Pressed button 2"); }
+      ctx.label("Test buttons 2:");
+      if (ctx.button("Button 3")) { io::printfn("Pressed button 3"); }
+      if (ctx.button("Popup")) { ctx.open_popup("Test Popup"); }
+      ctx.@make_popup("Test Popup") 
+      {
+        ctx.button("Hello");
+        ctx.button("World");
+      };
     }
 
     /* tree */
     if (ctx.header_ex("Tree and Text", MU_Opt.EXPANDED.v)) 
-	{
+	  {
       ctx.layout_row(2, &&(int[*]) { 140, -1 }, 0);
       ctx.@layout_make_column() 
-	  {
-		ctx.@make_treenode("Test 1")
-		{
-			ctx.@make_treenode("Test 1a")
-			{
-				ctx.label("Hello");
-				ctx.label("world");
-			};
-			ctx.@make_treenode("Test 1b")
-			{
-				if (ctx.button("Button 1")) { io::printfn("Pressed button 1"); }
-				if (ctx.button("Button 2")) { io::printfn("Pressed button 2"); }
-			};
-		};
-		ctx.@make_treenode("Test 2") 
-		{
-			ctx.layout_row(2, &&(int[*]) { 54, 54 }, 0);
-			if (ctx.button("Button 3")) { io::printfn("Pressed button 3"); }
-			if (ctx.button("Button 4")) { io::printfn("Pressed button 4"); }
-			if (ctx.button("Button 5")) { io::printfn("Pressed button 5"); }
-			if (ctx.button("Button 6")) { io::printfn("Pressed button 6"); }
-		};
-		ctx.@make_treenode("Test 3") 
-		{
-			int[3] checks = { 1, 0, 1 };
-			ctx.checkbox("Checkbox 1", &checks[0]);
-			ctx.checkbox("Checkbox 2", &checks[1]);
-			ctx.checkbox("Checkbox 3", &checks[2]);
-		};
-	  }; // end of column
+	    {
+		    ctx.@make_treenode("Test 1")
+		    {
+			    ctx.@make_treenode("Test 1a")
+			    {
+            ctx.label("Hello");
+            ctx.label("world");
+          };
+          ctx.@make_treenode("Test 1b")
+          {
+            if (ctx.button("Button 1")) { io::printfn("Pressed button 1"); }
+            if (ctx.button("Button 2")) { io::printfn("Pressed button 2"); }
+          };
+		    };
+        ctx.@make_treenode("Test 2") 
+        {
+          ctx.layout_row(2, &&(int[*]) { 54, 54 }, 0);
+          if (ctx.button("Button 3")) { io::printfn("Pressed button 3"); }
+          if (ctx.button("Button 4")) { io::printfn("Pressed button 4"); }
+          if (ctx.button("Button 5")) { io::printfn("Pressed button 5"); }
+          if (ctx.button("Button 6")) { io::printfn("Pressed button 6"); }
+        };
+        ctx.@make_treenode("Test 3") 
+        {
+          int[3] checks = { 1, 0, 1 };
+          ctx.checkbox("Checkbox 1", &checks[0]);
+          ctx.checkbox("Checkbox 2", &checks[1]);
+          ctx.checkbox("Checkbox 3", &checks[2]);
+        };
+	    }; // end of column
 
       ctx.@layout_make_column() 
-	  {
-		ctx.layout_row(1, &&(int[*]) { -1 }, 0);
-		ctx.text("Lorem ipsum dolor sit amet, consectetur adipiscing "
-			"elit. Maecenas lacinia, sem eu lacinia molestie, mi risus faucibus "
-			"ipsum, eu varius magna felis a nulla.");
-	  };
-    }
+      {
+        ctx.layout_row(1, &&(int[*]) { -1 }, 0);
+        ctx.text("Lorem ipsum dolor sit amet, consectetur adipiscing "
+          "elit. Maecenas lacinia, sem eu lacinia molestie, mi risus faucibus "
+          "ipsum, eu varius magna felis a nulla.");
+      };
+    } // end of tree
 
     /* background color sliders */
     if (ctx.header_ex("Background Color", MU_Opt.EXPANDED.v)) 
-	{
-		ctx.layout_row(2, &&(int[*]) { -78, -1 }, 74);
-		/* sliders */
-		ctx.@layout_make_column() 
-		{
-			ctx.layout_row(2, &&(int[*]) { 46, -1 }, 0);
-			ctx.label("Red:");   ctx.slider((MU_Real*)&bg[0], 0, 255);
-			ctx.label("Green:"); ctx.slider((MU_Real*)&bg[1], 0, 255);
-			ctx.label("Blue:");  ctx.slider((MU_Real*)&bg[2], 0, 255);
-		};
+	  {
+		  ctx.layout_row(2, &&(int[*]) { -78, -1 }, 74);
+      /* sliders */
+      ctx.@layout_make_column() 
+      {
+        ctx.layout_row(2, &&(int[*]) { 46, -1 }, 0);
+        ctx.label("Red:");   ctx.slider((MU_Real*)&bg[0], 0, 255);
+        ctx.label("Green:"); ctx.slider((MU_Real*)&bg[1], 0, 255);
+        ctx.label("Blue:");  ctx.slider((MU_Real*)&bg[2], 0, 255);
+      };
       /* color preview */
       MU_Rect r = ctx.layout_next();
       ctx.draw_rect(r, mu::color(bg[0], bg[1], bg[2], 255));
       String buf = string::tformat("#%02X%02X%02X", bg[0], bg[1], bg[2]);
       ctx.draw_control_text(buf.zstr_tcopy(), r, MU_COLOR_TEXT, MU_Opt.ALIGNCENTER.v);
     }
-  };
+  }; // end of window
 }
 
 /*
@@ -570,7 +584,7 @@ fn void hello_window(MU_Context* ctx) @inline
 	ctx.@make_window("hello_window", mu::rect(50, 50, 400, 300))
 	{
 		// Here you can add UI elements and logic for the test window
-		//ctx.text("This is a test window.");
+		ctx.text("This is a test window.");
 		ctx.button("Click Me");
 	};
 }
@@ -580,8 +594,8 @@ fn void hello_window(MU_Context* ctx) @inline
 fn void register_test_window(MU_Context* ctx) @inline
 {
 	// Register the test window frame function to be processed in the main loop
-	//register_frame(&test_window);
-	register_frame(&hello_window);
+  register_frame(&test_window);
+	//register_frame(&hello_window);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////
@@ -641,9 +655,12 @@ fn void process_frame(MU_Frame frame, MU_Context* ctx) @local
 	};
 }
 
-fn int text_width(MU_Font font, ZString text, int len) @inline
+fn int text_width(MU_Font font, ZString text, int len) //@inline
 {
-  return (int)rl::measureTextEx(rl::getFontDefault(), text, MICROUI_FONT_SIZE, MICROUI_FONT_SPACING).x;
+    // mesure is in pixels
+    //int size = rl::measureText(text, MICROUI_FONT_SIZE);
+    int size = (int)rl::measureTextEx(rl::getFontDefault(), text, MICROUI_FONT_SIZE, MICROUI_FONT_SPACING).x;
+    return size;
 }
 
 fn int text_height(MU_Font font) {
@@ -672,6 +689,130 @@ fn void set_clip_rect(MU_Rect rect)
 	rl::endScissorMode(); // End any previous scissor mode to reset the clipping state
   // Set the clipping rectangle for drawing operations
 	rl::beginScissorMode(rect.x, rect.y, rect.w, rect.h);
+}
+
+// untested!!!!!!!
+fn void forward_text_input(MU_Context* ctx) //@local 
+{
+    // Create a buffer to hold UTF8 text input
+    // UTF8 is a "variable width encoding" so some characters may be 1 byte whereas other may be up to 4
+    char[512] text_input;
+    // This will track the index into the text_input buffer where characters bytes will be copied to
+    uint text_input_offset;
+
+    // This loops reads the characters currently pressed until we've read all the pressed characters or we hit the
+    // limit of our text input buffer. We'd only hit the limit if someone was holding a LOT of characters
+    for(int i = 0; text_input_offset < text_input.len; i++) 
+    {
+        // Get the pressed UTF8 character rune
+        // Called multiple times since multiple keys may be pressed
+        int pressed_rune = rl::getCharPressed();
+
+        // If the pressed rune (Unicode character) is 0 there are no more keys pressed
+        if(pressed_rune == 0) break;
+
+        // UTF8 characters are stored using "variable width encoding"
+        // This means a character could be represented by 1-4 bytes
+        // Encoding the rune into UTF8 always returns 4 bytes, but the count indicates how many runes the character actually is
+        String bytes = string::tformat("%s", pressed_rune);
+        usz count = conv::utf8_codepoints(bytes);
+
+        // We'll copy from the start of the bytes array, up to the number of bytes used to represent the character, 
+        // into our text input buffer at the current text input offset
+        mem::copy(text_input[text_input_offset..], bytes[:count], count);
+
+        // Finally we can offset the text_input_offset by the number of bytes we copied into the buffer
+        text_input_offset += (uint)count;
+    }
+
+    // Now we can send our text_input buffer to mui so it knows the currently pressed characters
+    // We'll just send a slice of the full text_input buffer, up to the latest input offset since it probably wasn't filled
+    ctx.input_textfn(string::tformat_zstr("%s", text_input[:text_input_offset]));
+}
+
+
+// This struct stores a mapping from a raylib mouse button enum to the equivalent mui enum
+struct MouseButtonMapping @local @compact
+{
+    MouseButton rl; // Raylib mouse button enum
+    MU_Mouse mu;// MicroUI mouse button enum;
+}
+
+fn void forward_mouse_input(MU_Context* ctx) {
+    // Get the current mouse position/scroll from raylib
+    Vector2 mouse_position = {rl::getMouseX(), rl::getMouseY()};
+    float mouse_scroll = rl::getMouseWheelMove() * -30.0f; // Invert the scroll direction to match mui's expectations
+
+    // Send the mouse position/scroll to mui
+    ctx.input_mousemove((int)mouse_position.x, (int)mouse_position.y);
+    ctx.input_scroll(0, (int)mouse_scroll);
+
+    // We'll create an array of mappings using the struct above
+ 
+    MouseButtonMapping[*] mouseButtonMappings = {
+        {MouseButton.LEFT, MU_Mouse.LEFT},
+        {MouseButton.RIGHT, MU_Mouse.RIGHT},
+        {MouseButton.MIDDLE, MU_Mouse.MIDDLE},
+        {MouseButton.SIDE, MU_Mouse.SIDE},
+        {MouseButton.EXTRA, MU_Mouse.EXTRA},
+        {MouseButton.FORWARD, MU_Mouse.FORWARD},
+        {MouseButton.BACK, MU_Mouse.BACK}
+    };
+
+    // Check each if each mouse button is down or released with Raylib and forward the event to mui if so
+    foreach(button : mouseButtonMappings) 
+    {
+        if (rl::isMouseButtonPressed(button.rl)) {
+            ctx.input_mousedown((int)mouse_position.x, (int)mouse_position.y, button.mu);
+        }
+        else if (rl::isMouseButtonReleased(button.rl)) {
+            ctx.input_mouseup((int)mouse_position.x, (int)mouse_position.y, button.mu);
+        }
+    }
+}
+
+
+// This struct stores a mapping from a raylib key enum to the equivalent mui enum
+struct KeyMapping @local @compact
+{
+    KeyboardKey rl;
+    MU_Key mu;
+}
+
+fn void forward_keyboard_input(MU_Context* ctx)
+{
+    // We'll create an array of mappings using the struct above
+    // We don't need to map every raylib key - just the ones mui needs for ui stuff
+    KeyMapping[*] keyMappings = {
+        {rl::KEY_LEFT_SHIFT,       MU_Key.SHIFT},
+        {rl::KEY_RIGHT_SHIFT,      MU_Key.SHIFT},
+        {rl::KEY_LEFT_CONTROL,     MU_Key.CTRL},
+        {rl::KEY_RIGHT_CONTROL,    MU_Key.CTRL},
+        {rl::KEY_LEFT_ALT,         MU_Key.ALT},
+        {rl::KEY_RIGHT_ALT,        MU_Key.ALT},
+        {rl::KEY_ENTER,            MU_Key.RETURN},
+        {rl::KEY_KP_ENTER,         MU_Key.RETURN},
+        {rl::KEY_BACKSPACE,        MU_Key.BACKSPACE},
+        {rl::KEY_DELETE,           MU_Key.DELETE},
+        {rl::KEY_END,              MU_Key.END},
+        {rl::KEY_HOME,             MU_Key.HOME},
+        {rl::KEY_LEFT,             MU_Key.LEFT},
+        {rl::KEY_RIGHT,            MU_Key.RIGHT},
+        {rl::KEY_A,                MU_Key.KEY_A},
+        {rl::KEY_C,                MU_Key.KEY_C},
+        {rl::KEY_V,                MU_Key.KEY_V},
+        {rl::KEY_X,                MU_Key.KEY_X},
+    };
+
+    foreach(key : keyMappings) 
+    {
+        if (rl::isKeyPressed(key.rl)) {
+            ctx.input_keydown(key.mu);
+        }
+        else if (rl::isKeyReleased(key.rl)) {
+            ctx.input_keyup(key.mu);
+        }
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////////
