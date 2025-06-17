@@ -433,7 +433,7 @@ enum TraceLogLevel : int
 }
 
 // Mouse buttons
-enum MouseButton
+enum MouseButton : inline int
 {
     LEFT,       // Mouse button left
     RIGHT,      // Mouse button right

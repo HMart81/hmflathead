@@ -64,6 +64,7 @@ import game::lowlevel::bounds;
 import thirdparty::raylib5::rl;
 import thirdparty::raygui5::rgui/*, thirdparty::raygui5::rgui::style::dark*/;
 import thirdparty::library::xml;
+import thirdparty::microui::mu;  // micro ui
 import engine::physics::box2d;
 import thirdparty::tracy;
 import thirdparty::tsoding::fg; // flaglib
@@ -333,6 +334,9 @@ struct Game (SaveSystemInterface) @local
     gui::Desktop* guiActive; // to handle all guis
     gui::Desktop* main_menu;
     //
+
+    // microui
+    mu::MU_Context* mu_ctx @if($feature(MICROUI_ENABLE)); // microui context, used for the micro ui system
 
     GameMode mode;
 
@@ -685,6 +689,13 @@ fn void Game.unload(&self) {
     // clear material database
     self.mtrDB.clear();
     self.freeGameEntities();
+
+$if $feature(MICROUI_ENABLE):
+    if(self.mu_ctx) {
+        mem::free(self.mu_ctx);
+        self.mu_ctx = null;
+    }
+$endif
     
     if(self.main_menu) {
         self.main_menu.deinit();
@@ -873,6 +884,38 @@ fn void gameHandleGeneralControls() @local
             menu::setGUI(null); // disable any gui
         }
 	}
+
+$if $feature(MICROUI_ENABLE):
+    // #region MicroUI initialization
+    if(local_game.mu_ctx != null) 
+    {
+        float scroll_speed = -30.0f; // scroll speed for mouse wheel.
+        local_game.mu_ctx.input_mousemove((int)rl::getMouseX(), (int)rl::getMouseY());
+        local_game.mu_ctx.input_scroll(0, (int)(rl::getMouseWheelMoveV().y * scroll_speed));
+        local_game.mu_ctx.input_textfn(string::tformat_zstr("%c", rl::getCharPressed()));
+
+        if (rl::isMouseButtonDown(rl::MouseButton.LEFT)) {
+            local_game.mu_ctx.input_mousedown(rl::getMouseX(), rl::getMouseY(), rl::MouseButton.LEFT);
+        } else if (rl::isMouseButtonPressed(rl::MouseButton.LEFT) && 
+                   rl::isMouseButtonUp(rl::MouseButton.LEFT)) 
+        {
+            local_game.mu_ctx.input_mouseup(rl::getMouseX(), rl::getMouseY(), rl::MouseButton.LEFT);
+        }
+
+        KeyboardKey key = (KeyboardKey)rl::getKeyPressed();
+        if (key != 0)
+        {
+            if (rl::isKeyDown(key))
+            {
+                local_game.mu_ctx.input_keydown((int)key);
+            } 
+            else if (rl::isKeyUp(key))
+            {
+                local_game.mu_ctx.input_keyup((int)key);
+            }
+        }
+    }
+$endif
     
     /*
     if(rl::isKeyPressed(rl::KEY_SPACE)) {
@@ -1226,6 +1269,9 @@ fn void gameDraw(int screenWidth, int screenHeight) @local
         rl::clearBackground({0x18, 0x18, 0x18, 0xFF});
         //rl::clearBackground(*(Color*)&&((uint[1]){ 0x181818FF }));
         
+$if $feature(MICROUI_ENABLE):
+        mu::process_frames(local_game.mu_ctx, rl::getFrameTime());
+$endif
         // draw the view FBO's
         if(rl::isShaderValid(*local_game.current_global_shader)) 
         {
@@ -1261,8 +1307,25 @@ fn void gameDraw(int screenWidth, int screenHeight) @local
 }
 
 // NOTE(HM) Any code here draws before the game user interface
-fn void gameOnPostSceneDraw(int screenWidth, int screenHeight) @local {
-    
+fn void gameOnPostSceneDraw(int screenWidth, int screenHeight) @local 
+{
+$if $feature(MICROUI_ENABLE) :
+    MU_Command * cmd = null;
+    while (local_game.mu_ctx.next_command(&cmd))
+    {
+      switch (cmd.type)
+      {
+        case mu::MU_COMMAND_TEXT: mu::draw_text(string::tformat_zstr("%s", cmd.text.str), cmd.text.pos, cmd.text.color);
+        case mu::MU_COMMAND_RECT: mu::draw_rect(cmd.rect.rect, cmd.rect.color);
+        case mu::MU_COMMAND_ICON: mu::draw_icon(cmd.icon.id, cmd.icon.rect, cmd.icon.color);
+        case mu::MU_COMMAND_CLIP: mu::set_clip_rect(cmd.clip.rect);
+      }
+    }
+    // Make sure we end any lingering scissor mode.
+   // Without this precaution it's possible for clipping to persist into the next frame 
+   // and obstruct stuff until the next clip command from microui is handled!
+   rl::endScissorMode();
+$endif
 }
 
 // NOTE(HM) Any code here draws on top of the game user interface
@@ -2046,6 +2109,19 @@ $endif
 
     lgr::info(Where.FILE, "---------------------------------------------\n");
 // #endregion MONITOR STATES
+
+$if $feature(MICROUI_ENABLE):
+    // #region MicroUI initialization
+    lgr::info(Where.FILE, "Initializing MicroUI:");
+    lgr::info(Where.FILE, "---------------------------------------------");
+    // NOTE(HM) This needs to be done before any microUI function requiring units is used!!!
+    local_game.mu_ctx = mem::new(MU_Context);
+    local_game.mu_ctx.init();
+    local_game.mu_ctx.text_width  = &mu::text_width;
+    local_game.mu_ctx.text_height = &mu::text_height;
+    mu::register_test_window(local_game.mu_ctx);
+    lgr::info(Where.FILE, "---------------------------------------------\n");
+$endif
     
     lgr::info(Where.FILE, "Setting up game view:");
     lgr::info(Where.FILE, "---------------------------------------------");
