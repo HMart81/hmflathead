@@ -456,8 +456,75 @@ macro void MU_Context.@layout_make_column(&self; @body)
 	@body();
 }
 
+macro void MU_Context.@make_panel(&self, name; @body)
+{
+	self.begin_panel(name);
+	defer self.end_panel();
+	@body();
+}
 
-/////////////////////////////////////
+
+/////////////////////////////////////////////////////////////////////////////////////
+/////////////////////// Internal windows ////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////
+
+//char[64000] logbuf @local;
+String logbuf @local = "";
+int logbuf_updated @local = 0;
+
+fn void write_log(String text) @local 
+{
+  // if (logbuf[0]) 
+  // {
+  //   char[] buf = logbuf[0:text.len + 1];
+  //   buf.concat("\n");
+
+  // }
+  // strcat(logbuf, text);
+  if(logbuf.len > 0) {
+    logbuf = logbuf.tconcat("\n");
+  }
+  logbuf = logbuf.tconcat(text);
+  logbuf_updated = 1;
+}
+
+fn void log_window(MU_Context *ctx) 
+{
+  ctx.@make_window("Log Window", rect(350, 40, 300, 200)) 
+  {
+    /* output text panel */
+    ctx.layout_row(1, &&(int[*]) { -1 }, -25);
+    MU_Container *panel;
+    ctx.@make_panel("Log Output")
+    {
+      panel = ctx.get_current_container();
+      ctx.layout_row(1, &&(int[*]) { -1 }, -1);
+      ctx.text(logbuf.zstr_tcopy());
+    }; // end of log output panel
+
+    if (logbuf_updated) 
+    {
+      panel.scroll.y = panel.content_size.y;
+      logbuf_updated = 0;
+    }
+
+    /* input textbox + submit button */
+    char[128] buf;
+    int submitted = 0;
+    ctx.layout_row(2, &&(int[*]) { -70, -1 }, 0);
+    if (ctx.textbox((ZString)&buf[0], (int)buf.len) & MU_Res.SUBMIT.v) 
+    {
+      ctx.set_focus(ctx.last_id);
+      submitted = 1;
+    }
+    if (ctx.button("Submit")) { submitted = 1; }
+    if (submitted) {
+      write_log((String)buf[0..]);
+      buf[0] = '\0';
+    }
+  }; // end of log window
+}
+
 // Test window function to demonstrate the usage of MicroUI
 
 int[*] bg @local = { 90, 95, 100 };
@@ -594,7 +661,9 @@ fn void hello_window(MU_Context* ctx) @inline
 fn void register_test_window(MU_Context* ctx) @inline
 {
 	// Register the test window frame function to be processed in the main loop
-  register_frame(&test_window);
+  //register_frame(&test_window);
+  register_frame(&log_window);
+  // Uncomment the line below to register the hello_window function
 	//register_frame(&hello_window);
 }
 
@@ -630,12 +699,18 @@ $endif
  * @require ctx != null
  *>
 fn void process_frames(MU_Context* ctx, float delta_time) {
-	for (int i = 0; i < MAX_MU_FRAMES; i++)
+	/*for (int i = 0; i < MAX_MU_FRAMES; i++)
 	{
 		if (mu_frames[i] != null) {
 			process_frame(mu_frames[i], ctx);
 		}
-	}
+	}*/
+  foreach(frame: mu_frames)
+  {
+    if (frame != null) {
+      process_frame(frame, ctx);
+    }
+  }
 }
 
 <* 
@@ -714,8 +789,9 @@ fn void forward_text_input(MU_Context* ctx) //@local
         // UTF8 characters are stored using "variable width encoding"
         // This means a character could be represented by 1-4 bytes
         // Encoding the rune into UTF8 always returns 4 bytes, but the count indicates how many runes the character actually is
-        String bytes = string::tformat("%s", pressed_rune);
-        usz count = conv::utf8_codepoints(bytes);
+        char d = (char)pressed_rune; // Convert the rune to a char
+        String bytes = string::tformat("%c", d);
+        usz count = bytes.len; //conv::utf8_codepoints(bytes);
 
         // We'll copy from the start of the bytes array, up to the number of bytes used to represent the character, 
         // into our text input buffer at the current text input offset
@@ -727,7 +803,7 @@ fn void forward_text_input(MU_Context* ctx) //@local
 
     // Now we can send our text_input buffer to mui so it knows the currently pressed characters
     // We'll just send a slice of the full text_input buffer, up to the latest input offset since it probably wasn't filled
-    ctx.input_textfn(string::tformat_zstr("%s", text_input[:text_input_offset]));
+    ctx.input_textfn(string::tformat_zstr("%s", (String)text_input[:text_input_offset]));
 }
 
 
