@@ -30,7 +30,7 @@ module engine::filesystem::fs;
 // just a wrapper to some raylib functions
 
 // region modules
-import std::io;
+import std::io, std::io::path;
 import std::os;
 import thirdparty::raylib5::rl;
 // end_region
@@ -200,6 +200,21 @@ fn void unloadDroppedFiles(FilePathList files) @inline {
 // Get file modification time (last write time)
 fn CLong getFileModTime(String fileName) => rl::getFileModTime(fileName.zstr_tcopy());
 // end_region
+
+// #region Path
+fn Path? newPath(String _path) 
+{
+    $if $defined(env::WIN32):
+        return path::temp(_path, PathEnv.WIN32);
+    $else
+        $if $defined(env::POSIX):
+            return path::temp(_path, PathEnv.POSIX);
+        $endif
+
+        return path::temp(_path); // default enviroment whatever it is
+    $endif
+}
+// #endregion
 
 //--------------------------------------------------------
 

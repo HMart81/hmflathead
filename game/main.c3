@@ -47,6 +47,10 @@ import engine::assets_api::asapi; // for the asset system
 import engine::assets::astmng; // asset manager
 import engine::sys::reader::svg;
 import game::material::manager::mtrmng; // material database
+//
+import thirdparty::wren;
+import engine::sys::script_engine::scpt; // Script Engine (based on Wren language)
+//
 import game::assets::sprt; // sprites
 //import game::assets::part; // particles
 import game::serialize::svs; // save system
@@ -337,6 +341,9 @@ struct Game (SaveSystemInterface) @local
 
     // microui
     mu::MU_Context* mu_ctx @if($feature(MICROUI_ENABLE)); // microui context, used for the micro ui system
+
+    // script engine
+    ScriptEngine script_eng;
 
     GameMode mode;
 
@@ -2253,6 +2260,19 @@ $endif
     lgr::info(Where.FILE, "---------------------------------------------\n");
 // #endregion Asset manager
 
+$if $feature(WREN_ENABLE):
+    lgr::info(Where.FILE, "Initializing Script Engine: %s", wren::VERSION_STRING);
+    lgr::info(Where.FILE, "---------------------------------------------");
+    // init the game editor defaults
+    local_game.script_eng.init();
+    local_game.script_eng.registerScripts(local_game.app_base_folder.tconcat(scpt::SCRIPT_FOLDER_NAME));
+    Script* main = local_game.script_eng.getScript("main");
+    if(main != null) {
+        main.run(&local_game.script_eng);
+    }
+    lgr::info(Where.FILE, "---------------------------------------------\n");
+$endif
+
     lgr::info(Where.FILE, "Initializing game editor:");
     lgr::info(Where.FILE, "---------------------------------------------");
     // init the game editor defaults
@@ -2382,6 +2402,13 @@ fn void gameOnExit() @local
     deinit_game_cursor();
     // make sure to release all assets last, so you don't try to release a asset that is already released.
     asstManager.releaseAllAssets();
+$if $feature(WREN_ENABLE):
+    lgr::info(Where.FILE, "close Script Engine: %s", wren::VERSION_STRING);
+    lgr::info(Where.FILE, "---------------------------------------------");
+    // init the game editor defaults
+    local_game.script_eng.deinit();
+    lgr::info(Where.FILE, "---------------------------------------------\n");
+$endif
     // close physics engine
     box2d::deinitDebugDraw(&local_game.phys_debug);
     if(box2d::world_IsValid(local_game.physWorldId)) {

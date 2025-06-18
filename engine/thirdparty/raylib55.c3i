@@ -399,7 +399,8 @@ struct FilePathList
 {
     uint capacity;                  // Filepaths max entries
     uint count;                     // Filepaths entries count
-    char** paths;                   // Filepaths entries
+    //char** paths;                  // Filepaths entries
+    ZString* paths;                 // Filepaths entries
 }
 
 // Automation event
