@@ -53,66 +53,87 @@ struct Script
     String path;
     String name;
     ZString data;
-    uint data_size;
-    WrenVM* vm;
-    ScriptList imports;
+    CLong modtime; // to see if the file was modified
+    //WrenVM* vm;
+    ScriptEngine* sengine;
 }
 
 fn void Script.deinit(&self)
 {
+    if(self.sengine) self.sengine = null;
     mem::free(self);
 }
 
-fn void Script.run(&self, ScriptEngine* sengine) 
+fn void Script.run(&this) @inline
 {
-    assert(sengine != null);
-    if(!self.vm) self.vm = sengine.makeVM();
-    if(self.vm)
-    {
-        WrenInterpretResult result = self.vm.interpret(self.name.zstr_tcopy(), self.data);
-
-        switch (result)
-        {
-            case wren::RESULT_COMPILE_ERROR: io::printfn("Compile Error!\n");
-            case wren::RESULT_RUNTIME_ERROR: io::printfn("Runtime Error!\n");
-            case wren::RESULT_SUCCESS: io::printfn("Success!\n");
-            default:
-                unreachable("Script Engine fatal error was Unkown.");
-        }
-    } else {
-        lgr::warning(Where.FILE,"Failed to run script %s because it has no virtual machine", self.name);
-    }
+    assert(this.sengine != null);
+    this.sengine.vmachine.compile_run(this); 
 }
 
-fn void Script.stop(&self) {
-    if(self.vm) 
+<*
+* @param [in] _sengine : "pointer to the script engine"
+* @require _sengine != null
+*>
+fn void Script.linkTo(&self, ScriptEngine* _sengine) @inline
+{
+    self.sengine = _sengine;
+}
+
+fn void Script.stop(&self) 
+{
+    if(self.sengine != null)
     {
-        self.vm.collectGarbage(); // should I do this?
-        self.vm.free();
-        self.vm = null;
+        self.sengine.vmachine.vm.abortFiber((int)wren::RESULT_SUCCESS);
     }
 }
 
 struct ScriptEngine
 {
     WrenConfiguration config;
-    //VMListPtr vmachines;  // list of virtual machines
     ScriptList scripts;
+    // wren supports multiple virtual machines but I will just use one and instead
+    // rely on the virtual machine fivers to run more scripts concunrrently
+    //VMListPtr vmachines;  // list of virtual machines
+    ScriptVirtualMachine vmachine;
 }
 
 fn void ScriptEngine.init(&self)
 {
     self.config.init();
-    self.config.writeFn = &writeFn;
-    self.config.errorFn = &errorFn;
-    self.config.loadModuleFn = &loadModule;
+    self.bindFunctions();
+    self.createVirtualMachine();
     io::printfn("ScriptEngine initialized");
 }
 
 fn void ScriptEngine.deinit(&self)
 {
     if(self.scripts.len()) foreach(script : self.scripts) { script.deinit(); };
+    self.closeVirtualMachine();
     io::printfn("ScriptEngine deinitialized");
+}
+
+fn void ScriptEngine.bindFunctions(&self) @inline @local
+{
+    self.config.writeFn = &writeFn;
+    self.config.errorFn = &errorFn;
+    self.config.loadModuleFn = &loadModule;
+    self.config.bindForeignMethodFn = &bindForeignMethod;
+}
+
+fn WrenVM* ScriptEngine.makeVM(&self) @inline @local
+{
+    return self.config.newVM();
+}
+
+fn void ScriptEngine.createVirtualMachine(&self) @inline @local
+{
+    self.vmachine.init();
+    self.vmachine.create(self);
+}
+
+fn void ScriptEngine.closeVirtualMachine(&self) @inline @local
+{
+    self.vmachine.deinit();
 }
 
 fn void ScriptEngine.registerScripts(&self, String script_folder)
@@ -160,15 +181,19 @@ fn void ScriptEngine.reloadScripts(&self, String script_folder)
                 continue;
             }
 
-            if(path::is_file(script_path)) {
-                String script_name = fs::getFileNameWithoutExt(script_path.path_string);
-                Script* script = self.getScript(script_name);
-                if(script) {
-                    usz file_size = fs::getFileSize(script_path.path_string);
-                    bool size_mismatch = (int)file_size != script.data_size;
-                    if(size_mismatch) {
+            if(path::is_file(script_path)) 
+            {
+                //();
+                String file_path = script_path.path_string;
+                Script* script = self.getScript(fs::getFileNameWithoutExt(file_path));
+                if(script) 
+                {
+                    CLong file_mod_time = fs::getFileModTime(file_path); //fs::getFileSize(script_path.path_string);
+                    bool mismatch = file_mod_time != script.modtime;
+                    if(mismatch) // reload script
+                    {
                         script.data = fs::fileLoadEntireText(script_path.path_string).zstr_tcopy();
-                        script.data_size = (int)file_size;
+                        script.modtime = file_mod_time;
                     }
                 }
             } else {
@@ -180,20 +205,15 @@ fn void ScriptEngine.reloadScripts(&self, String script_folder)
     }
 }
 
-fn WrenVM* ScriptEngine.makeVM(&self) 
+fn void ScriptEngine.createScript(&this, Path script_path)
 {
-    return self.config.newVM();
-}
-
-fn void ScriptEngine.createScript(&self, Path script_path)
-{
-    // else
     Script* new_module = mem::new(Script);
     new_module.path = script_path.path_string.tcopy();
-    new_module.name = fs::getFileNameWithoutExt(script_path.path_string);
+    new_module.name = fs::getFileNameWithoutExt(script_path.path_string).tcopy();
     new_module.data = fs::fileLoadEntireText(script_path.path_string).zstr_tcopy();
-    new_module.data_size = script_path.path_string.len;
-    self.scripts.push(new_module);
+    new_module.modtime = fs::getFileModTime(script_path.path_string);
+    new_module.linkTo(this);
+    this.scripts.push(new_module);
 }
 
 <*
@@ -209,9 +229,58 @@ fn Script* ScriptEngine.getScript(&self, String name)
     return null;
 }
 
+/////////////////////////////////////////// Virtual Machine ///////////////////////////////////
+struct ScriptVirtualMachine
+{
+    uint id;
+    WrenVM* vm;
+}
 
-// wren config callbacks
+fn void ScriptVirtualMachine.init(&self)
+{
+    
+}
 
+<*
+* @param [in] scptengine : "pointer to the current script engine"
+* @require scptengine != null
+* @ensure self.vm != null
+*>
+fn void ScriptVirtualMachine.create(&self, ScriptEngine* scptengine)
+{
+    // for now we only support one virtual machine per game run
+    assert(self.vm == null);
+    // create the new machine
+    if(self.id) self.id++;
+    self.vm = scptengine.makeVM();
+}
+
+fn void ScriptVirtualMachine.deinit(&self) @inline
+{
+    if(self.vm) {
+        self.vm.collectGarbage(); // should I do this?
+        self.vm.free();
+        self.vm = null;
+    }
+}
+
+fn void ScriptVirtualMachine.compile_run(&self, Script* script) @inline
+{
+    WrenInterpretResult result = self.vm.interpret(script.name.zstr_tcopy(), script.data);
+
+    switch (result)
+    {
+        case wren::RESULT_COMPILE_ERROR: io::printfn("Compile Error!\n");
+        case wren::RESULT_RUNTIME_ERROR: io::printfn("Runtime Error!\n");
+        case wren::RESULT_SUCCESS: io::printfn("Success!\n");
+        default:
+            unreachable("Script Virtual Machine got a unkown fatal error!?");
+    }
+}
+
+// wren required config callbacks
+
+//#region import support
 fn WrenLoadModuleResult loadModule(WrenVM* vm, ZString name) @local
 {
     String path = main::gpGame.app_base_folder.tconcat(SCRIPT_FOLDER_NAME);
@@ -241,8 +310,13 @@ fn WrenLoadModuleResult myLoadModule(String name, String path) @local
                 String found_name = fs::getFileNameWithoutExt(script_path.path_string);
                 if(found_name.len && found_name == name)
                 {
-                    String _module_import = fs::fileLoadEntireText(script_path.path_string);
-                    result.source = _module_import.zstr_tcopy();
+                    String _module_import_data = fs::fileLoadEntireText(script_path.path_string);
+                    if(result.source != null) {
+                        //for example, if we used malloc to allocate
+                        //our source string, we use free to release it.
+                        mem::free(result.source);
+                    }
+                    result.source = _module_import_data.zstr_tcopy();
                     break;
                 }
             } else {
@@ -257,7 +331,9 @@ fn WrenLoadModuleResult myLoadModule(String name, String path) @local
 
     return result;
 }
+//#endregion 
 
+//#region basic logging and script error handling
 fn void writeFn(WrenVM* vm, ZString text) @local
 {
   io::printf("%s", text);
@@ -273,4 +349,68 @@ fn void errorFn(WrenVM* vm, WrenErrorType errorType, ZString _module, int line, 
     default:
         unreachable("Script Engine fatal error was Unkown.");
   }
+}
+//#endregion
+
+
+////// WARNING(HM) For some reason I cannot make foreign functions work, calling C3 custom code.
+////// This despite bindForeignMethod being called correctly and both 
+////// writeFn and errorFn, working just fine and are also called from c3 code!!!!!!? :( 
+
+<*
+* @param [in] vm : "current wren virtual machine calling this func"
+* @require vm != null
+*>
+fn void wrenLogToFile(WrenVM* vm)
+{
+    vm.ensureSlots(2); // slot 0 is the caller, slot 1 is the argument
+    assert(vm.getSlotType(1) == WrenType.LIST, "message must be a string");
+    String message = ((ZString)vm.getSlotString(1)).str_view();
+    //vm.getVariable("global", "LogToFile", 0);
+    lgr::info(Where.FILE, "%s", message);
+
+    //double a = vm.getSlotDouble(1);
+    //double b = vm.getSlotDouble(2);
+    //vm.setSlotDouble(0, a + b);
+}
+
+<*
+    Binds C3 functions to methods defined in script classes
+
+* @param [in] vm : "current wren virtual machine calling this func"
+* @require vm != null
+*>
+fn WrenForeignMethodFn bindForeignMethod(WrenVM* vm, ZString script_name, ZString className, bool isStatic, ZString signature)
+{
+    String module_name, class_name, _signature;
+    module_name = script_name.str_view();
+    class_name = className.str_view();
+    _signature = signature.str_view();
+
+    WrenForeignMethodFn result;
+
+    switch MODULES : (module_name) 
+    {
+        case "global":
+            switch (class_name)
+            {
+                case "Log":
+                    if (isStatic)
+                    {
+                        if (_signature == "tofile(_)") {
+                            result = &wrenLogToFile;
+                            break MODULES;
+                        }
+                        else if (_signature == "add(_,_)") {
+                            result = &wrenLogToFile;
+                            break MODULES;
+                        }
+                    }
+            }
+        case "main":
+        case "math":
+    }
+
+  ///  
+  return result;
 }

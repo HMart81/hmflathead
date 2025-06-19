@@ -2268,7 +2268,7 @@ $if $feature(WREN_ENABLE):
     local_game.script_eng.registerScripts(local_game.app_base_folder.tconcat(scpt::SCRIPT_FOLDER_NAME));
     Script* main = local_game.script_eng.getScript("main");
     if(main != null) {
-        main.run(&local_game.script_eng);
+        main.run();
     }
     lgr::info(Where.FILE, "---------------------------------------------\n");
 $endif

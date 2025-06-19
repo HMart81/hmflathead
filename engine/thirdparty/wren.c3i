@@ -802,7 +802,7 @@ struct Token
 //   zero. It should return NULL.
 alias WrenReallocateFn = fn void* (void* memory, usz newSize, void* userData);
 
-// A function callable from Wren code, but implemented in C.
+// A function callable from Wren code, but implemented in C3.
 alias WrenForeignMethodFn = fn void (WrenVM* vm);
 
 // A finalizer function for freeing resources owned by an instance of a foreign

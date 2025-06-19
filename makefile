@@ -69,7 +69,7 @@ RAYGUI := raygui\raygui.obj
 TSOD_FLAG := flaglib\flaglib.lib
 TRACY := tracy\TracyClient.lib
 MICROUI := microui\microui.lib
-WREN := wren\wren.lib
+WREN := wren\wren_d.lib
 ##
 LIBRARY_ROOT_PATH := .\thirdparty\include\libs\\
 LINKER_SEARCH_PATHS := -L $(LIBRARY_ROOT_PATH)
