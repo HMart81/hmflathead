@@ -395,6 +395,8 @@ struct WrenHandle
 //
 // Wren has no global state, so all state stored by a running interpreter lives
 // here.
+alias WrenVM = void*;
+/*
 struct WrenVM
 {
   ObjClass* boolClass;
@@ -479,7 +481,7 @@ struct WrenVM
   // Method calls are dispatched directly by index in this table.
   SymbolTable methodNames;
 }
-
+*/
 
 // The different signature syntaxes for different kinds of methods.
 enum SignatureType : inline int

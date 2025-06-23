@@ -104,9 +104,9 @@ alias MU_Stack_Layout        @local     = MU_Stack{MU_Layout, MU_LAYOUTSTACK_SIZ
 
 //macro stack($Type, $n)  =>  { int idx; $Type[$n] items; };
 
-macro min(a, b) => ((a) < (b) ? (a) : (b));
-macro max(a, b) => ((a) > (b) ? (a) : (b));
-macro clamp(x, a, b) => min(b, max(a, x));
+macro min(a, b) @private => ((a) < (b) ? (a) : (b));
+macro max(a, b) @private => ((a) > (b) ? (a) : (b));
+macro clamp(x, a, b) @private => min(b, max(a, x));
 
 
 enum MU_Clip : int (inline int v) 
@@ -662,9 +662,9 @@ fn void register_test_window(MU_Context* ctx) @inline
 {
 	// Register the test window frame function to be processed in the main loop
   //register_frame(&test_window);
-  register_frame(&log_window);
+  //register_frame(&log_window);
   // Uncomment the line below to register the hello_window function
-	//register_frame(&hello_window);
+	register_frame(&hello_window);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////

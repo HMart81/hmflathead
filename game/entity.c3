@@ -44,6 +44,7 @@ import game::serialize::svs; // save system
 import engine::sys::cvar;
 import game::lowlevel::bounds;
 import engine::physics::box2d;
+import engine::sys::event; // still in testing phase (delete if not finished)
 // end_region
 
 // region cvars
@@ -69,6 +70,16 @@ const int   ENTITY_DEFAULT_SIZE_X_PIXELS  = 3;
 const int   ENTITY_DEFAULT_SIZE_Y_PIXELS  = 11;
 const float ENTITY_DEFAULT_SIZE_X_METER   = 0.27f; // 27 cm  (minimum size is 10 cm)
 const float ENTITY_DEFAULT_SIZE_Y_METER   = 1.0f;  // 1  m
+
+// WORK_IN_PROGRESS!!
+const EventDef EV_ENTITY_GET_MINC = {"getMinc", "", VECTOR};
+const EventDef EV_ENTITY_GET_MAXC = {"getMaxc", "", VECTOR};
+
+const EventFunc[*] ENTITY_EVENTS_CALLBACKS = {
+	{&(EV_ENTITY_GET_MINC), &Entity.getMinc},
+	{&(EV_ENTITY_GET_MAXC), &Entity.getMaxc},
+};
+//
 
 struct Entity (SaveSystemInterface)
 {
@@ -273,6 +284,10 @@ fn void Entity.setBounds(&self, Bounds bb) @inline {
         .maxc = bb.maxc
     };
 }
+
+fn Vec2f Entity.getMinc(&self, Bounds bb) => self.bounds.minc;
+
+fn Vec2f Entity.getMaxc(&self, Bounds bb) => self.bounds.maxc;
 
 fn void Entity.updateBoundsPos(&self, Vec2f pos) @inline
 {
@@ -634,3 +649,16 @@ fn void cloneEntity( Entity* dest, Entity* src )
 	dest.ProcessPendingEvents();
 	*/
 }
+
+
+///////////////////////////////////
+/// Entity script callbacks
+///////////////////////////////////
+
+// fn void script_fn_getBounds(WrenVM* vm) 
+// {
+// 	vm.ensureSlots(1); // slot 0 is the caller (and return slot), slots after that are the fn arguments slots
+//     Entity* ent = *(Entity*)vm.getSlotForeign(0);
+// 	WrenHandle handle.value = *(Value*)&(*ent).bounds;
+//     vm.setSlotHandle(0, &handle);
+// }

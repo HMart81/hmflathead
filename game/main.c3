@@ -2405,7 +2405,6 @@ fn void gameOnExit() @local
 $if $feature(WREN_ENABLE):
     lgr::info(Where.FILE, "close Script Engine: %s", wren::VERSION_STRING);
     lgr::info(Where.FILE, "---------------------------------------------");
-    // init the game editor defaults
     local_game.script_eng.deinit();
     lgr::info(Where.FILE, "---------------------------------------------\n");
 $endif

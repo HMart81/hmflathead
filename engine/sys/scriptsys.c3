@@ -258,7 +258,7 @@ fn void ScriptVirtualMachine.create(&self, ScriptEngine* scptengine)
 fn void ScriptVirtualMachine.deinit(&self) @inline
 {
     if(self.vm) {
-        self.vm.collectGarbage(); // should I do this?
+        //self.vm.collectGarbage(); // should I do this?
         self.vm.free();
         self.vm = null;
     }
@@ -361,16 +361,42 @@ fn void errorFn(WrenVM* vm, WrenErrorType errorType, ZString _module, int line, 
 * @param [in] vm : "current wren virtual machine calling this func"
 * @require vm != null
 *>
-fn void wrenLogToFile(WrenVM* vm)
+fn void wren_event_add(WrenVM* vm)
 {
-    vm.ensureSlots(2); // slot 0 is the caller, slot 1 is the argument
-    assert(vm.getSlotType(1) == WrenType.LIST, "message must be a string");
-    String message = ((ZString)vm.getSlotString(1)).str_view();
-    //vm.getVariable("global", "LogToFile", 0);
-    lgr::info(Where.FILE, "%s", message);
+    vm.ensureSlots(3); // slot 0 is the caller (and return slot), slot 1 and 2 are the fn arguments slots
+    double a = vm.getSlotDouble(1);
+    double b = vm.getSlotDouble(2);
+    vm.setSlotDouble(0, a + b);
+}
 
-    //double a = vm.getSlotDouble(1);
-    //double b = vm.getSlotDouble(2);
+<*
+* @param [in] vm : "current wren virtual machine calling this func"
+* @require vm != null
+*>
+fn void wren_event_vec2_translate(WrenVM* vm)
+{
+    vm.ensureSlots(3); // slot 0 is the caller (and return slot), slot 1 and 2 are the fn arguments slots
+    Vec2f vec1 = *(Vec2f*)vm.getSlotForeign(0);
+    double a = vm.getSlotDouble(1);
+    double b = vm.getSlotDouble(2);
+    vec1.translateV({(float)a, (float)b});
+    Vec2f* vecp = (Vec2f*)vm.setSlotNewForeign(0,0, Vec2f.sizeof);
+    mem::copy(vecp, &vec1, Vec2f.sizeof);
+    vecp = null; 
+}
+
+<*
+* @param [in] vm : "current wren virtual machine calling this func"
+* @require vm != null
+*>
+fn void wren_event_toFile(WrenVM* vm)
+{
+    int slots = vm.getSlotCount();
+    if(slots != 2) vm.ensureSlots(2); // slot 0 is the caller (and return slot), slot 1 is the fn argument slot
+    WrenType type = vm.getSlotType(1);
+    assert(type == WrenType.STRING, "message must be a string");
+    String message = ((ZString)vm.getSlotString(1)).str_view();
+    lgr::info(Where.FILE, "%s", message);
     //vm.setSlotDouble(0, a + b);
 }
 
@@ -382,14 +408,14 @@ fn void wrenLogToFile(WrenVM* vm)
 *>
 fn WrenForeignMethodFn bindForeignMethod(WrenVM* vm, ZString script_name, ZString className, bool isStatic, ZString signature)
 {
-    String module_name, class_name, _signature;
+    String module_name, class_name, fn_signature;
     module_name = script_name.str_view();
     class_name = className.str_view();
-    _signature = signature.str_view();
+    fn_signature = signature.str_view();
 
     WrenForeignMethodFn result;
 
-    switch MODULES : (module_name) 
+    switch MODULES : (module_name)
     {
         case "global":
             switch (class_name)
@@ -397,20 +423,102 @@ fn WrenForeignMethodFn bindForeignMethod(WrenVM* vm, ZString script_name, ZStrin
                 case "Log":
                     if (isStatic)
                     {
-                        if (_signature == "tofile(_)") {
-                            result = &wrenLogToFile;
-                            break MODULES;
-                        }
-                        else if (_signature == "add(_,_)") {
-                            result = &wrenLogToFile;
+                        if (fn_signature == "tofile(_)") {
+                            result = &wren_event_toFile;
                             break MODULES;
                         }
                     }
             }
         case "main":
+            switch (class_name)
+            {
+                case "Test":
+                    if (isStatic)
+                    {
+                        if (fn_signature == "add(_,_)") {
+                            result = &wren_event_add;
+                            break MODULES;
+                        }
+                    }
+            }
         case "math":
+            switch (class_name)
+            {
+                case "Vec2":
+                    if (isStatic)
+                    {
+                        if (fn_signature == "translate(_,_)") {
+                            result = &wren_event_vec2_translate;
+                            break MODULES;
+                        }
+                    }
+            }
     }
 
   ///  
   return result;
+}
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////// Bind Foreign Classes ///////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+<*
+* @param [in] vm : "current wren virtual machine calling this func"
+* @require vm != null
+*>
+fn void wren_class_vec2(WrenVM* vm)
+{
+    Vec2f* vec = (Vec2f*)vm.setSlotNewForeign(0, 0, Vec2f.sizeof);
+    vm.ensureSlots(3); // slot 0 is the caller (and return slot), slot 1 and 2 are the fn arguments slots
+    double a = vm.getSlotDouble(1);
+    double b = vm.getSlotDouble(2);
+    vec.x = (float)a;
+    vec.y = (float)b;
+    // note(HM) Wren will manage the memory allocated itself using the garbage collector
+}
+
+<*
+    Binds C3 "classes" to wren classes defined in script 
+
+* @param [in] vm : "current wren virtual machine calling this func"
+* @require vm != null
+*>
+fn WrenForeignClassMethods bindForeignClass(WrenVM* vm, ZString script_name, ZString className)
+{
+    String module_name, class_name;
+    module_name = script_name.str_view();
+    class_name = className.str_view();
+
+    WrenForeignClassMethods methods;
+
+    switch MODULES : (module_name)
+    {
+        case "global":
+            switch (class_name)
+            {
+                case "Log":
+            }
+        case "main":
+            switch (class_name)
+            {
+                case "Test":
+            }
+        case "math":
+            switch (class_name)
+            {
+                case "Vec2":
+                    methods.allocate = &wren_class_vec2;
+                    methods.finalize = null;
+            }
+        default:
+            // Unknown class.
+            methods.allocate = null;
+            methods.finalize = null;
+    }
+
+  ///  
+  return methods;
 }
