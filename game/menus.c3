@@ -380,26 +380,27 @@ fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
 fn void button_onOver(Widget* widget) {
     assert(widget != null);
     WidgetButton* self = (WidgetButton*)widget;
-    if (self.isInteractive() == false || self.asFocus() == false) return;
-    self.setColor(self.over_color);
+    if(self.active_and_visible() && self.asFocus()) {
+        self.setColor(self.over_color);
+    }
 }
 
 // generic button callbacks
 fn void button_onStopOver(Widget* widget) {
     assert(widget != null);
     WidgetButton* self = (WidgetButton*)widget;
-    if (self.isInteractive() == false) return;
-    self.setColor(self.default_color);
+    if(self.color != self.default_color) self.setColor(self.default_color);
 }
 
 // generic button callbacks
 fn void button_onRelease(Widget* widget) {
     assert(widget != null);
     WidgetButton* self = (WidgetButton*)widget;
-    if (self.isInteractive() == false || self.asFocus() == false) return;
-    self.setColor(self.default_color);
-    self.pressed = false;
-    self.press_count = 0;
+    if (self.active_and_visible() && self.asFocus()) {
+        self.setColor(self.default_color);
+        self.pressed = false;
+        self.press_count = 0;
+    }
 }
 
 <*
@@ -410,7 +411,7 @@ fn void button_onRelease(Widget* widget) {
 *>
 fn void button_onPress(Widget* widget) {
     WidgetButton* self = (WidgetButton*)widget;
-    if (self.isInteractive() == false || self.asFocus() == false) return;
+    if (self.active() == false || self.asFocus() == false) return;
     if (self.pressed == false) {
         self.setColor(self.pressed_color);
 
@@ -430,7 +431,7 @@ fn void button_onPress(Widget* widget) {
 *>
 fn void button_onSinglePress(Widget* widget) {
     WidgetButton* self = (WidgetButton*)widget;
-    if (self.isInteractive() == false || self.asFocus() == false) return;
+    if (self.active() == false || self.asFocus() == false) return;
 
     if (rl::isSoundValid(*self.interaction_sound)) {
        if(!rl::isSoundPlaying(*self.interaction_sound)) rl::playSound(*self.interaction_sound);

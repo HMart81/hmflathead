@@ -94,17 +94,24 @@ enum PanelShape : inline int
     ROUNDED_BOX
 }
 
+struct PanelFlags 
+{
+    bool isHidden;
+    bool isActive;
+}
+
 /* 
     NOTE(HM) Panel is a simple data structure representing a big square or image, 
     used for background images or single color rectangles.
 */
 struct Panel (SaveSystemInterface)
 {
-   PanelShape shape;
-   Rectangle  rect;
-   Color      color; // material color overrides this color
-   Color      selected_color; // for gui editor functionality
-   HMaterial* mat;
+    PanelFlags flags;
+    PanelShape shape;
+    Rectangle  rect;
+    Color      color; // material color overrides this color
+    Color      selected_color; // for gui editor functionality
+    HMaterial* mat;
 }
 
 fn void Panel.save(&self, SaveFile* file) @dynamic 
@@ -279,8 +286,61 @@ fn bool Panel.isValid(&self) @inline {
     return false;
 }
 
+fn void Panel.hide(&self) @inline {
+    if(self.hidden()) return;
+    self.flags.isHidden = true;
+    self.deactivate();
+}
+
+fn void Panel.show(&self) @inline {
+    if(!self.hidden()) return;
+    self.flags.isHidden = false;
+    self.activate();
+}
+
+fn bool Panel.hidden(&self)  @inline => self.flags.isHidden;
+
+fn void Panel.activate(&self) @inline {
+    if(self.flags.isActive) return;
+    self.flags.isActive = true;
+}
+
+fn void Panel.deactivate(&self) @inline {
+    if(!self.flags.isActive) return;
+    self.flags.isActive = false;
+}
+fn bool Panel.active(&self)  @inline => self.flags.isActive;
+
+fn bool Panel.active_and_visible(&self) @inline => (self.active() && !self.hidden());
+
+//    WARNING(HM)
+//    If the 2D camera view is changed in any way besides moving in x and y
+//    like if the camera is zoomed or the camera is rotated, this will break.
+//    If so it will require conversion from world space coordinates to camera space.
+fn bool Panel.asFocus(&self) // previous isMouseOver()
+{
+    if (!self.active() || self.hidden() || editor_as_focus()) return false;
+
+    // gets windows mouse position...
+    Vec2f mouseWorldPos = rl::getMousePosition().toVec2f();
+
+    Vec2f mouse_size = main::getGameCursorSize() * 0.5f; // half size of the cursor
+    Rectangle mouseRect = misc::@recFromVecs(mouseWorldPos, mouse_size);
+
+    if (rl::checkCollisionRecs(mouseRect, self.rect)) return true;
+
+    return false;
+}
+
+fn void Panel.update(&self) 
+{
+    if(!self.active()) return;
+}
+
 fn void Panel.draw(&self, bool selected = false)
 {
+    if(self.hidden()) return;
+
     if(self.hasMaterial())
     {
         // TODO(HM) find how to draw a image on a rounded rectangle!?
@@ -340,9 +400,87 @@ fn void Panel.draw(&self, bool selected = false)
     }
 }
 
-//////////////// ******** WIDGET'S ******** ////////////////////////
+//////////////// ******** GUI FRAME && WIDGET'S STRUCTS ******** ////////////////////////
 
-// NOTE(HM) Widget is a data structure representing anything inside a gui, like buttons and such.
+alias WidgetList = List{any};
+alias MouseOverCallback = fn bool(Widget*);
+// A frame is a top-level panel that contains widgets
+
+struct Frame (SaveSystemInterface)
+{
+    // extends Panel (super/base class)
+    inline Panel super;
+    String name;
+    WidgetList widgets;
+}
+
+fn void Frame.save(&self, SaveFile* file) @dynamic {
+    self.super.save(file);
+    @todo();
+}
+
+fn void Frame.reload(&self, SaveFile* file) @dynamic {
+    self.super.reload(file);
+    @todo();
+}
+
+fn void Frame.init(&self, String name) @inline {
+    assert(rl::isWindowReady() == true);
+
+    // init panel stuff (inits default rect and color)
+    self.super.init();
+
+    // init the frame menbers
+    self.name = string::tformat("Frame_%s", name);
+    self.show();
+    
+    // todo
+   // Frame* this = self;
+    //local_manager.register(this);
+}
+
+fn void Frame.deinit(&self) @inline 
+{
+    self.super.deinit();
+    if (self.widgets.len()) 
+    {
+        foreach(widget: self.widgets) 
+        {
+            switch (widget.type) 
+            {
+                case WidgetButton:
+                    ((WidgetButton*)widget.ptr).deinit();
+                case WidgetText:
+                    ((WidgetText*)widget.ptr).deinit();
+                case WidgetContainer:
+                    ((WidgetContainer*)widget.ptr).deinit();
+                default:
+                   ((Widget*)widget.ptr).deinit(); 
+            }
+        }
+    }
+}
+
+fn void Frame.update(&self) 
+{
+    self.super.update();
+}
+
+fn void Frame.draw(&self)
+{
+    self.super.draw();
+}
+
+macro void Frame.@create(&self, $name; @body(Frame* frame))
+{
+    self.init($name);
+    body(frame);
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////// Widgets ////////////////////////////////////////////////////
+
+// NOTE(HM) Widget is a general data structure representing anything inside a gui, like buttons and such.
 
 const KIND_TEXT      = 1;
 const KIND_BUTTON    = 2;
@@ -350,34 +488,16 @@ const KIND_CONTAINER = 3;
 
 alias WidgetCallback = fn void(Widget*);
 
-struct WidgetFlags 
-{
-    union {
-        bool isHidden;
-        bool should_hide;
-    }
-    bool wasInteractive;
-    bool isInteractive;
-    bool asFocus;
-    bool selected;  // for the editor
-}
-
 interface WidgetInterface
 {
     fn void init();
     fn void initExt() @optional;
     fn void deinit();
     fn void update();
-    fn void hide();
-    fn void show();
     fn void draw();
-    fn bool asFocus();
-    fn bool hidden();
-    fn bool isMouseOver() @optional;
     fn bool isWithinScreenBounds() @optional;
     fn void addTo(Desktop*);
-    fn void setInteractive(bool);
-    fn bool isInteractive();
+    fn void addToFrame(Frame*) @optional;
     fn Desktop* getDesktop();
     fn void bindTo(Widget* other);
     fn bool bound();
@@ -398,7 +518,7 @@ struct Widget (WidgetInterface)
     String name;
     //int layer;
     int kind;
-    WidgetFlags flags;
+    bool selected;  // for the gui editor
 
     // for binding
     struct parent 
@@ -422,10 +542,6 @@ struct Widget (WidgetInterface)
 
 fn void Widget.init(&self) @dynamic {
     self.super.init();
-    self.flags = {
-        .wasInteractive = true, // widgets are interactive by default
-        .isInteractive  = true, // widgets are interactive by default
-    };
 }
 
 fn void Widget.deinit(&self) @dynamic{
@@ -437,40 +553,29 @@ fn void Widget.deinit(&self) @dynamic{
 
 fn void Widget.editor_interactions(&self) @local
 {
-    // cannot select widgets that are not visible
-    // todo(HM) make a force visible flag for edit mode?
-    if (self.hidden()) return;
     // when in gui edit mode, we can select widgets with the mouse
-    // and they should all be set to not interactive, as that is part of
-    // the gui logic and the editor doesn't care what widget is interactive
-    // or not, no matter their state all should be selectable.
-    if (self.isInteractive()) return;
-    
+    // and they should all be set to not active, as that is part of
+    // the gui logic and the editor doesn't care what widget is active
+    // or not, no matter their state all will be selectable.
     if (self.asFocus())
     {
         if (input::Action* action = input::getAction("editor_select")) {
-            if(action.fnIsTriggered()) self.select();
+            if(action.fnIsTriggered()) self.toggleSelection();
         }
     }
 }
 
-fn void Widget.update(&self) @dynamic {
-    if(self.hidden() && !editor_enabled()) return;
+fn void Widget.update(&self) @dynamic 
+{
+    self.super.update();
 
-    if (self.isMouseOver()) {
-       if(!editor_as_focus()) self.flags.asFocus = true;
-    } else {
-       if(self.flags.asFocus) self.flags.asFocus = false;
-    }
+    if(editor_enabled() && editor_as_focus()) { return; }
+    else if (!self.active() || self.hidden()) { return; }
     
-    if(editor_as_focus()) 
+    if(editor_enabled())
     {
-        if(self.isInteractive()) self.setInteractive(false);
-
         // run editor keyboard interactions
         self.editor_interactions();
-    } else {
-        if(!self.isInteractive() && self.flags.wasInteractive) self.setInteractive(true);
     }
     
     // if we are bound to a parent widget, we need to update our position each frame
@@ -481,16 +586,6 @@ fn void Widget.update(&self) @dynamic {
         Vec2f new_offset    = (self.getPosition() + parent_origin) - parent_origin;
         self.setPositionV(new_offset);
     }
-}
-
-fn void Widget.hide(&self) @inline @dynamic {
-    if(self.hidden()) return;
-    self.flags.isHidden = true;
-}
-
-fn void Widget.show(&self) @inline @dynamic {
-    if(!self.hidden()) return;
-    self.flags.isHidden = false;
 }
 
 // Function to calculate the color based on time
@@ -525,7 +620,7 @@ fn Color selected_color_anim(Widget* wgt) @inline @local
 *>
 fn void Widget.draw_origin_coordinates(Widget* wgt) @local @inline 
 {
-    if(!wgt.selected()) return;
+    if(!wgt.selected) return;
     
     int scr_w, scr_h;
     float lineThick  = 1.0f;
@@ -569,35 +664,13 @@ fn void Widget.draw(&self) @dynamic
 {
     if(self.hidden()) return;
     
-    if(self.selected())
+    if(self.selected)
     {
         self.setSelectedColor(selected_color_anim(self));
         self.draw_origin_coordinates();
     }
     
-    self.super.draw(self.selected());
-}
-
-fn bool Widget.asFocus(&self) @inline @dynamic => self.flags.asFocus;
-fn bool Widget.hidden(&self)  @inline @dynamic => self.flags.isHidden;
-
-//    WARNING(HM)
-//    If the 2D camera view is changed in any way besides moving in x and y
-//    like if the camera is zoomed or the camera is rotated, this will break.
-//    If so it will require conversion from world space coordinates to camera space.
-fn bool Widget.isMouseOver(&self) @dynamic
-{
-    if (self.hidden()) return false;
-
-    // gets windows mouse position...
-    Vec2f mouseWorldPos = rl::getMousePosition().toVec2f();
-
-    Vec2f mouse_size = main::getGameCursorSize() * 0.5f; // half size of the cursor
-    Rectangle mouseRect = misc::@recFromVecs(mouseWorldPos, mouse_size);
-
-    if (rl::checkCollisionRecs(mouseRect, self.rect)) return true;
-
-    return false;
+    self.super.draw(self.selected);
 }
 
 fn bool Widget.isWithinScreenBounds(&self) @dynamic
@@ -620,9 +693,9 @@ fn bool Widget.isWithinScreenBounds(&self) @dynamic
 *>
 fn void Widget.addTo(&self, Desktop* desktop) @dynamic {
     self.parent.desktop = desktop;
+    // todo change this to activate logic like the panel system...
     if (self.parent.desktop.isInteractive) {
-        self.flags.wasInteractive = true;
-        self.setInteractive(true);
+        self.activate();
     }
 
     self.id = (int)self.parent.desktop.children.len() + 1;
@@ -642,12 +715,6 @@ fn void Widget.addTo(&self, Desktop* desktop) @dynamic {
     
     self.parent.desktop.addChild(self);
 }
-
-fn void Widget.setInteractive(&self, bool choice) @inline @dynamic {
-    self.flags.isInteractive = choice;
-}
-
-fn bool Widget.isInteractive(&self) @inline @dynamic => self.flags.isInteractive;
 
 <*
 * @ensure return != null
@@ -717,22 +784,10 @@ fn void Widget.setSelectedColor(&self, Color color) @dynamic {
 }
 
 // editor functions
-fn void Widget.select(&self) @inline @local
-{
-    if(self.flags.selected) return;
-    
-    self.flags.selected = true;
-    //lgr::info(Where.CONSOLE, "Selected: %s", self.name);
-}
+fn void Widget.toggleSelection(&self) @inline => self.selected = !self.selected;
+fn void Widget.select(&self) @inline => self.selected = true;
+fn void Widget.deselect(&self) @inline => self.selected = false;
 
-fn void Widget.deselect(&self) @inline @local
-{
-    if(!self.flags.selected) return;
-    
-    self.flags.selected = false;
-}
-
-fn bool Widget.selected(&self) @inline @local => self.flags.selected;
 
 /////////////////////////////////////// extra widgets //////////////////////////////////////////////////////
 
@@ -854,11 +909,11 @@ fn WidgetText* createLabel(String name, String text, Color text_color, Desktop* 
     label.init();
     label.name = label.name.tconcat(text);
     label.addTo(menu);
-    // labels shouldn't be interactive (to save perf...)
-    label.flags.wasInteractive = false;
-    label.setInteractive(false);
     label.setText(text);
     label.setTextColor(text_color);
+    label.show();
+    // labels shouldn't be interactive (to save perf...)
+    label.deactivate();
     return label;
 }
 
@@ -925,10 +980,10 @@ fn void WidgetButton.onEnterKey(&self) @inline {
 
 fn void WidgetButton.manage_interactions(&self) @local 
 {
-    if (self.isInteractive() == false) return;
+    if (self.active() == false) return;
 
     //main::lgr::info(Where.CONSOLE, "Gui: I'm over button: %s", self.name);
-    if (self.asFocus() && self.flags.selected == false)
+    if (self.asFocus() && self.selected == false)
     {
         if(self.onOver) self.onOver(self);
 
@@ -1589,7 +1644,7 @@ fn void Desktop.debug(&self)
         {
             foreach(child: self.children)
             {
-               if(child.selected()) continue;
+               if(child.selected) continue;
                
                dbg_text_pos = {child.rect.x, child.rect.y};
                dbg_text_pos += misc::VEC_UP * (0.30f * child.rect.height); 
@@ -1779,7 +1834,7 @@ fn void updateGuiEditor(Desktop* mng)
     
     foreach(wgt : mng.children) 
     {
-        if(wgt.selected()) {
+        if(wgt.selected) {
             if(rl::isKeyPressed(rl::KEY_ESCAPE)) {
                 wgt.deselect();
             } else {

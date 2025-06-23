@@ -72,13 +72,14 @@ const float ENTITY_DEFAULT_SIZE_X_METER   = 0.27f; // 27 cm  (minimum size is 10
 const float ENTITY_DEFAULT_SIZE_Y_METER   = 1.0f;  // 1  m
 
 // WORK_IN_PROGRESS!!
-const EventDef EV_ENTITY_GET_MINC = {"getMinc", "", VECTOR};
-const EventDef EV_ENTITY_GET_MAXC = {"getMaxc", "", VECTOR};
+const EventDef EV_ENTITY_GET_MINC @if($defined(ENABLE_EVENTS)) = {"getMinc", "", event::VECTOR}; 
+const EventDef EV_ENTITY_GET_MAXC @if($defined(ENABLE_EVENTS)) = {"getMaxc", "", event::VECTOR};
 
-const EventFunc[*] ENTITY_EVENTS_CALLBACKS = {
+const EventFunc[*] ENTITY_EVENTS_CALLBACKS @if($defined(ENABLE_EVENTS)) = {
 	{&(EV_ENTITY_GET_MINC), &Entity.getMinc},
 	{&(EV_ENTITY_GET_MAXC), &Entity.getMaxc},
 };
+
 //
 
 struct Entity (SaveSystemInterface)

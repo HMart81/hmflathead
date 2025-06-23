@@ -63,7 +63,7 @@ const TRACE			= 't'; // todo
 // tells if the event system was initialized
 bool initialized @local;
 
-alias EventLinkedList = Linkedlist{Event};
+//alias EventLinkedList = Linkedlist{Event};
 alias EventDefList = List{EventDef*};
 
 EventDefList eventDefList;
@@ -73,7 +73,7 @@ struct EventDef
 	String name;
 	String params; // ex: "ffd" or "" or "dfde"
 	char returnType;
-};
+}
 
 fn int EventDef.getNumArgs(&self) {
 	return self.params.len;
@@ -83,8 +83,8 @@ fn usz EventDef.getArgBytesCount(&self) {
 	return (self.getNumArgs() * double.sizeof);
 }
 
-fn int EventDef.register(&self) {
-	return eventDefList.push(self);
+fn void EventDef.register(&self) {
+	eventDefList.push(self);
 }
 
 <*
@@ -97,7 +97,7 @@ fn EventDef* getEventCommand(int eventnum ) {
 fn EventDef* findEvent(String name ) {
 	assert( name != "" );
 
-	foreach( &ev : eventDefList) {
+	foreach( ev : eventDefList) {
 		if ( ev.name == name ) {
 			return ev;
 		}
