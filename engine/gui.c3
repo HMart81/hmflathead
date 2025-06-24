@@ -98,6 +98,10 @@ struct PanelFlags
 {
     bool isHidden;
     bool isActive;
+    // right now in focus and mouse over, mean the same thing 
+    // but in the future we could have a system where they are seperate, 
+    // you have a widget marked in focus but the mouse pointer not ontop of it.  
+    bool inFocus;
 }
 
 /* 
@@ -311,13 +315,13 @@ fn void Panel.deactivate(&self) @inline {
 }
 fn bool Panel.active(&self)  @inline => self.flags.isActive;
 
-fn bool Panel.active_and_visible(&self) @inline => (self.active() && !self.hidden());
+fn bool Panel.active_visible_infocus(&self) @inline => (self.active() && !self.hidden() && self.asFocus());
 
 //    WARNING(HM)
 //    If the 2D camera view is changed in any way besides moving in x and y
 //    like if the camera is zoomed or the camera is rotated, this will break.
 //    If so it will require conversion from world space coordinates to camera space.
-fn bool Panel.asFocus(&self) // previous isMouseOver()
+fn bool Panel.isMouseOver(&self)
 {
     if (!self.active() || self.hidden() || editor_as_focus()) return false;
 
@@ -332,9 +336,13 @@ fn bool Panel.asFocus(&self) // previous isMouseOver()
     return false;
 }
 
+fn bool Panel.asFocus(&self)  @inline => self.flags.inFocus;
+
 fn void Panel.update(&self) 
 {
-    if(!self.active()) return;
+    if(!self.active() || self.hidden()) return;
+
+    self.flags.inFocus = self.isMouseOver();
 }
 
 fn void Panel.draw(&self, bool selected = false)
@@ -345,12 +353,12 @@ fn void Panel.draw(&self, bool selected = false)
     {
         // TODO(HM) find how to draw a image on a rounded rectangle!?
 
-        Texture2D* texture = &self.mat.diffuse.tex;
+        Texture2D* texture = self.mat.getTexture(mtr::MAT_STAGE_DIFFUSE);
         Vec2f texture_size = { texture.width, texture.height };
         Rectangle source = { 0, 0, texture_size.x, texture_size.y };
         Rectangle* dist = &self.rect;
 
-        Color color = (selected) ? self.selected_color : self.mat.diffuse.color;
+        Color color = (selected) ? self.selected_color : self.mat.getStage(mtr::MAT_STAGE_DIFFUSE).color;
 
         BlendMode blending;
         switch (self.mat.coverage)
@@ -557,7 +565,7 @@ fn void Widget.editor_interactions(&self) @local
     // and they should all be set to not active, as that is part of
     // the gui logic and the editor doesn't care what widget is active
     // or not, no matter their state all will be selectable.
-    if (self.asFocus())
+    if (self.asFocus() && self.isMouseOver())
     {
         if (input::Action* action = input::getAction("editor_select")) {
             if(action.fnIsTriggered()) self.toggleSelection();
@@ -567,7 +575,19 @@ fn void Widget.editor_interactions(&self) @local
 
 fn void Widget.update(&self) @dynamic 
 {
-    self.super.update();
+    // if we are bound to a parent widget, we need to update our position each frame
+    // to always be relative to the parent origin.
+    // NOTE(HM) This is done even if we are hidden or deactivated.
+    if(self.bound())
+    {
+        Vec2f parent_origin = self.parent.other.getPosition();
+        // WTF? We add the parent pos and then remove it again?!
+        Vec2f new_offset    = (self.getPosition() + parent_origin) - parent_origin;
+        //
+        self.setPositionV(new_offset);
+    }
+
+    self.super.update(); // mouse over is done in super update
 
     if(editor_enabled() && editor_as_focus()) { return; }
     else if (!self.active() || self.hidden()) { return; }
@@ -576,15 +596,6 @@ fn void Widget.update(&self) @dynamic
     {
         // run editor keyboard interactions
         self.editor_interactions();
-    }
-    
-    // if we are bound to a parent widget, we need to update our position each frame
-    // to always be relative to the parent origin
-    if(self.bound())
-    {
-        Vec2f parent_origin = self.parent.other.getPosition();
-        Vec2f new_offset    = (self.getPosition() + parent_origin) - parent_origin;
-        self.setPositionV(new_offset);
     }
 }
 

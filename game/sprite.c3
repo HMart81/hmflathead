@@ -300,7 +300,7 @@ fn void Sprite.setMaterial(&self, String material_name) @inline {
     if(material_name) 
     {
         self.mat = mtrmng::getMaterial(material_name);
-        if(self.mat == null || rl::isTextureValid(self.mat.diffuse.tex) == false) {
+        if(self.mat == null || rl::isTextureValid(*self.mat.getTexture(mtr::MAT_STAGE_DIFFUSE)) == false) {
             lgr::error(Where.FILE, "Unnable to set Sprite material '%s'.\n", material_name);
             unreachable("Unnable to set Sprite material.");
         }
@@ -310,7 +310,7 @@ fn void Sprite.setMaterial(&self, String material_name) @inline {
 }
 
 fn bool Sprite.hasMaterial(&self) @inline {
-   return self.mat != null && rl::isTextureValid(self.mat.diffuse.tex);
+   return self.mat != null && rl::isTextureValid(*self.mat.getTexture(mtr::MAT_STAGE_DIFFUSE));
 }
 
 <*
@@ -318,7 +318,7 @@ fn bool Sprite.hasMaterial(&self) @inline {
 * @ensure return != null
 *>
 fn Texture2D* Sprite.getTexture(&self) @inline {
-    if(self.hasMaterial()) { return &self.mat.diffuse.tex; }
+    if(self.hasMaterial()) { return self.mat.getTexture(mtr::MAT_STAGE_DIFFUSE); }
     
     return null;
 }
@@ -328,8 +328,8 @@ fn Vec2i Sprite.getTextureSize(&self) @inline
 {
     if(self.hasMaterial() == false) return {0,0};
 
-    int w = (int)self.mat.diffuse.tex.width;
-    int h = (int)self.mat.diffuse.tex.height;
+    int w = (int)self.mat.getTexture(mtr::MAT_STAGE_DIFFUSE).width;
+    int h = (int)self.mat.getTexture(mtr::MAT_STAGE_DIFFUSE).height;
 
     return {w,h};
 }
@@ -364,12 +364,12 @@ fn void Sprite.draw(&self)  @inline
         
         if(self.hasMaterial())
         {
-            Texture2D* texture = &self.mat.diffuse.tex;
+            Texture2D* texture = self.mat.getTexture(mtr::MAT_STAGE_DIFFUSE);
             Vec2f texture_size = { texture.width, texture.height };
             Rectangle source = { 0, 0, texture_size.x, texture_size.y };
             Rectangle* dist = &self.rect;
 
-            Color color = self.mat.diffuse.color;
+            Color color = self.mat.getStage(mtr::MAT_STAGE_DIFFUSE).color;
 
             BlendMode blending;
             switch (self.mat.coverage)

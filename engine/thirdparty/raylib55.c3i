@@ -237,19 +237,29 @@ struct Mesh
     uint* vboId;            // OpenGL Vertex Buffer Objects id (default vertex data)
 }
 
-// Shader
 struct Shader
 {
     uint id;                // Shader program id
     int* locs;              // Shader locations array (RL_MAX_SHADER_LOCATIONS)
 }
 
-// MaterialMap
+/*
+    DOC(HM) MaterialMap
+    Usage:
+        The value field is often used to represent properties like metalness, 
+        roughness, or other scalar material characteristics in 
+        physically-based rendering (PBR) materials. 
+    Example:
+        model.materials[0].maps[MATERIAL_MAP_METALNESS].value = 1.0f; 
+            sets the metalness value, and 
+        model.materials[0].maps[MATERIAL_MAP_ROUGHNESS].value = 0.0f; 
+            sets the roughness value for the first material of a model. 
+*/
 struct MaterialMap
 {
     Texture2D texture;      // Material map texture
     Color color;            // Material map color
-    float value;            // Material map value
+    float value;            // Material map generic value
 }
 
 // Material, includes shader and maps
@@ -501,7 +511,7 @@ enum GamepadAxis : int
 $assert(GamepadAxis.LEFT_X.ordinal == 0);
 
 // Material map index
-enum MaterialMapIndex : int
+enum MtlMapIndex : inline int
 {
     ALBEDO,            // Albedo material (same as: MATERIAL_MAP_DIFFUSE)
     METALNESS,         // Metalness material (same as: MATERIAL_MAP_SPECULAR)
@@ -520,10 +530,10 @@ enum MaterialMapIndex : int
     DEPTH3             // New depth map index shadow for light4
 }
 
-$assert(MaterialMapIndex.ALBEDO.ordinal == 0);
+const MATERIAL_MAP_DIFFUSE  = MtlMapIndex.ALBEDO;
+const MATERIAL_MAP_SPECULAR = MtlMapIndex.METALNESS;
 
-// #define MATERIAL_MAP_DIFFUSE      MATERIAL_MAP_ALBEDO
-// #define MATERIAL_MAP_SPECULAR     MATERIAL_MAP_METALNESS
+$assert(MtlMapIndex.ALBEDO.ordinal == 0);
 
 // Shader location index
 enum ShdLocInd : inline int

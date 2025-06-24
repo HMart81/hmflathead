@@ -211,10 +211,11 @@ fn void Entity.setMaterial(&self, String material_name) @inline {
 }
 
 <*
+	TODO(HM) handle more material/texture stages than diffuse
 * @ensure return != null
 *>
 fn Texture2D* Entity.getTexture(&self) @inline {
-	return (Texture2D*)&self.vs.mat.diffuse.tex;
+	return self.vs.mat.getTexture(mtr::MAT_STAGE_DIFFUSE);
 }
 
 fn void Entity.setSize(&self, int w, int h) @inline {
@@ -432,14 +433,14 @@ fn void Entity.draw(&self)
     {
         // TODO(HM) find how to draw a image on a rounded rectangle!?
 
-        Texture2D* texture = &self.vs.mat.diffuse.tex;
+        Texture2D* texture = self.vs.mat.getTexture(mtr::MAT_STAGE_DIFFUSE);
         Vec2f texture_size = { texture.width, texture.height };
         Rectangle source = { 0, 0, texture_size.x, texture_size.y };
         Rectangle* dist = &self.vs.rect;
 
 		// todo selection
-        //Color color = (selected) ? self.selected_color : self.mat.diffuse.color;
-		Color color = self.vs.mat.diffuse.color;
+        //Color color = (selected) ? self.selected_color : self.mat.getStage(mtr::MAT_STAGE_DIFFUSE).color;
+		Color color = self.vs.mat.getStage(mtr::MAT_STAGE_DIFFUSE).color;
 
         BlendMode blending;
         switch (self.vs.mat.coverage)

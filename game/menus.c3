@@ -380,7 +380,7 @@ fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
 fn void button_onOver(Widget* widget) {
     assert(widget != null);
     WidgetButton* self = (WidgetButton*)widget;
-    if(self.active_and_visible() && self.asFocus()) {
+    if(self.active_visible_infocus() && self.asFocus()) {
         self.setColor(self.over_color);
     }
 }
@@ -396,7 +396,7 @@ fn void button_onStopOver(Widget* widget) {
 fn void button_onRelease(Widget* widget) {
     assert(widget != null);
     WidgetButton* self = (WidgetButton*)widget;
-    if (self.active_and_visible() && self.asFocus()) {
+    if (self.active_visible_infocus() && self.asFocus()) {
         self.setColor(self.default_color);
         self.pressed = false;
         self.press_count = 0;

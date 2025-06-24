@@ -219,6 +219,7 @@ struct Editor {
 
 
     char[CONSOLE_INPUT_MAX_LINE_LENGTH] con_input_buffer; // maximum length of the input line
+    uint con_input_buffer_len;
     bool con_input_edit_mode; // if true, the console input is in edit mode, this means that the user can edit the input line
    
     String con_display_buffer; // the console display buffer, this is used to display the console input
@@ -242,7 +243,7 @@ fn void Editor.initDefaults(&self) @inline
     h = scr_height / 2.0f;
     self.main_window = { x, y, w, h };
 
-    //self.con_input_edit_mode = true; // the console input is in edit mode by default
+    self.con_input_edit_mode = true; // the console input is in edit mode by default
     self.listView_Active = 1; // the active item in the list view of the console history
     self.listView_Focus = -1; // the focused item in the list view of the console history
 
@@ -272,7 +273,7 @@ fn void Editor.deinit(&self) @inline
         self.con_history.free();
     }
     // free the editor input buffer
-    if(self.con_input_buffer.len) mem::clear(&self.con_input_buffer, CONSOLE_INPUT_MAX_LINE_LENGTH);
+    mem::clear(&self.con_input_buffer, CONSOLE_INPUT_MAX_LINE_LENGTH);
     // clear the auto complete buffer
     self.autoCompleteClear();
 }
@@ -303,25 +304,13 @@ fn void Editor.close(&self) @inline
 }
 
 
-fn void Editor.setFocused(&self) @inline
+fn void Editor.setfocus(&self, bool choice) @inline
 {
-    if (self.flags.is_focused) {
-        return;
-    }
-    self.flags.is_focused = true;
-    rgui::setState(STATE_FOCUSED);
+    self.flags.is_focused = choice;
+    (choice) ? rgui::setState(STATE_FOCUSED) : rgui::setState(STATE_NORMAL);
 }
 
-fn void Editor.unfocus(&self) @inline
-{
-    if (!self.flags.is_focused) {
-        return;
-    }
-    self.flags.is_focused = false;
-    rgui::setState(STATE_NORMAL);
-}
-
-fn bool Editor.focused(&self) => self.flags.is_focused && rgui::getState() == STATE_FOCUSED;
+fn bool Editor.focused(&self) => self.flags.is_focused;
 
 fn void Editor.setActive(&self) @inline
 {
@@ -361,7 +350,7 @@ fn void Editor.setInvisible(&self) @inline
     }
     self.flags.is_visible = false;
     self.setInactive();
-    self.unfocus();
+    self.setfocus(false);
 }
 
 fn bool Editor.isVisible(&self) => self.flags.is_visible;
@@ -490,15 +479,13 @@ fn void Editor.update(&self) @inline
         return;
     }
 
-    if (self.isMouseOver()) 
-    {
-        self.setFocused();
+    self.setfocus(self.isMouseOver());
 
+    if (self.focused()) 
+    {
         if(main::game_cursor_visible()) main::hide_game_cursor();
         if(!main::system_cursor_visible()) main::show_system_cursor();
     } else {
-        self.unfocus();
-
         if(main::system_cursor_visible()) main::hide_system_cursor();
         main::show_game_cursor();
     }
@@ -670,24 +657,32 @@ $if $defined(TextInputBox):
         ZString buttons = string::tformat_zstr("%s", "OK;Clear");
         // Text Input Box control, ask for text, supports secret
         int pressed = rgui::textInputBox(misc::makeRect(inputeBoxPos, input_area), "", "Console Input", buttons, (ZString)&editor.con_input_buffer[0], CONSOLE_INPUT_MAX_LINE_LENGTH, null);
-        if(pressed == BTN_OK) {
-            parse_console_input(editor);
-        } else if(pressed == BTN_CLEAR) {
-            clearConsoleInputBuffer(editor);
-        } else if(pressed == BTN_CLOSE) {
-            exitConsoleInput(editor);
-        } else if(pressed != -1) {
-            io::printfn("button pressed was value: %s", pressed);
+        foreach(chr: editor.con_input_buffer) { 
+            if(chr == 0) return; editor.con_input_buffer_len++;
         }
-      
+        switch(pressed) {
+            case BTN_OK:    parse_console_input(editor);
+            case BTN_CLEAR: clearConsoleInputBuffer(editor);
+            case BTN_CLOSE: exitConsoleInput(editor);
+            default:
+                io::printfn("button pressed was value: %s", pressed);
+        }
     }
 $else
     //rgui::textBox(misc::makeRect(inputeBoxPos, input_area), (ZString)&editor.con_input_buffer[0], CONSOLE_FONT_SIZE, true);
-    if(rgui::textBox(misc::makeRect(inputeBoxPos, input_area), (ZString)&editor.con_input_buffer[0], CONSOLE_FONT_SIZE, editor.con_input_edit_mode)) editor.con_input_edit_mode = !editor.con_input_edit_mode;
-    String input_text = ((ZString)&editor.con_input_buffer[0]).str_view();
-    if(input_text != "" && rl::isKeyPressed(rl::KEY_ENTER)) {
-        // if the input text is not empty and the enter key is pressed, parse the console input
-        parse_console_input(editor);
+    if(rgui::textBox(misc::makeRect(inputeBoxPos, input_area), (ZString)&editor.con_input_buffer[0], CONSOLE_INPUT_MAX_LINE_LENGTH, editor.con_input_edit_mode))
+    {
+        // this runs every time you press a key/M_Button inside the textbox area and at gui exit
+        String input_text = ((ZString)&editor.con_input_buffer[0]).str_view();
+        bool enter_pressed = rl::isKeyDown(rl::KEY_ENTER);
+      /*  if (enter_pressed) {
+            int stop_here = 1;
+        }*/
+        if(input_text.len && editor.isVisible() && enter_pressed) {
+            // if the input text is not empty and the enter key is pressed, parse the console input
+            parse_console_input(editor);
+        }
+        //editor.con_input_edit_mode = !editor.con_input_edit_mode;
     }
 $endif
 }
@@ -701,7 +696,7 @@ fn void clearConsole(Editor* editor) @inline
 
 fn void eatConsoleInput(Editor* editor) @inline
 {
-     String input_text = ((ZString)&editor.con_input_buffer[0]).str_view();
+    String input_text = ((ZString)&editor.con_input_buffer[0]).str_view();
     if(input_text != "") {
         mem::clear(&editor.con_input_buffer, CONSOLE_INPUT_MAX_LINE_LENGTH);
     }

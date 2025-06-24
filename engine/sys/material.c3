@@ -52,7 +52,7 @@ import std::collections::list, std::collections::tuple;
 */
 
 alias MaterialList       = List{HMaterial*};
-alias MaterialMapArgList = List{StringTuple*};
+alias MaterialStageArgList = List{StringTuple*};
 
 faultdef INVALID_PATH_STRING,
 	     MALFORMED_MTR_FILE,
@@ -88,40 +88,73 @@ enum Node : int (inline String str)
 // NOTE(HM) This represents the atributes assigned to a xml node
 enum NodeAttrib : int (inline String str)
 {
-    NAME     = "name",
-    VERSION  = "version",
-    PATH     = "path",
-    KIND     = "kind",
+    // general
+    NAME        = "name",
+    VERSION     = "version",
+    PATH        = "path",
+    KIND        = "kind",
     TRANSLUCENT = "translucent",
-}
 
-// NOTE(HM) The same as above but particular to the "map" and "video_map" nodes
-// and are called arguments instead of attributes...
-enum MapArgs : int (inline String name)
-{
-    CLAMP    = "clamp",
-    TILE_H   = "tileH",
-    TILE_V   = "tileV",
-    SCROLL_X = "scrollX",
-    SCROLL_Y = "scrollY",
+    // map arguments
+    CLAMP       = "clamp",
+    TILE_H      = "tileH",
+    TILE_V      = "tileV",
+    SCROLL_X    = "scrollX",
+    SCROLL_Y    = "scrollY",
     TRANSLATE_X = "translateX",
     TRANSLATE_Y = "translateY",
-    ALPHA = "alpha"
+    ALPHA       = "alpha"
 }
 
+/*
+Model model = LoadModel("resources/models/obj/castle.obj");                 // Load model
+Texture2D texture = LoadTexture("resources/models/obj/castle_diffuse.png"); // Load model texture
+model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;            // Set map diffuse texture
 
-// TODO(HM) rename this to shader stage or something like that
-struct MatMap
+// Material loading/unloading functions
+Material *LoadMaterials(const char *fileName, int *materialCount);                    // Load materials from model file
+Material LoadMaterialDefault(void);                                                   // Load default material (Supports: DIFFUSE, SPECULAR, NORMAL maps)
+bool IsMaterialValid(Material material);                                              // Check if a material is valid (shader assigned, map textures loaded in GPU)
+void UnloadMaterial(Material material);                                               // Unload material from GPU memory (VRAM)
+void SetMaterialTexture(Material *material, int mapType, Texture2D texture);          // Set texture for a material map type (MATERIAL_MAP_DIFFUSE, MATERIAL_MAP_SPECULAR...)
+void SetModelMeshMaterial(Model *model, int meshId, int materialId);                  // Set material for a mesh
+*/
+
+// Material stage index
+alias MatStageIndex                     = int;
+const MatStageIndex MAT_STAGE_DIFFUSE   @public = 0;    // only one supported (for now...)
+const MatStageIndex MAT_STAGE_SPECULAR  @public = 1;
+const MatStageIndex MAT_STAGE_NORMAL    @public = 2;
+const MatStageIndex MAT_STAGE_OCCLUSION @public = 3;    // Ambient occlusion material
+const MatStageIndex MAT_STAGE_EMISSION  @public = 4;    // Emission material
+const MatStageIndex MAT_STAGE_HEIGHT    @public = 5;    // Heightmap material
+const MatStageIndex MAT_STAGE_CUBEMAP   @public = 6;    // Cubemap material (NOTE: Uses GL_TEXTURE_CUBE_MAP)
+const MatStageIndex MAT_STAGE_VIDEO     @public = 7;    // video map stage
+const MatStageIndex MAT_STAGE_SOUND     @public = 8;    // sound map stage
+
+// Don't forget to update this max value if adding more stages above!!!
+const MAX_STAGE_INDICES = (MAT_STAGE_SOUND);
+// just in case...
+$assert MAX_STAGE_INDICES == MAT_STAGE_SOUND;
+
+// NOTE(HM) raylib has the MaterialMap already that is almost equivalent, should we use that?
+// Material stage represents each texture type in a material
+struct MaterialStage
 {
     //NOTE(HM) width and Height are encoded on the Texture2D data
     Texture2D tex;
     Color color;
-    MaterialMapArgList args;
+    // Todo perhaps rethink this per stage args stuff....
+    MaterialStageArgList args;
 }
 
-fn void MatMap.clear(&self) 
+fn void MaterialStage.loadTexture(&self, String path) @inline
 {
-    //if(self.tex) self.tex = null;
+    self.tex = misc::loadTexture(path);
+}
+
+fn void MaterialStage.clear(&self)
+{
     rl::unloadTexture(self.tex);
     foreach (arg : self.args)
     {
@@ -129,15 +162,16 @@ fn void MatMap.clear(&self)
     }
 }
 
-struct MatVidMap
+// todo
+struct MaterialVideoStage
 {
-    inline MatMap super;
+    inline MaterialStage super;
 }
 
 enum MatMC @public //Material Coverage
 {
 	BAD,
-	OPAQUE,			// completely fills the triangle, will have black drawn on fillDepthBuffer
+	OPAQUE,			// completely fills the triangle
 	PERFORATED,		// may have alpha tested holes
 	TRANSLUCENT		// blended with background
 }
@@ -179,6 +213,7 @@ enum Contents : int (inline int flag)
     PLACEHOLDER16	    = misc::@bit(30),
     PLACEHOLDER17	    = misc::@bit(31),
 }
+$assert Contents.sizeof <= 32;
 
 bitstruct Flags : char
 {
@@ -194,31 +229,35 @@ struct HMaterial  (SaveSystemInterface) @public
 {
     String name;
     String comment;
-
-    MTRFile* mtrfile;
     
     MatMC coverage;
     Contents contentes;
     Flags flags;
     
-    MatMap diffuse;
-    //MatMap normal;
-    //MatMap spec;
+    MaterialStage[MAX_STAGE_INDICES] maps;
+
+    //////////////////////// for the future...
+    //MaterialStage normal;
+    //MaterialStage spec;
     //Texture2D* bump;
     //Texture2D* rough;
     //Texture2D* metal;
     //Texture2D* ao;
     //Texture2D* cube;
-    
     //shdshd::Sound* sound;
+    ///////////////////////
+    
+    // NOTE(HM) Perhaps this should be a string with the mtr path in it, not a pointer to some data in memory,
+    // that could be freed anytime?
+    MTRFile* mtrfile;  // pointer to mtr data in memory where this material is defined
 }
 
 fn void HMaterial.save(&self, SaveFile* file) @dynamic @public {
-// todo
+    @todo();
 }
 
 fn void HMaterial.reload(&self, SaveFile* file) @dynamic @public {
-// todo
+    @todo();
 }
 
 fn void HMaterial.init(&self) @public
@@ -228,58 +267,47 @@ fn void HMaterial.init(&self) @public
     // use constants instead of enums for this?
     //self.contentes |= (Contents.SOLID.flag & Contents.OPAQUE.flag);
     self.comment  = "<none>";
-    self.diffuse.color = rl::WHITE;
+    self.getStage(mtr::MAT_STAGE_DIFFUSE).color = rl::WHITE;
 }
 
 fn void HMaterial.free(&self)
 {
-	self.diffuse.clear();
+	foreach(stage : self.maps) stage.clear();
     if(self.mtrfile) self.mtrfile = null;
 }
 
 // @untested
 fn void HMaterial.copy(&self, HMaterial* other)
 {
-	self.diffuse.tex = other.diffuse.tex;
-    self.diffuse.args.add_all(&other.diffuse.args);
+	self.getStage(mtr::MAT_STAGE_DIFFUSE).tex = *other.getTexture(mtr::MAT_STAGE_DIFFUSE);
+    self.getStage(mtr::MAT_STAGE_DIFFUSE).args.add_all(&other.getStage(mtr::MAT_STAGE_DIFFUSE).args);
 }
 
-fn Texture2D* HMaterial.getTexture(&self, rl::MaterialMapIndex index = ALBEDO, bool isPBR = false)
+<*
+* @param index : "stage index to get the necessary texture data." 
+* @require index >= 0 $$ index < MAX_STAGE_INDICES
+*>
+fn MaterialStage* HMaterial.getStage(&self, MatStageIndex index) @inline @public
 {
-    /*
-    ALBEDO,            // Albedo material (same as: MATERIAL_MAP_DIFFUSE)
-    METALNESS,         // Metalness material (same as: MATERIAL_MAP_SPECULAR)
-    NORMAL,            // Normal material
-    ROUGHNESS,         // Roughness material
-    OCCLUSION,         // Ambient occlusion material
-    EMISSION,          // Emission material
-    HEIGHT,            // Heightmap material
-    CUBEMAP,           // Cubemap material (NOTE: Uses GL_TEXTURE_CUBE_MAP)
-    IRRADIANCE,        // Irradiance material (NOTE: Uses GL_TEXTURE_CUBE_MAP)
-    PREFILTER,         // Prefilter material (NOTE: Uses GL_TEXTURE_CUBE_MAP)
-    BRDF,              // Brdf material
-    DEPTH0,            // New depth map index shadow for light1
-    DEPTH1,            // New depth map index shadow for light2
-    DEPTH2,            // New depth map index shadow for light3
-    DEPTH3             // New 
-    */
+    return &self.maps[index];
+}
+
+fn Texture2D* HMaterial.getTexture(&self, MatStageIndex index, bool isPBR = false) @public
+{
     switch(index)
     {
-        /*case NORMAL:
-            return self.normal.tex;
-        case METALNESS: // this is both specular and metalness for pbr
-            return (isPBR == true) ? self.metal.tex : self.spec.tex;
-        case HEIGHT:
-            return self.bump.tex;
-        case ROUGHNESS:
-            return self.rough.tex;
-        case OCCLUSION:
-            return self.ao.tex;
-        case CUBEMAP:
-            return self.cube.tex;*/
-        case ALBEDO:
+        case MAT_STAGE_NORMAL:
+        case MAT_STAGE_SPECULAR:
+        case MAT_STAGE_HEIGHT:
+        case MAT_STAGE_EMISSION:
+        case MAT_STAGE_OCCLUSION:
+        case MAT_STAGE_CUBEMAP:
+        case MAT_STAGE_VIDEO:
+        case MAT_STAGE_SOUND: 
+            @todo();
+        case MAT_STAGE_DIFFUSE:
         default:
-            return &self.diffuse.tex;
+            return &self.getStage(MAT_STAGE_DIFFUSE).tex;
     }
 }
 
@@ -597,33 +625,29 @@ fn void parse_material_maps(XmlNode* maps_node, HMaterial* mat)
                 {
                     if(child == null) continue;
 
-                    if(isXmlNode(child, Node.MAP))
+                    switch 
                     {
-                        String texture_path = main::gpGame.app_base_folder.tconcat(getNodeText(child));
-                        if(texture_path.extractFileBaseByCopy() == "default.png")
-                        {
-                            mat.diffuse.tex = main::gpGame.default_texture;
-                        } else {
-                            mat.diffuse.tex = misc::loadTexture(texture_path);
-                        $if $feature(_DEBUG):
-                            lgr::info(Where.FILE, "Loaded texture '%s' for material '%s' in file '%s'", texture_path, mat.name, mat.mtrfile.path);
-                        $endif
-                        }
-                    }
-
-                    if(isXmlNode(child, Node.COLOR))
-                    {
-                        // TODO(HM) handle bad color definitions...
-                        mat.diffuse.color = xmlStrColorToColor(getNodeText(child));
-                    }
-
-                    if(isXmlNode(child, Node.ARGS)) 
-                    {
-                        if(child.asAttributes()) 
-                        {
-                            register_material_map_args(&mat.diffuse, child);
-                            handle_material_map_args(&mat.diffuse, child, mat);
-                        }
+                        case isXmlNode(child, Node.MAP):
+                            // create the full path by concatenating the relative material path to the game base folder
+                            String texture_path = main::gpGame.app_base_folder.tconcat(getNodeText(child));
+                            if(texture_path.extractFileBaseByCopy() == "default.png") {
+                                mat.getStage(MAT_STAGE_DIFFUSE).tex = main::gpGame.default_texture;
+                            } else {
+                                mat.getStage(MAT_STAGE_DIFFUSE).loadTexture(texture_path);
+                                $if $feature(_DEBUG):
+                                    lgr::info(Where.FILE, "Loaded texture '%s' for material '%s' in file '%s'", texture_path, mat.name, mat.mtrfile.path);
+                                $endif
+                            }
+                        case isXmlNode(child, Node.COLOR):
+                            mat.getStage(MAT_STAGE_DIFFUSE).color = xmlStrColorToColor(getNodeText(child));
+                        case isXmlNode(child, Node.ARGS):
+                            if(child.asAttributes()) 
+                            {
+                                register_material_map_args(mat.getStage(MAT_STAGE_DIFFUSE), child);
+                                handle_material_map_args(mat.getStage(MAT_STAGE_DIFFUSE), child, mat);
+                            }
+                        default:
+                            unreachable("Invalid node: %s child for material node %s.", child.name, node.name);
                     }
                 }
             case Node.VIDEO_MAP: break;
@@ -702,7 +726,7 @@ fn void parse_node_atributes(XmlNode* node, HMaterial* mat)
     @param [inout] map : "the texture map we are registing data into"
     @require node != null && map != null && node.asAttributes() == true
 *>
-fn void register_material_map_args(MatMap* map, XmlNode* node)
+fn void register_material_map_args(MaterialStage* map, XmlNode* node)
 {
     foreach (arg : node.attributes)
     {
@@ -718,7 +742,7 @@ fn void register_material_map_args(MatMap* map, XmlNode* node)
     @param [inout] mat : "the material we are saving data into"
     @require map != null && node != null && mat != null
 *>
-fn void handle_material_map_args(MatMap* map, XmlNode* node, HMaterial* mat)
+fn void handle_material_map_args(MaterialStage* map, XmlNode* node, HMaterial* mat)
 {
     //io::printfn("START parsing map '%s' arguments:", node.name);
     foreach (arg : map.args)
@@ -727,8 +751,8 @@ fn void handle_material_map_args(MatMap* map, XmlNode* node, HMaterial* mat)
        
        switch(arg.first)
        {
-        case MapArgs.CLAMP:
-        case MapArgs.ALPHA:
+        case NodeAttrib.CLAMP:
+        case NodeAttrib.ALPHA:
             float alpha = misc::clamp01f(arg.second.to_float()!!);
              // multiply previous alpha values by our new value
             if(alpha > 0.0f && alpha < 1.0f) {
@@ -751,12 +775,12 @@ fn void handle_material_map_args(MatMap* map, XmlNode* node, HMaterial* mat)
             //     // load the new data to GPU VRAM
             //     map.tex = rl::loadTextureFromImage(image);
             // }
-        case MapArgs.TILE_H:
-        case MapArgs.TILE_V:
-        case MapArgs.SCROLL_X:
-        case MapArgs.SCROLL_Y:
-        case MapArgs.TRANSLATE_X:
-        case MapArgs.TRANSLATE_Y:
+        case NodeAttrib.TILE_H:
+        case NodeAttrib.TILE_V:
+        case NodeAttrib.SCROLL_X:
+        case NodeAttrib.SCROLL_Y:
+        case NodeAttrib.TRANSLATE_X:
+        case NodeAttrib.TRANSLATE_Y:
            io::printfn("  %s = %s,", arg.first, arg.second);
         default:
            io::printfn("Unnused map argument '%s' found in node '%s' of material '%s' in file '%s'!", arg.first, node.name, mat.name, mat.mtrfile.path);
@@ -802,17 +826,39 @@ fn String getNodeText(XmlNode* node) @local
     return result;
 }
 
-fn Color xmlStrColorToColor(String value) @local
+fn Color xmlStrColorToColor(String _value) @local
 {
-    String[] chars = value.tsplit(" ");
+    String[] chars = _value.tsplit(" ");
     assert(chars.len == 4);
     
     Color result;
     
-    result.r = chars[0].to_uchar()!!;
-    result.g = chars[1].to_uchar()!!;
-    result.b = chars[2].to_uchar()!!;
-    result.a = chars[3].to_uchar()!!;
+    char? value;
+
+    value = chars[0].to_uchar();
+    if(catch excuse = value) {
+        result.r = 255;
+    } else {
+        result.r = (value <= 255) ? value : 255;
+    }
+    value = chars[1].to_uchar();
+    if(catch excuse = value) {
+        result.g = 255;
+    } else {
+        result.g = (value <= 255) ? value : 255;
+    }
+    value = chars[2].to_uchar();
+    if(catch excuse = value) {
+        result.b = 255;
+    } else {
+        result.b = (value <= 255) ? value : 255;
+    }
+    value = chars[3].to_uchar();
+    if(catch excuse = value) {
+        result.a = 255;
+    } else {
+        result.a = (value <= 255) ? value : 255;
+    }
     
     return result;
 }
@@ -825,10 +871,12 @@ fn void print_material_map_data(HMaterial* mat) @local
 {
     if(mat)
     {
+        Color color = mat.getStage(mtr::MAT_STAGE_DIFFUSE).color;
+        Texture2D* tex = &mat.getStage(mtr::MAT_STAGE_DIFFUSE).tex;
         io::printfn("   [map : 'Diffuse']");
-        io::printfn("       tex: \"id: %s, w: %s, h: %s, mp: %s, pf: %s\"", mat.diffuse.tex.id, mat.diffuse.tex.width, mat.diffuse.tex.height, mat.diffuse.tex.mipmaps, mat.diffuse.tex.format);
-        io::printfn("       color: \"%s, %s , %s, %s\"", mat.diffuse.color.r, mat.diffuse.color.g, mat.diffuse.color.b, mat.diffuse.color.a);
-        foreach(i, arg : mat.diffuse.args) {
+        io::printfn("       tex: \"id: %s, w: %s, h: %s, mp: %s, pf: %s\"", tex.id, tex.width, tex.height, tex.mipmaps, tex.format);
+        io::printfn("       color: \"%s, %s , %s, %s\"", color.r, color.g, color.b, color.a);
+        foreach(i, arg : mat.getStage(mtr::MAT_STAGE_DIFFUSE).args) {
             io::printfn("       arg%d: \"%s = %s\"", i, arg.first, arg.second);
         }
     }
@@ -974,8 +1022,8 @@ fn void? loadMaterialFilesTo(MaterialDataBase* db) @inline @public
         HMaterial* default_material = mem::new(HMaterial);
         default_material.init();
         default_material.name = "default_material";
-        default_material.diffuse.tex = main::gpGame.default_texture;
-        default_material.diffuse.color = rl::WHITE;
+        default_material.getStage(mtr::MAT_STAGE_DIFFUSE).tex = main::gpGame.default_texture;
+        default_material.getStage(mtr::MAT_STAGE_DIFFUSE).color = rl::WHITE;
         db.data[0].register(default_material);
     }
 }
@@ -1007,7 +1055,7 @@ fn HMaterial* getMaterial(String material_name) @public
 
     // just for testing purposes
     if(mat != null) {
-	    assert(rl::isTextureValid(mat.diffuse.tex));
+	    assert(rl::isTextureValid(*mat.getTexture(mtr::MAT_STAGE_DIFFUSE)));
     }
     
 	return mat;
