@@ -61,6 +61,7 @@ const MU_MAX_FMT              = 127;
 // The default font size for MicroUI is set to 12 pixels.
 const MICROUI_FONT_SIZE 	    = 9; 
 const MICROUI_FONT_SPACING    = 1; // This is the spacing between characters in the font, used for text rendering.
+const MAX_INPUT_TEXT          = 32;
 
 const MU_COMMAND_JUMP = 1;
 const MU_COMMAND_CLIP = 2;
@@ -331,7 +332,7 @@ struct MU_Context
 	int mouse_pressed;
 	int key_down;
 	int key_pressed;
-	char[32] input_text;
+	char[MAX_INPUT_TEXT] input_text;
 }
 
 
@@ -662,9 +663,9 @@ fn void register_test_window(MU_Context* ctx) @inline
 {
 	// Register the test window frame function to be processed in the main loop
   //register_frame(&test_window);
-  //register_frame(&log_window);
+  register_frame(&log_window);
   // Uncomment the line below to register the hello_window function
-	register_frame(&hello_window);
+	//register_frame(&hello_window);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////
@@ -733,8 +734,8 @@ fn void process_frame(MU_Frame frame, MU_Context* ctx) @local
 fn int text_width(MU_Font font, ZString text, int len) //@inline
 {
     // mesure is in pixels
-    //int size = rl::measureText(text, MICROUI_FONT_SIZE);
-    int size = (int)rl::measureTextEx(rl::getFontDefault(), text, MICROUI_FONT_SIZE, MICROUI_FONT_SPACING).x;
+    int size = rl::measureText(rl::textFormat(".*s", len, text), MICROUI_FONT_SIZE);
+    //int size = (int)rl::measureTextEx(rl::getFontDefault(), text, MICROUI_FONT_SIZE, MICROUI_FONT_SPACING).x;
     return size;
 }
 
@@ -761,14 +762,21 @@ fn void draw_icon(int id, MU_Rect rect, MU_Color color)
 
 fn void set_clip_rect(MU_Rect rect) 
 {
-	rl::endScissorMode(); // End any previous scissor mode to reset the clipping state
+  if(rect == (MU_Rect){0, 0, 0x1000000, 0x1000000} /*unclipped_rect*/)
+  {
+	  rl::endScissorMode(); // End any previous scissor mode to reset the clipping state
+  } else {
   // Set the clipping rectangle for drawing operations
-	rl::beginScissorMode(rect.x, rect.y, rect.w, rect.h);
+	  rl::beginScissorMode(rect.x, rect.y, rect.w, rect.h);
+  }
 }
+
+String input_text @local;
 
 // untested!!!!!!!
 fn void forward_text_input(MU_Context* ctx) //@local 
 {
+$if $defined(ENABLE_OLD_STRING):
     // Create a buffer to hold UTF8 text input
     // UTF8 is a "variable width encoding" so some characters may be 1 byte whereas other may be up to 4
     char[512] text_input;
@@ -804,15 +812,42 @@ fn void forward_text_input(MU_Context* ctx) //@local
     // Now we can send our text_input buffer to mui so it knows the currently pressed characters
     // We'll just send a slice of the full text_input buffer, up to the latest input offset since it probably wasn't filled
     ctx.input_textfn(string::tformat_zstr("%s", (String)text_input[:text_input_offset]));
+  $else
+    //if(input_text.len) input_text = "";
+    int key;
+    while(key = rl::getKeyPressed())
+    {
+        int size;
+        ZString text = rl::codepointToUTF8(rl::getCharPressed(), &size);
+        if(input_text.len <= MAX_INPUT_TEXT)
+        {
+          String chr = (String)text[:size];
+          if(chr[0] != '\0')
+          {
+              //input_text = (key == (int)rl::KEY_BACKSPACE) ? input_text.trim_right(chr) : input_text.tconcat(chr);
+            input_text = input_text.tconcat(chr);
+          } else if(key == (int)rl::KEY_BACKSPACE) {
+              int text_len   = input_text.len;
+                  input_text = (input_text.len >= 2) ? (String)input_text[:text_len - 1] : "";
+          }
+        } else {
+          break;
+        }
+          //input_text.tconcat(text.str_view());
+    }
+    //input_text.tconcat("0"); // close the string
+    ctx.input_textfn(input_text.zstr_tcopy());
+  $endif
 }
 
 
 // This struct stores a mapping from a raylib mouse button enum to the equivalent mui enum
+/*
 struct MouseButtonMapping @local @compact
 {
     MouseButton rl; // Raylib mouse button enum
     MU_Mouse mu;// MicroUI mouse button enum;
-}
+}*/
 
 fn void forward_mouse_input(MU_Context* ctx) {
     // Get the current mouse position/scroll from raylib
@@ -824,7 +859,7 @@ fn void forward_mouse_input(MU_Context* ctx) {
     ctx.input_scroll(0, (int)mouse_scroll);
 
     // We'll create an array of mappings using the struct above
- 
+ /*
     MouseButtonMapping[*] mouseButtonMappings = {
         {MouseButton.LEFT, MU_Mouse.LEFT},
         {MouseButton.RIGHT, MU_Mouse.RIGHT},
@@ -833,16 +868,25 @@ fn void forward_mouse_input(MU_Context* ctx) {
         {MouseButton.EXTRA, MU_Mouse.EXTRA},
         {MouseButton.FORWARD, MU_Mouse.FORWARD},
         {MouseButton.BACK, MU_Mouse.BACK}
-    };
+    };*/
 
     // Check each if each mouse button is down or released with Raylib and forward the event to mui if so
-    foreach(button : mouseButtonMappings) 
+    // foreach(button : mouseButtonMappings) 
+    // {
+    //     if (rl::isMouseButtonPressed(button.rl)) {
+    //         ctx.input_mousedown((int)mouse_position.x, (int)mouse_position.y, button.mu);
+    //     }
+    //     else if (rl::isMouseButtonReleased(button.rl)) {
+    //         ctx.input_mouseup((int)mouse_position.x, (int)mouse_position.y, button.mu);
+    //     }
+    // }
+    for(int button = MouseButton.LEFT; button <= MouseButton.MIDDLE; ++button)
     {
-        if (rl::isMouseButtonPressed(button.rl)) {
-            ctx.input_mousedown((int)mouse_position.x, (int)mouse_position.y, button.mu);
+        if (rl::isMouseButtonPressed(MouseButton.from_ordinal(button))) {
+            ctx.input_mousedown((int)mouse_position.x, (int)mouse_position.y, 1 << button);
         }
-        else if (rl::isMouseButtonReleased(button.rl)) {
-            ctx.input_mouseup((int)mouse_position.x, (int)mouse_position.y, button.mu);
+        if (rl::isMouseButtonReleased(MouseButton.from_ordinal(button))) {
+            ctx.input_mouseup((int)mouse_position.x, (int)mouse_position.y, 1 << button);
         }
     }
 }

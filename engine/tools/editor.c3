@@ -408,6 +408,7 @@ fn void Editor.setUnmaximizable(&self) @inline
 
 fn void Editor.setClosable(&self) @inline
 {
+    
     // if (self.flags.is_closable) {
     //     return;
     // }

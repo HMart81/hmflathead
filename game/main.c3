@@ -1312,7 +1312,7 @@ $if $feature(MICROUI_ENABLE) :
     // Make sure we end any lingering scissor mode.
    // Without this precaution it's possible for clipping to persist into the next frame 
    // and obstruct stuff until the next clip command from microui is handled!
-   rl::endScissorMode();
+   //rl::endScissorMode();
 $endif
 
     // draw game cursor sprite
