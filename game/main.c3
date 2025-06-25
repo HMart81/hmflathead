@@ -1312,7 +1312,7 @@ $if $feature(MICROUI_ENABLE) :
     // Make sure we end any lingering scissor mode.
    // Without this precaution it's possible for clipping to persist into the next frame 
    // and obstruct stuff until the next clip command from microui is handled!
-   //rl::endScissorMode();
+   rl::endScissorMode();
 $endif
 
     // draw game cursor sprite
@@ -2126,7 +2126,6 @@ $if $feature(MICROUI_ENABLE):
     local_game.mu_ctx.init();
     local_game.mu_ctx.text_width  = &mu::text_width;
     local_game.mu_ctx.text_height = &mu::text_height;
-    mu::register_test_window(local_game.mu_ctx);
     lgr::info(Where.FILE, "---------------------------------------------\n");
 $endif
     

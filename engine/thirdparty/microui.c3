@@ -634,17 +634,6 @@ fn void test_window(MU_Context* ctx)
   }; // end of window
 }
 
-/*
-fn void process_frames(MU_Context* ctx, float delta_time) //@inline
-{
-    // Process the test window frame function in the main loop
-	@render(ctx)
-	{
-		test_window(ctx);
-	};
-}
-*/
-
 fn void hello_window(MU_Context* ctx) @inline
 {
 	// This function is called to render the test window in the MicroUI context.
@@ -657,79 +646,42 @@ fn void hello_window(MU_Context* ctx) @inline
 	};
 }
 
-// TODO(HM) Find why this commented code is not working, is crashing when calling a frame function
 
-fn void register_test_window(MU_Context* ctx) @inline
+// in this function we run all test microui "frames"
+fn void run_microui_frames(MU_Context* ctx) @inline
 {
-	// Register the test window frame function to be processed in the main loop
-  //register_frame(&test_window);
-  register_frame(&log_window);
-  // Uncomment the line below to register the hello_window function
-	//register_frame(&hello_window);
+  ctx.run(&test_window);
+  ctx.run(&log_window);
+	ctx.run(&hello_window);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////
 //----------------------------------------------------------------------------------
 
-const MAX_MU_FRAMES = 64; // Maximum number of frames that can be registered for processing
 alias MU_Frame = fn void (MU_Context* ctx);
-MU_Frame[MAX_MU_FRAMES] mu_frames;
 
-fn void register_frame(MU_Frame frame)
-{
-	for (int i = 0; i < MAX_MU_FRAMES; i++) {
-		if (mu_frames[i] == null) {
-			mu_frames[i] = frame;
-			return;
-		}
-	}
-$if $feature(_DEBUG):
-		unreachable("Maximum number of frames reached: %s", MAX_MU_FRAMES);
-$else
-	io::printfn("Maximum number of frames reached: %s", MAX_MU_FRAMES);
-$endif
+fn void MU_Context.run(&self, MU_Frame frame) {
+  if(frame) /*run*/ frame(self);
 }
 
 <*
- * Processes all registered frames in the context.
- * This function iterates through the `mu_frames` array and calls each registered frame function.
- * It is typically called in the main loop of the application to ensure that all frames are processed.
- * @note This function assumes that `mu_frames` has been initialized and contains valid frame functions
- * @param [in] ctx : "The MicroUI context in which the frames are processed."
+  Processes all frames with the current context.
+ * @param [in] ctx : "The current MicroUI context."
  * @param delta_time : "The time elapsed since the last frame, which can be used for animations"
  * @require ctx != null
  *>
-fn void process_frames(MU_Context* ctx, float delta_time) {
-	/*for (int i = 0; i < MAX_MU_FRAMES; i++)
-	{
-		if (mu_frames[i] != null) {
-			process_frame(mu_frames[i], ctx);
-		}
-	}*/
-  foreach(frame: mu_frames)
-  {
-    if (frame != null) {
-      process_frame(frame, ctx);
-    }
-  }
+fn void process_frames(MU_Context* ctx, float delta_time) 
+{
+  @render(ctx)
+ 	{
+    // WARNING(HM) frames needs to be rendered within a @render() body, if not will cause a memory pool crash 
+    run_microui_frames(ctx);
+ 	};
 }
 
-<* 
- * Processes a single frame function.
- * This function is called by `process_frames` for each registered frame.
- * It executes the frame function if it is not null.
- * @param [in] frame : "The frame function to be processed."
- * @param [in] ctx : "The MicroUI context in which the frame is processed."
- * @note This function assumes that `frame` is a valid function pointer and `ctx`
- * @require frame != null && ctx != null
- *>
-fn void process_frame(MU_Frame frame, MU_Context* ctx) @local
-{
-	@render(ctx)
-	{
-  		if(frame) /*run frame*/ frame(ctx);
-	};
-}
+/////////////////////////////////////
+//////// microui text size callbacks
+/////////////////////////////////////
 
 fn int text_width(MU_Font font, ZString text, int len) //@inline
 {
@@ -742,6 +694,8 @@ fn int text_width(MU_Font font, ZString text, int len) //@inline
 fn int text_height(MU_Font font) {
   return MICROUI_FONT_SIZE;
 }
+///////////
+///////////
 
 fn void draw_text(ZString str, MU_Vec2 pos, MU_Color color) 
 {
@@ -771,9 +725,11 @@ fn void set_clip_rect(MU_Rect rect)
   }
 }
 
+// NOTE(HM) this is the "buffer" for the input text
+// WARNING(HM) Right now, for some reason, if you write a certain string size the ctx.input_textfn will crash.
+// TODO(HM) Find why it crash's... 
 String input_text @local;
 
-// untested!!!!!!!
 fn void forward_text_input(MU_Context* ctx) //@local 
 {
 $if $defined(ENABLE_OLD_STRING):
@@ -880,6 +836,18 @@ fn void forward_mouse_input(MU_Context* ctx) {
     //         ctx.input_mouseup((int)mouse_position.x, (int)mouse_position.y, button.mu);
     //     }
     // }
+
+    /*
+      https://www.youtube.com/watch?v=-AFAY2IV4bk&t=3087s
+      [quote] 
+      I think the mouse buttons are defined as (1 << 0), (1 << 1), (1 << 2) so that you can use that as a bitfield to check multiple mouse buttons at once. So instead of calling mu_input_mousedown/up on each iteration you probably can do
+      int buttons = 0;
+      for (int button = LEFT; button <= MIDDLE; ++button)
+          if (Pressed(button)) buttons |= (1 << button);
+      mu_input_mousedown(&ctx, x, y, buttons);
+      mu_input_mouseup(&ctx, x, y, buttons); 
+      [\quote]
+    */
     for(int button = MouseButton.LEFT; button <= MouseButton.MIDDLE; ++button)
     {
         if (rl::isMouseButtonPressed(MouseButton.from_ordinal(button))) {
