@@ -41,7 +41,9 @@ module thirdparty::microui::mu @if($feature(MICROUI_ENABLE));
 import std::io;
 import std::core::string::conv;
 import thirdparty::raylib5::rl;
+import std::collections::list;
 //import std::collections::elastic_array;
+import game::main;
 import mu_stack @public;
 
 const MU_VERSION = "2.02";
@@ -416,13 +418,44 @@ extern fn void MU_Context.end_popup(&self) @extern("mu_end_popup");
 extern fn void MU_Context.begin_panel_ex(&self, ZString name, int opt) @extern("mu_begin_panel_ex");
 extern fn void MU_Context.end_panel(&self) @extern("mu_end_panel");
 
+alias OpenMicroUIFrames = List{String};
+OpenMicroUIFrames open_frames @public;
 
-macro void MU_Context.@make_window(&self, name, rect; @body) 
+fn void register_open_window(String _name) @local
 {
-	if (self.begin_window(name, rect)) {
+  foreach(name : open_frames) {
+    if (name == _name) {
+      return; // already registered
+    }
+  }
+  open_frames.push(_name);
+}
+
+fn void unregister_open_window(String _name) @local
+{
+  bool found;
+  foreach(name : open_frames) 
+  {
+    if (name == _name) 
+    {
+      found = true;
+      break; // found the frame to unregister
+    }
+  }
+  if(found) open_frames.remove_item(_name);
+}
+
+macro bool MU_Context.@make_window(&self, name, rect; @body) 
+{
+  if (self.begin_window(name, rect)) {
+    register_open_window(name); // Register the window as open
 		defer self.end_window();
 		@body();
-	}
+	} else {
+    unregister_open_window(name);
+    return false; // The window was closed.
+  }
+  return true; // The window was opened successfully.
 }
 
 macro void @render(MU_Context* ctx; @body)
@@ -434,20 +467,26 @@ macro void @render(MU_Context* ctx; @body)
 	@body();
 }
 
-macro void MU_Context.@make_popup(&self, name; @body)
+macro bool MU_Context.@make_popup(&self, name; @body)
 {
 	if (self.begin_popup(name.zstr_tcopy())) {
 		defer self.end_popup();
 		@body();
-	}
+	} else {
+    return false; // was closed.
+  }
+  return true; // still open
 }
 
-macro void MU_Context.@make_treenode(&self, name; @body)
+macro bool MU_Context.@make_treenode(&self, name; @body)
 {
 	if (self.begin_treenode(name)) {
 		defer self.end_treenode();
 		@body();
-	}
+	} else {
+    return false; // was closed.
+  }
+  return true; // still open
 }
 
 macro void MU_Context.@layout_make_column(&self; @body)
@@ -491,7 +530,7 @@ fn void write_log(String text) @local
 
 fn void log_window(MU_Context *ctx) 
 {
-  ctx.@make_window("Log Window", rect(350, 40, 300, 200)) 
+  bool open = ctx.@make_window("Log Window", rect(350, 40, 300, 200)) 
   {
     /* output text panel */
     ctx.layout_row(1, &&(int[*]) { -1 }, -25);
@@ -524,6 +563,13 @@ fn void log_window(MU_Context *ctx)
       buf[0] = '\0';
     }
   }; // end of log window
+
+  if (!open) 
+  {
+    // If the window was closed, reset the log buffer.
+    logbuf = "";
+    logbuf_updated = 0;
+  }
 }
 
 // Test window function to demonstrate the usage of MicroUI
@@ -533,7 +579,7 @@ int[*] bg @local = { 90, 95, 100 };
 fn void test_window(MU_Context* ctx)
 {
   /* do window */
-  ctx.@make_window("Demo Window", mu::rect(40, 40, 300, 450))
+  bool open = ctx.@make_window("Demo Window", mu::rect(40, 40, 300, 450))
   {
     MU_Container *win = ctx.get_current_container();
     win.rect.w = mu::max(win.rect.w, 240);
@@ -632,27 +678,41 @@ fn void test_window(MU_Context* ctx)
       ctx.draw_control_text(buf.zstr_tcopy(), r, MU_COLOR_TEXT, MU_Opt.ALIGNCENTER.v);
     }
   }; // end of window
+
+  if (!open) 
+  {
+    // If the window was closed, reset the background color.
+    bg = { 90, 95, 100 };
+  }
 }
 
 fn void hello_window(MU_Context* ctx) @inline
 {
 	// This function is called to render the test window in the MicroUI context.
 	// It is typically registered as a frame function to be processed in the main loop.
-	ctx.@make_window("hello_window", mu::rect(50, 50, 400, 300))
+	bool open = ctx.@make_window("hello_window", mu::rect(50, 50, 400, 300))
 	{
 		// Here you can add UI elements and logic for the test window
 		ctx.text("This is a test window.");
 		ctx.button("Click Me");
 	};
+
+  if (!open) 
+  {
+    // If the window was closed, you can perform any necessary cleanup or state reset.
+  }
 }
 
 
 // in this function we run all test microui "frames"
 fn void run_microui_frames(MU_Context* ctx) @inline
 {
-  ctx.run(&test_window);
-  ctx.run(&log_window);
-	ctx.run(&hello_window);
+  if(main::gpGame.show_microui_test_frames) 
+  {
+    ctx.run(&test_window);
+    ctx.run(&log_window);
+  	ctx.run(&hello_window);
+  }
 }
 
 /////////////////////////////////////////////////////////////////////////////////////
@@ -716,6 +776,7 @@ fn void draw_icon(int id, MU_Rect rect, MU_Color color)
 
 fn void set_clip_rect(MU_Rect rect) 
 {
+//$if $defined(NULL):
   if(rect == (MU_Rect){0, 0, 0x1000000, 0x1000000} /*unclipped_rect*/)
   {
 	  rl::endScissorMode(); // End any previous scissor mode to reset the clipping state
@@ -723,6 +784,10 @@ fn void set_clip_rect(MU_Rect rect)
   // Set the clipping rectangle for drawing operations
 	  rl::beginScissorMode(rect.x, rect.y, rect.w, rect.h);
   }
+//$else
+	  //rl::endScissorMode(); // End any previous scissor mode to reset the clipping state
+	  //rl::beginScissorMode(rect.x, rect.y, rect.w, rect.h);
+//$endif
 }
 
 // NOTE(HM) this is the "buffer" for the input text

@@ -341,6 +341,7 @@ struct Game (SaveSystemInterface) @local
 
     // microui
     mu::MU_Context* mu_ctx @if($feature(MICROUI_ENABLE)); // microui context, used for the micro ui system
+    bool show_microui_test_frames @if($feature(MICROUI_ENABLE));
 
     // script engine
     ScriptEngine script_eng;
@@ -876,6 +877,12 @@ fn void gameHandleGeneralControls() @local
             }
         }
     }
+
+    $if $feature(MICROUI_ENABLE):
+        if(rl::isKeyPressed(rl::KEY_F2)) {
+            local_game.show_microui_test_frames = !local_game.show_microui_test_frames;
+        }
+   $endif
     
     // handle ESC key press
     if (!local_game.guiActive && rl::isKeyPressed(rl::KEY_ESCAPE) &&
@@ -1259,6 +1266,10 @@ fn void gameDraw(int screenWidth, int screenHeight) @local
         
 $if $feature(MICROUI_ENABLE):
         mu::process_frames(local_game.mu_ctx, rl::getFrameTime());
+
+        if(local_game.show_microui_test_frames && mu::open_frames.len() == 0) {
+            local_game.show_microui_test_frames = false; // disable microui focus if no frames are open
+        }
 $endif
         // draw the view FBO's
         if(rl::isShaderValid(*local_game.current_global_shader)) 
@@ -1312,12 +1323,11 @@ $if $feature(MICROUI_ENABLE) :
     // Make sure we end any lingering scissor mode.
    // Without this precaution it's possible for clipping to persist into the next frame 
    // and obstruct stuff until the next clip command from microui is handled!
-   rl::endScissorMode();
+   //rl::endScissorMode();
 $endif
 
     // draw game cursor sprite
     draw_game_cursor();
-
 }
 
 fn void draw_game_cursor() @local @inline

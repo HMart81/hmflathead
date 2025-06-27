@@ -340,6 +340,11 @@ fn bool Panel.asFocus(&self)  @inline => self.flags.inFocus;
 
 fn void Panel.update(&self) 
 {
+    if((editor_enabled() && editor_as_focus()) || main::gpGame.show_microui_test_frames)
+    {
+       return; // do not update panels when in editor mode
+    }
+
     if(!self.active() || self.hidden()) return;
 
     self.flags.inFocus = self.isMouseOver();
@@ -589,9 +594,9 @@ fn void Widget.update(&self) @dynamic
 
     self.super.update(); // mouse over is done in super update
 
-    if(editor_enabled() && editor_as_focus()) { return; }
+    if((editor_enabled() && editor_as_focus()) || main::gpGame.show_microui_test_frames) { return; }
     else if (!self.active() || self.hidden()) { return; }
-    
+
     if(editor_enabled())
     {
         // run editor keyboard interactions
@@ -872,7 +877,8 @@ fn void WidgetText.setFontSize(&self, int size) @inline {
     self.updateBounds();
 }
 
-fn void WidgetText.update(&self) {
+fn void WidgetText.update(&self) 
+{
     self.super.update();
 }
 
