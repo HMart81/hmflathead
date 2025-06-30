@@ -39,6 +39,8 @@ import engine::logging::lgr;
 import thirdparty::raylib5::rl;
 import engine::misc; // misc code
 import game::main;
+import engine::sys::script_engine::event; // import the event system
+import game::actors::ent;
 
 //alias VMListPtr = List{WrenVM*};
 alias ScriptList = List{Script*};
@@ -353,52 +355,8 @@ fn void errorFn(WrenVM* vm, WrenErrorType errorType, ZString _module, int line, 
 //#endregion
 
 
-////// WARNING(HM) For some reason I cannot make foreign functions work, calling C3 custom code.
-////// This despite bindForeignMethod being called correctly and both 
-////// writeFn and errorFn, working just fine and are also called from c3 code!!!!!!? :( 
-
-<*
-* @param [in] vm : "current wren virtual machine calling this func"
-* @require vm != null
-*>
-fn void wren_event_add(WrenVM* vm)
-{
-    vm.ensureSlots(3); // slot 0 is the caller (and return slot), slot 1 and 2 are the fn arguments slots
-    double a = vm.getSlotDouble(1);
-    double b = vm.getSlotDouble(2);
-    vm.setSlotDouble(0, a + b);
-}
-
-<*
-* @param [in] vm : "current wren virtual machine calling this func"
-* @require vm != null
-*>
-fn void wren_event_vec2_translate(WrenVM* vm)
-{
-    vm.ensureSlots(3); // slot 0 is the caller (and return slot), slot 1 and 2 are the fn arguments slots
-    Vec2f vec1 = *(Vec2f*)vm.getSlotForeign(0);
-    double a = vm.getSlotDouble(1);
-    double b = vm.getSlotDouble(2);
-    vec1.translateV({(float)a, (float)b});
-    Vec2f* vecp = (Vec2f*)vm.setSlotNewForeign(0,0, Vec2f.sizeof);
-    mem::copy(vecp, &vec1, Vec2f.sizeof);
-    vecp = null; 
-}
-
-<*
-* @param [in] vm : "current wren virtual machine calling this func"
-* @require vm != null
-*>
-fn void wren_event_toFile(WrenVM* vm)
-{
-    int slots = vm.getSlotCount();
-    if(slots != 2) vm.ensureSlots(2); // slot 0 is the caller (and return slot), slot 1 is the fn argument slot
-    WrenType type = vm.getSlotType(1);
-    assert(type == WrenType.STRING, "message must be a string");
-    String message = ((ZString)vm.getSlotString(1)).str_view();
-    lgr::info(Where.FILE, "%s", message);
-    //vm.setSlotDouble(0, a + b);
-}
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////// Bind Foreign Methods ///////////////////////////////////////////////
 
 <*
     Binds C3 functions to methods defined in script classes
@@ -424,7 +382,7 @@ fn WrenForeignMethodFn bindForeignMethod(WrenVM* vm, ZString script_name, ZStrin
                     if (isStatic)
                     {
                         if (fn_signature == "tofile(_)") {
-                            result = &wren_event_toFile;
+                            result = &event::logToFile;
                             break MODULES;
                         }
                     }
@@ -436,8 +394,27 @@ fn WrenForeignMethodFn bindForeignMethod(WrenVM* vm, ZString script_name, ZStrin
                     if (isStatic)
                     {
                         if (fn_signature == "add(_,_)") {
-                            result = &wren_event_add;
+                            result = &event::add;
                             break MODULES;
+                        }
+                    }
+            }
+        case "entity":
+            switch (class_name)
+            {
+                case "Entity":
+                    if (isStatic)
+                    {
+                        foreach(evfunc : ent::ENTITY_EVENTS_CALLBACKS)
+                        {
+                            if (fn_signature == event::getSignature(*evfunc.event)) {
+                                result = evfunc.callback;
+                                break MODULES;
+                            }
+
+                        }
+                        if (result == null) {
+                            lgr::warning(Where.FILE, "Failed to bind foreign method %s.%s with signature %s", module_name, class_name, fn_signature);
                         }
                     }
             }
@@ -448,7 +425,7 @@ fn WrenForeignMethodFn bindForeignMethod(WrenVM* vm, ZString script_name, ZStrin
                     if (isStatic)
                     {
                         if (fn_signature == "translate(_,_)") {
-                            result = &wren_event_vec2_translate;
+                            result = &event::vec2_translate;
                             break MODULES;
                         }
                     }

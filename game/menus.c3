@@ -247,6 +247,9 @@ macro create_menu_button(Vec2f pos, String text, MenuButtonDef* bdef, Desktop* m
     button.onPress       = bdef.callbacks[2];//&start_button_onPress;
     button.onSinglePress = bdef.callbacks[3];//&start_button_onSinglePress;
     button.onRelease     = bdef.callbacks[4];//&button_onRelease;
+    button.onLoad        = &button_onLoad;
+
+    if(button.onLoad) button.onLoad(button);
 }
     
 fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
@@ -374,7 +377,17 @@ fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
 
 
 
-// region callbacks
+// #region  ################ Button callbacks ##########################
+
+// generic button callbacks
+fn void button_onLoad(Widget* widget) {
+    assert(widget != null);
+    WidgetButton* self = (WidgetButton*)widget;
+    // if(self.active_visible_infocus() && self.asFocus()) {
+    //     self.setColor(self.over_color);
+    // }
+    lgr::info(Where.CONSOLE, "WidgetButton '%s' loaded.", self.name);
+}
 
 // generic button callbacks
 fn void button_onOver(Widget* widget) {

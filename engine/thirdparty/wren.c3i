@@ -27,8 +27,21 @@
 *********************************************************************************************************************************************/
 
 /***************************************************************
-* Wren C3 Bindings
-* This file is the C3 bindings for the wren scripting language
+* This are C3 bindings for the wren scripting language. 
+* Wren is a small, OOP class-based concurrent scripting language.
+* To know more about Wren, see: https://wren.io/
+*
+* NOTE(HM): 
+*   Some of the structs in this file, were not really required to be this complete... (or even here...)
+*   This because, most of them are passed by pointer, so I could had just alias them 
+*   to a void* (opaque pointer) and be done with it! 
+*   The reality is, you don't need to know the full data-layout for most of them to use this... 
+*   Unfortunatly I did this, before knowing that was a option, sorry... :(
+*   Because of this ignorance, writting this took way more time and more work then needed, 
+*   I add to search all over the wren source code for the full structs. 
+*   But now that is done is done, just ignore the structs layout or if you really want,
+*   delete the body and alias them to a void* to cut on code compilation time. 
+*   (but don't try storing the structs by value after that...)
 ****************************************************************/
 
 module buffer{Type} @private @if($feature(WREN_ENABLE));
@@ -86,14 +99,14 @@ struct ObjString
 
 // types used by the VM
 typedef Value = inline ulong;
-typedef Byte = inline char;
+typedef Byte  = inline char;
 
 alias MethodBuffer = Buffer{Method};
-alias ByteBuffer = Buffer{Byte};
-alias ValueBuffer = Buffer{Value};
-alias IntBuffer = Buffer{int};
+alias ByteBuffer   = Buffer{Byte};
+alias ValueBuffer  = Buffer{Value};
+alias IntBuffer    = Buffer{int};
 alias StringBuffer = Buffer{ObjString*};
-alias SymbolTable = StringBuffer;
+alias SymbolTable  = StringBuffer;
 
 // A hash table mapping keys to values.
 //
@@ -391,11 +404,15 @@ struct WrenHandle
   WrenHandle* next;
 }
 
+// NOTE(HM) alias to a void* works, but only if the struct type 
+// is only ever used & passed as a pointer between C and C3 (what is the case in this bindings)
+// but if you ever need to store the struct by value, it won't work! So is why 
+// I don't delete the full struct definition here, for those that may needed it. 
+alias WrenVM = void*;
 // A single virtual machine for executing Wren code.
 //
 // Wren has no global state, so all state stored by a running interpreter lives
 // here.
-alias WrenVM = void*;
 /*
 struct WrenVM
 {
@@ -1130,15 +1147,15 @@ extern fn  int WrenVM.getSlotCount(WrenVM* vm) @extern("wrenGetSlotCount");
 // Does not shrink the stack if it has more than enough slots.
 //
 // It is an error to call this from a finalizer.
-extern fn  void WrenVM.ensureSlots(WrenVM* vm, int numSlots) @extern("wrenEnsureSlots");
+extern fn  void WrenVM.ensureSlots(&self, int numSlots) @extern("wrenEnsureSlots");
 
 // Gets the type of the object in [slot].
-extern fn  WrenType WrenVM.getSlotType(WrenVM* vm, int slot) @extern("wrenGetSlotType");
+extern fn  WrenType WrenVM.getSlotType(&self, int slot) @extern("wrenGetSlotType");
 
 // Reads a boolean value from [slot].
 //
 // It is an error to call this if the slot does not contain a boolean value.
-extern fn  bool WrenVM.getSlotBool(WrenVM* vm, int slot) @extern("wrenGetSlotBool");
+extern fn  bool WrenVM.getSlotBool(&self, int slot) @extern("wrenGetSlotBool");
 
 // Reads a byte array from [slot].
 //
@@ -1150,19 +1167,19 @@ extern fn  bool WrenVM.getSlotBool(WrenVM* vm, int slot) @extern("wrenGetSlotBoo
 // number of bytes in the array.
 //
 // It is an error to call this if the slot does not contain a string.
-extern fn  ZString WrenVM.getSlotBytes(WrenVM* vm, int slot, int* length) @extern("wrenGetSlotBytes");
+extern fn  ZString WrenVM.getSlotBytes(&self, int slot, int* length) @extern("wrenGetSlotBytes");
 
 // Reads a number from [slot].
 //
 // It is an error to call this if the slot does not contain a number.
-extern fn  double WrenVM.getSlotDouble(WrenVM* vm, int slot) @extern("wrenGetSlotDouble");
+extern fn  double WrenVM.getSlotDouble(&self, int slot) @extern("wrenGetSlotDouble");
 
 // Reads a foreign object from [slot] and returns a pointer to the foreign data
 // stored with it.
 //
 // It is an error to call this if the slot does not contain an instance of a
 // foreign class.
-extern fn  void* WrenVM.getSlotForeign(WrenVM* vm, int slot) @extern("wrenGetSlotForeign");
+extern fn  void* WrenVM.getSlotForeign(&self, int slot) @extern("wrenGetSlotForeign");
 
 // Reads a string from [slot].
 //
@@ -1171,25 +1188,25 @@ extern fn  void* WrenVM.getSlotForeign(WrenVM* vm, int slot) @extern("wrenGetSlo
 // function returns, since the garbage collector may reclaim it.
 //
 // It is an error to call this if the slot does not contain a string.
-extern fn  ZString WrenVM.getSlotString(WrenVM* vm, int slot) @extern("wrenGetSlotString");
+extern fn  ZString WrenVM.getSlotString(&self, int slot) @extern("wrenGetSlotString");
 
 // Creates a handle for the value stored in [slot].
 //
 // This will prevent the object that is referred to from being garbage collected
 // until the handle is released by calling [wrenReleaseHandle()].
-extern fn  WrenHandle* WrenVM.getSlotHandle(WrenVM* vm, int slot) @extern("wrenGetSlotHandle");
+extern fn  WrenHandle* WrenVM.getSlotHandle(&self, int slot) @extern("wrenGetSlotHandle");
 
 // Stores the boolean [value] in [slot].
-extern fn  void WrenVM.setSlotBool(WrenVM* vm, int slot, bool value) @extern("wrenSetSlotBool");
+extern fn  void WrenVM.setSlotBool(&self, int slot, bool value) @extern("wrenSetSlotBool");
 
 // Stores the array [length] of [bytes] in [slot].
 //
 // The bytes are copied to a new string within Wren's heap, so you can free
 // memory used by them after this is called.
-extern fn  void WrenVM.setSlotBytes(WrenVM* vm, int slot, ZString bytes, usz length) @extern("wrenSetSlotBytes");
+extern fn  void WrenVM.setSlotBytes(&self, int slot, ZString bytes, usz length) @extern("wrenSetSlotBytes");
 
 // Stores the numeric [value] in [slot].
-extern fn  void WrenVM.setSlotDouble(WrenVM* vm, int slot, double value) @extern("wrenSetSlotDouble");
+extern fn  void WrenVM.setSlotDouble(&self, int slot, double value) @extern("wrenSetSlotDouble");
 
 // Creates a new instance of the foreign class stored in [classSlot] with [size]
 // bytes of raw storage and places the resulting object in [slot].
@@ -1200,16 +1217,16 @@ extern fn  void WrenVM.setSlotDouble(WrenVM* vm, int slot, double value) @extern
 // and then the constructor will be invoked when the allocator returns.
 //
 // Returns a pointer to the foreign object's data.
-extern fn  void* WrenVM.setSlotNewForeign(WrenVM* vm, int slot, int classSlot, usz size) @extern("wrenSetSlotNewForeign");
+extern fn  void* WrenVM.setSlotNewForeign(&self, int slot, int classSlot, usz size) @extern("wrenSetSlotNewForeign");
 
 // Stores a new empty list in [slot].
-extern fn  void WrenVM.setSlotNewList(WrenVM* vm, int slot) @extern("wrenSetSlotNewList");
+extern fn  void WrenVM.setSlotNewList(&self, int slot) @extern("wrenSetSlotNewList");
 
 // Stores a new empty map in [slot].
-extern fn  void WrenVM.setSlotNewMap(WrenVM* vm, int slot) @extern("wrenSetSlotNewMap");
+extern fn  void WrenVM.setSlotNewMap(&self, int slot) @extern("wrenSetSlotNewMap");
 
 // Stores null in [slot].
-extern fn  void WrenVM.setSlotNull(WrenVM* vm, int slot) @extern("wrenSetSlotNull");
+extern fn  void WrenVM.setSlotNull(&self, int slot) @extern("wrenSetSlotNull");
 
 // Stores the string [text] in [slot].
 //
@@ -1217,69 +1234,69 @@ extern fn  void WrenVM.setSlotNull(WrenVM* vm, int slot) @extern("wrenSetSlotNul
 // memory used by it after this is called. The length is calculated using
 // [strlen()]. If the string may contain any null bytes in the middle, then you
 // should use [wrenSetSlotBytes()] instead.
-extern fn  void WrenVM.setSlotString(WrenVM* vm, int slot, ZString text) @extern("wrenSetSlotString");
+extern fn  void WrenVM.setSlotString(&self, int slot, ZString text) @extern("wrenSetSlotString");
 
 // Stores the value captured in [handle] in [slot].
 //
 // This does not release the handle for the value.
-extern fn  void WrenVM.setSlotHandle(WrenVM* vm, int slot, WrenHandle* handle) @extern("wrenSetSlotHandle");
+extern fn  void WrenVM.setSlotHandle(&self, int slot, WrenHandle* handle) @extern("wrenSetSlotHandle");
 
 // Returns the number of elements in the list stored in [slot].
-extern fn  int WrenVM.getListCount(WrenVM* vm, int slot) @extern("wrenGetListCount");
+extern fn  int WrenVM.getListCount(&self, int slot) @extern("wrenGetListCount");
 
 // Reads element [index] from the list in [listSlot] and stores it in
 // [elementSlot].
-extern fn  void WrenVM.getListElement(WrenVM* vm, int listSlot, int index, int elementSlot) @extern("wrenGetListElement");
+extern fn  void WrenVM.getListElement(&self, int listSlot, int index, int elementSlot) @extern("wrenGetListElement");
 
 // Sets the value stored at [index] in the list at [listSlot], 
 // to the value from [elementSlot]. 
-extern fn  void WrenVM.setListElement(WrenVM* vm, int listSlot, int index, int elementSlot) @extern("wrenSetListElement");
+extern fn  void WrenVM.setListElement(&self, int listSlot, int index, int elementSlot) @extern("wrenSetListElement");
 
 // Takes the value stored at [elementSlot] and inserts it into the list stored
 // at [listSlot] at [index].
 //
 // As in Wren, negative indexes can be used to insert from the end. To append
 // an element, use `-1` for the index.
-extern fn  void WrenVM.insertInList(WrenVM* vm, int listSlot, int index, int elementSlot) @extern("wrenInsertInList");
+extern fn  void WrenVM.insertInList(&self, int listSlot, int index, int elementSlot) @extern("wrenInsertInList");
 
 // Returns the number of entries in the map stored in [slot].
-extern fn  int WrenVM.getMapCount(WrenVM* vm, int slot) @extern("wrenGetMapCount");
+extern fn  int WrenVM.getMapCount(&self, int slot) @extern("wrenGetMapCount");
 
 // Returns true if the key in [keySlot] is found in the map placed in [mapSlot].
-extern fn  bool WrenVM.getMapContainsKey(WrenVM* vm, int mapSlot, int keySlot) @extern("wrenGetMapContainsKey");
+extern fn  bool WrenVM.getMapContainsKey(&self, int mapSlot, int keySlot) @extern("wrenGetMapContainsKey");
 
 // Retrieves a value with the key in [keySlot] from the map in [mapSlot] and
 // stores it in [valueSlot].
-extern fn  void WrenVM.getMapValue(WrenVM* vm, int mapSlot, int keySlot, int valueSlot) @extern("wrenGetMapValue");
+extern fn  void WrenVM.getMapValue(&self, int mapSlot, int keySlot, int valueSlot) @extern("wrenGetMapValue");
 
 // Takes the value stored at [valueSlot] and inserts it into the map stored
 // at [mapSlot] with key [keySlot].
-extern fn  void WrenVM.setMapValue(WrenVM* vm, int mapSlot, int keySlot, int valueSlot) @extern("wrenSetMapValue");
+extern fn  void WrenVM.setMapValue(&self, int mapSlot, int keySlot, int valueSlot) @extern("wrenSetMapValue");
 
 // Removes a value from the map in [mapSlot], with the key from [keySlot],
 // and place it in [removedValueSlot]. If not found, [removedValueSlot] is
 // set to null, the same behaviour as the Wren Map API.
-extern fn  void WrenVM.removeMapValue(WrenVM* vm, int mapSlot, int keySlot,
+extern fn  void WrenVM.removeMapValue(&self, int mapSlot, int keySlot,
                         int removedValueSlot) @extern("wrenRemoveMapValue");
 
 // Looks up the top level variable with [name] in resolved [_module] and stores
 // it in [slot].
-extern fn  void WrenVM.getVariable(WrenVM* vm, ZString _module, ZString name, int slot) @extern("wrenGetVariable");
+extern fn  void WrenVM.getVariable(&self, ZString _module, ZString name, int slot) @extern("wrenGetVariable");
 
 // Looks up the top level variable with [name] in resolved [_module], 
 // returns false if not found. The _module must be imported at the time, 
 // use wrenHasModule to ensure that before calling.
-extern fn  bool WrenVM.hasVariable(WrenVM* vm, ZString _module, ZString name) @extern("wrenHasVariable");
+extern fn  bool WrenVM.hasVariable(&self, ZString _module, ZString name) @extern("wrenHasVariable");
 
 // Returns true if [_module] has been imported/resolved before, false if not.
-extern fn  bool WrenVM.hasModule(WrenVM* vm, ZString _module) @extern("wrenHasModule");
+extern fn  bool WrenVM.hasModule(&self, ZString _module) @extern("wrenHasModule");
 
 // Sets the current fiber to be aborted, and uses the value in [slot] as the
 // runtime error object.
-extern fn  void WrenVM.abortFiber(WrenVM* vm, int slot) @extern("wrenAbortFiber");
+extern fn  void WrenVM.abortFiber(&self, int slot) @extern("wrenAbortFiber");
 
 // Returns the user data associated with the WrenVM.
 extern fn  void* WrenVM.getUserData(WrenVM* vm) @extern("wrenGetUserData");
 
 // Sets user data associated with the WrenVM.
-extern fn  void WrenVM.setUserData(WrenVM* vm, void* userData) @extern("wrenSetUserData");
+extern fn  void WrenVM.setUserData(&self, void* userData) @extern("wrenSetUserData");

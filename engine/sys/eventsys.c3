@@ -38,11 +38,81 @@ example:
     EV_Bar("bar", "ff",'e'); == fn Entity* bar(float value, float value2) { return some_entity_adress; }
 */
 
-module engine::sys::event @if($feature(WREN_ENABLE));
+module engine::sys::script_engine::event @if($feature(WREN_ENABLE));
 
 import std::collections::linkedlist, std::collections::list;
 
 import thirdparty::wren;
+import engine::sys::script_engine::scpt;
+import engine::misc;
+import engine::logging::lgr;
+
+
+////// WARNING(HM) For some reason I cannot make foreign functions work, calling C3 custom code.
+////// This despite bindForeignMethod being called correctly and both 
+////// writeFn and errorFn, working just fine and are also called from c3 code!!!!!!? :( 
+
+<*
+* @param [in] vm : "current wren virtual machine calling this func"
+* @require vm != null
+*>
+fn void add(WrenVM* vm)
+{
+    vm.ensureSlots(3); // slot 0 is the caller (and return slot), slot 1 and 2 are the fn arguments slots
+    double a = vm.getSlotDouble(1);
+    double b = vm.getSlotDouble(2);
+    vm.setSlotDouble(0, a + b);
+}
+
+<*
+* @param [in] vm : "current wren virtual machine calling this func"
+* @require vm != null
+*>
+fn void vec2_translate(WrenVM* vm)
+{
+    vm.ensureSlots(3); // slot 0 is the caller (and return slot), slot 1 and 2 are the fn arguments slots
+    Vec2f vec1 = *(Vec2f*)vm.getSlotForeign(0);
+    double a = vm.getSlotDouble(1);
+    double b = vm.getSlotDouble(2);
+    vec1.translateV({(float)a, (float)b});
+    Vec2f* vecp = (Vec2f*)vm.setSlotNewForeign(0,0, Vec2f.sizeof);
+    mem::copy(vecp, &vec1, Vec2f.sizeof);
+    vecp = null; 
+}
+
+<*
+* @param [in] vm : "current wren virtual machine calling this func"
+* @require vm != null
+*>
+fn void logToFile(WrenVM* vm)
+{
+    int slots = vm.getSlotCount();
+    if(slots != 2) vm.ensureSlots(2); // slot 0 is the caller (and return slot), slot 1 is the fn argument slot
+    WrenType type = vm.getSlotType(1);
+    assert(type == WrenType.STRING, "message must be a string");
+    String message = ((ZString)vm.getSlotString(1)).str_view();
+    lgr::info(Where.FILE, "%s", message);
+    //vm.setSlotDouble(0, a + b);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+const ENABLE_EVENTS = true; // enable events system, if false, the event system will not be compiled
+
 
 const MAX_FN_PARMS = 8;
 const MAX_EVENTS = 8192;
@@ -56,50 +126,38 @@ const DOUBLE		= 'd'; // ...
 const VECTOR		= 'v'; // a list of doubles
 const STRING		= 's'; // a char array
 //
-const ENTITY		= 'e'; // todo entity pointer
-const ENTITY_NULL	= 'E'; // todo, wren "pointers" will be defined as a single double value (like they are in reality on 64bits OS's...)
+// TODO: wren "pointers" will be defined as a single double value (like they are in reality on 64bits OS's...)
+const ENTITY		= 'e'; // entity pointer
+const ENTITY_NULL	= 'E'; // null entity
+// TODO: ability todo 2d collision traces in script
 const TRACE			= 't'; // todo
 
-// tells if the event system was initialized
-bool initialized @local;
-
-//alias EventLinkedList = Linkedlist{Event};
-alias EventDefList = List{EventDef*};
-
-EventDefList eventDefList;
-
-struct EventDef 
+struct EventDef
 {
 	String name;
-	String params; // ex: "ffd" or "" or "dfde"
+	String args; // ex: "ffd" or "" or "dfde", etc.
 	char returnType;
 }
 
-fn int EventDef.getNumArgs(&self) {
-	return self.params.len;
-}
-
-fn usz EventDef.getArgBytesCount(&self) {
-	return (self.getNumArgs() * double.sizeof);
-}
-
-fn void EventDef.register(&self) {
-	eventDefList.push(self);
+// double because wren uses double as the only number type, we use it to store the size of the eventDef
+fn usz EventDef.getArgBytesCountInWren(&self) {
+	return (self.args.len * double.sizeof);
 }
 
 <*
 * @ensure return != null
 *>
-fn EventDef* getEventCommand(int eventnum ) {
-	return eventDefList[ eventnum ];
+fn EventDef* getEventCommand(EventFunc[] events,  int eventnum ) {
+	return events[eventnum].event;
 }
 
-fn EventDef* findEvent(String name ) {
+fn EventDef* findEvent(EventFunc[] events, String name ) {
 	assert( name != "" );
 
-	foreach( ev : eventDefList) {
-		if ( ev.name == name ) {
-			return ev;
+	foreach( evfunc : events) 
+	{
+		if ( evfunc.event.name == name ) {
+			return evfunc.event;
 		}
 	}
 
@@ -108,7 +166,36 @@ fn EventDef* findEvent(String name ) {
 
 struct EventFunc {
 	EventDef	*event;
-	WrenForeignMethodFn	function;
+	WrenForeignMethodFn	callback;
+}
+
+fn String getSignature(EventDef ev) @inline 
+{
+	String sig = ev.name;
+	int args_count = ev.args.len;
+	if(args_count > 0) 
+	{
+		sig = "(".tconcat(sig);
+		for(int i = 0; i < args_count; i++)
+		{
+			if(i != (args_count - 1)) // if not the last argument
+			{
+				sig = sig.tconcat("_,");
+			} 
+			else 
+			{
+				sig = sig.tconcat("_");
+				break;
+			}
+		}
+		sig = sig.tconcat(")"); // close the args signature
+	}
+	else
+	{
+		sig = "(".tconcat(sig).tconcat(")");
+	}
+
+	return sig;
 }
 
 //

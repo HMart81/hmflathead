@@ -44,7 +44,8 @@ import game::serialize::svs; // save system
 import engine::sys::cvar;
 import game::lowlevel::bounds;
 import engine::physics::box2d;
-import engine::sys::event; // still in testing phase (delete if not finished)
+import engine::sys::script_engine::event; // still in testing phase (delete if not finished)
+import thirdparty::wren; // wren scripting engine
 // end_region
 
 // region cvars
@@ -76,11 +77,9 @@ const EventDef EV_ENTITY_GET_MINC @if($defined(ENABLE_EVENTS)) = {"getMinc", "",
 const EventDef EV_ENTITY_GET_MAXC @if($defined(ENABLE_EVENTS)) = {"getMaxc", "", event::VECTOR};
 
 const EventFunc[*] ENTITY_EVENTS_CALLBACKS @if($defined(ENABLE_EVENTS)) = {
-	{&(EV_ENTITY_GET_MINC), &Entity.getMinc},
-	{&(EV_ENTITY_GET_MAXC), &Entity.getMaxc},
+	{&EV_ENTITY_GET_MINC, &ent::getMinc},
+	{&EV_ENTITY_GET_MAXC, &ent::getMaxc},
 };
-
-//
 
 struct Entity (SaveSystemInterface)
 {
@@ -657,10 +656,28 @@ fn void cloneEntity( Entity* dest, Entity* src )
 /// Entity script callbacks
 ///////////////////////////////////
 
+fn void getMinc(WrenVM* vm)
+{
+	vm.ensureSlots(1); // slot 0 is the caller (and return slot), slots after that are the fn arguments slots
+	Entity* ent = (Entity*)vm.getSlotForeign(0);
+	WrenHandle handle;
+	handle.value = *(Value*)&(*ent).bounds.minc;
+	vm.setSlotHandle(0, &handle);
+}
+
+fn void getMaxc(WrenVM* vm) 
+{
+	vm.ensureSlots(1); // slot 0 is the caller (and return slot), slots after that are the fn arguments slots
+	Entity* ent = (Entity*)vm.getSlotForeign(0);
+	WrenHandle handle;
+	handle.value = *(Value*)&(*ent).bounds.maxc;
+	vm.setSlotHandle(0, &handle);
+}
+
 // fn void script_fn_getBounds(WrenVM* vm) 
 // {
 // 	vm.ensureSlots(1); // slot 0 is the caller (and return slot), slots after that are the fn arguments slots
-//     Entity* ent = *(Entity*)vm.getSlotForeign(0);
+//     Entity* ent = (Entity*)vm.getSlotForeign(0);
 // 	WrenHandle handle.value = *(Value*)&(*ent).bounds;
 //     vm.setSlotHandle(0, &handle);
 // }

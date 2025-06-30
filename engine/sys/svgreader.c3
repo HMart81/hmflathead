@@ -38,7 +38,7 @@ import std::ascii;
 
 /* DOC(HM)
 
-    *svg xml data seems to have significant white space!!* :( 
+    *SVG is based on xml and it has significant white space!! :( 
 
     TODO(HM) 
     -> Clean path data before parsing?
@@ -375,8 +375,8 @@ fn bool? SVGData.load(&self)
 *>
 fn bool SVGData.parse(&self, SVGFile* doc) @local
 {
-    bool invalid_mtr = (doc.rootNode.name == "" && doc.rootNode.name != ElemID.SVG);
-    if(invalid_mtr)
+    bool invalid_svg = (doc.rootNode.name == "" && doc.rootNode.name != ElemID.SVG);
+    if(invalid_svg)
     {
        lgr::error(Where.FILE, " Invalid svg file '%s', root element should be 'svg' but is '%s' instead.", self.path, doc.rootNode.name);
        return false;

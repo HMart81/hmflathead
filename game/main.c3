@@ -904,11 +904,9 @@ $if $feature(MICROUI_ENABLE):
     if(local_game.mu_ctx != null) 
     {
         float scroll_speed = -30.0f; // scroll speed for mouse wheel.
-        //local_game.mu_ctx.input_mousemove((int)rl::getMouseX(), (int)rl::getMouseY());
-        //local_game.mu_ctx.input_scroll(0, (int)(rl::getMouseWheelMoveV().y * scroll_speed));
-        mu::forward_mouse_input(local_game.mu_ctx);
-        mu::forward_text_input(local_game.mu_ctx);
-        mu::forward_keyboard_input(local_game.mu_ctx);
+        local_game.mu_ctx.forward_mouse_input();
+        local_game.mu_ctx.forward_text_input();
+        local_game.mu_ctx.forward_keyboard_input();
     }
 $endif
     

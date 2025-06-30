@@ -561,7 +561,7 @@ fn HMaterial* parse_material_node(XmlNode* mat_node, MTRFile* file)
                 parse_material_comment(node, mat);
             case Node.ARGS.str: 
             {
-                if(node.asAttributes() == true) {
+                if(node.hasAttributes() == true) {
                     parse_node_atributes(node, mat);
                 } else {
                     lgr::warning(Where.FILE, "Malformed node '%s' found in material '%s', expected attributes.", node.name, mat.name);
@@ -597,7 +597,7 @@ fn void parse_material_comment(XmlNode* node, HMaterial* mat) @inline @local
 <*
     @param [inout] mat : "material to save parsed data into"
     @param node : "node we are currently parsing"
-    @require mat != null && node.asAttributes() == true
+    @require mat != null && node.hasAttributes() == true
 *>
 fn void parse_material_sound(XmlNode* node, HMaterial* mat) @inline @local
 {
@@ -641,7 +641,7 @@ fn void parse_material_maps(XmlNode* maps_node, HMaterial* mat)
                         case isXmlNode(child, Node.COLOR):
                             mat.getStage(MAT_STAGE_DIFFUSE).color = xmlStrColorToColor(getNodeText(child));
                         case isXmlNode(child, Node.ARGS):
-                            if(child.asAttributes()) 
+                            if(child.hasAttributes()) 
                             {
                                 register_material_map_args(mat.getStage(MAT_STAGE_DIFFUSE), child);
                                 handle_material_map_args(mat.getStage(MAT_STAGE_DIFFUSE), child, mat);
@@ -651,7 +651,7 @@ fn void parse_material_maps(XmlNode* maps_node, HMaterial* mat)
                     }
                 }
             case Node.VIDEO_MAP: break;
-                /*if(node.asAttributes())
+                /*if(node.hasAttributes())
                 {
                    parse_node_atributes(node, mat, file);
                 }*/
@@ -663,7 +663,7 @@ fn void parse_material_maps(XmlNode* maps_node, HMaterial* mat)
                     // {
                         // mat.normal.tex = astmng::assetManager.getTexture(child.value);
                     // }
-                    // if(child.isNode(Node.ARGS) || child.asAttributes()) {
+                    // if(child.isNode(Node.ARGS) || child.hasAttributes()) {
                         // get_material_map_atributes_data(&mat.normal, child);
                         // parse_material_map_args(&mat.normal, child, mat, mtr_data);
                     // }
@@ -676,7 +676,7 @@ fn void parse_material_maps(XmlNode* maps_node, HMaterial* mat)
                     // {
                         // mat.spec.tex = astmng::assetManager.getTexture(child.value);
                     // }
-                    // if(child.isNode(Node.ARGS) || child.asAttributes()) {
+                    // if(child.isNode(Node.ARGS) || child.hasAttributes()) {
                         // get_material_map_atributes_data(&mat.spec, child);
                         // parse_material_map_args(&mat.spec, child, mat, mtr_data);
                     // }
@@ -691,7 +691,7 @@ fn void parse_material_maps(XmlNode* maps_node, HMaterial* mat)
 <*
     @param [in] node : "current node we are parsing"
     @param [inout] mat : "the material we are saving data into"
-    @require node != null && mat != null && node.asAttributes() == true
+    @require node != null && mat != null && node.hasAttributes() == true
 *>
 fn void parse_node_atributes(XmlNode* node, HMaterial* mat)
 {
@@ -724,7 +724,7 @@ fn void parse_node_atributes(XmlNode* node, HMaterial* mat)
 <*
     @param [in] node : "node we are looking at"
     @param [inout] map : "the texture map we are registing data into"
-    @require node != null && map != null && node.asAttributes() == true
+    @require node != null && map != null && node.hasAttributes() == true
 *>
 fn void register_material_map_args(MaterialStage* map, XmlNode* node)
 {

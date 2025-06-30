@@ -26,7 +26,7 @@
 # 
 *********************************************************************************************************************************************/
 
-module mu_stack {Type, MAX_SIZE} @private;
+module thirdparty::microui::mu_stack {Type, MAX_SIZE} @private;
 
 struct MU_Stack
 {
@@ -44,7 +44,7 @@ import thirdparty::raylib5::rl;
 import std::collections::list;
 //import std::collections::elastic_array;
 import game::main;
-import mu_stack @public;
+import thirdparty::microui::mu_stack @public;
 
 const MU_VERSION = "2.02";
 
@@ -60,10 +60,11 @@ const MU_MAX_WIDTHS           = 16;
 const MU_REAL_FMT             = "%.3g";
 const MU_SLIDER_FMT           = "%.2f";
 const MU_MAX_FMT              = 127;
-// The default font size for MicroUI is set to 12 pixels.
+
+// The default font size for MicroUI is set to 9 pixels.
 const MICROUI_FONT_SIZE 	    = 9; 
 const MICROUI_FONT_SPACING    = 1; // This is the spacing between characters in the font, used for text rendering.
-const MAX_INPUT_TEXT          = 32;
+const MAX_INPUT_TEXT          = 32; // Maximum length of input text in MicroUI text box's.
 
 const MU_COMMAND_JUMP = 1;
 const MU_COMMAND_CLIP = 2;
@@ -89,35 +90,41 @@ const Colorid MU_COLOR_SCROLLBASE  = 12;
 const Colorid MU_COLOR_SCROLLTHUMB = 13;
 const Colorid MU_COLOR_MAX         = 14;
 
-/*
-alias MU_Stack_Chars         @local = ElasticArray{char, MU_COMMANDLIST_SIZE};
-alias MU_Stack_ContainerPtrsRoot @local = ElasticArray{MU_Container*, MU_ROOTLIST_SIZE};
-alias MU_Stack_ContainerPtrs @local = ElasticArray{MU_Container*, MU_CONTAINERSTACK_SIZE};
-alias MU_Stack_Rect          @local = ElasticArray{MU_Rect, MU_CLIPSTACK_SIZE};
-alias MU_Stack_ID            @local = ElasticArray{MU_Id, MU_IDSTACK_SIZE};
-alias MU_Stack_Layout        @local = ElasticArray{MU_Layout, MU_LAYOUTSTACK_SIZE};
-*/
-
-alias MU_Stack_Chars         @local     = MU_Stack{char, MU_COMMANDLIST_SIZE};
+alias MU_Stack_Chars             @local = MU_Stack{char, MU_COMMANDLIST_SIZE};
 alias MU_Stack_ContainerPtrsRoot @local = MU_Stack{MU_Container*, MU_ROOTLIST_SIZE};
-alias MU_Stack_ContainerPtrs @local     = MU_Stack{MU_Container*, MU_CONTAINERSTACK_SIZE};
-alias MU_Stack_Rect          @local     = MU_Stack{MU_Rect, MU_CLIPSTACK_SIZE};
-alias MU_Stack_ID            @local     = MU_Stack{MU_Id, MU_IDSTACK_SIZE};
-alias MU_Stack_Layout        @local     = MU_Stack{MU_Layout, MU_LAYOUTSTACK_SIZE};
-
-//macro stack($Type, $n)  =>  { int idx; $Type[$n] items; };
+alias MU_Stack_ContainerPtrs     @local = MU_Stack{MU_Container*, MU_CONTAINERSTACK_SIZE};
+alias MU_Stack_Rect              @local = MU_Stack{MU_Rect, MU_CLIPSTACK_SIZE};
+alias MU_Stack_ID                @local = MU_Stack{MU_Id, MU_IDSTACK_SIZE};
+alias MU_Stack_Layout            @local = MU_Stack{MU_Layout, MU_LAYOUTSTACK_SIZE};
 
 macro min(a, b) @private => ((a) < (b) ? (a) : (b));
 macro max(a, b) @private => ((a) > (b) ? (a) : (b));
 macro clamp(x, a, b) @private => min(b, max(a, x));
 
-
+// todo make this use the new C like C3 enums
+/*
+enum MU_Clip : const int
+{
+	PART = 1,
+	ALL  = 2,
+}
+*/
 enum MU_Clip : int (inline int v) 
 {
 	PART = 1,
 	ALL  = 2,
 }
 
+// todo make this use the new C like C3 enums
+/*enum MU_Icon : const int
+{
+  CLOSE = 1,
+  CHECK = 2,
+  COLLAPSED = 3,
+  EXPANDED = 4,
+  MAX = 5
+}
+*/
 enum MU_Icon : int ( inline int v )
 {
 	CLOSE = 1,
@@ -127,6 +134,14 @@ enum MU_Icon : int ( inline int v )
 	MAX = 5
 }
 
+// todo make this use the new C like C3 enums
+/*enum MU_Res : const int
+{
+  ACTIVE = (1 << 0),
+  SUBMIT = (1 << 1),
+  CHANGE = (1 << 2)
+}
+*/
 enum MU_Res : int (inline int v) 
 {
 	ACTIVE = (1 << 0),
@@ -134,6 +149,24 @@ enum MU_Res : int (inline int v)
 	CHANGE = (1 << 2)
 }
 
+// todo make this use the new C like C3 enums
+/*enum MU_Opt : const int
+{
+  ALIGNCENTER  = (1 << 0),
+  ALIGNRIGHT   = (1 << 1),
+  NOINTERACT   = (1 << 2),
+  NOFRAME      = (1 << 3),
+  NORESIZE     = (1 << 4),
+  NOSCROLL     = (1 << 5),
+  NOCLOSE      = (1 << 6),
+  NOTITLE      = (1 << 7),
+  HOLDFOCUS    = (1 << 8),
+  AUTOSIZE     = (1 << 9),
+  POPUP        = (1 << 10),
+  CLOSED       = (1 << 11),
+  EXPANDED     = (1 << 12)
+}
+*/
 enum MU_Opt : int (inline int v)
 {
 	ALIGNCENTER  = (1 << 0),
@@ -151,6 +184,18 @@ enum MU_Opt : int (inline int v)
 	EXPANDED     = (1 << 12)
 }
 
+// todo make this use the new C like C3 enums
+/*enum MU_Mouse : const int
+{
+  LEFT    = (1 << 0),
+  RIGHT   = (1 << 1),
+  MIDDLE  = (1 << 2),
+  SIDE    = (1 << 3),   // Mouse button side (advanced mouse device)
+  EXTRA   = (1 << 4),   // Mouse button extra (advanced mouse device)
+  FORWARD = (1 << 5),   // Mouse button fordward (advanced mouse device)
+  BACK    = (1 << 6)    // Mouse button back (advanced mouse device)
+}
+*/
 enum MU_Mouse : int (inline int v)
 {
   LEFT    = (1 << 0),
@@ -162,6 +207,25 @@ enum MU_Mouse : int (inline int v)
   BACK    = (1 << 6),   // Mouse button back (advanced mouse device)
 }
 
+// todo make this use the new C like C3 enums
+/*enum MU_Key : const int
+{
+  SHIFT     = (1 << 0),
+  CTRL      = (1 << 1),
+  ALT       = (1 << 2),
+  BACKSPACE = (1 << 3),
+  RETURN    = (1 << 4),
+  DELETE    = (1 << 5),
+  END       = (1 << 6),
+  HOME      = (1 << 7),
+  LEFT      = (1 << 8),
+  RIGHT     = (1 << 9),
+  KEY_A     = (1 << 10),
+  KEY_C     = (1 << 11),
+  KEY_V     = (1 << 12),
+  KEY_X     = (1 << 13)
+}
+*/
 enum MU_Key : int (inline int v)
 {
   SHIFT     = (1 << 0),
@@ -404,7 +468,7 @@ extern fn void MU_Context.label(&self, ZString text) @extern("mu_label");
 extern fn int MU_Context.button_ex(&self, ZString label, int icon, int opt) @extern("mu_button_ex");
 extern fn int MU_Context.checkbox(&self, ZString label, int* state) @extern("mu_checkbox");
 extern fn int MU_Context.textbox_raw(&self, ZString buf, int bufsz, MU_Id id, MU_Rect r, int opt) @extern("mu_textbox_raw");
-extern fn int MU_Context.textbox_ex(&self, ZString buf, int bufsz, int opt) @extern("mu_textbox_ex");
+extern fn int MU_Context.textbox_ex(&self, CChar* buf, int bufsz, int opt) @extern("mu_textbox_ex");
 extern fn int MU_Context.slider_ex(&self, MU_Real *value, MU_Real low, MU_Real high, MU_Real step, ZString fmt, int opt) @extern("mu_slider_ex");
 extern fn int MU_Context.number_ex(&self, MU_Real *value, MU_Real step, ZString fmt, int opt) @extern("mu_number_ex");
 extern fn int MU_Context.header_ex(&self, ZString label, int opt) @extern("mu_header_ex");
@@ -453,9 +517,9 @@ macro bool MU_Context.@make_window(&self, name, rect; @body)
 		@body();
 	} else {
     unregister_open_window(name);
-    return false; // The window was closed.
+    return false; // The window should close.
   }
-  return true; // The window was opened successfully.
+  return true; // The window is open.
 }
 
 macro void @render(MU_Context* ctx; @body)
@@ -473,7 +537,7 @@ macro bool MU_Context.@make_popup(&self, name; @body)
 		defer self.end_popup();
 		@body();
 	} else {
-    return false; // was closed.
+    return false; // should close.
   }
   return true; // still open
 }
@@ -484,7 +548,7 @@ macro bool MU_Context.@make_treenode(&self, name; @body)
 		defer self.end_treenode();
 		@body();
 	} else {
-    return false; // was closed.
+    return false; // should close.
   }
   return true; // still open
 }
@@ -509,6 +573,7 @@ macro void MU_Context.@make_panel(&self, name; @body)
 /////////////////////////////////////////////////////////////////////////////////////
 
 //char[64000] logbuf @local;
+CChar[128] input_buf;
 String logbuf @local = "";
 int logbuf_updated @local = 0;
 
@@ -521,7 +586,8 @@ fn void write_log(String text) @local
 
   // }
   // strcat(logbuf, text);
-  if(logbuf.len > 0) {
+  if(logbuf.len > 0) 
+  {
     logbuf = logbuf.tconcat("\n");
   }
   logbuf = logbuf.tconcat(text);
@@ -549,18 +615,17 @@ fn void log_window(MU_Context *ctx)
     }
 
     /* input textbox + submit button */
-    char[128] buf;
     int submitted = 0;
     ctx.layout_row(2, &&(int[*]) { -70, -1 }, 0);
-    if (ctx.textbox((ZString)&buf[0], (int)buf.len) & MU_Res.SUBMIT.v) 
+    if (ctx.textbox(&input_buf[0], (int)input_buf.len) & MU_Res.SUBMIT.v)
     {
       ctx.set_focus(ctx.last_id);
       submitted = 1;
     }
     if (ctx.button("Submit")) { submitted = 1; }
     if (submitted) {
-      write_log((String)buf[0..]);
-      buf[0] = '\0';
+      write_log((String)input_buf[0..]);
+      input_buf[0] = '\0';
     }
   }; // end of log window
 
@@ -795,7 +860,7 @@ fn void set_clip_rect(MU_Rect rect)
 // TODO(HM) Find why it crash's... 
 String input_text @local;
 
-fn void forward_text_input(MU_Context* ctx) //@local 
+fn void MU_Context.forward_text_input(MU_Context* ctx) //@local 
 {
 $if $defined(ENABLE_OLD_STRING):
     // Create a buffer to hold UTF8 text input
@@ -847,6 +912,7 @@ $if $defined(ENABLE_OLD_STRING):
           {
               //input_text = (key == (int)rl::KEY_BACKSPACE) ? input_text.trim_right(chr) : input_text.tconcat(chr);
             input_text = input_text.tconcat(chr);
+            //ctx.input_textfn(input_text.zstr_tcopy());
           } else if(key == (int)rl::KEY_BACKSPACE) {
               int text_len   = input_text.len;
                   input_text = (input_text.len >= 2) ? (String)input_text[:text_len - 1] : "";
@@ -858,6 +924,7 @@ $if $defined(ENABLE_OLD_STRING):
     }
     //input_text.tconcat("0"); // close the string
     ctx.input_textfn(input_text.zstr_tcopy());
+    input_text = ""; // reset the input text buffer
   $endif
 }
 
@@ -870,7 +937,8 @@ struct MouseButtonMapping @local @compact
     MU_Mouse mu;// MicroUI mouse button enum;
 }*/
 
-fn void forward_mouse_input(MU_Context* ctx) {
+fn void MU_Context.forward_mouse_input(MU_Context* ctx) 
+{
     // Get the current mouse position/scroll from raylib
     Vector2 mouse_position = {rl::getMouseX(), rl::getMouseY()};
     float mouse_scroll = rl::getMouseWheelMove() * -30.0f; // Invert the scroll direction to match mui's expectations
@@ -932,7 +1000,7 @@ struct KeyMapping @local @compact
     MU_Key mu;
 }
 
-fn void forward_keyboard_input(MU_Context* ctx)
+fn void MU_Context.forward_keyboard_input(MU_Context* ctx)
 {
     // We'll create an array of mappings using the struct above
     // We don't need to map every raylib key - just the ones mui needs for ui stuff

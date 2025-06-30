@@ -48,7 +48,7 @@ struct Bounds {
     Vec2f minc;
 }
 
-<*
+<*
 * @param [in] rect "rectangle to get data from"
 * @require rect != null
 *>

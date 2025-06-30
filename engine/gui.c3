@@ -551,6 +551,7 @@ struct Widget (WidgetInterface)
     WidgetCallback onDoublePress;
     WidgetCallback onRelease;
     WidgetCallback onEnterKey;
+    WidgetCallback onLoad;
 }
 
 fn void Widget.init(&self) @dynamic {
@@ -707,7 +708,8 @@ fn bool Widget.isWithinScreenBounds(&self) @dynamic
 * @param [in] desktop : "parent desktop"
 * @require desktop != null
 *>
-fn void Widget.addTo(&self, Desktop* desktop) @dynamic {
+fn void Widget.addTo(&self, Desktop* desktop) @dynamic 
+{
     self.parent.desktop = desktop;
     // todo change this to activate logic like the panel system...
     if (self.parent.desktop.isInteractive) {
@@ -955,7 +957,7 @@ struct WidgetButton {
 * @param [in] desk : "desktop where this widget will live"
 * @require desk != null
 *>
-fn void WidgetButton.init(&self) @inline 
+fn void WidgetButton.init(&self) //@inline 
 {
     self.super.init();
     self.kind = KIND_BUTTON;
