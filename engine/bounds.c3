@@ -49,8 +49,8 @@ struct Bounds {
 }
 
 <*
-* @param [in] rect "rectangle to get data from"
-* @require rect != null
+ @param [in] rect : "rectangle to get data from"
+ @require rect != null
 *>
 fn Bounds Bounds.fromRect(&self, Rectangle* rect) @inline {
     Vec2f size = rect.getSize().arr;

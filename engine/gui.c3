@@ -632,8 +632,8 @@ fn Color selected_color_anim(Widget* wgt) @inline @local
 }
 
 <*
-* @param [in] wgt : "widget to draw the origin coordinates for"
-* @require wgt != null
+ @param [in] wgt : "widget to draw the origin coordinates for"
+ @require wgt != null
 *>
 fn void Widget.draw_origin_coordinates(Widget* wgt) @local @inline 
 {
@@ -705,8 +705,8 @@ fn bool Widget.isWithinScreenBounds(&self) @dynamic
 }
 
 <*
-* @param [in] desktop : "parent desktop"
-* @require desktop != null
+ @param [in] desktop : "parent desktop"
+ @require desktop != null
 *>
 fn void Widget.addTo(&self, Desktop* desktop) @dynamic 
 {
@@ -735,13 +735,13 @@ fn void Widget.addTo(&self, Desktop* desktop) @dynamic
 }
 
 <*
-* @ensure return != null
+ @ensure return != null
 *>
 fn Desktop* Widget.getDesktop(&self) @dynamic => self.parent.desktop;
 
 <*
-* @param [in] other : "parent widget"
-* @require other != null
+ @param [in] other : "parent widget"
+ @require other != null
 *>
 fn void Widget.bindTo(&self, Widget* other) @dynamic {
     if(self.bound()) {
@@ -846,7 +846,7 @@ fn void WidgetText.deinit(&self) @inline {
 }
 
 <*
-* @require self.text != ""
+ @require self.text != ""
 *>
 fn void WidgetText.updateBounds(&self) @local {
     self.text_len = rl::measureText(self.text.zstr_tcopy(), self.font_size);
@@ -919,9 +919,9 @@ fn void WidgetText.draw(&self) @inline {
 }
 
 <*
-* @param [in] menu : "desktop where this widget will live"
-* @require menu != null
-* @ensure return != null
+ @param [in] menu : "desktop where this widget will live"
+ @require menu != null
+ @ensure return != null
 *>
 fn WidgetText* createLabel(String name, String text, Color text_color, Desktop* menu) {
     WidgetText* label = mem::new(WidgetText);
@@ -953,10 +953,6 @@ struct WidgetButton {
     int press_count;
 }
 
-<*
-* @param [in] desk : "desktop where this widget will live"
-* @require desk != null
-*>
 fn void WidgetButton.init(&self) //@inline 
 {
     self.super.init();
@@ -1058,7 +1054,7 @@ fn void WidgetButton.draw(&self) {
 }
 
 <*
-* @ensure return != null
+ @ensure return != null
 *>
 fn WidgetButton* createButton() @inline {
     WidgetButton* button = mem::new(WidgetButton);
@@ -1108,10 +1104,6 @@ macro WidgetContainer.@container(&self, Desktop* desk, ContainerParams params; @
     @body(self);
 }
 
-<*
-* @param [in] desk : "desktop where this widget will live"
-* @require desk != null
-*>
 fn void WidgetContainer.init(&self, ContainerParams params) @inline 
 {
     self.params = params;
@@ -1702,8 +1694,8 @@ DesktopManager local_manager @local;
 DesktopManager* gpDeskManager = &local_manager;
 
 <*
-* @param [in] desk : "the desktop to register"
-* @require desk != null
+ @param [in] _desk : "the desktop to register"
+ @require _desk != null
 *>
 fn void DesktopManager.register(&self, Desktop* _desk) @inline {
     foreach(desk : self.desktops) {
@@ -1717,8 +1709,8 @@ fn void DesktopManager.register(&self, Desktop* _desk) @inline {
 }
 
 <*
-* @param [inout] _desk : "the desktop to remove"
-* @require desk != null
+ @param [inout] _desk : "the desktop to remove"
+ @require _desk != null
 *>
 fn void DesktopManager.unregister(&self, Desktop* _desk) @inline {
     foreach(desk : self.desktops) {

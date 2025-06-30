@@ -275,8 +275,8 @@ struct InputAction
 ActionsList actions_list @local;
 
 <*
-* @param [in] action "action to register"
-* @require action != null
+ @param [in] action : "action to register"
+ @require action != null
 *>
 fn void register(InputAction* action) @inline {
     actions_list.push(action);
@@ -291,8 +291,8 @@ fn void clearActions() @inline {
 }
 
 <*
-* @param [in] fn_call "funtion to call has the action"
-* @require fn_call != null
+ @param fn_call : "funtion to call has the action"
+ @require fn_call != null
 *>
 fn InputAction* create(String _name, KeyboardKey key, MouseButton mbtn = MouseButton.LEFT, KeyboardKey modifier = rl::KEY_NULL, InputActionCallback fn_call) {
     InputAction* action  = mem::new(InputAction);
@@ -369,8 +369,8 @@ fn Projectile* create(Vec2f origin, Vec2f size = {40, 40}, int lifetime = 5000, 
 }
 
 <*
-* @param [in] projectile "pointer to a Projectile"
-* @param dt "delta time for projectile movement"
+ @param [in] projectile "pointer to a Projectile"
+ @param dt "delta time for projectile movement"
 *>
 fn void update(Projectile* projectile, float dt) @inline {
     if(!projectile) return;
@@ -384,8 +384,8 @@ fn void update(Projectile* projectile, float dt) @inline {
 }
 
 <*
-* @param [in] projectile "pointer to a Projectile"
-* @require projectile != null
+ @param [in] projectile "pointer to a Projectile"
+ @require projectile != null
 *>
 fn void move(Projectile* projectile, float dt) @inline {
     // TODO(HM) Bullets should move in more directions than just up
@@ -394,8 +394,8 @@ fn void move(Projectile* projectile, float dt) @inline {
 }
 
 <*
-* @param [in] projectile "pointer to a Projectile"
-* @require projectile != null
+ @param [in] projectile "pointer to a Projectile"
+ @require projectile != null
 *>
 fn void draw(Projectile* projectile) @inline {
     if(!projectile) return;
@@ -404,8 +404,8 @@ fn void draw(Projectile* projectile) @inline {
 }
 
 <*
-* @param [in] projectile "pointer to a Projectile"
-* @require projectile != null
+ @param [in] projectile "pointer to a Projectile"
+ @require projectile != null
 *>
 fn void destroy(Projectile* projectile) @inline {
     mem::free(projectile);

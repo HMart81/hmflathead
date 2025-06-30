@@ -211,7 +211,7 @@ fn void Entity.setMaterial(&self, String material_name) @inline {
 
 <*
 	TODO(HM) handle more material/texture stages than diffuse
-* @ensure return != null
+ @ensure return != null
 *>
 fn Texture2D* Entity.getTexture(&self) @inline {
 	return self.vs.mat.getTexture(mtr::MAT_STAGE_DIFFUSE);
@@ -593,7 +593,7 @@ fn void create(String aname, int x, int y, int w, int h, Color color) @public
 }
 
 <*
-* @ensure return != null
+ @ensure return != null
 *>
 fn Entity* create_ex(String aname, Vec2f origin, Color color) @public 
 {

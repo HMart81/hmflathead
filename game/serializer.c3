@@ -67,11 +67,13 @@ faultdef MISSING_FILE_PATH,
          FAILED_OPEN_FILE,
          FAILED_READ_FILE,
          FAILED_CLOSE_FILE,
+		 VERSION_MISMATCH,
          FAILED_GET_FILE_SIZE;
 
 // end_region
 
-struct SaveFile {
+struct SaveFile 
+{
     io::File file   @tag("version", 1);
     String path     @tag("version", 1);
     int version     @tag("version", 1);
@@ -83,15 +85,23 @@ interface SaveSystemInterface {
 	fn void reload(SaveFile*);
 }
 
-<*
-* @require SaveFile.tagof("version") == SAVE_FILE_VERSION
-*>
-fn SaveFile? open(String filepath, int file_version = SAVE_FILE_VERSION) {
+
+fn SaveFile? open(String filepath, int file_version = SAVE_FILE_VERSION) 
+{
     if(filepath == "") {
         return MISSING_FILE_PATH?;
     }
-    
+
     SaveFile file_data;
+
+	$foreach $menber : $typeof(file_data).membersof:
+ 		$if $menber.tagof("version") == SAVE_FILE_VERSION:
+		$else
+			lgr::warning(Where.CONSOLE, "SaveFile member %s is not compatible with version %d. Please update the save file version.", $menber.nameof, SAVE_FILE_VERSION);
+			return VERSION_MISMATCH?;
+		$endif
+	$endforeach
+
     file_data.version = file_version;
     file_data.path    = filepath;
     io::File? file    = file::open(filepath, "rb");
@@ -103,9 +113,6 @@ fn SaveFile? open(String filepath, int file_version = SAVE_FILE_VERSION) {
     }
 }
 
-<*
-* @require SaveFile.tagof("version") == SAVE_FILE_VERSION
-*>
 fn SaveFile? make_new(String filepath, int file_version = SAVE_FILE_VERSION) {
     if(filepath == "") {
         return MISSING_FILE_PATH?;
@@ -116,6 +123,13 @@ fn SaveFile? make_new(String filepath, int file_version = SAVE_FILE_VERSION) {
         return FAILED_OPEN_FILE?;
     } else {
         SaveFile file_data;
+		$foreach $menber : $typeof(file_data).membersof:
+			$if $menber.tagof("version") == SAVE_FILE_VERSION:
+			$else
+				lgr::warning(Where.CONSOLE, "SaveFile member %s is not compatible with version %d. Please update the save file version.", $menber.nameof, SAVE_FILE_VERSION);
+				return VERSION_MISMATCH?;
+			$endif
+		$endforeach
         file_data.version = file_version;
         file_data.path    = filepath;
         file_data.file    = file;
@@ -130,8 +144,8 @@ fn void? close(SaveFile* save) @inline {
 
 ////////////////////////////// Writting /////////////////////////////////
 <*
-* @param in savefile : "the file to write the data to"
-* @require savefile != null @if $feature(_DEBUG)
+ @param [inout] savefile : "the file to write the data to"
+ @require savefile != null
 *>
 fn void	write(SaveFile* savefile, void* buffer, int bytes_len ) {
     char[] _buffer = ((char*)buffer)[:bytes_len];
@@ -140,30 +154,30 @@ fn void	write(SaveFile* savefile, void* buffer, int bytes_len ) {
     }
 }
 <*
-* @param in savefile "the file to write the data to"
-* @require savefile != null @if $feature(_DEBUG)
+ @param [inout] savefile : "the file to write the data to"
+ @require savefile != null
 *>
 fn void	writeUInt(SaveFile* savefile, uint value ) {
     write(savefile, &value, uint.sizeof);
 }
 <*
-* @param in savefile "the file to write the data to"
-* @require savefile != null @if $feature(_DEBUG)
+ @param [inout] savefile : "the file to write the data to"
+ @require savefile != null
 *>
 fn void	writeInt(SaveFile* savefile, int value ) {
     write(savefile, &value, int.sizeof);
 }
 <*
-* @param in savefile "the file to write the data to"
-* @require savefile != null @if $feature(_DEBUG)
+ @param [inout] savefile : "the file to write the data to"
+ @require savefile != null
 *>
 fn void	writeShort(SaveFile* savefile, short value ) {
     write(savefile, &value, short.sizeof);
 }
 <*
-* @param in savefile "the file to write the data to"
-* @param value 
-* @require savefile != null && value >= 0 && value <= 255 @if $feature(_DEBUG)
+ @param [inout] savefile : "the file to write the data to"
+ @param value 
+ @require savefile != null && value <= 255
 *>
 fn void	writeChar(SaveFile* savefile, char value ) {
     if(@catch(savefile.file.write_byte(value))) {
@@ -171,37 +185,37 @@ fn void	writeChar(SaveFile* savefile, char value ) {
     }
 }
 <*
-* @param in savefile "the file to write the data to"
-* @require savefile != null @if $feature(_DEBUG)
+ @param [inout] savefile : "the file to write the data to"
+ @require savefile != null
 *>
 fn void	writeNull(SaveFile* savefile) {
    writeChar(savefile, NULL_CHARACTER);
 }
 <*
-* @param in savefile "the file to write the data to"
-* @param value 
-* @require savefile != null && value >= -128 && value <= 127 @if $feature(_DEBUG)
+ @param [inout] savefile : "the file to write the data to"
+ @param value 
+ @require savefile != null && value >= -128 && value <= 127
 *>
 fn void	writeIChar(SaveFile* savefile, ichar value ) {
    write(savefile, &value, ichar.sizeof);
 }
 <*
-* @param in savefile "the file to write the data to"
-* @require savefile != null @if $feature(_DEBUG)
+ @param [inout] savefile : "the file to write the data to"
+ @require savefile != null
 *>
 fn void	writeFloat(SaveFile* savefile, float value ) {
     write(savefile, &value, float.sizeof);
 }
 <*
-* @param in savefile "the file to write the data to"
-* @require savefile != null @if $feature(_DEBUG)
+ @param [inout] savefile : "the file to write the data to"
+ @require savefile != null
 *>
 fn void	writeBool(SaveFile* savefile, bool value ) {
    writeChar(savefile, (value == true) ? '1' : '0');
 }
 <*
-* @param in savefile "the file to write the data to"
-* @require savefile != null @if $feature(_DEBUG)
+ @param [inout] savefile : "the file to write the data to"
+ @require savefile != null
 *>
 fn void	writeString(SaveFile* savefile, String str) {
     if(@catch(savefile.file.write(str))) {
@@ -209,17 +223,17 @@ fn void	writeString(SaveFile* savefile, String str) {
     }
 }
 <*
-* @param in savefile "the file to write the data to"
-* @require savefile != null @if $feature(_DEBUG)
+ @param [inout] savefile : "the file to write the data to"
+ @require savefile != null
 *>
 fn void	writeZString(SaveFile* savefile, ZString str) {
    writeString(savefile, str.str_view());
 }
 
 <*
-* @param in savefile "the file to write the data to"
-* @param in asset    "the data to save"
-* @require savefile != null && asset != null @if $feature(_DEBUG)
+ @param [inout] savefile : "the file to write the data to"
+ @param [in] asset : "the asset data to save"
+ @require savefile != null && asset != null
 *>
 fn void	writeAsset(SaveFile* savefile, Asset* asset) {
     if(asset.name == "") {
@@ -235,9 +249,9 @@ fn void	writeAsset(SaveFile* savefile, Asset* asset) {
 // raylib structures
 
 <*
-* @param in savefile "the file to write the data to"
-* @param in tex      "the data to save"
-* @require savefile != null && tex != null @if $feature(_DEBUG)
+ @param [inout] savefile : "the file to write the data to"
+ @param [in] tex : "the texture data to save"
+ @require savefile != null && tex != null
 *>
 fn void	writeTexture2D(SaveFile* savefile, Texture2D* tex) {
 // TODO(HM) I need to rethink the textures stuff
@@ -256,9 +270,9 @@ fn void	writeTexture2D(SaveFile* savefile, Texture2D* tex) {
 }
 
 <*
-* @param in savefile "the file to write the data to"
-* @param rect        "the data to save"
-* @require savefile != null
+ @param [inout] savefile : "the file to write the data to"
+ @param rect : "the data to save"
+ @require savefile != null
 *>
 fn void	writeRect(SaveFile* savefile, Rectangle rect) {
     writeFloat(savefile, rect.x);
@@ -268,21 +282,21 @@ fn void	writeRect(SaveFile* savefile, Rectangle rect) {
 }
 
 <*
-* @param in savefile "the file to write the data to"
-* @param clr        "the data to save"
-* @require savefile != null
+ @param [inout] savefile : "the file to write the data to"
+ @param color :  "the color to save"
+ @require savefile != null
 *>
-fn void	writeColor(SaveFile* savefile, Color clr) {
-    writeChar(savefile, clr.r);
-    writeChar(savefile, clr.g);
-    writeChar(savefile, clr.b);
-    writeChar(savefile, clr.a);
+fn void	writeColor(SaveFile* savefile, Color color) {
+    writeChar(savefile, color.r);
+    writeChar(savefile, color.g);
+    writeChar(savefile, color.b);
+    writeChar(savefile, color.a);
 }
 
 <*
-* @param in savefile "the file to write the data to"
-* @param in shd      "the data to save"
-* @require savefile != null && shd != null @if $feature(_DEBUG)
+ @param [inout] savefile : "the file to write the data to"
+ @param [in] shd : "the data to save"
+ @require savefile != null && shd != null
 *>
 fn void	writeShader(SaveFile* savefile, Shader* shd) {
     if(shd == null) {
@@ -319,8 +333,8 @@ fn void	writeFont(SaveFile* savefile, Font* font) { @todo();}
 ////////////////////////////////////////////////////////////////////
 
 <*
-* @param n
-* @require n > 0
+ @param n
+ @require n > 0
 *>
 fn void swapBytes(void *pv, usz n) @inline @local
 {
@@ -336,12 +350,14 @@ fn void swapBytes(void *pv, usz n) @inline @local
 macro swap(x) => swapBytes(&x, $sizeof(x));
 
 <*
-* @param in savefile
-* @require savefile != null @if $feature(_DEBUG)
+ @param [inout] f : "the file to advance the reading position"
+ @require f != null
 *>
-fn void advance_reading_position(SaveFile* f, usz n) @inline @local {
+fn void advance_reading_position(SaveFile* f, usz n) @inline @local @deprecated
+{
     // aparently this is already done automatically by fread function
 	//f.file.seek(n);
+	unreachable();
 }
 
 fn void read(SaveFile* savefile, void *buffer, usz bytes_len) {
@@ -349,7 +365,7 @@ fn void read(SaveFile* savefile, void *buffer, usz bytes_len) {
         lgr::warning(Where.CONSOLE, "failed to read data from file %s! : %s:%s", savefile.path, $$FUNC, $$LINE);
         return;
     }
-    advance_reading_position(savefile, bytes_len);
+    //advance_reading_position(savefile, bytes_len);
 }
 
 fn void readInt(SaveFile* file, int* value) {
@@ -388,7 +404,7 @@ fn void readString(SaveFile* savefile, String* string) {
         lgr::warning(Where.CONSOLE, "failed to read data from file %s! : %s:%s", savefile.path, $$FUNC, $$LINE);
         return;
     }
-     advance_reading_position(savefile, string.len);
+    // advance_reading_position(savefile, string.len);
 }
 
 fn void readZString(SaveFile* savefile, ZString* string) {
@@ -401,9 +417,9 @@ fn void readZString(SaveFile* savefile, ZString* string) {
 }
 
 <*
-* @param in savefile
-* @param in asset
-* @require savefile != null && asset != null @if $feature(_DEBUG)
+ @param [in] savefile : "the file to read the data from"
+ @param [inout] asset : "the adress to place the data into"
+ @require savefile != null && asset != null
 *>
 fn void readAsset(SaveFile* savefile, Asset* asset, typeid type) {
     String name;
@@ -423,9 +439,9 @@ fn void readAsset(SaveFile* savefile, Asset* asset, typeid type) {
 fn void readTexture2D(SaveFile* file, Texture2D* tex ) { @todo(); }
 
 <*
-* @param in savefile  "the file to read the data from"
-* @param [inout] rect "the adress to place the data into"
-* @require savefile != null && rect != null
+ @param [inout] savefile :  "the file to read the data from"
+ @param [inout] rect : "the adress to place the data into"
+ @require savefile != null && rect != null
 *>
 fn void	readRect(SaveFile* savefile, Rectangle* rect) {
     readFloat(savefile, &rect.x);
@@ -435,9 +451,9 @@ fn void	readRect(SaveFile* savefile, Rectangle* rect) {
 }
 
 <*
-* @param in savefile   "the file to read the data from"
-* @param [inout] clr   "the adress to place the data into"
-* @require savefile != null && clr != null
+ @param [inout] savefile :   "the file to read the data from"
+ @param [inout] clr : "the adress to place the data into"
+ @require savefile != null && clr != null
 *>
 fn void	readColor(SaveFile* savefile, Color* clr) {
     readChar(savefile, &clr.r);
@@ -602,8 +618,8 @@ fn String Action.getName(&self) => self.name;
 
 
 <*
-* @param [in] func "pointer to function to call"
-* @require func != null "A action requires a function to do anything"
+ @param [in] func "pointer to function to call"
+ @require func != null "A action requires a function to do anything"
 *>
 fn void makeKeyboardAction(String name, ActionCallBack func, KeyboardKey key1, KeyboardKey key2 = rl::KEY_NULL)  @inline
 {
@@ -618,8 +634,8 @@ fn void makeKeyboardAction(String name, ActionCallBack func, KeyboardKey key1, K
 }
 
 <*
-* @param [in] func "pointer to function to call"
-* @require func != null "A action requires a function to do anything"
+ @param [in] func "pointer to function to call"
+ @require func != null "A action requires a function to do anything"
 *>
 fn void makeMouseAction(String name, ActionCallBack func, MouseButton btn, KeyboardKey key = rl::KEY_NULL)  @inline
 {
@@ -634,8 +650,8 @@ fn void makeMouseAction(String name, ActionCallBack func, MouseButton btn, Keybo
 }
 
 <*
-* @param [in] func "pointer to function to call"
-* @require func != null "A action requires a function to do anything"
+ @param [in] func "pointer to function to call"
+ @require func != null "A action requires a function to do anything"
 *>
 fn void makeGamepadAction(String name, ActionCallBack func, GamepadButton btn, GamepadAxis axis)  @inline
 {
@@ -657,8 +673,8 @@ ActionManager local_manager @local;
 ActionManager* gpActnMnagr = &local_manager;
 
 <*
-* @param in action "the action to register"
-* @require action != null
+ @param in action "the action to register"
+ @require action != null
 *>
 fn void ActionManager.register(&self, Action* action) @inline {
     foreach(act : self.actions) {
@@ -854,7 +870,7 @@ fn void SaveGame.deinit(&self) {
 }
 
 <*
-* @require self.file != null
+ @require self.file != null
 *>
 fn void SaveGame.close(&self) @dynamic {
     file::close(self.file.data) {}

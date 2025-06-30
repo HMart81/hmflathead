@@ -284,8 +284,8 @@ fn void HMaterial.copy(&self, HMaterial* other)
 }
 
 <*
-* @param index : "stage index to get the necessary texture data." 
-* @require index >= 0 $$ index < MAX_STAGE_INDICES
+ @param index : "stage index to get the necessary texture data." 
+ @require index >= 0 && index < MAX_STAGE_INDICES
 *>
 fn MaterialStage* HMaterial.getStage(&self, MatStageIndex index) @inline @public
 {
@@ -1062,8 +1062,8 @@ fn HMaterial* getMaterial(String material_name) @public
 }
 
 <*
-* @param [inout] mtr : "the mtr file to register"
-* @require mtr != null
+ @param [inout] mtr : "the mtr file to register"
+ @require mtr != null
 *>
 fn void MaterialDataBase.register(&self, MTRFile* mtr) @local @inline {
 	self.data.push(mtr);

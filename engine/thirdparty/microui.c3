@@ -791,9 +791,9 @@ fn void MU_Context.run(&self, MU_Frame frame) {
 
 <*
   Processes all frames with the current context.
- * @param [in] ctx : "The current MicroUI context."
- * @param delta_time : "The time elapsed since the last frame, which can be used for animations"
- * @require ctx != null
+  @param [in] ctx : "The current MicroUI context."
+  @param delta_time : "The time elapsed since the last frame, which can be used for animations"
+  @require ctx != null
  *>
 fn void process_frames(MU_Context* ctx, float delta_time) 
 {

@@ -53,8 +53,8 @@ import engine::logging::lgr;
 ////// writeFn and errorFn, working just fine and are also called from c3 code!!!!!!? :( 
 
 <*
-* @param [in] vm : "current wren virtual machine calling this func"
-* @require vm != null
+ @param [in] vm : "current wren virtual machine calling this func"
+ @require vm != null
 *>
 fn void add(WrenVM* vm)
 {
@@ -65,8 +65,8 @@ fn void add(WrenVM* vm)
 }
 
 <*
-* @param [in] vm : "current wren virtual machine calling this func"
-* @require vm != null
+ @param [in] vm : "current wren virtual machine calling this func"
+ @require vm != null
 *>
 fn void vec2_translate(WrenVM* vm)
 {
@@ -81,8 +81,8 @@ fn void vec2_translate(WrenVM* vm)
 }
 
 <*
-* @param [in] vm : "current wren virtual machine calling this func"
-* @require vm != null
+ @param [in] vm : "current wren virtual machine calling this func"
+ @require vm != null
 *>
 fn void logToFile(WrenVM* vm)
 {
@@ -145,7 +145,7 @@ fn usz EventDef.getArgBytesCountInWren(&self) {
 }
 
 <*
-* @ensure return != null
+ @ensure return != null
 *>
 fn EventDef* getEventCommand(EventFunc[] events,  int eventnum ) {
 	return events[eventnum].event;

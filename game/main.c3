@@ -160,9 +160,9 @@ fn int getResolutionIndexFromValues(int w, int h) @local @inline
 
 
 <*
-* @param index "the index of a resolution on the resolution array"
-* @require index >= 0 && index < ScreenRes.len
-* @ensure return != null
+ @param #index : "the index of a resolution on the resolution array"
+ @require #index >= 0 && #index < ScreenRes.len
+ @ensure return != null
 *>
 macro ScreenRes* @getResolutionFromIndex(#index) => &ScreenRes[#index];
 
@@ -552,7 +552,7 @@ fn void Game.reload(&self, SaveFile* file) @dynamic {
 }
 
 <*
-* @require(self.entityList.len() >= 1)
+ @require(self.entityList.len() >= 1)
 *>
 fn Player* Game.getLocalPlayer(&self) {
     return (Player*)self.entityList[0];
@@ -567,8 +567,7 @@ fn Vec2i Game.getScreenCenterPosI(&self) {
 }
 
 <*
-* @require(self.entityList.len() >= 2)
-* @ensure return != null @if($feature(_DEBUG))
+ @require(self.entityList.len() >= 2)
 *>
 fn Entity* Game.getEntityByName(&self, String name) {
     foreach(i, ent : self.entityList) {
@@ -2562,8 +2561,8 @@ fn void loadGame() {
 }
 
 <*
-* @param [in] settings_file : "the ini file to read the game input actions from."
-* @require settings_file != null
+ @param [in] settings_file : "the ini file to read the game input actions from."
+ @require settings_file != null
 *>
 fn void createGameInputActions(ini::FileData* settings_file) @inline @local
 {

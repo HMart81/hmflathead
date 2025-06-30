@@ -73,8 +73,8 @@ fn void Script.run(&this) @inline
 }
 
 <*
-* @param [in] _sengine : "pointer to the script engine"
-* @require _sengine != null
+ @param [in] _sengine : "pointer to the script engine"
+ @require _sengine != null
 *>
 fn void Script.linkTo(&self, ScriptEngine* _sengine) @inline
 {
@@ -218,9 +218,6 @@ fn void ScriptEngine.createScript(&this, Path script_path)
     this.scripts.push(new_module);
 }
 
-<*
-* @ensure return != null
-*>
 fn Script* ScriptEngine.getScript(&self, String name) 
 {
     foreach(script : self.scripts) 
@@ -244,9 +241,9 @@ fn void ScriptVirtualMachine.init(&self)
 }
 
 <*
-* @param [in] scptengine : "pointer to the current script engine"
-* @require scptengine != null
-* @ensure self.vm != null
+ @param [in] scptengine : "pointer to the current script engine"
+ @require scptengine != null
+ @ensure self.vm != null
 *>
 fn void ScriptVirtualMachine.create(&self, ScriptEngine* scptengine)
 {
@@ -361,8 +358,8 @@ fn void errorFn(WrenVM* vm, WrenErrorType errorType, ZString _module, int line, 
 <*
     Binds C3 functions to methods defined in script classes
 
-* @param [in] vm : "current wren virtual machine calling this func"
-* @require vm != null
+ @param [in] vm : "current wren virtual machine calling this func"
+ @require vm != null
 *>
 fn WrenForeignMethodFn bindForeignMethod(WrenVM* vm, ZString script_name, ZString className, bool isStatic, ZString signature)
 {
@@ -443,8 +440,8 @@ fn WrenForeignMethodFn bindForeignMethod(WrenVM* vm, ZString script_name, ZStrin
 
 
 <*
-* @param [in] vm : "current wren virtual machine calling this func"
-* @require vm != null
+ @param [in] vm : "current wren virtual machine calling this func"
+ @require vm != null
 *>
 fn void wren_class_vec2(WrenVM* vm)
 {
@@ -460,8 +457,8 @@ fn void wren_class_vec2(WrenVM* vm)
 <*
     Binds C3 "classes" to wren classes defined in script 
 
-* @param [in] vm : "current wren virtual machine calling this func"
-* @require vm != null
+ @param [in] vm : "current wren virtual machine calling this func"
+ @require vm != null
 *>
 fn WrenForeignClassMethods bindForeignClass(WrenVM* vm, ZString script_name, ZString className)
 {

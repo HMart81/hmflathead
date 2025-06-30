@@ -766,7 +766,8 @@ fn bool is_vector_number(String value, int* out_count) @inline
     -3.4e-2     Complicated scientific notation
 */
 
-<*  @param [inout] value : "the string value to clean"
+<*  
+    @param [inout] value : "the string value to clean"
     @require value != null && value.len > 0
 *>
 fn void clean_value(String* value) @inline 
