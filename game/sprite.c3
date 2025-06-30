@@ -161,10 +161,10 @@ fn bool Sprite.equal(&self, Sprite* other) //@operator(==)
 
 // WARNING(HM) setSize and scale are diferent things!!!
 <*
-* @param w_scaler "amout of scaling for width 0 to INF"
-* @param h_scaler "amout of scaling for height 0 to INF"
-* @require w_scaler >= 0.0f
-* @require h_scaler >= 0.0f
+ @param w_scaler : "amout of scaling for width 0 to INF"
+ @param h_scaler : "amout of scaling for height 0 to INF"
+ @require w_scaler >= 0.0f
+ @require h_scaler >= 0.0f
 *>
 fn void Sprite.scale(&self, float w_scaler, float h_scaler) @inline 
 {
@@ -173,9 +173,9 @@ fn void Sprite.scale(&self, float w_scaler, float h_scaler) @inline
 }
 
 <*
-* @param scaler "scaling info"
-* @require scaler.x >= 0.0f
-* @require scaler.y >= 0.0f
+ @param scaler : "scaling info"
+ @require scaler.x >= 0.0f
+ @require scaler.y >= 0.0f
 *>
 fn void Sprite.scaleV(&self, Vec2f scaler) @inline {
     self.scale(scaler.x, scaler.y);
@@ -313,10 +313,6 @@ fn bool Sprite.hasMaterial(&self) @inline {
    return self.mat != null && rl::isTextureValid(*self.mat.getTexture(mtr::MAT_STAGE_DIFFUSE));
 }
 
-<*
-* @param out texture "pointer to sprite image texture"
-* @ensure return != null
-*>
 fn Texture2D* Sprite.getTexture(&self) @inline {
     if(self.hasMaterial()) { return self.mat.getTexture(mtr::MAT_STAGE_DIFFUSE); }
     

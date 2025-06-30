@@ -919,8 +919,7 @@ fn void WidgetText.draw(&self) @inline {
 }
 
 <*
- @param [in] menu : "desktop where this widget will live"
- @require menu != null
+ @param [&in] menu : "desktop where this widget will live"
  @ensure return != null
 *>
 fn WidgetText* createLabel(String name, String text, Color text_color, Desktop* menu) {

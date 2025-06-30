@@ -105,7 +105,7 @@ fn void Asset.load(&self, String path, typeid type, String name = "") @dynamic {
 }
 
 <*
-* @require self.data != null; 
+ @require self.data != null
 *>
 fn void Asset.unload(&self) @dynamic {
 	switch {
@@ -177,8 +177,7 @@ Manager local_manager @local;
 Manager* assetManager = &local_manager;
 
 <*
-* @param asset "the asset to register"
-* @require asset != null
+ @param [&in] asset : "the asset to register"
 *>
 fn void Manager.register(&self, Asset* asset) @local @inline {
 	self.assets.push(asset);
@@ -1155,8 +1154,8 @@ fn void? loadSoundShaderRecursively(String basepath, String parent_folder = "") 
 *
 * DOC: In here we create and setup each sound definition inside a sound shader file;
 *
-* @param in node "current node to populate with data"
-* @require node != null
+ @param in node "current node to populate with data"
+ @require node != null
 *>
 fn void parse(XmlNode* node, SoundShader* shader) {
     shdshd::Sound* sound = mem::new(shdshd::Sound);

@@ -155,24 +155,21 @@ struct SSMusic {
 }
 
 <*
-* @param [in] music "music to stop"
-* @require music != null
+ @param [&in] music : "music to stop"
 *>
 fn void stopMusic(SSMusic* music) {
     rl::stopMusicStream(music.stream);
 }
 
 <*
-* @param [in] music "music to play"
-* @require music != null
+ @param [&in] music : "music to play"
 *>
 fn void playMusic(SSMusic* music) {
     rl::playMusicStream(music.stream);
 }
 
 <*
-* @param [in] music "music to restart"
-* @require music != null
+ @param [&in] music : "music to restart"
 *>
 fn void restartMusic(SSMusic* music) {
     stopMusic(music);
@@ -180,16 +177,14 @@ fn void restartMusic(SSMusic* music) {
 }
 
 <*
-* @param [in] music "music to pause"
-* @require music != null
+ @param [&in] music : "music to pause"
 *>
 fn void pauseMusic(SSMusic* music) {
     rl::pauseMusicStream(music.stream);
 }
 
 <*
-* @param [in] music "music to resume"
-* @require music != null
+ @param [&in] music : "music to resume"
 *>
 fn void resumeMusic(SSMusic* music) {
     rl::resumeMusicStream(music.stream);

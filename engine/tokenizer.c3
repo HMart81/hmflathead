@@ -76,10 +76,9 @@ fn CChar returnNextToken(String str, int curr_index)  @inline
 }
 
 <*
-* @param in str : "the string to peak at, passed by pointer"
-* @param cur_index : "where the cursor is currently in the string"
-* @require str != null : "trying to peak at null str"
-* @ensure return != null : "expect a character pointer got a null pointer"
+ @param [&in] str : "the string to peak at, passed by pointer"
+ @param cur_index : "where the cursor is currently in the string"
+ @ensure return != null : "expect a character pointer got a null pointer"
 *>
 fn CChar* peakAtNextToken(String* str, int cur_index)  @inline
 {
@@ -88,10 +87,9 @@ fn CChar* peakAtNextToken(String* str, int cur_index)  @inline
 
 <*
 * DOC - go back a char
-* @param in str : "the string to peak at, passed by pointer"
-* @param cur_index : "where we currently are in the string"
-* @require str != null : "trying to peak at null str"
-* @ensure return != null : "expect a character pointer got a null pointer"
+ @param [&in] str : "the string to peak at, passed by pointer"
+ @param curr_index : "where we currently are in the string"
+ @ensure return != null : "expect a character pointer got a null pointer"
 *>
 fn CChar* peakAtPreviousToken(String* str, int curr_index)  @inline
 {
@@ -99,10 +97,9 @@ fn CChar* peakAtPreviousToken(String* str, int curr_index)  @inline
 }
 
 <*
-* @param token "the character to look for"
-* @param in str "the string to look at"
-* @param cur_index "where we currently are in the string"
-* @require str != null
+ @param token : "the character to look for"
+ @param [&in] str : "the string to look at"
+ @param cur_index : "where we currently are in the string"
 *>
 fn bool expectToken(CChar token, String* str, int cur_index)  @inline
 {
@@ -122,7 +119,7 @@ fn int count_spaces(String str)  @inline
 
 <* 
 * Removes all spaces from a string
-* @param [inout] str "string to remove spaces from"
+ @param [inout] str : "string to remove spaces from"
 *>
 fn void remove_all_spaces(String* str)  @inline
 {

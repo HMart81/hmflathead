@@ -239,7 +239,7 @@ const String ANSI_COLOR_RESET   = "\x1b[0m";
 //////////////////////// HM ////////////////////////////////////
 
 /**
- * @param [in] fmt `The formatting string`
+  @param [in] fmt `The formatting string`
  **/
 macro void hmLog(String fmt, ...) @public @builtin {
 $if $defined(DEBUG):
@@ -250,7 +250,7 @@ $endif
 }
 
 /**
- * @param [in] fmt `The formatting string`
+  @param [in] fmt `The formatting string`
  **/
 macro hmLogWarning(String fmt, ...) @public @builtin {
 $if $defined(DEBUG):
@@ -260,7 +260,7 @@ $if $defined(DEBUG):
 $endif
 }
 /**
- * @param [in] fmt `The formatting string`
+  @param [in] fmt `The formatting string`
  **/
 macro hmLogError(String fmt, ...) @public @builtin {
 $if $defined(DEBUG):

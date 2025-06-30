@@ -75,8 +75,8 @@ macro endianSwap(x) {
     this is used to create a fourcc code for file formats,
     do not use this macro with a string that is not 4 characters long.
 
- * @param string : `string to convert to a fourcc code`
- * @require string.len == 4
+  @param string : `string to convert to a fourcc code`
+  @require string.len == 4
  *>
 macro fourcc(string) {
     return (((uint)(string[0]) << 0) |
@@ -98,13 +98,12 @@ macro @todo($a = 0) @builtin
 }
 
 <*
- * @param $a : `start index`
- * @param #b : `end index`
- * @param [in] arr : `array to iterate`
- * @param @body : `code to execute for each element in the array`
- * @require arr != null && arr.len > 0
- * @require types::is_intlike($typeof($a)) && types::is_intlike($typeof(#b))
- * @require $a >= 0 && #b < arr.len
+  @param $a : `start index`
+  @param #b : `end index`
+  @param [&in] arr : `array to iterate`
+  @require arr.len > 0
+  @require types::is_intlike($typeof($a)) && types::is_intlike($typeof(#b))
+  @require $a >= 0 && #b < arr.len
  *>
 macro @forange($a, #b, arr; @body(x, y)) @builtin
 {
@@ -345,8 +344,7 @@ fn void freeDebugLines() @inline {
 }
 
 <*
-* @param [in] line "pointer to a DebugLine"
-* @require line != null
+ @param [&in] line : "pointer to a DebugLine"
 *>
 fn bool debugLineIsValid(DebugLine* line) {
     return (line.lifetime >= 1000) ? true : false;
@@ -771,7 +769,7 @@ fn int ZString.count_spaces(&self) @inline {
 // region PROFILING /////////////////////////////////////////////////
 // todo make this into a internal module?
 <*
- * @require rl::isWindowReady() == true "right now window most be initialized for Profiling to work"
+  @require rl::isWindowReady() == true "right now window most be initialized for Profiling to work"
 *>
 macro void @profile_zone(String name, bool on = true; @body()) {
 $if $feature(_PROFILE):
@@ -798,8 +796,8 @@ $endif
 
 // deprected functions
 <*
- * @require rl::isWindowReady() == true "right now window most be initialized for Profiling to work"
- * @return `start time of function`
+  @require rl::isWindowReady() == true "right now window most be initialized for Profiling to work"
+  @return `start time of function`
 *>
 macro float @start_profile_zone() @builtin {
     return 0.0f;
@@ -915,11 +913,11 @@ macro int fmin_to_sec(int minutes)
 }
 
 <*
- * @require type <= uint.max "ulong most be within uint size"
+  @require type <= uint.max "ulong most be within uint size"
 *>
 fn uint safeTruncateU64(ulong type) @inline => (uint)type;
 <*
- * @require type <= int.max "long most be within int size"
+  @require type <= int.max "long most be within int size"
 *>
 fn int safeTruncateS64(long type) @inline => (int)type;
 

@@ -65,15 +65,15 @@ fn void Timer.update(&self) @inline {
 }
 
 <*
- * @return "Returns true if it has finished, false otherwise"
- *>
+  @return "Returns true if it has finished, false otherwise"
+*>
 fn bool Timer.isDone(&self) @inline {
 	return self.lifetime <= 0;
 }
 
 <*
- * @return "Returns true if it has NOT finished, false otherwise"
- *>
+  @return "Returns true if it has NOT finished, false otherwise"
+*>
 fn bool Timer.alive(&self) @inline {
 	return (self.isDone()) ? false : true;
 }

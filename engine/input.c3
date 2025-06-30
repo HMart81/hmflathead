@@ -306,8 +306,9 @@ fn void makeGamepadAction(String name, GamepadButton btn, GamepadAxis axis, Acti
 }
 
 <*
-* @param name "the name of the action to retrieve"
-* @ensure return != null @if $feature(_DEBUG)
+ @param name : "the name of the action to retrieve"
+ @require name != ""
+ @ensure return != null
 *>
 fn Action* getAction(String name) @inline {
     return local_manager.getActionByName(name);
@@ -450,8 +451,7 @@ ActionManager local_manager @local;
 ActionManager* gpManager = &local_manager;
 
 <*
-* @param in action "the action to register"
-* @require action != null
+ @param [&in] action : "the action to register"
 *>
 fn void ActionManager.register(&self, Action* action) @inline {
     foreach(act : self.actions) {
@@ -465,8 +465,8 @@ fn void ActionManager.register(&self, Action* action) @inline {
 }
 
 <*
-* @param name "the name of the action to retrieve"
-* @ensure return != null @if $feature(_DEBUG)
+ @param name : "the name of the action to retrieve"
+ @require name != ""
 *>
 fn Action* ActionManager.getActionByName(&self, String name) @inline @local {
     if(name == "") return null;

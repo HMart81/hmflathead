@@ -73,10 +73,10 @@ typedef INIFile   = inline io::File;
 alias SectionListPtr = List{IniSection}*;
 
 <*
-* @param [in] key `The cmd name`
-* @param [in] inifile `The ini file data`
-* @ensure key != "" && inifile != null
-* @deprecated
+ @param [in] key : `The cmd name`
+ @param [&in] inifile : `The ini file data`
+ @require key != ""
+ @deprecated
 *>
 fn String getIniKey(String key, FileData* inifile) {
     foreach(section : inifile.sections) {
@@ -136,16 +136,12 @@ struct FileData {
 }
 
 <*
- * @param [in] section "a new section adress to save into the section adresses list"
- * @require section != null 
+  @param [&in] section : "a new section adress to save into the section adresses list"
 *>
 fn void FileData.register(&self, IniSection* section) @local @inline {
     self.sections.push(section);
 }
 
-<*
- * @ensure return != null @if $feature(_DEBUG)
-*>
 fn IniSection* FileData.getSection(&self, String name) @local {
     foreach(section : self.sections) {
         if(section.name == name) {
@@ -156,6 +152,7 @@ fn IniSection* FileData.getSection(&self, String name) @local {
             }
         }
     }
+
     return null;
 }
 
@@ -173,8 +170,8 @@ fn bool FileData.hasSection(&self, String name) @local {
 }
 
 <*
-* @param key `The cmd name`
-* @require key != "" @if $feature(_DEBUG)
+ @param key : `The cmd name`
+ @require key != ""
 *>
 fn String FileData.getValue(&self, String key) 
 {
@@ -200,8 +197,8 @@ fn String FileData.getValue(&self, String key)
 }
 
 <*
-* @param [in] key `The cmd name`
-* @require key != "" @if $feature(_DEBUG)
+ @param [in] key : `The cmd name`
+ @require key != ""
 *>
 fn float? FileData.getFloatValue(&self, String key) {
     ListIniCMDPrts* cmds;
@@ -226,8 +223,8 @@ fn float? FileData.getFloatValue(&self, String key) {
 }
 
 <*
-* @param [in] key `The cmd name`
-* @require key != "" @if $feature(_DEBUG)
+ @param [in] key : `The cmd name`
+ @require key != ""
 *>
 fn int? FileData.getIntValue(&self, String key) {
     ListIniCMDPrts* cmds;
@@ -252,8 +249,8 @@ fn int? FileData.getIntValue(&self, String key) {
 }
 
 <*
-* @param [in] key `The cmd name`
-* @require key != "" @if $feature(_DEBUG)
+ @param [in] key : `The cmd name`
+ @require key != ""
 *>
 fn bool? FileData.getBoolValue(&self, String key) {
     ListIniCMDPrts* cmds;
@@ -287,17 +284,15 @@ struct IniSection { // everything after a [name]
 }
 
 <*
- * @param [in] cmd "a new cmd adress to save into the cmd adresses list"
- * @require cmd != null 
- *>
+  @param [&in] cmd : "a new cmd adress to save into the cmd adresses list"
+*>
 fn void IniSection.register(&self, IniCMD* cmd) @local @inline {
     self.cmds.push(cmd);
 }
 
 <*
- * @param [in] other "pointer to another section"
- * @require other != null
- *>
+  @param [&in] other : "pointer to another section"
+*>
 fn void IniSection.link(&self, IniSection* other) @local @inline {
     self.next   = other;
     self.linked = true;
@@ -427,9 +422,9 @@ fn FileData*? parse_file(String[] lines) @local {
 <*
  * DOC Parse a section name from a line of text
  *
- * @param [in] line    : "the line of text to parse"
- * @param [inout] file : "the file data structure to register the section into"
- * @require file != null && line.len > 0
+  @param [in] line    : "the line of text to parse"
+  @param [inout] file : "the file data structure to register the section into"
+  @require file != null && line.len > 0
 *>
 fn void parse_section_name(String line, FileData* file) @local 
 {
@@ -476,8 +471,8 @@ struct IniCMD_TempData @local {
 }
 
 <*
- * @param [inout] file
- * @require file != null
+  @param [inout] file
+  @require file != null
  *>
 fn void parse_section_cmd(String line, FileData* file) @local
 {
@@ -540,9 +535,9 @@ fn void parse_section_cmd(String line, FileData* file) @local
 <*
  * DOC Get the type of a cmd value from its string representation
  *
- * @param [inout] cmd_data : "the cmd data to set the type"
- * @require cmd_data != null
- * @ensure cmd_data.type != 0
+  @param [inout] cmd_data : "the cmd data to set the type"
+  @require cmd_data != null
+  @ensure cmd_data.type != 0
  *>
 fn void get_cmd_type_from_value(IniCMD_TempData* cmd_data) @local
 {
@@ -570,8 +565,8 @@ fn void get_cmd_type_from_value(IniCMD_TempData* cmd_data) @local
 <*
  * DOC Create a init file data structure for easy parsing
  *
- * @param [in] filepath
- * @require filepath.len >= 3 "The file path must be at least 3 characters long"
+  @param [in] filepath
+  @require filepath.len >= 3 "The file path must be at least 3 characters long"
  *>
 fn FileData*? load(String filepath, bool isrelative = true) {
     if(filepath == "") {
@@ -594,8 +589,8 @@ fn FileData*? load(String filepath, bool isrelative = true) {
 <*
  * Create a init file data structure for easy parsing
  *
- * @param [in] filepath
- * @require filepath.len >= 3 "The file path must be at least 3 characters long"
+  @param [in] filepath
+  @require filepath.len >= 3 "The file path must be at least 3 characters long"
  *>
 fn FileData*? _load(String filepath, bool isrelative = true) @deprecated {
     if(filepath == "") {
@@ -754,9 +749,8 @@ fn void testCmdValueStringValidity(String value, String id) {
 }
 
 <*
- * @param [in] inifile "is not really a file but a adress of a data structure in memory"
- * @ensure inifile != null 
- *>
+  @param [&in] inifile : "is not really a file but a adress of a data structure in memory"
+*>
 fn void unload(FileData* inifile) {
     if(inifile.sections.len()) {
         foreach(section : inifile.sections) {
@@ -785,8 +779,8 @@ fn void unload(FileData* inifile) {
 <*
  * Create a init file structure for easy parsing
  *
- * @param [in] path
- * @require path.len > 0 "The path must be at least 1 character long"
+  @param [in] path
+  @require path.len > 0 "The path must be at least 1 character long"
  *>
 fn bool? populate(FileData* file_data, String path) @deprecated {
     if(file_data == null) {
