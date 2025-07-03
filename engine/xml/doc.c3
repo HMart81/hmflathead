@@ -156,18 +156,7 @@ fn XmlNode* XmlNode.findNextChild(&self, String name) {
     return null;
 }
 
-fn char[]? XmlNode.get_attrib_value(&self, char[] name) {
-	for (usz i = 0; i < self.attributes.size; i++) {
-		XmlAttribute* attribute = self.attributes[i];
-		if (attribute.name == name) {
-			return attribute.value;
-		}
-	}
-	return ATTRIBUTE_NOT_FOUND?;
-}
-
 fn bool XmlNode.hasAttributes(&self) => (self.attributes.size) ? true : false;
-
 
 fn XmlAttribute* XmlNode.getAttribute(&self, String name) 
 {
@@ -178,6 +167,17 @@ fn XmlAttribute* XmlNode.getAttribute(&self, String name)
 	}
 	return null;
 }
+
+fn char[]? XmlNode.get_attrib_value(&self, char[] name) {
+	for (usz i = 0; i < self.attributes.size; i++) {
+		XmlAttribute* attribute = self.attributes[i];
+		if (attribute.name == name) {
+			return attribute.value;
+		}
+	}
+	return ATTRIBUTE_NOT_FOUND?;
+}
+
 
 fn void XmlDoc.print_as_tree(&doc, OutStream stream) {
 	doc.rootNode.print_as_tree(stream, 0, 0, 0);

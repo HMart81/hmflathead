@@ -2605,25 +2605,28 @@ fn void gameDoOneFrame() @local
     {
         while(rl::windowShouldClose() != true) 
         {
-            tracy::@messageL( "Tick" );
-            tracy::@zoneN("Game loop", 1)
+            @pool()
             {
-                float gameDoOneFrame_st = @start_profile_zone();
-                defer @end_profile_zone(gameDoOneFrame_st);
-                
-                if(local_game.should_quit) break;
-                
-                // update game timing
-                local_game.dt       = rl::getFrameTime(); // last frame time
-                local_game.time_sec = (float)rl::getTime();
-                local_game.time_ms  = misc::sec2ms(local_game.time_sec);
+                tracy::@messageL( "Tick" );
+                tracy::@zoneN("Game loop", 1)
+                {
+                    float gameDoOneFrame_st = @start_profile_zone();
+                    defer @end_profile_zone(gameDoOneFrame_st);
+                    
+                    if(local_game.should_quit) break;
+                    
+                    // update game timing
+                    local_game.dt       = rl::getFrameTime(); // last frame time
+                    local_game.time_sec = (float)rl::getTime();
+                    local_game.time_ms  = misc::sec2ms(local_game.time_sec);
 
-                int screen_w = rl::getScreenWidth();
-                int screen_h = rl::getScreenHeight();
-                
-                gameUpdate();
-                gameDraw(screen_w, screen_h);
-            }; // tracy scope end
+                    int screen_w = rl::getScreenWidth();
+                    int screen_h = rl::getScreenHeight();
+                    
+                    gameUpdate();
+                    gameDraw(screen_w, screen_h);
+                }; // tracy scope end
+            };
         }
         
     };

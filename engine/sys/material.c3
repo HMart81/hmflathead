@@ -56,10 +56,13 @@ alias MaterialStageArgList = List{StringTuple*};
 
 faultdef INVALID_PATH_STRING,
 	     MALFORMED_MTR_FILE,
+         UNKNOWN_MATERIAL,
 	     UNKNOWN_FOLDER,
+         MATERIAL_LOAD_ERROR,
          MATERIAL_PARSING_ERROR,
 	     FOLDER_SCAN_ERROR,
 	     MTR_LOAD_ERROR,
+         MTR_VERSION_MISMATCH,
 	     SMALL_PATH_ERROR,
 	     MTR_RETRIVAL_ERROR,
 	     MISSING_MTR;
@@ -68,7 +71,6 @@ faultdef INVALID_PATH_STRING,
 // NOTE(HM) This represents every usefull node in the mtr xml file 
 enum Node : int (inline String str)
 {
-    //INVALID   = "[35, 116, 101, 120, 116]", // = "[#text]" for some reason the current third party xml reader I use, creates this invalid #text node...
     ROOT      = "MTR",
     TEXT      = "#text",
     MATERIAL  = "MATERIAL",
@@ -336,12 +338,23 @@ fn String HMaterial.defaultDefinition(self) @inline
 ///////////////////////////////////////////////
 
 const MTR_VERSION_STRING = "1.0.0"; // the version of the mtr file format
+const MTR_FILE_EXT = ".mtr"; // the extension of the mtr file
+const MAX_MATERIALS_PER_FILE = 100; // the maximum number of materials per mtr file
+const MAX_MATERIALS_OVERALL = 1000; // the maximum number of materials in the game
 
+// NOTE(HM) This is the data structure represents a material file, it contains a list of materials and their data
 struct MTRFile @public
 {
-    String path;        // path to the mtr file.
+    String path;        // path to the mtr file on disk.
     String version;     // version of the mtr file format, should be MTR_VERSION_STRING.
     MaterialList mats;  // list of materials in this file.
+}
+
+fn void MTRFile.init(&self, String path) @inline @public
+{
+    self.path = path.copy(mem);
+    self.version = MTR_VERSION_STRING;
+    self.mats.reserve(MAX_MATERIALS_PER_FILE);
 }
 
 fn void MTRFile.unload(&self) @inline @public
@@ -351,17 +364,20 @@ fn void MTRFile.unload(&self) @inline @public
 }
 
 <*
-    @param [in] mat : "material to register"
-    @require mat != null
+    @param [&in] mat : "material to register"
 *>
 fn void MTRFile.register(&self, HMaterial* mat) @inline @public
 {
+    if(self.mats.len() >= MAX_MATERIALS_PER_FILE) {
+        lgr::error(Where.FILE, "Maximum number of materials per mtr file reached (%d), cannot register material '%s' in file '%s'.", MAX_MATERIALS_PER_FILE, mat.name, self.path);
+        return;
+    }
     self.mats.push(mat);
 }
 
 // @Performance This will probably be very slow with many materials...
 // TODO(HM) make this faster by using a hash table
-fn HMaterial* MTRFile.findMaterial(&self, String name) @inline @public
+fn HMaterial* MTRFile.findMaterial(&self, String name) @public
 {
 	foreach(mat: self.mats) {
 		if(mat.name == name) return mat;
@@ -373,6 +389,8 @@ fn HMaterial* MTRFile.findMaterial(&self, String name) @inline @public
 
 fn void MTRFile.printMaterials(&self) @inline @public
 {
+    // Remove the comments if you want to print the materials in the console.
+    /*
     io::printfn("[MTR '%s' v: %s]", fs::getFileNameWithoutExt(self.path), self.version);
     io::printfn("{");
     if(self.mats.len()) {
@@ -386,33 +404,33 @@ fn void MTRFile.printMaterials(&self) @inline @public
         }
     }
     io::printfn("};");
+    */
 }
 
 fn bool? MTRFile.load(&self, File file) @inline @public
-{
-    if(self.parse(file) == false) {
-        return MATERIAL_PARSING_ERROR?;
-    }
-    
-    return true;
-}
-
-fn bool MTRFile.parse(&self, File file)
 {
     XmlDoc*? doc = xml::read_file(file);
     defer doc.free()!!;
     
     if(catch excuse = doc)
     {
-       lgr::warning(Where.FILE, " Failed to open MTR xml file [%s] with excuse: %s", self.path, excuse);
-       return false;
+       lgr::warning(Where.FILE, " Failed to load/open MTR xml file [%s] with excuse: %s", self.path, excuse);
+       return MTR_LOAD_ERROR?;
     }
     
+    return self.parse(doc);
+}
+
+<*
+    @param [&in] doc : "mtr (xml) file to parse"
+*>
+fn bool? MTRFile.parse(&self, XmlDoc* doc)
+{
     bool invalid_mtr = doc.rootNode.name != Node.ROOT.str;
     if(invalid_mtr)
     {
        lgr::error(Where.FILE, " Malformed material data file '%s', root node expected to be 'MTR' but is '%s' instead.", self.path, doc.rootNode.name);
-       return false;
+       return MALFORMED_MTR_FILE?;
     }
 
     String? version = (String)doc.rootNode.get_attrib_value(NodeAttrib.VERSION);
@@ -426,63 +444,68 @@ fn bool MTRFile.parse(&self, File file)
     if(version != MTR_VERSION_STRING)
     {
         lgr::error(Where.FILE, " Invalid material data file '%s', version expected to be '%s' but is '%s' instead.", self.path, MTR_VERSION_STRING, version);
-        return false;
+        return MTR_VERSION_MISMATCH?;
     }
 
-    self.version = version.copy(mem);
+    // else everything should be fine from here, so keep parsing this material data
+    self.version = version.tcopy();
     
     // now parse each MTR xml node
     foreach (node : doc.rootNode.children)
     {
-       if(node == null) {
-            lgr::warning(Where.FILE, "Null node found in mtr file '%s', skipping it.", self.path);
-            continue;
-       }
-
-       // Skip any text nodes assigned to the root node (shouldn't happen now though).
-       // Text nodes are handled further by the material parser, so we don't need to handle them here.
-       if(isXmlNode(node, Node.TEXT)) 
-       {
-            // This is caused by a bug in the xml reader code (not easy to solve but I worked around it). 
-            // The xml reader, treats any end char '>', as always being followed by a Text "node", 
-            //  (text between a '>' and a '<'), so in some situtions, it creates empty text nodes, 
-            //  like when after a '>' char, came the start char '<' of another node but you add in between them,
-            //  spaces or new lines, the xml reader still considers those as valid "text", 
-            //  the reader, reads character by character so is not easy to solve this, 
-            //  so it will create a text node, regardless if will be empty or not in the end.  
-            // The workaround, it now tests for empty text nodes and doesn't register them, in the xml doc file. 
-            //continue;
-            unreachable("Unexpected text node found in body of MTR '%s'! Text = '%s' ", fs::getFileNameWithoutExt(self.path), node.value);
-       }
-
-       if(isXmlNode(node, Node.MATERIAL)) 
-       {
-            HMaterial* mat = parse_material_node(node, self);
-            if(mat) {
-                self.register(mat);
-            } else {
-                //lgr::error(Where.FILE, "Failed to parse material node '%s' in mtr file '%s'", node.name, self.path);
-                unreachable("Failed to parse material node '%s' in mtr file '%s'", node.name, self.path);
+        $if $feature(_DEBUG):
+            if(node == null) 
+            {
+                lgr::error(Where.FILE, "Null node found in mtr file '%s', skipping it.", self.path);
+                return MATERIAL_PARSING_ERROR?;
             }
-       } else {
-            lgr::warning(Where.FILE, " Unexpected node in mtr file '%s', expected <MATERIAL> found <%s>", self.path, node.name);
-            continue;
-       }
-    }
+        $endif
+
+        switch
+        {
+            // Skip any text nodes assigned to the root node (shouldn't happen now though).
+            // Text nodes are handled further by the material parser, so we don't need to handle them here.
+            case isXmlNode(node, Node.TEXT):
+                lgr::error(Where.FILE, "Unexpected 'TEXT' node found in body of MTR '%s'! Text = '%s' ", fs::getFileNameWithoutExt(self.path), node.value);
+                // This was caused by a bug in the xml reader code (not very easy to solve but I worked around it). 
+                // The xml reader, treats any end char '>', as always being followed by a Text "node", 
+                //  (free text between a '>' and a '<'), so in some situations, it created empty text nodes, 
+                //  like when after a '>' char, came the start char '<' of another node, 
+                //  but you add in between them, empty characters (space, new line), but even so 
+                //  the xml reader, still considered those as valid "text". 
+                // Because the xml reader, reads character by character, is not easy to solve this, 
+                //  so it will create a text node, regardless if is empty or not.  
+                // The workaround, was to test for empty text nodes and just don't register them, in the xml doc file.
+                return MATERIAL_PARSING_ERROR?;
+            case isXmlNode(node, Node.MATERIAL):
+                HMaterial* mat = parse_material_node(node, self);
+                if(mat) {
+                    self.register(mat);
+                } else {
+                    lgr::error(Where.FILE, "Failed to parse material node '%s' in mtr file '%s'", node.name, self.path);
+                    return MATERIAL_PARSING_ERROR?;
+                }
+            default:
+                lgr::warning(Where.FILE, " Unexpected node in mtr file '%s', expected <MATERIAL> found <%s>", self.path, node.name);
+                $if $feature(_DEBUG):
+                    return MATERIAL_PARSING_ERROR?;
+                $else
+                    continue;
+                $endif
+        }
+    } // end foreach node
     
     return true;
 }
 
-fn bool check_material_existance(String name) @inline
+// @Performance This will probably be very slow with many mtr files and material definitions...
+fn bool check_material_existance(String name)
 {
     MaterialDataBase* mtr_db = &main::gpGame.mtrDB;
     foreach(mtr: mtr_db.data)
     {
-        bool material_exists = mtr.findMaterial(name) != null;
-        if(material_exists) 
-        {
-            lgr::warning(Where.FILE, "material with name '%s' already exists in %s\n", name, mtr.path);
-            return true;
+        foreach(mat: mtr.mats) {
+		    if(mat.name == name)  return true;
         }
     }
     
@@ -521,7 +544,7 @@ fn HMaterial* parse_material_node(XmlNode* mat_node, MTRFile* file)
     // check if the material name already exists in the game
     if(check_material_existance(mat_name) == true)
     {
-        // file warning print is done inside check_material_existance() function
+        lgr::warning(Where.FILE, "material with name '%s' already exists in %s\n", mat_name, file.path);
         mat.free();
         mem::free(mat);
         return null;
@@ -1038,16 +1061,16 @@ fn void? loadMaterialFilesTo(MaterialDataBase* db) @inline @public
 fn HMaterial* getMaterial(String material_name) @public
 {
     HMaterial* mat;
-    usz index, count;
+    uint index;
 
-    count = main::gpGame.mtrDB.data.len();
+    uint count = (uint)main::gpGame.mtrDB.data.len();
     if(count == 0) {
         lgr::error(Where.FILE, "No material files loaded in the game, cannot get material '%s'", material_name);
         return null;
     }
 
-    do {
-        // NOTE(HM): This is done this way because getMaterial() from MTRFile returns null 
+    do { // @Performance This is a linear search, so it will be slow with many materials.
+        // NOTE(HM): This is done this way because findMaterial() from MTRFile returns null 
         // if the material is not found in the mtr data, so while we have materials in the data base
         // we need to keep looking through all of them.
         mat = main::gpGame.mtrDB.data[index++].findMaterial(material_name);
