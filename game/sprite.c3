@@ -38,7 +38,7 @@ import engine::misc;
 import game::camview;
 import engine::assets::astmng; //@deprecated;  // asset manager 
 import engine::assets_api::asapi; //@deprecated; // for the asset
-import game::material::mtr;
+import game::material::mat;
 import game::material::manager::mtrmng;
 import engine::logging::lgr;
 import game::serialize::svs; // save system
@@ -300,7 +300,7 @@ fn void Sprite.setMaterial(&self, String material_name) @inline {
     if(material_name) 
     {
         self.mat = mtrmng::getMaterial(material_name);
-        if(self.mat == null || rl::isTextureValid(*self.mat.getTexture(mtr::MAT_STAGE_DIFFUSE)) == false) {
+        if(self.mat == null || rl::isTextureValid(*self.mat.getTexture(mat::STAGE_DIFFUSE)) == false) {
             lgr::error(Where.FILE, "Unnable to set Sprite material '%s'.\n", material_name);
             unreachable("Unnable to set Sprite material.");
         }
@@ -310,11 +310,11 @@ fn void Sprite.setMaterial(&self, String material_name) @inline {
 }
 
 fn bool Sprite.hasMaterial(&self) @inline {
-   return self.mat != null && rl::isTextureValid(*self.mat.getTexture(mtr::MAT_STAGE_DIFFUSE));
+   return self.mat != null && rl::isTextureValid(*self.mat.getTexture(mat::STAGE_DIFFUSE));
 }
 
 fn Texture2D* Sprite.getTexture(&self) @inline {
-    if(self.hasMaterial()) { return self.mat.getTexture(mtr::MAT_STAGE_DIFFUSE); }
+    if(self.hasMaterial()) { return self.mat.getTexture(mat::STAGE_DIFFUSE); }
     
     return null;
 }
@@ -324,8 +324,8 @@ fn Vec2i Sprite.getTextureSize(&self) @inline
 {
     if(self.hasMaterial() == false) return {0,0};
 
-    int w = (int)self.mat.getTexture(mtr::MAT_STAGE_DIFFUSE).width;
-    int h = (int)self.mat.getTexture(mtr::MAT_STAGE_DIFFUSE).height;
+    int w = (int)self.mat.getTexture(mat::STAGE_DIFFUSE).width;
+    int h = (int)self.mat.getTexture(mat::STAGE_DIFFUSE).height;
 
     return {w,h};
 }
@@ -360,12 +360,12 @@ fn void Sprite.draw(&self)  @inline
         
         if(self.hasMaterial())
         {
-            Texture2D* texture = self.mat.getTexture(mtr::MAT_STAGE_DIFFUSE);
+            Texture2D* texture = self.mat.getTexture(mat::STAGE_DIFFUSE);
             Vec2f texture_size = { texture.width, texture.height };
             Rectangle source = { 0, 0, texture_size.x, texture_size.y };
             Rectangle* dist = &self.rect;
 
-            Color color = self.mat.getStage(mtr::MAT_STAGE_DIFFUSE).color;
+            Color color = self.mat.getStage(mat::STAGE_DIFFUSE).color;
 
             BlendMode blending;
             switch (self.mat.coverage)

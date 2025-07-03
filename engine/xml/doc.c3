@@ -168,7 +168,8 @@ fn XmlAttribute* XmlNode.getAttribute(&self, String name)
 	return null;
 }
 
-fn char[]? XmlNode.get_attrib_value(&self, char[] name) {
+fn char[]? XmlNode.get_attrib_value(&self, char[] name) @deprecated("Use XmlNode.getAttribute instead")
+{
 	for (usz i = 0; i < self.attributes.size; i++) {
 		XmlAttribute* attribute = self.attributes[i];
 		if (attribute.name == name) {
@@ -181,6 +182,18 @@ fn char[]? XmlNode.get_attrib_value(&self, char[] name) {
 
 fn void XmlDoc.print_as_tree(&doc, OutStream stream) {
 	doc.rootNode.print_as_tree(stream, 0, 0, 0);
+}
+
+fn String XmlNode.getText(&self)
+{
+    String result;
+    usz child_count = self.children.len();
+    while(child_count > 0 && self.children[child_count - 1].name == "#text") {
+        result = result.tconcat(self.children[child_count - 1].value);
+        child_count--;
+    }
+    
+    return result;
 }
 
 fn void XmlNode.print_as_tree(&node, OutStream stream, int depth, usz childIndex, usz childCount) {

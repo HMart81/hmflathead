@@ -42,7 +42,7 @@ import std::collections::list;
 import engine::misc;
 import engine::input;
 //import engine::assets::astmng; // asset manager
-import game::material::mtr;
+import game::material::mat;
 import game::material::manager::mtrmng;
 import engine::logging::lgr;
 import game::main;
@@ -358,12 +358,12 @@ fn void Panel.draw(&self, bool selected = false)
     {
         // TODO(HM) find how to draw a image on a rounded rectangle!?
 
-        Texture2D* texture = self.mat.getTexture(mtr::MAT_STAGE_DIFFUSE);
+        Texture2D* texture = self.mat.getTexture(mat::STAGE_DIFFUSE);
         Vec2f texture_size = { texture.width, texture.height };
         Rectangle source = { 0, 0, texture_size.x, texture_size.y };
         Rectangle* dist = &self.rect;
 
-        Color color = (selected) ? self.selected_color : self.mat.getStage(mtr::MAT_STAGE_DIFFUSE).color;
+        Color color = (selected) ? self.selected_color : self.mat.getStage(mat::STAGE_DIFFUSE).color;
 
         BlendMode blending;
         switch (self.mat.coverage)

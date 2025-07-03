@@ -27,12 +27,13 @@
 *********************************************************************************************************************************************/
 
 // region module
-module game::material::mtr @private;
+module game::material::mat @private;
 
 // region imports
-import std::io, std::math;
 import game::main; // for file logging or console logging
 import engine::misc;
+import std::io, std::math;
+import game::material::mtr;
 import game::serialize::svs;
 import game::material::manager::mtrmng;
 import engine::logging::lgr;
@@ -51,62 +52,15 @@ import std::collections::list, std::collections::tuple;
 *****************************************************************************
 */
 
-alias MaterialList       = List{HMaterial*};
 alias MaterialStageArgList = List{StringTuple*};
 
-faultdef INVALID_PATH_STRING,
-	     MALFORMED_MTR_FILE,
-         UNKNOWN_MATERIAL,
-	     UNKNOWN_FOLDER,
-         MATERIAL_LOAD_ERROR,
-         MATERIAL_PARSING_ERROR,
-	     FOLDER_SCAN_ERROR,
-	     MTR_LOAD_ERROR,
-         MTR_VERSION_MISMATCH,
-	     SMALL_PATH_ERROR,
-	     MTR_RETRIVAL_ERROR,
-	     MISSING_MTR;
+faultdef MAT_INVALID_PATH,
+         MAT_UNKNOWN_MATERIAL,
+	     MAT_UNKNOWN_FOLDER,
+         MAT_LOAD_ERROR,
+         MAT_PARSING_ERROR,
+	     MAT_SMALL_PATH_ERROR;
 
-
-// NOTE(HM) This represents every usefull node in the mtr xml file 
-enum Node : int (inline String str)
-{
-    ROOT      = "MTR",
-    TEXT      = "#text",
-    MATERIAL  = "MATERIAL",
-    COMMENT   = "comments",
-    MAPS      = "maps",
-    MAP       = "map",
-    VIDEO_MAP = "video_map",
-    ARGS      = "args",
-    COLOR     = "color",
-    ALBEDO    = "albedo",
-    NORMAL    = "normal",
-    SPECULAR  = "specular",
-    SOUND     = "sound",
-    SHADER    = "shader"
-}
-
-// NOTE(HM) This represents the atributes assigned to a xml node
-enum NodeAttrib : int (inline String str)
-{
-    // general
-    NAME        = "name",
-    VERSION     = "version",
-    PATH        = "path",
-    KIND        = "kind",
-    TRANSLUCENT = "translucent",
-
-    // map arguments
-    CLAMP       = "clamp",
-    TILE_H      = "tileH",
-    TILE_V      = "tileV",
-    SCROLL_X    = "scrollX",
-    SCROLL_Y    = "scrollY",
-    TRANSLATE_X = "translateX",
-    TRANSLATE_Y = "translateY",
-    ALPHA       = "alpha"
-}
 
 /*
 Model model = LoadModel("resources/models/obj/castle.obj");                 // Load model
@@ -123,21 +77,21 @@ void SetModelMeshMaterial(Model *model, int meshId, int materialId);            
 */
 
 // Material stage index
-alias MatStageIndex                     = int;
-const MatStageIndex MAT_STAGE_DIFFUSE   @public = 0;    // only one supported (for now...)
-const MatStageIndex MAT_STAGE_SPECULAR  @public = 1;
-const MatStageIndex MAT_STAGE_NORMAL    @public = 2;
-const MatStageIndex MAT_STAGE_OCCLUSION @public = 3;    // Ambient occlusion material
-const MatStageIndex MAT_STAGE_EMISSION  @public = 4;    // Emission material
-const MatStageIndex MAT_STAGE_HEIGHT    @public = 5;    // Heightmap material
-const MatStageIndex MAT_STAGE_CUBEMAP   @public = 6;    // Cubemap material (NOTE: Uses GL_TEXTURE_CUBE_MAP)
-const MatStageIndex MAT_STAGE_VIDEO     @public = 7;    // video map stage
-const MatStageIndex MAT_STAGE_SOUND     @public = 8;    // sound map stage
+alias MatStageIndex                 = int;
+const MatStageIndex STAGE_DIFFUSE   @public = 0;    // only one supported (for now...)
+const MatStageIndex STAGE_SPECULAR  @public = 1;
+const MatStageIndex STAGE_NORMAL    @public = 2;
+const MatStageIndex STAGE_OCCLUSION @public = 3;    // Ambient occlusion material
+const MatStageIndex STAGE_EMISSION  @public = 4;    // Emission material
+const MatStageIndex STAGE_HEIGHT    @public = 5;    // Heightmap material
+const MatStageIndex STAGE_CUBEMAP   @public = 6;    // Cubemap material (NOTE: Uses GL_TEXTURE_CUBE_MAP)
+const MatStageIndex STAGE_VIDEO     @public = 7;    // video map stage
+const MatStageIndex STAGE_SOUND     @public = 8;    // sound map stage
 
 // Don't forget to update this max value if adding more stages above!!!
-const MAX_STAGE_INDICES = (MAT_STAGE_SOUND);
+const MAX_STAGE_INDICES = (STAGE_SOUND);
 // just in case...
-$assert MAX_STAGE_INDICES == MAT_STAGE_SOUND;
+$assert MAX_STAGE_INDICES == STAGE_SOUND;
 
 // NOTE(HM) raylib has the MaterialMap already that is almost equivalent, should we use that?
 // Material stage represents each texture type in a material
@@ -148,6 +102,75 @@ struct MaterialStage
     Color color;
     // Todo perhaps rethink this per stage args stuff....
     MaterialStageArgList args;
+}
+
+<*
+    @param [&in] node : "node we are looking at"
+*>
+fn void MaterialStage.register_args(&self, XmlNode* node)
+{
+    if(node.hasAttributes() == false) return;
+
+    foreach (arg : node.attributes)
+    {
+       if(arg == null) continue;
+       // else
+       self.args.push(mem::new(StringTuple, {arg.name.tcopy(), arg.value.tcopy()}));
+    }
+}
+
+<*
+    @param [&in] node : "current node we are parsing"
+    @param [inout] mat : "the material we belong to"
+    @require mat != null
+*>
+fn void MaterialStage.handle_args(&self, XmlNode* node, HMaterial* mat)
+{
+    //io::printfn("START parsing stage '%s' arguments:", node.name);
+    MaterialStage* stage = self;
+
+    foreach (arg : stage.args)
+    {
+       if(arg == null) continue;
+       
+       switch(arg.first)
+       {
+        case NodeAttrib.CLAMP:
+        case NodeAttrib.ALPHA:
+            float alpha = misc::clamp01f(arg.second.to_float()!!);
+             // multiply previous alpha values by our new value
+            if(alpha > 0.0f && alpha < 1.0f) {
+                stage.color.a = (char)(math::floor(misc::@mapValueRangeToOther(stage.color.a, 0, 255, 0.0f, 1.0f) * alpha)) * 255;
+                // set the material coverage to match
+                mat.coverage = MatMC.TRANSLUCENT;
+            }
+            // if (rl::isTextureValid(self.tex))
+            // {
+            //     // get current GPU VRAM image into RAM for easy manipulation
+            //     Image image = rl::loadImageFromTexture(self.tex);
+               
+            //     // create a alpha mask from the new alpha channel data
+            //     Image imageAlpha = rl::imageFromChannel(image, 3);
+            //     // apply its data to the entire image
+            //     rl::imageAlphaMask(&image, imageAlpha);
+            //     //
+            //     // clear older GPU VRAM image data
+            //     rl::unloadTexture(self.tex);
+            //     // load the new data to GPU VRAM
+            //     self.tex = rl::loadTextureFromImage(image);
+            // }
+        case NodeAttrib.TILE_H:
+        case NodeAttrib.TILE_V:
+        case NodeAttrib.SCROLL_X:
+        case NodeAttrib.SCROLL_Y:
+        case NodeAttrib.TRANSLATE_X:
+        case NodeAttrib.TRANSLATE_Y:
+           io::printfn("  %s = %s,", arg.first, arg.second);
+        default:
+           io::printfn("Unnused stage argument '%s' found in node '%s' of material '%s' in file '%s'!", arg.first, node.name, mat.name, mat.mtrfile.path);
+       }
+    }
+    //io::printfn("END parsing stage '%s' arguments:", node.name);
 }
 
 fn void MaterialStage.loadTexture(&self, String path) @inline
@@ -269,10 +292,10 @@ fn void HMaterial.init(&self) @public
     // use constants instead of enums for this?
     //self.contentes |= (Contents.SOLID.flag & Contents.OPAQUE.flag);
     self.comment  = "<none>";
-    self.getStage(mtr::MAT_STAGE_DIFFUSE).color = rl::WHITE;
+    self.getStage(mat::STAGE_DIFFUSE).color = rl::WHITE;
 }
 
-fn void HMaterial.free(&self)
+fn void HMaterial.free(&self) @public
 {
 	foreach(stage : self.maps) stage.clear();
     if(self.mtrfile) self.mtrfile = null;
@@ -281,8 +304,8 @@ fn void HMaterial.free(&self)
 // @untested
 fn void HMaterial.copy(&self, HMaterial* other)
 {
-	self.getStage(mtr::MAT_STAGE_DIFFUSE).tex = *other.getTexture(mtr::MAT_STAGE_DIFFUSE);
-    self.getStage(mtr::MAT_STAGE_DIFFUSE).args.add_all(&other.getStage(mtr::MAT_STAGE_DIFFUSE).args);
+	self.getStage(mat::STAGE_DIFFUSE).tex = *other.getTexture(mat::STAGE_DIFFUSE);
+    self.getStage(mat::STAGE_DIFFUSE).args.add_all(&other.getStage(mat::STAGE_DIFFUSE).args);
 }
 
 <*
@@ -298,18 +321,18 @@ fn Texture2D* HMaterial.getTexture(&self, MatStageIndex index, bool isPBR = fals
 {
     switch(index)
     {
-        case MAT_STAGE_NORMAL:
-        case MAT_STAGE_SPECULAR:
-        case MAT_STAGE_HEIGHT:
-        case MAT_STAGE_EMISSION:
-        case MAT_STAGE_OCCLUSION:
-        case MAT_STAGE_CUBEMAP:
-        case MAT_STAGE_VIDEO:
-        case MAT_STAGE_SOUND: 
+        case STAGE_NORMAL:
+        case STAGE_SPECULAR:
+        case STAGE_HEIGHT:
+        case STAGE_EMISSION:
+        case STAGE_OCCLUSION:
+        case STAGE_CUBEMAP:
+        case STAGE_VIDEO:
+        case STAGE_SOUND: 
             @todo();
-        case MAT_STAGE_DIFFUSE:
+        case STAGE_DIFFUSE:
         default:
-            return &self.getStage(MAT_STAGE_DIFFUSE).tex;
+            return &self.getStage(STAGE_DIFFUSE).tex;
     }
 }
 
@@ -330,17 +353,223 @@ fn String HMaterial.defaultDefinition(self) @inline
 	return string::format(mem, "%s", matdef);
 }
 
+<*
+    @param [&in] node : "current node we are parsing"
+*>
+fn void HMaterial.parse_node_atributes(&self, XmlNode* node) @public
+{
+    if(node.hasAttributes() == false) return;
 
-////////////////////////////////////////////////
+    //io::printfn("START parsing node '%s' attributes:", node.name);
+    foreach (atrb : node.attributes)
+    {
+       if(atrb == null) continue;
+       
+       switch(atrb.name)
+       {
+        case NodeAttrib.NAME:
+            if(node.name == "MATERIAL") continue; // name atrribute is handled seperately
+            nextcase default;
+        case NodeAttrib.TRANSLUCENT:
+            if(atrb.value == "1") {
+                self.coverage = MatMC.TRANSLUCENT;
+            } else {
+                self.coverage = MatMC.OPAQUE;
+            }
+        case NodeAttrib.PATH:
+        case NodeAttrib.KIND:
+           io::printfn("  %s = %s,", atrb.name, atrb.value);
+        default:
+           io::printfn("Unnused attribute '%s' found in node '%s' of material '%s' in file '%s'!", atrb.name, node.name, self.name, self.mtrfile.path);
+       }
+    }
+    //io::printfn("END parsing node '%s' attributes:", node.name);
+}
+
+<*
+    @param [&in] maps_node : "node we are currently parsing"
+*>
+fn void HMaterial.parse_maps(&self, XmlNode* maps_node) @public
+{
+    foreach(node: maps_node.children)
+    {
+        if(mtr::isXmlNode(node, Node.TEXT)) continue;
+        
+        switch(node.name)
+        {
+            case Node.ALBEDO:
+                foreach(child: node.children)
+                {
+                    if(child == null) continue;
+
+                    switch 
+                    {
+                        case mtr::isXmlNode(child, Node.MAP):
+                            // create the full path by concatenating the relative material path to the game base folder
+                            String texture_path = main::gpGame.app_base_folder.tconcat(child.getText());
+                            if(texture_path.extractFileBaseByCopy() == "default.png") {
+                                self.getStage(STAGE_DIFFUSE).tex = main::gpGame.default_texture;
+                            } else {
+                                self.getStage(STAGE_DIFFUSE).loadTexture(texture_path);
+                                $if $feature(_DEBUG):
+                                    lgr::info(Where.FILE, "Loaded texture '%s' for material '%s' in file '%s'", texture_path, self.name, self.mtrfile.path);
+                                $endif
+                            }
+                        case mtr::isXmlNode(child, Node.COLOR):
+                            self.getStage(STAGE_DIFFUSE).color = mtr::xmlStrColorToColor(child.getText());
+                        case mtr::isXmlNode(child, Node.ARGS):
+                            if(child.hasAttributes()) 
+                            {
+                                self.getStage(STAGE_DIFFUSE).register_args(child);
+                                self.getStage(STAGE_DIFFUSE).handle_args(child, self);
+                            }
+                        default:
+                            unreachable("Invalid node: %s child for material node %s.", child.name, node.name);
+                    }
+                }
+            case Node.VIDEO_MAP: break;
+                /*if(node.hasAttributes())
+                {
+                   parse_node_atributes(node, self, file);
+                }*/
+            case Node.NORMAL: break;
+                // foreach(child: node.children)
+                // {
+                    // if(child == null) continue;
+                    // if(child.isNode(Node.MAP))
+                    // {
+                        // self.normal.tex = astmng::assetManager.getTexture(child.value);
+                    // }
+                    // if(child.isNode(Node.ARGS) || child.hasAttributes()) {
+                        // get_material_map_atributes_data(&self.normal, child);
+                        // parse_material_map_args(&self.normal, child, self, mtr_data);
+                    // }
+                // }
+            case Node.SPECULAR: break;
+                // foreach(child: node.children)
+                // {
+                    // if(child == null) continue;
+                    // if(child.isNode(Node.MAP))
+                    // {
+                        // self.spec.tex = astmng::assetManager.getTexture(child.value);
+                    // }
+                    // if(child.isNode(Node.ARGS) || child.hasAttributes()) {
+                        // get_material_map_atributes_data(&self.spec, child);
+                        // parse_material_map_args(&self.spec, child, self, mtr_data);
+                    // }
+                // }
+            default:
+               unreachable("invalid material maps node found!!");
+        }
+    }
+}
+
+<*
+    @param [&in] node : "node to get data from"
+*>
+fn void HMaterial.parse_comment(&self, XmlNode* node) @inline @public
+{
+    String str  = node.getText();
+    if(str != "") self.comment = str.tcopy();
+}
+
+<*
+    @param [&in] node : "node to get data from"
+*>
+fn void HMaterial.parse_sound(&self, XmlNode* node) @inline @public
+{
+   self.parse_node_atributes(node);
+            
+   // TODO make sound shaders
+   //self.sound = astmng::assetManager.getSound(sound_shader_name);
+}
+
+////////////////////////////////////////////////////////////////////////////////
 //
-// MTRFile - Material file data structure
+//              MTRFile - Material file data structure
 //
-///////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+
+module game::material::mtr @private;
+
+// region imports
+import game::material::mat;
+import std::io, std::math;
+import game::main; // for file logging or console logging
+import engine::misc;
+import game::serialize::svs;
+import game::material::manager::mtrmng;
+import engine::logging::lgr;
+import engine::filesystem::fs;
+import engine::assets::astmng;
+import thirdparty::raylib5::rl;
+import thirdparty::library::xml;
+import std::collections::list, std::collections::tuple;
+// end_region
 
 const MTR_VERSION_STRING = "1.0.0"; // the version of the mtr file format
 const MTR_FILE_EXT = ".mtr"; // the extension of the mtr file
 const MAX_MATERIALS_PER_FILE = 100; // the maximum number of materials per mtr file
 const MAX_MATERIALS_OVERALL = 1000; // the maximum number of materials in the game
+
+alias MaterialList       = List{HMaterial*};
+
+faultdef MTR_INVALID_PATH,
+	     MTR_MALFORMED_FILE,
+	     MTR_UNKNOWN_FOLDER,
+	     MTR_FOLDER_SCAN_ERROR,
+	     MTR_LOAD_ERROR,
+         MTR_VERSION_MISMATCH,
+         MTR_MATERIAL_PARSING_ERROR,
+	     MTR_SMALL_PATH_ERROR,
+	     MTR_RETRIVAL_ERROR,
+	     MTR_MISSING;
+
+// NOTE(HM) This represents every usefull node in the mtr xml file 
+enum Node : int (inline String str) @public
+{
+    ROOT      = "MTR",
+    TEXT      = "#text",
+    MATERIAL  = "MATERIAL",
+    COMMENT   = "comments",
+    MAPS      = "maps",
+    MAP       = "map",
+    VIDEO_MAP = "video_map",
+    ARGS      = "args",
+    COLOR     = "color",
+    ALBEDO    = "albedo",
+    NORMAL    = "normal",
+    SPECULAR  = "specular",
+    SOUND     = "sound",
+    SHADER    = "shader"
+}
+
+<*
+    @param [&in] node : "node to compare the name"
+*>
+fn bool isXmlNode(XmlNode* node, Node kind) @inline @public => (node.name == kind.str) ? true : false;
+
+
+// NOTE(HM) This represents the atributes assigned to a xml node
+enum NodeAttrib : int (inline String str) @public
+{
+    // general
+    NAME        = "name",
+    VERSION     = "version",
+    PATH        = "path",
+    KIND        = "kind",
+    TRANSLUCENT = "translucent",
+
+    // map arguments
+    CLAMP       = "clamp",
+    TILE_H      = "tileH",
+    TILE_V      = "tileV",
+    SCROLL_X    = "scrollX",
+    SCROLL_Y    = "scrollY",
+    TRANSLATE_X = "translateX",
+    TRANSLATE_Y = "translateY",
+    ALPHA       = "alpha"
+}
 
 // NOTE(HM) This is the data structure represents a material file, it contains a list of materials and their data
 struct MTRFile @public
@@ -430,10 +659,10 @@ fn bool? MTRFile.parse(&self, XmlDoc* doc)
     if(invalid_mtr)
     {
        lgr::error(Where.FILE, " Malformed material data file '%s', root node expected to be 'MTR' but is '%s' instead.", self.path, doc.rootNode.name);
-       return MALFORMED_MTR_FILE?;
+       return MTR_MALFORMED_FILE?;
     }
 
-    String? version = (String)doc.rootNode.get_attrib_value(NodeAttrib.VERSION);
+    String? version = (String)doc.rootNode.getAttribute(NodeAttrib.VERSION).value;
     if (catch excuse = version)
     {
         lgr::error(Where.FILE, "Failed to get material version attribute in %s with excuse: %s\n", self.path, excuse);
@@ -457,7 +686,7 @@ fn bool? MTRFile.parse(&self, XmlDoc* doc)
             if(node == null) 
             {
                 lgr::error(Where.FILE, "Null node found in mtr file '%s', skipping it.", self.path);
-                return MATERIAL_PARSING_ERROR?;
+                return MTR_MATERIAL_PARSING_ERROR?;
             }
         $endif
 
@@ -476,19 +705,19 @@ fn bool? MTRFile.parse(&self, XmlDoc* doc)
                 // Because the xml reader, reads character by character, is not easy to solve this, 
                 //  so it will create a text node, regardless if is empty or not.  
                 // The workaround, was to test for empty text nodes and just don't register them, in the xml doc file.
-                return MATERIAL_PARSING_ERROR?;
-            case isXmlNode(node, Node.MATERIAL):
-                HMaterial* mat = parse_material_node(node, self);
+                return MTR_MATERIAL_PARSING_ERROR?;
+            case mtr::isXmlNode(node, Node.MATERIAL):
+                HMaterial* mat = self.parse_material(node);
                 if(mat) {
                     self.register(mat);
                 } else {
                     lgr::error(Where.FILE, "Failed to parse material node '%s' in mtr file '%s'", node.name, self.path);
-                    return MATERIAL_PARSING_ERROR?;
+                    return MTR_MATERIAL_PARSING_ERROR?;
                 }
             default:
                 lgr::warning(Where.FILE, " Unexpected node in mtr file '%s', expected <MATERIAL> found <%s>", self.path, node.name);
                 $if $feature(_DEBUG):
-                    return MATERIAL_PARSING_ERROR?;
+                    return MTR_MATERIAL_PARSING_ERROR?;
                 $else
                     continue;
                 $endif
@@ -513,21 +742,19 @@ fn bool check_material_existance(String name)
 }
 
 <*
-    @param [in] mat_node : "material node we are currently parsing"
-    @param [in] file : "parsed mtr file data"
-    @require mat_node != null && file != null
+    @param [&in] in_node : "material node we are currently parsing"
 *>
-fn HMaterial* parse_material_node(XmlNode* mat_node, MTRFile* file)
+fn HMaterial* MTRFile.parse_material(&self, XmlNode* in_node)
 {
     // create the material structure to save the parsed data into
     HMaterial* mat = mem::new(HMaterial);
     mat.init();
     
     // first get material name
-    String? mat_name = (String)mat_node.get_attrib_value(NodeAttrib.NAME);
+    String? mat_name = (String)in_node.getAttribute(NodeAttrib.NAME).value;
     if (catch excuse = mat_name)
     {
-        lgr::error(Where.FILE, "Failed to get material name attribute in %s with excuse: %s\n", file.path, excuse);
+        lgr::error(Where.FILE, "Failed to get material name attribute in %s with excuse: %s\n", self.path, excuse);
         mat.free();
         mem::free(mat);
         return null;
@@ -535,7 +762,7 @@ fn HMaterial* parse_material_node(XmlNode* mat_node, MTRFile* file)
     
     if (mat_name == "")
     {
-        lgr::error(Where.FILE, "material with empty or no name in %s\n", file.path);
+        lgr::error(Where.FILE, "material with empty or no name in %s\n", self.path);
         mat.free();
         mem::free(mat);
         return null;
@@ -544,24 +771,21 @@ fn HMaterial* parse_material_node(XmlNode* mat_node, MTRFile* file)
     // check if the material name already exists in the game
     if(check_material_existance(mat_name) == true)
     {
-        lgr::warning(Where.FILE, "material with name '%s' already exists in %s\n", mat_name, file.path);
+        lgr::warning(Where.FILE, "material with name '%s' already exists in %s\n", mat_name, self.path);
         mat.free();
         mem::free(mat);
         return null;
     }
     
     // else everything should be fine from here, so keep parsing this material data
-    mat.name = mat_name.copy(mem);
-    mat.mtrfile = file;
+    mat.name = mat_name.tcopy();
+    mat.mtrfile = self; // set the material file pointer to this mtr file
     
     // parse extra material attributes if any
-    if(mat_node.attributes.len() > 1)
-    {
-        parse_node_atributes(mat_node, mat);
-    }
+    if(in_node.hasAttributes()) mat.parse_node_atributes(in_node);
 
     // start parsing the material child nodes
-    foreach (node : mat_node.children)
+    foreach (node : in_node.children)
     {
        // just in case...
        if(node == null) {
@@ -581,11 +805,11 @@ fn HMaterial* parse_material_node(XmlNode* mat_node, MTRFile* file)
                 continue;
             }
             case Node.COMMENT.str: 
-                parse_material_comment(node, mat);
+                mat.parse_comment(node);
             case Node.ARGS.str: 
             {
                 if(node.hasAttributes() == true) {
-                    parse_node_atributes(node, mat);
+                    mat.parse_node_atributes(node);
                 } else {
                     lgr::warning(Where.FILE, "Malformed node '%s' found in material '%s', expected attributes.", node.name, mat.name);
                 }
@@ -593,12 +817,12 @@ fn HMaterial* parse_material_node(XmlNode* mat_node, MTRFile* file)
             }
             case Node.MAPS.str: 
             {
-                parse_material_maps(node, mat);
+                mat.parse_maps(node);
                 continue;
             }
             case Node.SOUND.str: 
             {
-                parse_material_sound(node, mat);
+                mat.parse_sound(node);
                 continue;
             }
        }
@@ -607,249 +831,13 @@ fn HMaterial* parse_material_node(XmlNode* mat_node, MTRFile* file)
     return mat;
 }
 
-<*
-    @param [inout] mat : "material to save parsed data into"
-    @require mat != null
-*>
-fn void parse_material_comment(XmlNode* node, HMaterial* mat) @inline @local
-{
-    String str  = getNodeText(node);
-    if(str != "") mat.comment = str.copy(mem);
-}
 
-<*
-    @param [inout] mat : "material to save parsed data into"
-    @param node : "node we are currently parsing"
-    @require mat != null && node.hasAttributes() == true
-*>
-fn void parse_material_sound(XmlNode* node, HMaterial* mat) @inline @local
-{
-   parse_node_atributes(node, mat);
-            
-   // TODO make sound shaders
-   //self.sound = astmng::assetManager.getSound(sound_shader_name);
-}
-
-<*
-    @param [inout] mat : "material to save parsed data into"
-    @param [in] maps_node : "node we are currently parsing"
-    @require mat != null && maps_node != null
-*>
-fn void parse_material_maps(XmlNode* maps_node, HMaterial* mat) 
-{
-    foreach(node: maps_node.children)
-    {
-        if(isXmlNode(node, Node.TEXT)) continue;
-        
-        switch(node.name)
-        {
-            case Node.ALBEDO:
-                foreach(child: node.children)
-                {
-                    if(child == null) continue;
-
-                    switch 
-                    {
-                        case isXmlNode(child, Node.MAP):
-                            // create the full path by concatenating the relative material path to the game base folder
-                            String texture_path = main::gpGame.app_base_folder.tconcat(getNodeText(child));
-                            if(texture_path.extractFileBaseByCopy() == "default.png") {
-                                mat.getStage(MAT_STAGE_DIFFUSE).tex = main::gpGame.default_texture;
-                            } else {
-                                mat.getStage(MAT_STAGE_DIFFUSE).loadTexture(texture_path);
-                                $if $feature(_DEBUG):
-                                    lgr::info(Where.FILE, "Loaded texture '%s' for material '%s' in file '%s'", texture_path, mat.name, mat.mtrfile.path);
-                                $endif
-                            }
-                        case isXmlNode(child, Node.COLOR):
-                            mat.getStage(MAT_STAGE_DIFFUSE).color = xmlStrColorToColor(getNodeText(child));
-                        case isXmlNode(child, Node.ARGS):
-                            if(child.hasAttributes()) 
-                            {
-                                register_material_map_args(mat.getStage(MAT_STAGE_DIFFUSE), child);
-                                handle_material_map_args(mat.getStage(MAT_STAGE_DIFFUSE), child, mat);
-                            }
-                        default:
-                            unreachable("Invalid node: %s child for material node %s.", child.name, node.name);
-                    }
-                }
-            case Node.VIDEO_MAP: break;
-                /*if(node.hasAttributes())
-                {
-                   parse_node_atributes(node, mat, file);
-                }*/
-            case Node.NORMAL: break;
-                // foreach(child: node.children)
-                // {
-                    // if(child == null) continue;
-                    // if(child.isNode(Node.MAP))
-                    // {
-                        // mat.normal.tex = astmng::assetManager.getTexture(child.value);
-                    // }
-                    // if(child.isNode(Node.ARGS) || child.hasAttributes()) {
-                        // get_material_map_atributes_data(&mat.normal, child);
-                        // parse_material_map_args(&mat.normal, child, mat, mtr_data);
-                    // }
-                // }
-            case Node.SPECULAR: break;
-                // foreach(child: node.children)
-                // {
-                    // if(child == null) continue;
-                    // if(child.isNode(Node.MAP))
-                    // {
-                        // mat.spec.tex = astmng::assetManager.getTexture(child.value);
-                    // }
-                    // if(child.isNode(Node.ARGS) || child.hasAttributes()) {
-                        // get_material_map_atributes_data(&mat.spec, child);
-                        // parse_material_map_args(&mat.spec, child, mat, mtr_data);
-                    // }
-                // }
-            default:
-               unreachable("invalid material maps node found!!");
-        }
-    }
-}
-
-
-<*
-    @param [in] node : "current node we are parsing"
-    @param [inout] mat : "the material we are saving data into"
-    @require node != null && mat != null && node.hasAttributes() == true
-*>
-fn void parse_node_atributes(XmlNode* node, HMaterial* mat)
-{
-    //io::printfn("START parsing node '%s' attributes:", node.name);
-    foreach (atrb : node.attributes)
-    {
-       if(atrb == null) continue;
-       
-       switch(atrb.name)
-       {
-        case NodeAttrib.NAME:
-            if(node.name == "MATERIAL") continue; // name atrribute is handled seperately
-            nextcase default;
-        case NodeAttrib.TRANSLUCENT:
-            if(atrb.value == "1") {
-                mat.coverage = MatMC.TRANSLUCENT;
-            } else {
-                mat.coverage = MatMC.OPAQUE;
-            }
-        case NodeAttrib.PATH:
-        case NodeAttrib.KIND:
-           io::printfn("  %s = %s,", atrb.name, atrb.value);
-        default:
-           io::printfn("Unnused attribute '%s' found in node '%s' of material '%s' in file '%s'!", atrb.name, node.name, mat.name, mat.mtrfile.path);
-       }
-    }
-    //io::printfn("END parsing node '%s' attributes:", node.name);
-}
-
-<*
-    @param [in] node : "node we are looking at"
-    @param [inout] map : "the texture map we are registing data into"
-    @require node != null && map != null && node.hasAttributes() == true
-*>
-fn void register_material_map_args(MaterialStage* map, XmlNode* node)
-{
-    foreach (arg : node.attributes)
-    {
-       if(arg == null) continue;
-       // else
-       map.args.push(mem::new(StringTuple, {arg.name.copy(mem), arg.value.copy(mem)}));
-    }
-}
-
-<*
-    @param [inout] map : "the texture map we are getting parsed data from"
-    @param [in] node : "current node we are parsing"
-    @param [inout] mat : "the material we are saving data into"
-    @require map != null && node != null && mat != null
-*>
-fn void handle_material_map_args(MaterialStage* map, XmlNode* node, HMaterial* mat)
-{
-    //io::printfn("START parsing map '%s' arguments:", node.name);
-    foreach (arg : map.args)
-    {
-       if(arg == null) continue;
-       
-       switch(arg.first)
-       {
-        case NodeAttrib.CLAMP:
-        case NodeAttrib.ALPHA:
-            float alpha = misc::clamp01f(arg.second.to_float()!!);
-             // multiply previous alpha values by our new value
-            if(alpha > 0.0f && alpha < 1.0f) {
-                map.color.a = (char)(math::floor(misc::@mapValueRangeToOther(map.color.a, 0, 255, 0.0f, 1.0f) * alpha)) * 255;
-                // set the material coverage to match
-                mat.coverage = MatMC.TRANSLUCENT;
-            }
-            // if (rl::isTextureValid(map.tex))
-            // {
-            //     // get current GPU VRAM image into RAM for easy manipulation
-            //     Image image = rl::loadImageFromTexture(map.tex);
-               
-            //     // create a alpha mask from the new alpha channel data
-            //     Image imageAlpha = rl::imageFromChannel(image, 3);
-            //     // apply its data to the entire image
-            //     rl::imageAlphaMask(&image, imageAlpha);
-            //     //
-            //     // clear older GPU VRAM image data
-            //     rl::unloadTexture(map.tex);
-            //     // load the new data to GPU VRAM
-            //     map.tex = rl::loadTextureFromImage(image);
-            // }
-        case NodeAttrib.TILE_H:
-        case NodeAttrib.TILE_V:
-        case NodeAttrib.SCROLL_X:
-        case NodeAttrib.SCROLL_Y:
-        case NodeAttrib.TRANSLATE_X:
-        case NodeAttrib.TRANSLATE_Y:
-           io::printfn("  %s = %s,", arg.first, arg.second);
-        default:
-           io::printfn("Unnused map argument '%s' found in node '%s' of material '%s' in file '%s'!", arg.first, node.name, mat.name, mat.mtrfile.path);
-       }
-    }
-    //io::printfn("END parsing map '%s' arguments:", node.name);
-}
 
 //////////////////
 // #region private
 //////////////////
 
-<*
-    @param [in] node : "node to compare the name"
-    @require node != null
-*>
-fn bool isXmlNode(XmlNode* node, Node kind) @inline @local => (node.name == kind.str) ? true : false;
-
-<*
-    @param [in] node : "node to get text from"
-    @require node != null
-*>
-fn String getNodeText(XmlNode* node) @local
-{
-    String result;
-    usz child_count = node.children.len();
-    while(child_count > 0 && node.children[child_count - 1].name == Node.TEXT.str) {
-        result = result.tconcat(node.children[child_count - 1].value);
-        child_count--;
-    }
-    
-    /*if(child_count >= 1) {
-        assert(isXmlNode(node.children[0], Node.TEXT));
-        String result = node.children[0].value;
-        if(child_count > 1) {
-            for(int i = 1; i < child_count; i++) {
-                result = result.tconcat(node.children[i].value);
-            }
-        }
-        return result;
-    }*/
-    
-    return result;
-}
-
-fn Color xmlStrColorToColor(String _value) @local
+fn Color xmlStrColorToColor(String _value) @public
 {
     String[] chars = _value.tsplit(" ");
     assert(chars.len == 4);
@@ -894,12 +882,12 @@ fn void print_material_map_data(HMaterial* mat) @local
 {
     if(mat)
     {
-        Color color = mat.getStage(mtr::MAT_STAGE_DIFFUSE).color;
-        Texture2D* tex = &mat.getStage(mtr::MAT_STAGE_DIFFUSE).tex;
+        Color color = mat.getStage(mat::STAGE_DIFFUSE).color;
+        Texture2D* tex = &mat.getStage(mat::STAGE_DIFFUSE).tex;
         io::printfn("   [map : 'Diffuse']");
         io::printfn("       tex: \"id: %s, w: %s, h: %s, mp: %s, pf: %s\"", tex.id, tex.width, tex.height, tex.mipmaps, tex.format);
         io::printfn("       color: \"%s, %s , %s, %s\"", color.r, color.g, color.b, color.a);
-        foreach(i, arg : mat.getStage(mtr::MAT_STAGE_DIFFUSE).args) {
+        foreach(i, arg : mat.getStage(mat::STAGE_DIFFUSE).args) {
             io::printfn("       arg%d: \"%s = %s\"", i, arg.first, arg.second);
         }
     }
@@ -917,7 +905,7 @@ module game::material::manager::mtrmng @private;
 import std::io;
 import game::main; // for file logging or console logging
 import engine::misc;
-import game::material::mtr;
+import game::material::mtr, game::material::mat;
 import engine::logging::lgr;
 import std::collections::list, std::collections::tuple;
 import engine::assets::astmng;
@@ -1045,8 +1033,8 @@ fn void? loadMaterialFilesTo(MaterialDataBase* db) @inline @public
         HMaterial* default_material = mem::new(HMaterial);
         default_material.init();
         default_material.name = "default_material";
-        default_material.getStage(mtr::MAT_STAGE_DIFFUSE).tex = main::gpGame.default_texture;
-        default_material.getStage(mtr::MAT_STAGE_DIFFUSE).color = rl::WHITE;
+        default_material.getStage(mat::STAGE_DIFFUSE).tex = main::gpGame.default_texture;
+        default_material.getStage(mat::STAGE_DIFFUSE).color = rl::WHITE;
         db.data[0].register(default_material);
     }
 }
@@ -1078,7 +1066,7 @@ fn HMaterial* getMaterial(String material_name) @public
 
     // just for testing purposes
     if(mat != null) {
-	    assert(rl::isTextureValid(*mat.getTexture(mtr::MAT_STAGE_DIFFUSE)));
+	    assert(rl::isTextureValid(*mat.getTexture(mat::STAGE_DIFFUSE)));
     }
     
 	return mat;
