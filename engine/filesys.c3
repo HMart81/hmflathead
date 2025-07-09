@@ -30,14 +30,73 @@ module engine::filesystem::fs;
 // just a wrapper to some raylib functions
 
 // region modules
-import std::io, std::io::path;
 import std::os;
+import std::io, std::io::path;
+import std::collections::list;
 import thirdparty::raylib5::rl;
 // end_region
 
 faultdef FS_FAILED_SAVE_DATA,
          FS_FAILED_MAKE_DIR,
          FS_FAILED_CHANGE_DIR;
+
+// modes for OpenFileByMode. used as bit mask internally
+enum FS_Mode: int (inline String str)
+{
+    READ              = "r",
+    WRITE             = "w",
+    READ_WRITE        = "r+",
+    APPEND            = "a",
+    READ_BINARY       = "rb",
+    WRITE_BINARY      = "wb",
+    READ_WRITE_BINARY = "r+b",
+}
+
+alias StringList @local = List{String};
+
+// file list for directory listings
+struct FileList @private
+{
+	String basePath;
+	StringList	list;
+}
+
+fn uint FileList.getNumFiles(&self) => (uint)self.list.len();
+
+<*
+    Returns the number of files in the list.
+    @param index : "The index into the file list."
+    @require index < self.getNumFiles()
+*>
+fn String FileList.getFile(&self, uint index ) => self.list[index];
+
+<*
+    Return the file list data.
+    @ensure return != null
+*>
+fn StringList*	FileList.getList(&self) => &self.list;
+
+struct ModList 
+{
+	StringList	mods;
+	StringList	descriptions;
+}
+
+fn uint ModList.getNumMods(&self) => (uint)self.mods.len();
+
+<*
+    Returns the mod folder name in the mod list.
+    @param index : "The index into the mod list."
+    @require index < self.getNumMods()
+*>
+fn String ModList.getMod(&self, uint index ) => self.mods[index];
+
+<*
+    Returns a mod description from a description list.
+    @param index : "The index into the description list."
+    @require index < self.descriptions.len()
+*>
+fn String ModList.getDescription(&self, uint index ) => self.descriptions[index];
 
 // region Files management functions
 // Load file data as byte array (read)
@@ -79,7 +138,7 @@ fn bool? fileSaveEntireText(String fileName, String text) {
 }
 
 
-fn File? openFile(String path, String mode = "r") @inline
+fn File? openFile(String path, String mode = FS_Mode.READ.str) @inline
 {
     return io::file::open(path, mode)!;
 }

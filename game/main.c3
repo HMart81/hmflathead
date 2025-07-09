@@ -2605,8 +2605,8 @@ fn void gameDoOneFrame() @local
     {
         while(rl::windowShouldClose() != true) 
         {
-            @pool()
-            {
+            //@pool()
+            //{
                 tracy::@messageL( "Tick" );
                 tracy::@zoneN("Game loop", 1)
                 {
@@ -2626,7 +2626,7 @@ fn void gameDoOneFrame() @local
                     gameUpdate();
                     gameDraw(screen_w, screen_h);
                 }; // tracy scope end
-            };
+           // };
         }
         
     };

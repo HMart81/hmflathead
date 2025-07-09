@@ -526,8 +526,9 @@ macro bool recIsValid(rec) => ((getRecSize(rec).length() + getRecPos(rec).length
 
 macro Rectangle @recFromVecs(#vec1, #vec2) => (Rectangle) {#vec1.x, #vec1.y, #vec2.x, #vec2.y};
 
-// region String custom extension
-
+//////////////////////////////////////////////////////////////////////////
+// #region String custom extension
+/////////////////////////////////////////////////////////////////////////
 /*
 example on how to use the string splitter
 
@@ -707,27 +708,21 @@ struct EntireFile @local {
 }
 
 // »Performance?
-fn String? readEntireFileX(String filepath) {
+fn String? readEntireFileX(String filepath) 
+{
     EntireFile _file;
     
     File data = file::open(filepath, "rb")!;
     defer (void)data.close();
     
-    if(data.file != null) {
+    if(data.file != null)
+    {
         _file.contents_size = data.seek(0, Seek.END)!;
         data.seek(0, SET)!; // return to the start
-        _file.contents = mem::calloc(char.sizeof * (_file.contents_size + char.sizeof));
-        char[]* buffer = &&((char*)_file.contents)[:_file.contents_size + 1];
-        data.read(*buffer)!;
-        //(*buffer)[_file.contents_size] = 0;
-        return (String)(*buffer);
-        
-        // String result = (String)mem::temp_new_array(char, _file.contents_size);
-        // for(usz i; i < _file.contents_size; i++) {
-            // result[i] = *((char*)_file.contents + i);
-        // }
-        // return result;
-        //return string::new_format("%s", (String)_file.contents[:_file.contents_size]);
+        _file.contents = mem::calloc(char.sizeof * _file.contents_size);
+        char[] buffer = ((char*)_file.contents)[:_file.contents_size];
+        data.read(buffer[:_file.contents_size])!;
+        return ((String)buffer).tcopy();
     } else{
         lgr::error(Where.FILE, "Cannot open file: %s", filepath);
     }
@@ -758,15 +753,17 @@ fn bool String.has_spaces(&self) {
     // else
     return false;
 }
-// end_region String custom extensions
+// #endregion String custom extensions
 
-// region raw strings/ZString utils
+// #region raw strings/ZString utils
 fn int ZString.count_spaces(&self) @inline {
     return self.str_view().count_spaces();
 }
-// end_region raw strings utils
+// #endregion raw strings utils
 
-// region PROFILING /////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////
+////////////////// region PROFILING /////////////////////////////////
+/////////////////////////////////////////////////////////////////////
 // todo make this into a internal module?
 <*
   @require rl::isWindowReady() == true "right now window most be initialized for Profiling to work"
@@ -845,17 +842,13 @@ fn void axis_scale(Matrix2f* mat, Vec2f vec) @inline {
     }
 }
 
-// requires version c3c 0.7
-/*
+
 macro @printstruct(value)
 {
     var $Type = $typeof(value);
-
     $if $Type.kindof != STRUCT:
         io::print(value);
-
     $else
-
         io::print("{\n");
         $foreach $i, $member : $Type.membersof:
             $if $i > 0:
@@ -867,12 +860,9 @@ macro @printstruct(value)
                 @printstruct($member.get(value));
             $endif
         $endforeach
-
         io::print("\n}\n");
-
     $endif
 }
-*/
 
 fn void draw_arrow(Vec2f start, Vec2f end, Color color, Vec2f arrow_size = {16.0f, 8.0f})
 {

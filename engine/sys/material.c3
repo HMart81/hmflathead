@@ -93,6 +93,8 @@ const MAX_STAGE_INDICES = (STAGE_SOUND);
 // just in case...
 $assert MAX_STAGE_INDICES == STAGE_SOUND;
 
+alias StageArgument = StringTuple; // alias for a stage argument, which is a tuple of two strings (name, value)
+
 // NOTE(HM) raylib has the MaterialMap already that is almost equivalent, should we use that?
 // Material stage represents each texture type in a material
 struct MaterialStage
@@ -115,7 +117,7 @@ fn void MaterialStage.register_args(&self, XmlNode* node)
     {
        if(arg == null) continue;
        // else
-       self.args.push(mem::new(StringTuple, {arg.name.tcopy(), arg.value.tcopy()}));
+       self.args.push(mem::new(StageArgument, {arg.name.tcopy(), arg.value.tcopy()}));
     }
 }
 

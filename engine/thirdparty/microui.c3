@@ -487,7 +487,8 @@ OpenMicroUIFrames open_frames @public;
 
 fn void register_open_window(String _name) @local
 {
-  foreach(name : open_frames) {
+  foreach(name : open_frames) 
+  {
     if (name == _name) {
       return; // already registered
     }
@@ -512,11 +513,11 @@ fn void unregister_open_window(String _name) @local
 macro bool MU_Context.@make_window(&self, name, rect; @body) 
 {
   if (self.begin_window(name, rect)) {
-    register_open_window(name); // Register the window as open
+    register_open_window(name.copy(mem)); // Register the window as open
 		defer self.end_window();
 		@body();
 	} else {
-    unregister_open_window(name);
+    unregister_open_window(name.copy(mem));
     return false; // The window should close.
   }
   return true; // The window is open.
@@ -903,24 +904,22 @@ $if $defined(ENABLE_OLD_STRING):
     int key;
     while(key = rl::getKeyPressed())
     {
+        if(input_text.len >= MAX_INPUT_TEXT) break; // prevent buffer overflow
+
         int size;
         ZString text = rl::codepointToUTF8(rl::getCharPressed(), &size);
-        if(input_text.len <= MAX_INPUT_TEXT)
+        String chr = (String)text[:size];
+        if(chr[0] != '\0')
         {
-          String chr = (String)text[:size];
-          if(chr[0] != '\0')
-          {
-              //input_text = (key == (int)rl::KEY_BACKSPACE) ? input_text.trim_right(chr) : input_text.tconcat(chr);
-            input_text = input_text.tconcat(chr);
-            //ctx.input_textfn(input_text.zstr_tcopy());
-          } else if(key == (int)rl::KEY_BACKSPACE) {
-              int text_len   = input_text.len;
-                  input_text = (input_text.len >= 2) ? (String)input_text[:text_len - 1] : "";
-          }
-        } else {
-          break;
+            //input_text = (key == (int)rl::KEY_BACKSPACE) ? input_text.trim_right(chr) : input_text.tconcat(chr);
+          input_text = input_text.tconcat(chr);
+          //ctx.input_textfn(input_text.zstr_tcopy());
         }
-          //input_text.tconcat(text.str_view());
+        if(key == (int)rl::KEY_BACKSPACE) {
+            int text_len   = input_text.len;
+                input_text = (input_text.len >= 2) ? (String)input_text[:text_len - 1] : "";
+        }
+        //input_text.tconcat(text.str_view());
     }
     //input_text.tconcat("0"); // close the string
     ctx.input_textfn(input_text.zstr_tcopy());

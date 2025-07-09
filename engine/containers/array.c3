@@ -26,17 +26,35 @@
 # 
 *********************************************************************************************************************************************/
 
+module engine::collections::keyval{Key, Val};
+
+struct KeyVal
+{
+    Key key;
+    Val value;
+}
+
+fn bool KeyVal.equl(&self, KeyVal kv ) @operator(==)
+{
+    return (self.key == kv.key && self.value == kv.value);
+}
+
+fn bool KeyVal.nequl(&self, KeyVal kv ) @operator(!=)
+{
+    return (self.key == kv.key && self.value == kv.value);
+}
+
+module engine::collections::dynamic_array::dyarr{Type};
+
 /*
 ===============================================================================
-
 	Dynamic Array module
 	Does not allocate memory until the first item is added.
 
 	NOTE: // Inspired by PhillipTrudeau code while making the Silent Hill 2 editor
+		  // (update) c3 lib already has a dynamic array implementation... List...
 ===============================================================================
 */
-
-module misc::dyarray{Type};
 
 import std::io, std::core::mem;
 
