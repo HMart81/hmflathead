@@ -36,7 +36,7 @@ import std::core::mem; // for malloc/new
 import std::math;
 import std::collections::list;
 import engine::misc;
-import engine::assets::astmng;
+import engine::assets_api::astmng; // asset manager
 import game::main;
 import game::assets::sprt; // sprite
 import engine::filesystem::fs;

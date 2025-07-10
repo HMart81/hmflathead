@@ -975,6 +975,20 @@ fn void String.extractFileBaseByRef(&self) { // using self you are passing by va
     (*self) = string::tformat("%s", copy[start..]);
 }
 
+fn String String.extractFileBase(&self) 
+{
+
+    //back up until a \ or the start
+    String copy = self.tcopy();
+    int pos = copy.len - 1;
+    while( ( pos > 0 ) && !isDirSeparator(copy[ pos - 1 ]) ) {
+        pos--;
+    }
+
+    int start = pos;
+    return (String)copy[start..];
+}
+
 // fn String getAssetNameFrom(String path) @inline {
     // return path.extractFileBaseByCopy();
 // }

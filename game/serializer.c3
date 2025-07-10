@@ -42,7 +42,8 @@ import game::main;
 import thirdparty::raylib5::rl;
 //import raygui;
 import engine::misc;
-import engine::assets_api::asapi;
+import engine::assets_api::asset; // for the asset system
+import engine::assets_api::astmng; // asset manager
 import engine::logging::lgr;
 // end_region
 
@@ -231,19 +232,17 @@ fn void	writeZString(SaveFile* savefile, ZString str) {
 }
 
 <*
- @param [inout] savefile : "the file to write the data to"
- @param [in] asset : "the asset data to save"
- @require savefile != null && asset != null
+ @param [&inout] savefile : "the file to write the data to"
+ @param [&in] asset : "the asset data to save"
 *>
-fn void	writeAsset(SaveFile* savefile, Asset* asset) {
-    if(asset.name == "") {
-        //char[] d = {'"','"'};
-        //write(savefile, &d, 2);
-        writeString(savefile, "");
-        return;
-    }
+fn void	writeAsset(SaveFile* savefile, any* asset) {
+	@todo();
+    /*if(asset.ptr == null) {
+		writeNull(savefile);
+		return;
+	}
     
-    writeString(savefile, asset.name);
+    writeString(savefile, asset.ptr.name);*/
 }
 
 // raylib structures
@@ -417,22 +416,16 @@ fn void readZString(SaveFile* savefile, ZString* string) {
 }
 
 <*
- @param [in] savefile : "the file to read the data from"
+ @param [&in] savefile : "the file to read the data from"
  @param [inout] asset : "the adress to place the data into"
- @require savefile != null && asset != null
+ @require asset != null
 *>
-fn void readAsset(SaveFile* savefile, Asset* asset, typeid type) {
+fn void readAsset(SaveFile* savefile, any* asset) {
     String name;
     readString(savefile, &name);
-    if(name == "") {
-        asset = null;
-        // todo need to make a default ASSET for each asset type
-        // right now I'm just doing default assets using the direct raylib structs
-        //asset = main::asstManager.getAssetExt("default.png", type);
-        return;
-    }
+    if(name == "") return;
     
-    asset = main::asstManager.getAssetExt(name, type);
+    (*asset) = main::asstManager.getAsset(name, asset.type);
 }
 
 

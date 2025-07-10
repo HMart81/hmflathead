@@ -27,134 +27,37 @@
 *********************************************************************************************************************************************/
 
 // region module
-module engine::assets_api::asapi;
+module engine::assets_api::asset{Type};
 
-// region imports
 import std::io;
 import thirdparty::raylib5::rl;
 import engine::misc;
 import engine::filesystem::fs;
-// end_region
 
-interface AssetInterface {
-	fn void load(String path, typeid type, String name);
-	fn void unload();
-}
-
-struct Asset (AssetInterface)
+struct Asset
 {
 	String name;
 	String path;
-	any    data;
+    typeid type;
+	Type   data;
 }
 
-fn Asset* make_new(String name, String filepath, typeid type) {
-    Asset* asset = mem::new(Asset);
-    asset.load(filepath, type, name);
-    return asset;
-}
-
-fn void free_Asset(Asset* asset) {
-    mem::free(asset);
-    asset = null;
-}
-
-fn void Asset.load(&self, String path, typeid type, String name = "") @dynamic {
-	self.path = path;
-    self.name = (name) ? name : fs::getFileName(path);
-   //mem::@assert_leak() {
-        switch {
-            case type == Texture2D.typeid:
-                Texture2D* tex = mem::new(Texture2D);
-                mem::move(tex, &&rl::loadTexture(path.zstr_tcopy()), Texture2D.sizeof);
-                self.data = any_make(tex, type);
-            case type == Shader.typeid:
-                String pixel_shader_path = path.tconcat(".fs");
-                String vertex_shader_path = path.tconcat(".vs");
-                Shader* shader = mem::new(Shader);
-                bool should_make = true;
-                if(fs::fileExists(pixel_shader_path))
-                {
-                    // NOTE(HM) 09/07/2025
-                    // if given path is pixel shader, see if there is a vertex shader with the same name
-                    if(fs::fileExists(vertex_shader_path))
-                    {
-                        shader = &&misc::loadShader(vertex_shader_path, pixel_shader_path);
-                    } 
-                    else 
-                    {
-                        shader = &&misc::loadShader("", pixel_shader_path);
-                    }
-                } 
-                else if(fs::fileExists(vertex_shader_path)) 
-                {
-                    // NOTE(HM) 09/07/2025
-                    // if given path is vertex shader, see if there is a pixel shader with the same name
-                    // if not then load it as a vertex shader only
-                   shader = &&misc::loadShader(vertex_shader_path, "");
-                }
-                else 
-                {
-                    mem::free(shader);
-                    shader = null;
-                    should_make = false;
-                }
-
-                if(should_make) self.data = any_make(shader, type);
-            case type == Sound.typeid:
-                Sound* sound = mem::new(Sound);
-                mem::move(sound, &&rl::loadSound(path.zstr_tcopy()), Sound.sizeof);
-                self.data = any_make(sound, type);
-            case type == Music.typeid:
-                Music* music = mem::new(Music);
-                mem::move(music, &&rl::loadMusicStream(path.zstr_tcopy()), Music.sizeof);
-                self.data = any_make(music, type);
-            case type == Font.typeid:
-                Font* font = mem::new(Font);
-                mem::move(font, &&rl::loadFont(path.zstr_tcopy()), Font.sizeof);
-                self.data = any_make(font, type);
-            default:
-                unreachable("Can't load Asset \"%s\" at \"%s\", is missing or unknown type.", self.name, self.path);
-        }
-   //};
-}
-
-<*
- @require self.data != null
-*>
-fn void Asset.unload(&self) @dynamic {
-	switch {
-		case self.data.type == Texture2D.typeid:
-			rl::unloadTexture(*anycast(self.data, Texture2D)!!);
-		case self.data.type == Shader.typeid:
-			rl::unloadShader(*anycast(self.data, Shader)!!);
-		case self.data.type == Sound.typeid:
-			rl::unloadSound(*anycast(self.data, Sound)!!);
-		case self.data.type == Music.typeid:
-			rl::unloadMusicStream(*anycast(self.data, Music)!!);
-		case self.data.type == Font.typeid:
-			rl::unloadFont(*anycast(self.data, Font)!!);
-		default:
-			unreachable("Can't unload Asset \"%s\" at \"%s\", is unknown type.", self.name, self.path);
-	}
-	mem::free(self);
-}
 // end_region module
 
+////////////////////////////////////////////////////////////////////////
 //////////////////////// ASSET MANAGER /////////////////////////////////
 // region module
-module engine::assets::astmng;
+module engine::assets_api::astmng;
 
-// region imports
+
 import std::io::path;
 import std::collections::list;
 import thirdparty::raylib5::rl;
 import game::main;
-import engine::assets_api::asapi;
+import engine::assets_api::asset;
 import engine::logging::lgr;
 import engine::filesystem::fs;
 import engine::misc;
-// end_region
 
 faultdef INVALID_ASSETS_PATH_STRING,
 	     MALFORMED_PATHS_FILE,
@@ -182,20 +85,47 @@ const String[*] VALID_ASSET_EXTENSIONS = {
 	".fnt"
 };
 
-alias AssetListPtr = List{Asset*};
+
+// TODO(HM) Support more asset types, like the new HMaterial, etc.
+alias AssetTextureListPtr = List{Asset{Texture2D}*};
+alias AssetSoundListPtr   = List{Asset{Sound}*};
+alias AssetMusicListPtr   = List{Asset{Music}*};
+alias AssetFontListPtr    = List{Asset{Font}*};
+alias AssetShaderListPtr  = List{Asset{Shader}*};
 
 struct Manager {
-	AssetListPtr assets;
+	AssetTextureListPtr textures; // list of texture assets 
+    AssetSoundListPtr   sounds;   // list of sound assets
+    AssetMusicListPtr   musics;   // list of music assets
+    AssetFontListPtr    fonts;    // list of font assets
+    AssetShaderListPtr  shaders;  // list of shader assets
 }
 
 Manager local_manager @local;
 Manager* assetManager = &local_manager;
 
-<*
- @param [&in] asset : "the asset to register"
-*>
-fn void Manager.register(&self, Asset* asset) @local @inline {
-	self.assets.push(asset);
+fn void Manager.register(&self, any asset) @local
+{
+    if(asset.ptr == null) {
+        lgr::error(Where.FILE, "Trying to register a null asset, skipping it.");
+        return;
+    }
+
+    switch(asset.type)
+    {
+        case Texture2D.typeid:
+            self.textures.push((Asset{Texture2D}*)asset.ptr);
+        case Sound.typeid:
+            self.sounds.push((Asset{Sound}*)asset.ptr);
+        case Music.typeid:
+            self.musics.push((Asset{Music}*)asset.ptr);
+        case Font.typeid:
+            self.fonts.push((Asset{Font}*)asset.ptr);
+        case Shader.typeid:
+            self.shaders.push((Asset{Shader}*)asset.ptr);
+        default:
+            lgr::error(Where.FILE, "Trying to register an asset of unknown type!");
+    }
 }
 
 fn void Manager.listAssets(&self) @if($feature(_DEBUG)) 
@@ -276,21 +206,45 @@ fn void Manager.listAssets(&self) @if($feature(_DEBUG))
 // nor a way to make individual levels, when that is done I will change this,
 // for now getting them hot from RAM, is very fast, compared
 // 	to reading the data from the HD/SSD/MD2 drive.
-fn void Manager.releaseAllAssets(&self) @inline {
-	if(self.assets.len()) {
-		foreach(asset: self.assets) {
-			if(asset) {
-				asset.unload();
-			}
-		}
-		self.assets.free();
+fn void Manager.releaseAllAssets(&self) @inline 
+{
+    switch {
+		case self.textures.len() > 0:
+			foreach(texture: self.textures) {
+                rl::unloadTexture(texture.data);
+		    }
+		    self.textures.free();
+		case self.shaders.len() > 0:
+			foreach(shader: self.shaders) {
+                rl::unloadShader(shader.data);
+            }
+            self.shaders.free();
+		case self.sounds.len() > 0:
+			foreach(sound: self.sounds) {
+                rl::unloadSound(sound.data);
+            }
+            self.sounds.free();
+		case self.musics.len() > 0:
+			foreach(music: self.musics) {
+                rl::unloadMusicStream(music.data);
+            }
+            self.musics.free();
+		case self.fonts.len() > 0:
+			foreach(font: self.fonts) {
+                rl::unloadFont(font.data);
+            }
+            self.fonts.free();
+		default:
+			unreachable("Can't release unknown asssets list!");
 	}
 }
 
+/*
 <*
 @require self.assets.len() > 0
 *>
-fn Asset* Manager.getAsset(&self, String name, typeid type) @local /*@inline*/ {
+fn Asset* Manager.getAsset(&self, String name, typeid type) @local /*@inline*/ 
+{
 $if $feature(_DEBUG):
 	bool failed = true;
 $endif
@@ -318,24 +272,96 @@ $endif
 	
 	return null;
 }
+*/
 
-fn Asset* Manager.getAssetExt(&self, String name, typeid type)
+fn any Manager.getAsset(&self, String name, typeid type)
 {
     String needle = "/";
     if(name.contains(needle)) {
-        //usz ch_index = name.index_of(needle)!!;
-        //char[] cut = name[:ch_index+1];
-        //name = name.trim((String)cut);
-        name = name.extractFileBaseByCopy();
+        name = name.extractFileBase();
+    }
+
+    if(self.hasAsset(name, type) == false) {
+        lgr::error(Where.FILE, "Asset with name \"%s\" and type \"%s\" not found in the asset manager.", name, type);
+        return null;
     }
     
-	foreach(asset: self.assets) {
-		if(asset.name == name && asset.data.type == type) {
-			return asset;
-		}
-	}
+	switch(type)
+    {
+        case Texture2D.typeid:
+            foreach(texture: self.textures) {
+                if(texture.name == name) {
+                    return any_make(&texture.data, texture.type);
+                }
+            }
+        case Sound.typeid:
+            foreach(sound: self.sounds) {
+                if(sound.name == name) {
+                    return any_make(&sound.data, sound.type);
+                }
+            }
+        case Music.typeid:
+            foreach(music: self.musics) {
+                if(music.name == name) {
+                    return any_make(&music.data, music.type);
+                }
+            }
+        case Font.typeid:
+            foreach(font: self.fonts) {
+                if(font.name == name) {
+                    return any_make(&font.data, font.type);
+                }
+            }
+        case Shader.typeid:
+            foreach(shader: self.shaders) {
+                if(shader.name == name) {
+                    return any_make(&shader.data, shader.type);
+                }
+            }
+    }
 	
 	return null;
+}
+
+fn bool Manager.hasAsset(&self, String name, typeid type) @inline 
+{
+    if(name == "") return false; // no asset name provided
+
+    switch(type)
+    {
+        case Texture2D.typeid:
+            foreach(texture: self.textures) {
+                if(texture.name == name) {
+                    return true;
+                }
+            }
+        case Sound.typeid:
+           foreach(sound: self.sounds) {
+                if(sound.name == name) {
+                    return true;
+                }
+            }
+        case Music.typeid:
+           foreach(music: self.musics) {
+                if(music.name == name) {
+                    return true;
+                }
+            }
+        case Font.typeid:
+           foreach(font: self.fonts) {
+                if(font.name == name) {
+                    return true;
+                }
+            }
+        case Shader.typeid:
+           foreach(shader: self.shaders) {
+                if(shader.name == name) {
+                    return true;
+                }
+            }
+    }
+    
+    return false;
 }
 
 <*
@@ -344,10 +370,9 @@ fn Asset* Manager.getAssetExt(&self, String name, typeid type)
 fn Texture2D* Manager.getTexture(&self, String name) @inline {
     if(name != "") 
     {
-        Asset* asset = local_manager.getAsset(name, Texture2D.typeid);
-        if(asset) {
-            assert(asset.data.ptr != null);
-            return (Texture2D*)asset.data.ptr;
+        any asset = local_manager.getAsset(name, Texture2D.typeid);
+        if(asset.ptr != null) {
+            return (Texture2D*)&((Asset{Texture2D}*)asset.ptr).data;
         }
     }
     
@@ -359,92 +384,205 @@ fn Texture2D* Manager.getTexture(&self, String name) @inline {
 @ensure return != null
 *>
 fn Shader* Manager.getShader(&self, String name) @inline {
-	Asset* asset = local_manager.getAsset(name, Shader.typeid);
-	if(asset) {
-		assert(asset.data.ptr != null);
-		return (Shader*)asset.data.ptr;
-	} else {
-        lgr::warning(Where.FILE,  "[Asset Manager]: Requesting shader asset but returning default shader, because no asset name was provided.");
-		return &main::gpGame.default_shader;
-	}
+    if(name != "") 
+    {
+        any asset = local_manager.getAsset(name, Shader.typeid);
+        if(asset.ptr != null) {
+            return (Shader*)&((Asset{Shader}*)asset.ptr).data;
+        }
+    }
+
+    lgr::warning(Where.FILE,  "[Asset Manager]: Requesting shader asset but returning default shader, because no asset name was provided.");
+	return &main::gpGame.default_shader;
 }
 
 <*
 @ensure return != null
 *>
 fn Sound* Manager.getSound(&self, String name) @inline {
-	Asset* asset = local_manager.getAsset(name, Sound.typeid);
-	if(asset) return (Sound*)asset.data.ptr;
-	
+    if(name != "") 
+    {
+        any asset = local_manager.getAsset(name, Sound.typeid);
+        if(asset.ptr != null) {
+            return (Sound*)&((Asset{Sound}*)asset.ptr).data;
+        }
+    }
+
     lgr::warning(Where.FILE,  "[Asset Manager]: Requesting sound asset but returning default sound, because no asset name was provided.");
-	return &main::gpGame.default_sound;
+    return &main::gpGame.default_sound;
 }
 
 <*
 @ensure return != null
 *>
 fn Music* Manager.getMusic(&self, String name) @inline {
-	Asset* asset = local_manager.getAsset(name, Music.typeid);
-	if(asset) return (Music*)asset.data.ptr;
-	
+    if(name != "") 
+    {
+        any asset = local_manager.getAsset(name, Music.typeid);
+        if(asset.ptr != null) {
+            return (Music*)&((Asset{Music}*)asset.ptr).data;
+        }
+    }
+
     lgr::warning(Where.FILE,  "[Asset Manager]: Requesting music asset but returning default music, because no asset name was provided.");
-	return &main::gpGame.default_music;
+    return &main::gpGame.default_music;
 }
 
 <*
 @ensure return != null
 *>
 fn Font* Manager.getFont(&self, String name) @inline {
-	Asset* asset = local_manager.getAsset(name, Font.typeid);
-	if(asset) return (Font*)asset.data.ptr;
-	
+	if(name != "") 
+    {
+        any asset = local_manager.getAsset(name, Font.typeid);
+        if(asset.ptr != null) {
+            return (Font*)&((Asset{Font}*)asset.ptr).data;
+        }
+    }
+
     lgr::warning(Where.FILE,  "[Asset Manager]: Requesting font asset but returning default font, because no asset name was provided.");
-	return &main::gpGame.default_font;
+    return &main::gpGame.default_font;
 }
 
-// end_region module
+//////////////////////////////////////////////////////////////////////
+///////////////////////// ASSET LOADING FUNCTIONS /////////////////////
+///////////////////////////////////////////////////////
 
-// NOTE(HM) If this bugs out, consider using rl::getFileNameWithoutExt
-// TODO(HM) Test this in speed versus rl::getFileNameWithoutExt
-// fn String getAssetNameNoExtFrom(String path) @inline {
-	// return path.extractFileBaseByCopy().stripExtension();
-// }
 
-fn void loadAsset(String path, String extension) {
-	// load and register it if necessary
-	// first see if the asset already exists in the asset data base
-	// if it does no need to load it again
-	foreach(asset : local_manager.assets) {
-		if(asset != null && asset.name == fs::getFileNameWithoutExt(path.tconcat(extension))) return;
-	}
+fn void loadAsset(String path) 
+{
+    if(path == "") {
+        lgr::error(Where.FILE, "Trying to load an asset with an empty path, skipping it.");
+        return;
+    }
+    
+    if(path.len < 5) {
+        lgr::error(Where.FILE, "Trying to load an asset with a path that is too short, skipping it.");
+        return;
+    }
+
+    if(!fs::fileExists(path)) {
+        lgr::error(Where.FILE, "Trying to load an asset with a path that does not exist: %s", path);
+        return;
+    }
+
+    bool should_load;
+    String asset_name = fs::getFileNameWithoutExt(path);
 	
-	Asset* new_asset = mem::new(Asset);
-	
+    String extension = fs::getFileExtension(path);
 	switch(extension)
 	{
 	case ".png":
 	case ".jpg":
 	case ".tga":
-		new_asset.load(path.tconcat(extension), Texture2D.typeid);
+        should_load = !local_manager.hasAsset(asset_name, Texture2D.typeid);
+        if(should_load) 
+        {
+            //path = path.trim_right(extension);
+            Asset{Texture2D}* new_asset = mem::new(Asset{Texture2D}, { 
+                .name = asset_name, 
+                .path = path, 
+                .type = Texture2D.typeid,
+                .data = rl::loadTexture(path.zstr_tcopy())
+            });
+            local_manager.register(any_make(new_asset, new_asset.type));
+        }
 	case ".vs":
 	case ".fs":
-        // don't use the extension here, because that is done by the load vertex or pixel shader code
-		new_asset.load(path, Shader.typeid);
+        should_load = !local_manager.hasAsset(asset_name, Shader.typeid);
+        if(should_load) 
+        {
+            //path = path.trim_right(extension);
+            Asset{Shader}* new_asset = mem::new(Asset{Shader}, { 
+                .name = asset_name, 
+                .path = path, 
+                .type = Shader.typeid,
+            });
+
+            if(path.ends_with(".fs"))
+            {
+                // NOTE(HM) 09/07/2025
+                // if given path is pixel shader, see if there is a vertex shader with the same name
+                String vertex_shader_path = path.trim_right(".fs").tconcat(".vs");
+                if(fs::fileExists(vertex_shader_path))
+                {
+                    new_asset.data = misc::loadShader(vertex_shader_path, path);
+                } 
+                else 
+                {
+                    new_asset.data = misc::loadShader("", path);
+                }
+            } 
+            else if(path.ends_with(".vs")) 
+            {
+                // NOTE(HM) 09/07/2025
+                // if given path is vertex shader, see if there is a pixel shader with the same name
+                String pixel_shader_path = path.trim_right(".vs").tconcat(".fs");
+                if(fs::fileExists(pixel_shader_path))
+                {
+                    new_asset.data = misc::loadShader(path, pixel_shader_path);
+                } 
+                else 
+                {
+                    new_asset.data = misc::loadShader(path, "");
+                }
+            } 
+            else
+            {
+                unreachable("Shader path must end with either \".fs\" or \".vs\", got: %s", path);
+            }
+            local_manager.register(any_make(new_asset, new_asset.type));
+        }
 	case ".mp3": nextcase;
 	case ".ogg":
-		new_asset.load(path.tconcat(extension), Music.typeid);
+		should_load = !local_manager.hasAsset(asset_name, Music.typeid);
+        if(should_load) 
+        {
+            //path = path.trim_right(extension);
+            Asset{Music}* new_asset = mem::new(Asset{Music}, { 
+                .name = asset_name, 
+                .path = path, 
+                .type = Music.typeid,
+                .data = rl::loadMusicStream(path.zstr_tcopy())
+            });
+            local_manager.register(any_make(new_asset, new_asset.type));
+        }
 	case ".wav":
-		new_asset.load(path.tconcat(extension), Sound.typeid);
+		should_load = !local_manager.hasAsset(asset_name, Sound.typeid);
+        if(should_load) 
+        {
+            //path = path.trim_right(extension);
+            Asset{Sound}* new_asset = mem::new(Asset{Sound}, { 
+                .name = asset_name, 
+                .path = path, 
+                .type = Sound.typeid,
+                .data = rl::loadSound(path.zstr_tcopy())
+            });
+            local_manager.register(any_make(new_asset, new_asset.type));
+        }
 	case ".fnt":
-		new_asset.load(path.tconcat(extension), Font.typeid);
+		should_load = !local_manager.hasAsset(asset_name, Font.typeid);
+        if(should_load) 
+        {
+            //path = path.trim_right(extension);
+            Asset{Font}* new_asset = mem::new(Asset{Font}, { 
+                .name = asset_name, 
+                .path = path, 
+                .type = Font.typeid,
+                .data = rl::loadFont(path.zstr_tcopy())
+            });
+            local_manager.register(any_make(new_asset, new_asset.type));
+        }
+    default:
+        unreachable("Can't load Asset \"%s\" at \"%s\", is missing or unknown type.", asset_name, path);
 	};
-	
-	local_manager.register(new_asset);
 }
 
-fn void? loadAssetsRecursively(String basepath, String parent_folder = "") @inline @local {
+fn void? loadAssetsRecursively(String basepath, String parent_folder = "") @inline @local 
+{
 	String search_path = basepath;
-	if(parent_folder != "") {
+	if(parent_folder != "")
+    {
 		if (parent_folder.ends_with("\\")) {
 			search_path = parent_folder.tconcat(basepath).tconcat("\\");
 		} else {
@@ -454,7 +592,7 @@ fn void? loadAssetsRecursively(String basepath, String parent_folder = "") @inli
 	
 	PathList? paths = path::ls(tmem, path::temp(search_path));
 	if(catch excuse = paths) {
-		lgr::warning(Where.FILE,  "Unable to get files from folder: %s with excuse: %s", search_path, excuse);
+		lgr::warning(Where.FILE,  "Unable to get list of files from folder: %s with excuse: %s", search_path, excuse);
 		return FOLDER_SCAN_ERROR?;
 	}
 	
@@ -464,7 +602,7 @@ fn void? loadAssetsRecursively(String basepath, String parent_folder = "") @inli
 		if(fs::isFile(path_)) // try to load it
         { 
 			String file_name = fs::getFileNameWithoutExt(path_);
-			// ignore default assets those are handled directly
+			// NOTE(HM) ignore default assets those are handled directly
 			if (file_name == "default") continue; // to next file
 			
 			String extension = fs::getFileExtension(path_);
@@ -475,30 +613,30 @@ fn void? loadAssetsRecursively(String basepath, String parent_folder = "") @inli
 			}
 			
 			if(valid_file == false) {
+                lgr::warning(Where.FILE,  "File %s is not a valid asset file, skipping it.", path_);
 				continue; // to next file
 			}
 			
+            //////////////////////////////////////////////////////////////////
 			// from here should be a valid file
 			
 			String asset_path = search_path;
 			if (asset_path.ends_with("\\")) {
-				asset_path = asset_path.tconcat(path.str_view());
+				asset_path = path_; //asset_path.tconcat(path.str_view());
 			} else {
 				asset_path = asset_path.tconcat("\\").tconcat(path.str_view());
 			}
 			
 			// NOTE(HM) 06/11/2024 
-			// When looking at C3 strings in Visual Studio dbg, take note of the 
-			// 	string len value, this is important, because the watch window will show them as 
-			// 	a normal char[] (array of characters) and so will ignore the len value, 
-			// 	displaying all characters, untill a zero or null terminator character is found.
-			// 	meaning it will display invalid characters.
-			// Thou the strings will work fine when used, like when compared bellow for example.
-			// This caused me confusion a bunch of times, I was expecting to see cliped/cut strings 
-			// 	in VS but they always showed as if no cut was ever done. 
-			// To see them as expected, look at C3 strings in watch window, 
-			// 	like so -> str.ptr, len
-			loadAsset(asset_path.trim_right(extension), extension.tcopy());
+			// When looking at C3 strings in Visual Studio debugger, take note of the 
+			// 	    string len value, this is important, because the watch window will show them as 
+			// 	    a ZString (char*) and so will ignore the C3 slice len value, 
+            //      displaying more characters than necessary, untill a zero or null terminator character is found. 
+            //      Meaning for C3 String's, Visual Studio will display invalid characters.
+			// This fact caused me no end of confusion a bunch of times, I was expecting to see cliped/cut strings 
+			// 	    in VS but they always showed as if no cut was ever done. So to see them correctly, 
+            //      look at C3 strings in VS watch window, like so: String.ptr, len
+			loadAsset(asset_path);
 			continue; // to next file
 			
 		} else { // is a child folder/Directory

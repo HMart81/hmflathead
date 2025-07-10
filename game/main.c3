@@ -43,8 +43,8 @@ import engine::filesystem::fs;
 import engine::gui;
 import game::intro;
 import game::gui::menu;
-import engine::assets_api::asapi; // for the asset system
-import engine::assets::astmng; // asset manager
+import engine::assets_api::asset; // for the asset system
+import engine::assets_api::astmng; // asset manager
 import engine::sys::reader::svg;
 import game::material::manager::mtrmng; // material database
 //
@@ -366,7 +366,7 @@ struct Game (SaveSystemInterface) @local
     //
     
     // game fonts TODO(HM) We should chose only 2 for the final game...
-    Asset* candara_font;
+    Font* candara_font;
     Font* candara_light_font;
     Font* lucida_font;
     Font* trojan_pro_font;
@@ -613,7 +613,7 @@ fn void Game.updateScreenSize(&self, int rez_index) @inline @deprecated {
 */
 
 fn void Game.initFonts(&self) @inline {
-    self.candara_font       = asstManager.getAssetExt("candara.fnt", Font.typeid);
+    self.candara_font       = asstManager.getFont("candara.fnt");
     self.candara_light_font = asstManager.getFont("candara_light.fnt");
     self.lucida_font        = asstManager.getFont("lucida.fnt");
     self.trojan_pro_font    = asstManager.getFont("trojan_pro.fnt");
@@ -1144,7 +1144,7 @@ fn void drawGameVersion(int screenWidth, int screenHeight) @inline @local
 fn void drawWorkInProgressMessage(int screen_w, int screen_h) @local 
 {
     const RColor COLOR @Hardcode = {223, 196, 125, 127};
-    Font* font = (Font*)local_game.candara_font.data.ptr;
+    Font* font = local_game.candara_font;
     if(!rl::isFontValid(*font))  font = &local_game.default_font;
     
     //int font_w = (int)font.recs.width;

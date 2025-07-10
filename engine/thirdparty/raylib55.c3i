@@ -541,20 +541,20 @@ $assert(MtlMapIndex.ALBEDO.ordinal == 0);
 enum ShdLocInd : inline int (String str)
 {
     VERTEX_POSITION   = "vertexPosition",  // Shader location: vertex attribute: position
-    VERTEX_TEXCOORD01 = "vertexTexCoord1",  // Shader location: vertex attribute: texcoord01
+    VERTEX_TEXCOORD01 = "vertexTexCoord",  // Shader location: vertex attribute: texcoord01
     VERTEX_TEXCOORD02 = "vertexTexCoord2",  // Shader location: vertex attribute: texcoord02
     VERTEX_NORMAL     = "vertexNormal",  // Shader location: vertex attribute: normal
     VERTEX_TANGENT    = "vertexTangent",  // Shader location: vertex attribute: tangent
     VERTEX_COLOR      = "vertexColor",  // Shader location: vertex attribute: color
-    MATRIX_MVP        = "matrix_mvp",  // Shader location: matrix uniform: model-view-projection
-    MATRIX_VIEW       = "matrix_view",  // Shader location: matrix uniform: view (camera transform)
-    MATRIX_PROJECTION = "matrix_projection",  // Shader location: matrix uniform: projection
-    MATRIX_MODEL      = "matrix_model",  // Shader location: matrix uniform: model (transform)
-    MATRIX_NORMAL     = "matrix_normal",  // Shader location: matrix uniform: normal
+    MATRIX_MVP        = "mvp",  // Shader location: matrix uniform: model-view-projection
+    MATRIX_VIEW       = "matView",  // Shader location: matrix uniform: view (camera transform)
+    MATRIX_PROJECTION = "matProjection",  // Shader location: matrix uniform: projection
+    MATRIX_MODEL      = "matModel",  // Shader location: matrix uniform: model (transform)
+    MATRIX_NORMAL     = "matNormal",  // Shader location: matrix uniform: normal
     VECTOR_VIEW       = "vector_view",  // Shader location: vector uniform: view
-    COLOR_DIFFUSE     = "color_diff",  // Shader location: vector uniform: diffuse color
-    COLOR_SPECULAR    = "color_spec",  // Shader location: vector uniform: specular color
-    COLOR_AMBIENT     = "color_amb",  // Shader location: vector uniform: ambient color
+    COLOR_DIFFUSE     = "colDiffuse",  // Shader location: vector uniform: diffuse color
+    COLOR_SPECULAR    = "colSpecular",  // Shader location: vector uniform: specular color
+    COLOR_AMBIENT     = "colAmbient",  // Shader location: vector uniform: ambient color
     MAP_ALBEDO        = "map_albedo",  // Shader location: sampler2d texture: albedo (same as: SHADER_LOC_MAP_DIFFUSE)
     MAP_METALNESS     = "map_metalness",  // Shader location: sampler2d texture: metalness (same as: SHADER_LOC_MAP_SPECULAR)
     MAP_NORMAL        = "map_normal",  // Shader location: sampler2d texture: normal
@@ -573,6 +573,32 @@ enum ShdLocInd : inline int (String str)
 }
 
 $assert(ShdLocInd.VERTEX_POSITION.ordinal == 0);
+
+/*
+NOTE(HM) 
+Default shader attribute names to be used in glsl shader code, 
+is recomended to use them to take advantage of the default raylib shader 
+locations, so you don't have to set them manually.
+
+They are defined inside raylib/src/config.h
+
+#define RL_DEFAULT_SHADER_ATTRIB_NAME_POSITION     "vertexPosition"    // Binded by default to shader location: 0
+#define RL_DEFAULT_SHADER_ATTRIB_NAME_TEXCOORD     "vertexTexCoord"    // Binded by default to shader location: 1
+#define RL_DEFAULT_SHADER_ATTRIB_NAME_NORMAL       "vertexNormal"      // Binded by default to shader location: 2
+#define RL_DEFAULT_SHADER_ATTRIB_NAME_COLOR        "vertexColor"       // Binded by default to shader location: 3
+#define RL_DEFAULT_SHADER_ATTRIB_NAME_TANGENT      "vertexTangent"     // Binded by default to shader location: 4
+#define RL_DEFAULT_SHADER_ATTRIB_NAME_TEXCOORD2    "vertexTexCoord2"   // Binded by default to shader location: 5
+
+#define RL_DEFAULT_SHADER_UNIFORM_NAME_MVP         "mvp"               // model-view-projection matrix
+#define RL_DEFAULT_SHADER_UNIFORM_NAME_VIEW        "matView"           // view matrix
+#define RL_DEFAULT_SHADER_UNIFORM_NAME_PROJECTION  "matProjection"     // projection matrix
+#define RL_DEFAULT_SHADER_UNIFORM_NAME_MODEL       "matModel"          // model matrix
+#define RL_DEFAULT_SHADER_UNIFORM_NAME_NORMAL      "matNormal"         // normal matrix (transpose(inverse(matModelView))
+#define RL_DEFAULT_SHADER_UNIFORM_NAME_COLOR       "colDiffuse"        // color diffuse (base tint color, multiplied by texture color)
+#define RL_DEFAULT_SHADER_SAMPLER2D_NAME_TEXTURE0  "texture0"          // texture0 (texture slot active 0)
+#define RL_DEFAULT_SHADER_SAMPLER2D_NAME_TEXTURE1  "texture1"          // texture1 (texture slot active 1)
+#define RL_DEFAULT_SHADER_SAMPLER2D_NAME_TEXTURE2  "texture2"          // texture2 (texture slot active 2)
+*/
 
 //#define SHADER_LOC_MAP_DIFFUSE      SHADER_LOC_MAP_ALBEDO
 //#define SHADER_LOC_MAP_SPECULAR     SHADER_LOC_MAP_METALNESS

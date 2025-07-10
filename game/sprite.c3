@@ -36,8 +36,8 @@ import std::collections::map;
 import game::main;
 import engine::misc;
 import game::camview;
-import engine::assets::astmng; //@deprecated;  // asset manager 
-import engine::assets_api::asapi; //@deprecated; // for the asset
+//import engine::assets_api::asset; // for the asset system
+import engine::assets_api::astmng; // asset manager
 import game::material::mat;
 import game::material::manager::mtrmng;
 import engine::logging::lgr;

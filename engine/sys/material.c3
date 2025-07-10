@@ -38,7 +38,7 @@ import game::serialize::svs;
 import game::material::manager::mtrmng;
 import engine::logging::lgr;
 import engine::filesystem::fs;
-import engine::assets::astmng;
+import engine::assets_api::astmng; // asset manager
 import thirdparty::raylib5::rl;
 import thirdparty::library::xml;
 import std::collections::list, std::collections::tuple;
@@ -739,7 +739,7 @@ import game::serialize::svs;
 import game::material::manager::mtrmng;
 import engine::logging::lgr;
 import engine::filesystem::fs;
-import engine::assets::astmng;
+import engine::assets_api::astmng; // asset manager
 import thirdparty::raylib5::rl;
 import thirdparty::library::xml;
 import std::collections::list, std::collections::tuple;
@@ -1149,7 +1149,7 @@ import engine::misc;
 import game::material::mtr, game::material::mat;
 import engine::logging::lgr;
 import std::collections::list, std::collections::tuple;
-import engine::assets::astmng;
+import engine::assets_api::astmng; // asset manager
 import engine::filesystem::fs;
 import thirdparty::raylib5::rl;
 import thirdparty::library::xml;
