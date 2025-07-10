@@ -52,7 +52,8 @@ import std::collections::list, std::collections::tuple;
 *****************************************************************************
 */
 
-alias MaterialStageArgList = List{StringTuple*};
+alias StageArgument = StringTuple; // alias for a stage argument, which is a tuple of two strings (name, value)
+alias MaterialStageArgList = List{StageArgument*};
 
 faultdef MAT_INVALID_PATH,
          MAT_UNKNOWN_MATERIAL,
@@ -92,8 +93,6 @@ const MatStageIndex STAGE_SOUND     @public = 8;    // sound map stage
 const MAX_STAGE_INDICES = (STAGE_SOUND);
 // just in case...
 $assert MAX_STAGE_INDICES == STAGE_SOUND;
-
-alias StageArgument = StringTuple; // alias for a stage argument, which is a tuple of two strings (name, value)
 
 // NOTE(HM) raylib has the MaterialMap already that is almost equivalent, should we use that?
 // Material stage represents each texture type in a material
@@ -260,6 +259,8 @@ struct HMaterial  (SaveSystemInterface) @public
     MatMC coverage;
     Contents contentes;
     Flags flags;
+
+    Shader shader; // shader used by this material, if any
     
     MaterialStage[MAX_STAGE_INDICES] maps;
 
@@ -293,14 +294,32 @@ fn void HMaterial.init(&self) @public
     // TODO(HM) solve this stuff with c3 enums not being able to be used as flags
     // use constants instead of enums for this?
     //self.contentes |= (Contents.SOLID.flag & Contents.OPAQUE.flag);
-    self.comment  = "<none>";
+    self.comment  = "<no comment>";
     self.getStage(mat::STAGE_DIFFUSE).color = rl::WHITE;
+
+    // NOTE(HM) all materials start with the default game shader
+    self.shader = main::getDefaultShaderCopy();
 }
 
 fn void HMaterial.free(&self) @public
 {
 	foreach(stage : self.maps) stage.clear();
     if(self.mtrfile) self.mtrfile = null;
+
+    // NOTE(HM) this will free the shader if it is not the default shader
+    if(self.shader.isValid()) 
+    {
+        Shader* default_shader = main::getDefaultShader();
+        if(self.shader.id != default_shader.id && 
+           self.shader.locs != default_shader.locs) { 
+            rl::unloadShader(self.shader);
+        }
+    }
+}
+
+fn void HMaterial.setShader(&self, Shader shader) @inline @public
+{
+    self.shader = shader;
 }
 
 // @untested
@@ -486,6 +505,223 @@ fn void HMaterial.parse_sound(&self, XmlNode* node) @inline @public
    //self.sound = astmng::assetManager.getSound(sound_shader_name);
 }
 
+<*
+    @param [&in] node : "node to get data from"
+*>
+fn void HMaterial.parse_shader(&self, XmlNode* node) @inline @public
+{
+    if(node.hasAttributes() == false) return;
+
+    String shader_path = (String)node.getAttribute(NodeAttrib.PATH).value;
+    if(shader_path == "") {
+        lgr::warning(Where.FILE, "Material '%s' in file '%s' has a shader node but no path for it defined!", self.name, self.mtrfile.path);
+        return;
+    }
+
+    // // load the shader from the path
+    // char[] to_trim;
+    // uint count = (uint)shader_path.count("/");
+    // if(count > 1) 
+    // {
+    //    usz? index;
+    //    while(count) 
+    //    {
+    //        index = shader_path.index_of_char_from('/', index);
+    //        if(catch excuse = index) {
+    //             lgr::error(Where.FILE, "Failed to find shader path '%s' for material '%s' in file '%s'! with excuse: %s", shader_path, self.name, self.mtrfile.path, excuse);
+    //             return;
+    //        }
+    //        to_trim = shader_path[:index + 1];
+    //        count--;
+    //    }
+    // } 
+    // else
+    // {
+    //     to_trim = shader_path[:shader_path.index_of_char('/') + 1]!!;
+    // }
+
+    // NOTE(HM) I'm appending the extension here just as a placeholder, to make it easy to get the shader name.
+    String shader_name = fs::getFileNameWithoutExt(shader_path.tconcat(".fs"));
+    Shader shader = *astmng::assetManager.getShader(shader_name);
+    if(!shader.isValid()) {
+        lgr::error(Where.FILE, "Failed to load shader '%s' for material '%s' in file '%s'!", shader_path, self.name, self.mtrfile.path);
+        return;
+    }
+
+
+    if(node.children.len() > 0)
+    {
+        // parse the shader arguments
+        foreach(child: node.children)
+        {
+            switch
+            {
+                /*
+                <vertex_attribute loc="0" value="-1" />
+                <vertex_attribute loc="1" value="-1" />
+                <vertex_attribute loc="2" value="-1" />
+                <vertex_attribute loc="3" value="-1" />
+                <uniform id="somename" value="-1" />
+                <texture2D map="" />
+                <texture3D map="" />
+                */
+                case child.name == Node.VERTEX_ATTRIBUTE.str:
+                    if(child.hasAttributes())
+                    {
+                        foreach (atrb : child.attributes)
+                        {
+                            int loc = -1;
+                            switch(atrb.name)
+                            {
+                                case NodeAttrib.LOCATION: // only for shaders
+                                    loc = atrb.value.to_int()!!;
+                                    if(loc < 0 || loc >= MAX_STAGE_INDICES) {
+                                        lgr::error(Where.FILE, "Invalid value '%d' for attribute '%s' in node '%s' of material '%s' in file '%s'!", 
+                                                loc, atrb.name, node.name, self.name, self.mtrfile.path);
+                                        continue;
+                                    }
+                                case NodeAttrib.VALUE:
+                                    if(atrb.value == "-1") continue; // -1 means no value, skip this attribute
+                                    // else
+                                    ShdLocInd loc_ind = ShdLocInd.from_ordinal(loc);
+                                    bool is_vector2, is_vector3, is_color, is_matrix;
+                                    switch(loc_ind)
+                                    {
+                                        case VERTEX_POSITION:
+                                            is_vector3 = true;
+                                            shader.locs[loc] = shader.getAttributeLocation(ShdLocInd.VERTEX_POSITION.str);
+                                        case VERTEX_TEXCOORD01:
+                                            is_vector2 = true;
+                                            shader.locs[loc] = shader.getAttributeLocation(ShdLocInd.VERTEX_TEXCOORD01.str);
+                                        case VERTEX_TEXCOORD02:
+                                            is_vector2 = true;
+                                            shader.locs[loc] = shader.getAttributeLocation(ShdLocInd.VERTEX_TEXCOORD02.str);
+                                        case VERTEX_NORMAL:
+                                            is_vector3 = true;
+                                            shader.locs[loc] = shader.getAttributeLocation(ShdLocInd.VERTEX_NORMAL.str);
+                                        case VERTEX_TANGENT:
+                                            is_vector3 = true;
+                                            shader.locs[loc] = shader.getAttributeLocation(ShdLocInd.VERTEX_TANGENT.str);
+                                        case VERTEX_COLOR:
+                                            is_color = true;
+                                            shader.locs[loc] = shader.getAttributeLocation(ShdLocInd.VERTEX_COLOR.str);
+                                        case MATRIX_MVP:
+                                        case MATRIX_VIEW:
+                                        case MATRIX_PROJECTION:
+                                        case MATRIX_MODEL:      
+                                        case MATRIX_NORMAL:     
+                                        case VECTOR_VIEW:       
+                                        case COLOR_DIFFUSE:     
+                                        case COLOR_SPECULAR:    
+                                        case COLOR_AMBIENT:     
+                                        case MAP_ALBEDO:        
+                                        case MAP_METALNESS:     
+                                        case MAP_NORMAL:        
+                                        case MAP_ROUGHNESS:     
+                                        case MAP_OCCLUSION:     
+                                        case MAP_EMISSION:      
+                                        case MAP_HEIGHT:        
+                                        case MAP_CUBEMAP:       
+                                        case MAP_IRRADIANCE:    
+                                        case MAP_PREFILTER:     
+                                        case MAP_BRDF:          
+                                        case DEPTH0:            
+                                        case DEPTH1:            
+                                        case DEPTH2:            
+                                        case DEPTH3:            
+                                            @todo();
+                                        default:
+                                            lgr::error(Where.FILE, "Invalid stage index '%d' for attribute '%s' in node '%s' of material '%s' in file '%s'!", 
+                                                loc, atrb.name, node.name, self.name, self.mtrfile.path);
+                                    }
+
+                                    Vector2 pos;
+                                    if(is_vector2) 
+                                    {
+                                        pos = getVector2FromString(atrb.value);
+                                        if(pos.x == 0.0f && pos.y == 0.0f) {
+                                            lgr::error(Where.FILE, "Invalid value '%s' for attribute '%s' in node '%s' of material '%s' in file '%s'!", 
+                                                atrb.value, atrb.name, node.name, self.name, self.mtrfile.path);
+                                            continue;
+                                        }
+                                        float[*] arr = {pos.x, pos.y};
+                                        shader.setAttributeLocValueV(loc, arr[..]);
+                                    }
+                                    if(is_vector3) 
+                                    {
+                                        pos = getVector2FromString(atrb.value);
+                                        if(pos.x == 0.0f && pos.y == 0.0f) {
+                                            lgr::error(Where.FILE, "Invalid value '%s' for attribute '%s' in node '%s' of material '%s' in file '%s'!", 
+                                                atrb.value, atrb.name, node.name, self.name, self.mtrfile.path);
+                                            continue;
+                                        }
+                                        Vec3f pos3 = {pos.x, pos.y, 0.0f}; // assuming z is 0 for 2D attributes
+                                        shader.setAttributeLocValueV(loc, pos3[..]);
+                                    }
+                                    else if(is_color) 
+                                    {
+                                        Color color = getColorFromString(atrb.value);
+                                        float[*] color_arr = {(float)color.r, (float)color.g, (float)color.b, (float)color.a};
+                                        shader.setAttributeLocValueV(loc, color_arr[..]);
+                                    }
+                                    else if(is_matrix) 
+                                    {
+                                        @todo();
+                                    }
+                                default:
+                                io::printfn("Unnused attribute '%s' found in node '%s' of material '%s' in file '%s'!", atrb.name, node.name, self.name, self.mtrfile.path);
+                            }
+                        }
+                    }
+                    else 
+                    {
+                        lgr::warning(Where.FILE, "Vertex attribute node '%s' in material '%s' in file '%s' has no attributes!", child.name, self.name, self.mtrfile.path);
+                    }
+                default:
+                    lgr::warning(Where.FILE, "Unnused shader node '%s' found in material '%s' in file '%s'!", child.name, self.name, self.mtrfile.path);
+            }
+        }
+    }
+
+    self.setShader(shader);
+}
+
+fn Vector2 getVector2FromString(String str) @inline @local
+{
+    String[] slice = str.tsplit(", ");
+    if(slice.len == 0) {
+        return {};
+    }
+
+    if(slice.len == 1) {
+        float x = slice[0].to_float()!!;
+        return {x, x}; // use the same value for both x and y
+    } else if(slice.len == 2) {
+        return {slice[0].to_float()!!, slice[1].to_float()!!};
+    }
+
+    return {};
+}
+
+fn Color getColorFromString(String str) @inline @local
+{
+    String[] slice = str.tsplit(", ");
+    if(slice.len == 0) {
+        return rl::WHITE; // default color
+    }
+
+    if(slice.len == 1) {
+        char value = slice[0].to_uchar()!!;
+        return {value, value, value, 255}; // use the same value for r, g, b and full alpha
+    } else if(slice.len == 3) {
+        return {slice[0].to_uchar()!!, slice[1].to_uchar()!!, slice[2].to_uchar()!!, 255}; // full alpha
+    } else if(slice.len == 4) {
+        return {slice[0].to_uchar()!!, slice[1].to_uchar()!!, slice[2].to_uchar()!!, slice[3].to_uchar()!!};
+    }
+
+    return rl::WHITE; // default color
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 //
 //              MTRFile - Material file data structure
@@ -530,20 +766,24 @@ faultdef MTR_INVALID_PATH,
 // NOTE(HM) This represents every usefull node in the mtr xml file 
 enum Node : int (inline String str) @public
 {
-    ROOT      = "MTR",
-    TEXT      = "#text",
-    MATERIAL  = "MATERIAL",
-    COMMENT   = "comments",
-    MAPS      = "maps",
-    MAP       = "map",
-    VIDEO_MAP = "video_map",
-    ARGS      = "args",
-    COLOR     = "color",
-    ALBEDO    = "albedo",
-    NORMAL    = "normal",
-    SPECULAR  = "specular",
-    SOUND     = "sound",
-    SHADER    = "shader"
+    ROOT             = "MTR",
+    TEXT             = "#text",
+    MATERIAL         = "MATERIAL",
+    COMMENT          = "comments",
+    MAPS             = "maps",
+    MAP              = "map",
+    VIDEO_MAP        = "video_map",
+    ARGS             = "args",
+    COLOR            = "color",
+    ALBEDO           = "albedo",
+    NORMAL           = "normal",
+    SPECULAR         = "specular",
+    SOUND            = "sound",
+    SHADER           = "shader",
+    VERTEX_ATTRIBUTE = "vertex_attribute",
+    UNIFORM          = "uniform",
+    TEXTURE2D        = "texture2D",
+    TEXTURE3D        = "texture3D",
 }
 
 <*
@@ -561,6 +801,10 @@ enum NodeAttrib : int (inline String str) @public
     PATH        = "path",
     KIND        = "kind",
     TRANSLUCENT = "translucent",
+
+    // shader specific
+    LOCATION    = "loc", // shader location for the attribute
+    VALUE       = "value", // used for vertex attributes and uniforms
 
     // map arguments
     CLAMP       = "clamp",
@@ -800,33 +1044,28 @@ fn HMaterial* MTRFile.parse_material(&self, XmlNode* in_node)
        {
             // free text nodes are not supported
             case Node.TEXT.str:
-            {
                 // this is a text node, so we just skip it, as it should not be here
                 // TODO(HM) handle this better, maybe by removing it from the xml doc?
                 lgr::warning(Where.FILE, "Unexpected text node found in material '%s'! Text = '%s' ", mat.name, node.value);
                 continue;
-            }
             case Node.COMMENT.str: 
                 mat.parse_comment(node);
             case Node.ARGS.str: 
-            {
                 if(node.hasAttributes() == true) {
                     mat.parse_node_atributes(node);
                 } else {
                     lgr::warning(Where.FILE, "Malformed node '%s' found in material '%s', expected attributes.", node.name, mat.name);
                 }
                 continue;
-            }
             case Node.MAPS.str: 
-            {
                 mat.parse_maps(node);
                 continue;
-            }
+            case Node.SHADER.str:
+                mat.parse_shader(node);
+                continue;
             case Node.SOUND.str: 
-            {
                 mat.parse_sound(node);
                 continue;
-            }
        }
     }
     

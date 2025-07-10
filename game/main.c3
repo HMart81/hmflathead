@@ -554,8 +554,20 @@ fn void Game.reload(&self, SaveFile* file) @dynamic {
 <*
  @require(self.entityList.len() >= 1)
 *>
-fn Player* Game.getLocalPlayer(&self) {
+fn Player* Game.getLocalPlayer(&self) @public @inline {
     return (Player*)self.entityList[0];
+}
+
+fn Shader getDefaultShaderCopy() @inline @public {
+    return local_game.default_shader;
+}
+
+fn Shader* getDefaultShader() @inline @public {
+    return &local_game.default_shader;
+}
+
+fn Shader* getCurrentGlobalShader() @inline @public {
+    return local_game.current_global_shader;
 }
 
 fn Vec2f Game.getScreenCenterPos(&self) {
@@ -637,9 +649,13 @@ fn void? Game.loadDefaultAssets(&self)
     rl::unloadImage(gray);
     
     // get required default game shader
-    self.default_shader = rl::loadShader(
+    /*self.default_shader = rl::loadShader(
         self.app_base_folder.tconcat("shaders//default.vs").zstr_tcopy(),
         self.app_base_folder.tconcat("shaders//default.fs").zstr_tcopy()
+    );*/
+    self.default_shader = misc::loadShader(
+        self.app_base_folder.tconcat("shaders//default.vs"),
+        self.app_base_folder.tconcat("shaders//default.fs")
     );
     if(rl::isShaderValid(self.default_shader) == false) {
         lgr::fatal(Where.FILE, "Required default shader not found in folder %s!", self.app_base_folder.tconcat("//shaders"));

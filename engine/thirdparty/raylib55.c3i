@@ -536,38 +536,40 @@ const MATERIAL_MAP_SPECULAR = MtlMapIndex.METALNESS;
 $assert(MtlMapIndex.ALBEDO.ordinal == 0);
 
 // Shader location index
-enum ShdLocInd : inline int
+// NOTE: str is the identifier you should write in your glsl shader code!
+// this is so is easy to parse the shader code and find the location
+enum ShdLocInd : inline int (String str)
 {
-    VERTEX_POSITION,     // Shader location: vertex attribute: position
-    VERTEX_TEXCOORD01,   // Shader location: vertex attribute: texcoord01
-    VERTEX_TEXCOORD02,   // Shader location: vertex attribute: texcoord02
-    VERTEX_NORMAL,       // Shader location: vertex attribute: normal
-    VERTEX_TANGENT,      // Shader location: vertex attribute: tangent
-    VERTEX_COLOR,        // Shader location: vertex attribute: color
-    MATRIX_MVP,          // Shader location: matrix uniform: model-view-projection
-    MATRIX_VIEW,         // Shader location: matrix uniform: view (camera transform)
-    MATRIX_PROJECTION,   // Shader location: matrix uniform: projection
-    MATRIX_MODEL,        // Shader location: matrix uniform: model (transform)
-    MATRIX_NORMAL,       // Shader location: matrix uniform: normal
-    VECTOR_VIEW,         // Shader location: vector uniform: view
-    COLOR_DIFFUSE,       // Shader location: vector uniform: diffuse color
-    COLOR_SPECULAR,      // Shader location: vector uniform: specular color
-    COLOR_AMBIENT,       // Shader location: vector uniform: ambient color
-    MAP_ALBEDO,          // Shader location: sampler2d texture: albedo (same as: SHADER_LOC_MAP_DIFFUSE)
-    MAP_METALNESS,       // Shader location: sampler2d texture: metalness (same as: SHADER_LOC_MAP_SPECULAR)
-    MAP_NORMAL,          // Shader location: sampler2d texture: normal
-    MAP_ROUGHNESS,       // Shader location: sampler2d texture: roughness
-    MAP_OCCLUSION,       // Shader location: sampler2d texture: occlusion
-    MAP_EMISSION,        // Shader location: sampler2d texture: emission
-    MAP_HEIGHT,          // Shader location: sampler2d texture: height
-    MAP_CUBEMAP,         // Shader location: samplerCube texture: cubemap
-    MAP_IRRADIANCE,      // Shader location: samplerCube texture: irradiance
-    MAP_PREFILTER,       // Shader location: samplerCube texture: prefilter
-    MAP_BRDF,             // Shader location: sampler2d texture: brdf
-    DEPTH0,              // Shader location: sampler2d texture: depth map 0
-    DEPTH1,              // Shader location: sampler2d texture: depth map 1
-    DEPTH2,              // Shader location: sampler2d texture: depth map 2
-    DEPTH3               // Shader location: sampler2d texture: depth map 3
+    VERTEX_POSITION   = "vertexPosition",  // Shader location: vertex attribute: position
+    VERTEX_TEXCOORD01 = "vertexTexCoord1",  // Shader location: vertex attribute: texcoord01
+    VERTEX_TEXCOORD02 = "vertexTexCoord2",  // Shader location: vertex attribute: texcoord02
+    VERTEX_NORMAL     = "vertexNormal",  // Shader location: vertex attribute: normal
+    VERTEX_TANGENT    = "vertexTangent",  // Shader location: vertex attribute: tangent
+    VERTEX_COLOR      = "vertexColor",  // Shader location: vertex attribute: color
+    MATRIX_MVP        = "matrix_mvp",  // Shader location: matrix uniform: model-view-projection
+    MATRIX_VIEW       = "matrix_view",  // Shader location: matrix uniform: view (camera transform)
+    MATRIX_PROJECTION = "matrix_projection",  // Shader location: matrix uniform: projection
+    MATRIX_MODEL      = "matrix_model",  // Shader location: matrix uniform: model (transform)
+    MATRIX_NORMAL     = "matrix_normal",  // Shader location: matrix uniform: normal
+    VECTOR_VIEW       = "vector_view",  // Shader location: vector uniform: view
+    COLOR_DIFFUSE     = "color_diff",  // Shader location: vector uniform: diffuse color
+    COLOR_SPECULAR    = "color_spec",  // Shader location: vector uniform: specular color
+    COLOR_AMBIENT     = "color_amb",  // Shader location: vector uniform: ambient color
+    MAP_ALBEDO        = "map_albedo",  // Shader location: sampler2d texture: albedo (same as: SHADER_LOC_MAP_DIFFUSE)
+    MAP_METALNESS     = "map_metalness",  // Shader location: sampler2d texture: metalness (same as: SHADER_LOC_MAP_SPECULAR)
+    MAP_NORMAL        = "map_normal",  // Shader location: sampler2d texture: normal
+    MAP_ROUGHNESS     = "map_roughness",  // Shader location: sampler2d texture: roughness
+    MAP_OCCLUSION     = "map_occlusion",  // Shader location: sampler2d texture: occlusion
+    MAP_EMISSION      = "map_emission",  // Shader location: sampler2d texture: emission
+    MAP_HEIGHT        = "map_height",  // Shader location: sampler2d texture: height
+    MAP_CUBEMAP       = "map_cubemap",  // Shader location: samplerCube texture: cubemap
+    MAP_IRRADIANCE    = "map_irradiance",  // Shader location: samplerCube texture: irradiance
+    MAP_PREFILTER     = "map_prefilter",  // Shader location: samplerCube texture: prefilter
+    MAP_BRDF          = "map_brdf",   // Shader location: sampler2d texture: brdf
+    DEPTH0            = "depth0",  // Shader location: sampler2d texture: depth map 0
+    DEPTH1            = "depth1",  // Shader location: sampler2d texture: depth map 1
+    DEPTH2            = "depth2",  // Shader location: sampler2d texture: depth map 2
+    DEPTH3            = "depth3"  // Shader location: sampler2d texture: depth map 3
 }
 
 $assert(ShdLocInd.VERTEX_POSITION.ordinal == 0);
@@ -820,8 +822,11 @@ fn void unloadVrStereoConfig(VrStereoConfig config) @extern("UnloadVrStereoConfi
 fn Shader loadShader(ZString vsFileName, ZString fsFileName) @extern("LoadShader");          // Load shader from files and bind default locations
 fn Shader loadShaderFromMemory(ZString vs, ZString fs) @extern("LoadShaderFromMemory");      // Load shader from code strings and bind default locations
 fn bool isShaderValid(Shader shader) @extern("IsShaderValid");                               // Check if a shader is ready
+fn bool Shader.isValid(self) @extern("IsShaderValid");                              // Check if a shader is ready
 fn int getShaderLocation(Shader shader, ZString uniformName) @extern("GetShaderLocation");   // Get shader uniform location
+fn int Shader.getUniformLocation(self, ZString uniformName) @extern("GetShaderLocation");   // Get shader uniform location
 fn int getShaderLocationAttrib(Shader shader, ZString attr) @extern("GetShaderLocationAttrib");  // Get shader attribute location
+fn int Shader.getAttributeLocation(self, ZString attr) @extern("GetShaderLocationAttrib");  // Get shader attribute location
 fn void setShaderValue(Shader shader, int locIndex, void* value, int uniformType) @extern("SetShaderValue"); // Set shader uniform value
 fn void setShaderValueV(Shader shader, int locIndex, void* value, int uniformType, int count) @extern("SetShaderValueV");   // Set shader uniform value vector
 fn void setShaderValueMatrix(Shader shader, int locIndex, Matrix mat) @extern("SetShaderValueMatrix"); // Set shader uniform value (matrix 4x4)

@@ -526,6 +526,276 @@ macro bool recIsValid(rec) => ((getRecSize(rec).length() + getRecPos(rec).length
 
 macro Rectangle @recFromVecs(#vec1, #vec2) => (Rectangle) {#vec1.x, #vec1.y, #vec2.x, #vec2.y};
 
+
+
+//////////////////// shader stuff /////////////////
+const String SHADER_INCLUDE = `
+#define VERTEX_POSITION   0    // Shader location: vertex attribute: position
+#define VERTEX_TEXCOORD01 1    // Shader location: vertex attribute: texcoord01
+#define VERTEX_TEXCOORD02 2    // Shader location: vertex attribute: texcoord02
+#define VERTEX_NORMAL     3    // Shader location: vertex attribute: normal
+#define VERTEX_TANGENT    4    // Shader location: vertex attribute: tangent
+#define VERTEX_COLOR      5    // Shader location: vertex attribute: color
+#define MATRIX_MVP        6    // Shader location: matrix uniform: model-view-projection
+#define MATRIX_VIEW       7    // Shader location: matrix uniform: view (camera transform)
+#define MATRIX_PROJECTION 8    // Shader location: matrix uniform: projection
+#define MATRIX_MODEL      9    // Shader location: matrix uniform: model (transform)
+#define MATRIX_NORMAL     10   // Shader location: matrix uniform: normal
+#define VECTOR_VIEW       11   // Shader location: vector uniform: view
+#define COLOR_DIFFUSE     12   // Shader location: vector uniform: diffuse color
+#define COLOR_SPECULAR    13   // Shader location: vector uniform: specular color
+#define COLOR_AMBIENT     14   // Shader location: vector uniform: ambient color
+#define MAP_ALBEDO        15   // Shader location: sampler2d texture: albedo (same as: SHADER_LOC_MAP_DIFFUSE)
+#define MAP_METALNESS     16   // Shader location: sampler2d texture: metalness (same as: SHADER_LOC_MAP_SPECULAR)
+#define MAP_NORMAL        17   // Shader location: sampler2d texture: normal
+#define MAP_ROUGHNESS     18   // Shader location: sampler2d texture: roughness
+#define MAP_OCCLUSION     19   // Shader location: sampler2d texture: occlusion
+#define MAP_EMISSION      20   // Shader location: sampler2d texture: emission
+#define MAP_HEIGHT        21   // Shader location: sampler2d texture: height
+#define MAP_CUBEMAP       22   // Shader location: samplerCube texture: cubemap
+#define MAP_IRRADIANCE    23   // Shader location: samplerCube texture: irradiance
+#define MAP_PREFILTER     24   // Shader location: samplerCube texture: prefilter
+#define MAP_BRDF          25   // Shader location: sampler2d texture: brdf
+#define DEPTH0            26   // Shader location: sampler2d texture: depth map 0
+#define DEPTH1            27   // Shader location: sampler2d texture: depth map 1
+#define DEPTH2            28   // Shader location: sampler2d texture: depth map 2
+#define DEPTH3            29   // Shader location: sampler2d texture: depth map 3
+`;
+
+fn Shader loadShader(String vs_path, String fs_path) @inline {
+    // NOTE(HM) this is used to load a shader from a vertex and fragment shader file
+    // if the paths are empty it will return the default shader
+    if(vs_path.is_empty() && fs_path.is_empty()) {
+        return main::gpGame.default_shader;
+    }
+
+    String include_marker = "#include \"defines.inc\"";
+    
+    // NOTE(HM) if the vertex shader path is empty, it will use the default raylib vertex shader
+    String vs_shader_code;
+    String fs_shader_code;
+    if(vs_path.is_empty()) 
+    {
+        fs_shader_code = readEntireFileX(fs_path)!!;
+        if(fs_shader_code.is_empty()) {
+            lgr::error(Where.FILE, "Failed to load fragment shader from path: %s", fs_path);
+            return main::gpGame.default_shader;
+        }
+
+        // NOTE(HM) if the vertex shader path is empty, include the header in the fragment shader code.
+        if(fs_shader_code.contains(include_marker)) fs_shader_code = fs_shader_code.treplace(include_marker, SHADER_INCLUDE);
+        return rl::loadShaderFromMemory("", stringTotempzstring(fs_shader_code));
+    }
+
+    // NOTE(HM) if the vertex shader path is not empty, include the header in it.
+    vs_shader_code = readEntireFileX(vs_path)!!;
+    if(vs_shader_code.is_empty()) {
+        lgr::error(Where.FILE, "Failed to load vertex shader from path: %s", vs_path);
+        return main::gpGame.default_shader;
+    }
+
+    if(vs_shader_code.contains(include_marker)) vs_shader_code = vs_shader_code.treplace(include_marker, SHADER_INCLUDE);
+
+    if(fs_path.is_empty()) 
+    {
+        // NOTE(HM) if the vertex shader path is empty, include the header in the fragment shader code.
+        return rl::loadShaderFromMemory(stringTotempzstring(vs_shader_code), "");
+    }
+
+    fs_shader_code = readEntireFileX(fs_path)!!;
+    if(fs_shader_code.is_empty()) {
+        lgr::error(Where.FILE, "Failed to load fragment shader from path: %s", fs_path);
+        return main::gpGame.default_shader;
+    }
+    
+    return rl::loadShaderFromMemory(stringTotempzstring(vs_shader_code), stringTotempzstring(fs_shader_code));
+}
+
+fn void Shader.setUniformFloatValue(self, String uniform_name, float value) @inline {
+    int locIndex = self.getUniformLocation(stringTozstring(uniform_name));
+    assert(locIndex >= 0, "Shader uniform location not found: %s", uniform_name);
+
+    // NOTE(HM) this is used to set a shader uniform value
+    // if the shader is invalid it will do nothing
+    if(rl::isShaderValid(self)) {
+        rl::setShaderValue(self, locIndex, (void*)&value, rl::ShdUniTyp.FLOAT);
+    } else {
+        lgr::warning(Where.FILE, "Shader is invalid, unable to set value.");
+    }
+}
+
+fn void Shader.setAttributeFloatValue(self, String attribute_name, float value) @inline {
+    int locIndex = self.getAttributeLocation(stringTozstring(attribute_name));
+    assert(locIndex >= 0, "Shader attribute location not found: %s", attribute_name);
+
+    // NOTE(HM) this is used to set a shader attribute value
+    // if the shader is invalid it will do nothing
+    if(rl::isShaderValid(self)) {
+        rl::setShaderValue(self, locIndex, (void*)&value, rl::ShdUniTyp.FLOAT);
+    } else {
+        lgr::warning(Where.FILE, "Shader is invalid, unable to set value.");
+    }
+}
+
+fn void Shader.setAttributelocFloatValue(self, int locIndex, float value) @inline {
+    // NOTE(HM) this is used to set a shader attribute value vector2
+    // if the shader is invalid it will do nothing
+    if(rl::isShaderValid(self)) {
+        rl::setShaderValue(self, self.locs[locIndex], (void*)&value, rl::ShdUniTyp.FLOAT);
+    } else {
+        lgr::warning(Where.FILE, "Shader is invalid, unable to set value.");
+    }
+}
+
+fn void Shader.setUniformFloatSliceValues(self, String uniform_name, float[] values) @inline {
+    int locIndex = self.getUniformLocation(stringTozstring(uniform_name));
+    assert(locIndex >= 0, "Shader uniform location not found: %s", uniform_name);
+
+    // NOTE(HM) this is used to set a shader uniform value array
+    // if the shader is invalid it will do nothing
+    if(rl::isShaderValid(self)) {
+        rl::setShaderValueV(self, locIndex, (void*)values.ptr, rl::ShdUniTyp.FLOAT, values.len);
+    } else {
+        lgr::warning(Where.FILE, "Shader is invalid, unable to set value.");
+    }
+}
+
+fn void Shader.setAttributeFloatSliceValues(self, String attribute_name, float[] values) @inline {
+    int locIndex = self.getAttributeLocation(stringTozstring(attribute_name));
+    assert(locIndex >= 0, "Shader attribute location not found: %s", attribute_name);
+
+    // NOTE(HM) this is used to set a shader attribute value array
+    // if the shader is invalid it will do nothing
+    if(rl::isShaderValid(self)) {
+        rl::setShaderValueV(self, locIndex, (void*)values.ptr, rl::ShdUniTyp.FLOAT, values.len);
+    } else {
+        lgr::warning(Where.FILE, "Shader is invalid, unable to set value.");
+    }
+}
+
+fn void Shader.setUniformIntValue(self, String uniform_name, int value) @inline {
+    int locIndex = self.getUniformLocation(stringTozstring(uniform_name));
+    assert(locIndex >= 0, "Shader uniform location not found: %s", uniform_name);
+
+    // NOTE(HM) this is used to set a shader uniform value
+    // if the shader is invalid it will do nothing
+    if(rl::isShaderValid(self)) {
+        rl::setShaderValue(self, locIndex, (void*)&value, rl::ShdUniTyp.INT);
+    } else {
+        lgr::warning(Where.FILE, "Shader is invalid, unable to set value.");
+    }
+}
+
+fn void Shader.setAttributeIntValue(self, String attribute_name, int value) @inline {
+    int locIndex = self.getAttributeLocation(stringTozstring(attribute_name));
+    assert(locIndex >= 0, "Shader attribute location not found: %s", attribute_name);
+
+    // NOTE(HM) this is used to set a shader attribute value
+    // if the shader is invalid it will do nothing
+    if(rl::isShaderValid(self)) {
+        rl::setShaderValue(self, locIndex, (void*)&value, rl::ShdUniTyp.INT);
+    } else {
+        lgr::warning(Where.FILE, "Shader is invalid, unable to set value.");
+    }
+}
+
+fn void Shader.setUniformIntSliceValues(self, String uniform_name, int[] values) @inline {
+    int locIndex = self.getUniformLocation(stringTozstring(uniform_name));
+    assert(locIndex >= 0, "Shader uniform location not found: %s", uniform_name);
+
+    // NOTE(HM) this is used to set a shader uniform value array
+    // if the shader is invalid it will do nothing
+    if(rl::isShaderValid(self)) {
+        rl::setShaderValueV(self, locIndex, (void*)values.ptr, rl::ShdUniTyp.INT, values.len);
+    } else {
+        lgr::warning(Where.FILE, "Shader is invalid, unable to set value.");
+    }
+}
+
+fn void Shader.setAttributeIntSliceValues(self, String attribute_name, int[] values) @inline {
+    int locIndex = self.getAttributeLocation(stringTozstring(attribute_name));
+    assert(locIndex >= 0, "Shader attribute location not found: %s", attribute_name);
+
+    // NOTE(HM) this is used to set a shader attribute value array
+    // if the shader is invalid it will do nothing
+    if(rl::isShaderValid(self)) {
+        rl::setShaderValueV(self, locIndex, (void*)values.ptr, rl::ShdUniTyp.INT, values.len);
+    } else {
+        lgr::warning(Where.FILE, "Shader is invalid, unable to set value.");
+    }
+}
+
+fn void Shader.setUniformVector2Value(self, String uniform_name, Vector2 vec) @inline {
+    int locIndex = self.getUniformLocation(stringTozstring(uniform_name));
+    assert(locIndex >= 0, "Shader uniform location not found: %s", uniform_name);
+
+    // NOTE(HM) this is used to set a shader uniform value vector2
+    // if the shader is invalid it will do nothing
+    if(rl::isShaderValid(self)) {
+        rl::setShaderValueV(self, locIndex, (void*)&vec, rl::ShdUniTyp.VEC2, 1);
+    } else {
+        lgr::warning(Where.FILE, "Shader is invalid, unable to set value.");
+    }
+}
+
+fn void Shader.setAttributeVector2Value(self, String attribute_name, Vector2 vec) @inline {
+    int locIndex = self.getAttributeLocation(stringTozstring(attribute_name));
+    assert(locIndex >= 0, "Shader attribute location not found: %s", attribute_name);
+
+    // NOTE(HM) this is used to set a shader attribute value vector2
+    // if the shader is invalid it will do nothing
+    if(rl::isShaderValid(self)) {
+        rl::setShaderValueV(self, locIndex, (void*)&vec, rl::ShdUniTyp.VEC2, 1);
+    } else {
+        lgr::warning(Where.FILE, "Shader is invalid, unable to set value.");
+    }
+}
+
+fn void Shader.setAttributeLocValueV(self, int locIndex, float[] vec) @inline {
+    // NOTE(HM) this is used to set a shader attribute value vector2
+    // if the shader is invalid it will do nothing
+    if(rl::isShaderValid(self)) {
+        if(vec.len == 2) 
+        {
+            rl::setShaderValueV(self, self.locs[locIndex], (void*)vec.ptr, rl::ShdUniTyp.VEC2, 1);
+        } else if(vec.len == 3) {
+            rl::setShaderValueV(self, self.locs[locIndex], (void*)vec.ptr, rl::ShdUniTyp.VEC3, 1);
+        } else if(vec.len == 4) {   
+            rl::setShaderValueV(self, self.locs[locIndex], (void*)vec.ptr, rl::ShdUniTyp.VEC4, 1);
+        } else {
+            lgr::warning(Where.FILE, "Shader attribute value vector must be of size 2, 3 or 4.");
+        }
+    } else {
+        lgr::warning(Where.FILE, "Shader is invalid, unable to set value.");
+    }
+}
+
+fn void Shader.setUniformMatrixValue(self, String uniform_name, Matrix mat) @inline {
+    int locIndex = self.getUniformLocation(stringTozstring(uniform_name));
+    assert(locIndex >= 0, "Shader uniform location not found: %s", uniform_name);
+
+    // NOTE(HM) this is used to set a shader uniform value matrix
+    // if the shader is invalid it will do nothing
+    if(rl::isShaderValid(self)) {
+        rl::setShaderValueMatrix(self, locIndex, mat);
+    } else {
+        lgr::warning(Where.FILE, "Shader is invalid, unable to set value.");
+    }
+}
+
+fn void Shader.setUniformTexture(self, String uniform_name, Texture2D tex) @inline {
+    int locIndex = self.getUniformLocation(stringTozstring(uniform_name));
+    assert(locIndex >= 0, "Shader uniform location not found: %s", uniform_name);
+
+    // NOTE(HM) this is used to set a shader uniform value texture
+    // if the shader is invalid it will do nothing
+    if(rl::isShaderValid(self)) {
+        rl::setShaderValueTexture(self, locIndex, tex);
+    } else {
+        lgr::warning(Where.FILE, "Shader is invalid, unable to set value.");
+    }
+}
+
 //////////////////////////////////////////////////////////////////////////
 // #region String custom extension
 /////////////////////////////////////////////////////////////////////////
@@ -548,11 +818,18 @@ fn void main() {
 }
 */
 
-macro ZString stringTozstring(x) => x.tcopy();
+macro ZString stringTozstring(x) => x.zstr_copy(mem);
 macro ZString stringTotempzstring(x) => x.zstr_tcopy();
 macro String zstringTostring(x) => x.zstr_view();
 macro String zstringTotempstring(x) => string::tformat(x);
 macro String numbToStr(n) => string::new_format("%s", n);
+
+macro bool String.is_empty(self) {
+    if (self.len == 0) {
+        return true;
+    }
+    return false;
+}
 
 // NOTE(HM) helper-function that returns true if the character c is a directory separator
 //     on the current platform
