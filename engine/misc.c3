@@ -30,7 +30,7 @@ module engine::misc;
 
 // region C3 modules
 import std::io;
-import std::core::mem; // for malloc/new std::mem
+import std::core::mem, std::core::ascii;
 import std::io::file;
 import std::math;
 import std::collections;
@@ -530,12 +530,14 @@ macro Rectangle @recFromVecs(#vec1, #vec2) => (Rectangle) {#vec1.x, #vec1.y, #ve
 
 //////////////////// shader stuff /////////////////
 const String SHADER_INCLUDE = `
+// default vertex layout locations
 #define VERTEX_POSITION   0    // Shader location: vertex attribute: position
 #define VERTEX_TEXCOORD01 1    // Shader location: vertex attribute: texcoord01
-#define VERTEX_TEXCOORD02 2    // Shader location: vertex attribute: texcoord02
-#define VERTEX_NORMAL     3    // Shader location: vertex attribute: normal
+#define VERTEX_NORMAL     2    // Shader location: vertex attribute: normal
+#define VERTEX_COLOR      3    // Shader location: vertex attribute: color
 #define VERTEX_TANGENT    4    // Shader location: vertex attribute: tangent
-#define VERTEX_COLOR      5    // Shader location: vertex attribute: color
+#define VERTEX_TEXCOORD02 5    // Shader location: vertex attribute: texcoord02
+// matrix locations
 #define MATRIX_MVP        6    // Shader location: matrix uniform: model-view-projection
 #define MATRIX_VIEW       7    // Shader location: matrix uniform: view (camera transform)
 #define MATRIX_PROJECTION 8    // Shader location: matrix uniform: projection
@@ -545,6 +547,7 @@ const String SHADER_INCLUDE = `
 #define COLOR_DIFFUSE     12   // Shader location: vector uniform: diffuse color
 #define COLOR_SPECULAR    13   // Shader location: vector uniform: specular color
 #define COLOR_AMBIENT     14   // Shader location: vector uniform: ambient color
+// texture samplers
 #define MAP_ALBEDO        15   // Shader location: sampler2d texture: albedo (same as: SHADER_LOC_MAP_DIFFUSE)
 #define MAP_METALNESS     16   // Shader location: sampler2d texture: metalness (same as: SHADER_LOC_MAP_SPECULAR)
 #define MAP_NORMAL        17   // Shader location: sampler2d texture: normal
@@ -911,27 +914,28 @@ macro String[] cut_by_newline(str) {
     $endswitch
 }
 
-macro String[] cut_by_spaces(str) {
-	return str.tsplit(" ");
-}
+macro String[] cut_by_spaces(str) => str.tsplit(" ");
 
-macro void String.remove_spaces(&self) {
+macro void String.remove_spaces(&self) 
+{
+    *self = self.treplace(" ", ""); // remove all spaces
     // trim any white space at start and end leave only the middle if any
-    self = self.trim();
-    //
-    // now see if he still have spaces else do nothing
-    if(self.has_spaces()) {
-        char[] buffer;
-        usz count;
-        $foreach $i, $ch : self:
-            $if $ch != ' ':
-                buffer[$i] = $ch;
-            $endif
-        $endforeach
+    // self = self.trim();
+    // //
+    // // see if we still have spaces else do nothing
+    // if(self.has_spaces()) 
+    // {
+    //     char[] buffer;
+    //     usz count;
+    //     $foreach $i, $ch : self:
+    //         $if $ch != ' ':
+    //             buffer[$i] = $ch;
+    //         $endif
+    //     $endforeach
         
-        buffer[count] = '\0';
-        self.copy((String)buffer);
-    }
+    //     buffer[count] = '\0';
+    //     self.copy((String)buffer);
+    // }
 }
 
 // NOTE(HM) my own string improvement....
@@ -1038,7 +1042,7 @@ fn int String.count_spaces(&self) @inline {
     return count;
 }
 
-fn bool String.has_spaces(&self) {
+fn bool String.has_spaces(&self) @inline {
     if(self.count_spaces() > 0) return true;
     
     // else
@@ -1049,6 +1053,17 @@ fn bool String.has_spaces(&self) {
 // #region raw strings/ZString utils
 fn int ZString.count_spaces(&self) @inline {
     return self.str_view().count_spaces();
+}
+
+fn bool ZString.has_spaces(self, int* out_count) @inline {
+    char* src = self;
+    while(*src != '\0') 
+    {
+        if (ascii::is_space(*src)) (*out_count)++;
+        src++;
+    }
+
+    return ((*out_count) > 0) ? true : false;
 }
 // #endregion raw strings utils
 
@@ -1280,15 +1295,6 @@ macro reverse_digits(num)
             if (isspace(*src)) out_count += 1;
             src++;
         }
-    }
-
-    fn int has_spaces( char* src) {
-        while (*src != '\0') {
-            if (isspace(*src)) return TRUE;
-            src++;
-        }
-
-        return FALSE;
     }
     //
 

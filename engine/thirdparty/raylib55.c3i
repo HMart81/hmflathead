@@ -541,11 +541,11 @@ $assert(MtlMapIndex.ALBEDO.ordinal == 0);
 enum ShdLocInd : inline int (String str)
 {
     VERTEX_POSITION   = "vertexPosition",  // Shader location: vertex attribute: position
-    VERTEX_TEXCOORD01 = "vertexTexCoord",  // Shader location: vertex attribute: texcoord01
-    VERTEX_TEXCOORD02 = "vertexTexCoord2",  // Shader location: vertex attribute: texcoord02
+    VERTEX_TEXCOORD01 = "vertexTexCoord1",  // Shader location: vertex attribute: texcoord01
     VERTEX_NORMAL     = "vertexNormal",  // Shader location: vertex attribute: normal
-    VERTEX_TANGENT    = "vertexTangent",  // Shader location: vertex attribute: tangent
     VERTEX_COLOR      = "vertexColor",  // Shader location: vertex attribute: color
+    VERTEX_TANGENT    = "vertexTangent",  // Shader location: vertex attribute: tangent
+    VERTEX_TEXCOORD02 = "vertexTexCoord2",  // Shader location: vertex attribute: texcoord02
     MATRIX_MVP        = "mvp",  // Shader location: matrix uniform: model-view-projection
     MATRIX_VIEW       = "matView",  // Shader location: matrix uniform: view (camera transform)
     MATRIX_PROJECTION = "matProjection",  // Shader location: matrix uniform: projection
@@ -583,7 +583,7 @@ locations, so you don't have to set them manually.
 They are defined inside raylib/src/config.h
 
 #define RL_DEFAULT_SHADER_ATTRIB_NAME_POSITION     "vertexPosition"    // Binded by default to shader location: 0
-#define RL_DEFAULT_SHADER_ATTRIB_NAME_TEXCOORD     "vertexTexCoord"    // Binded by default to shader location: 1
+#define RL_DEFAULT_SHADER_ATTRIB_NAME_TEXCOORD     "vertexTexCoord1"    // Binded by default to shader location: 1
 #define RL_DEFAULT_SHADER_ATTRIB_NAME_NORMAL       "vertexNormal"      // Binded by default to shader location: 2
 #define RL_DEFAULT_SHADER_ATTRIB_NAME_COLOR        "vertexColor"       // Binded by default to shader location: 3
 #define RL_DEFAULT_SHADER_ATTRIB_NAME_TANGENT      "vertexTangent"     // Binded by default to shader location: 4
@@ -718,10 +718,42 @@ enum BlendMode : inline int
     ADD_COLORS,               // Blend textures adding colors (alternative)
     SUBTRACT_COLORS,          // Blend textures subtracting colors (alternative)
     ALPHA_PREMUL,             // Blend premultiplied textures considering alpha
-    CUSTOM                    // Blend textures using custom src/dst factors (use rlSetBlendMode())
+    CUSTOM                    // Blend textures using custom src/dst factors (use setBlendMode(CUSTOM))
 }
 
 $assert(BlendMode.ALPHA.ordinal == 0);
+
+// GL blending factors
+const RL_ZERO                      = 0;           // GL_ZERO
+const RL_ONE                       = 1;           // GL_ONE
+const RL_SRC_COLOR                 = 0x0300;      // GL_SRC_COLOR
+const RL_ONE_MINUS_SRC_COLOR       = 0x0301;      // GL_ONE_MINUS_SRC_COLOR
+const RL_SRC_ALPHA                 = 0x0302;      // GL_SRC_ALPHA
+const RL_ONE_MINUS_SRC_ALPHA       = 0x0303;      // GL_ONE_MINUS_SRC_ALPHA
+const RL_DST_ALPHA                 = 0x0304;      // GL_DST_ALPHA
+const RL_ONE_MINUS_DST_ALPHA       = 0x0305;      // GL_ONE_MINUS_DST_ALPHA
+const RL_DST_COLOR                 = 0x0306;      // GL_DST_COLOR
+const RL_ONE_MINUS_DST_COLOR       = 0x0307;      // GL_ONE_MINUS_DST_COLOR
+const RL_SRC_ALPHA_SATURATE        = 0x0308;      // GL_SRC_ALPHA_SATURATE
+const RL_CONSTANT_COLOR            = 0x8001;      // GL_CONSTANT_COLOR
+const RL_ONE_MINUS_CONSTANT_COLOR  = 0x8002;      // GL_ONE_MINUS_CONSTANT_COLOR
+const RL_CONSTANT_ALPHA            = 0x8003;      // GL_CONSTANT_ALPHA
+const RL_ONE_MINUS_CONSTANT_ALPHA  = 0x8004;      // GL_ONE_MINUS_CONSTANT_ALPHA
+
+// GL blending functions/equations
+const RL_FUNC_ADD                  = 0x8006;      // GL_FUNC_ADD
+const RL_MIN                       = 0x8007;      // GL_MIN
+const RL_MAX                       = 0x8008;      // GL_MAX
+const RL_FUNC_SUBTRACT             = 0x800A;      // GL_FUNC_SUBTRACT
+const RL_FUNC_REVERSE_SUBTRACT     = 0x800B;      // GL_FUNC_REVERSE_SUBTRACT
+const RL_BLEND_EQUATION            = 0x8009;      // GL_BLEND_EQUATION
+const RL_BLEND_EQUATION_RGB        = 0x8009;      // GL_BLEND_EQUATION_RGB   // (Same as BLEND_EQUATION)
+const RL_BLEND_EQUATION_ALPHA      = 0x883D;      // GL_BLEND_EQUATION_ALPHA
+const RL_BLEND_DST_RGB             = 0x80C8;      // GL_BLEND_DST_RGB
+const RL_BLEND_SRC_RGB             = 0x80C9;      // GL_BLEND_SRC_RGB
+const RL_BLEND_DST_ALPHA           = 0x80CA;      // GL_BLEND_DST_ALPHA
+const RL_BLEND_SRC_ALPHA           = 0x80CB;      // GL_BLEND_SRC_ALPHA
+const RL_BLEND_COLOR               = 0x8005;      // GL_BLEND_COLOR
 
 
 // Camera system modes
@@ -834,6 +866,8 @@ fn void beginShaderMode(Shader shader) @extern("BeginShaderMode");              
 fn void endShaderMode() @extern("EndShaderMode");                                          // End custom shader drawing (use default shader)
 fn void beginBlendMode(int mode) @extern("BeginBlendMode");                                // Begin blending mode (alpha, additive, multiplied, subtract, custom)
 fn void endBlendMode() @extern("EndBlendMode");                                            // End blending mode (reset to default: alpha blending)
+fn void setBlendMode(int mode) @extern("rlSetBlendMode");                                  // Set blending mode
+fn void setBlendFactors(int glSrcFactor, int glDstFactor, int glEquation) @extern("rlSetBlendFactors"); // Set blending mode factor and equation (using OpenGL factors)
 fn void beginScissorMode(int x, int y, int w, int h) @extern("BeginScissorMode");          // Begin scissor mode (define screen area for following drawing)
 fn void endScissorMode() @extern("EndScissorMode");                                        // End scissor mode
 fn void beginVrStereoMode(VrStereoConfig config) @extern("BeginVrStereoMode");            // Begin stereo rendering (requires VR simulator)
@@ -858,6 +892,13 @@ fn void setShaderValueV(Shader shader, int locIndex, void* value, int uniformTyp
 fn void setShaderValueMatrix(Shader shader, int locIndex, Matrix mat) @extern("SetShaderValueMatrix"); // Set shader uniform value (matrix 4x4)
 fn void setShaderValueTexture(Shader shader, int locIndex, Texture2D texture) @extern("SetShaderValueTexture"); // Set shader uniform value for texture (sampler2d)
 fn void unloadShader(Shader shader) @extern("UnloadShader");                                // Unload shader from GPU memory (VRAM)
+
+//
+fn void Shader.setValue(self, int locIndex, void* value, int uniformType) @extern("SetShaderValue"); // Set shader uniform value
+fn void Shader.setValueV(self, int locIndex, void* value, int uniformType, int count) @extern("SetShaderValueV");   // Set shader uniform value vector
+fn void Shader.setValueMatrix(self, int locIndex, Matrix mat) @extern("SetShaderValueMatrix"); // Set shader uniform value (matrix 4x4)
+fn void Shader.setValueTexture(self, int locIndex, Texture2D texture) @extern("SetShaderValueTexture"); // Set shader uniform value for texture (sampler2d)
+fn void Shader.unload(self) @extern("UnloadShader");                                // Unload shader from GPU memory (VRAM)
 
 // Screen-space-related functions
 //#define GetMouseRay GetScreenToWorldRay     // Compatibility hack for previous raylib versions

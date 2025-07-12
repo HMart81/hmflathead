@@ -44,6 +44,7 @@ import thirdparty::raygui5::rgui;
 import thirdparty::raylib5::rmath;
 import game::serialize::svs; // save system
 import game::lowlevel::bounds;
+import game::material::mat;
 import engine::logging::lgr;
 import engine::physics::box2d;
 // end_region
@@ -498,6 +499,10 @@ fn B2AABBox RenderView.fromBoundsToPhysicsAABB(&self)
 	return bb;
 }
 
+
+
+int old_sort @local; // used to sort the sprites by their sort value
+
 <*
     This renders the game world into a framebuffer layer.
     This is the main game rendering function, it draws all the game sprites and entities
@@ -523,14 +528,32 @@ $endif
             foreach(sprite : main::gpGame.sprites)
             {
                 if(sprite.kind == SpriteKind.CURSOR) { continue; } // skip game cursor sprite
-                else
-                {
-                    bool out_of_view = !view.bounds.intersectsOther(&sprite.bounds);
-                    if(out_of_view) {
-                        sprite.hide();
-                    } else if(sprite.hidden()) { 
-                        sprite.show(); 
-                    } else {
+                
+                 bool out_of_view = !view.bounds.intersectsOther(&sprite.bounds);
+                if(out_of_view) {
+                    sprite.hide();
+                } else if(sprite.hidden()) { 
+                    sprite.show(); 
+                } else {
+                    if(sprite.hasMaterial())
+                    {
+                        int sort = sprite.mat.sort;
+                        if(sort <= old_sort) 
+                        {
+                            // draw opaque sprites first
+                            if(sprite.mat.flags.has_AlphaTest == false && *sprite != mat::COVERAGE_TRANSLUCENT) 
+                            { 
+                                sprite.draw();
+                            } 
+                            else 
+                            {
+                                sprite.draw();
+                            }
+                        }
+                        old_sort = sort;
+                    }
+                    else
+                    {
                         sprite.draw();
                     }
                 }

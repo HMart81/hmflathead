@@ -1287,12 +1287,13 @@ $endif
         // draw the view FBO's
         if(rl::isShaderValid(*local_game.current_global_shader)) 
         {
-            rl::beginShaderMode(*local_game.current_global_shader);
-                
+            rl::@shaderMode(*local_game.current_global_shader) 
+            {
                 local_game.view.draw();
-                
-            rl::endShaderMode();
-        } else {
+            };
+        } 
+        else 
+        {
             // render using raylib default shader
             local_game.view.draw();
         }

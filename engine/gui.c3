@@ -366,12 +366,12 @@ fn void Panel.draw(&self, bool selected = false)
         Color color = (selected) ? self.selected_color : self.mat.getStage(mat::STAGE_DIFFUSE).color;
 
         BlendMode blending;
-        switch (self.mat.coverage)
+        switch //
         {
-            case MatMC.OPAQUE: break; // do nothing here
-            case MatMC.PERFORATED:
+            case (bool)(self.mat.coverage & mat::COVERAGE_OPAQUE): break; // do nothing here
+            case (bool)(self.mat.coverage & mat::COVERAGE_PERFORATED):
                 blending = BlendMode.ALPHA;
-            case MatMC.TRANSLUCENT:
+            case (bool)(self.mat.coverage & mat::COVERAGE_TRANSLUCENT):
                 blending = BlendMode.ALPHA_PREMUL;
                 if(color.a >= 1.0f)
 				{
@@ -385,7 +385,9 @@ fn void Panel.draw(&self, bool selected = false)
 					color.g = (char)math::floor((g * a) * 255);
 					color.b = (char)math::floor((b * a) * 255);
 				}
-            case MatMC.BAD:
+            case (bool)(self.mat.coverage & (mat::COVERAGE_PERFORATED | mat::COVERAGE_TRANSLUCENT)):
+                blending = BlendMode.CUSTOM; // custom blending mode
+            case (bool)(self.mat.coverage & mat::COVERAGE_BAD):
                 lgr::error(Where.FILE, "Panel with material %s has a bad material coverage type.", self.mat.name);
                 unreachable();
         }
@@ -394,6 +396,13 @@ fn void Panel.draw(&self, bool selected = false)
         {
             case BlendMode.ALPHA:
             case BlendMode.ALPHA_PREMUL:
+                rl::@blendMode(blending)
+                {
+                    rl::drawTexturePro(*texture, source, *dist, {0, 0}, 0.0f, color);
+                };
+            case BlendMode.CUSTOM:
+                rl::setBlendMode(rl::BlendMode.CUSTOM);
+                rl::setBlendFactors(rl::RL_ONE, rl::RL_ONE_MINUS_SRC_ALPHA, rl::RL_FUNC_ADD);
                 rl::@blendMode(blending)
                 {
                     rl::drawTexturePro(*texture, source, *dist, {0, 0}, 0.0f, color);

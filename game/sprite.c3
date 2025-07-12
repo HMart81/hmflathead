@@ -158,6 +158,23 @@ fn bool Sprite.equal(&self, Sprite* other) //@operator(==)
             self.color == other.color);
 }
 
+<*
+ @param coverage : "the coverage to compare with"
+ @require self.mat != null
+*>
+fn bool Sprite.equalcoverage(&self, Coverage coverage) @operator(==)
+{
+    return (bool)(self.mat.coverage & coverage);
+}
+
+<*
+ @param coverage : "the coverage to compare with"
+ @require self.mat != null
+*>
+fn bool Sprite.nequalcoverage(&self, Coverage coverage) @operator(!=)
+{
+    return (bool)((bool)(self.mat.coverage & coverage) == false);
+}
 
 // WARNING(HM) setSize and scale are diferent things!!!
 <*
@@ -368,14 +385,14 @@ fn void Sprite.draw(&self)  @inline
             Color color = self.mat.getStage(mat::STAGE_DIFFUSE).color;
 
             BlendMode blending;
-            switch (self.mat.coverage)
+            switch
             {
-                case MatMC.OPAQUE: break; // do nothing here
-                case MatMC.PERFORATED:
+                case *self == mat::COVERAGE_OPAQUE: break; // do nothing here
+                case *self == mat::COVERAGE_PERFORATED && *self != mat::COVERAGE_TRANSLUCENT:
                     blending = BlendMode.ALPHA;
-                case MatMC.TRANSLUCENT:
+                case *self == mat::COVERAGE_TRANSLUCENT && *self != mat::COVERAGE_PERFORATED:
                     blending = BlendMode.ALPHA_PREMUL;
-                    if(color.a >= 1.0f)
+                    if(color.a == 255) // if the color is not transparent
                     {
                         color.a = 128; // half transparent
                         float r = misc::@mapValueRangeToOther(color.r, 0, 255, 0.0f, 1.0f);
@@ -387,7 +404,9 @@ fn void Sprite.draw(&self)  @inline
                         color.g = (char)math::floor((g * a) * 255);
                         color.b = (char)math::floor((b * a) * 255);
                     }
-                case MatMC.BAD:
+                case *self == mat::COVERAGE_TRANSLUCENT && *self == mat::COVERAGE_PERFORATED:
+                    blending = BlendMode.CUSTOM; // use the custom blending mode
+                case *self == mat::COVERAGE_BAD:
                     lgr::error(Where.FILE, "Panel with material %s has a bad material coverage type.", self.mat.name);
                     unreachable();
             }
@@ -398,6 +417,15 @@ fn void Sprite.draw(&self)  @inline
                 case BlendMode.ALPHA_PREMUL:
                     rl::@blendMode(blending)
                     {
+                        rl::drawTexturePro(*texture, source, *dist, {0, 0}, 0.0f, color);
+                    };
+                case BlendMode.CUSTOM:
+                    rl::setBlendMode(rl::BlendMode.CUSTOM);
+                    rl::setBlendFactors(rl::RL_ONE, rl::RL_ONE_MINUS_SRC_ALPHA, rl::RL_FUNC_ADD);
+                    rl::@blendMode(blending)
+                    {
+                        // NOTE(HM) center of the texture (rotation/scale point), 
+                        // it's relative to destination rectangle dimentions, not the screen dimentions.
                         rl::drawTexturePro(*texture, source, *dist, {0, 0}, 0.0f, color);
                     };
                 default: // opaque unless the image has invisible pixels...

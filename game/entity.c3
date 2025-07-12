@@ -309,6 +309,16 @@ fn void Entity.updateBoundsPos(&self, Vec2f pos) @inline
 	// self.axis.m01 = st;
 // }
 
+fn bool Entity.equalcoverage(&self, Coverage coverage) @operator(==)
+{
+    return self.vs == coverage;
+}
+
+fn bool Entity.nequalcoverage(&self, Coverage coverage) @operator(!=)
+{
+    return self.vs != coverage;
+}
+
 fn bool Entity.isdead(&self) @inline
 {
 	return (self.alive) ? false : true;
@@ -442,14 +452,15 @@ fn void Entity.draw(&self)
 		Color color = self.vs.mat.getStage(mat::STAGE_DIFFUSE).color;
 
         BlendMode blending;
-        switch (self.vs.mat.coverage)
+        switch //(self.vs.mat.coverage)
         {
-            case MatMC.OPAQUE: break; // do nothing here
-            case MatMC.PERFORATED:
+            case *self == mat::COVERAGE_OPAQUE:
+				break; // do nothing here
+            case *self == mat::COVERAGE_PERFORATED && *self != mat::COVERAGE_TRANSLUCENT:
                 blending = BlendMode.ALPHA;
-            case MatMC.TRANSLUCENT:
+            case *self == mat::COVERAGE_TRANSLUCENT && *self != mat::COVERAGE_PERFORATED:
                 blending = BlendMode.ALPHA_PREMUL;
-                if(color.a >= 1.0f)
+                if(color.a == 255) // if the color is not transparent
 				{
 					color.a = 128; // half transparent
 					float r = misc::@mapValueRangeToOther(color.r, 0, 255, 0.0f, 1.0f);
@@ -461,7 +472,9 @@ fn void Entity.draw(&self)
 					color.g = (char)math::floor((g * a) * 255);
 					color.b = (char)math::floor((b * a) * 255);
 				}
-            case MatMC.BAD:
+			case *self == mat::COVERAGE_TRANSLUCENT && *self == mat::COVERAGE_PERFORATED:
+				blending = BlendMode.CUSTOM; // use the custom blending mode					
+            case *self == mat::COVERAGE_BAD:
                 lgr::error(Where.FILE, "Entity material %s has a bad material coverage type.", self.vs.mat.name);
                 unreachable();
         }
@@ -474,7 +487,17 @@ fn void Entity.draw(&self)
                 {
                     rl::drawTexturePro(*texture, source, *dist, {0, 0}, 0.0f, color);
                 };
-            default: // opaque unless the image has invisible pixels...
+			case BlendMode.CUSTOM:
+				rl::setBlendMode(rl::BlendMode.CUSTOM);
+				// setBlendFactors(int glSrcFactor, int glDstFactor, int glEquation)
+				rl::setBlendFactors(rl::RL_SRC_ALPHA, rl::RL_ONE_MINUS_SRC_ALPHA, rl::RL_FUNC_ADD);
+				rl::@blendMode(blending)
+				{
+					// NOTE(HM) center of the texture (rotation/scale point), 
+					// it's relative to destination rectangle dimentions, not the screen dimentions.
+					rl::drawTexturePro(*texture, source, *dist, {0, 0}, 0.0f, color);
+				};
+            default: // draw opaque unless the image has invisible pixels...
                 // NOTE(HM) center of the texture (rotation/scale point), 
                 // it's relative to destination rectangle dimentions, not the screen dimentions.
                 rl::drawTexturePro(*texture, source, *dist, {0, 0}, 0.0f, color);

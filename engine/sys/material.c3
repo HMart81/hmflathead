@@ -108,7 +108,7 @@ struct MaterialStage
 <*
     @param [&in] node : "node we are looking at"
 *>
-fn void MaterialStage.register_args(&self, XmlNode* node)
+fn void MaterialStage.register_args(&self, XmlNode* node) @deprecated
 {
     if(node.hasAttributes() == false) return;
 
@@ -120,60 +120,6 @@ fn void MaterialStage.register_args(&self, XmlNode* node)
     }
 }
 
-<*
-    @param [&in] node : "current node we are parsing"
-    @param [inout] mat : "the material we belong to"
-    @require mat != null
-*>
-fn void MaterialStage.handle_args(&self, XmlNode* node, HMaterial* mat)
-{
-    //io::printfn("START parsing stage '%s' arguments:", node.name);
-    MaterialStage* stage = self;
-
-    foreach (arg : stage.args)
-    {
-       if(arg == null) continue;
-       
-       switch(arg.first)
-       {
-        case NodeAttrib.CLAMP:
-        case NodeAttrib.ALPHA:
-            float alpha = misc::clamp01f(arg.second.to_float()!!);
-             // multiply previous alpha values by our new value
-            if(alpha > 0.0f && alpha < 1.0f) {
-                stage.color.a = (char)(math::floor(misc::@mapValueRangeToOther(stage.color.a, 0, 255, 0.0f, 1.0f) * alpha)) * 255;
-                // set the material coverage to match
-                mat.coverage = MatMC.TRANSLUCENT;
-            }
-            // if (rl::isTextureValid(self.tex))
-            // {
-            //     // get current GPU VRAM image into RAM for easy manipulation
-            //     Image image = rl::loadImageFromTexture(self.tex);
-               
-            //     // create a alpha mask from the new alpha channel data
-            //     Image imageAlpha = rl::imageFromChannel(image, 3);
-            //     // apply its data to the entire image
-            //     rl::imageAlphaMask(&image, imageAlpha);
-            //     //
-            //     // clear older GPU VRAM image data
-            //     rl::unloadTexture(self.tex);
-            //     // load the new data to GPU VRAM
-            //     self.tex = rl::loadTextureFromImage(image);
-            // }
-        case NodeAttrib.TILE_H:
-        case NodeAttrib.TILE_V:
-        case NodeAttrib.SCROLL_X:
-        case NodeAttrib.SCROLL_Y:
-        case NodeAttrib.TRANSLATE_X:
-        case NodeAttrib.TRANSLATE_Y:
-           io::printfn("  %s = %s,", arg.first, arg.second);
-        default:
-           io::printfn("Unnused stage argument '%s' found in node '%s' of material '%s' in file '%s'!", arg.first, node.name, mat.name, mat.mtrfile.path);
-       }
-    }
-    //io::printfn("END parsing stage '%s' arguments:", node.name);
-}
-
 fn void MaterialStage.loadTexture(&self, String path) @inline
 {
     self.tex = misc::loadTexture(path);
@@ -181,10 +127,15 @@ fn void MaterialStage.loadTexture(&self, String path) @inline
 
 fn void MaterialStage.clear(&self)
 {
-    rl::unloadTexture(self.tex);
-    foreach (arg : self.args)
+    if(rl::isTextureValid(self.tex)) rl::unloadTexture(self.tex);
+    if(self.args.len() > 0)
     {
-       if(arg != null) mem::free(arg);
+        // NOTE(HM) free all the arguments in the list
+        foreach (arg : self.args)
+        {
+            if(arg != null) mem::free(arg);
+        }
+        self.args.clear();
     }
 }
 
@@ -194,13 +145,12 @@ struct MaterialVideoStage
     inline MaterialStage super;
 }
 
-enum MatMC @public //Material Coverage
-{
-	BAD,
-	OPAQUE,			// completely fills the triangle
-	PERFORATED,		// may have alpha tested holes
-	TRANSLUCENT		// blended with background
-}
+alias Coverage @public = int; //Material Coverage
+const Coverage COVERAGE_BAD         @public = 0; // invalid coverage type
+const Coverage COVERAGE_OPAQUE      @public = 1; // completely fills the triangle
+const Coverage COVERAGE_PERFORATED  @public = 2; // may have alpha tested holes
+const Coverage COVERAGE_TRANSLUCENT	@public = 4; // blended with background
+
 
 // contents flags used to mark entities in the game, max 31 bits
 enum Contents : int (inline int flag)
@@ -256,27 +206,17 @@ struct HMaterial  (SaveSystemInterface) @public
     String name;
     String comment;
     
-    MatMC coverage;
-    Contents contentes;
+    uint sort; // sort value for this material, used to sort materials by their sort value, lower values are rendered first
+    Coverage coverage;
+    int contentes;
     Flags flags;
 
     Shader shader; // shader used by this material, if any
     
     MaterialStage[MAX_STAGE_INDICES] maps;
-
-    //////////////////////// for the future...
-    //MaterialStage normal;
-    //MaterialStage spec;
-    //Texture2D* bump;
-    //Texture2D* rough;
-    //Texture2D* metal;
-    //Texture2D* ao;
-    //Texture2D* cube;
-    //shdshd::Sound* sound;
-    ///////////////////////
     
-    // NOTE(HM) Perhaps this should be a string with the mtr path in it, not a pointer to some data in memory,
-    // that could be freed anytime?
+    // NOTE(HM) Perhaps this should be a string with the mtr path in it, 
+    // not a pointer to some data in memory, that could be freed anytime...
     MTRFile* mtrfile;  // pointer to mtr data in memory where this material is defined
 }
 
@@ -290,10 +230,10 @@ fn void HMaterial.reload(&self, SaveFile* file) @dynamic @public {
 
 fn void HMaterial.init(&self) @public
 {
-	self.coverage = MatMC.OPAQUE;
+	self.coverage |= COVERAGE_OPAQUE;
     // TODO(HM) solve this stuff with c3 enums not being able to be used as flags
     // use constants instead of enums for this?
-    //self.contentes |= (Contents.SOLID.flag & Contents.OPAQUE.flag);
+    self.contentes |= (Contents.SOLID.flag | Contents.OPAQUE.flag);
     self.comment  = "<no comment>";
     self.getStage(mat::STAGE_DIFFUSE).color = rl::WHITE;
 
@@ -310,8 +250,7 @@ fn void HMaterial.free(&self) @public
     if(self.shader.isValid()) 
     {
         Shader* default_shader = main::getDefaultShader();
-        if(self.shader.id != default_shader.id && 
-           self.shader.locs != default_shader.locs) { 
+        if(self.shader.id != default_shader.id && self.shader.id > 0) { 
             rl::unloadShader(self.shader);
         }
     }
@@ -325,8 +264,36 @@ fn void HMaterial.setShader(&self, Shader shader) @inline @public
 // @untested
 fn void HMaterial.copy(&self, HMaterial* other)
 {
-	self.getStage(mat::STAGE_DIFFUSE).tex = *other.getTexture(mat::STAGE_DIFFUSE);
-    self.getStage(mat::STAGE_DIFFUSE).args.add_all(&other.getStage(mat::STAGE_DIFFUSE).args);
+    if(other == null) {
+        lgr::error(Where.FILE, "Cannot copy material from null pointer!");
+        return;
+    }
+    
+    // NOTE(HM) Perhaps this should be a string with the mtr path in it, 
+    // not a pointer to some data in memory, that could be freed anytime...
+    MTRFile* mtrfile;  // pointer to mtr data in memory where this material is defined
+    self.name = other.name.tcopy();
+    self.comment = other.comment.tcopy();
+    self.coverage = other.coverage;
+    self.contentes = other.contentes;
+    self.flags = other.flags;
+    self.shader = other.shader; // NOTE(HM) this will copy the shader id, not the shader itself, so it is safe to do this
+    self.mtrfile = other.mtrfile; // NOTE(HM) this will copy the pointer, not the data itself, so it is safe to do this
+    // copy the material stages
+    for (int index = 0; index < MAX_STAGE_INDICES; index++)
+    {
+        MaterialStage* stage = self.getStage(index);
+        MaterialStage* other_stage = other.getStage(index);
+        stage.tex = other_stage.tex; // NOTE(HM) this will copy the texture id, not the texture itself, so it is safe to do this
+        stage.color = other_stage.color;
+        stage.args.clear();
+        foreach (arg : other_stage.args)
+        {
+            if(arg != null) stage.args.push(mem::new(StageArgument, {arg.first.tcopy(), arg.second.tcopy()}));
+        }
+    }
+	//self.getStage(mat::STAGE_DIFFUSE).tex = *other.getTexture(mat::STAGE_DIFFUSE);
+    //self.getStage(mat::STAGE_DIFFUSE).args.add_all(&other.getStage(mat::STAGE_DIFFUSE).args);
 }
 
 <*
@@ -381,7 +348,6 @@ fn void HMaterial.parse_node_atributes(&self, XmlNode* node) @public
 {
     if(node.hasAttributes() == false) return;
 
-    //io::printfn("START parsing node '%s' attributes:", node.name);
     foreach (atrb : node.attributes)
     {
        if(atrb == null) continue;
@@ -389,14 +355,7 @@ fn void HMaterial.parse_node_atributes(&self, XmlNode* node) @public
        switch(atrb.name)
        {
         case NodeAttrib.NAME:
-            if(node.name == "MATERIAL") continue; // name atrribute is handled seperately
-            nextcase default;
-        case NodeAttrib.TRANSLUCENT:
-            if(atrb.value == "1") {
-                self.coverage = MatMC.TRANSLUCENT;
-            } else {
-                self.coverage = MatMC.OPAQUE;
-            }
+            if(node.name == "MATERIAL") break; // MATERIAL name atrribute is handled seperately
         case NodeAttrib.PATH:
         case NodeAttrib.KIND:
            io::printfn("  %s = %s,", atrb.name, atrb.value);
@@ -404,7 +363,6 @@ fn void HMaterial.parse_node_atributes(&self, XmlNode* node) @public
            io::printfn("Unnused attribute '%s' found in node '%s' of material '%s' in file '%s'!", atrb.name, node.name, self.name, self.mtrfile.path);
        }
     }
-    //io::printfn("END parsing node '%s' attributes:", node.name);
 }
 
 <*
@@ -438,12 +396,13 @@ fn void HMaterial.parse_maps(&self, XmlNode* maps_node) @public
                             }
                         case mtr::isXmlNode(child, Node.COLOR):
                             self.getStage(STAGE_DIFFUSE).color = mtr::xmlStrColorToColor(child.getText());
-                        case mtr::isXmlNode(child, Node.ARGS):
-                            if(child.hasAttributes()) 
-                            {
-                                self.getStage(STAGE_DIFFUSE).register_args(child);
-                                self.getStage(STAGE_DIFFUSE).handle_args(child, self);
-                            }
+                        case mtr::isXmlNode(child, Node.KEYWORD):
+                            self.parse_keyword(child);
+                            // if(child.hasAttributes()) 
+                            // {
+                            //     self.getStage(STAGE_DIFFUSE).register_args(child);
+                            //     self.getStage(STAGE_DIFFUSE).handle_args(child, self);
+                            // }
                         default:
                             unreachable("Invalid node: %s child for material node %s.", child.name, node.name);
                     }
@@ -497,12 +456,299 @@ fn void HMaterial.parse_comment(&self, XmlNode* node) @inline @public
 <*
     @param [&in] node : "node to get data from"
 *>
+fn void HMaterial.parse_keyword(&self, XmlNode* node) @public
+{
+    String keyword = node.getText();
+    if(keyword.is_empty()) {
+        lgr::warning(Where.FILE, "Material '%s' in file '%s' has a empty keyword node!", self.name, self.mtrfile.path);
+        return;
+    }
+
+    if(keyword.has_spaces()) {
+        //keyword = keyword.treplace(" ", ""); // remove spaces from the keyword
+        keyword.remove_spaces(); // remove spaces from the keyword
+    }
+
+    StageArgument arg;
+    if(keyword.contains("="))
+    {
+        // split the keyword by the '=' character
+        // NOTE(HM) this is a simple way to parse key=value pairs, but it is not very robust
+        // perhaps we should use a more robust parser in the future?
+        // for now, we will just split the string and use the first part as the key and the second part as the value
+        String[] data = keyword.tsplit("=");
+        assert(data.len > 0, "Invalid keyword '%s' found in material '%s' in file '%s'!", keyword, self.name, self.mtrfile.path);
+        assert(data[0].len > 0, "Invalid keyword '%s' found in material '%s' in file '%s'! Value before = is empty!", keyword, self.name, self.mtrfile.path);
+        assert(data[1].len > 0, "Invalid keyword '%s' found in material '%s' in file '%s'! Value after = is empty!", keyword, self.name, self.mtrfile.path);
+        arg.first = data[0].tcopy();
+        arg.second = data[1].tcopy();
+    }
+    else
+    {
+        // else, just use the keyword as the key and an empty string as the value
+        arg.first = keyword.tcopy();
+        //arg.second = "";
+    }
+
+    switch (arg.first)
+    {
+        case NodeKeyword.TRANSLUCENT.str:
+            if(self.coverage & COVERAGE_OPAQUE) self.coverage &= ~COVERAGE_OPAQUE; // remove opaque coverage
+            self.coverage |= COVERAGE_TRANSLUCENT;
+        case NodeKeyword.ALPHA.str:
+            self.flags.has_AlphaTest = true;
+            if (self.coverage & COVERAGE_OPAQUE) self.coverage &= ~COVERAGE_OPAQUE; // remove opaque coverage
+            self.coverage |= COVERAGE_PERFORATED;
+            float alpha = misc::clamp01f(arg.second.to_float()!!);
+             // multiply previous alpha values by our new value
+            if(alpha > 0.0f && alpha < 1.0f) {
+                // set the material coverage to match
+                if ((bool)(self.coverage & COVERAGE_TRANSLUCENT) == false) self.coverage |= COVERAGE_TRANSLUCENT;
+            }
+            MaterialStage* stage = self.getStage(STAGE_DIFFUSE);
+            stage.color.a = (char)misc::@mapValueRangeToOther(alpha, 0.0f, 1.0f, 0, 255);
+        case NodeKeyword.SORT.str:
+            self.sort = arg.second.to_uint()!!;
+        case NodeKeyword.CLAMP.str:
+        case NodeKeyword.ALPHAZEROCLAMP.str:
+        case NodeKeyword.TILE_H:
+        case NodeKeyword.TILE_V:
+        case NodeKeyword.SCROLL_X:
+        case NodeKeyword.SCROLL_Y:
+        case NodeKeyword.TRANSLATE_X:
+        case NodeKeyword.TRANSLATE_Y:
+            @todo();
+        default:
+            lgr::warning(Where.FILE, "Unknown keyword '%s' found in material '%s' in file '%s'!", keyword, self.name, self.mtrfile.path);
+    }
+}
+
+<*
+    @param [&in] node : "node to get data from"
+*>
 fn void HMaterial.parse_sound(&self, XmlNode* node) @inline @public
 {
    self.parse_node_atributes(node);
             
    // TODO make sound shaders
    //self.sound = astmng::assetManager.getSound(sound_shader_name);
+}
+
+
+enum ShaderLayoutLocation : inline int
+{
+    VERTEX_POSITION,    // layout location: 0
+    VERTEX_TEXCOORD01,  // layout location: 1
+    VERTEX_NORMAL,      // layout location: 2
+    VERTEX_COLOR,       // layout location: 3
+    VERTEX_TANGENT,     // layout location: 4
+    VERTEX_TEXCOORD02,  // layout location: 5
+}
+
+struct ShaderVertexAttribute
+{
+    ShaderLayoutLocation loc; // layout location of the attribute set in the material
+    ShaderAttributeDataType type; // type of the attribute
+}
+
+struct ShaderUniform
+{
+    String id; // name of the uniform
+    ShdUniTyp type; // type of the uniform
+}
+
+<*
+    @param [&in] child : "node to get data from"
+    @param [&inout] shader : "shader to set the vertex attribute for"
+*>
+fn void HMaterial.parse_vertex_attribute(&self, XmlNode* child, Shader* shader)
+{
+    // NOTE(HM) this is a node that defines a vertex attribute for the shader
+    // it should have attributes like type, location and value
+    if(child.hasAttributes())
+    {
+        ShaderVertexAttribute attrb;
+        foreach NODE: (atrb : child.attributes)
+        {
+            switch(atrb.name)
+            {
+                case NodeAttrib.TYPE:
+                    switch(atrb.value)
+                    {
+                        case "float":
+                            attrb.type = ShaderAttributeDataType.FLOAT;
+                        case "vec2":
+                            attrb.type = ShaderAttributeDataType.VEC2;
+                        case "vec3":
+                            attrb.type = ShaderAttributeDataType.VEC3;
+                        case "vec4":
+                            attrb.type = ShaderAttributeDataType.VEC4;
+                        default:
+                            lgr::error(Where.FILE, "Invalid type '%s' for attribute '%s' in node '%s' of material '%s' in file '%s'!", 
+                                atrb.value, atrb.name, child.name, self.name, self.mtrfile.path);
+                            break NODE; // continue to the next node
+                    }
+                case NodeAttrib.LOCATION:
+                    int loc = atrb.value.to_int()!!;
+                    attrb.loc = ShaderLayoutLocation.from_ordinal(loc);
+                    if(loc < 0 || loc >= 6) 
+                    {
+                        lgr::error(Where.FILE, "Invalid value '%d' for attribute '%s' in node '%s' of material '%s' in file '%s'!", 
+                                loc, atrb.name, child.name, self.name, self.mtrfile.path);
+                        break NODE; // continue to the next node
+                    }
+                case NodeAttrib.VALUE:
+                    if(atrb.value == "-1") break NODE; // -1 means no value, skip all
+                    // else
+                    /*
+                    String attrb_id;
+                    switch(attrb.loc)
+                    {
+                        case VERTEX_POSITION:   attrb_id = ShdLocInd.VERTEX_POSITION.str;
+                        case VERTEX_TEXCOORD01: attrb_id = ShdLocInd.VERTEX_TEXCOORD01.str;
+                        case VERTEX_NORMAL:     attrb_id = ShdLocInd.VERTEX_NORMAL.str;
+                        case VERTEX_COLOR:      attrb_id = ShdLocInd.VERTEX_COLOR.str;
+                        case VERTEX_TANGENT:    attrb_id = ShdLocInd.VERTEX_TANGENT.str;
+                        case VERTEX_TEXCOORD02: attrb_id = ShdLocInd.VERTEX_TEXCOORD02.str;
+                        default:
+                            lgr::error(Where.FILE, "Invalid stage index '%d' for attribute '%s' in node '%s' of material '%s' in file '%s'!", 
+                                loc, atrb.name, node.name, self.name, self.mtrfile.path);
+                            continue NODE; // continue to the next node
+                    }
+
+                    shader.locs[loc] = shader.getAttributeLocation(attrb_id);
+                    */
+
+                    int loc = attrb.loc.ordinal;
+                    switch(attrb.type)
+                    {
+                        case ShaderAttributeDataType.FLOAT:
+                            float f = atrb.value.to_float()!!;
+                            if(f == 0.0f) {
+                                lgr::error(Where.FILE, "Invalid value '%s' for attribute '%s' in node '%s' of material '%s' in file '%s'!", 
+                                    atrb.value, atrb.name, child.name, self.name, self.mtrfile.path);
+                                break NODE; // continue to the next node
+                            }
+                            shader.setValue(loc, (void*)&f, ShaderAttributeDataType.FLOAT.ordinal);
+                        case ShaderAttributeDataType.VEC2:
+                            Vec2f vec2 = getVector2FromString(atrb.value);
+                            if(vec2.x == 0.0f && vec2.y == 0.0f) {
+                                lgr::error(Where.FILE, "Invalid value '%s' for attribute '%s' in node '%s' of material '%s' in file '%s'!", 
+                                    atrb.value, atrb.name, child.name, self.name, self.mtrfile.path);
+                                break NODE; // continue to the next node
+                            }
+                            float[*] arr = {vec2.x, vec2.y};
+                            shader.setValueV(loc, (void*)&arr, ShaderAttributeDataType.VEC2.ordinal, 1);
+                        case ShaderAttributeDataType.VEC3:
+                            Vec3f vec3 = getVector3FromString(atrb.value);
+                            if(vec3.x == 0.0f && vec3.y == 0.0f && vec3.z == 0.0f) {
+                                lgr::error(Where.FILE, "Invalid value '%s' for attribute '%s' in node '%s' of material '%s' in file '%s'!", 
+                                    atrb.value, atrb.name, child.name, self.name, self.mtrfile.path);
+                                break NODE; // continue to the next node
+                            }
+                            float[*] arr = {vec3.x, vec3.y, vec3.z};
+                            shader.setValueV(loc, (void*)&arr, ShaderAttributeDataType.VEC3.ordinal, 1);
+                        case ShaderAttributeDataType.VEC4:
+                            Vec4f vec4 = getVector4FromString(atrb.value);
+                            if(vec4.x == 0.0f && vec4.y == 0.0f && vec4.z == 0.0f && vec4.w == 0.0f) {
+                                lgr::error(Where.FILE, "Invalid value '%s' for attribute '%s' in node '%s' of material '%s' in file '%s'!", 
+                                    atrb.value, atrb.name, child.name, self.name, self.mtrfile.path);
+                                break NODE; // continue to the next node
+                            }
+                            float[*] arr = {vec4.x, vec4.y, vec4.z, vec4.w};
+                            shader.setValueV(loc, (void*)&arr, ShaderAttributeDataType.VEC4.ordinal, 1);
+                        default:
+                            lgr::error(Where.FILE, "Invalid type '%s' for attribute '%s' in node '%s' of material '%s' in file '%s'!", 
+                                atrb.value, atrb.name, child.name, self.name, self.mtrfile.path);
+                            break NODE; // continue to the next node
+                    }
+                default:
+                    io::printfn("Unnused attribute '%s' found in node '%s' of material '%s' in file '%s'!", atrb.name, child.name, self.name, self.mtrfile.path);
+            }
+        }
+    }
+    else 
+    {
+        lgr::warning(Where.FILE, "Vertex attribute node '%s' in material '%s' in file '%s' has no attributes!", child.name, self.name, self.mtrfile.path);
+    }
+}
+
+<*
+    @param [&in] child : "node to get data from"
+    @param [&inout] shader : "shader to set the uniform for"
+*>
+fn void HMaterial.parse_uniform(&self, XmlNode* child, Shader* shader)
+{
+    if(child.hasAttributes())
+    {
+        ShaderUniform uniform;
+        foreach NODE: (atrb : child.attributes)
+        {
+            switch(atrb.name)
+            {
+                case NodeAttrib.ID:
+                    uniform.id = atrb.value.tcopy();
+                case NodeAttrib.TYPE:
+                    switch(atrb.value)
+                    {
+                        case "float":
+                            uniform.type = ShdUniTyp.FLOAT;
+                        case "vec2":
+                            uniform.type = ShdUniTyp.VEC2;
+                        case "vec3":
+                            uniform.type = ShdUniTyp.VEC3;
+                        case "vec4":
+                            uniform.type = ShdUniTyp.VEC4;
+                        case "sampler2D":
+                            uniform.type = ShdUniTyp.SAMPLER2D;
+                        default:
+                            lgr::error(Where.FILE, "Invalid type '%s' for uniform '%s' in node '%s' of material '%s' in file '%s'!", 
+                                atrb.value, atrb.name, child.name, self.name, self.mtrfile.path);
+                            break NODE; // continue to the next node
+                    }
+                case NodeAttrib.VALUE:
+                    if(atrb.value == "-1") break NODE; // continue to the next node
+                    // else
+                    int loc = shader.getUniformLocation(uniform.id.zstr_tcopy());
+                    switch(uniform.type)
+                    {
+                        case ShdUniTyp.FLOAT:
+                            float f = atrb.value.to_float()!!;
+                            shader.setValue(loc, (void*)&f, ShdUniTyp.FLOAT.ordinal);
+                        case ShdUniTyp.VEC2:
+                            Vec2f vec2 = getVector2FromString(atrb.value);
+                            shader.setValueV(loc, (void*)&&((float[2]){vec2.x, vec2.y}), ShdUniTyp.VEC2.ordinal, 1);
+                        case ShdUniTyp.VEC3:
+                            Vec3f vec3 = getVector3FromString(atrb.value);
+                            shader.setValueV(loc, (void*)&&((float[3]){vec3.x, vec3.y, vec3.z}), ShdUniTyp.VEC3.ordinal, 1);
+                        case ShdUniTyp.VEC4:
+                            Vec4f vec4 = getVector4FromString(atrb.value);
+                            shader.setValueV(loc, (void*)&&((float[4]){vec4.x, vec4.y, vec4.z, vec4.w}), ShdUniTyp.VEC4.ordinal, 1);
+                        case ShdUniTyp.SAMPLER2D:
+                            Texture2D tex = *astmng::assetManager.getTexture(atrb.value);
+                            if(!rl::isTextureValid(tex)) {
+                                lgr::error(Where.FILE, "Failed to load texture '%s' for sampler2D uniform '%s' in node '%s' of material '%s' in file '%s'!", 
+                                    atrb.value, uniform.id, child.name,
+                                    self.name, self.mtrfile.path);
+                                break NODE; // continue to the next node
+                            }
+                            shader.setValueTexture(loc, tex);
+                        default:
+                            lgr::error(Where.FILE, "Invalid value '%s' for uniform '%s' in node '%s' of material '%s' in file '%s'!", 
+                                atrb.value, uniform.id, child.name, self.name, self.mtrfile.path);
+                            break NODE; // continue to the next node
+                }
+                default:
+                    lgr::error(Where.FILE, "Invalid shader uniform type '%s' for uniform '%s' in node '%s' of material '%s' in file '%s'!", 
+                                uniform.type, uniform.id, child.name, self.name, self.mtrfile.path);
+                    break NODE; // continue to the next node
+            }
+        }
+    }
+    else
+    {
+        lgr::warning(Where.FILE, "shader uniform node '%s' in material '%s' in file '%s' has no attributes!", child.name, self.name, self.mtrfile.path);
+    }
 }
 
 <*
@@ -517,28 +763,6 @@ fn void HMaterial.parse_shader(&self, XmlNode* node) @inline @public
         lgr::warning(Where.FILE, "Material '%s' in file '%s' has a shader node but no path for it defined!", self.name, self.mtrfile.path);
         return;
     }
-
-    // // load the shader from the path
-    // char[] to_trim;
-    // uint count = (uint)shader_path.count("/");
-    // if(count > 1) 
-    // {
-    //    usz? index;
-    //    while(count) 
-    //    {
-    //        index = shader_path.index_of_char_from('/', index);
-    //        if(catch excuse = index) {
-    //             lgr::error(Where.FILE, "Failed to find shader path '%s' for material '%s' in file '%s'! with excuse: %s", shader_path, self.name, self.mtrfile.path, excuse);
-    //             return;
-    //        }
-    //        to_trim = shader_path[:index + 1];
-    //        count--;
-    //    }
-    // } 
-    // else
-    // {
-    //     to_trim = shader_path[:shader_path.index_of_char('/') + 1]!!;
-    // }
 
     // NOTE(HM) I'm appending the extension here just as a placeholder, to make it easy to get the shader name.
     String shader_name = fs::getFileNameWithoutExt(shader_path.tconcat(".fs"));
@@ -556,137 +780,21 @@ fn void HMaterial.parse_shader(&self, XmlNode* node) @inline @public
         {
             switch
             {
-                /*
-                <vertex_attribute loc="0" value="-1" />
-                <vertex_attribute loc="1" value="-1" />
-                <vertex_attribute loc="2" value="-1" />
-                <vertex_attribute loc="3" value="-1" />
-                <uniform id="somename" value="-1" />
-                <texture2D map="" />
-                <texture3D map="" />
-                */
                 case child.name == Node.VERTEX_ATTRIBUTE.str:
-                    if(child.hasAttributes())
-                    {
-                        foreach (atrb : child.attributes)
-                        {
-                            int loc = -1;
-                            switch(atrb.name)
-                            {
-                                case NodeAttrib.LOCATION: // only for shaders
-                                    loc = atrb.value.to_int()!!;
-                                    if(loc < 0 || loc >= MAX_STAGE_INDICES) {
-                                        lgr::error(Where.FILE, "Invalid value '%d' for attribute '%s' in node '%s' of material '%s' in file '%s'!", 
-                                                loc, atrb.name, node.name, self.name, self.mtrfile.path);
-                                        continue;
-                                    }
-                                case NodeAttrib.VALUE:
-                                    if(atrb.value == "-1") continue; // -1 means no value, skip this attribute
-                                    // else
-                                    ShdLocInd loc_ind = ShdLocInd.from_ordinal(loc);
-                                    bool is_vector2, is_vector3, is_color, is_matrix;
-                                    switch(loc_ind)
-                                    {
-                                        case VERTEX_POSITION:
-                                            is_vector3 = true;
-                                            shader.locs[loc] = shader.getAttributeLocation(ShdLocInd.VERTEX_POSITION.str);
-                                        case VERTEX_TEXCOORD01:
-                                            is_vector2 = true;
-                                            shader.locs[loc] = shader.getAttributeLocation(ShdLocInd.VERTEX_TEXCOORD01.str);
-                                        case VERTEX_TEXCOORD02:
-                                            is_vector2 = true;
-                                            shader.locs[loc] = shader.getAttributeLocation(ShdLocInd.VERTEX_TEXCOORD02.str);
-                                        case VERTEX_NORMAL:
-                                            is_vector3 = true;
-                                            shader.locs[loc] = shader.getAttributeLocation(ShdLocInd.VERTEX_NORMAL.str);
-                                        case VERTEX_TANGENT:
-                                            is_vector3 = true;
-                                            shader.locs[loc] = shader.getAttributeLocation(ShdLocInd.VERTEX_TANGENT.str);
-                                        case VERTEX_COLOR:
-                                            is_color = true;
-                                            shader.locs[loc] = shader.getAttributeLocation(ShdLocInd.VERTEX_COLOR.str);
-                                        case MATRIX_MVP:
-                                        case MATRIX_VIEW:
-                                        case MATRIX_PROJECTION:
-                                        case MATRIX_MODEL:      
-                                        case MATRIX_NORMAL:     
-                                        case VECTOR_VIEW:       
-                                        case COLOR_DIFFUSE:     
-                                        case COLOR_SPECULAR:    
-                                        case COLOR_AMBIENT:     
-                                        case MAP_ALBEDO:        
-                                        case MAP_METALNESS:     
-                                        case MAP_NORMAL:        
-                                        case MAP_ROUGHNESS:     
-                                        case MAP_OCCLUSION:     
-                                        case MAP_EMISSION:      
-                                        case MAP_HEIGHT:        
-                                        case MAP_CUBEMAP:       
-                                        case MAP_IRRADIANCE:    
-                                        case MAP_PREFILTER:     
-                                        case MAP_BRDF:          
-                                        case DEPTH0:            
-                                        case DEPTH1:            
-                                        case DEPTH2:            
-                                        case DEPTH3:            
-                                            @todo();
-                                        default:
-                                            lgr::error(Where.FILE, "Invalid stage index '%d' for attribute '%s' in node '%s' of material '%s' in file '%s'!", 
-                                                loc, atrb.name, node.name, self.name, self.mtrfile.path);
-                                    }
-
-                                    Vector2 pos;
-                                    if(is_vector2) 
-                                    {
-                                        pos = getVector2FromString(atrb.value);
-                                        if(pos.x == 0.0f && pos.y == 0.0f) {
-                                            lgr::error(Where.FILE, "Invalid value '%s' for attribute '%s' in node '%s' of material '%s' in file '%s'!", 
-                                                atrb.value, atrb.name, node.name, self.name, self.mtrfile.path);
-                                            continue;
-                                        }
-                                        float[*] arr = {pos.x, pos.y};
-                                        shader.setAttributeLocValueV(loc, arr[..]);
-                                    }
-                                    if(is_vector3) 
-                                    {
-                                        pos = getVector2FromString(atrb.value);
-                                        if(pos.x == 0.0f && pos.y == 0.0f) {
-                                            lgr::error(Where.FILE, "Invalid value '%s' for attribute '%s' in node '%s' of material '%s' in file '%s'!", 
-                                                atrb.value, atrb.name, node.name, self.name, self.mtrfile.path);
-                                            continue;
-                                        }
-                                        Vec3f pos3 = {pos.x, pos.y, 0.0f}; // assuming z is 0 for 2D attributes
-                                        shader.setAttributeLocValueV(loc, pos3[..]);
-                                    }
-                                    else if(is_color) 
-                                    {
-                                        Color color = getColorFromString(atrb.value);
-                                        float[*] color_arr = {(float)color.r, (float)color.g, (float)color.b, (float)color.a};
-                                        shader.setAttributeLocValueV(loc, color_arr[..]);
-                                    }
-                                    else if(is_matrix) 
-                                    {
-                                        @todo();
-                                    }
-                                default:
-                                io::printfn("Unnused attribute '%s' found in node '%s' of material '%s' in file '%s'!", atrb.name, node.name, self.name, self.mtrfile.path);
-                            }
-                        }
-                    }
-                    else 
-                    {
-                        lgr::warning(Where.FILE, "Vertex attribute node '%s' in material '%s' in file '%s' has no attributes!", child.name, self.name, self.mtrfile.path);
-                    }
+                    self.parse_vertex_attribute(child, &shader);
+                case child.name == Node.UNIFORM.str:
+                    self.parse_uniform(child, &shader);
                 default:
                     lgr::warning(Where.FILE, "Unnused shader node '%s' found in material '%s' in file '%s'!", child.name, self.name, self.mtrfile.path);
             }
         }
     }
 
+    assert(shader.isValid(), "Shader '%s' is not valid for material '%s' in file '%s'!", shader_name, self.name, self.mtrfile.path);
     self.setShader(shader);
 }
 
-fn Vector2 getVector2FromString(String str) @inline @local
+fn Vec2f getVector2FromString(String str) @inline @local
 {
     String[] slice = str.tsplit(", ");
     if(slice.len == 0) {
@@ -698,6 +806,46 @@ fn Vector2 getVector2FromString(String str) @inline @local
         return {x, x}; // use the same value for both x and y
     } else if(slice.len == 2) {
         return {slice[0].to_float()!!, slice[1].to_float()!!};
+    }
+
+    return {};
+}
+
+fn Vec3f getVector3FromString(String str) @inline @local
+{
+    String[] slice = str.tsplit(", ");
+    if(slice.len == 0) {
+        return {};
+    }
+
+    if(slice.len == 1) {
+        float x = slice[0].to_float()!!;
+        return {x, x, x}; // use the same value for x, y and z
+    } else if(slice.len == 2) {
+        return {slice[0].to_float()!!, slice[1].to_float()!!, 0.0f}; // z is 0.0f
+    } else if(slice.len == 3) {
+        return {slice[0].to_float()!!, slice[1].to_float()!!, slice[2].to_float()!!};
+    }
+
+    return {};
+}
+
+fn Vec4f getVector4FromString(String str) @inline @local
+{
+    String[] slice = str.tsplit(", ");
+    if(slice.len == 0) {
+        return {};
+    }
+
+    if(slice.len == 1) {
+        float x = slice[0].to_float()!!;
+        return {x, x, x, 1.0f}; // use the same value for x, y and z, w is 1.0f
+    } else if(slice.len == 2) {
+        return {slice[0].to_float()!!, slice[1].to_float()!!, 0.0f, 1.0f}; // z is 0.0f, w is 1.0f
+    } else if(slice.len == 3) {
+        return {slice[0].to_float()!!, slice[1].to_float()!!, slice[2].to_float()!!, 1.0f}; // w is 1.0f
+    } else if(slice.len == 4) {
+        return {slice[0].to_float()!!, slice[1].to_float()!!, slice[2].to_float()!!, slice[3].to_float()!!};
     }
 
     return {};
@@ -773,7 +921,7 @@ enum Node : int (inline String str) @public
     MAPS             = "maps",
     MAP              = "map",
     VIDEO_MAP        = "video_map",
-    ARGS             = "args",
+    KEYWORD          = "keyword", // global or stage keywords
     COLOR            = "color",
     ALBEDO           = "albedo",
     NORMAL           = "normal",
@@ -781,9 +929,7 @@ enum Node : int (inline String str) @public
     SOUND            = "sound",
     SHADER           = "shader",
     VERTEX_ATTRIBUTE = "vertex_attribute",
-    UNIFORM          = "uniform",
-    TEXTURE2D        = "texture2D",
-    TEXTURE3D        = "texture3D",
+    UNIFORM          = "uniform"
 }
 
 <*
@@ -791,6 +937,21 @@ enum Node : int (inline String str) @public
 *>
 fn bool isXmlNode(XmlNode* node, Node kind) @inline @public => (node.name == kind.str) ? true : false;
 
+enum NodeKeyword : int (inline String str) @public
+{
+    // general
+    TRANSLUCENT    = "translucent",
+    CLAMP          = "clamp",
+    ALPHAZEROCLAMP = "alphazeroclamp",   // prevents the alpha channel of this material from tiling by forcing 100% opacity outside normalized UV coordinates
+    SORT           = "sort",             // used to sort materials by their sort value, lower values are rendered first
+    ALPHA          = "alpha",
+    TILE_H         = "tileH",
+    TILE_V         = "tileV",
+    SCROLL_X       = "scrollX",
+    SCROLL_Y       = "scrollY",
+    TRANSLATE_X    = "translateX",
+    TRANSLATE_Y    = "translateY",
+}
 
 // NOTE(HM) This represents the atributes assigned to a xml node
 enum NodeAttrib : int (inline String str) @public
@@ -800,21 +961,12 @@ enum NodeAttrib : int (inline String str) @public
     VERSION     = "version",
     PATH        = "path",
     KIND        = "kind",
-    TRANSLUCENT = "translucent",
 
     // shader specific
     LOCATION    = "loc", // shader location for the attribute
     VALUE       = "value", // used for vertex attributes and uniforms
-
-    // map arguments
-    CLAMP       = "clamp",
-    TILE_H      = "tileH",
-    TILE_V      = "tileV",
-    SCROLL_X    = "scrollX",
-    SCROLL_Y    = "scrollY",
-    TRANSLATE_X = "translateX",
-    TRANSLATE_Y = "translateY",
-    ALPHA       = "alpha"
+    TYPE        = "type", // used for vertex attributes and uniforms
+    ID          = "id", // used for uniforms
 }
 
 // NOTE(HM) This is the data structure represents a material file, it contains a list of materials and their data
@@ -973,7 +1125,8 @@ fn bool? MTRFile.parse(&self, XmlDoc* doc)
     return true;
 }
 
-// @Performance This will probably be very slow with many mtr files and material definitions...
+// @Performance This will probably be very slow with many mtr files 
+// and material definitions...
 fn bool check_material_existance(String name)
 {
     MaterialDataBase* mtr_db = &main::gpGame.mtrDB;
@@ -1006,7 +1159,8 @@ fn HMaterial* MTRFile.parse_material(&self, XmlNode* in_node)
         return null;
     }
     
-    if (mat_name == "")
+    bool empty_name = mat_name == "" || mat_name.len == 0;
+    if (empty_name)
     {
         lgr::error(Where.FILE, "material with empty or no name in %s\n", self.path);
         mat.free();
@@ -1014,7 +1168,7 @@ fn HMaterial* MTRFile.parse_material(&self, XmlNode* in_node)
         return null;
     }
 
-    // check if the material name already exists in the game
+    // check if the material name already exists in the database
     if(check_material_existance(mat_name) == true)
     {
         lgr::warning(Where.FILE, "material with name '%s' already exists in %s\n", mat_name, self.path);
@@ -1028,9 +1182,11 @@ fn HMaterial* MTRFile.parse_material(&self, XmlNode* in_node)
     mat.mtrfile = self; // set the material file pointer to this mtr file
     
     // parse extra material attributes if any
-    if(in_node.hasAttributes()) mat.parse_node_atributes(in_node);
+    mat.parse_node_atributes(in_node);
 
-    // start parsing the material child nodes
+    /////////////////////////////////////////////
+    // NOTE(HM) this is the main part of the material parsing, where we parse all the child nodes of the material node
+    // and set the material data accordingly
     foreach (node : in_node.children)
     {
        // just in case...
@@ -1039,24 +1195,27 @@ fn HMaterial* MTRFile.parse_material(&self, XmlNode* in_node)
             continue;
        }
 
-       //(node.name == kind.str)
        switch(node.name)
        {
-            // free text nodes are not supported
             case Node.TEXT.str:
-                // this is a text node, so we just skip it, as it should not be here
-                // TODO(HM) handle this better, maybe by removing it from the xml doc?
+                // NOTE(HM) free text nodes are not supported here, so we just skip them
+                /*
+                <MATERIAL name="somename">
+                    some free text here, that should not be here
+                <maps>
+                    <albedo>
+                        <map>images/icons/stickman.png</map>
+                        <keyword>alpha=0.5</keyword>
+                    </albedo>
+                </maps>
+                </MATERIAL>
+                */
                 lgr::warning(Where.FILE, "Unexpected text node found in material '%s'! Text = '%s' ", mat.name, node.value);
                 continue;
             case Node.COMMENT.str: 
                 mat.parse_comment(node);
-            case Node.ARGS.str: 
-                if(node.hasAttributes() == true) {
-                    mat.parse_node_atributes(node);
-                } else {
-                    lgr::warning(Where.FILE, "Malformed node '%s' found in material '%s', expected attributes.", node.name, mat.name);
-                }
-                continue;
+            case Node.KEYWORD.str: 
+                mat.parse_keyword(node);
             case Node.MAPS.str: 
                 mat.parse_maps(node);
                 continue;
