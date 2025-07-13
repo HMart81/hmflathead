@@ -542,19 +542,35 @@ $endif
                         {
                             // draw opaque sprites first
                             if(sprite.mat.flags.has_AlphaTest == false && *sprite != mat::COVERAGE_TRANSLUCENT) 
-                            { 
-                                sprite.draw();
-                            } 
-                            else 
                             {
-                                sprite.draw();
+                                if(sprite.mat.shader.isValid()) 
+                                {
+                                    rl::@shaderMode(sprite.mat.shader) // draw using the sprite shader
+                                    {
+                                        sprite.draw();
+                                    };
+                                } else { // draw using the default shader
+                                    sprite.draw();
+                                }
+                            } 
+                            else // draw translucent sprites
+                            {
+                                if(sprite.mat.shader.isValid()) 
+                                {
+                                    rl::@shaderMode(sprite.mat.shader) // draw using the sprite shader
+                                    {
+                                        sprite.draw();
+                                    };
+                                } else { // draw using the default shader
+                                    sprite.draw();
+                                }
                             }
                         }
                         old_sort = sort;
                     }
                     else
                     {
-                        sprite.draw();
+                        sprite.draw(); // draw using the default shader
                     }
                 }
             }

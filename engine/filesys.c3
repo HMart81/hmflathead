@@ -283,14 +283,18 @@ fn Path? newPath(String _path)
 
 //////////////////////////////////////////////////////////////////////
 //--------------------------------------------------------
+module engine::filesystem::fs::win32 @if(env::WIN32);
+import std::io;
+import std::os::env, std::os::win32;
+import engine::logging::lgr;
 
 // region WIN32 (Windows)
-enum SystemPath : int @if(env::WIN32)
+enum SystemPath : int
 {
     PERSONAL
 }
 
-enum HResult : int (Win32_HRESULT val, String disc) @if(env::WIN32) @local {
+enum HResult : int (Win32_HRESULT val, String disc) @local {
     S_OK           = {(Win32_HRESULT)0x00000000, "Operation successful"},
     E_ABORT        = {(Win32_HRESULT)0x80004004, "Operation aborted"},
     E_ACCESSDENIED = {(Win32_HRESULT)0x80070005, "General access denied error"},
@@ -304,7 +308,7 @@ enum HResult : int (Win32_HRESULT val, String disc) @if(env::WIN32) @local {
     E_UNEXPECTED   = {(Win32_HRESULT)0x8000FFFF, "Unexpected failure"}
 }
 
-enum KnownFolderFlag : int (Win32_DWORD val) @if(env::WIN32) @local {
+enum KnownFolderFlag : int (Win32_DWORD val) @local {
   DEFAULT                          = 0x00000000,
   FORCE_APP_DATA_REDIRECTION       = 0x00080000,
   RETURN_FILTER_REDIRECTION_TARGET = 0x00040000,
@@ -341,15 +345,246 @@ fn String OSversionInfo.to_constant_string(&self) @dynamic
 
 //--------------------------------------------------------
 
-alias Win32_REFKNOWNFOLDERID @if(env::WIN32) = Win32_GUID;
-const Win32_REFKNOWNFOLDERID  HOME_FOLDER @if(env::WIN32) = {0x4c5c32ff, 0xbb9d, 0x43b0, {0xb5, 0xb4, 0x2d, 0x72, 0xe5, 0x4e, 0xaa, 0xa4}};
+alias Win32_REFKNOWNFOLDERID = Win32_GUID;
+const Win32_REFKNOWNFOLDERID  HOME_FOLDER = {0x4c5c32ff, 0xbb9d, 0x43b0, {0xb5, 0xb4, 0x2d, 0x72, 0xe5, 0x4e, 0xaa, 0xa4}};
 alias FOLDERID_SAVEDGAMES = HOME_FOLDER;
 
 extern fn HResult win32GetKnownFolderPath(Win32_REFKNOWNFOLDERID rfid, Win32_DWORD dwFlags, Win32_HANDLE hToken /*null*/, Win32_PWSTR *ppszPath /*out*/) @extern("SHGetKnownFolderPath") @if(env::WIN32);
-//extern fn bool isWindowsVistaOrGreater() @extern("IsWindowsVistaOrGreater") @if(env::WIN32);
-extern fn int win32GetVersion(OSversionInfoPrt lpVersionInformation) @extern("RtlGetVersion") @if(env::WIN32);
+//extern fn bool isWindowsVistaOrGreater() @extern("IsWindowsVistaOrGreater");
+extern fn int win32GetVersion(OSversionInfoPrt lpVersionInformation) @extern("RtlGetVersion");
 extern fn int copyFileA( Win32_LPCSTR lpExistingFileName, Win32_LPCSTR lpNewFileName, Win32_BOOL bFailIfExists ) @extern("CopyFileA");
 // end_region WIN32 (Windows)
+
+extern fn Win32_DWORD_PTR setThreadAffinityMask( Win32_HANDLE hThread, Win32_DWORD_PTR dwThreadAffinityMask) @extern("SetThreadAffinityMask");
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+// Win32 registry constants and types
+// These constants and types are used for Windows registry operations.
+const Win32_HKEY HKEY_CURRENT_USER = &&0x80000001;
+
+const Win32_DWORD REG_OPTION_NON_VOLATILE   = 0x00000000L;  // default option for registry keys
+const Win32_DWORD REG_OPTION_VOLATILE       = 0x00000001L;  // option for volatile registry keys
+const Win32_DWORD REG_OPTION_CREATE_LINK    = 0x00000002L;  // option for creating symbolic links in registry (Registry symbolic links should only be used for application compatibility when absolutely necessary.)
+const Win32_DWORD REG_OPTION_BACKUP_RESTORE = 0x00000004L;
+
+const Win32_DWORD STANDARD_RIGHTS_WRITE   = 0x00020000;
+const Win32_DWORD STANDARD_RIGHTS_READ    = STANDARD_RIGHTS_WRITE;
+const Win32_UINT16 KEY_SET_VALUE          = 0x0002;
+const Win32_UINT16 KEY_QUERY_VALUE        = 0x0001;      // allows querying of values in the key
+const Win32_UINT16 KEY_CREATE_SUB_KEY     = 0x0004;
+const Win32_UINT16 KEY_ENUMERATE_SUB_KEYS = 0x0008;      // allows enumeration of subkeys
+const Win32_UINT16 KEY_NOTIFY             = 0x0010;      // allows notification of changes to the key
+const Win32_DWORD WIN32_KEY_READ  = STANDARD_RIGHTS_READ | KEY_QUERY_VALUE | KEY_ENUMERATE_SUB_KEYS | KEY_NOTIFY;  // read access to registry keys
+const Win32_DWORD WIN32_KEY_WRITE = STANDARD_RIGHTS_WRITE | KEY_SET_VALUE | KEY_CREATE_SUB_KEY;  // write access
+
+const Win32_DWORD REG_CREATED_NEW_KEY     = 0x00000001L;  // registry key was created
+const Win32_DWORD REG_OPENED_EXISTING_KEY = 0x00000002L;  // registry key already existed
+
+const Win32_INT64 ERROR_SUCCESS = 0x00000000_00000000;  // success code for registry operations
+alias Win32_LSTATUS = Win32_INT64; // alias for registry status codes
+
+alias Reg_SAM = Win32_DWORD; // registry security access mask type
+
+const Win32_DWORD32 REG_NONE          = 0x00000000;  // registry value type for no data
+const Win32_DWORD32 REG_SZ            = 0x00000001;  // registry value type for null-terminated string
+const Win32_DWORD32 REG_EXPAND_SZ     = 0x00000002;  // registry value type for expandable string
+const Win32_DWORD32 REG_BINARY        = 0x00000003;  // registry value type for binary data
+const Win32_DWORD32 REG_DWORD         = 0x00000004;  // registry value type for DWORD (32-bit unsigned integer)
+const Win32_DWORD32 REG_MULTI_SZ      = 0x00000007;  // registry value type for multiple null-terminated strings
+const Win32_DWORD32 REG_RESOURCE_LIST = 0x00000008;  // registry value type for resource list   
+const Win32_DWORD64 REG_QWORD         = 0x0000000b;  // registry value type for QWORD (64-bit unsigned integer)
+
+faultdef ERROR_REGISTRY_KEY_CREATION_FAILED,
+         ERROR_REGISTRY_KEY_OPEN_FAILED,
+         ERROR_REGISTRY_KEY_SET_VALUE_FAILED,
+         ERROR_REGISTRY_KEY_CLOSING_FAILED;
+
+/*
+LSTATUS RegOpenCurrentUser(
+  [in]  REGSAM samDesired,
+  [out] PHKEY  phkResult
+);
+*/
+extern fn Win32_LSTATUS regOpenCurrentUserEx(Reg_SAM desired, Win32_PHKEY result) @extern("RegOpenCurrentUser");
+fn Win32_PHKEY? regOpenCurrentUser(Reg_SAM desired) 
+{
+    Win32_PHKEY result;
+    // Attempt to open the current user registry key with the specified access rights
+    Win32_LSTATUS status = regOpenCurrentUserEx(desired, result);
+    if (status == ERROR_SUCCESS) {
+        return result; // Return the opened registry key handle (call regCloseKey to close it later)
+    }
+    return ERROR_REGISTRY_KEY_OPEN_FAILED?; // or handle the error as needed
+}
+
+/*
+LSTATUS RegOpenKeyExA(
+  [in]           HKEY   hKey,
+  [in, optional] LPCSTR lpSubKey,
+  [in]           DWORD  ulOptions,
+  [in]           REGSAM samDesired,
+  [out]          PHKEY  phkResult
+);
+*/
+extern fn Win32_LSTATUS regOpenKeyExA(Win32_HKEY key, Win32_LPCSTR sub_key, Win32_DWORD options, Reg_SAM desired, Win32_PHKEY result) @extern("RegOpenKeyExA");
+fn Win32_PHKEY? regOpenKey(Win32_HKEY key, Win32_LPCSTR sub_key, Win32_DWORD options, Reg_SAM desired) 
+{
+    Win32_PHKEY result;
+    // Attempt to open the specified registry key with the given access rights
+    Win32_LSTATUS status = regOpenKeyExA(key, sub_key, options, desired, result);
+    if (status == ERROR_SUCCESS) {
+        return result; // Return the opened registry key handle (call regCloseKey to close it later)
+    }
+    return ERROR_REGISTRY_KEY_OPEN_FAILED?; // or handle the error as needed
+}
+
+/*
+LSTATUS RegCreateKeyExA(
+  [in]            HKEY                        hKey,
+  [in]            LPCSTR                      lpSubKey,
+                  DWORD                       Reserved,
+  [in, optional]  LPSTR                       lpClass,
+  [in]            DWORD                       dwOptions,
+  [in]            REGSAM                      samDesired,
+  [in, optional]  const LPSECURITY_ATTRIBUTES lpSecurityAttributes,
+  [out]           PHKEY                       phkResult,
+  [out, optional] LPDWORD                     lpdwDisposition
+);
+*/
+extern fn Win32_LSTATUS regCreateKeyEx(Win32_HKEY key, Win32_LPCSTR sub_key, Win32_DWORD reserve, Win32_LPSTR class, 
+                       Win32_DWORD options, Reg_SAM desired, Win32_LPSECURITY_ATTRIBUTES securityAttributes,
+                       Win32_PHKEY  result, Win32_LPDWORD disposition) @extern("RegCreateKeyExA");
+
+fn bool? regCreateKey(Win32_HKEY key, Win32_LPCSTR sub_key, Win32_DWORD reserve, Win32_LPSTR class, 
+                       Win32_DWORD options, Reg_SAM desired, Win32_LPSECURITY_ATTRIBUTES securityAttributes,
+                       Win32_PHKEY  result, Win32_LPDWORD disposition)
+{
+    Win32_LSTATUS status = regCreateKeyEx(key, sub_key, reserve, class, options, desired, securityAttributes, result, disposition);
+    if (status == ERROR_SUCCESS) {
+        return true;
+    }
+
+    return ERROR_REGISTRY_KEY_CREATION_FAILED?; // or handle the error as needed
+}
+
+/*LSTATUS RegSetValueExA(
+  [in]           HKEY       hKey,        // a handle to an open registry key. The key must have been opened with the KEY_SET_VALUE access right.
+  [in, optional] LPCSTR     lpValueName,   // if is NULL or an empty string, "", the function sets the type and data for the key's unnamed or default
+                 DWORD      Reserved, // a reserved parameter, must be zero
+  [in]           DWORD      dwType,   // the type of data to be stored in the registry value. This parameter can be one of the following values:
+                                     // REG_NONE, REG_SZ, REG_EXPAND_SZ, REG_BINARY, REG_DWORD, REG_QWORD, REG_MULTI_SZ, REG_RESOURCE_LIST, REG_FULL_RESOURCE_DESCRIPTOR, REG_RESOURCE_REQUIREMENTS_LIST
+                                     // Note: The function does not check the type of data being set. It is the caller's responsibility to ensure that the data matches the specified type.
+  [in]           const BYTE *lpData, // For string-based types, such as REG_SZ, the string must be null-terminated. With the REG_MULTI_SZ data type, the string must be terminated with two null characters.
+                                     // Note  lpData indicating a null value is valid, however, if this is the case, cbData must be set to '0'.
+  [in]           DWORD      cbData
+);*/
+extern fn Win32_LSTATUS regSetValue(Win32_HKEY key, Win32_LPCSTR valueName, Win32_DWORD reserved, Win32_DWORD type,
+                                Win32_BYTE *data, Win32_DWORD data_size) @extern("RegSetValueExA");
+
+extern fn Win32_LSTATUS regCloseKey(Win32_HKEY key) @extern("RegCloseKey");
+
+// creates or opens a new subkey under the current user registry key
+// The subkey is created under "Software\\HMartSoftware\\unnnamed\\settings"
+fn Win32_PHKEY? createRegistryKey(String keyname) @inline
+{
+    Win32_PHKEY currentUserKey = regOpenCurrentUser(WIN32_KEY_WRITE)!;
+    defer regCloseKey(currentUserKey);
+
+    ZString registry_path = string::tformat("%s","Software\\HMartSoftware\\unnnamed\\settings\\").tconcat(keyname).zstr_tcopy();
+    Win32_HKEY result;
+    Win32_DWORD dwDisposition;
+    // Create or open the registry key with the specified path and access rights
+    if(try regCreateKey(currentUserKey, ((Win32_LPCSTR))registry_path, 0, null, REG_OPTION_BACKUP_RESTORE, WIN32_KEY_WRITE, null, &result, &dwDisposition)) {
+        return result; // Return the created or opened registry key handle
+    }
+    return ERROR_REGISTRY_KEY_CREATION_FAILED?;
+}
+
+fn void? setRegistryDwordValue(String setting, uint value) @public
+{
+    Win32_PHKEY folder_key = createRegistryKey("common")!;
+    defer regCloseKey(folder_key);
+
+    // Set the value in the registry key
+    Win32_DWORD32 dwType, dwSize;
+    dwType = REG_DWORD; // type of the value to be set
+    dwSize = Win32_DWORD32.sizeof; // size of the Win32_DWORD unsigned 32bits value
+    if(regSetValue(folder_key, (Win32_LPCSTR)setting.zstr_tcopy(), 0, dwType, (Win32_BYTE*)&value, dwSize) == ERROR_SUCCESS) return;
+    // else return an error
+    return ERROR_REGISTRY_KEY_SET_VALUE_FAILED?;
+}
+
+// unfinished does not work yet because of user permissions, don't know if I will bother with this
+// as this functions try to write the Windows registry under the current user and that may be problematic
+// for now will just save to the public user home directory.
+//
+// If you want to use this function, you need to run the application with administrator privileges
+// and the user must have the necessary permissions to write to the registry.
+// see https://community.osr.com/t/ot-regopenkeysave-fails-with-87/43818
+// https://learn.microsoft.com/en-us/windows/win32/secauthz/privilege-constants
+// https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-lookupprivilegevaluea
+fn bool writeRegistryValue(String reg_key, String reg_value, String reg_data) @inline
+{
+    /*Win32_PHKEY? currentUserKey = regOpenCurrentUser(WIN32_KEY_WRITE);
+    if(catch excuse = currentUserKey) 
+    {
+        lgr::warning(Where.FILE,"Failed to open current user register key with excuse: %s", excuse);
+        return false;
+    }
+    defer regCloseKey(currentUserKey);*/
+
+    /*Win32_HKEY? folder_key = regOpenKey(HKEY_CURRENT_USER, (Win32_LPCSTR)reg_key.zstr_tcopy(), 0, WIN32_KEY_WRITE);
+    if(catch excuse = folder_key) 
+    {
+        lgr::warning(Where.FILE,"Failed to open key '%s' with excuse: %s", reg_key, excuse);
+        return false;
+    }
+    defer regCloseKey(folder_key);*/
+
+    Win32_DWORD dwDisposition;
+    Win32_HKEY folder_key;
+    bool? result = regCreateKey(HKEY_CURRENT_USER, (Win32_LPCSTR)reg_key.zstr_tcopy(), 0, null, REG_OPTION_BACKUP_RESTORE, WIN32_KEY_WRITE, null, &folder_key, &dwDisposition);
+    if(catch excuse = result)
+    {
+        lgr::warning(Where.FILE, "Failed to create or open registry key '%s' with excuse: %s", reg_key, excuse);
+        return false; // return false on failure
+    }
+    defer regCloseKey(folder_key);
+
+    // Set the value in the registry key
+    Win32_DWORD32 dwType, dwSize;
+    dwType = REG_SZ; // type of the value to be set
+    dwSize = reg_data.len; // size of the string data
+    if(regSetValue(folder_key, (Win32_LPCSTR)reg_value.zstr_tcopy(), 0, dwType, (Win32_BYTE*)reg_data.zstr_tcopy(), dwSize) == ERROR_SUCCESS) {
+        return true; // return true on success
+    }
+    // It should return true on success and false on failure.
+    return false;
+}
+
+/*
+// Find the location of the DXC or FXC compiler
+HKEY key;
+if (RegOpenKeyEx(HKEY_LOCAL_MACHINE, "SOFTWARE\\WOW6432Node\\Microsoft\\Microsoft SDKs\\Windows\\v10.0", 0, KEY_READ, &key) == ERROR_SUCCESS)
+{
+    DWORD sdk_path_len = sizeof(sdk_path);
+    if (RegGetValueA(key, nullptr, "InstallationFolder", RRF_RT_REG_SZ, nullptr, sdk_path, &sdk_path_len) == ERROR_SUCCESS)
+    {
+        strcpy(sdk_path + sdk_path_len - 1, "bin\\");
+
+        DWORD sdk_path_len2 = sizeof(sdk_path) - sdk_path_len - 4;
+        if (RegGetValueA(key, nullptr, "ProductVersion", RRF_RT_REG_SZ, nullptr, sdk_path + sdk_path_len + 3, &sdk_path_len2) == ERROR_SUCCESS)
+        {
+            sprintf(sdk_path + sdk_path_len + 2 + sdk_path_len2, ".0\\x64\\%s.exe", dxc? "dxc" : "fxc");
+
+            compiler = sdk_path;
+        }
+    }
+    RegCloseKey(key);
+}
+*/
+////
+
 
 // NOTE(HM) in windows is the MyDocuments folder in Linux is the HOME folder...
 fn String getSystemSpecialPath(SystemPath pathType)

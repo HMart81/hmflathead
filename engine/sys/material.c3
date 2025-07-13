@@ -127,7 +127,10 @@ fn void MaterialStage.loadTexture(&self, String path) @inline
 
 fn void MaterialStage.clear(&self)
 {
-    if(rl::isTextureValid(self.tex)) rl::unloadTexture(self.tex);
+    if(rl::isTextureValid(self.tex)) {
+        rl::unloadTexture(self.tex);
+    }
+    
     if(self.args.len() > 0)
     {
         // NOTE(HM) free all the arguments in the list
@@ -238,7 +241,7 @@ fn void HMaterial.init(&self) @public
     self.getStage(mat::STAGE_DIFFUSE).color = rl::WHITE;
 
     // NOTE(HM) all materials start with the default game shader
-    self.shader = main::getDefaultShaderCopy();
+    //self.shader = main::getDefaultShaderCopy();
 }
 
 fn void HMaterial.free(&self) @public
@@ -249,8 +252,7 @@ fn void HMaterial.free(&self) @public
     // NOTE(HM) this will free the shader if it is not the default shader
     if(self.shader.isValid()) 
     {
-        Shader* default_shader = main::getDefaultShader();
-        if(self.shader.id != default_shader.id && self.shader.id > 0) { 
+        if(self.shader.id != main::getDefaultShader().id) { 
             rl::unloadShader(self.shader);
         }
     }
@@ -545,13 +547,13 @@ enum ShaderLayoutLocation : inline int
     VERTEX_TEXCOORD02,  // layout location: 5
 }
 
-struct ShaderVertexAttribute
+struct ShaderVertexAttribute @local
 {
     ShaderLayoutLocation loc; // layout location of the attribute set in the material
     ShaderAttributeDataType type; // type of the attribute
 }
 
-struct ShaderUniform
+struct ShaderUniform @local
 {
     String id; // name of the uniform
     ShdUniTyp type; // type of the uniform
@@ -691,8 +693,8 @@ fn void HMaterial.parse_uniform(&self, XmlNode* child, Shader* shader)
                 case NodeAttrib.TYPE:
                     switch(atrb.value)
                     {
-                        case "float":
-                            uniform.type = ShdUniTyp.FLOAT;
+                        case "float": break; // NOTE(HM) this zero so is set to float by default
+                            //uniform.type = ShdUniTyp.FLOAT;
                         case "vec2":
                             uniform.type = ShdUniTyp.VEC2;
                         case "vec3":
@@ -756,17 +758,30 @@ fn void HMaterial.parse_uniform(&self, XmlNode* child, Shader* shader)
 *>
 fn void HMaterial.parse_shader(&self, XmlNode* node) @inline @public
 {
-    if(node.hasAttributes() == false) return;
-
     String shader_path = (String)node.getAttribute(NodeAttrib.PATH).value;
-    if(shader_path == "") {
+    if(shader_path.is_empty()) {
         lgr::warning(Where.FILE, "Material '%s' in file '%s' has a shader node but no path for it defined!", self.name, self.mtrfile.path);
         return;
     }
 
     // NOTE(HM) I'm appending the extension here just as a placeholder, to make it easy to get the shader name.
-    String shader_name = fs::getFileNameWithoutExt(shader_path.tconcat(".fs"));
-    Shader shader = *astmng::assetManager.getShader(shader_name);
+    shader_path = shader_path.tconcat(".fs");
+    String shader_name = fs::getFileNameWithoutExt(shader_path);
+    Shader shader;
+    if(Shader* shader_found = astmng::assetManager.getShader(shader_name))
+    {
+        shader = *shader_found; // use the shader from the asset manager
+        $if $feature(_DEBUG):
+            lgr::info(Where.FILE, "Using shader '%s' for material '%s' in file '%s'", shader_name, self.name, self.mtrfile.path);
+        $endif
+    }
+    else
+    {
+        // load the shader from the file system
+        shader_path = shader_path.stripExtension();
+        shader = misc::loadShader(shader_path.tconcat(".vs"), shader_path.tconcat(".fs"));
+    }
+
     if(!shader.isValid()) {
         lgr::error(Where.FILE, "Failed to load shader '%s' for material '%s' in file '%s'!", shader_path, self.name, self.mtrfile.path);
         return;
@@ -790,7 +805,6 @@ fn void HMaterial.parse_shader(&self, XmlNode* node) @inline @public
         }
     }
 
-    assert(shader.isValid(), "Shader '%s' is not valid for material '%s' in file '%s'!", shader_name, self.name, self.mtrfile.path);
     self.setShader(shader);
 }
 
@@ -979,13 +993,15 @@ struct MTRFile @public
 
 fn void MTRFile.init(&self, String path) @inline @public
 {
-    self.path = path.copy(mem);
+    self.path = path.tcopy();
     self.version = MTR_VERSION_STRING;
     self.mats.reserve(MAX_MATERIALS_PER_FILE);
 }
 
 fn void MTRFile.unload(&self) @inline @public
 {
+    if(self.mats.len() == 0) return; // nothing to unload
+
 	foreach(mat: self.mats) mat.free();
     self.mats.free();
 }
@@ -1004,7 +1020,7 @@ fn void MTRFile.register(&self, HMaterial* mat) @inline @public
 
 // @Performance This will probably be very slow with many materials...
 // TODO(HM) make this faster by using a hash table
-fn HMaterial* MTRFile.findMaterial(&self, String name) @public
+fn HMaterial* MTRFile.findMaterial(&self, String name) @inline @public
 {
 	foreach(mat: self.mats) {
 		if(mat.name == name) return mat;
@@ -1104,6 +1120,7 @@ fn bool? MTRFile.parse(&self, XmlDoc* doc)
                 //  so it will create a text node, regardless if is empty or not.  
                 // The workaround, was to test for empty text nodes and just don't register them, in the xml doc file.
                 return MTR_MATERIAL_PARSING_ERROR?;
+                //
             case mtr::isXmlNode(node, Node.MATERIAL):
                 HMaterial* mat = self.parse_material(node);
                 if(mat) {
@@ -1127,14 +1144,17 @@ fn bool? MTRFile.parse(&self, XmlDoc* doc)
 
 // @Performance This will probably be very slow with many mtr files 
 // and material definitions...
-fn bool check_material_existance(String name)
+// TODO(HM) make this faster by using a hash table
+fn bool check_material_existance(String name, MTRFile* mtr_file = null) @inline @public
 {
+    // first check if the material name already exists in the current passed mtr file
+    if(mtr_file != null) if(mtr_file.findMaterial(name) != null) return true;
+
+    // else check for it in the global material database
+    // NOTE(HM) this is a slow operation, so use it with caution
     MaterialDataBase* mtr_db = &main::gpGame.mtrDB;
-    foreach(mtr: mtr_db.data)
-    {
-        foreach(mat: mtr.mats) {
-		    if(mat.name == name)  return true;
-        }
+    foreach(mtr: mtr_db.data) {
+        if(mtr.findMaterial(name) != null) return true;
     }
     
     return false;
@@ -1159,8 +1179,7 @@ fn HMaterial* MTRFile.parse_material(&self, XmlNode* in_node)
         return null;
     }
     
-    bool empty_name = mat_name == "" || mat_name.len == 0;
-    if (empty_name)
+    if (mat_name.is_empty())
     {
         lgr::error(Where.FILE, "material with empty or no name in %s\n", self.path);
         mat.free();
@@ -1169,7 +1188,7 @@ fn HMaterial* MTRFile.parse_material(&self, XmlNode* in_node)
     }
 
     // check if the material name already exists in the database
-    if(check_material_existance(mat_name) == true)
+    if(check_material_existance(mat_name, self) == true)
     {
         lgr::warning(Where.FILE, "material with name '%s' already exists in %s\n", mat_name, self.path);
         mat.free();

@@ -405,7 +405,7 @@ fn void Sprite.draw(&self)  @inline
                         color.b = (char)math::floor((b * a) * 255);
                     }
                 case *self == mat::COVERAGE_TRANSLUCENT && *self == mat::COVERAGE_PERFORATED:
-                    blending = BlendMode.CUSTOM; // use the custom blending mode
+                    blending = BlendMode.ALPHA; //BlendMode.CUSTOM; // use the custom blending mode
                 case *self == mat::COVERAGE_BAD:
                     lgr::error(Where.FILE, "Panel with material %s has a bad material coverage type.", self.mat.name);
                     unreachable();

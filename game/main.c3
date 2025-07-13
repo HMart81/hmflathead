@@ -708,10 +708,10 @@ fn void Game.unloadDefaultAssets(&self) {
 
 fn void Game.unload(&self) {
     self.clearFonts();
-    self.unloadDefaultAssets();
     // clear material database
     self.mtrDB.clear();
     self.freeGameEntities();
+    self.unloadDefaultAssets();
 
 $if $feature(MICROUI_ENABLE):
     if(self.mu_ctx) {
@@ -1803,7 +1803,7 @@ $endif
     }
     
     // get the home folder to save necessary game data
-    local_game.app_save_folder = fs::getSystemSpecialPath(fs::SystemPath.PERSONAL);
+    local_game.app_save_folder = win32::getSystemSpecialPath(win32::SystemPath.PERSONAL);
     if(local_game.app_save_folder.len > 0)
     {
         // NOTE(HM) append the desired final folder 
@@ -1825,6 +1825,22 @@ $endif
             }
         }
     }
+
+    // test writting to the register
+    $if $defined(env::WIN32):
+    {
+        // NOTE(HM) this is only for windows, to test if we can write to the registry
+        // and if the user has permissions to do so.
+        String reg_key = "Software\\HMartSoftware\\unnnamed\\settings\\";
+        String reg_value = "TestValue";
+        String reg_data = "TestData";
+        
+        if(!win32::writeRegistryValue(reg_key, reg_value, reg_data)) {
+            lgr::warning(Where.FILE, "Failed to write to registry key: %s", reg_key);
+            //return REGISTRY_WRITE_FAILED?;
+        }
+    }
+    $endif // $if $defined(env::WIN32)
 
     lgr::info(Where.FILE, "---------------------------------------------\n");
 // #endregion
@@ -2056,6 +2072,15 @@ $if env::WIN32:
         lgr::info(Where.FILE, "Window handle obtained successfully.");
         local_game.screen.handle = window_handle;
     }
+
+    /*
+		Force the main thread to always run on CPU 0.
+		This is done because on some systems QueryPerformanceCounter returns a bit different counter values
+		on the different CPUs (contrary to what it's supposed to do), which can cause negative frame times
+		if the thread is scheduled on the other CPU in the next frame. This can cause very jerky behavior and
+		appear as if frames return out of order.
+	*/
+	win32::setThreadAffinityMask(win32::getCurrentThread(), 1);
 $endif
 
     // NOTE(HM) Gameplay timing, is always counted since initWindow above;
