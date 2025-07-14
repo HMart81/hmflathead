@@ -181,7 +181,6 @@ Mutex  introMutex;
 const int SUBTITLE_FONT_SCALE        @Hardcode = 10;
 const int BIG_FONT_SCALE             @Hardcode = 14;
 const int SMALL_FONT_SCALE           @Hardcode = 6;
-const String INI_SETTINGS_FILE_NAME  @Hardcode = "user.ini";
 
 const PHYS_DEFAULT_SUBSTEPS        = 4;
 const PHYS_DEFAULT_TIMESTEP        = 1.0f / 60.0f; // 60fps @Hardcode
@@ -198,41 +197,6 @@ const int BABY_VERSION               = 3;
 const String GAME_NAME     @Hardcode = "hmflathead"; // TODO(HM) give me a final name!!!!
 const String GAME_SUB_NAME @Hardcode = "engine"; // NOTE(HM) optional...
 //
-
-// default safe settings
-const String SAFE_SETTINGS @Hardcode = `
-maxFPS          = 120
-; vsync is just a hint and may not apply, depends on window mode you'r in.
-; window mode, borderless fullscreen and native fullscreen, equal 0, 1 and 2 values respectively.
-; do not support vsync.
-vsync           = true
-; r_mode is the index into the screen resolution array, r_mode = -1 means use custum values. 
-r_mode          = 4
-r_custom_width  = 800
-r_custom_heigth = 600
-r_fullscreen    = 0
-; only works in window mode
-;r_window_resizable = true (doesn't work anymore...)
-; msaa only supports 0 or 4 as values
-; msaa also depends on window mode you'r in
-; window and borderless fullscreen (r_fullscreen = 0 and r_fullscreen = 1)
-; do not support msaa.
-msaa            = 4
-gamma           = 1.0
-brightness      = 1.0
-
-
-; action = key name
-[keys]
-move_up    = "KEY_W"
-move_down  = "KEY_S"
-move_left  = "KEY_A"
-move_right = "KEY_D"
-quit       = "KEY_F10"
-editor     = "KEY_F1"
-quicksave  = "KEY_F5"
-quickload  = "KEY_F9"
-`;
 // #endregion Constants
 
 // #region Alias
@@ -1866,22 +1830,20 @@ $endif
 // #region Ini file handling
     lgr::info(Where.FILE, "Loading settings file:");
     lgr::info(Where.FILE, "---------------------------------------------");
-    String ini_file_path = local_game.app_base_folder.tconcat(INI_SETTINGS_FILE_NAME);
+    String ini_file_path = local_game.app_base_folder.tconcat(ini::SETTINGS_FILE_NAME);
     bool settings_file_missing = fs::fileExists(ini_file_path) == false;
     if (settings_file_missing) // create it with default settings
     {
-        File data = file::open(ini_file_path, "w")!;
-        @catch(data.write(SAFE_SETTINGS));
-        data.close()!;
-        lgr::warning(Where.FILE, "Settings file missing, creating one with default settings at: %s", ini_file_path);
+        ini::create_default_settings_file(ini_file_path);
     }
-    
-    ini::FileData*? settings_file = ini::load(ini_file_path, false); //ini::load(SETTINGS_FILE_NAME);
-    if( catch excuse = settings_file) {
+    ini::Config settings_file;
+    bool? settings_load_sucess = settings_file.load(ini_file_path, false);
+    //ini::Config*? settings_file = ini::load(ini_file_path, false); //ini::load(SETTINGS_FILE_NAME);
+    if( catch excuse = settings_load_sucess) {
         lgr::warning(Where.FILE, "Failed to load %s file with excuse: %s", ini_file_path, excuse);
         return excuse?;
     }
-    defer if(settings_file) ini::unload(settings_file);
+    defer if(settings_load_sucess) ini::unload(&settings_file);
 
     lgr::info(Where.FILE, "Settings file loaded: %s", ini_file_path);
     lgr::info(Where.FILE, "---------------------------------------------\n");
@@ -1919,15 +1881,15 @@ $endif
     else
     {
         // DOC(HM) '!' at the expression end, is the same as doing:
-        // int? res_index  = settings_file.getIntValue("r_mode");
+        // int? res_index  = settings_file.getInt("r_mode");
         // if(catch excuse = res_index ) { return excuse; }
 
-        if(settings_file.getIntValue("r_mode")! == -1)
+        if(settings_file.getInt("r_mode")! == -1)
         {
             int w_value, h_value;
             // use ini defined custom resolutions
-            if(try value =  settings_file.getIntValue("r_custom_width"))  w_value = value;
-            if(try value =  settings_file.getIntValue("r_custom_heigth")) h_value = value;
+            if(try value =  settings_file.getInt("r_custom_width"))  w_value = value;
+            if(try value =  settings_file.getInt("r_custom_heigth")) h_value = value;
             
             // see if the custom resolution exists in the list of resolutions
             // NOTE(HM) if the custom resolution is not found, it will return -1
@@ -1961,7 +1923,7 @@ $endif
     lgr::info(Where.FILE, "Window settings:");
     lgr::info(Where.FILE, "---------------------------------------------");
     // Vertical sync (this is a hint so may or may not apply...)
-    if(try settings_file.getBoolValue("vsync")) 
+    if(try settings_file.getBool("vsync")) 
     {
         window_flags |= (int)rl::FLAG_VSYNC_HINT;
         local_game.screen.vsync_hint = true;
@@ -1970,8 +1932,8 @@ $endif
     
     // NOTE(HM) cvar r_fullscreen has top priority
     int fullscreen_choice = r_fullscreen.getInt();
-    // NOTE(HM) if cvar was not set, see the ini file is overriding the value
-    if(fullscreen_choice == -1) fullscreen_choice = settings_file.getIntValue("r_fullscreen")!;
+    // NOTE(HM) if cvar was not set, see if the config file is overriding the value
+    if(fullscreen_choice == -1) fullscreen_choice = settings_file.getInt("r_fullscreen")!;
     
     // prevent under or overflow
     if(fullscreen_choice < -1 || fullscreen_choice > 2) 
@@ -2001,7 +1963,7 @@ $endif
     // Multi-sampling AA (ONLY 0 or 4x is supported by Raylib, there's no inbetween)
     if(local_game.screen.state.fullscreen) 
     {
-        if(try msaa_samples = settings_file.getIntValue("msaa")) 
+        if(try msaa_samples = settings_file.getInt("msaa")) 
         {
             if(msaa_samples > 0) 
             {
@@ -2189,7 +2151,7 @@ $if $feature(_DEBUG):
     // NOTE(HM) This needs to run after initWindow,
     //          it changes the default exit key (default was ESC key)
     //rl::setExitKey(rl::KEY_F10);
-    String key_name = settings_file.getValue("quit");
+    String key_name = settings_file.getString("quit", "KEY_ESCAPE");
     rl::setExitKey(misc::getKeyValueFromName(key_name));
     lgr::info(Where.FILE, "Exit key set to: %s", key_name);
     lgr::info(Where.FILE, "---------------------------------------------\n");
@@ -2378,7 +2340,7 @@ $endif
     }
     
 // #region Test game stuff
-    createGameInputActions(settings_file);
+    createGameInputActions(&settings_file);
     
     // Create the main Single Player
     // NOTE(HM) todo: the player and ingame entities should be created only at spawn of a level 
@@ -2606,7 +2568,7 @@ fn void loadGame() {
  @param [in] settings_file : "the ini file to read the game input actions from."
  @require settings_file != null
 *>
-fn void createGameInputActions(ini::FileData* settings_file) @inline @local
+fn void createGameInputActions(ini::Config* settings_file) @inline @local
 {
     defer input::listActions();
 
@@ -2617,11 +2579,11 @@ fn void createGameInputActions(ini::FileData* settings_file) @inline @local
 $endif
 
 $if !$feature(_DEBUG):
-    input::makeKeyboardAction("quit", misc::getKeyValueFromName(settings_file.getValue("quit")), rl::KEY_NULL, (ActionCallBack)&input::quitGame);
+    input::makeKeyboardAction("quit", misc::getKeyValueFromName(settings_file.getString("quit")), rl::KEY_NULL, (ActionCallBack)&input::quitGame);
 $endif
 
-    input::makeKeyboardAction("quicksave", misc::getKeyValueFromName(settings_file.getValue("quicksave")), rl::KEY_NULL, (ActionCallBack)&saveGame);
-    input::makeKeyboardAction("quickload", misc::getKeyValueFromName(settings_file.getValue("quickload")), rl::KEY_NULL, (ActionCallBack)&loadGame);
+    input::makeKeyboardAction("quicksave", misc::getKeyValueFromName(settings_file.getString("quicksave")), rl::KEY_NULL, (ActionCallBack)&saveGame);
+    input::makeKeyboardAction("quickload", misc::getKeyValueFromName(settings_file.getString("quickload")), rl::KEY_NULL, (ActionCallBack)&loadGame);
     
     input::makeKeyboardAction("particles", rl::KEY_INSERT);
 
@@ -2789,8 +2751,8 @@ fn int playIntro(void*)
     return 0;
 }
 
-// TODO
-fn void parse_user_settings(FileData* settings, int* window_flags)
+// TODO rename to set_user_settings?
+fn void parse_user_settings(Config* settings, int* window_flags)
 {
     if(settings == null) return;
     
@@ -2798,7 +2760,7 @@ fn void parse_user_settings(FileData* settings, int* window_flags)
     {
         // handle empty sections
         if(section.cmds.is_empty()) {
-            lgr::warning(Where.CONSOLE, "Cmd list of section %s is empty. Using defaults.", section.name, INI_SETTINGS_FILE_NAME);
+            lgr::warning(Where.CONSOLE, "Cmd list of section %s is empty. Using defaults.", section.name, ini::SETTINGS_FILE_NAME);
             continue;
         }
         
@@ -2819,7 +2781,7 @@ fn void parse_user_settings(FileData* settings, int* window_flags)
                                 case "developer":
                                 nextcase;
                                 default:
-                                    lgr::warning(Where.CONSOLE, "Cmd \"%s = %s\" in file %s is still not handled.", cmd_id, cmd_value, INI_SETTINGS_FILE_NAME);
+                                    lgr::warning(Where.CONSOLE, "Cmd \"%s = %s\" in file %s is still not handled.", cmd_id, cmd_value, ini::SETTINGS_FILE_NAME);
                             }
                         case ini::INT:
                             switch(cmd_id) 
@@ -2850,7 +2812,7 @@ fn void parse_user_settings(FileData* settings, int* window_flags)
                                 case "brightness":
                                 nextcase;
                                 default:
-                                    lgr::warning(Where.CONSOLE, "Cmd \"%s = %s\" in file %s is still not handled.", cmd_id, cmd_value, INI_SETTINGS_FILE_NAME);
+                                    lgr::warning(Where.CONSOLE, "Cmd \"%s = %s\" in file %s is still not handled.", cmd_id, cmd_value, ini::SETTINGS_FILE_NAME);
                             }
                         case ini::FLOAT:
                             switch(cmd_id) 
@@ -2858,7 +2820,7 @@ fn void parse_user_settings(FileData* settings, int* window_flags)
                                 case "unknown":
                                 nextcase;
                                 default:
-                                    lgr::warning(Where.CONSOLE, "Cmd \"%s = %s\" in file %s is still not handled.", cmd_id, cmd_value, INI_SETTINGS_FILE_NAME);
+                                    lgr::warning(Where.CONSOLE, "Cmd \"%s = %s\" in file %s is still not handled.", cmd_id, cmd_value, ini::SETTINGS_FILE_NAME);
                             }
                         case ini::STRING:
                             switch(cmd_id) 
@@ -2866,7 +2828,7 @@ fn void parse_user_settings(FileData* settings, int* window_flags)
                                 case "unknown":
                                 nextcase;
                                 default:
-                                    lgr::warning(Where.CONSOLE, "Cmd \"%s = %s\" in file %s is still not handled.", cmd_id, cmd_value, INI_SETTINGS_FILE_NAME);
+                                    lgr::warning(Where.CONSOLE, "Cmd \"%s = %s\" in file %s is still not handled.", cmd_id, cmd_value, ini::SETTINGS_FILE_NAME);
                             }
                         default:
                             unreachable();
@@ -2892,11 +2854,11 @@ fn void parse_user_settings(FileData* settings, int* window_flags)
                         nextcase;
                         case "editor":
                         default:
-                            lgr::warning(Where.CONSOLE, "action \"%s = %s\" in file %s is still not handled.", cmd_id, cmd_value, INI_SETTINGS_FILE_NAME);
+                            lgr::warning(Where.CONSOLE, "action \"%s = %s\" in file %s is still not handled.", cmd_id, cmd_value, ini::SETTINGS_FILE_NAME);
                     }
                 }
             default:
-                lgr::warning(Where.CONSOLE, "Found empty section %s in ini file %s.", section.name, INI_SETTINGS_FILE_NAME);
+                lgr::warning(Where.CONSOLE, "Found empty section %s in ini file %s.", section.name, ini::SETTINGS_FILE_NAME);
         }
     }
 }
