@@ -718,7 +718,8 @@ enum BlendMode : inline int
     ADD_COLORS,               // Blend textures adding colors (alternative)
     SUBTRACT_COLORS,          // Blend textures subtracting colors (alternative)
     ALPHA_PREMUL,             // Blend premultiplied textures considering alpha
-    CUSTOM                    // Blend textures using custom src/dst factors (use setBlendMode(CUSTOM))
+    CUSTOM,                   // Blend textures using custom src/dst factors (use setBlendMode(CUSTOM))
+    CUSTOM_SEPARATE           // Blend textures using custom src/dst factors (use setBlendFactorsSeparate())
 }
 
 $assert(BlendMode.ALPHA.ordinal == 0);
@@ -866,8 +867,9 @@ fn void beginShaderMode(Shader shader) @extern("BeginShaderMode");              
 fn void endShaderMode() @extern("EndShaderMode");                                          // End custom shader drawing (use default shader)
 fn void beginBlendMode(int mode) @extern("BeginBlendMode");                                // Begin blending mode (alpha, additive, multiplied, subtract, custom)
 fn void endBlendMode() @extern("EndBlendMode");                                            // End blending mode (reset to default: alpha blending)
-fn void setBlendMode(int mode) @extern("rlSetBlendMode");                                  // Set blending mode
 fn void setBlendFactors(int glSrcFactor, int glDstFactor, int glEquation) @extern("rlSetBlendFactors"); // Set blending mode factor and equation (using OpenGL factors)
+fn void setBlendFactorsSeparate(int glSrcRGB, int glDstRGB, int glSrcAlpha, int glDstAlpha, int glEqRGB, int glEqAlpha) @extern("rlSetBlendFactorsSeparate"); // Set blending mode factors and equations separately (using OpenGL factors)
+fn void setBlendMode(int mode) @extern("rlSetBlendMode");                                  // Needs to be called AFTER rlSetBlendFactors() or rlSetBlendFactorsSeparate()
 fn void beginScissorMode(int x, int y, int w, int h) @extern("BeginScissorMode");          // Begin scissor mode (define screen area for following drawing)
 fn void endScissorMode() @extern("EndScissorMode");                                        // End scissor mode
 fn void beginVrStereoMode(VrStereoConfig config) @extern("BeginVrStereoMode");            // Begin stereo rendering (requires VR simulator)

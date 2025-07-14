@@ -473,7 +473,7 @@ fn void Entity.draw(&self)
 					color.b = (char)math::floor((b * a) * 255);
 				}
 			case *self == mat::COVERAGE_TRANSLUCENT && *self == mat::COVERAGE_PERFORATED:
-				blending = BlendMode.ALPHA; //BlendMode.CUSTOM; // use the custom blending mode					
+				blending = BlendMode.CUSTOM_SEPARATE; // use the custom blending mode					
             case *self == mat::COVERAGE_BAD:
                 lgr::error(Where.FILE, "Entity material %s has a bad material coverage type.", self.vs.mat.name);
                 unreachable();
@@ -488,13 +488,21 @@ fn void Entity.draw(&self)
                     rl::drawTexturePro(*texture, source, *dist, {0, 0}, 0.0f, color);
                 };
 			case BlendMode.CUSTOM:
-				rl::setBlendMode(rl::BlendMode.CUSTOM);
-				// setBlendFactors(int glSrcFactor, int glDstFactor, int glEquation)
 				rl::setBlendFactors(rl::RL_SRC_ALPHA, rl::RL_ONE_MINUS_SRC_ALPHA, rl::RL_FUNC_ADD);
+				rl::setBlendMode(rl::BlendMode.CUSTOM);
 				rl::@blendMode(blending)
 				{
 					// NOTE(HM) center of the texture (rotation/scale point), 
 					// it's relative to destination rectangle dimentions, not the screen dimentions.
+					rl::drawTexturePro(*texture, source, *dist, {0, 0}, 0.0f, color);
+				};
+			case BlendMode.CUSTOM_SEPARATE:
+				rl::setBlendFactorsSeparate(rl::RL_SRC_ALPHA, rl::RL_ONE_MINUS_SRC_ALPHA, rl::RL_ONE, rl::RL_ONE, rl::RL_FUNC_ADD, rl::RL_MAX);
+				rl::setBlendMode(rl::BlendMode.CUSTOM_SEPARATE);
+				rl::@blendMode(blending)
+				{
+				// NOTE(HM) center of the texture (rotation/scale point),
+				// it's relative to destination rectangle dimentions, not the screen dimentions.
 					rl::drawTexturePro(*texture, source, *dist, {0, 0}, 0.0f, color);
 				};
             default: // draw opaque unless the image has invisible pixels...
