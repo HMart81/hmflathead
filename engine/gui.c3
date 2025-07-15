@@ -74,10 +74,6 @@ fn void register_cvars() @public
 //
 ///////////////////////////////////////////////////////////////////////////
 
-// region alias
-//alias assetManager @private = astmng::assetManager;
-// end_region
-
 // #region constants
 //const bool PANEL_PROFILE = true;
 const bool DEBUG_PANELS   = true;
@@ -102,6 +98,7 @@ struct PanelFlags
     // but in the future we could have a system where they are seperate, 
     // you have a widget marked in focus but the mouse pointer not ontop of it.  
     bool inFocus;
+    bool isDestroyed; // used to mark panels that are being destroyed
 }
 
 /* 
@@ -696,7 +693,44 @@ fn void Widget.draw(&self) @dynamic
         self.draw_origin_coordinates();
     }
     
-    self.super.draw(self.selected);
+    switch (self.kind)
+    {
+        case KIND_TEXT:
+            // draw text label
+            WidgetText* this = (WidgetText*)self;
+            Vec2f center;
+            ZString text = this.text.zstr_tcopy();
+            if(text.len() > 0) 
+            {
+                switch (this.align)
+                {
+                case CENTER:
+                    center = {
+                        self.rect.x + self.rect.width / 2,
+                        self.rect.y + self.rect.height / 2
+                    };
+                    center.x -= (float)(this.text_len / 2);
+                    center.y -= (float)this.font_size / 2;
+                case LEFT:
+                    center = {
+                        self.rect.x,
+                        self.rect.y
+                    };
+                case RIGHT:
+                    center = {
+                        self.rect.x + self.rect.width,
+                        self.rect.y
+                    };
+                    center.x -= this.text_len;
+                }
+                
+                rl::drawText(text, (int)center.x, (int)center.y, this.font_size, self.color);
+            }
+        case KIND_CONTAINER:
+        case KIND_BUTTON:
+            self.super.draw(self.selected);
+        default: break; // do nothing
+    }
 }
 
 fn bool Widget.isWithinScreenBounds(&self) @dynamic
@@ -828,25 +862,25 @@ enum WidgetTextAlign
 struct WidgetText 
 {
     // extends Widget (super/base class)
-    inline Widget super;
+    inline WidgetButton super;
 
     String text;
     int text_len;
     // todo use a font
     int font_size;
-    Color text_color;
     WidgetTextAlign align;
 }
 
 
-fn void WidgetText.init(&self) @inline 
+fn void WidgetText.init(&self) //@inline 
 {
     self.super.init();
+    self.super.hide(); // don't show the button shape
     self.name = "TextLabel";
     self.setColor({0, 0, 0, 0});
     self.kind       = KIND_TEXT;
     self.font_size  = 20; //@hardcode
-    self.text_color = rl::WHITE; //@hardcode
+    self.setDefaultColor(rl::WHITE); //@hardcode
     self.align      = WidgetTextAlign.CENTER;
 }
 
@@ -860,6 +894,11 @@ fn void WidgetText.deinit(&self) @inline {
 fn void WidgetText.updateBounds(&self) @local {
     self.text_len = rl::measureText(self.text.zstr_tcopy(), self.font_size);
     self.setSize((float)self.text_len, (float)self.font_size);
+}
+
+fn Vec2f WidgetText.getBounds(&self) @inline {
+    // returns the bounds of the text, not the widget
+    return { (float)self.text_len, (float)self.font_size };
 }
 
 fn void WidgetText.setText(&self, String text) {
@@ -876,7 +915,7 @@ fn float WidgetText.textlenf(&self) @inline {
 }
 
 fn void WidgetText.setTextColor(&self, Color color) @inline {
-    self.text_color = color;
+    self.color = color;
 }
 
 fn void WidgetText.setAlign(&self, WidgetTextAlign align) @inline {
@@ -893,38 +932,9 @@ fn void WidgetText.update(&self)
     self.super.update();
 }
 
-fn void WidgetText.draw(&self) @inline {
-    if (self.hidden()) return;
-
+fn void WidgetText.draw(&self) //@inline 
+{
     self.super.draw();
-    
-    Vec2f center;
-    ZString text = self.text.zstr_tcopy();
-    //int text_len = rl::measureText(text, self.font_size);
-    
-    switch (self.align)
-    {
-    case CENTER:
-        center = {
-            self.rect.x + self.rect.width / 2,
-            self.rect.y + self.rect.height / 2
-        };
-        center.x -= (float)(self.text_len / 2);
-        center.y -= (float)self.font_size / 2;
-    case LEFT:
-        center = {
-            self.rect.x,
-            self.rect.y
-        };
-    case RIGHT:
-        center = {
-            self.rect.x + self.rect.width,
-            self.rect.y
-        };
-        center.x -= self.text_len;
-    }
-    
-    rl::drawText(text, (int)center.x, (int)center.y, self.font_size, self.text_color);
 }
 
 <*
@@ -944,15 +954,18 @@ fn WidgetText* createLabel(String name, String text, Color text_color, Desktop* 
     return label;
 }
 
+/////////////////////////////////////// button //////////////////////////////////////////////////////
+// NOTE(HM) Button is a widget that can be pressed, it has a default color and a sound that plays when pressed.
 
-struct WidgetButton {
+struct WidgetButton 
+{
     // extends Widget (super/base class)
     inline Widget super;
     
+    // panel already has a color variable
+    // but this is the default color, used when the button color changes and we want to reset it
+    // to the default color.
     Color default_color;
-    Color over_color;
-    Color pressed_color;
-    Color activated_color;
     bool pressed;
     bool activated;
     Sound* interaction_sound;
@@ -966,11 +979,8 @@ fn void WidgetButton.init(&self) //@inline
     self.super.init();
     self.kind = KIND_BUTTON;
     self.name = "Button";
-    self.setColor(rl::WHITE); //@hardcode
-    self.setOverColor(rl::RED); //@hardcode
-    self.setPressedColor(rl::GREEN); //@hardcode
-    self.setActivatedColor(rl::BLUE); //@hardcode
-    self.setSound(&main::gpGame.default_sound); //@hardcode todo give this a better sound
+    self.setDefaultColor(rl::WHITE); //@hardcode
+    self.setSound(&main::gpGame.default_sound); //@hardcode, todo give this a better sound
 }
 
 fn void WidgetButton.deinit(&self) @inline {
@@ -986,9 +996,6 @@ fn void WidgetButton.setDefaultColor(&self, Color color) @inline {
     self.default_color = color;
     self.setColor(color);
 }
-fn void WidgetButton.setOverColor(&self, Color color)      @inline => self.over_color      = color;
-fn void WidgetButton.setActivatedColor(&self, Color color) @inline => self.activated_color = color;
-fn void WidgetButton.setPressedColor(&self, Color color)   @inline => self.pressed_color   = color;
 
 fn void WidgetButton.setSound(&self, Sound* sound) @inline {
     self.interaction_sound = sound;
@@ -1260,10 +1267,12 @@ struct Desktop (SaveSystemInterface)
 {
     // id
     String name;
+    int number; // used to uniquily identify each desktop
     
     // visuals
     Rectangle rect;
     Color color;
+    // todo support more complex backgrounds
     Texture2D* tex;
     //
     
@@ -1282,6 +1291,10 @@ struct Desktop (SaveSystemInterface)
     ChildrenQueue children;
     // todo make a queue for hidden children to better control what to hide and show, 
     // when hidding or showing the desktop
+
+    Desktop* home; // the home desktop, where we can return to
+    Desktop* previous; // for desktop linkage, so we can go back to the previous desktop
+    Desktop* next;     // for desktop linkage, so we can go to the next
 }
 
 fn void Desktop.save(&self, SaveFile* file) @dynamic {
@@ -1293,7 +1306,9 @@ fn void Desktop.reload(&self, SaveFile* file) @dynamic {
 }
 
 // todo init this from a svg file
-fn bool Desktop.initFromFile(&self, ZString path, bool cache ) {
+fn bool Desktop.initFromFile(&self, ZString path, bool cache ) 
+{
+    @todo();
 /*
 
 	if ( !path.len ) {
@@ -1349,22 +1364,36 @@ fn bool Desktop.initFromFile(&self, ZString path, bool cache ) {
 	}
 
 */
-	self.loading = false;
-	return true;
+	//self.loading = false;
+	//return true;
 }
 
 
-fn void Desktop.init(&self, String name) @inline {
+fn void Desktop.init(&self, String name, bool isFullscreen = true, int w = 800, int h = 600) @inline 
+{
     self.name = string::tformat("Desktop_%s", name);
+    self.number = (int)local_manager.desktops.len() + 1;
     //
     //
     assert(rl::isWindowReady() == true);
-    self.rect = { // @hardcode
-        .x      = 0,
-        .y      = 0, 
-        .width  = main::gpGame.screen.w,
-        .height = main::gpGame.screen.h,
-    };
+    if(isFullscreen) 
+    {
+        self.rect = { // @hardcode
+            .x      = 0,
+            .y      = 0, 
+            .width  = main::gpGame.screen.w,
+            .height = main::gpGame.screen.h,
+        };
+    } 
+    else 
+    {
+        self.rect = { // @hardcode
+            .x      = 0,
+            .y      = 0, 
+            .width  = w,
+            .height = h,
+        };
+    }
     
     self.color = rl::WHITE;
     //
@@ -1375,8 +1404,36 @@ fn void Desktop.init(&self, String name) @inline {
     local_manager.register(this);
 }
 
+fn void Desktop.setPosition(&self, float x, float y) @inline 
+{
+    self.rect.x = x;
+    self.rect.y = y;
+}
 
-fn void Desktop.deinit(&this) @inline {
+fn void Desktop.setPositionV(&self, Vec2f pos) @inline 
+{
+    self.rect.x = pos.x;
+    self.rect.y = pos.y;
+}
+
+fn Vec2f Desktop.getPosition(&self) @inline 
+{
+    return {self.rect.x, self.rect.y};
+}
+
+fn void Desktop.setSize(&self, float w, float h) @inline 
+{
+    self.rect.width  = w;
+    self.rect.height = h;
+}
+
+fn Vec2f Desktop.getSize(&self) @inline 
+{
+    return {self.rect.width, self.rect.height};
+}
+
+fn void Desktop.deinit(&this) @inline 
+{
     this.clear();
     // last clear ourself
     if(this.tex) this.tex = null;
@@ -1442,6 +1499,10 @@ fn void Desktop.clear(&self) @inline
         if(rl::isMusicStreamPlaying(self.music_stream)) rl::stopMusicStream(self.music_stream);
         rl::unloadMusicStream(self.music_stream);
     }
+
+    if(self.home     != null) self.home     = null;
+    if(self.previous != null) self.previous = null;
+    if(self.next     != null) self.next     = null;
 }
 
 fn bool Desktop.hidden(&self) @inline => !self.visible;
@@ -1504,7 +1565,7 @@ fn void Desktop.drawCursor(&self) @inline
 {
     if(main::gpGame.editor.isOpened()) return;
     
-	if ( self.isInteractive ) {
+	if ( self.isInteractive && self.active && self.visible ) {
 		if(main::game_cursor_hidden()) main::show_game_cursor();
 	} else {
 		if(main::game_cursor_visible()) main::hide_game_cursor();

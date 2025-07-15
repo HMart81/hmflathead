@@ -103,6 +103,10 @@ fn void setGUI(Desktop* menu)
 
     //else set the current menu
     guiActive = main::gpGame.guiActive = menu;
+    if(guiActive.hidden())
+    {
+        guiActive.show();
+    }
 
     // todo
 	if (guiActive == main::gpGame.main_menu) 
@@ -225,7 +229,6 @@ macro create_menu_button(Vec2f pos, String text, MenuButtonDef* bdef, Desktop* m
     button.setSizeV(bdef.size);
     button.setPositionV(pos);
     button.setDefaultColor(bdef.default_color);
-    button.setOverColor(bdef.over_color);
     //
     float button_width  = bdef.size.x;
     float button_height = bdef.size.y;
@@ -254,26 +257,42 @@ macro create_menu_button(Vec2f pos, String text, MenuButtonDef* bdef, Desktop* m
     
 fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
 {
-    Desktop* menu = mem::new(Desktop);
-    menu.init("MainMenu");
-    menu.setColor(rl::DARKGRAY);
-    
     main::gpGame.mode = main::GameMode.MENU;
 
-    String music_path = main::gpGame.app_base_folder.tconcat("music\\main_menu\\Swallow.ogg");
-    if(fs::fileExists(music_path))
-    {
-        lgr::info(Where.FILE, "\tloading %s music: %s", menu.name, music_path);
-    } else { 
-        unreachable("music path not found: %s", music_path);
-    }
-    menu.music_stream = rl::loadMusicStream(music_path.zstr_tcopy());
-    rl::setMusicVolume(menu.music_stream, 1.0f);
-
+    // Menu creation
     Vec2f screen_center       = (Vec2f) {(float)screenWidth/2.0f, (float)screenHeight / 2.0f};
     Vec2f screen_top_center   = (Vec2f) {(float)screenWidth/2.0f, 0.0f};
     float screen_half_width   = screen_center.x;
     float screen_half_height  = screen_center.y;
+
+    Desktop* desk_main = mem::new(Desktop);
+    desk_main.init("MainMenu");
+    desk_main.setColor(rl::DARKGRAY);
+    Desktop* desk_options = mem::new(Desktop);
+    desk_options.init("OptionsMenu", false);
+    Vec2f desk_options_center = screen_center - desk_options.getSize() / 2.0f; 
+    desk_options.setPositionV({
+        desk_options_center.x,
+        desk_options_center.y
+        });
+    desk_options.setColor(rl::GRAY);
+    desk_options.hide();
+    // link the menus
+    desk_main.next = desk_options;
+    desk_options.home = desk_main;
+    desk_options.previous = desk_main;
+    
+
+    String music_path = main::gpGame.app_base_folder.tconcat("music\\main_menu\\Swallow.ogg");
+    if(fs::fileExists(music_path))
+    {
+        lgr::info(Where.FILE, "\tloading %s music: %s", desk_main.name, music_path);
+    } else { 
+        unreachable("music path not found: %s", music_path);
+    }
+    desk_main.music_stream = rl::loadMusicStream(music_path.zstr_tcopy());
+    rl::setMusicVolume(desk_main.music_stream, 1.0f);
+
     
     Vec2f default_button_size = { 0.10f*screenWidth, 0.05f*screenHeight };
     float button_width, button_height;
@@ -285,7 +304,7 @@ fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
     /*
     gui::WidgetContainer ct;
 
-    ct.@container( menu, {
+    ct.@container( desk_main, {
         .direction = gui::TOP_TO_BOTTOM,
         .background = rl::RED,
         .padding = {8, 8, 8, 8},
@@ -294,8 +313,8 @@ fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
         .border_between = {2, rl::GREEN }
     }; WidgetContainer* pct )
     {
-        //pct.register(any_make(create_menu_label({200, 200}, "test", 12, rl::GRAY, menu), WidgetText.typeid));
-        //pct.register(any_make(create_menu_label({200, 200}, "test2", 12, rl::GRAY, menu), WidgetText.typeid));
+        //pct.register(any_make(create_menu_label({200, 200}, "test", 12, rl::GRAY, desk_main), WidgetText.typeid));
+        //pct.register(any_make(create_menu_label({200, 200}, "test2", 12, rl::GRAY, desk_main), WidgetText.typeid));
     };
     */
 
@@ -309,7 +328,7 @@ fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
     Vec2f title_offset = misc::VEC_RIGHT * screen_top_center.x;
     title_offset -= {text_len / 2.0f, 0.0f};
     title_offset += misc::VEC_DOWN * (0.10f * screenHeight);
-    create_menu_label(title_offset, TITLE, TITLE_FONT_SIZE, rl::GRAY, menu);
+    create_menu_label(title_offset, TITLE, TITLE_FONT_SIZE, rl::GRAY, desk_main);
     //*************
     // SUBTITLE
     //*************
@@ -319,7 +338,7 @@ fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
     Vec2f subtitle_offset = misc::VEC_RIGHT * screen_top_center.x;
     subtitle_offset -= {text_len / 2.0f, 0.0f};
     subtitle_offset += misc::VEC_DOWN * (0.18f * screenHeight);
-    create_menu_label(subtitle_offset, SUBTITLE, SUBTITLE_FONT_SIZE, rl::RAYWHITE, menu);
+    create_menu_label(subtitle_offset, SUBTITLE, SUBTITLE_FONT_SIZE, rl::RAYWHITE, desk_main);
     // end_region LABELS
     
     // region BUTTONS
@@ -344,7 +363,7 @@ fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
     offset += misc::VEC_RIGHT * screen_half_width;
     offset -= {button_width / 2.0f, 0.0f};
     offset += misc::VEC_DOWN * (screenHeight / button_height) * 10;
-    create_menu_button(offset, "START", &btn_def, menu);
+    create_menu_button(offset, "START", &btn_def, desk_main);
 
     //************
     // QUIT
@@ -354,7 +373,7 @@ fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
     
     offset += misc::VEC_DOWN * button_height;
     offset.y += 0.5f * button_height;
-    create_menu_button(offset, "QUIT", &btn_def, menu);
+    create_menu_button(offset, "QUIT", &btn_def, desk_main);
     
     //************
     // OPTIONS
@@ -364,11 +383,11 @@ fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
     
     offset += misc::VEC_DOWN * button_height;
     offset.y += 0.5f * button_height;
-    create_menu_button(offset, "OPTIONS", &btn_def, menu);
+    create_menu_button(offset, "OPTIONS", &btn_def, desk_main);
     // end_region BUTTONS
 // end_region widgets
     
-    return menu;
+    return desk_main;
 }
 
 
@@ -394,7 +413,7 @@ fn void button_onOver(Widget* widget) {
     assert(widget != null);
     WidgetButton* self = (WidgetButton*)widget;
     if(self.active_visible_infocus() && self.asFocus()) {
-        self.setColor(self.over_color);
+        self.setColor(rl::RED);
     }
 }
 
@@ -426,7 +445,7 @@ fn void button_onPress(Widget* widget) {
     WidgetButton* self = (WidgetButton*)widget;
     if (self.active() == false || self.asFocus() == false) return;
     if (self.pressed == false) {
-        self.setColor(self.pressed_color);
+        self.setColor(rl::GREEN);
 
         if (rl::isSoundValid(*self.interaction_sound)) {
             if(!rl::isSoundPlaying(*self.interaction_sound)) rl::playSound(*self.interaction_sound);
@@ -449,7 +468,7 @@ fn void button_onSinglePress(Widget* widget) {
     if (rl::isSoundValid(*self.interaction_sound)) {
        if(!rl::isSoundPlaying(*self.interaction_sound)) rl::playSound(*self.interaction_sound);
     }
-    self.setColor(self.pressed_color);
+    self.setColor(rl::GREEN);
 }
 
 // while the button is kept pressed
@@ -477,7 +496,15 @@ fn void options_button_onPress(Widget* widget) {
 
 fn void options_button_onSinglePress(Widget* widget) {
     button_onSinglePress(widget);
-    lgr::info(Where.CONSOLE, "Options Menu is still not done.");
+    Desktop* active_menu = getActiveMenu();
+    if(active_menu) 
+    {
+        if(active_menu.next != null)
+        {
+            setGUI(active_menu.next);
+        }
+    }
+    //lgr::info(Where.CONSOLE, "Options Menu is still not done.");
     //lgr::info(Where.CONSOLE, "Pressed Count = %s.", ((WidgetButton*)widget).press_count);
     // TODO(HM) 
     //  Need to create a options menu
