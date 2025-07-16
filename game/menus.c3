@@ -204,10 +204,9 @@ fn void exit() {
 
 // region MAIN MENU
 
-fn WidgetText* create_menu_label(Vec2f pos, String text, int font_size, Color color, Desktop* menu) @local @inline {
-    WidgetText* label = gui::createLabel("", text, color, menu);
-    label.setFontSize(font_size);
-    label.setPositionV(pos);
+fn WidgetText* Desktop.create_menu_label(&self, String text, Font* font, int font_size, Color color) @local @inline {
+    WidgetText* label = gui::createLabel("", text, font, font_size, color);
+    label.addTo(self);
     return label;
 }
 
@@ -222,17 +221,20 @@ struct MenuButtonDef
     WidgetCallback[MAX_CALLBACK_PTRS] callbacks;
 }
 
-macro create_menu_button(Vec2f pos, String text, MenuButtonDef* bdef, Desktop* menu) @local {
+macro Desktop.create_menu_button(&self, Vec2f pos, String text, MenuButtonDef* bdef) @local {
     WidgetButton* button = gui::createButton();
+    button.addTo(self);
+    // set the button properties
     button.name = button.name.tconcat(text);
-    button.addTo(menu);
     button.setSizeV(bdef.size);
     button.setPositionV(pos);
     button.setDefaultColor(bdef.default_color);
     //
     float button_width  = bdef.size.x;
     float button_height = bdef.size.y;
-    WidgetText* label   = gui::createLabel(text, text, bdef.label_color, menu);
+    WidgetText* label   = gui::createLabel(text, text, main::gpGame.candara_font, 0, bdef.label_color);
+    label.addTo(self);
+    // set the label properties
     Vec2f label_offset  = pos;
     /*Vec2f label_offset  = pos + misc::VEC_RIGHT * (button_width / 2);
     label_offset       += misc::VEC_DOWN * (button_height / 2) * 0.5f;
@@ -244,14 +246,17 @@ macro create_menu_button(Vec2f pos, String text, MenuButtonDef* bdef, Desktop* m
        y: 0.5f * button_height - ((button_height / 2) * 0.5f)
     );
     label.bindTo(button);
-    // callbacks
-    button.onOver        = bdef.callbacks[0];//&button_onOver;
-    button.onStopOver    = bdef.callbacks[1];//&button_onStopOver;
-    button.onPress       = bdef.callbacks[2];//&start_button_onPress;
-    button.onSinglePress = bdef.callbacks[3];//&start_button_onSinglePress;
-    button.onRelease     = bdef.callbacks[4];//&button_onRelease;
+
+    // button interaction callbacks
+    button.onOver        = bdef.callbacks[0]; // &button_onOver;
+    button.onStopOver    = bdef.callbacks[1]; // &button_onStopOver;
+    button.onPress       = bdef.callbacks[2]; // &start_button_onPress;
+    button.onSinglePress = bdef.callbacks[3]; // &start_button_onSinglePress;
+    button.onRelease     = bdef.callbacks[4]; // &button_onRelease;
     button.onLoad        = &button_onLoad;
 
+    // button on load callback runs right now when the button is created
+    // perhaps rename this to onCreate?
     if(button.onLoad) button.onLoad(button);
 }
     
@@ -324,21 +329,25 @@ fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
     //*************
     const TITLE           = "FlatHead";
     const TITLE_FONT_SIZE = 50;
-    float text_len = (float)rl::measureText(TITLE.zstr_tcopy(), TITLE_FONT_SIZE);
+    Font* title_font = main::gpGame.trojan_pro_font;
+    WidgetText* title_label = desk_main.create_menu_label(TITLE, title_font, TITLE_FONT_SIZE, rl::GRAY);
     Vec2f title_offset = misc::VEC_RIGHT * screen_top_center.x;
-    title_offset -= {text_len / 2.0f, 0.0f};
+    title_offset -= {title_label.text_len / 2.0f, 0.0f};
     title_offset += misc::VEC_DOWN * (0.10f * screenHeight);
-    create_menu_label(title_offset, TITLE, TITLE_FONT_SIZE, rl::GRAY, desk_main);
+    title_label.setPositionV(title_offset);
+    title_label.setAlign(gui::WidgetTextAlign.LEFT);
     //*************
     // SUBTITLE
     //*************
     const SUBTITLE           = "engine";
     const SUBTITLE_FONT_SIZE = 16;
-    text_len = (float)rl::measureText(SUBTITLE.zstr_tcopy(), SUBTITLE_FONT_SIZE);
+    Font* subtitle_font = main::gpGame.lucida_font;
+    WidgetText* subtitle_label = desk_main.create_menu_label(SUBTITLE, subtitle_font, SUBTITLE_FONT_SIZE, rl::RAYWHITE);
     Vec2f subtitle_offset = misc::VEC_RIGHT * screen_top_center.x;
-    subtitle_offset -= {text_len / 2.0f, 0.0f};
+    subtitle_offset -= {subtitle_label.text_len / 2.0f, 0.0f};
     subtitle_offset += misc::VEC_DOWN * (0.18f * screenHeight);
-    create_menu_label(subtitle_offset, SUBTITLE, SUBTITLE_FONT_SIZE, rl::RAYWHITE, desk_main);
+    subtitle_label.setPositionV(subtitle_offset);
+    subtitle_label.setAlign(gui::WidgetTextAlign.LEFT);
     // end_region LABELS
     
     // region BUTTONS
@@ -363,7 +372,7 @@ fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
     offset += misc::VEC_RIGHT * screen_half_width;
     offset -= {button_width / 2.0f, 0.0f};
     offset += misc::VEC_DOWN * (screenHeight / button_height) * 10;
-    create_menu_button(offset, "START", &btn_def, desk_main);
+    desk_main.create_menu_button(offset, "START", &btn_def);
 
     //************
     // QUIT
@@ -373,7 +382,7 @@ fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
     
     offset += misc::VEC_DOWN * button_height;
     offset.y += 0.5f * button_height;
-    create_menu_button(offset, "QUIT", &btn_def, desk_main);
+    desk_main.create_menu_button(offset, "QUIT", &btn_def);
     
     //************
     // OPTIONS
@@ -383,7 +392,7 @@ fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
     
     offset += misc::VEC_DOWN * button_height;
     offset.y += 0.5f * button_height;
-    create_menu_button(offset, "OPTIONS", &btn_def, desk_main);
+    desk_main.create_menu_button(offset, "OPTIONS", &btn_def);
     // end_region BUTTONS
 // end_region widgets
     

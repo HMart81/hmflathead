@@ -569,8 +569,13 @@ fn void loadAsset(String path)
                 .name = asset_name, 
                 .path = path, 
                 .type = Font.typeid,
-                .data = rl::loadFont(path.zstr_tcopy())
+                .data = rl::loadFontEx(path.zstr_tcopy(), 
+                                       main::DEFAULT_FONT_SIZE, 
+                                       null, 
+                                       0
+                                       )
             });
+            assert(rl::isFontValid(new_asset.data), "Failed to load font from path: %s", path);
             local_manager.register(any_make(new_asset, new_asset.type));
         }
     default:

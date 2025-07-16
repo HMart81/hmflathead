@@ -99,6 +99,7 @@ struct PanelFlags
     // you have a widget marked in focus but the mouse pointer not ontop of it.  
     bool inFocus;
     bool isDestroyed; // used to mark panels that are being destroyed
+    bool showBounds; // used to debug the panel bounds
 }
 
 /* 
@@ -299,6 +300,14 @@ fn void Panel.show(&self) @inline {
     self.activate();
 }
 
+fn void Panel.debugBounds(&self, bool choice) @inline {
+    self.flags.showBounds = choice;
+}
+
+fn bool Panel.displayBounds(&self) @inline {
+    return self.flags.showBounds;
+}
+
 fn bool Panel.hidden(&self)  @inline => self.flags.isHidden;
 
 fn void Panel.activate(&self) @inline {
@@ -365,12 +374,13 @@ fn void Panel.draw(&self, bool selected = false)
         BlendMode blending;
         switch //
         {
-            case (bool)(self.mat.coverage & mat::COVERAGE_OPAQUE): break; // do nothing here
-            case (bool)(self.mat.coverage & mat::COVERAGE_PERFORATED):
+            case (bool)(self.mat.coverage & mat::COVERAGE_OPAQUE): 
+                break; // do nothing here
+            case (bool)(self.mat.coverage & mat::COVERAGE_PERFORATED & ~mat::COVERAGE_TRANSLUCENT):
                 blending = BlendMode.ALPHA;
-            case (bool)(self.mat.coverage & mat::COVERAGE_TRANSLUCENT):
+            case (bool)(self.mat.coverage & mat::COVERAGE_TRANSLUCENT & ~mat::COVERAGE_PERFORATED):
                 blending = BlendMode.ALPHA_PREMUL;
-                if(color.a >= 1.0f)
+                if(color.a == 255) // if the color is opaque
 				{
 					color.a = 128; // half transparent
 					float r = misc::@mapValueRangeToOther(color.r, 0, 255, 0.0f, 1.0f);
@@ -383,7 +393,9 @@ fn void Panel.draw(&self, bool selected = false)
 					color.b = (char)math::floor((b * a) * 255);
 				}
             case (bool)(self.mat.coverage & (mat::COVERAGE_PERFORATED | mat::COVERAGE_TRANSLUCENT)):
-                blending = BlendMode.CUSTOM; // custom blending mode
+                    blending = BlendMode.CUSTOM_SEPARATE; // use the custom blending mode
+            /*case (bool)(self.mat.coverage & (mat::COVERAGE_PERFORATED | mat::COVERAGE_TRANSLUCENT)):
+                blending = BlendMode.CUSTOM; // custom blending mode*/
             case (bool)(self.mat.coverage & mat::COVERAGE_BAD):
                 lgr::error(Where.FILE, "Panel with material %s has a bad material coverage type.", self.mat.name);
                 unreachable();
@@ -398,10 +410,19 @@ fn void Panel.draw(&self, bool selected = false)
                     rl::drawTexturePro(*texture, source, *dist, {0, 0}, 0.0f, color);
                 };
             case BlendMode.CUSTOM:
-                rl::setBlendMode(rl::BlendMode.CUSTOM);
                 rl::setBlendFactors(rl::RL_ONE, rl::RL_ONE_MINUS_SRC_ALPHA, rl::RL_FUNC_ADD);
+                rl::setBlendMode(rl::BlendMode.CUSTOM);
                 rl::@blendMode(blending)
                 {
+                    rl::drawTexturePro(*texture, source, *dist, {0, 0}, 0.0f, color);
+                };
+            case BlendMode.CUSTOM_SEPARATE:
+                rl::setBlendFactorsSeparate(rl::RL_SRC_ALPHA, rl::RL_ONE_MINUS_SRC_ALPHA, rl::RL_ONE, rl::RL_ONE, rl::RL_FUNC_ADD, rl::RL_MAX);
+                rl::setBlendMode(rl::BlendMode.CUSTOM_SEPARATE);
+                rl::@blendMode(blending)
+                {
+                    // NOTE(HM) center of the texture (rotation/scale point), 
+                    // it's relative to destination rectangle dimentions, not the screen dimentions.
                     rl::drawTexturePro(*texture, source, *dist, {0, 0}, 0.0f, color);
                 };
             default: // opaque unless the image has invisible pixels...
@@ -409,13 +430,19 @@ fn void Panel.draw(&self, bool selected = false)
                 // it's relative to destination rectangle dimentions, not the screen dimentions.
                 rl::drawTexturePro(*texture, source, *dist, {0, 0}, 0.0f, color);
         }
-    } else {
+    } 
+    else
+    {
         switch(self.shape)
         {
             case BOX:         r2d::@drawRect(self.rect, (selected) ? self.selected_color : self.color);
             case ROUNDED_BOX: r2d::drawRectangleRounded(self.rect, 0.65f, 6, (selected) ? self.selected_color : self.color);
             default: unreachable();
         }
+    }
+
+    if(self.displayBounds()) {
+        r2d::drawRectangleLinesEx(self.rect, 1.0f, rl::RED);
     }
 }
 
@@ -724,7 +751,14 @@ fn void Widget.draw(&self) @dynamic
                     center.x -= this.text_len;
                 }
                 
-                rl::drawText(text, (int)center.x, (int)center.y, this.font_size, self.color);
+                if(this.font != null) {
+                    rl::drawTextEx(*this.font, text, {center.x, center.y}, (float)this.font_size, this.spacing, self.color);
+                }
+                else { rl::drawText(text, (int)center.x, (int)center.y, this.font_size, self.color); }
+            }
+
+            if(self.displayBounds()) {
+                r2d::drawRectangleLinesEx(self.rect, 1.0f, rl::RED);
             }
         case KIND_CONTAINER:
         case KIND_BUTTON:
@@ -866,7 +900,8 @@ struct WidgetText
 
     String text;
     int text_len;
-    // todo use a font
+    Font* font;
+    float spacing; // spacing between characters, used for text rendering
     int font_size;
     WidgetTextAlign align;
 }
@@ -879,6 +914,7 @@ fn void WidgetText.init(&self) //@inline
     self.name = "TextLabel";
     self.setColor({0, 0, 0, 0});
     self.kind       = KIND_TEXT;
+    self.spacing    = 2.0f; //@hardcode, todo make this int a cvar
     self.font_size  = 20; //@hardcode
     self.setDefaultColor(rl::WHITE); //@hardcode
     self.align      = WidgetTextAlign.CENTER;
@@ -886,19 +922,47 @@ fn void WidgetText.init(&self) //@inline
 
 fn void WidgetText.deinit(&self) @inline {
     self.super.deinit();
+    if(self.font) {
+        // NOTE(HM) we don't deinit the font here, as it is done through the game singleton 
+        // at game shutdown and they can also be shared between widgets.
+        // rl::unloadFont(*self.font); // this will crash the game if the font is used by other widgets
+        // so we just set it to null, and again the font will be deinitialized when the game closes.
+        self.font = null;
+    }
 }
 
 <*
  @require self.text != ""
 *>
-fn void WidgetText.updateBounds(&self) @local {
-    self.text_len = rl::measureText(self.text.zstr_tcopy(), self.font_size);
-    self.setSize((float)self.text_len, (float)self.font_size);
+fn void WidgetText.updateBounds(&self) @local 
+{
+    if(self.font != null) {
+        Vector2 bounds = rl::measureTextEx(*self.font, self.text.zstr_tcopy(), (float)self.font_size, self.spacing);
+        /*int txt_len = rl::measureText(self.text.zstr_tcopy(), self.font_size);
+        if(txt_len > bounds.x) {
+            bounds.x = (float)txt_len; // make sure the bounds are at least as wide as the text
+        }*/
+        self.text_len = (int)bounds.x;
+        self.setSize(bounds.x, bounds.y);
+    } else {
+        self.text_len = rl::measureText(self.text.zstr_tcopy(), self.font_size);
+        self.setSize((float)self.text_len, (float)self.font_size);
+    }
 }
 
 fn Vec2f WidgetText.getBounds(&self) @inline {
     // returns the bounds of the text, not the widget
     return { (float)self.text_len, (float)self.font_size };
+}
+
+fn void WidgetText.setFont(&self, Font* font) @inline {
+    if (font == null) {
+        lgr::error(Where.CONSOLE, "WidgetText: Cannot set font to null.");
+        return;
+    }
+    self.font = font;
+    self.updateBounds();
+
 }
 
 fn void WidgetText.setText(&self, String text) {
@@ -938,19 +1002,34 @@ fn void WidgetText.draw(&self) //@inline
 }
 
 <*
- @param [&in] menu : "desktop where this widget will live"
- @ensure return != null
+    Creates a new label widget with the given name and text.
+    The label will use the given font and font size, if provided.
+    The label will be deactivated by default, so it won't be interactive.
+    The label will also be shown by default.
+    Don't forget to free the label memory when you are done with it.
+
+    @param name : "name of the label"
+    @param text : "text to display on the label"
+    @param font : "font to use for the label, can be null"
+    @param font_size : "font size to use for the label, must be greater than 0 to be applied"
+    @param text_color : "color of the text"
 *>
-fn WidgetText* createLabel(String name, String text, Color text_color, Desktop* menu) {
+fn WidgetText* createLabel(String name, String text, Font* font, int font_size, Color text_color) 
+{
     WidgetText* label = mem::new(WidgetText);
     label.init();
     label.name = label.name.tconcat(text);
-    label.addTo(menu);
     label.setText(text);
     label.setTextColor(text_color);
-    label.show();
+    if (font != null) {
+        label.setFont(font);
+    }
+    if (font_size > 0) {
+        label.setFontSize(font_size);
+    }
     // labels shouldn't be interactive (to save perf...)
     label.deactivate();
+    label.show();
     return label;
 }
 

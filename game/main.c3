@@ -178,9 +178,9 @@ Mutex  introMutex;
 //
 
 // TODO make font sizes dependent on the screen size?
-const int SUBTITLE_FONT_SCALE        @Hardcode = 10;
-const int BIG_FONT_SCALE             @Hardcode = 14;
-const int SMALL_FONT_SCALE           @Hardcode = 6;
+const int SMALL_FONT_SIZE   @Hardcode @public = 6;
+const int DEFAULT_FONT_SIZE @Hardcode @public = 10;
+const int BIG_FONT_SIZE     @Hardcode @public = 14;
 
 const PHYS_DEFAULT_SUBSTEPS        = 4;
 const PHYS_DEFAULT_TIMESTEP        = 1.0f / 60.0f; // 60fps @Hardcode
@@ -584,6 +584,8 @@ fn void Game.initFonts(&self) @inline {
 }
 
 fn void Game.clearFonts(&self) @inline {
+    // we dont unload the fonts here, because they are unloaded by the asset manager
+    //rl::unloadFont(self.candara_font);
     self.candara_font       = null;
     self.candara_light_font = null;
     self.lucida_font        = null;
@@ -1195,18 +1197,18 @@ fn void drawGameOnScreenDebugInfo(int screen_w, int screen_h) @local
     int x = (int)math::floor(0.01f*view.w);
     int y = view.h;
     
-    rl::drawText(slot1, x, (int)math::floor(0.01f*y), SMALL_FONT_SCALE, *COLOR);
-    rl::drawText(slot2, x, (int)math::floor(0.03f*y), SMALL_FONT_SCALE, *COLOR);
-    rl::drawText(slot3, x, (int)math::floor(0.05f*y), SMALL_FONT_SCALE, *COLOR);
-    rl::drawText(slot4, x, (int)math::floor(0.07f*y), SMALL_FONT_SCALE, *COLOR);
-    rl::drawText(slot5, x, (int)math::floor(0.09f*y), SMALL_FONT_SCALE, *COLOR);
-    rl::drawText(slot6, x, (int)math::floor(0.11f*y), SMALL_FONT_SCALE, *COLOR);
-    rl::drawText(slot7, x, (int)math::floor(0.13f*y), SMALL_FONT_SCALE, *COLOR);
-    rl::drawText(slot8, x, (int)math::floor(0.15f*y), SMALL_FONT_SCALE, *COLOR);
-    rl::drawText(slot9, x, (int)math::floor(0.17f*y), SMALL_FONT_SCALE, *COLOR);
-    rl::drawText(slot10, x, (int)math::floor(0.19f*y), SMALL_FONT_SCALE, *COLOR);
-    rl::drawText(slot11, x, (int)math::floor(0.21f*y), SMALL_FONT_SCALE, *COLOR);
-    rl::drawText(slot12, x, (int)math::floor(0.23f*y), SMALL_FONT_SCALE, *COLOR);
+    rl::drawText(slot1, x, (int)math::floor(0.01f*y), SMALL_FONT_SIZE, *COLOR);
+    rl::drawText(slot2, x, (int)math::floor(0.03f*y), SMALL_FONT_SIZE, *COLOR);
+    rl::drawText(slot3, x, (int)math::floor(0.05f*y), SMALL_FONT_SIZE, *COLOR);
+    rl::drawText(slot4, x, (int)math::floor(0.07f*y), SMALL_FONT_SIZE, *COLOR);
+    rl::drawText(slot5, x, (int)math::floor(0.09f*y), SMALL_FONT_SIZE, *COLOR);
+    rl::drawText(slot6, x, (int)math::floor(0.11f*y), SMALL_FONT_SIZE, *COLOR);
+    rl::drawText(slot7, x, (int)math::floor(0.13f*y), SMALL_FONT_SIZE, *COLOR);
+    rl::drawText(slot8, x, (int)math::floor(0.15f*y), SMALL_FONT_SIZE, *COLOR);
+    rl::drawText(slot9, x, (int)math::floor(0.17f*y), SMALL_FONT_SIZE, *COLOR);
+    rl::drawText(slot10, x, (int)math::floor(0.19f*y), SMALL_FONT_SIZE, *COLOR);
+    rl::drawText(slot11, x, (int)math::floor(0.21f*y), SMALL_FONT_SIZE, *COLOR);
+    rl::drawText(slot12, x, (int)math::floor(0.23f*y), SMALL_FONT_SIZE, *COLOR);
     //***************************************************************************************************************************************
     
     // draw gui coords
