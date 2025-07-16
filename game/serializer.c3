@@ -233,6 +233,13 @@ fn void	writeZString(SaveFile* savefile, ZString str) {
 
 <*
  @param [&inout] savefile : "the file to write the data to"
+*>
+fn void	writeTypeid(SaveFile* savefile, typeid type) {
+   write(savefile, &type, typeid.sizeof);
+}
+
+<*
+ @param [&inout] savefile : "the file to write the data to"
  @param [&in] asset : "the asset data to save"
 *>
 fn void	writeAsset(SaveFile* savefile, any* asset) {
@@ -413,6 +420,13 @@ fn void readZString(SaveFile* savefile, ZString* string) {
         return;
     }
     *string = result.zstr_tcopy();
+}
+
+<*
+ @param [&inout] savefile : "the file to read the data from"
+*>
+fn void	readTypeid(SaveFile* savefile, typeid* type) {
+    read(savefile, (void*)type, typeid.sizeof);
 }
 
 <*

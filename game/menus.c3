@@ -131,7 +131,8 @@ fn void setGUI(Desktop* menu)
 	//ev.evType = SE_NONE;
 
 	//guiActive->HandleEvent( &ev, com_frameTime );
-	guiActive.activate( true, main::gpGame.time_ms );
+	//guiActive.activate( true, main::gpGame.time_ms );
+    guiActive.setFocus(true);
 }
 
 fn void start(Desktop* gui) {
@@ -156,8 +157,9 @@ fn void start(Desktop* gui) {
 	//console->Close();
 }
 
-fn void stop() {
-    Desktop* guiActive = getActiveMenu();
+fn void stop(Desktop* guiActive = null) 
+{
+    if(guiActive == null) guiActive = getActiveMenu();
 	//ClearWipe();
 
 	// clear mapSpawned and demo playing flags
@@ -204,6 +206,24 @@ fn void exit() {
 
 // region MAIN MENU
 
+fn WidgetCheckBox* Desktop.create_menu_checkbox(&self, String text, MenuButtonDef* bdef) @local @inline {
+    WidgetCheckBox* checkbox = gui::createCheckBox("Checkbox 1");
+    checkbox.addTo(self);
+    // set the checkbox properties
+    checkbox.onOver        = bdef.callbacks[0]; // &button_onOver;
+    checkbox.onStopOver    = bdef.callbacks[1]; // &button_onStopOver;
+    checkbox.onPress       = bdef.callbacks[2]; // &start_button_onPress;
+    checkbox.onSinglePress = bdef.callbacks[3]; // &start_button_onSinglePress;
+    checkbox.onRelease     = bdef.callbacks[4]; // &button_onRelease;
+    checkbox.onLoad        = &button_onLoad;
+
+    // button on load callback runs right now when the button is created
+    // perhaps rename this to onCreate?
+    if(checkbox.onLoad) checkbox.onLoad(checkbox);
+
+    return checkbox;
+}
+
 fn WidgetText* Desktop.create_menu_label(&self, String text, Font* font, int font_size, Color color) @local @inline {
     WidgetText* label = gui::createLabel("", text, font, font_size, color);
     label.addTo(self);
@@ -221,7 +241,7 @@ struct MenuButtonDef
     WidgetCallback[MAX_CALLBACK_PTRS] callbacks;
 }
 
-macro Desktop.create_menu_button(&self, Vec2f pos, String text, MenuButtonDef* bdef) @local {
+macro WidgetButton* Desktop.create_menu_button(&self, Vec2f pos, String text, MenuButtonDef* bdef) @local {
     WidgetButton* button = gui::createButton();
     button.addTo(self);
     // set the button properties
@@ -258,6 +278,8 @@ macro Desktop.create_menu_button(&self, Vec2f pos, String text, MenuButtonDef* b
     // button on load callback runs right now when the button is created
     // perhaps rename this to onCreate?
     if(button.onLoad) button.onLoad(button);
+
+    return button;
 }
     
 fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
@@ -296,6 +318,14 @@ fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
         unreachable("music path not found: %s", music_path);
     }
     desk_main.music_stream = rl::loadMusicStream(music_path.zstr_tcopy());
+    if(!rl::isMusicValid(desk_main.music_stream)) {
+        unreachable("music stream not valid: %s", music_path);
+    }
+    desk_options.music_stream = desk_main.music_stream; // share the same music stream
+    // add the desktops to the shared music stream list
+    desk_main.shared_music_stream_desktops.push(desk_main);
+    desk_main.shared_music_stream_desktops.push(desk_options);
+
     rl::setMusicVolume(desk_main.music_stream, 1.0f);
 
     
@@ -394,6 +424,31 @@ fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
     offset.y += 0.5f * button_height;
     desk_main.create_menu_button(offset, "OPTIONS", &btn_def);
     // end_region BUTTONS
+
+    // region widgets options
+    //************
+    // Checkbox 1
+    //******
+    btn_def.callbacks[2] = &checkbox1_onPress;
+    btn_def.callbacks[3] = &checkbox1_onSinglePress;
+
+    WidgetCheckBox* checkbox1 = desk_options.create_menu_checkbox("Checkbox 1", &btn_def);
+    offset = desk_options.getPosition();
+    offset += misc::VEC_RIGHT * (desk_options.getSize().x / 2);
+    offset += misc::VEC_DOWN * (0.20f * desk_options.getSize().y);
+    checkbox1.setPositionV(offset);
+    //checkbox1.setPositionV(desk_options_center);
+    //************
+    // GO TO MAIN MENU
+    //************
+    btn_def.callbacks[2] = &back_button_options_onPress;
+    btn_def.callbacks[3] = &back_button_options_onSinglePress;
+    
+    offset = desk_options.getPosition();
+    offset += misc::VEC_RIGHT * (0.10f * (desk_options.getSize().x / 2));
+    offset += misc::VEC_DOWN * desk_options.getSize().y;
+    offset.y -= button_height + (0.5f * button_height);
+    desk_options.create_menu_button(offset, "BACK", &btn_def);
 // end_region widgets
     
     return desk_main;
@@ -508,9 +563,11 @@ fn void options_button_onSinglePress(Widget* widget) {
     Desktop* active_menu = getActiveMenu();
     if(active_menu) 
     {
-        if(active_menu.next != null)
+        Desktop* next_menu = active_menu.next;
+        if(next_menu != null)
         {
-            setGUI(active_menu.next);
+            stop(active_menu); // clear the current menu
+            start(next_menu); // set the next menu
         }
     }
     //lgr::info(Where.CONSOLE, "Options Menu is still not done.");
@@ -521,6 +578,35 @@ fn void options_button_onSinglePress(Widget* widget) {
     //  or two reuse the main menu desktop and create a overlay "window"
     //  thou for the overlay I will have to handle overlaping widgets...
     //gui::setGui();
+}
+
+fn void back_button_options_onPress(Widget* widget) {
+    button_onPress(widget);
+    Desktop* active_menu = getActiveMenu();
+    if(active_menu && active_menu.previous != null) {
+        Desktop* next_menu = active_menu.previous;
+        if(next_menu != null)
+        {
+            stop(active_menu); // clear the current menu
+            start(next_menu); // set the next menu
+        }
+    }
+}
+
+fn void back_button_options_onSinglePress(Widget* widget) {
+    back_button_options_onPress(widget);
+}
+
+fn void checkbox1_onPress(Widget* widget) {
+    button_onPress(widget);
+    WidgetCheckBox* self = (WidgetCheckBox*)widget;
+    (self.isChecked()) ? self.setChecked(false) : self.setChecked(true);
+    lgr::info(Where.CONSOLE, "Checkbox 1 is now %s.", self.isChecked() ? "checked" : "unchecked");
+    // TODO(HM) do something with checkbox state
+}
+
+fn void checkbox1_onSinglePress(Widget* widget) {
+    checkbox1_onPress(widget);
 }
 // end_region Main Menu
 

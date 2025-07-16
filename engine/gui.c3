@@ -448,6 +448,7 @@ fn void Panel.draw(&self, bool selected = false)
 
 //////////////// ******** GUI FRAME && WIDGET'S STRUCTS ******** ////////////////////////
 
+/*
 alias WidgetList = List{any};
 alias MouseOverCallback = fn bool(Widget*);
 // A frame is a top-level panel that contains widgets
@@ -522,7 +523,7 @@ macro void Frame.@create(&self, $name; @body(Frame* frame))
     self.init($name);
     body(frame);
 }
-
+*/
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////// Widgets ////////////////////////////////////////////////////
 
@@ -531,6 +532,7 @@ macro void Frame.@create(&self, $name; @body(Frame* frame))
 const KIND_TEXT      = 1;
 const KIND_BUTTON    = 2;
 const KIND_CONTAINER = 3;
+const KIND_CHECKBOX  = 4;
 
 alias WidgetCallback = fn void(Widget*);
 
@@ -543,7 +545,7 @@ interface WidgetInterface
     fn void draw();
     fn bool isWithinScreenBounds() @optional;
     fn void addTo(Desktop*);
-    fn void addToFrame(Frame*) @optional;
+    //fn void addToFrame(Frame*) @optional;
     fn Desktop* getDesktop();
     fn void bindTo(Widget* other);
     fn bool bound();
@@ -759,6 +761,24 @@ fn void Widget.draw(&self) @dynamic
 
             if(self.displayBounds()) {
                 r2d::drawRectangleLinesEx(self.rect, 1.0f, rl::RED);
+            }
+        case KIND_CHECKBOX:
+            // draw the checkbox
+            WidgetCheckBox* this = (WidgetCheckBox*)self;
+            Vec2f center = this.getPosition() + misc::VEC_LEFT * (this.getWidth() / 2.0f);
+            center += misc::VEC_DOWN * (this.getHeight() / 2.0f);
+            r2d::drawRectangle((int)center.x, (int)center.y, 20, 20, this.color);
+
+            // draw the label
+            if(this.label.len > 0) {
+                Vec2f label_pos = center + misc::VEC_RIGHT * 25.0f;
+                rl::drawText(this.label.zstr_tcopy(), (int)label_pos.x, (int)label_pos.y, 16, rl::BLACK);
+            }
+            
+            if(this.isChecked()) {
+                r2d::drawRectangleLines((int)center.x, (int)center.y, 20, 20, rl::BLACK);
+                r2d::drawLineEx(center.toVector2(), (center + misc::VEC_RIGHT * 20).toVector2(), 2.0f, rl::GREEN);
+                r2d::drawLineEx(center.toVector2(), (center + misc::VEC_DOWN * 20).toVector2(), 2.0f, rl::GREEN);
             }
         case KIND_CONTAINER:
         case KIND_BUTTON:
@@ -1156,6 +1176,63 @@ fn WidgetButton* createButton() @inline {
     return button;
 }
 
+////////////////////////////////////////////////// Widget check box //////////////////////////////////////////////////////
+
+struct WidgetCheckBox 
+{
+    // extends Widget (super/base class)
+    inline WidgetButton super;
+
+    bool checked; // is the checkbox checked or not
+    String label; // label for the checkbox
+}
+
+fn void WidgetCheckBox.init(&self) @inline 
+{
+    self.super.init();
+    self.name = "CheckBox";
+    self.setColor(rl::WHITE);
+    self.kind = KIND_CHECKBOX;
+}
+
+fn void WidgetCheckBox.deinit(&self) @inline 
+{
+    self.super.deinit();
+}
+
+fn void WidgetCheckBox.update(&self) @inline 
+{
+    self.super.update();
+}
+
+fn void WidgetCheckBox.draw(&self) @inline 
+{
+    self.super.draw();
+}
+
+fn void WidgetCheckBox.setChecked(&self, bool checked) @inline 
+{
+    self.checked = checked;
+    self.setColor((checked) ? rl::GREEN : rl::WHITE);
+}
+
+fn bool WidgetCheckBox.isChecked(&self) @inline 
+{
+    return self.checked;
+}
+
+fn void WidgetCheckBox.setLabel(&self, String label) @inline 
+{
+    self.label = label;
+}
+
+fn WidgetCheckBox* createCheckBox(String label) @inline 
+{
+    WidgetCheckBox* checkbox = mem::new(WidgetCheckBox);
+    checkbox.init();
+    checkbox.setLabel(label);
+    return checkbox;
+}
 //////////////////////////////////// CONTAINER //////////////////////////////////////
 
 alias ContainerQueue = List{any};
@@ -1365,6 +1442,7 @@ struct Desktop (SaveSystemInterface)
     int time; // milliseconds
 
     Music music_stream; // any music stream that we may want to attach to a desktop
+    List{Desktop*} shared_music_stream_desktops; // list of desktops that share the same music stream
     
     // Lists
     ChildrenQueue children;
@@ -1483,6 +1561,23 @@ fn void Desktop.init(&self, String name, bool isFullscreen = true, int w = 800, 
     local_manager.register(this);
 }
 
+fn void Desktop.deinit(&this) @inline 
+{
+    this.clear();
+    // last clear ourself
+    if(this.tex) this.tex = null;
+    local_manager.unregister(this);
+}
+
+fn void Desktop.setFocus(&self, bool focus) @inline 
+{
+    if (focus) {
+        self.activate(true, main::gpGame.time_ms);
+    } else {
+        self.activate(false, main::gpGame.time_ms);
+    }
+}
+
 fn void Desktop.setPosition(&self, float x, float y) @inline 
 {
     self.rect.x = x;
@@ -1509,14 +1604,6 @@ fn void Desktop.setSize(&self, float w, float h) @inline
 fn Vec2f Desktop.getSize(&self) @inline 
 {
     return {self.rect.width, self.rect.height};
-}
-
-fn void Desktop.deinit(&this) @inline 
-{
-    this.clear();
-    // last clear ourself
-    if(this.tex) this.tex = null;
-    local_manager.unregister(this);
 }
 
 fn void Desktop.activate(&self, bool activate, int _time) {
@@ -1573,10 +1660,26 @@ fn void Desktop.clear(&self) @inline
         }
     }
 
-    if(rl::isMusicValid(self.music_stream)) {
-        // todo fade out the music stream
-        if(rl::isMusicStreamPlaying(self.music_stream)) rl::stopMusicStream(self.music_stream);
-        rl::unloadMusicStream(self.music_stream);
+    if(self.shared_music_stream_desktops.len()) 
+    {
+        if(self.shared_music_stream_desktops.first()!! == self) 
+        {
+            // if the first desktop in the list is the same as self, then we can unload the music stream
+            if(rl::isMusicValid(self.music_stream)) 
+            {
+                // todo fade out the music stream
+                //if(rl::isMusicStreamPlaying(self.music_stream)) rl::stopMusicStream(self.music_stream);
+                rl::unloadMusicStream(self.music_stream);
+
+                // then just zero the data for the rest of the desktop's and clear the shared music desktops list.
+                for(int i = 1; i < self.shared_music_stream_desktops.len(); i++)
+                {
+                    (*self.shared_music_stream_desktops[i]).music_stream = {};
+                }
+
+                self.shared_music_stream_desktops.clear();
+            }
+        } 
     }
 
     if(self.home     != null) self.home     = null;
@@ -1653,7 +1756,7 @@ fn void Desktop.drawCursor(&self) @inline
 
 fn void Desktop.update(&self) 
 {
-    if(self.hidden()) return;
+    if(self.hidden() && self.active == false) return;
     
     if (self.children.len())
     {
