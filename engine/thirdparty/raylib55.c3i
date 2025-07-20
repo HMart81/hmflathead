@@ -243,6 +243,16 @@ struct Shader
     int* locs;              // Shader locations array (RL_MAX_SHADER_LOCATIONS)
 }
 
+macro bool Shader.equal(&self, Shader other) @operator(==)
+{
+    return (bool)(self.id == other.id && self.locs == other.locs);
+}
+
+macro bool Shader.nequal(&self, Shader other) @operator(!=)
+{
+    return (bool)(self.id != other.id || self.locs != other.locs);
+}
+
 /*
     DOC(HM) MaterialMap
     Usage:

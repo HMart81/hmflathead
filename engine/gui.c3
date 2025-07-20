@@ -1120,15 +1120,21 @@ fn void WidgetButton.manage_interactions(&self) @local
         {
             if (rl::isMouseButtonDown(MouseButton.LEFT) && self.press_count >= 1) {
                 //main::lgr::info(Where.CONSOLE, "Gui: I'm pressing button: %s", self.name);
-                if (self.onPress) self.onPress(self);
+                if (self.onPress) { 
+                    self.onPress(self);
+                }
             }
             
             if (Action* action = input::getAction("Double Press")) {
-                if (action.fnDoubleTriggered(0.250f) && self.onDoublePress) self.onDoublePress(self);
+                if (action.fnDoubleTriggered(0.250f) && self.onDoublePress) { 
+                    self.onDoublePress(self);
+                }
             }
             
             if (Action* action = input::getAction("Single Press")) {
-                if (action.fnBecameTriggered() && self.onSinglePress) self.onSinglePress(self);
+                if (action.fnBecameTriggered() && self.onSinglePress) { 
+                    self.onSinglePress(self); 
+                }
                 // if(action.fnBecameTriggered()) {
                     // String[] array = {"apple", "banana", "apple", "orange", "banana"};
                     // int size = array.len;
@@ -1137,15 +1143,21 @@ fn void WidgetButton.manage_interactions(&self) @local
             }
 
             if (rl::isMouseButtonReleased(MouseButton.LEFT)) {
-                if (self.onRelease) self.onRelease(self);
+                if (self.onRelease) { 
+                    self.onRelease(self); 
+                }
             }
 
             if (rl::isKeyPressed(rl::KEY_ENTER) && !rl::isKeyPressedRepeat(rl::KEY_ENTER)) {
-                if (self.onEnterKey) self.onEnterKey(self);
+                if (self.onEnterKey) { 
+                    self.onEnterKey(self); 
+                }
             }
         }
     } else {
-        if (self.onStopOver) self.onStopOver(self);
+        if (self.onStopOver) { 
+            self.onStopOver(self);
+        }
     }
 }
 
@@ -1446,8 +1458,7 @@ struct Desktop (SaveSystemInterface)
     
     // Lists
     ChildrenQueue children;
-    // todo make a queue for hidden children to better control what to hide and show, 
-    // when hidding or showing the desktop
+    // todo make a queue for hidden children to better control what to hide and show.
 
     Desktop* home; // the home desktop, where we can return to
     Desktop* previous; // for desktop linkage, so we can go back to the previous desktop
@@ -1768,6 +1779,8 @@ fn void Desktop.update(&self)
                     ((WidgetButton*)child).update(); 
                 case KIND_TEXT:
                     ((WidgetText*)child).update();
+                case KIND_CHECKBOX:
+                    ((WidgetCheckBox*)child).update();
                 case KIND_CONTAINER:
                     ((WidgetContainer*)child).update();
                 default:
@@ -1781,7 +1794,8 @@ fn void Desktop.update(&self)
     }
 }
 
-fn void Desktop.redraw(&self, int _time)  {
+fn void Desktop.redraw(&self, int _time)  
+{
     if(self.hidden()) return;
     
     /*if ( r_skipGuiShaders.GetInteger() > 5 ) {

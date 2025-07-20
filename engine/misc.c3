@@ -565,52 +565,138 @@ const String SHADER_INCLUDE = `
 #define DEPTH3            29   // Shader location: sampler2d texture: depth map 3
 `;
 
-fn Shader loadShader(String vs_path, String fs_path) @inline {
+const INCLUDE_DIRECTIVE @local = "#include";
+const SHADER_HOME_PATH  @local = "shaders/";
+
+fn String String.handleShaderIncludes(self) @local
+{
+    uint include_count = (uint)self.count(INCLUDE_DIRECTIVE);
+    if(include_count > 0)
+    {
+        String[] lines = self.tsplit("\r\n");
+        foreach(String line : lines)
+        {
+            if(line.is_empty()) continue; // skip empty lines
+            if(line.starts_with("//")) continue; // skip comments
+            if(line.starts_with("#"))
+            {
+                String[] tokens = line.tsplit(" ");
+                foreach(String token : tokens) 
+                {
+                    if(token.is_empty()) continue; // skip empty tokens
+                    token = token.trim(); // trim whitespace
+                }
+
+                String directive = tokens[0];
+                if(directive != INCLUDE_DIRECTIVE) continue; // skip if not an include directive
+
+                // NOTE(HM) we expect the include directive to be in the format: #include "path/to/include.inc"
+                String include_path = tokens[1];
+                String original_include_path = tokens[1].tcopy(); // keep the original path for later use
+
+                if(include_path.contains(".\\") || include_path.contains("./")) {
+                    // NOTE(HM) if the include path contains a slash or backslash, we will replace it with a forward slash
+                    include_path = include_path.treplace("./", "\\").treplace(".\\", "\\");
+                }
+
+                if(include_path.starts_with("\"")) {
+                    // NOTE(HM) remove the quotes
+                    include_path = include_path.trim("\"");
+                }
+            
+                include_path = SHADER_HOME_PATH.tconcat(include_path);
+
+                assert(include_path.is_empty() == false, "Include path should not be empty!");
+
+                // NOTE(HM) if the include path does not end with .inc, append it
+                if(include_path.ends_with(".inc") == false) {
+                    include_path = include_path.tconcat(".inc");
+                }
+
+                // NOTE(HM) now create the replace token, it will be used to detect the full include directive in the shader code
+                // NOTE(HM) this will try to find the include directive text in the shader code, without caring about well-formedness
+                String replace_directive = INCLUDE_DIRECTIVE.tconcat(" ").tconcat(original_include_path);
+
+                assert(replace_directive.is_empty() == false, "replace directive should not be empty!");
+
+                String? code_to_included = readEntireFileX(main::gpGame.app_base_folder.tconcat(include_path));
+                if(catch excuse = code_to_included) {
+                    lgr::error(Where.FILE, "Failed to include file: %s, error: %s", include_path, excuse);
+                    // NOTE(HM) if the file is not found, we will just remove the include directive
+                    self = self.treplace(replace_directive, "");
+                    continue; // skip to next line
+                }
+
+                // NOTE(HM) else replace the full include directive with the code to include
+                self = self.treplace(replace_directive, code_to_included.tconcat("\n"));
+            }
+        }
+    }
+
+    return self;
+}
+
+fn Shader loadShader(String vs_path, String fs_path) 
+{
     // NOTE(HM) this is used to load a shader from a vertex and fragment shader file
     // if the paths are empty it will return the default shader
     if(vs_path.is_empty() && fs_path.is_empty()) {
-        return main::gpGame.default_shader;
+       //lgr::warning(Where.FILE, "Both vertex and fragment shader paths are empty, returning default shaders: %s::%s:%s", $$MODULE, $$FUNCTION, $$LINE);
+        return {}; // return empty shader will use raylib default shaders
     }
 
-    String include_marker = "#include \"defines.inc\"";
+    //String include_marker = "#include \"defines.inc\"";
     
     // NOTE(HM) if the vertex shader path is empty, it will use the default raylib vertex shader
     String vs_shader_code;
     String fs_shader_code;
+
     if(vs_path.is_empty()) 
+    {
+        // NOTE(HM) if the vertex shader path is empty, we will try to load the custom fragment shader only
+        fs_shader_code = readEntireFileX(fs_path)!!;
+        if(fs_shader_code.is_empty()) {
+            lgr::error(Where.FILE, "Failed to load fragment shader from path: %s", fs_path);
+            return {}; // return empty shader will use raylib default shaders
+        }
+
+        fs_shader_code = fs_shader_code.handleShaderIncludes();
+        //if(fs_shader_code.contains(include_marker)) fs_shader_code = fs_shader_code.treplace(include_marker, SHADER_INCLUDE);
+
+        return rl::loadShaderFromMemory("", stringTotempzstring(fs_shader_code));
+    }
+
+    // NOTE(HM) if the vertex shader path is not empty, we will try to read the custom vertex shader
+    vs_shader_code = readEntireFileX(vs_path)!!;
+    if(vs_shader_code.is_empty()) {
+        lgr::error(Where.FILE, "Failed to load vertex shader from path: %s", vs_path);
+        vs_shader_code = ""; // if for some reason we fail to read our vertex shader, use the raylib default vertex shader
+    }
+
+    if(vs_shader_code.is_empty() && fs_path.is_empty()) {
+        //lgr::warning(Where.FILE, "Both vertex and fragment shader paths are empty, returning default shaders: %s::%s:%s", $$MODULE, $$FUNCTION, $$LINE);
+        return {}; // return empty shader will use raylib default shaders
+    }
+
+    //if(vs_shader_code.contains(include_marker)) vs_shader_code = vs_shader_code.treplace(include_marker, SHADER_INCLUDE);
+    if(vs_shader_code != "") vs_shader_code = vs_shader_code.handleShaderIncludes();
+
+    if(fs_path.is_empty()) 
+    {
+        // NOTE(HM) if the fragment shader path is empty, we will use the default raylib fragment shader
+        return rl::loadShaderFromMemory(stringTotempzstring(vs_shader_code), "");
+    } 
+    else
     {
         fs_shader_code = readEntireFileX(fs_path)!!;
         if(fs_shader_code.is_empty()) {
             lgr::error(Where.FILE, "Failed to load fragment shader from path: %s", fs_path);
-            return main::gpGame.default_shader;
+            // NOTE(HM) we will use the default raylib fragment shader then
+            return rl::loadShaderFromMemory(stringTotempzstring(vs_shader_code), "");
         }
-
-        // NOTE(HM) if the vertex shader path is empty, include the header in the fragment shader code.
-        if(fs_shader_code.contains(include_marker)) fs_shader_code = fs_shader_code.treplace(include_marker, SHADER_INCLUDE);
-        return rl::loadShaderFromMemory("", stringTotempzstring(fs_shader_code));
-    }
-
-    // NOTE(HM) if the vertex shader path is not empty, include the header in it.
-    vs_shader_code = readEntireFileX(vs_path)!!;
-    if(vs_shader_code.is_empty()) {
-        lgr::error(Where.FILE, "Failed to load vertex shader from path: %s", vs_path);
-        return main::gpGame.default_shader;
-    }
-
-    if(vs_shader_code.contains(include_marker)) vs_shader_code = vs_shader_code.treplace(include_marker, SHADER_INCLUDE);
-
-    if(fs_path.is_empty()) 
-    {
-        // NOTE(HM) if the vertex shader path is empty, include the header in the fragment shader code.
-        return rl::loadShaderFromMemory(stringTotempzstring(vs_shader_code), "");
-    }
-
-    fs_shader_code = readEntireFileX(fs_path)!!;
-    if(fs_shader_code.is_empty()) {
-        lgr::error(Where.FILE, "Failed to load fragment shader from path: %s", fs_path);
-        return main::gpGame.default_shader;
     }
     
+    // else both shaders are not empty, so we can load them
     return rl::loadShaderFromMemory(stringTotempzstring(vs_shader_code), stringTotempzstring(fs_shader_code));
 }
 

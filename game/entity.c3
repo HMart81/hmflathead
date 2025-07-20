@@ -712,3 +712,181 @@ fn void getMaxc(WrenVM* vm)
 // 	WrenHandle handle.value = *(Value*)&(*ent).bounds;
 //     vm.setSlotHandle(0, &handle);
 // }
+
+/********************************* Entity Component System (ECS) *********************************/
+/*
+module game::entity_component_system::ecs;
+
+
+struct ECSEntity
+{
+	int id;
+}
+
+fn void ECSEntity.init(int anid) @inline
+{
+	if(anid < 0) {
+		unreachable("Invalid entity id, must be >= 0");
+	}
+	self.id = anid;
+}
+
+struct ECSComponent
+{
+	any data; // component data, can be any type
+	ECSEntity* entity; // the entity this component belongs to
+	String name; // component name, for debugging purposes
+	// TODO(HM) add more component data here...
+}
+
+fn bool ECSComponent.isType(&self, typeid type) @inline
+{
+	return self.data.type == type ? true : false;
+}
+
+alias ECSSystemCallback = fn void (ECSEntity* entity, ECSComponent* component) @inline;
+struct ECSSystem
+{
+	String name; // system name
+	ECSSystemCallback callback; // system callback function
+	// TODO(HM) add more system data here...
+}
+
+ECSEntityList = List{ECSEntity*}; // list of entities in the ECS system
+ECSComponentList = List{ECSComponent*}; // list of components in the ECS system
+ECSSystemList = List{ECSSystem*}; // list of systems in the ECS system
+
+struct ECSEntityManager
+{
+	ECSEntityList entities;
+	ECSComponentList components; // list of components in the ECS system
+	ECSSystemList systems; // list of systems in the ECS system
+	// TODO(HM) add more data here, like systems, etc.
+}
+	
+fn void ECSEntityManager.registerEntity(ECSEntity* entity) @inline
+{
+	if(entity == null) {
+		unreachable("Cannot add a null entity to the ECS entity list.");
+	}
+	self.entities.push(entity);
+}
+
+fn void ECSEntityManager.remove(ECSEntity* entity) @inline
+{
+	if(entity == null) {
+		unreachable("Cannot remove a null entity from the ECS entity list.");
+	}
+	self.entities.remove(entity);
+}
+
+fn ECSEntity* ECSEntityManager.getEntity(int id) @inline
+{
+	return self.entities.get(id);
+}
+
+fn bool ECSEntityManager.hasEntity(ECSEntity* entity) @inline
+{
+	if(entity == null) {
+		unreachable("Cannot check if a null entity exists in the ECS entity list.");
+	}
+	
+	foreach(ECSEntity* e : self.entities)
+	{
+		if(e == entity) {
+			return true; // found
+		}
+	}
+	
+	return false; // not found
+}
+
+fn void ECSEntityManager.add_component(String name, typeid type, ECSEntity* entity) @inline
+{
+	if(entity == null) {
+		unreachable("Cannot add a component to a null entity.");
+	}
+	
+	ECSComponent* component = mem::new(ECSComponent);
+	component.name = name.tcopy();
+	component.data.type = type;
+	switch (type)
+	{
+		case float.typeid:
+			component.data.ptr = mem::new(float, {0.0f}); // default value for float
+		case int.typeid:
+			component.data.ptr = mem::new(int, {0}); // default value for int
+		case bool.typeid:
+			component.data.ptr = mem::new(bool, {false}); // default value for bool
+		case String.typeid:
+			component.data.ptr = mem::new(String, {""}); // default value for String
+		case Vec2f.typeid:
+			component.data.ptr = mem::new(Vec2f, {0.0f, 0.0f}); // default value for Vec2f
+		case Vec2i.typeid:
+			component.data.ptr = mem::new(Vec2i, {0, 0}); // default value for Vec2i
+		case Bounds.typeid:
+			component.data.ptr = mem::new(Bounds, {Vec2f{0.0f, 0.0f}, Vec2f{0.0f, 0.0f}}); // default value for Bounds
+		case B2BodyId.typeid:
+			component.data.ptr = mem::new(B2BodyId, {0}); // default value for B2BodyId
+		case Sprite.typeid:	
+			component.data.ptr = mem::new(Sprite, {}); // default value for Sprite
+		default:
+			unreachable("Unknown component type: %s", type.name);
+	}
+	component.entity = entity;
+	self.components.push(component);
+}
+
+fn ECSComponent* ECSEntityManager.getComponent(ECSEntity* entity, String name) @inline
+{
+	if(entity == null) {
+		unreachable("Cannot get a component from a null entity.");
+	}
+	
+	foreach(ECSComponent* component : self.components)
+	{
+		if(component.entity == entity && component.name == name) {
+			return component;
+		}
+	}
+	
+	return null; // not found
+}
+
+fn bool ECSEntityManager.hasComponent(ECSEntity* entity, String name) @inline
+{
+	if(entity == null) {
+		unreachable("Cannot check if a component exists in a null entity.");
+	}
+	
+	foreach(ECSComponent* component : self.components)
+	{
+		if(component.entity == entity && component.name == name) {
+			return true; // found
+		}
+	}
+	
+	return false; // not found
+}
+
+fn bool ECSEntityManager.hasComponentType(ECSEntity* entity, typeid type) @inline
+{
+	if(entity == null) {
+		unreachable("Cannot check if a component exists in a null entity.");
+	}
+	
+	foreach(ECSComponent* component : self.components)
+	{
+		if(component.entity == entity && component.data.type == type) {
+			return true; // found
+		}
+	}
+	
+	return false; // not found
+}
+
+fn void ECSEntityManager.clear() @inline
+{
+	if(self.entities.len()) self.entities.clear();
+	if(self.components.len()) self.components.clear();
+}

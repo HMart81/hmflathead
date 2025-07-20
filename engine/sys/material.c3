@@ -252,6 +252,7 @@ fn void HMaterial.free(&self) @public
     // NOTE(HM) this will free the shader if it is not the default shader
     if(self.shader.isValid()) 
     {
+        assert(self.shader.id != 0, "Invalid shader id for material '%s' in file '%s'!", self.name, self.mtrfile.path);
         if(self.shader.id != main::getDefaultShader().id) { 
             rl::unloadShader(self.shader);
         }
@@ -756,7 +757,7 @@ fn void HMaterial.parse_uniform(&self, XmlNode* child, Shader* shader)
 <*
     @param [&in] node : "node to get data from"
 *>
-fn void HMaterial.parse_shader(&self, XmlNode* node) @inline @public
+fn void HMaterial.parse_shader(&self, XmlNode* node) @public
 {
     String shader_path = (String)node.getAttribute(NodeAttrib.PATH).value;
     if(shader_path.is_empty()) {
@@ -765,9 +766,9 @@ fn void HMaterial.parse_shader(&self, XmlNode* node) @inline @public
     }
 
     // NOTE(HM) I'm appending the extension here just as a placeholder, to make it easy to get the shader name.
-    shader_path = shader_path.tconcat(".fs");
-    String shader_name = fs::getFileNameWithoutExt(shader_path);
     Shader shader;
+    shader_path = shader_path.tconcat(".tp");
+    String shader_name = fs::getFileNameWithoutExt(shader_path);
     if(Shader* shader_found = astmng::assetManager.getShader(shader_name))
     {
         shader = *shader_found; // use the shader from the asset manager

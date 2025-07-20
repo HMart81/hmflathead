@@ -73,8 +73,7 @@ fn void Script.run(&this) @inline
 }
 
 <*
- @param [in] _sengine : "pointer to the script engine"
- @require _sengine != null
+ @param [&in] _sengine : "pointer to the script engine"
 *>
 fn void Script.linkTo(&self, ScriptEngine* _sengine) @inline
 {

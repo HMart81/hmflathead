@@ -208,6 +208,7 @@ fn void exit() {
 
 fn WidgetCheckBox* Desktop.create_menu_checkbox(&self, String text, MenuButtonDef* bdef) @local @inline {
     WidgetCheckBox* checkbox = gui::createCheckBox("Checkbox 1");
+    checkbox.setColor(rl::DARKGRAY);
     checkbox.addTo(self);
     // set the checkbox properties
     checkbox.onOver        = bdef.callbacks[0]; // &button_onOver;
@@ -429,7 +430,7 @@ fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
     //************
     // Checkbox 1
     //******
-    btn_def.callbacks[2] = &checkbox1_onPress;
+    btn_def.callbacks[2] = null; //&checkbox1_onPress;
     btn_def.callbacks[3] = &checkbox1_onSinglePress;
 
     WidgetCheckBox* checkbox1 = desk_options.create_menu_checkbox("Checkbox 1", &btn_def);
@@ -477,7 +478,15 @@ fn void button_onOver(Widget* widget) {
     assert(widget != null);
     WidgetButton* self = (WidgetButton*)widget;
     if(self.active_visible_infocus() && self.asFocus()) {
-        self.setColor(rl::RED);
+        switch (self.kind)
+        {
+            case gui::KIND_CHECKBOX:
+            case gui::KIND_TEXT:
+            case gui::KIND_CONTAINER:
+            case gui::KIND_BUTTON:
+            default:
+                self.setColor(rl::RED);
+        }
     }
 }
 
@@ -598,15 +607,14 @@ fn void back_button_options_onSinglePress(Widget* widget) {
 }
 
 fn void checkbox1_onPress(Widget* widget) {
-    button_onPress(widget);
+}
+
+fn void checkbox1_onSinglePress(Widget* widget) {
+    //button_onPress(widget);
     WidgetCheckBox* self = (WidgetCheckBox*)widget;
     (self.isChecked()) ? self.setChecked(false) : self.setChecked(true);
     lgr::info(Where.CONSOLE, "Checkbox 1 is now %s.", self.isChecked() ? "checked" : "unchecked");
     // TODO(HM) do something with checkbox state
-}
-
-fn void checkbox1_onSinglePress(Widget* widget) {
-    checkbox1_onPress(widget);
 }
 // end_region Main Menu
 
