@@ -70,6 +70,7 @@ TSOD_FLAG := flaglib\flaglib.lib
 TRACY := tracy\TracyClient.lib
 MICROUI := microui\microui.lib
 WREN := wren\wren_d.lib
+ANGELSCRIPT := angelscript\angelscript_c.lib
 ##
 LIBRARY_ROOT_PATH := .\thirdparty\include\libs\\
 LINKER_SEARCH_PATHS := -L $(LIBRARY_ROOT_PATH)

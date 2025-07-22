@@ -97,6 +97,20 @@ macro @todo($a = 0) @builtin
     $endif
 }
 
+// NOTE(HM) this is used to disable a peace of code
+macro @off($a = 0; @body) @builtin
+{
+    $if $defined(_NULLNULL_): // never define _NULLNULL_ in the code, this is just a marker
+       unreachable("==> This code is disabled! <==");
+       @body();
+    $endif
+}
+// NOTE(HM) this is used to enable, a disabled peace of code
+macro @on($a = 0; @body) @builtin
+{
+    @body();
+}
+
 <*
   @param $a : `start index`
   @param #b : `end index`
@@ -641,7 +655,7 @@ fn Shader loadShader(String vs_path, String fs_path)
     // NOTE(HM) this is used to load a shader from a vertex and fragment shader file
     // if the paths are empty it will return the default shader
     if(vs_path.is_empty() && fs_path.is_empty()) {
-       //lgr::warning(Where.FILE, "Both vertex and fragment shader paths are empty, returning default shaders: %s::%s:%s", $$MODULE, $$FUNCTION, $$LINE);
+        lgr::warning(Where.FILE, "Both vertex and fragment shader paths are empty, returning default shaders: %s::%s:%s", $$MODULE, $$FUNC, $$LINE);
         return {}; // return empty shader will use raylib default shaders
     }
 
@@ -674,7 +688,7 @@ fn Shader loadShader(String vs_path, String fs_path)
     }
 
     if(vs_shader_code.is_empty() && fs_path.is_empty()) {
-        //lgr::warning(Where.FILE, "Both vertex and fragment shader paths are empty, returning default shaders: %s::%s:%s", $$MODULE, $$FUNCTION, $$LINE);
+        lgr::warning(Where.FILE, "Both vertex and fragment shader paths are empty, returning default shaders: %s::%s:%s", $$MODULE, $$FUNC, $$LINE);
         return {}; // return empty shader will use raylib default shaders
     }
 

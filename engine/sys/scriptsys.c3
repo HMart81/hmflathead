@@ -26,8 +26,30 @@
 # 
 *********************************************************************************************************************************************/
 
-// Add fields and methods for 2D rendering
-// For example, you might have a method to draw a rectangle or a sprite
+module engine::sys::script_engine::scpt @if($feature(ANGEL_ENABLE));
+
+import std::io;
+import thirdparty::angel; // for the message callback
+import engine::logging::lgr;
+
+// for the angel script engine ONLY
+fn void messageCallback(SMessageInfo *msg, void * /*obj*/)
+{
+	switch
+    {
+	    case msg.type == 0: lgr::error(Where.CONSOLE, "%s (%d, %d) : %s\n", msg.section, msg.row, msg.col, msg.message);
+	    case msg.type == 1: lgr::warning(Where.CONSOLE, "%s (%d, %d) : %s\n", msg.section, msg.row, msg.col, msg.message);
+	    case msg.type == 2: lgr::info(Where.CONSOLE, "%s (%d, %d) : %s\n", msg.section, msg.row, msg.col, msg.message);
+    }
+}
+
+fn void asPrint(String fmt, args...) @format(0)
+{
+    DString str = dstring::temp_with_capacity(fmt.len + args.len * 8);
+	str.appendf(fmt, ...args);
+    io::printf("%s", str.zstr_view());
+}
+// end of message callback
 
 module engine::sys::script_engine::scpt @if($feature(WREN_ENABLE));
 
@@ -41,6 +63,9 @@ import engine::misc; // misc code
 import game::main;
 import engine::sys::script_engine::event; // import the event system
 import game::actors::ent;
+//
+
+
 
 //alias VMListPtr = List{WrenVM*};
 alias ScriptList = List{Script*};

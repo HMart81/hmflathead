@@ -94,13 +94,29 @@ const MAX_STAGE_INDICES = (STAGE_SOUND);
 // just in case...
 $assert MAX_STAGE_INDICES == STAGE_SOUND;
 
+alias StageLighting = int;  // Stage lighting type
+const StageLighting SL_AMBIENT  @public = 0;    // execute after lighting
+const StageLighting SL_BUMP     @public = 1;    // bump mapping stage, used for normal maps
+const StageLighting SL_DIFFUSE  @public = 2;    // diffuse lighting stage, used for diffuse maps
+const StageLighting SL_SPECULAR @public = 3;    // specular lighting stage, used for specular maps
+
+const int BLEND_NONE     @public = rl::RL_ZERO | rl::RL_ONE;                       // used when defining an alpha mask that doesn't draw
+const int BLEND_BLEND    @public = rl::RL_SRC_ALPHA | rl::RL_ONE_MINUS_SRC_ALPHA;
+const int BLEND_ADD      @public = rl::RL_ONE | rl::RL_ONE;
+const int BLEND_SCREEN   @public = rl::RL_ONE_MINUS_DST_COLOR | rl::RL_ONE;
+const int BLEND_DODGE    @public = rl::RL_DST_COLOR | rl::RL_ONE;                  // even softer additive
+const int BLEND_MODULATE @public = rl::RL_DST_COLOR | rl::RL_ZERO;                 // used for modulate and multiply
+
 // NOTE(HM) raylib has the MaterialMap already that is almost equivalent, should we use that?
 // Material stage represents each texture type in a material
-struct MaterialStage
+struct MaterialStage @public
 {
     //NOTE(HM) width and Height are encoded on the Texture2D data
     Texture2D tex;
     Color color;
+    int drawStateBits; // draw state bits for this stage, used for blending and who knows other effects
+    int lighting; // lighting type for this stage, used for lighting calculations
+    
     // Todo perhaps rethink this per stage args stuff....
     MaterialStageArgList args;
 }
@@ -216,6 +232,8 @@ struct HMaterial  (SaveSystemInterface) @public
 
     Shader shader; // shader used by this material, if any
     
+    // TODO(HM) support more than one diffuse map stage, etc.
+    // for more complex materials.
     MaterialStage[MAX_STAGE_INDICES] maps;
     
     // NOTE(HM) Perhaps this should be a string with the mtr path in it, 
@@ -238,7 +256,27 @@ fn void HMaterial.init(&self) @public
     // use constants instead of enums for this?
     self.contentes |= (Contents.SOLID.flag | Contents.OPAQUE.flag);
     self.comment  = "<no comment>";
-    self.getStage(mat::STAGE_DIFFUSE).color = rl::WHITE;
+
+    // diffuse stage is the only one supported for now
+    self.getStage(STAGE_DIFFUSE).color = rl::WHITE;
+    self.getStage(STAGE_DIFFUSE).drawStateBits |= BLEND_NONE; // default blend mode
+    self.getStage(STAGE_DIFFUSE).lighting = SL_DIFFUSE; // default lighting stage
+    //
+    self.getStage(STAGE_OCCLUSION).color = rl::WHITE;
+    self.getStage(STAGE_OCCLUSION).drawStateBits |= BLEND_MODULATE;
+    self.getStage(STAGE_OCCLUSION).lighting = SL_DIFFUSE; // default lighting stage
+    //
+    self.getStage(STAGE_SPECULAR).color = rl::BLACK; // default specular color
+    self.getStage(STAGE_SPECULAR).drawStateBits |= BLEND_NONE; // default blend mode
+    self.getStage(STAGE_SPECULAR).lighting = SL_SPECULAR; // default lighting stage
+    //
+    self.getStage(STAGE_NORMAL).color = rl::WHITE;
+    self.getStage(STAGE_NORMAL).drawStateBits |= BLEND_NONE; // default blend mode
+    self.getStage(STAGE_NORMAL).lighting = SL_BUMP; // default lighting stage
+    //
+    self.getStage(STAGE_EMISSION).color = rl::WHITE;
+    self.getStage(STAGE_EMISSION).drawStateBits |= BLEND_ADD; // default blend mode
+    self.getStage(STAGE_EMISSION).lighting = SL_AMBIENT;
 
     // NOTE(HM) all materials start with the default game shader
     //self.shader = main::getDefaultShaderCopy();
@@ -256,6 +294,23 @@ fn void HMaterial.free(&self) @public
         if(self.shader.id != main::getDefaultShader().id) { 
             rl::unloadShader(self.shader);
         }
+    }
+}
+
+// TODO(HM) make this print a more detailed material info
+fn void HMaterial.print(self) @public //@local
+{
+    Color color = self.getStage(mat::STAGE_DIFFUSE).color;
+    Texture2D* tex = &self.getStage(mat::STAGE_DIFFUSE).tex;
+    io::printfn("[material : '%s']", self.name);
+    if(self.comment.len && self.comment != "<no comment>") {
+        io::printfn(" comment = \"%s\"", self.comment);
+    }
+    io::printfn(" [map : 'Diffuse']");
+    io::printfn("  tex: \"id: %s, w: %s, h: %s, mp: %s, pf: %s\"", tex.id, tex.width, tex.height, tex.mipmaps, tex.format);
+    io::printfn("  color: \"%s, %s , %s, %s\"", color.r, color.g, color.b, color.a);
+    foreach(i, arg : self.getStage(mat::STAGE_DIFFUSE).args) {
+        io::printfn("  arg%d: \"%s = %s\"", i, arg.first, arg.second);
     }
 }
 
@@ -397,6 +452,11 @@ fn void HMaterial.parse_maps(&self, XmlNode* maps_node) @public
                                     lgr::info(Where.FILE, "Loaded texture '%s' for material '%s' in file '%s'", texture_path, self.name, self.mtrfile.path);
                                 $endif
                             }
+                        case mtr::isXmlNode(child, Node.BLEND):
+                            self.parse_blend(child, self.getStage(STAGE_DIFFUSE));
+                            // NOTE(HM) this is a blend map, we will use it to blend two textures together
+                            // TODO(HM) implement this
+                            //lgr::warning(Where.FILE, "Blend is not implemented yet! Skipping node '%s' in material '%s' in file '%s'", child.name, self.name, self.mtrfile.path);
                         case mtr::isXmlNode(child, Node.COLOR):
                             self.getStage(STAGE_DIFFUSE).color = mtr::xmlStrColorToColor(child.getText());
                         case mtr::isXmlNode(child, Node.KEYWORD):
@@ -537,6 +597,119 @@ fn void HMaterial.parse_sound(&self, XmlNode* node) @inline @public
    //self.sound = astmng::assetManager.getSound(sound_shader_name);
 }
 
+
+fn int HMaterial.nameToSrcBlendMode(&self, String name ) 
+{
+    switch(name)
+    {
+        case "GL_ONE":
+        case "gl_one": return rl::RL_ONE;
+        case "GL_ZERO": 
+        case "gl_zero": return rl::RL_ZERO;
+        case "GL_DST_COLOR": 
+        case "gl_dst_color": return rl::RL_DST_COLOR;
+        case "GL_ONE_MINUS_DST_COLOR": 
+        case "gl_one_minus_dst_color": return rl::RL_ONE_MINUS_DST_COLOR;
+        case "GL_SRC_ALPHA": 
+        case "gl_src_alpha": return rl::RL_SRC_ALPHA;
+        case "GL_ONE_MINUS_SRC_ALPHA": 
+        case "gl_one_minus_src_alpha": return rl::RL_ONE_MINUS_SRC_ALPHA;
+        case "GL_DST_ALPHA": 
+        case "gl_dst_alpha": return rl::RL_DST_ALPHA;
+        case "GL_ONE_MINUS_DST_ALPHA": 
+        case "gl_one_minus_dst_alpha": return rl::RL_ONE_MINUS_DST_ALPHA;
+        case "GL_SRC_ALPHA_SATURATE": 
+        case "gl_src_alpha_saturate": return rl::RL_SRC_ALPHA_SATURATE;
+    }
+
+	lgr::warning(Where.FILE, "unknown blend mode '%s' in material '%s'", name, self.name);
+	self.flags.has_defaulted = true;
+
+	return rl::RL_ONE;
+}
+
+
+fn int HMaterial.nameToDstBlendMode(&self, String name ) 
+{
+    switch(name)
+    {
+        case "GL_ONE": 
+        case "gl_one": return rl::RL_ONE;
+        case "GL_ZERO": 
+        case "gl_zero": return rl::RL_ZERO;
+        case "GL_SRC_ALPHA": 
+        case "gl_src_alpha": return rl::RL_SRC_ALPHA;
+        case "GL_ONE_MINUS_SRC_ALPHA": 
+        case "gl_one_minus_src_alpha": return rl::RL_ONE_MINUS_SRC_ALPHA;
+        case "GL_DST_ALPHA": 
+        case "gl_dst_alpha": return rl::RL_DST_ALPHA;
+        case "GL_ONE_MINUS_DST_ALPHA": 
+        case "gl_one_minus_dst_alpha": return rl::RL_ONE_MINUS_DST_ALPHA;
+        case "GL_SRC_COLOR": 
+        case "gl_src_color": return rl::RL_SRC_COLOR;
+        case "GL_ONE_MINUS_SRC_COLOR": 
+        case "gl_one_minus_src_color": return rl::RL_ONE_MINUS_SRC_COLOR;
+    }
+
+	lgr::warning(Where.FILE, "unknown blend mode '%s' in material '%s'", name, self.name);
+	self.flags.has_defaulted = true;
+
+	return rl::RL_ONE;
+}
+
+<*
+    @param [&in] node : "node to get data from"
+    @param [&inout] stage : "stage to set data for"
+*>
+fn void HMaterial.parse_blend(&self, XmlNode* node, MaterialStage *stage ) 
+{
+    if(node.hasAttributes() == false) return;
+
+    String mode = (String)node.getAttribute(NodeAttrib.BLEND_MODE).value;
+
+	// baked blending combinations
+    switch(mode)
+    {
+        case "blend":
+            stage.drawStateBits = BLEND_BLEND;
+            return; // we are done here
+        case "add":
+            stage.drawStateBits = BLEND_ADD;
+            return; // we are done here
+        case "screen": // soft additive
+            stage.drawStateBits = BLEND_SCREEN;
+            return; // we are done here
+        case "dodge": // even softer additive
+            stage.drawStateBits = BLEND_DODGE;
+        case "filter":
+        case "modulate":
+        case "multiply":
+            stage.drawStateBits = BLEND_MODULATE;
+            return; // we are done here
+        case "none":
+            // none is used when defining an alpha mask that doesn't draw
+            stage.drawStateBits = BLEND_NONE;
+            return; // we are done here
+        case "bumpmap":
+            stage.lighting = SL_BUMP;
+            return; // we are done here
+        case "diffusemap":
+            stage.lighting = SL_DIFFUSE;
+            return; // we are done here
+        case "specularmap":
+            stage.lighting = SL_SPECULAR;
+            return; // we are done here
+	}
+
+    // custom blending modes
+    String[] tokens = mode.tsplit(",");
+    assert(tokens.len == 2, "Invalid blend mode '%s' in material '%s' in file '%s'! Expected two tokens separated by a comma.", mode, self.name, self.mtrfile.path);
+
+	int srcBlend = self.nameToSrcBlendMode( tokens[0] );
+	int dstBlend = self.nameToDstBlendMode( tokens[1] );
+
+	stage.drawStateBits = srcBlend | dstBlend;
+}
 
 enum ShaderLayoutLocation : inline int
 {
@@ -935,6 +1108,7 @@ enum Node : int (inline String str) @public
     COMMENT          = "comments",
     MAPS             = "maps",
     MAP              = "map",
+    BLEND            = "blend", // used for blending two textures together
     VIDEO_MAP        = "video_map",
     KEYWORD          = "keyword", // global or stage keywords
     COLOR            = "color",
@@ -976,6 +1150,7 @@ enum NodeAttrib : int (inline String str) @public
     VERSION     = "version",
     PATH        = "path",
     KIND        = "kind",
+    BLEND_MODE  = "mode", // used for blending modes in the material
 
     // shader specific
     LOCATION    = "loc", // shader location for the attribute
@@ -1038,14 +1213,7 @@ fn void MTRFile.printMaterials(&self) @inline @public
     io::printfn("[MTR '%s' v: %s]", fs::getFileNameWithoutExt(self.path), self.version);
     io::printfn("{");
     if(self.mats.len()) {
-        foreach(mat: self.mats)
-        {
-             io::printfn("[material : '%s']", mat.name);
-             if(mat.comment.len) {
-                io::printfn("\tcomment = \"%s\"", mat.comment);
-             }
-             print_material_map_data(mat);
-        }
+        foreach(mat: self.mats) mat.print();
     }
     io::printfn("};");
     */
@@ -1292,25 +1460,6 @@ fn Color xmlStrColorToColor(String _value) @public
     }
     
     return result;
-}
-
-<*
-    @param [in] mat : "material data to print"
-    @require mat != null
-*>
-fn void print_material_map_data(HMaterial* mat) @local
-{
-    if(mat)
-    {
-        Color color = mat.getStage(mat::STAGE_DIFFUSE).color;
-        Texture2D* tex = &mat.getStage(mat::STAGE_DIFFUSE).tex;
-        io::printfn("   [map : 'Diffuse']");
-        io::printfn("       tex: \"id: %s, w: %s, h: %s, mp: %s, pf: %s\"", tex.id, tex.width, tex.height, tex.mipmaps, tex.format);
-        io::printfn("       color: \"%s, %s , %s, %s\"", color.r, color.g, color.b, color.a);
-        foreach(i, arg : mat.getStage(mat::STAGE_DIFFUSE).args) {
-            io::printfn("       arg%d: \"%s = %s\"", i, arg.first, arg.second);
-        }
-    }
 }
 
 // #endregion private

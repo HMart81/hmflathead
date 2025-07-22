@@ -687,7 +687,7 @@ fn void cloneEntity( Entity* dest, Entity* src )
 /// Entity script callbacks
 ///////////////////////////////////
 
-fn void getMinc(WrenVM* vm)
+fn void getMinc(WrenVM* vm) @if($feature(WREN_ENABLE))
 {
 	vm.ensureSlots(1); // slot 0 is the caller (and return slot), slots after that are the fn arguments slots
 	Entity* ent = (Entity*)vm.getSlotForeign(0);
@@ -696,7 +696,7 @@ fn void getMinc(WrenVM* vm)
 	vm.setSlotHandle(0, &handle);
 }
 
-fn void getMaxc(WrenVM* vm) 
+fn void getMaxc(WrenVM* vm) @if($feature(WREN_ENABLE))
 {
 	vm.ensureSlots(1); // slot 0 is the caller (and return slot), slots after that are the fn arguments slots
 	Entity* ent = (Entity*)vm.getSlotForeign(0);

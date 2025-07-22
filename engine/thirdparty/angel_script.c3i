@@ -1,0 +1,174 @@
+/************************************ LICENSE *******************************************
+# hmflathead GPL Source Code
+# Copyright (C) 2025 Hilario Martins.
+# 
+# This file is part of the hmflathead GPL Source Code ("hmflathead Source Code")
+# 
+# hmflathead Source Code is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# hmflathead Source Code is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with hmflathead Source Code.  If not, see <http://www.gnu.org/licenses/>.
+# 
+# In addition, the hmflathead Source Code is also subject to certain additional terms. 
+# You should have received a copy of these additional terms immediately following the terms and conditions of the GNU General Public License 
+# which accompanied the hmflathead Source Code.  If not, please request a copy in writing from me at the address below.
+# 
+# If you have questions concerning this license or the applicable additional terms, you may contact in writing 
+# Hilario Martins, Rua de Sanguinhedo 1010 4850-545 Vieira Do Minho Portugal.
+# 
+*********************************************************************************************************************************************/
+
+// WARNING: This file is a work in progress and may not be fully functional yet.
+// Unfinished was not able to get the bindings working properly, so I am leaving it here for now.
+
+/***************************************************************
+* This are C3 bindings for the angel script language. 
+* To know more about it, see: https://www.angelcode.com/
+*
+* NOTE(HM): 
+*   structs in this file, passed by pointer, can be just alias to a void* (opaque pointer) and be done with it! 
+*   The reality is, you don't need to know the full data-layout for most of them to use this... 
+*   (but don't try storing the structs by value after that...)
+****************************************************************/
+
+module buffer{Type} @private @if($feature(ANGEL_ENABLE));
+
+struct Buffer @if($feature(ANGEL_ENABLE))                                             
+{
+  Type* data;
+  int count;
+  int capacity;
+}
+
+
+module thirdparty::angel @if($feature(ANGEL_ENABLE));
+
+import buffer @public;
+
+const uint ANGELSCRIPT_VERSION = 23601;
+
+// A human-friendly string representation of the version.
+const String VERSION_STRING = "2.36.01";
+
+// Calling conventions
+enum CallConv : inline uint
+{
+  CDECL,
+  STDCALL,
+  THISCALL_ASGLOBAL,
+  THISCALL,
+  CDECL_OBJLAST,
+  CDECL_OBJFIRST,
+  GENERIC,
+  THISCALL_OBJLAST,
+  THISCALL_OBJFIRST
+}
+
+// Message types
+enum MsgType : inline int
+{
+  ERROR,
+  WARNING,
+  INFORMATION
+}
+
+// Context states
+// These are used to indicate the result state of a script context after execution.
+// negative values indicate an error.
+alias ContextState = int;
+const ContextState EXECUTION_FINISHED        = 0;
+const ContextState EXECUTION_SUSPENDED       = 1;
+const ContextState EXECUTION_ABORTED         = 2;
+const ContextState EXECUTION_EXCEPTION       = 3;
+const ContextState EXECUTION_PREPARED        = 4;
+const ContextState EXECUTION_UNINITIALIZED   = 5;
+const ContextState EXECUTION_ACTIVE          = 6;
+const ContextState EXECUTION_ERROR           = 7;
+const ContextState EXECUTION_DESERIALIZATION = 8;
+
+typedef ScriptEngine = void*;
+alias ScriptFunction = void;
+typedef ScriptContext = void*;
+alias LockableSharedBool = void;
+alias TypeInfo = void;
+alias FunctionCallback = fn void(...);
+alias CleanFunctionFunc_t = fn void(ScriptFunction *);
+
+struct SMessageInfo
+{
+	ZString section;
+	int     row;
+	int     col;
+	MsgType type;
+	ZString message;
+}
+
+extern fn ScriptEngine *createEngine(uint version = ANGELSCRIPT_VERSION) @extern("asCreateScriptEngine");
+extern fn ZString getLibraryVersion() @extern("asGetLibraryVersion");
+extern fn ZString getLibraryOptions() @extern("asGetLibraryOptions");
+
+// Memory management
+extern fn int ScriptEngine.addRef(ScriptEngine *e) @extern("asEngine_AddRef");
+extern fn int ScriptEngine.release(ScriptEngine *e) @extern("asEngine_Release");
+extern fn int ScriptEngine.shutDownAndRelease(ScriptEngine *e) @extern("asEngine_ShutDownAndRelease");
+
+// Compiler messages
+extern fn ContextState ScriptEngine._setMessageCallback(ScriptEngine *e, FunctionCallback callback, void *obj, uint callConv) @local @extern("asEngine_SetMessageCallback");
+macro ContextState ScriptEngine.setMessageCallback(&self, FunctionCallback callback, void *obj = null, uint callConv = CallConv.CDECL) {
+  ContextState result = self._setMessageCallback(callback, obj, CallConv.CDECL);
+  assert(result >= 0, "Failed to set message callback");
+  return result;
+}
+extern fn int ScriptEngine.clearMessageCallback(ScriptEngine *e) @extern("asEngine_ClearMessageCallback");
+extern fn int ScriptEngine.writeMessage(ScriptEngine *e, ZString section, int row, int col, MsgType type, ZString message) @extern("asEngine_WriteMessage");
+
+// Global functions
+extern fn ContextState ScriptEngine._registerGlobalFunction(ScriptEngine *e, ZString declaration, FunctionCallback funcPointer, uint callConv, void *auxiliary) @local @extern("asEngine_RegisterGlobalFunction");
+macro ContextState ScriptEngine.registerGlobalFunction(&self, ZString declaration, FunctionCallback funcPointer, uint callConv = CallConv.CDECL, void *auxiliary = null) {
+  ContextState result = self._registerGlobalFunction(declaration, funcPointer, callConv, auxiliary); 
+  assert(result >= 0, "Failed to register global function: %s", declaration);
+  return result;
+}
+extern fn uint            ScriptEngine.getGlobalFunctionCount(ScriptEngine *e) @extern("asEngine_GetGlobalFunctionCount");
+extern fn ScriptFunction* ScriptEngine.getGlobalFunctionByIndex(ScriptEngine *e, uint index) @extern("asEngine_GetGlobalFunctionByIndex");
+extern fn ScriptFunction* ScriptEngine.getGlobalFunctionByDecl(ScriptEngine *e, ZString declaration) @extern("asEngine_GetGlobalFunctionByDecl");
+
+// Script execution
+extern fn ScriptContext *        ScriptEngine.createContext(ScriptEngine *e) @extern("asEngine_CreateContext");
+extern fn void *                 ScriptEngine.createScriptObject(ScriptEngine *e, TypeInfo *type) @extern("asEngine_CreateScriptObject");
+extern fn void *                 ScriptEngine.createScriptObjectCopy(ScriptEngine *e, void *obj, TypeInfo *type) @extern("asEngine_CreateScriptObjectCopy");
+extern fn void *                 ScriptEngine.createUninitializedScriptObject(ScriptEngine *e, TypeInfo *type) @extern("asEngine_CreateUninitializedScriptObject");
+extern fn ScriptFunction *       ScriptEngine.createDelegate(ScriptEngine *e, ScriptFunction *func, void *obj) @extern("asEngine_CreateDelegate");
+extern fn int                    ScriptEngine.assignScriptObject(ScriptEngine *e, void *dstObj, void *srcObj, TypeInfo *type) @extern("asEngine_AssignScriptObject");
+extern fn void                   ScriptEngine.releaseScriptObject(ScriptEngine *e, void *obj, TypeInfo *type) @extern("asEngine_ReleaseScriptObject");
+extern fn void                   ScriptEngine.addRefScriptObject(ScriptEngine *e, void *obj, TypeInfo *type) @extern("asEngine_AddRefScriptObject");
+extern fn int                    ScriptEngine.refCastObject(ScriptEngine *e, void *obj, TypeInfo *fromType, TypeInfo *toType, void **newPtr, bool useOnlyImplicitCast) @extern("asEngine_RefCastObject");
+extern fn LockableSharedBool *ScriptEngine.getWeakRefFlagOfScriptObject(ScriptEngine *e, void *obj, TypeInfo *type) @extern("asEngine_GetWeakRefFlagOfScriptObject");
+
+///////////////////////////////////////////
+module thirdparty::angel::ctx @if($feature(ANGEL_ENABLE));
+
+// Memory management
+extern fn int  ScriptContext.addRef(ScriptContext *c) @extern("asContext_AddRef");
+extern fn int  ScriptContext.release(ScriptContext *c) @extern("asContext_Release");
+
+// Execution
+extern fn int ScriptContext.prepare(ScriptContext *c, ScriptFunction *func) @extern("asContext_Prepare");
+extern fn ContextState ScriptContext.execute(ScriptContext *c) @extern("asContext_Execute");
+
+
+
+macro ContextState ScriptContext.run(&self, ScriptFunction *func) {
+  ContextState result = self.prepare(func); assert(result >= 0, "Failed to prepare context for execution");
+  result = self.execute(); assert(result >= 0, "Failed to execute script function");
+  return result;
+}
+

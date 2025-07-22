@@ -50,6 +50,7 @@ import game::material::manager::mtrmng; // material database
 //
 import thirdparty::wren;
 import engine::sys::script_engine::scpt; // Script Engine (based on Wren language)
+import thirdparty::angel; // AngelScript engine
 //
 import game::assets::sprt; // sprites
 //import game::assets::part; // particles
@@ -309,6 +310,10 @@ struct Game (SaveSystemInterface) @local
 
     // script engine
     ScriptEngine script_eng;
+    //
+    // angel script engine
+    ContextState script_result @if($feature(ANGEL_ENABLE)); // current script state
+    ScriptEngine* asEngine @if($feature(ANGEL_ENABLE)); // angel script engine
 
     GameMode mode;
 
@@ -2272,7 +2277,7 @@ $endif
     lgr::info(Where.FILE, "---------------------------------------------\n");
 // #endregion Asset manager
 
-$if $feature(WREN_ENABLE):
+$if $feature(WREN_ENABLE) &&& !$feature(ANGEL_ENABLE):
     lgr::info(Where.FILE, "Initializing Script Engine: %s", wren::VERSION_STRING);
     lgr::info(Where.FILE, "---------------------------------------------");
     // init the game editor defaults
@@ -2283,6 +2288,38 @@ $if $feature(WREN_ENABLE):
         main.run();
     }
     lgr::info(Where.FILE, "---------------------------------------------\n");
+$endif
+
+$if $feature(ANGEL_ENABLE) &&& !$feature(WREN_ENABLE):
+    // Todo(HM) modify the script engine to use angelScript instead of wren
+    lgr::info(Where.FILE, "Initializing Script Engine: %s", angel::VERSION_STRING);
+    lgr::info(Where.FILE, "---------------------------------------------");
+    local_game.asEngine = angel::createEngine();
+    ScriptEngine* scpt_engine = local_game.asEngine;
+    if(scpt_engine == null) {
+        lgr::fatal(Where.FILE, "Failed to create AngelScript engine!");
+        //return ANGELSCRIPT_INIT_FAILED?;
+    } else {
+        lgr::info(Where.FILE, "AngelScript engine created successfully.");
+        local_game.script_result = scpt_engine.setMessageCallback((FunctionCallback)&scpt::messageCallback);
+	    local_game.script_result = scpt_engine.registerGlobalFunction("void print()", (FunctionCallback)&scpt::asPrint);
+
+        lgr::info(Where.FILE, "Initialization of Angel Script Engine done;");
+
+        ScriptFunction *func = scpt_engine.getGlobalFunctionByDecl("void print()");
+        ScriptContext *ctx = scpt_engine.createContext();
+        ctx.run(func);
+        /*ctx.prepare(func);
+        if(ctx.execute(ctx) != angel::EXECUTION_FINISHED)
+        {
+            io::printn("Something wen't wrong with the execution.");
+        }
+        else
+        {
+            io::printn("The script was executed successfully.");
+        }*/
+        ctx.release();
+    }
 $endif
 
     lgr::info(Where.FILE, "Initializing game editor:");
@@ -2418,6 +2455,16 @@ $if $feature(WREN_ENABLE):
     lgr::info(Where.FILE, "close Script Engine: %s", wren::VERSION_STRING);
     lgr::info(Where.FILE, "---------------------------------------------");
     local_game.script_eng.deinit();
+    lgr::info(Where.FILE, "---------------------------------------------\n");
+$endif
+
+$if $feature(ANGEL_ENABLE):
+    lgr::info(Where.FILE, "close Script Engine: %s", angel::VERSION_STRING);
+    lgr::info(Where.FILE, "---------------------------------------------");
+    if(local_game.asEngine != null) {
+        local_game.asEngine.release();
+        local_game.asEngine = null;
+    }
     lgr::info(Where.FILE, "---------------------------------------------\n");
 $endif
     // close physics engine

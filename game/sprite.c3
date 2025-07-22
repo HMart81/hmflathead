@@ -395,16 +395,23 @@ fn void Sprite.draw(&self)  @inline
             Rectangle source = { 0, 0, texture_size.x, texture_size.y };
             Rectangle* dist = &self.rect;
 
-            Color color = self.mat.getStage(mat::STAGE_DIFFUSE).color;
+            MaterialStage* diffuse_stage = self.mat.getStage(mat::STAGE_DIFFUSE);
+            assert(diffuse_stage != null, "Material diffuse stage is null for material '%s'.", self.mat.name);
+            Color color = diffuse_stage.color;
 
+            // Todo(HM) Right now, we only do blending per material but we could do it per stage
+            // so we could have a material with multiple stages and each stage could have its own blending mode.
+            // This would allow us to have more complex materials with multiple textures and blending modes.
             BlendMode blending;
             switch
             {
-                case *self == mat::COVERAGE_OPAQUE: 
+                case *self == mat::COVERAGE_OPAQUE:
+                //case diffuse_stage.drawStateBits & mat::BLEND_NONE:
                     break; // do nothing here
                 case *self == mat::COVERAGE_PERFORATED && *self != mat::COVERAGE_TRANSLUCENT:
                     blending = BlendMode.ALPHA;
                 case *self == mat::COVERAGE_TRANSLUCENT && *self != mat::COVERAGE_PERFORATED:
+                //case diffuse_stage.drawStateBits & mat::BLEND_BLEND:
                     blending = BlendMode.ALPHA_PREMUL;
                     if(color.a == 255) // if the color is not transparent
                     {

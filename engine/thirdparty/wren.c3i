@@ -46,7 +46,7 @@
 
 module buffer{Type} @private @if($feature(WREN_ENABLE));
 
-struct Buffer                                                      
+struct Buffer @if($feature(WREN_ENABLE))                                                      
 {
   Type* data;
   int count;

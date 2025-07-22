@@ -510,6 +510,9 @@ fn void loadAsset(String path)
                 } 
                 else 
                 {
+                    // WARNING(HM) 20/07/2025
+                    // if no vertex shader is found, try to use the default vertex shader
+                    // if inputs and outputs don't match, the shader will not work currently!
                     new_asset.data = misc::loadShader("", path);
                 }
             } 
@@ -633,18 +636,19 @@ fn void? loadAssetsRecursively(String basepath, String parent_folder = "") @inli
 			}
 			
 			// NOTE(HM) 06/11/2024 
-			// When looking at C3 strings in Visual Studio debugger, take note of the 
+			// When looking at C3 strings in Visual Studio, take note of the 
 			// 	    string len value, this is important, because the watch window will show them as 
-			// 	    a ZString (char*) and so will ignore the C3 slice len value, 
-            //      displaying more characters than necessary, untill a zero or null terminator character is found. 
-            //      Meaning for C3 String's, Visual Studio will display invalid characters.
-			// This fact caused me no end of confusion a bunch of times, I was expecting to see cliped/cut strings 
-			// 	    in VS but they always showed as if no cut was ever done. So to see them correctly, 
+			// 	    a ZString (char*) and so will ignore the C3 slice len value, ending 
+            //      displaying more characters than necessary or untill a null terminator (zero) 
+            //      character is found. Meaning for C3 String's, Visual Studio will display 
+            //      invalid characters. This fact, caused me no end of confusion for a time.
+            // I was expecting to see the sliced strings in VS but they always showed as if 
+            //      no cut was ever made and that throw me for a loop. So to see them correctly, 
             //      look at C3 strings in VS watch window, like so: String.ptr, len
 			loadAsset(asset_path);
 			continue; // to next file
 			
-		} else { // is a child folder/Directory
+		} else { // is a child folder/Directory so do recursive a call
 			loadAssetsRecursively(path.str_view(), search_path)!;
 		}
 	}
