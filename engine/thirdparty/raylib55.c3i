@@ -46,6 +46,17 @@ const Color BLANK       = { 0, 0, 0, 0 };           // Blank (Transparent)
 const Color MAGENTA     = { 255, 0, 255, 255 };     // Magenta
 const Color RAYWHITE    = { 245, 245, 245, 255 };   // My own White (raylib logo)
 
+/// Converts a COMPILE TIME hex color value to a Color struct.
+macro @hexToColor($hexValue) @builtin
+{
+  var rgbColor = WHITE;
+  rgbColor.r = (char)(($hexValue >> 16) & 0xFF);  // Extract the RR byte
+  rgbColor.g = (char)(($hexValue >> 8) & 0xFF);   // Extract the GG byte
+  rgbColor.b = (char)(($hexValue) & 0xFF);        // Extract the BB byte
+
+  return rgbColor;
+}
+
 // // Vector2, 2 components
 // struct Vector2 @compact
 // {
@@ -853,7 +864,14 @@ fn int getMonitorPhysicalWidth(int monitor) @extern("GetMonitorPhysicalWidth"); 
 fn int getMonitorPhysicalHeight(int monitor) @extern("GetMonitorPhysicalHeight");          // Get specified monitor physical height in millimetres
 fn int getMonitorRefreshRate(int monitor) @extern("GetMonitorRefreshRate");                // Get specified monitor refresh rate
 fn Vector2 getWindowPosition() @extern("GetWindowPosition");                               // Get window position XY on monitor
-fn Vector2 getWindowScaleDPI() @extern("GetWindowScaleDPI");                               // Get window scale DPI factor
+//
+fn Vector2 getWindowScaleDPI() @extern("GetWindowScaleDPI");                               // Get window scale DPI factor ex: (1.0f, 1.0f) for 100% scale, (2.0f, 2.0f) for 200% scale, etc.
+/*
+Note(HM) GetWindowScaleDPI() function is only useful, if we want to manage DPI scale manually instead of in an automated way. 
+(so the size of text and UI of our raylib application matches the rest of the desktop environment's text and UI sizes)
+If FLAG_WINDOW_HIGHDPI is enabled, that's up to the backend to automatically rescale the size of the window's content 
+to match the DPI scale of the display.
+*/
 fn ZString getMonitorName(int monitor) @extern("GetMonitorName");                          // Get the human-readable, UTF-8 encoded name of the primary monitor
 fn void setClipboardText(ZString text) @extern("SetClipboardText");                        // Set clipboard text content
 fn ZString getClipboardText() @extern("GetClipboardText");                                 // Get clipboard text content
@@ -971,7 +989,7 @@ fn void setSaveFileTextCallback(SaveFileTextCallback callback) @extern("SetSaveF
 // Files management functions
 // Load file data as byte array (read)
 fn char* loadFileData(ZString fileName, int* bytesRead) @extern("LoadFileData");
-// Unload file data allocated by load_file_data()
+// Unload file data allocated by loadFileData()
 fn void unloadFileData(char* data) @extern("UnloadFileData");
 // Save data to file from byte array (write), returns true on success
 fn bool saveFileData(ZString fileName, void* data,  int dataSize) @extern("SaveFileData");

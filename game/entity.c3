@@ -67,9 +67,7 @@ const MIN_PHYSICS_SIZE_VALUE        @Hardcode = 0.10f; // 10 cm;
 const Vec2i MIN_ENTITY_VISUAL_SIZE  = {MIN_VISUAL_SIZE_VALUE, MIN_VISUAL_SIZE_VALUE};
 const Vec2f MIN_ENTITY_PHYSICS_SIZE = {MIN_PHYSICS_SIZE_VALUE, MIN_PHYSICS_SIZE_VALUE};
 
-const int   ENTITY_DEFAULT_SIZE_X_PIXELS  = 3;
-const int   ENTITY_DEFAULT_SIZE_Y_PIXELS  = 11;
-const float ENTITY_DEFAULT_SIZE_X_METER   = 0.27f; // 27 cm  (minimum size is 10 cm)
+const float ENTITY_DEFAULT_SIZE_X_METER   = 0.45f; // 45 cm  (minimum size is 10 cm)
 const float ENTITY_DEFAULT_SIZE_Y_METER   = 1.0f;  // 1  m
 
 // WORK_IN_PROGRESS!!
@@ -80,6 +78,12 @@ const EventFunc[*] ENTITY_EVENTS_CALLBACKS @if($defined(ENABLE_EVENTS)) = {
 	{&EV_ENTITY_GET_MINC, &ent::getMinc},
 	{&EV_ENTITY_GET_MAXC, &ent::getMaxc},
 };
+
+struct EntityFlags
+{
+	bool alive; // is the entity alive?
+	bool active; // is the entity active?
+}
 
 struct Entity (SaveSystemInterface)
 {
@@ -94,9 +98,9 @@ struct Entity (SaveSystemInterface)
     // physics
     B2BodyId physics;
     //
-	int flags;
+	int thinkFlags;
 	//LinkList{Entity} activeNode;	// for being linked into activeEntities list
-	bool alive; // Todo read about C3 bitstruct?
+	EntityFlags flags; // Todo read about C3 bitstruct?
 }
 
 fn void Entity.save(&self, SaveFile* file) @dynamic {
@@ -105,6 +109,11 @@ fn void Entity.save(&self, SaveFile* file) @dynamic {
 
 fn void Entity.reload(&self, SaveFile* file) @dynamic {
 // todo
+}
+
+fn void Entity.register(&self) @inline
+{
+	main::gpGame.entityList.push(self);
 }
 
 fn bool Entity.shouldSkip(&self, String name) @inline @local {
@@ -151,9 +160,15 @@ $if $feature(_DEBUG):
 $endif
     
 	//
+	assert(rl::isWindowReady(), "Cannot create entity before the window is ready!");
+	float x_meters = main::gpGame.screen.width_in_meters;
+	float y_meters = main::gpGame.screen.height_in_meters;
     self.vs.initV(
     origin, 
-    {ENTITY_DEFAULT_SIZE_X_PIXELS, ENTITY_DEFAULT_SIZE_Y_PIXELS}, 
+	{ // entity visual size
+		ENTITY_DEFAULT_SIZE_X_METER,
+		ENTITY_DEFAULT_SIZE_Y_METER
+	},
     color
     );
     //
@@ -173,7 +188,7 @@ $endif
         Do not create a body at the world origin and then move it to the final place. 
         If you do that to several bodies (specially on the same entity) performance will suffer.
     */
-    bodyDef.position    = origin; //box2d::vec2fToVec2(origin);
+    bodyDef.position    = origin;
     //bodyDef.rotation    = misc::makeRot(1.0f); // angle is in radians and is zero by default
     // already done by default
     //bodyDef.enableSleep = true;
@@ -185,19 +200,31 @@ $endif
     // ‍Caution: A dynamic body should have at least one shape with a non-zero density. 
     // Otherwise you will get strange behavior.
     // TODO(HM) Set the correct size at creation time!!!
-    B2Polygon dynamicBox = box2d::makeBox(
-        misc::pixelsToMeters(ENTITY_DEFAULT_SIZE_X_PIXELS),
-        misc::pixelsToMeters(ENTITY_DEFAULT_SIZE_Y_PIXELS)
-        );
+	float hx, hy;
+	hx = math::abs((bb.maxc - bb.minc).x);
+	hy = math::abs((bb.maxc - bb.minc).y);
+	hx = misc::pixelsToMeters((int)hx);
+	hy = misc::pixelsToMeters((int)hy);
+	// Warning(HM) if the size is too small or the minimum, this will not return half the size, 
+	// but the minimum size of 0.1 meters. 
+	// And that means that the box bellow will be created with a size of 0.2 meters,
+	// because of the half width and height thing.
+	/*if(hx > (misc::MINIMUM_SIZE_IN_METERS + 0.05f))
+	{
+		hx = hx/2.0f; // divide by 2 because makeBox() expects half width and height
+	}
+	if(hy > (misc::MINIMUM_SIZE_IN_METERS + 0.05f)) 
+	{
+		hy = hy/2.0f; // divide by 2 because makeBox() expects half width and height
+	}*/
+    B2Polygon dynamicBox = box2d::makeBox(hx/2, hy/2);
     B2ShapeDef shapeDef  = box2d::defaultShapeDef();
     shapeDef.density          = 1.0f;
     shapeDef.friction         = 0.3f;
 	box2d::createPolygonShape(self.physics, &shapeDef, &dynamicBox);
     //
     
-	self.alive = true;
-	self.startThinking();
-	self.register();
+	self.born(); // set the entity as alive, so it can be used
 }
 
 fn void Entity.setTexture(&self, String texture_name_with_ext) @inline {
@@ -217,15 +244,15 @@ fn Texture2D* Entity.getTexture(&self) @inline {
 	return self.vs.mat.getTexture(mat::STAGE_DIFFUSE);
 }
 
-fn void Entity.setSize(&self, int w, int h) @inline {
+fn void Entity.setSize(&self, float w, float h) @inline {
 	self.vs.setSize(w, h);
 }
 
-fn void Entity.setSizeV(&self, Vec2i scale) @inline {
+fn void Entity.setSizeV(&self, Vec2f scale) @inline {
 	self.vs.setSizeV(scale);
 }
 
-fn void Entity.addToSize(&self, int w, int h) @inline {
+fn void Entity.addToSize(&self, float w, float h) @inline {
 	self.vs.addToSize(w, h);
 }
 
@@ -234,7 +261,6 @@ fn void Entity.addToSizeV(&self, Vec2i size) @inline {
 }
 
 fn Vec2f Entity.getSize(&self) @inline => self.vs.getSize();
-fn Vec2i Entity.getSizei(&self) @inline => self.vs.getSizei();
 
 fn void Entity.scale(&self, float w, float h) @inline {
 	self.vs.scale(w, h);
@@ -276,7 +302,7 @@ fn void Entity.setPositionV(&self, Vec2f newpos) @inline
 
 fn Vec2f Entity.getPosition(&self) @inline
 {
-	return self.vs.getPos();
+	return self.physics.getPosition();
 }
 
 fn void Entity.setBounds(&self, Bounds bb) @inline {
@@ -319,11 +345,6 @@ fn bool Entity.nequalcoverage(&self, Coverage coverage) @operator(!=)
     return self.vs != coverage;
 }
 
-fn bool Entity.isdead(&self) @inline
-{
-	return (self.alive) ? false : true;
-}
-
 fn void Entity.hide(&self) @inline => self.vs.hide();
 
 fn void Entity.show(&self) @inline => self.vs.show();
@@ -357,7 +378,7 @@ fn Entity* Entity.find_other_in_radius(self, float radius )
 	foreach(int index, Entity* other : main::gpGame.entityList)
 	{
 		// NOTE(HM) Should this really ignore hidden entities?
-		if (other == null || other.isdead() || other.hidden()) {
+		if (other == null || other.isDead() || other.hidden()) {
 			continue;
 		}
 		
@@ -392,14 +413,14 @@ fn Entity* findradius(Entity *startent, Vec2f* org, float rad )
 		return null;
 	}
 	
-	assert( startent.alive == true);
+	assert( startent.isAlive());
 	
 	// square the radius so that we don't have to do a square root
 	float r2 = misc::square(rad);
 	
 	foreach(int index, Entity* other : main::gpGame.entityList) 
 	{
-		if(other.isdead() || other.hidden()) continue;
+		if(other.isDead() || other.hidden()) continue;
 		
 		Vec2f other_org = (*org) - startent.getPosition();
 		
@@ -423,20 +444,157 @@ fn Entity* findradius(Entity *startent, Vec2f* org, float rad )
 	return null;
 }
 
-fn void Entity.born(&self) @inline @local { if(self.alive) return; self.alive = true; }
+fn void Entity.setAlive(&self, bool alive) @inline {
+	if (alive) {
+		if (!self.flags.alive) {
+			self.flags.alive = true;
+			self.register(); // register the entity in the game
+		}
+		if (!self.isActive()) {
+			self.setActive(true); // activate the entity
+		}
+		if (!(self.thinkFlags & TH_THINK)) {
+			self.startThinking(); // start thinking if it was not thinking
+		}
+	} else {
+		if (self.flags.alive) {
+			self.flags.alive = false;
+			if (self.isActive()) {
+				self.setActive(false); // deactivate the entity
+			}
+			if (self.thinkFlags & TH_THINK) {
+				self.stopThinking(); // stop thinking if it was thinking
+			}
+			if(!main::gpGame.entitiesToRemove.contains(self)) main::gpGame.entitiesToRemove.push(self);
+		}
+	}
+}
 
-fn void Entity.register(&self) @inline
+fn void Entity.born(&self) @inline
+{ 
+	self.setAlive(true);
+}
+
+fn void Entity.kill(&self) 
 {
-	// NOTE(HM) shouldn't never happen, but who knows...
-	//assert(self.isValid(), "error cannot register entity because is not valid!");
-    self.born();
-	main::gpGame.entityList.push(self);
+//self.mGame = null; // make sure we don't accidently kill the game singleton!!
+	io::printfn("Killing Entity '%s'!!!", self.name);
+    self.hide();
+	self.setAlive(false);
+}
+
+fn bool Entity.isAlive(&self) @inline
+{
+	return self.flags.alive;
+}
+
+fn bool Entity.isDead(&self) @inline
+{
+	return (self.flags.alive) ? false : true;
+}
+
+fn bool Entity.onThinkingList(&self) @local @inline {
+	return main::gpGame.thinkingEntities.contains(self);
+}
+
+fn bool Entity.notOnThinkingList(&self) @local @inline {
+	return !self.onThinkingList();
+}
+
+fn void Entity.startThinking(&self) @inline {
+	if (self.thinkFlags & TH_THINK) return; // already thinking
+
+	self.thinkFlags = 0;
+	self.thinkFlags |= TH_THINK;
+	if(self.notOnThinkingList()) main::gpGame.thinkingEntities.push(self);
+}
+
+fn void Entity.stopThinking(&self) @inline {
+	if (!(self.thinkFlags & TH_THINK)) return; // not thinking
+
+	if (self.thinkFlags) {
+		self.thinkFlags &= ~ent::TH_THINK; // remove the thinking flag
+
+		if(self.onThinkingList()) main::gpGame.thinkingEntities.remove_at(main::gpGame.thinkingEntities.index_of(self)!!);
+
+		// if all thinking flags are removed, then we can deactivate the entity
+		if (!self.thinkFlags && self.isActive()) {
+			self.setActive(false); // deactivate the entity
+		}
+	}
+}
+
+fn bool Entity.onActiveList(&self) @inline {
+	return main::gpGame.activeEntities.contains(self);
+}
+
+fn bool Entity.notOnActiveList(&self) @inline {
+	return !self.onActiveList();
+}
+
+fn void Entity.setActive(&self, bool active) @inline {
+	if (active) {
+		if (!self.isActive()) {
+			self.flags.active = true;
+			if(self.notOnActiveList()) main::gpGame.activeEntities.push(self);
+		}
+	} else {
+		if (self.isActive()) {
+			self.flags.active = false;
+			if(self.onActiveList()) main::gpGame.activeEntities.remove_at(main::gpGame.activeEntities.index_of(self)!!);
+		}
+	}
+}
+
+fn bool Entity.isActive(&self) @inline {
+	return self.flags.active;
+}
+
+fn void Entity.move(&self) {
+    // update visuals based on physics movement
+    // && box2d::body_GetType(self.physics) == box2d::DYNAMIC
+    if(((Vec2f)self.physics.getLinearVelocity()).length() > 0.0f ) {
+        Vec2f new_pos = self.physics.getPosition();
+        self.setPositionV(new_pos);
+        self.updateBoundsPos(new_pos);
+    }
+}
+
+fn void Entity.think(&self, float dt) // update in other engines
+{
+    if(self.thinkFlags & TH_THINK)
+    {
+        tracy::@zoneN("Entity.think", 1)
+        {
+            self.move();
+            
+            if(bounds::db_showBounds.getBool()) {
+                self.bounds.debugDraw();
+            }
+        };
+    }
 }
 
 fn void Entity.draw(&self) 
 {
-	if(self.hidden() || self.isdead()) return;
+	if(self.hidden() || self.isDead()) return;
 	
+	Rectangle rect = self.vs.rect;
+	switch (main::CURRENT_UNITS)
+	{
+		case main::UNITS_METER:
+			// position is still in pixels, todo convert to meters 
+			//rect.x = misc::metersToPixels(self.rect.x);
+			//rect.y = misc::metersToPixels(self.rect.y);
+			rect.width  = misc::metersToPixels(self.vs.rect.width);
+			rect.height = misc::metersToPixels(self.vs.rect.height);
+		case main::UNITS_PIXEL:
+			rect;  // do nothing already in pixels
+		default:
+			lgr::error(Where.FILE, "Unsupported units set for Entity rendering.");
+			unreachable();
+	}
+
 	//
 	if(self.vs.hasMaterial())
     {
@@ -445,7 +603,6 @@ fn void Entity.draw(&self)
         Texture2D* texture = self.vs.mat.getTexture(mat::STAGE_DIFFUSE);
         Vec2f texture_size = { texture.width, texture.height };
         Rectangle source = { 0, 0, texture_size.x, texture_size.y };
-        Rectangle* dist = &self.vs.rect;
 
 		// todo selection
         //Color color = (selected) ? self.selected_color : self.mat.getStage(mat::STAGE_DIFFUSE).color;
@@ -485,7 +642,7 @@ fn void Entity.draw(&self)
             case BlendMode.ALPHA_PREMUL:
                 rl::@blendMode(blending)
                 {
-                    rl::drawTexturePro(*texture, source, *dist, {0, 0}, 0.0f, color);
+                    rl::drawTexturePro(*texture, source, rect, {0, 0}, 0.0f, color);
                 };
 			case BlendMode.CUSTOM:
 				rl::setBlendFactors(rl::RL_SRC_ALPHA, rl::RL_ONE_MINUS_SRC_ALPHA, rl::RL_FUNC_ADD);
@@ -494,7 +651,7 @@ fn void Entity.draw(&self)
 				{
 					// NOTE(HM) center of the texture (rotation/scale point), 
 					// it's relative to destination rectangle dimentions, not the screen dimentions.
-					rl::drawTexturePro(*texture, source, *dist, {0, 0}, 0.0f, color);
+					rl::drawTexturePro(*texture, source, rect, {0, 0}, 0.0f, color);
 				};
 			case BlendMode.CUSTOM_SEPARATE:
 				rl::setBlendFactorsSeparate(rl::RL_SRC_ALPHA, rl::RL_ONE_MINUS_SRC_ALPHA, rl::RL_ONE, rl::RL_ONE, rl::RL_FUNC_ADD, rl::RL_MAX);
@@ -503,71 +660,30 @@ fn void Entity.draw(&self)
 				{
 				// NOTE(HM) center of the texture (rotation/scale point),
 				// it's relative to destination rectangle dimentions, not the screen dimentions.
-					rl::drawTexturePro(*texture, source, *dist, {0, 0}, 0.0f, color);
+					rl::drawTexturePro(*texture, source, rect, {0, 0}, 0.0f, color);
 				};
             default: // draw opaque unless the image has invisible pixels...
                 // NOTE(HM) center of the texture (rotation/scale point), 
                 // it's relative to destination rectangle dimentions, not the screen dimentions.
-                rl::drawTexturePro(*texture, source, *dist, {0, 0}, 0.0f, color);
+                rl::drawTexturePro(*texture, source, rect, {0, 0}, 0.0f, color);
         }
     } 
 	else // draw simple flat shape
 	{
-		rl::drawRectangleRec(self.vs.rect, self.vs.color);
+		rl::drawRectangleRec(rect, self.vs.color);
 	}
 
 	if(ent_debugBounds.getBool())
 	{
+		// TODO(HM) need to change Bounds sizes to meters and then here convert back to pixels
+		// to draw the bounds in the correct size
+		// Right now the bounds are in pixels, so we can draw them directly
 		rl::drawCircle((int)self.bounds.maxc.x, (int)self.bounds.maxc.y, 2.0f, rl::SKYBLUE);
 		rl::drawCircle((int)self.bounds.minc.x, (int)self.bounds.minc.y, 2.0f, rl::SKYBLUE);
 		Vec2f size = self.bounds.minc - self.bounds.maxc;
-		Rectangle rect = {self.vs.rect.x, self.vs.rect.y, size.x, size.y};
-		rl::drawRectangleLinesEx(rect, 1.0f, rl::YELLOW);
+		Rectangle r = {rect.x, rect.y, size.x, size.y};
+		rl::drawRectangleLinesEx(r, 1.0f, rl::YELLOW);
 	}
-}
-
-fn void Entity.startThinking(&self) @inline {
-	self.flags = 0;
-	self.flags |= ent::TH_THINK;
-}
-
-fn void Entity.stopThinking(&self) @inline {
-	if (self.flags) {
-		self.flags &= ~ent::TH_THINK;
-		// if (!self.flags && IsActive()) {
-			// gameLocal.numEntitiesToDeactivate++;
-		// }
-	}
-}
-
-
-fn bool Entity.isActive(&self) @inline {
-	return (self.flags & ent::TH_THINK) ? true : false;
-}
-
-fn void Entity.move(&self) {
-    // update visuals based on physics movement
-    // && box2d::body_GetType(self.physics) == box2d::DYNAMIC
-    if(((Vec2f)box2d::body_GetLinearVelocity(self.physics)).length() > 0.0f ) {
-        Vec2f new_pos = box2d::body_GetPosition(self.physics);
-        self.setPositionV(new_pos);
-        self.updateBoundsPos(new_pos);
-    }
-}
-
-fn void Entity.think(&self, float dt) // update in other engines
-{
-    if(self.flags & TH_THINK)
-    {
-        tracy::@zoneN("Entity.think", 1)
-        {
-            self.move();
-            
-            if(bounds::db_showBounds.getBool()) {
-                self.bounds.debugDraw();
-            }
-        };
-    }
 }
 
 /*
@@ -591,24 +707,14 @@ fn void Entity.becomeActive(&self, int flags) {
 }
 */
 
-fn void Entity.kill(&self) {
-//self.mGame = null; // make sure we don't accidently kill the game singleton!!
-	io::printfn("Killing Entity '%s'!!!", self.name);
-    self.hide();
-	self.stopThinking();
-	self.alive = false;
-}
-
 fn bool Entity.isValid(&self)
 {
 	// TODO(HM) find why this is returning false
 	if(
-    self.alive && 
+    self.isAlive() && 
 	self.id >= 1 && 
 	self.getPosition().x >= 0 &&
-    self.getPosition().y >= 0 && 
-    self.getSizei().x >= MIN_VISUAL_SIZE_VALUE &&
-    self.getSizei().y >= MIN_VISUAL_SIZE_VALUE)
+    self.getPosition().y >= 0 )
 	{
 		return true;
 	}

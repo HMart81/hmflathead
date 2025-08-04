@@ -145,7 +145,7 @@ fn void Panel.initRec(&self, Rectangle rect, Color color) @inline
     self.color = color;
 }
 
-fn void Panel.initV(&self, Vec2f pos, Vec2f size, RColor color) @inline
+fn void Panel.initV(&self, Vec2f pos, Vec2f size, Color color) @inline
 {
     self.initRec({pos.x, pos.y, size.x, size.y}, color);
 }

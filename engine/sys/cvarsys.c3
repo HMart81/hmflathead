@@ -55,25 +55,25 @@ alias CvarList = List{Cvar*};
 enum CvarFlags : (inline int val) // not used yet
 {
 	CVAR_ALL				= -1,		// all flags
-	CVAR_BOOL				= misc::@bit(0),	// variable is a boolean
-	CVAR_INTEGER			= misc::@bit(1),	// variable is an integer
-	CVAR_FLOAT				= misc::@bit(2),	// variable is a float
-	CVAR_SYSTEM				= misc::@bit(3),	// system variable
-	CVAR_RENDERER			= misc::@bit(4),	// renderer variable
-	CVAR_SOUND				= misc::@bit(5),	// sound variable
-	CVAR_GUI				= misc::@bit(6),	// gui variable
-	CVAR_GAME				= misc::@bit(7),	// game variable
-	CVAR_TOOL				= misc::@bit(8),	// tool variable
-	CVAR_USERINFO			= misc::@bit(9),	// sent to servers, available to menu
-	CVAR_SERVERINFO			= misc::@bit(10),	// sent from servers, available to menu
-	CVAR_NETWORKSYNC		= misc::@bit(11),	// cvar is synced from the server to clients
-	CVAR_STATIC				= misc::@bit(12),	// statically declared, not user created
-	CVAR_CHEAT				= misc::@bit(13),	// variable is considered a cheat
-	CVAR_NOCHEAT			= misc::@bit(14),	// variable is not considered a cheat
-	CVAR_INIT				= misc::@bit(15),	// can only be set from the command-line
-	CVAR_ROM				= misc::@bit(16),	// display only, cannot be set by user at all
-	CVAR_ARCHIVE			= misc::@bit(17),	// set to cause it to be saved to a config file
-	CVAR_MODIFIED			= misc::@bit(18)	// set when the variable is modified
+	CVAR_BOOL				= @bit(0),	// variable is a boolean
+	CVAR_INTEGER			= @bit(1),	// variable is an integer
+	CVAR_FLOAT				= @bit(2),	// variable is a float
+	CVAR_SYSTEM				= @bit(3),	// system variable
+	CVAR_RENDERER			= @bit(4),	// renderer variable
+	CVAR_SOUND				= @bit(5),	// sound variable
+	CVAR_GUI				= @bit(6),	// gui variable
+	CVAR_GAME				= @bit(7),	// game variable
+	CVAR_TOOL				= @bit(8),	// tool variable
+	CVAR_USERINFO			= @bit(9),	// sent to servers, available to menu
+	CVAR_SERVERINFO			= @bit(10),	// sent from servers, available to menu
+	CVAR_NETWORKSYNC		= @bit(11),	// cvar is synced from the server to clients
+	CVAR_STATIC				= @bit(12),	// statically declared, not user created
+	CVAR_CHEAT				= @bit(13),	// variable is considered a cheat
+	CVAR_NOCHEAT			= @bit(14),	// variable is not considered a cheat
+	CVAR_INIT				= @bit(15),	// can only be set from the command-line
+	CVAR_ROM				= @bit(16),	// display only, cannot be set by user at all
+	CVAR_ARCHIVE			= @bit(17),	// set to cause it to be saved to a config file
+	CVAR_MODIFIED			= @bit(18)	// set when the variable is modified
 }
 
 // todo(HM) replace this with the cvar flags
@@ -196,53 +196,54 @@ macro Cvar.initWithStrings( String name, String value, int flags, String descrip
     // cvars.push(&cv);
 // }
 
-fn bool Cvar.getBool(&self) {
+fn bool Cvar.getBool(&self, bool default_value = false) @inline
+{
     if(self.type != CvarType.BOOLEAN) {
-        lgr::warning(Where.FILE, "Cvar: %s is not a bool: %s->%d", self.name, $$FUNC, $$LINE);
-        return false;
+        lgr::warning(Where.FILE, "Trying to get boolean value from Cvar: %s but it is not a bool: %s->%d", self.name, $$FUNC, $$LINE);
+        return default_value;
     }
     
-    if(self.value == "true") { 
+    if(self.value == "true" || self.value == "1") { 
         return true; 
-    } else if(self.value == "false" || self.value == "") { 
+    } else if(self.value == "false" || self.value == "0") { 
         return false;
     }
     
-    // from here we expect a valid integer value
+    // from here we expect a valid char value
     char? value = self.value.to_uchar();
-    
     if(catch excuse = value) {
         lgr::error(Where.FILE, "Cvar: %s fault '%s' :: %s->%d", self.name, excuse, $$FUNC, $$LINE);
-        return false;
+        return default_value;
     }
     
     return (value > 0) ? true : false;
 }
 
-fn int Cvar.getInt(&self) {
+fn int Cvar.getInt(&self, int default_value = 0) @inline {
     if(try int result = self.value.to_int()) {
         return result;
     } else {
         lgr::warning(Where.FILE, "unable to get integer value for '%s' :: %s->%d", self.name, $$FUNC, $$LINE);
-        return 0;
+        return default_value;
     }
 }
 
-fn float Cvar.getfloat(&self) {
+fn float Cvar.getfloat(&self, float default_value = 0.0f) @inline {
     if(try float result = self.value.to_float()) {
         return result;
     } else {
         lgr::warning(Where.FILE, "unable to get float value for '%s' :: %s->%d", self.name, $$FUNC, $$LINE);
-        return 0.0;
+        return default_value;
     }
 }
 
-fn String Cvar.getString(&self) @inline {
+fn String Cvar.getString(&self, String default_value = "") @inline {
     if(self.type != CvarType.STRING) {
         lgr::warning(Where.FILE, "Cvar: %s was not defined as a string: %s->%d", self.name, $$FUNC, $$LINE);
-        return "";
+        return default_value;
     }
     
+    // doesn't care about empty strings
     return self.value;
 }
 

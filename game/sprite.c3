@@ -54,8 +54,9 @@ alias assetManager @local = astmng::assetManager;
 // end_region
 
 // region constants
-const int MIN_SPRIT_SIZE @local = 1; // pixels
-const Vec2i MIN_SIZE @local = {MIN_SPRIT_SIZE, MIN_SPRIT_SIZE};
+const MIN_SPRIT_SIZE @local = misc::MINIMUM_SIZE_IN_METERS;
+const Vec2f MIN_SIZE @local = {MIN_SPRIT_SIZE, MIN_SPRIT_SIZE};
+
 //
 // NOTE(HM) Uncoment this to enable the sprite profilling
 //const int SPRITE_PROFILE = 1;
@@ -63,7 +64,8 @@ const Vec2i MIN_SIZE @local = {MIN_SPRIT_SIZE, MIN_SPRIT_SIZE};
 //const int DEBUG_SPRITES = 1;
 
 // Used for very special sprites only
-enum SpriteKind : int {
+enum SpriteKind : inline int 
+{
     GENERIC,
     CURSOR,
 }
@@ -72,30 +74,39 @@ enum SpriteKind : int {
     @param value : "the inderlying ordinal value from the kind enum"
     @require value >= 0 && value < SpriteKind.values.len
 *>
-fn SpriteKind kindFrom(int value) @inline {
+fn SpriteKind kindFrom(int value) @inline 
+{
   return SpriteKind.from_ordinal(value);
 }
 // end_region defines
 
-struct Sprite (SaveSystemInterface)
+struct SpriteFlags
 {
-    typeid type; // class type
-    SpriteKind kind; // object type
-    //
-    Rectangle rect;
-    RColor color;  // only used for when a material is not defined.
-
-    // Todo(HM) rethink this, should the material be a pointer to a data saved on a data base
-    // or each entity, should copy the material data from the data base
-    // and deal with its own copy?
-    HMaterial* mat;
-
-    Bounds bounds; // will be equal to the rectangle
-    //
-    union {
+     union {
         bool isHidden;
         bool should_hide;
     }
+    bool isActive; // if the sprite is active or not
+}
+
+struct Sprite (SaveSystemInterface)
+{
+    typeid type; // class type
+    SpriteKind kind; // object kind, used to differentiate between different sprite types
+
+    // flags for the sprite, used to hide it or show it
+    // Todo(HM) should we use a bit field for this?
+    SpriteFlags flags;
+
+    //
+    Rectangle rect; // position and size of the sprite, screen pixel coordinates and meters scale respectively.
+    Bounds bounds; // will be equal to the rectangle
+    Color color;  // only really used when a material is not defined.
+
+    // Todo(HM) rethink this, should the material be a pointer to a data base loaded in memory
+    // or each entity, should copy the material data from the data base
+    // and deal with its own copy?
+    HMaterial* mat;
 }
 
 fn void Sprite.save(&self, SaveFile* file) @dynamic {
@@ -123,17 +134,7 @@ fn void Sprite.register(&self) @inline {
     main::gpGame.sprites.push(self);
 }
 
-fn void Sprite.update(&self) @inline {
-    if(self.isHidden) return;
-    
-    if(self.kind == SpriteKind.CURSOR) {
-        //ZString text = string::tformat("%s", source).tcopy();
-        //rl::drawText(text, 500, 25, 15, rl::RAYWHITE);
-        main::update_game_cursor(main::gpGame.screen.w, main::gpGame.screen.h);
-    }
-}
-
-fn void Sprite.init(&self, float x, float y, int width, int height, RColor color, SpriteKind kind = GENERIC, String material_name = "")
+fn void Sprite.init(&self, float x, float y, float width, float height, Color color = rl::WHITE, SpriteKind kind = GENERIC, String material_name = "")
 {
     self.type  = Sprite.typeid;
     //
@@ -144,14 +145,15 @@ fn void Sprite.init(&self, float x, float y, int width, int height, RColor color
     // now set the Bounds
     self.bounds.fromRect(&self.rect);
     self.setMaterial(material_name);
+    self.activate(); // activate the sprite by default
     self.register();
 }
 
-fn void Sprite.initRect(&self, Rectangle rect, RColor color = rl::COLOR_WHITE, SpriteKind kind = GENERIC, String material_name = "") @inline {
-    self.init(rect.x, rect.y, (int)rect.width, (int)rect.height, color, kind, material_name);
+fn void Sprite.initRect(&self, Rectangle rect, Color color = rl::WHITE, SpriteKind kind = GENERIC, String material_name = "") @inline {
+    self.init(rect.x, rect.y, rect.width, rect.height, color, kind, material_name);
 }
 
-fn void Sprite.initV(&self, Vec2f pos, Vec2f size, RColor color, SpriteKind kind = GENERIC, String material_name = "") @inline {
+fn void Sprite.initV(&self, Vec2f pos, Vec2f size, Color color = rl::WHITE, SpriteKind kind = GENERIC, String material_name = "") @inline {
     self.initRect({ pos.x, pos.y, size.x, size.y }, color, kind, material_name);
 }
 
@@ -162,6 +164,12 @@ fn void Sprite.resetPosSize(&self) @inline {
 
 fn void Sprite.deinit(&self) @inline {
 //
+}
+
+fn bool Sprite.sameKindAs(&self, Sprite* other)
+{
+    if(other == null) return false;
+    return self.kind == other.kind;
 }
 
 fn bool Sprite.equal(&self, Sprite* other) //@operator(==) 
@@ -211,21 +219,21 @@ fn void Sprite.scaleV(&self, Vec2f scaler) @inline {
     self.scale(scaler.x, scaler.y);
 }
 
+// WARNING(HM) setSize and scale are diferent things!!!
 // overrides the size of the sprite
-fn void Sprite.setSize(&self, uint w, uint h) @inline {
-    if(w == 0 && h == 0) {
+fn void Sprite.setSize(&self, float w, float h) @inline 
+{
+    if(misc::fgetDiff(w, 0.0f) <= 0.05f && misc::fgetDiff(h, 0.0f) <= 0.05f) {
         w = h = MIN_SPRIT_SIZE;
     }
     
-    self.rect.width  = (float)w;
-    self.rect.height = (float)h;
+    self.rect.width  = w;
+    self.rect.height = h;
 }
 
 // overrides the size of the sprite
 fn void Sprite.setSizeV(&self, Vec2f size) @inline {
-    if(size.x && math::is_approx(size.x, 0.0f, 0.05f) && 
-       size.y && math::is_approx(size.x, 0.0f, 0.05f))
-    {
+    if(misc::fgetDiff(size.x, 0.0f) <= 0.05f && misc::fgetDiff(size.y, 0.0f) <= 0.05f) {
         size.x = size.y = MIN_SPRIT_SIZE;
     }
     
@@ -234,18 +242,18 @@ fn void Sprite.setSizeV(&self, Vec2f size) @inline {
 }
 
 // overrides the size of the sprite
-fn void Sprite.setSizeX(&self, uint v) @inline {
-    self.rect.width  = (float)v;
+fn void Sprite.setSizeX(&self, float w) @inline {
+    self.rect.width = w;
 }
 
 // overrides the size of the sprite
-fn void Sprite.setSizeY(&self, uint v) @inline {
-    self.rect.height = (float)v;
+fn void Sprite.setSizeY(&self, float h) @inline {
+    self.rect.height = h;
 }
 
-fn void Sprite.addToSize(&self, uint w, uint h) @inline {
-    self.rect.width  += (float)w;
-    self.rect.height += (float)h;
+fn void Sprite.addToSize(&self, float w, float h) @inline {
+    self.rect.width  += w;
+    self.rect.height += h;
 }
 
 // overrides the size of the sprite
@@ -254,24 +262,26 @@ fn void Sprite.addToSizeV(&self, Vec2f size) @inline {
     self.rect.height += size.y;
 }
 
-// in screen pixel coordinates
+// in meter coordinates
 fn Vec2f Sprite.getSize(&self) @inline {
     return self.rect.getSize().toVec2f();
 }
 
-// in screen pixel coordinates
+// in meter coordinates
 fn float Sprite.getSizeX(&self) @inline {
     return self.rect.getSize().toVec2f().x;
 }
 
-// in screen pixel coordinates
+// in meter coordinates
 fn float Sprite.getSizeY(&self) @inline {
     return self.rect.getSize().toVec2f().y;
 }
 
 // in screen pixel coordinates
-fn Vec2i Sprite.getSizei(&self) @inline {
-    return (Vec2i)self.rect.getSize().toVec2f();
+fn Vec2i Sprite.getSizePixels(&self) @inline {
+    int w = misc::metersToPixels(self.rect.width);
+    int h = misc::metersToPixels(self.rect.height);
+    return (Vec2i){ w, h };
 }
 
 fn void Sprite.setKind(&self, int kind) @inline => self.kind = kindFrom(kind);
@@ -361,19 +371,62 @@ fn Vec2i Sprite.getTextureSize(&self) @inline
 }
 
 fn void Sprite.hide(&self) @inline {
-    if(self.isHidden) return;
-    self.isHidden = true;
+    if(self.flags.isHidden) return;
+    self.flags.isHidden = true;
 }
 
 fn void Sprite.show(&self) @inline {
-    if(!self.isHidden) return;
-    self.isHidden = false;
+    if(!self.flags.isHidden) return;
+    self.flags.isHidden = false;
 }
 
-fn bool Sprite.hidden(&self) @inline => self.isHidden;
+fn bool Sprite.hidden(&self) @inline => self.flags.isHidden;
 
 fn Vec2f Sprite.getPosition(&self) @inline {
     return {self.rect.x, self.rect.y};
+}
+
+fn void Sprite.activate(&self) @inline 
+{
+    if(self.flags.isActive) return; // already active
+
+    self.flags.isActive = true;
+    if(self.flags.isHidden) {
+        self.show(); // if the sprite is hidden, we need to show it
+    }
+}
+
+fn void Sprite.deactivate(&self, bool should_hide = false) @inline 
+{
+    if(!self.flags.isActive) return; // already inactive
+
+    self.flags.isActive = false;
+    if(should_hide) self.hide();
+}
+
+fn bool Sprite.isActive(&self) @inline 
+{
+    return self.flags.isActive;
+}
+
+fn bool Sprite.notActive(&self) @inline 
+{
+    return !self.flags.isActive;
+}
+
+fn void Sprite.update(&self) @inline 
+{
+    if(self.flags.isHidden) return;
+    
+    if(self.notActive()) {
+        // if the sprite is not active, we don't need to update it
+        return;
+    }
+
+    // update the in-game cursor
+    if(self.kind == SpriteKind.CURSOR) {
+        main::update_game_cursor(main::gpGame.screen.w, main::gpGame.screen.h);
+    }
 }
 
 fn void Sprite.draw(&self)  @inline 
@@ -382,10 +435,25 @@ fn void Sprite.draw(&self)  @inline
     {
     tracy::@zoneN("sprite draw", 0)
     {
-        if(self.should_hide) return;
+        if(self.flags.should_hide) return;
+
+        Rectangle rect = self.rect;
+        switch (main::CURRENT_UNITS)
+        {
+            case main::UNITS_METER:
+                //rect.x = misc::metersToPixels(self.rect.x);
+                //rect.y = misc::metersToPixels(self.rect.y);
+                rect.width  = misc::metersToPixels(self.rect.width);
+                rect.height = misc::metersToPixels(self.rect.height);
+            case main::UNITS_PIXEL:
+                rect;  // do nothing already in pixels
+            default:
+                lgr::error(Where.FILE, "Unsupported units set for Sprite rendering.", self.kind);
+                unreachable();
+        }
         
         $if $defined(DEBUG_SPRITES):
-            r2d::drawRectangleLinesEx(self.rect, 1.0f, rl::RED);
+            r2d::drawRectangleLinesEx(rect, 1.0f, rl::RED);
         $endif
         
         if(self.hasMaterial())
@@ -393,15 +461,15 @@ fn void Sprite.draw(&self)  @inline
             Texture2D* texture = self.mat.getTexture(mat::STAGE_DIFFUSE);
             Vec2f texture_size = { texture.width, texture.height };
             Rectangle source = { 0, 0, texture_size.x, texture_size.y };
-            Rectangle* dist = &self.rect;
+            Rectangle* dist = &rect;
 
             MaterialStage* diffuse_stage = self.mat.getStage(mat::STAGE_DIFFUSE);
             assert(diffuse_stage != null, "Material diffuse stage is null for material '%s'.", self.mat.name);
             Color color = diffuse_stage.color;
 
             // Todo(HM) Right now, we only do blending per material but we could do it per stage
-            // so we could have a material with multiple stages and each stage could have its own blending mode.
-            // This would allow us to have more complex materials with multiple textures and blending modes.
+            // so for example we could have a material with multiple diffuse stages and each stage 
+            // could have its own blending mode. This would allow us to have more complex materials.
             BlendMode blending;
             switch
             {
@@ -474,7 +542,7 @@ fn void Sprite.draw(&self)  @inline
 
 // draws a immediate sprite (per frame) with the given position, size and color
 // NOTE(HM) this is a generic sprite, not a sprite entity, so it does not have a name or any other data
-fn void drawImmediate(int posX, int posY, int width, int height, Color color, String material_name = "") @inline 
+fn void drawImmediate(float posX, float posY, float width, float height, Color color = rl::WHITE, String material_name = "") @inline 
 {
     @pool() {
         Sprite sptr;
@@ -520,7 +588,7 @@ struct Particle
     float acceleration;
 }
 
-fn void Particle.create(&self, Vec2f pos, Vec2f size, RColor color = rl::WHITE, int lifetime_ms = DEFAULT_PARTICLE_LIFETIME, String tex_name = "") {
+fn void Particle.create(&self, Vec2f pos, Vec2f size, Color color = rl::WHITE, int lifetime_ms = DEFAULT_PARTICLE_LIFETIME, String tex_name = "") {
     // init the inline sprite data
     self.initV(pos, size, color);
     //self.tex          = assetManager.getAssetExt(tex_name, Texture2D.typeid);
@@ -569,7 +637,7 @@ struct ParticleSpawner
 
 fn void ParticleSpawner.init(&self, Vec2f pos, int delay = 0) {
     String name = string::tformat("%s%s", "ParticleSpawner_", main::gpGame.time_ms);
-    RColor color = misc::INVISIBLE_COLOR;
+    Color color = misc::INVISIBLE_COLOR;
 $if $feature(_DEBUG):
     color = rl::RED;
 $endif

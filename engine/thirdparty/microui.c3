@@ -61,6 +61,8 @@ const MU_REAL_FMT             = "%.3g";
 const MU_SLIDER_FMT           = "%.2f";
 const MU_MAX_FMT              = 127;
 
+const MU_Rect UNCLIPPED_RECT = {0, 0, 0x1000000, 0x1000000 };
+
 // The default font size for MicroUI is set to 9 pixels.
 const MICROUI_FONT_SIZE 	    = 9; 
 const MICROUI_FONT_SPACING    = 1; // This is the spacing between characters in the font, used for text rendering.
@@ -580,13 +582,7 @@ int logbuf_updated @local = 0;
 
 fn void write_log(String text) @local 
 {
-  // if (logbuf[0]) 
-  // {
-  //   char[] buf = logbuf[0:text.len + 1];
-  //   buf.concat("\n");
-
-  // }
-  // strcat(logbuf, text);
+  // if we already have some text in the log buffer, append a newline before adding new text
   if(logbuf.len > 0) 
   {
     logbuf = logbuf.tconcat("\n");
@@ -809,27 +805,28 @@ fn void process_frames(MU_Context* ctx, float delta_time)
 //////// microui text size callbacks
 /////////////////////////////////////
 
-fn int text_width(MU_Font font, ZString text, int len) //@inline
+fn int text_width(MU_Font font, ZString text, int len) @inline
 {
     // mesure is in pixels
-    int size = rl::measureText(rl::textFormat(".*s", len, text), MICROUI_FONT_SIZE);
+    int size = rl::measureText(rl::textFormat("%.*s", len, text), MICROUI_FONT_SIZE);
     //int size = (int)rl::measureTextEx(rl::getFontDefault(), text, MICROUI_FONT_SIZE, MICROUI_FONT_SPACING).x;
     return size;
 }
 
-fn int text_height(MU_Font font) {
+fn int text_height(MU_Font font) @inline
+{
   return MICROUI_FONT_SIZE;
 }
 ///////////
 ///////////
 
-fn void draw_text(ZString str, MU_Vec2 pos, MU_Color color) 
+fn void draw_text(ZString str, MU_Vec2 pos, MU_Color color) @inline
 {
   // Assuming cmd->text.font is a valid font pointer
   rl::drawText(str, pos.x, pos.y, MICROUI_FONT_SIZE, color);
 }
 
-fn void draw_rect(MU_Rect rect, MU_Color color) 
+fn void draw_rect(MU_Rect rect, MU_Color color) @inline
 {
   // Draw a rectangle with the specified color
   rl::drawRectangle(rect.x, rect.y, rect.w, rect.h, color);
@@ -840,20 +837,18 @@ fn void draw_icon(int id, MU_Rect rect, MU_Color color)
 	r_draw_icon(id, rect, color);
 }
 
-fn void set_clip_rect(MU_Rect rect) 
+fn void set_clip_rect(MU_Rect rect) @inline
 {
-//$if $defined(NULL):
-  if(rect == (MU_Rect){0, 0, 0x1000000, 0x1000000} /*unclipped_rect*/)
+  if(rect == UNCLIPPED_RECT)
   {
-	  rl::endScissorMode(); // End any previous scissor mode to reset the clipping state
-  } else {
-  // Set the clipping rectangle for drawing operations
+    // End any previous scissor mode to reset the clipping state
+	  rl::endScissorMode();
+  }
+  else
+  {
+    // Set the clipping rectangle for drawing operations
 	  rl::beginScissorMode(rect.x, rect.y, rect.w, rect.h);
   }
-//$else
-	  //rl::endScissorMode(); // End any previous scissor mode to reset the clipping state
-	  //rl::beginScissorMode(rect.x, rect.y, rect.w, rect.h);
-//$endif
 }
 
 // NOTE(HM) this is the "buffer" for the input text

@@ -25,6 +25,49 @@
 # Hilario Martins, Rua de Sanguinhedo 1010 4850-545 Vieira Do Minho Portugal.
 # 
 *********************************************************************************************************************************************/
+module engine::misc::slice{Type};
+
+alias Slice = Type[];
+
+/*
+struct Slice 
+{
+    Type* data; // pointer to the data
+    int len;    // length of the slice
+}
+
+<*
+    Create a slice from a pointer and a length.
+    @param [&in] data : `pointer to the data`
+    @param len  : `length of the slice`
+    @require len >= 0
+    @ensure return.data != null && return.len >= 0
+*>
+fn Slice makeSlice(Type* data, int len) @inline 
+{
+    return (Slice){data, len};
+}
+
+<*
+    Create a slice from an array.
+    @param [&in] arr : `array to create the slice from`
+    @require arr.len >= 0
+    @ensure return.data != null && return.len >= 0
+*>
+fn Slice sliceFromArray(Type[] arr) @inline 
+{
+    return (Slice){&arr[0], arr.len};
+}
+
+fn void Slice.free(&self) @inline 
+{
+    if(self.data != null) {
+        mem::free(self.data);
+        self.data = null;
+    }
+    self.len = 0;
+}
+*/
 
 module engine::misc;
 
@@ -37,7 +80,7 @@ import std::collections;
 //import std::core::string;
 import libc;
 import game::main;
-import game::actors::ent::pl;
+import game::actors::ent::plyr; // player
 import engine::logging::lgr;
 import thirdparty::raylib5::rl;
 import engine::physics::box2d;
@@ -252,25 +295,81 @@ fn KeyboardKey getKeyValueFromName(String name) @inline
     }
 }
 
-const MINIMUM_SIZE_IN_PIXELS = 1;    //
-const MINIMUM_SIZE_IN_METERS = 0.1f; // 10 cm
+const MINIMUM_SIZE_IN_METERS = 0.10f; // 10 cm
+const MINIMUM_SIZE_IN_PIXELS = 10; // 10 pixels
 
-fn int metersToPixels(float meters) {
-    if(meters <= 0.1f) {
+<*
+    Convert meters to pixels, if the meters are less than the minimum size in meters,
+    it will return the minimum size in pixels.
+    @param meters : `the number of meters to convert`
+    @ensure return >= MINIMUM_SIZE_IN_PIXELS
+*>
+fn int metersToPixels(float meters) @inline {
+    if(meters <= MINIMUM_SIZE_IN_METERS) {
         return MINIMUM_SIZE_IN_PIXELS;
     }
-    return (int)(math::floor(meters) * main::DEFAULT_PIXELS_PER_METER);
+
+    float value = math::round(meters);
+    int pixels = (int)(math::abs(value) * main::DEFAULT_PIXELS_PER_METER);
+    if(pixels < MINIMUM_SIZE_IN_PIXELS) {
+        return MINIMUM_SIZE_IN_PIXELS;
+    } else {
+        return pixels;
+    }
 }
 
-fn float pixelsToMeters(int pixels) {
-    if(pixels <= MINIMUM_SIZE_IN_METERS) return MINIMUM_SIZE_IN_METERS;
-    
-    float m = (float)(pixels / main::DEFAULT_PIXELS_PER_METER);
-    if(m <= MINIMUM_SIZE_IN_METERS) {
+macro @metersToPixels($meters) 
+{
+    if($meters <= MINIMUM_SIZE_IN_METERS) {
         return MINIMUM_SIZE_IN_PIXELS;
+    }
+
+    var value = math::round($meters);
+    var pixels = (int)(math::abs(value) * main::DEFAULT_PIXELS_PER_METER);
+    if(pixels < MINIMUM_SIZE_IN_PIXELS) {
+        return MINIMUM_SIZE_IN_PIXELS;
+    } else {
+        return pixels;
+    }
+}
+
+<*
+    Convert pixels to meters, if the pixels are less than the minimum size in pixels,
+    it will return the minimum size in meters.
+    @param pixels : `the number of pixels to convert`
+    @param minimum_size : `the minimum size in meters to return`
+    @require pixels >= 0
+    @ensure return >= minimum_size
+*>
+fn float pixelsToMeters(int pixels, float minimum_size = MINIMUM_SIZE_IN_METERS) @inline {
+    if(pixels <= MINIMUM_SIZE_IN_PIXELS) return minimum_size;
+    
+    float m = math::abs((float)(pixels / main::DEFAULT_PIXELS_PER_METER));
+    if(m <= minimum_size) {
+        return minimum_size;
     } else {
         return m;
     }
+}
+
+<*
+    Convert game units to meters, if the units are less than the minimum size,
+    it will return the minimum size in meters.
+    @param units : `the units to convert`
+    @param minimum_size : `the minimum size in meters to return`
+    @require units >= 0
+    @ensure return >= minimum_size
+*>
+fn float unitsToMeters(int units, float minimum_size = MINIMUM_SIZE_IN_METERS) @inline 
+{
+    if(fgetDiff(main::DEFAULT_UNITS_PER_METER, 1.0f) < 0.0001f) {
+        return units; // if the units are equal to the default meter scale starting at 1.0f, just return the units
+    }
+
+    if(units <= minimum_size) return minimum_size;
+
+    float v = math::abs((float)(units / main::DEFAULT_UNITS_PER_METER));
+    return (v <= minimum_size) ? minimum_size : v;
 }
 
 const Color INVISIBLE_COLOR = {0xFF, 0xFF, 0xFF, 0x00};
@@ -336,7 +435,7 @@ fn void DebugLine.draw(&self) @inline {
     if(self.nodraw == false) draw_arrow(self.startPos, self.endPos, self.color);
 }
 
-fn void makeDebugLine(Vec2f start, Vec2f end, RColor color, int lifetime_ms = 5000) @inline {
+fn void makeDebugLine(Vec2f start, Vec2f end, Color color, int lifetime_ms = 5000) @inline {
     DebugLine* line = mem::new(DebugLine);
     line.startPos   = start;
     line.endPos     = end;
@@ -401,7 +500,7 @@ macro uint bytes2MB(x)        => ((x) >> 20);
 
 macro float @percent(float p, #x) => p * $x;
 
-macro int @bit($x) => 1 << $x;
+macro int @bit($x) @builtin => 1 << $x;
 
 macro Vec2f worldToScreen(Vec2f wpos) => rl::getWorldToScreen2D(wpos, main::gpGame.cameraView);
 macro Vec2f screenToWorld(spos) => rl::getScreenToWorld2D(wpos, main::gpGame.cameraView);
@@ -1237,7 +1336,7 @@ $endif
 
 
 // region MISC
-fn Vec2f dir_mul(pl::Move_Dir d, float a) @inline {
+fn Vec2f dir_mul(plyr::Move_Dir d, float a) @inline {
     return (Vec2f) { d.vec.x * a, d.vec.y * a };
 }
 
@@ -1384,6 +1483,32 @@ macro reverse_digits(num)
     
     return rev_num;
 }
+
+    //-----------------------------------------------------------------------------
+    // Purpose: Return the difference between two floats
+    //-----------------------------------------------------------------------------
+    fn float fgetDiff(float f1, float f2) 
+    {
+        if (f1 > f2) {
+            return f1 - f2;
+        }
+        else {
+            return f2 - f1;
+        }
+    }
+
+    //-----------------------------------------------------------------------------
+    // Purpose: Return the difference between two int integers
+    //-----------------------------------------------------------------------------
+    fn int igetDiff(int s1, int s2)
+    {
+        if (s1 > s2) {
+            return s1 - s2;
+        }
+        else {
+            return s2 - s1;
+        }
+    }
 
 // end_region MISC
 
@@ -1620,32 +1745,6 @@ macro reverse_digits(num)
             while (delta <= -180) delta += 360;
         }
         return float(delta);
-    }
-
-    //-----------------------------------------------------------------------------
-    // Purpose: Return the difference between two floats
-    //-----------------------------------------------------------------------------
-    fn float f32_get_diff(float f1, float f2) 
-    {
-        if (f1 > f2) {
-            return f1 - f2;
-        }
-        else {
-            return f2 - f1;
-        }
-    }
-
-    //-----------------------------------------------------------------------------
-    // Purpose: Return the difference between two int integers
-    //-----------------------------------------------------------------------------
-    fn int s32_get_diff(int s1, int s2)
-    {
-        if (s1 > s2) {
-            return s1 - s2;
-        }
-        else {
-            return s2 - s1;
-        }
     }
 
     fn void move_toward(float& a, float b, float amount_increasing, float amount_decreasing = -1.0) {

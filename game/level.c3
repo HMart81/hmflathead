@@ -40,7 +40,7 @@ import engine::sys::cvar;
 import engine::logging::lgr;
 import engine::filesystem::fs;
 import engine::sys::reader::svg;
-import game::actors::ent, game::actors::ent::pl;
+import game::actors::ent, /*entity module*/ game::actors::ent::plyr; // player module
 // #endregion
 
 const int OLD_MAP_VERSION	    = 0;

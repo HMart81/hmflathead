@@ -151,6 +151,7 @@ struct Config_Flags @local  // flags used to store config file state
 * DOC Final parsed config data used by the engine
 *>
 struct Config {
+    String path; // the path to the config file
     ListIniSectionPrts sections;
     Config_Flags flags; // if the config file has been modified since it was loaded
 }
@@ -160,6 +161,19 @@ struct Config {
 *>
 fn void Config.register(&self, IniSection* section) @local @inline {
     self.sections.push(section);
+}
+
+fn IniSection* Config.createSection(&self, String name) @local
+{
+    if(self.hasSection(name)) {
+        lgr::warning(Where.FILE, "Trying to create in the config file a Section %s that already exists.", name);
+        return self.getSection(name);
+    }
+
+    // create a new section and register it
+    IniSection* section = mem::new(IniSection, { .name = name });
+    self.register(section);
+    return section;
 }
 
 fn IniSection* Config.getSection(&self, String name) @local {
@@ -189,6 +203,26 @@ fn bool Config.hasSection(&self, String name) @local {
     return false;
 }
 
+<*
+    @param name : `The section name to add the cmd to`
+    @param [&in] cmd : `The cmd to add to the section`
+    @require name != ""
+*>
+fn void Config.addToSection(&self, String name, IniCMD* cmd)
+{
+    if(self.hasSection(name))
+    {
+        IniSection* section = self.getSection(name);
+        if(section.isLinked()) {
+            section.next.register(cmd); // register the cmd to the child section cmds
+        } else {
+            section.register(cmd); // register the cmd to the current section cmds
+        }
+        self.markModified(); // mark the config as modified
+        return;
+    }
+}
+
 fn void Config.freeChildSections(&self) @local
 {
     foreach(section : self.sections) {
@@ -199,7 +233,7 @@ fn void Config.freeChildSections(&self) @local
 }
 
 fn void Config.markModified(&self) @local => self.flags.is_modified = true;
-fn bool Config.isModified(&self) @local => self.flags.is_modified;
+fn bool Config.isModified(&self) => self.flags.is_modified;
 
 <*
  @param key : `The cmd name`
@@ -784,7 +818,14 @@ fn Config*? load(String filepath, bool isrelative = true)
     }
     
     //data is valid from here
-    return parse_file(data);
+    Config*? file_data = parse_file(data);
+    if(catch excuse = file_data) {
+        lgr::warning(Where.FILE, "Failed to parse config file: %s with excuse: %s", filepath, excuse);
+        return MALFORMED_INI_FILE?;
+    }
+    file_data.path = filepath.tcopy();
+
+    return file_data; //parse_file(data);
 }
 
 <*
@@ -800,6 +841,8 @@ fn bool? Config.load(&self, String filepath, bool isrelative = true)
         lgr::warning(Where.FILE,  "Unable to open file %s to cut with excuse: %s", filepath, excuse);
         return INI_FILE_LOAD_FAILED?;
     }
+
+    self.path = filepath.tcopy();
     
     foreach(line : lines)
     {
@@ -828,13 +871,15 @@ fn bool? Config.load(&self, String filepath, bool isrelative = true)
     return true; 
 }
 
-fn bool Config.save(&self, String filename = main::INI_SETTINGS_FILE_NAME)
+fn bool Config.save(&self, String filename = SETTINGS_FILE_NAME)
 {
     if(self.isModified() == false) return true; // nothing to save, the file is not modified
 
-    String filepath = game.app_base_folder.tconcat(filename);
-    
-    INIFile? file_data = (INIFile)file::open(filepath, "wt");
+    //String filepath = game.app_base_folder.tconcat(filename);
+    assert(self.path.len > 0, "The config file path must be set before saving the config file.");
+    String filepath = self.path;
+
+    INIFile? file_data = (INIFile)file::open(self.path, "wt");
     if(catch excuse = file_data) {
         lgr::warning(Where.FILE, "Failed to open config file: %s to write with excuse: %s", filepath, excuse);
         return false;
@@ -924,10 +969,20 @@ fn void testCmdValueStringValidity(String value, String id)
 }
 
 <*
-  @param [&in] inifile : "is not really a file but a adress of a data structure in memory"
+  @param [&inout] inifile : "is not really a file but a adress of a data structure in memory"
 *>
-fn void unload(Config* inifile) {
-    if(inifile.sections.len()) {
+fn void unload(Config* inifile) 
+{
+    if(inifile == null) {
+        return; // nothing to unload
+    }
+
+    if(inifile.path.len) {
+        inifile.path = ""; // clear the path
+    }
+
+    if(inifile.sections.len()) 
+    {
         foreach(section : inifile.sections) {
             if(section.isLinked()) 
             {

@@ -58,7 +58,7 @@ import game::serialize::svs; // save system
 import game::logic::timer;
 import engine::tools::editor;
 import engine::logging::lgr;
-import game::actors::ent::pl;  // player module
+import game::actors::ent::plyr;  // player module
 import engine::misc; // misc code
 import game::camview;
 import engine::sys::cvar;
@@ -81,13 +81,21 @@ const TRACY_ENABLE_ZONE @if($feature(TRACY_ENABLE)) = 1;
 /*
    ===== Game Scale Units =====
    
-   1 meter = 10 pixels
+   1 unit = 1 meter = 100 pixels
    
    NOTE(HM): 
-   Minimum scale for physics objects is 10 cm, this is a hard limit 
+   Minimum scale for physics objects is 10 units (10 cm), this is a hard limit 
    imposed by box2d physics engine.
 */
-const DEFAULT_PIXELS_PER_METER @public @Hardcode = 10;
+const UNITS_METER @public = 1;
+const UNITS_PIXEL @public = 2;
+const CURRENT_UNITS @public = UNITS_METER; // default units are meters
+
+const DEFAULT_UNITS_PER_METER @public @Hardcode = 1.0f;
+const DEFAULT_PIXELS_PER_METER @public @Hardcode = 100.0f; // 100 pixels per meter
+const DEFAULT_UNITS_PER_PIXEL @public @Hardcode = DEFAULT_UNITS_PER_METER / DEFAULT_PIXELS_PER_METER; // 0.01 units per pixel
+
+
 const String MOUSE_IMAGE_NAME          @Hardcode = "pointer.png";
 const String MOUSE_POINTER_MAT         @Hardcode = "gui/pointer"; // game assets folder
 const GAME_CURSOR_SCALER               @Hardcode = 0.025f;
@@ -205,7 +213,6 @@ const String GAME_SUB_NAME @Hardcode = "engine"; // NOTE(HM) optional...
 // If alising a type the alias name, should start uppercase, if alising a function, it should start lowercase, 
 // if alising a Constant the alias also needs to be all caps, etc.
 
-alias RColor         @public = rl::Color;
 alias RShader        @public = rl::Shader;
 alias StringTuple    @public = Tuple{String, String};
 alias IniFileCMDList = List{StringTuple*};
@@ -290,11 +297,11 @@ struct Game (SaveSystemInterface) @local
 {
     bool should_update_entities;
     bool system_cursor_enabled;
-    //int numEntitiesToDeactivate; // todo
     bool should_quit;
     bool msgbox_showing;
     bool is_modded_game; // is the game running a mod?
     
+    ini::Config settings_file; // game settings file, used to get or save the game settings
     
     IntroAnimation intro;
     bool intro_playing;
@@ -341,32 +348,43 @@ struct Game (SaveSystemInterface) @local
     Font* trojan_pro_font;
     //
     
-    String[] cursors;
+    String[] cursors; // list of game cursors, used to load the game cursors from the assets folder
     Sprite mouse_cursor;
     
     Player* main_player;
-    pl::PersistentInfo playerPersistentInfo; // to save any info that the player carries along for each level
+    PersistentInfo playerPersistentInfo; // to save any info that the player carries along for each level
     RenderView view;
 
     
-    struct screen {
+    struct screen 
+    {
         int id; // monitor id (index + 1)
         int index; // monitor index
         int  w;
         int  h;
+        float width_in_meters;
+        float height_in_meters;
+
         struct state {
             bool window;
             bool fullscreen;
             bool borderless;
         }
+
         Win32_HWND handle @if(env::WIN32); // window handle, used for win32 specific stuff
         bool vsync_hint;
         int  displayHz;
         int  multiSamples; // MSAA
     }
 
-    List{Entity*} entityList;
+    List{Entity*} entityList; // list of all entities in the game, used to iterate all entities every frame
+    List{Entity*} thinkingEntities; // entities that are thinking this frame, used to avoid iterating all entities every frame
+    List{Entity*} activeEntities; // entities that are active this frame, used to avoid iterating all entities every frame
+    List{Entity*} entitiesToDeactivate; // entities that are marked for deactivation this frame, used to avoid iterating all entities every frame
+    List{Entity*} entitiesToRemove; // entities that are marked for removal this frame, used to avoid iterating all entities every frame
     List{Sprite*} sprites;
+
+    // BoidManager
     BoidManager boidManager1;
     
     MaterialDataBase mtrDB;
@@ -755,13 +773,17 @@ fn bool system_cursor_visible() @public @inline {
 
 // #endregion System OS Cursor
 
+///////////////////////////////////////
 // #region Game Custom Cursor functions
 
 fn void init_game_cursor() @inline
 {
     local_game.mouse_cursor.initV(
-        {0,0},
-        {GAME_CURSOR_SCALER*gpGame.screen.h, GAME_CURSOR_SCALER*gpGame.screen.h},
+        {0,0}, // position in pixel units
+        {
+            0.45f, // width in game units
+            0.45f  // height in game units
+        },
         rl::WHITE,
         SpriteKind.CURSOR,
         MOUSE_POINTER_MAT
@@ -773,19 +795,18 @@ fn void deinit_game_cursor() @inline {
     hide_game_cursor();
 }
 
-fn void set_game_cursor_size(int w, int h) @inline {
+fn void set_game_cursor_size(float w, float h) @inline {
     local_game.mouse_cursor.setSize(w, h);
 }
 
 fn Vec2f getGameCursorSize() @public @inline => local_game.mouse_cursor.getSize();
 
-fn void update_game_cursor(int screen_w, int screen_h) @public {
-
-    // todo enable this code
-    if(game_cursor_visible() == false) return;
+fn void update_game_cursor(int screen_w, int screen_h) @public 
+{
+    if(game_cursor_hidden()) return;
     
-    int x = rl::getMouseX(); // in world space
-    int y = rl::getMouseY(); // in world space
+    int x = rl::getMouseX(); // in world space pixel coordinates
+    int y = rl::getMouseY(); // in world space pixel coordinates
     
     // prevent the cursor from going out the screen bounds
     if (x < 0) x = 0;
@@ -800,8 +821,8 @@ fn void update_game_cursor(int screen_w, int screen_h) @public {
     
     // update size
     // TODO do a better mouse cursor size dependent on screen size!!
-    int cursor_h            = (int)local_game.mouse_cursor.getSizeY();
-    int desired_cursor_size = (int)math::floor((GAME_CURSOR_SCALER * screen_h));
+    float cursor_h          = local_game.mouse_cursor.getSizeY();
+    float desired_cursor_size = math::floor((GAME_CURSOR_SCALER * misc::pixelsToMeters(screen_h)));
     if(cursor_h > desired_cursor_size) {
         set_game_cursor_size(desired_cursor_size, desired_cursor_size);
     }
@@ -811,7 +832,7 @@ fn void show_game_cursor() @public @inline {
     if(local_game.mouse_cursor.hidden()) local_game.mouse_cursor.show();
 }
 
-// NOTE(HM) only hides the cursor doesn't disable it, will still move behind the window.
+// NOTE(HM) only hides the cursor doesn't disable it, will still move regardless of visibility.
 fn void hide_game_cursor() @public @inline {
     if(game_cursor_visible()) local_game.mouse_cursor.hide();
 }
@@ -825,6 +846,7 @@ fn bool game_cursor_hidden() @public @inline {
 }
 
 // #endregion Game Custom Cursor functions
+
 
 fn EscReply handleESC( Desktop** gui ) 
 {
@@ -904,6 +926,12 @@ $endif
         }
     }
     */
+
+    
+    if(rl::isKeyPressed(rl::KEY_G)) {
+        menu::exit();
+    }
+    
         
     // exit game
     //if(rl::isKeyPressed(rl::KEY_F10)) {
@@ -1003,7 +1031,7 @@ fn void gameUpdate() @local
         // physics engine
         if(local_game.pause_phys_simulation == false) {
 			//float deltaTime = rl::getFrameTime();
-			box2d::world_Step(local_game.physWorldId, local_game.phys_time_step, local_game.phys_substep_count);
+			local_game.physWorldId.step(local_game.phys_time_step, local_game.phys_substep_count);
         }
         //
         
@@ -1062,21 +1090,53 @@ fn void gameUpdate() @local
         
         if(local_game.should_update_entities)
         {
-            // remove dead entities
-            foreach(int i, it : local_game.entityList) {
-                if(it.alive == false) {
-                    local_game.entityList.remove_at(i);
-                    lgr::warning(Where.CONSOLE, "Entity '%s' was killed\n", it.name);
+            // remove all dead entities
+            if(local_game.entitiesToRemove.len()) 
+            {
+                foreach(ent : local_game.entitiesToRemove)
+                {
+                    if(ent.isDead())
+                    {
+                        usz i = local_game.entityList.index_of(ent)!!;
+                        usz old_size = local_game.entityList.len();
+                        local_game.entityList.remove_at(i);
+                        usz new_size = old_size - 1;
+                        if(new_size == 0) {
+                            lgr::info(Where.FILE, "All entities were destroyed!");
+                        } else {
+                            lgr::info(Where.FILE, "Entity '%s' was removed from the game! Remaining entities: %d", ent.name, new_size);
+                        }
+                        local_game.entityList._update_size_change(old_size, new_size);
+                    }
+                    local_game.entitiesToRemove.remove_at(local_game.entitiesToRemove.index_of(ent)!!);
                 }
+                local_game.entitiesToRemove.clear();
             }
             
+            ////////////////////////////////////////////
             // entity thinking
-            foreach(usz i, ent: local_game.entityList) {
-                if(i == 0 && ent.type == Player.typeid) {
+            foreach(ent: local_game.thinkingEntities)
+            {
+                if(ent == null) 
+                {
+                    unreachable("Entity in thinking list is null!");
+                }
+
+                if(ent.isDead()) 
+                {
+                    lgr::error(Where.FILE, "Entity '%s' was in thinking list but is dead!\n", ent.name);
+                    local_game.thinkingEntities.remove_at(local_game.thinkingEntities.index_of(ent)!!);
+                    continue;
+                }
+
+                if(ent.type == Player.typeid) 
+                {
                     assert(ent != null);
                     // Need to cast Entity* to Player* to call player think not Entity think...
                     ((Player*)ent).think(dt: local_game.dt);
-                } else {
+                } 
+                else // all other entities
+                {
                     assert(ent != null);
                     ent.think(dt: local_game.dt);
                 }
@@ -1114,7 +1174,7 @@ fn void drawGameVersion(int screenWidth, int screenHeight) @inline @local
 
 fn void drawWorkInProgressMessage(int screen_w, int screen_h) @local 
 {
-    const RColor COLOR @Hardcode = {223, 196, 125, 127};
+    const Color COLOR @Hardcode = {223, 196, 125, 127};
     Font* font = local_game.candara_font;
     if(!rl::isFontValid(*font))  font = &local_game.default_font;
     
@@ -1294,11 +1354,15 @@ $endif
 fn void gameOnPostSceneDraw(int screenWidth, int screenHeight) @local 
 {
 $if $feature(MICROUI_ENABLE) :
+    // NOTE(HM) microui context end, should be called before calling this microui commands
+    // that is done in gameDraw() function inside mu::process_frames()::@render() function.
+
     MU_Command * cmd = null;
     while (local_game.mu_ctx.next_command(&cmd))
     {
       switch (cmd.type)
       {
+        case mu::MU_COMMAND_JUMP: io::printfn("MU_COMMAND_JUMP");
         case mu::MU_COMMAND_TEXT: mu::draw_text((ZString)&cmd.text.str, cmd.text.pos, cmd.text.color);
         case mu::MU_COMMAND_RECT: mu::draw_rect(cmd.rect.rect, cmd.rect.color);
         case mu::MU_COMMAND_ICON: mu::draw_icon(cmd.icon.id, cmd.icon.rect, cmd.icon.color);
@@ -1394,6 +1458,7 @@ fn void gameOnPostBufferSwap() @local @inline {
     // TODO
 }
 
+//////////////////////////////////////////////////////////////////
 // #region ARGS HANDLING ************************
 
 fn void handle_boolean_cmd(String cmd) @inline 
@@ -1422,12 +1487,13 @@ fn void handle_boolean_cmd(String cmd) @inline
             lgr::warning(Where.CONSOLE, "Invalid cmdline argument '%s'!", cmd);
     }
 }
+
 /*
 NOTE(HM) 
 The first argument in a cmdline, is just the path to the executable, 
 so if there's only one argument, there's no need to run handle_cmdline().
 Also cmdline arguments require a full game restart, this may change, 
-if and when I create a game console...
+if and when I create a ingame developer console...
 */
 fn void handle_cmdline(String[] args)
 {
@@ -1614,7 +1680,7 @@ fn void handle_cmdline(String[] args)
 }
 
 // #endregion ARGS HANDLING ******************
-
+//////////////////////////////////////////////////////////////////
 
 
 /* This is where game execution begins */
@@ -1787,7 +1853,7 @@ $endif
         } else { // create it
             //Path? save_path = path::temp_new(save_folder)!;
             //bool? sucess    = path::mkdir(save_path);
-            bool? sucess    = fs::makeDirectory(local_game.app_save_folder);
+            bool? sucess    = fs::makeDirectory_IfNotExist(local_game.app_save_folder);
             if(catch excuse = sucess) 
             {
                 lgr::warning(Where.FILE,"Failed to create user folder %s inside %s with excuse: %s", 
@@ -1825,7 +1891,7 @@ $endif
     // window flags
     int window_flags = 0; // special windows flags for the rl window handling
     
-    // support modern high dpi monitors
+    // support modern high dpi monitors (replaces the need for manual use of GetWindowScaleDPI() functionality)
     window_flags |= (int)rl::FLAG_WINDOW_HIGHDPI;
     
     // TODO(HM)
@@ -1843,18 +1909,45 @@ $endif
     {
         ini::create_default_settings_file(ini_file_path);
     }
-    ini::Config settings_file;
+    
+    // load the settings file
+    ini::Config* settings_file = &local_game.settings_file;
     bool? settings_load_sucess = settings_file.load(ini_file_path, false);
     //ini::Config*? settings_file = ini::load(ini_file_path, false); //ini::load(SETTINGS_FILE_NAME);
     if( catch excuse = settings_load_sucess) {
         lgr::warning(Where.FILE, "Failed to load %s file with excuse: %s", ini_file_path, excuse);
+        settings_file = null;
         return excuse?;
     }
-    defer if(settings_load_sucess) ini::unload(&settings_file);
+    //defer if(settings_load_sucess) ini::unload(&settings_file);
 
     lgr::info(Where.FILE, "Settings file loaded: %s", ini_file_path);
     lgr::info(Where.FILE, "---------------------------------------------\n");
 // #endregion Ini file handling
+
+    // change raylib log level
+    // NOTE(HM) this will override the default log level set before in pre_InitFunc()
+    if(settings_file.getBool("rl_log")! == true)
+    {
+        String log_mode = settings_file.getString("rl_log_mode");
+        switch(log_mode)
+        {
+            case "info": rl::setTraceLogLevel(rl::TraceLogLevel.INFO);
+            case "warn": rl::setTraceLogLevel(rl::TraceLogLevel.WARNING);
+            case "error": rl::setTraceLogLevel(rl::TraceLogLevel.ERROR);
+            case "fatal": rl::setTraceLogLevel(rl::TraceLogLevel.FATAL);
+            default:
+                // NOTE(HM) default is set to INFO
+                rl::setTraceLogLevel(rl::TraceLogLevel.WARNING);
+                lgr::warning(Where.FILE, "Unknown Raylib logging option '%s' setting to default WARNING level.", log_mode);
+        }
+    }
+    else if(settings_file.getBool("rl_Log")! == false)
+    {
+        // NOTE(HM) disable raylib logging
+        rl::setTraceLogLevel(rl::TraceLogLevel.NONE);
+        lgr::info(Where.FILE, "Raylib logging disabled.");
+    }
 
     // log the amount of screen resolutions and their Mode
     lgr::info(Where.FILE, "Total video modes : %d", SCREEN_RES.len);
@@ -2031,6 +2124,9 @@ lgr::info(Where.FILE, "---------------------------------------------\n");
         }
     }
 
+    local_game.screen.width_in_meters = misc::pixelsToMeters(screenWidth);
+    local_game.screen.height_in_meters = misc::pixelsToMeters(screenHeight);
+
 $if env::WIN32:
     Win32_HWND window_handle = (Win32_HWND)rl::getWindowHandle();
     if(window_handle == null) 
@@ -2189,7 +2285,7 @@ $endif
 	physWorld.gravity[1]    = GRAVITY_VALUE * DEFAULT_PIXELS_PER_METER;
     //
 	local_game.physWorldId = box2d::createWorld(&physWorld);
-    if(box2d::world_IsValid(local_game.physWorldId)) {
+    if(local_game.physWorldId.isValid()) {
         lgr::info(Where.FILE, "\tBox2D Started.");
     } else {
         lgr::error(Where.FILE, "Failed to start Box2D physics engine! Halting game initialization.");
@@ -2379,14 +2475,14 @@ $endif
     }
     
 // #region Test game stuff
-    createGameInputActions(&settings_file);
+    createGameInputActions(settings_file);
     
     // Create the main Single Player
     // NOTE(HM) todo: the player and ingame entities should be created only at spawn of a level 
     // but right now, I don't have a concept of a "level" or game World.
     // TODO(HM) when possible make a dedicated spawn point entity for the player.
     lgr::info(Where.FILE,  "** Creating test player. **");
-    local_game.main_player = pl::makePlayer(id: 1, color: rl::BLUE);
+    local_game.main_player = plyr::makePlayer(id: 1, color: rl::BLUE);
     // NOTE(HM) The first entity is always the main player1
     local_game.entityList.push((Entity*)local_game.main_player);
     lgr::info(Where.FILE,  "** Done **.");
@@ -2398,17 +2494,16 @@ $endif
     
     // Create test entities @delete
     lgr::info(Where.FILE,  "** Creating test entities. **");
-    for(int i = 1; i <= 2; i++) {
+    for(int i = 1; i <= 2; i++) 
+    {
         $if $defined(ENABLE_CAMERA_VIEW):
-        Vec2f origin = local_game.view.camera.target.toVec2f();
+            Vec2f origin = local_game.view.camera.target.arr;
         $else
-        Vec2f origin;
+            Vec2f origin;
         $endif
         origin.translateV(misc::VEC_UP * 100 * i);
         
         Entity* test_ent = ent::create_ex("", origin, rl::WHITE);
-        test_ent.scaleV({16.0f, 16.0f});
-        //test_ent.setTexture("figure.png");
         test_ent.setMaterial("figure");
     }
     
@@ -2417,20 +2512,6 @@ $endif
     lgr::info(Where.FILE,  "** Enabling test entities brains. **");
     if(local_game.entityList.len() >= 1) {
         local_game.should_update_entities = true;
-        
-        // DELETE for testing only!!!!!!!!!!
-        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        foreach(ent : local_game.entityList) {
-            Vec2f start = {0, 0};
-            Vec2f end   = ent.getPosition();
-            assert(start != end);
-            if(ent.type != Player.typeid) {
-                misc::makeDebugLine(start, end, rl::BLUE, 10000);
-            } else {
-                misc::makeDebugLine(start, end, rl::YELLOW, 10000);
-            }
-        }
-        // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     }
     
     // init the boids system
@@ -2441,7 +2522,6 @@ $endif
 // #endregion Test game stuff
     
     local_game.should_quit = false;
-    //if(local_game.numEntitiesToDeactivate) local_game.numEntitiesToDeactivate = 0;
     lgr::info(Where.FILE,  "Game Start Done Sucessfully.\n//**//");
 }
 
@@ -2469,13 +2549,26 @@ $if $feature(ANGEL_ENABLE):
 $endif
     // close physics engine
     box2d::deinitDebugDraw(&local_game.phys_debug);
-    if(box2d::world_IsValid(local_game.physWorldId)) {
+    if(local_game.physWorldId.isValid()) {
         lgr::info(Where.FILE, "Destroying physics engine.");
         box2d::destroyWorld(local_game.physWorldId);
         lgr::info(Where.FILE, "Done.");
     }
     //
     rl::closeAudioDevice();
+    //
+    if(local_game.settings_file.isModified())
+    {
+        // save the settings file
+        lgr::info(Where.FILE, "Saving settings file: %s", local_game.settings_file.path);
+        if(local_game.settings_file.save()) {
+            lgr::info(Where.FILE, "Settings file saved successfully.");
+        } else {
+            lgr::warning(Where.FILE, "Failed to save settings file.");
+        }
+    }
+    ini::unload(&local_game.settings_file);
+    //
     // debug_lines
     if(misc::g_debugLines.len())
     {
@@ -2700,12 +2793,12 @@ fn void pre_InitFunc() @init {
     gameArena.init(mem, GAME_ARENA_PAGE_SIZE);
     
     // Controls raylib console logging
-    // Raylib library gets initialized here, because this function calls a raylib function
+    // Raylib library gets initialized here, because this is the first call of a raylib function.
     // NOTE(HM) This means the MINIMUM log level not the only level to log
     // anything bellow this level will not log
     rl::setTraceLogLevel(rl::TraceLogLevel.INFO);
     
-    // My own logging system
+    // ************* My own logging system ****************
     // NOTE(HM) controls file and Console logging 
     // plus sets where the log file is saved as well.
     lgr::initGlobalLoggingDir(); 
@@ -2713,7 +2806,7 @@ fn void pre_InitFunc() @init {
     // This means the MINIMUM log level not the only level to log
     // anything bellow this level will not log
     lgr::setLogLevel(rl::TraceLogLevel.INFO);
-    
+    // *********************************************************
 }
 
 fn int main(String[] args) @public

@@ -118,8 +118,8 @@ fn int count_spaces(String str)  @inline
 }
 
 <* 
-* Removes all spaces from a string
- @param [inout] str : "string to remove spaces from"
+    Removes all spaces from a string
+    @param [inout] str : "string to remove spaces from"
 *>
 fn void remove_all_spaces(String* str)  @inline
 {
@@ -153,6 +153,7 @@ fn void remove_all_spaces(String* str)  @inline
 
 <*
     Eats all the spaces starting at current char untill a non space character is found
+    @param [&inout] cursor : "the current position in the string, passed by pointer"
 *>
 fn void eat_spaces_starting_from(CChar** cursor) @inline
 {

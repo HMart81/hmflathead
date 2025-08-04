@@ -26,7 +26,7 @@
 # 
 *********************************************************************************************************************************************/
 
-module game::actors::ent::pl;
+module game::actors::ent::plyr;
 
 // region c3
 import std::io;
@@ -48,9 +48,7 @@ import thirdparty::tracy;
 // 10 cm / sec      = 1.0f pixels / 1.0f;
 // 0.1 pixels to meter = 1 pixel;
 
-const float PLAYER_DEFAULT_MOV_SPEED      = 1.0f; // 1 pixel / sec
-const int   PLAYER_DEFAULT_SIZE_X_PIXELS  = 6;
-const int   PLAYER_DEFAULT_SIZE_Y_PIXELS  = 22;
+const float PLAYER_DEFAULT_MOV_SPEED      = 1.0f; // 1 unit / sec
 const float PLAYER_DEFAULT_SIZE_X_METER   = 0.50f; // (minimum size is 10 cm)
 const float PLAYER_DEFAULT_SIZE_Y_METER   = 2.0f;
 
@@ -121,7 +119,7 @@ fn void Player.init(&self, Vec2f origin, Color color, int id)
         self.setPositionV(origin);
     }
     
-    self.setSize(PLAYER_DEFAULT_SIZE_X_PIXELS, PLAYER_DEFAULT_SIZE_Y_PIXELS);  // x = 50 cm | y = 2 m
+    self.setSize(PLAYER_DEFAULT_SIZE_X_METER, PLAYER_DEFAULT_SIZE_Y_METER);
     self.vs.color = color;
     
     // physics
@@ -141,8 +139,7 @@ fn void Player.init(&self, Vec2f origin, Color color, int id)
 	box2d::createPolygonShape(self.physics, &shapeDef, &playerBox);
     //
     
-    self.alive = true;
-    self.startThinking();
+    self.born();
     // NOTE(HM) for now the player as to be manually registered and 
     // be the first Entity in the entity list.
     //
@@ -213,7 +210,7 @@ fn void Player.think(&self, float dt /*delta_time*/)
         // NOTE(HM) to run parent entity think code that may be necessary by the player
         self.super.think(dt); // parent
         
-        if(self.flags & ent::TH_THINK)
+        if(self.thinkFlags & ent::TH_THINK)
         {
             tracy::@zoneN("Playerthink", 1)
             {
@@ -230,23 +227,11 @@ fn void Player.think(&self, float dt /*delta_time*/)
             };
         } 
         
-        if(self.flags & ent::TH_PHYSICS) {
+        if(self.thinkFlags & ent::TH_PHYSICS) {
             // update player physics code here
         }
         
 }
-
-fn void Player.startThinking(&self) @inline {
-    self.flags = 0;
-    self.flags |= ent::TH_THINK;
-}
-
-fn void Player.stopThinking(&self) @inline  {
-    if (self.flags) {
-        self.flags &= ~ent::TH_THINK;
-    }
-}
-
 
 fn Player* makePlayer(int id = 0, Vec2f position = {0, 0}, Color color = rl::WHITE) @inline
 {
@@ -255,10 +240,9 @@ fn Player* makePlayer(int id = 0, Vec2f position = {0, 0}, Color color = rl::WHI
     return player;
 }
 
-module game::actors::palyer::action;
+module game::actors::ent::plyr::action;
 
 import thirdparty::raylib5::rl;
-//import game::actors::palyer;
 import std::collections::list;
 
 alias InputActionCallback = fn void(void*... args);

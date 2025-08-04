@@ -77,6 +77,8 @@ void SetMaterialTexture(Material *material, int mapType, Texture2D texture);    
 void SetModelMeshMaterial(Model *model, int meshId, int materialId);                  // Set material for a mesh
 */
 
+// TODO(HM) Support more than one stage type per material, 
+// for example more than one diffuse map, etc.
 // Material stage index
 alias MatStageIndex                 = int;
 const MatStageIndex STAGE_DIFFUSE   @public = 0;    // only one supported (for now...)
@@ -88,7 +90,6 @@ const MatStageIndex STAGE_HEIGHT    @public = 5;    // Heightmap material
 const MatStageIndex STAGE_CUBEMAP   @public = 6;    // Cubemap material (NOTE: Uses GL_TEXTURE_CUBE_MAP)
 const MatStageIndex STAGE_VIDEO     @public = 7;    // video map stage
 const MatStageIndex STAGE_SOUND     @public = 8;    // sound map stage
-
 // Don't forget to update this max value if adding more stages above!!!
 const MAX_STAGE_INDICES = (STAGE_SOUND);
 // just in case...
@@ -107,10 +108,25 @@ const int BLEND_SCREEN   @public = rl::RL_ONE_MINUS_DST_COLOR | rl::RL_ONE;
 const int BLEND_DODGE    @public = rl::RL_DST_COLOR | rl::RL_ONE;                  // even softer additive
 const int BLEND_MODULATE @public = rl::RL_DST_COLOR | rl::RL_ZERO;                 // used for modulate and multiply
 
+
+
+/* 
+TODO(HM) Support more than one stage type per material:
+    Example of a material stage in XML format:
+
+<stage type="diffuse">
+    <blend mode="blend" />
+    <map url="images/textures/figure" />
+    <keyword>alpha = 0.5</keyword>
+    ...
+</stage>
+*/
 // NOTE(HM) raylib has the MaterialMap already that is almost equivalent, should we use that?
 // Material stage represents each texture type in a material
 struct MaterialStage @public
 {
+    //int kind; // kind of stage, used to identify the stage type, for example diffuse, specular, normal, etc.
+
     //NOTE(HM) width and Height are encoded on the Texture2D data
     Texture2D tex;
     Color color;
@@ -424,6 +440,120 @@ fn void HMaterial.parse_node_atributes(&self, XmlNode* node) @public
 }
 
 <*
+    @param [&in] stage_node : "xml node we are currently parsing"
+*>
+fn void HMaterial.parse_stage(&self, XmlNode* stage_node) @public
+{
+@off() 
+{
+    String stage_type = stage_node.getAttribute(NodeAttrib.TYPE).value;
+    if(stage_type.is_empty()) {
+        lgr::error(Where.FILE, "Material '%s' in file '%s' has a stage node without a type attribute!", self.name, self.mtrfile.path);
+        return;
+    }
+    // NOTE(HM) we only support diffuse stage for now, so we will just ignore the rest
+    if(stage_type != Node.STAGE_DIFFUSE.str) {
+        lgr::warning(Where.FILE, "Material '%s' in file '%s' has a stage node of type '%s', which is not supported yet! Skipping it.", self.name, self.mtrfile.path, stage_type);
+        return;
+    }
+
+    MaterialStage* stage;
+    defer self.registerStage(stage);
+    stage.color = rl::WHITE; // default color for the stage
+
+    switch(stage_type)
+    {
+        case Node.STAGE_DIFFUSE.str:
+            stage.kind = Node.STAGE_DIFFUSE;
+            stage.drawStateBits |= BLEND_NONE; // default blend mode
+            stage.lighting = SL_DIFFUSE; // default lighting stage
+        case Node.STAGE_OCCLUSION.str:
+            stage.kind = Node.STAGE_OCCLUSION;
+            stage.drawStateBits |= BLEND_MODULATE; // default blend mode
+            stage.lighting = SL_DIFFUSE; // default lighting stage
+        case Node.STAGE_SPECULAR.str:
+            stage.kind = Node.STAGE_SPECULAR;
+            stage.drawStateBits |= BLEND_NONE; // default blend mode
+            stage.lighting = SL_SPECULAR; // default lighting stage
+        case Node.STAGE_NORMAL.str:
+            stage.kind = Node.STAGE_NORMAL;
+            stage.drawStateBits |= BLEND_NONE; // default blend mode
+            stage.lighting = SL_BUMP; // default lighting stage
+        case Node.STAGE_EMISSION.str:
+            stage.kind = Node.STAGE_EMISSION;
+            stage.drawStateBits |= BLEND_ADD; // default blend mode
+            stage.lighting = SL_AMBIENT; // default lighting stage
+        case Node.STAGE_HEIGHT.str:
+            stage.kind = Node.STAGE_HEIGHT;
+        case Node.STAGE_CUBEMAP.str:
+            stage.kind = Node.STAGE_CUBEMAP;
+        case Node.STAGE_VIDEO.str:
+            stage.kind = Node.STAGE_VIDEO;
+        case Node.STAGE_SOUND.str:
+            stage.kind = Node.STAGE_SOUND;
+            // TODO(HM) implement sound stage
+            self.parse_sound(stage_node);
+            return; // we are done here, no need to parse the rest of the stage node
+        default:
+            lgr::error(Where.FILE, "Invalid stage node '%s' found in material '%s' in file '%s'!", stage_node.name, self.name, self.mtrfile.path);
+    }
+
+    foreach(child: stage_node.children)
+    {
+        if(child == null) continue;
+
+        switch 
+        {
+            case mtr::isXmlNode(child, Node.BLEND):
+                self.parse_blend(child, stage);
+            case mtr::isXmlNode(child, Node.MAP):
+                // create the full path by concatenating the relative material path to the game base folder
+                String texture_path = main::gpGame.app_base_folder.tconcat(child.getAttribute(NodeAttrib.URL).value);
+                if(texture_path.is_empty()) {
+                    unreachable("Material '%s' in file '%s' has a stage node with a map node without a url attribute!", self.name, self.mtrfile.path);
+                }
+                // check if the texture path is valid, if not, use the default texture
+                if(texture_path.ends_with("/") || texture_path.ends_with("\\")) {
+                    unreachable("Material '%s' in file '%s' has a stage node with a map node with an invalid url attribute '%s'!", self.name, self.mtrfile.path, texture_path);
+                }
+                // now check the texture type by priority file extension
+                texture_path = texture_path.tconcat(".dds");
+                if(fs::fileExists(texture_path) == false) 
+                {
+                    // try to load the texture as a png file
+                    texture_path = texture_path.treplace(".dds", ".png");
+                    if(fs::fileExists(texture_path) == false) 
+                    {
+                        // try to load the texture as a tga file
+                        texture_path = texture_path.treplace(".png", ".tga");
+                        if(fs::fileExists(texture_path) == false) 
+                        {
+                            // try to load the texture as a .jpg file
+                            texture_path.treplace(".tga", ".jpg");
+                            if(fs::fileExists(texture_path) == false) 
+                            {
+                               unreachable("Failed to find a supported file extension for texture '%s'!", texture_path.removeExtension());
+                            }
+                        }
+                    }
+                }
+
+                stage.loadTexture(texture_path);
+                $if $feature(_DEBUG):
+                    lgr::info(Where.FILE, "Loaded '%s' texture '%s' for material '%s' in file '%s'", stage.kind.str, texture_path, self.name, self.mtrfile.path);
+                $endif
+            case mtr::isXmlNode(child, Node.KEYWORD):
+                self.parse_keyword(child, stage);
+            default:
+                unreachable("Invalid node: %s child for material node %s.", child.name, node.name);
+        }
+    }
+}; // off   
+}
+
+
+<*
+    Todo(HM): deprecate this in the future, use parse_stage instead. 
     @param [&in] maps_node : "node we are currently parsing"
 *>
 fn void HMaterial.parse_maps(&self, XmlNode* maps_node) @public
@@ -1404,7 +1534,12 @@ fn HMaterial* MTRFile.parse_material(&self, XmlNode* in_node)
                 mat.parse_comment(node);
             case Node.KEYWORD.str: 
                 mat.parse_keyword(node);
-            case Node.MAPS.str: 
+            /*case Node.STAGE.str: // TODO(HM) this should be used in the future to use individual stage nodes, but is disabled for now
+                mat.parse_stage(node);
+                continue;*/
+            case Node.MAPS.str:  // TODO(HM) deprecate this in the future
+                /*lgr::warning(Where.FILE, "Deprecated node '%s' found in material '%s', use '%s' instead.", 
+                    node.name, mat.name, Node.STAGE.str);*/
                 mat.parse_maps(node);
                 continue;
             case Node.SHADER.str:

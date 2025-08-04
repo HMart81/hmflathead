@@ -31,9 +31,12 @@ module engine::filesystem::fs;
 
 // region modules
 import std::os;
+import game::main;
 import std::io, std::io::path;
 import std::collections::list;
 import thirdparty::raylib5::rl;
+import engine::misc::slice;
+import engine::logging::lgr;
 // end_region
 
 faultdef FS_FAILED_SAVE_DATA,
@@ -61,17 +64,21 @@ struct FileList @private
 	StringList	list;
 }
 
+<*
+    Returns the number of files in a file list.
+    @ensure return <= self.list.len()
+*>
 fn uint FileList.getNumFiles(&self) => (uint)self.list.len();
 
 <*
-    Returns the number of files in the list.
+    Returns a file path from the list.
     @param index : "The index into the file list."
     @require index < self.getNumFiles()
 *>
 fn String FileList.getFile(&self, uint index ) => self.list[index];
 
 <*
-    Return the file list data.
+    Return a pointer to the file list.
     @ensure return != null
 *>
 fn StringList*	FileList.getList(&self) => &self.list;
@@ -85,7 +92,7 @@ struct ModList
 fn uint ModList.getNumMods(&self) => (uint)self.mods.len();
 
 <*
-    Returns the mod folder name in the mod list.
+    Returns the mod folder name from the mod list.
     @param index : "The index into the mod list."
     @require index < self.getNumMods()
 *>
@@ -93,20 +100,22 @@ fn String ModList.getMod(&self, uint index ) => self.mods[index];
 
 <*
     Returns a mod description from a description list.
-    @param index : "The index into the description list."
+    @param index : "The index into the mod description list."
     @require index < self.descriptions.len()
 *>
 fn String ModList.getDescription(&self, uint index ) => self.descriptions[index];
 
 // region Files management functions
-// Load file data as byte array (read)
-fn char[] fileLoadEntireBytes(String fileName) {
+<*
+    Returns file data as char slice (read)
+    Needs to be unloaded with fileUnloadEntireBytes() after use.
+    @param fileName : "The name of the file to load."
+    @ensure return.ptr != null && return.len > 0
+*>
+fn char[] fileLoadEntireBytes(String fileName) 
+{
     int bytesRead;
-    char[] result;
-    char* data = rl::loadFileData(fileName.zstr_tcopy(), &bytesRead);
-    result = data[:bytesRead];
-    fileUnloadEntireBytes((ZString)data);
-    return result;
+    return rl::loadFileData(fileName.zstr_tcopy(), &bytesRead)[:bytesRead];
 }
 
 // Unload file data allocated by fileLoadEntireBytes()
@@ -176,7 +185,7 @@ fn bool isFileExtension(String fileName, ZString ext) @inline {
 fn usz getFileSize(String fileName) @inline {
     return (usz)rl::getFileLength(fileName.zstr_tcopy());
 }
-// Get pointer to extension for a filename string (includes dot: '.png')
+// Get string view of extension for a filename (includes dot: '.png')
 fn String getFileExtension(String fileName) @inline {
     return rl::getFileExtension(fileName.zstr_tcopy()).str_view();
 }
@@ -184,11 +193,11 @@ fn String getFileExtension(String fileName) @inline {
 fn String getFileName(String filePath) {
     return rl::getFileName(filePath.zstr_tcopy()).str_view();
 }
-// Get pointer for a filename for a path string
+// Get zero terminated string (pointer) for a filename for a path string
 fn ZString getFileNamePtr(String filePath) @inline {
     return rl::getFileName(filePath.zstr_tcopy());
 }
-// Get filename string without extension (uses static string)
+// Get filename string view without extension (uses static string)
 fn String getFileNameWithoutExt(String filePath) @inline {
     return rl::getFileNameWithoutExt(filePath.zstr_tcopy()).str_view();
 }
@@ -200,17 +209,29 @@ fn ZString getDirectoryPath(ZString filePath) @inline {
 fn ZString getPrevDirectoryPath(ZString dirPath) @inline {
     return rl::getPrevDirectoryPath(dirPath);
 }
+
 // Get current working directory (uses static string)
+// This is the directory where the application is running FROM.
+// It is not the same as the application directory, which is where the executable is located.
+// This is because the working directory can change during runtime, for example, 
+// if the user changes it in the settings or runs the application from a shortcut in a different directory.
 fn String getWorkingDirectory() @inline {
     return rl::getWorkingDirectory().str_view();
 }
+
 // Get the directory of the running application (uses static string)
+// This is the directory where the executable is really located.
 fn ZString getApplicationDirectory() @inline {
     return rl::getApplicationDirectory();
 }
 // Create directories (including full path requested), returns true on success
-fn bool? makeDirectory(String dirPath) {
-    if(rl::makeDirectory(dirPath.zstr_tcopy()) == 0) {
+fn bool? makeDirectory_IfNotExist(String dirPath) {
+    if(rl::directoryExists(dirPath.zstr_tcopy())) {
+        return true; // directory already exists
+    }
+
+    const SUCESS = 0;
+    if(rl::makeDirectory(dirPath.zstr_tcopy()) == SUCESS) {
         return true;
     } else {
         return FS_FAILED_MAKE_DIR?;
@@ -258,6 +279,93 @@ fn void unloadDroppedFiles(FilePathList files) @inline {
 }
 // Get file modification time (last write time)
 fn CLong getFileModTime(String fileName) => rl::getFileModTime(fileName.zstr_tcopy());
+
+
+fn void do_move(String from, String dest, String fileExtensions) @inline @local
+{
+   if(fileExtensions.len)
+    {
+        String[] extensions = fileExtensions.tsplit(",");
+        // remove any leading or trailing whitespace from the extensions
+        for(int i = 0; i < extensions.len; i++) {
+            extensions[i] = extensions[i].trim();
+        }
+        assert(extensions.len > 0, "No file extensions provided for moving files.");
+        // iterate over each file extension
+        foreach(fileext : extensions)
+        {
+            // load all files with the given extension in the main directory
+            FilePathList files = fs::loadDirectoryFilesEx(from, fileext, scanSubdirs: false);
+            for(int i = 0; i < files.count; i++) 
+            {
+                // now move the files to the subdirectory
+                String file_path = ((ZString)files.paths[i]).str_view();
+                char[] file_data = file::load_temp(file_path)!!;
+                if(file_data.len)
+                {
+                    String file_final_path = dest.tconcat(fs::getFileName(file_path));
+                    @catch(file::save(file_final_path, file_data));
+                    // delete old file
+                    @catch(file::delete(file_path));
+                }
+            }
+            fs::unloadDirectoryFiles(files);
+        }
+    } else {
+        // load all files in the original directory
+        FilePathList files = fs::loadDirectoryFiles(from);
+        for(int i = 0; i < files.count; i++) 
+        {
+            // now move the files to the subdirectory
+            String file_path = ((ZString)files.paths[i]).str_view();
+            char[] file_data = file::load_temp(file_path)!!;
+            if(file_data.len)
+            {
+                String file_final_path = dest.tconcat(fs::getFileName(file_path));
+                @catch(file::save(file_final_path, file_data));
+                // delete old file
+                @catch(file::delete(file_path));
+            }
+        }
+        fs::unloadDirectoryFiles(files);
+    }
+}
+
+<*
+    Move files from given directory to another directory. 
+    (does nothing if the from directory does not exist)
+    @param from : "The original directory where the files are located."
+    @param to : "The destination directory where the files will be moved."
+    @param fileExtensions : "A String of file extensions seperated by a comma, to filter the files to be moved."
+    @require from.is_empty() == false && to.is_empty() == false
+*>
+fn void moveFiles(String from, String to, String fileExtensions = "")
+{
+    if(directoryExists(from))
+    {
+        if(from.ends_with("\\") == false) {
+            from = from.tconcat("\\");
+        }
+        if(to.ends_with("\\") == false) {
+            to = to.tconcat("\\");
+        }
+        
+        String files_dir = main::gpGame.app_work_dir.tconcat(from);
+        String files_to  = main::gpGame.app_work_dir.tconcat(to);
+
+        bool? sucess = fs::makeDirectory_IfNotExist(files_to);
+        if(catch excuse = sucess) { // will ignore if the directory already exists
+            lgr::warning(Where.FILE, "Failed to create directory at: %s!\n\t -> excuse: %s", 
+                        files_to, excuse);
+            $if $feature(_DEBUG):
+                unreachable();
+            $endif
+        }
+
+        do_move(files_dir, files_to, fileExtensions);
+    }
+}
+
 // end_region
 
 // #region Path

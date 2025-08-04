@@ -26,6 +26,10 @@
 # 
 *********************************************************************************************************************************************/
 
+// NOTE(HM) This module is the main game view, it handles the rendering of the game world
+// TODO(HM)
+//       - Refactor this to use meters instead of pixels because of box2d physics, 
+//       - also right now this code is very confusing, most of the info bellow is outdated...
 module game::camview;
 
 // region modules
@@ -37,7 +41,7 @@ import game::main;
 import engine::misc;
 import engine::input;
 import game::assets::sprt; // sprite
-import game::actors::ent::pl;
+import game::actors::ent::plyr; // player
 import engine::filesystem::fs;
 import thirdparty::raylib5::rl;
 import thirdparty::raygui5::rgui;
@@ -157,7 +161,7 @@ struct RenderView (SaveSystemInterface)
     Vec2f default_origin;
     Bounds bounds;
     
-    Camera2D camera    @if ($defined(ENABLE_CAMERA_VIEW));
+    Camera2D camera  @if ($defined(ENABLE_CAMERA_VIEW));
 }
 
 fn void RenderView.save(&self, SaveFile* file) @dynamic {
@@ -303,14 +307,19 @@ fn void takeScreenShot()
     
     // move the image to the screenshot folder
     // first load image data to memory
-    saved_shot_file = (ZString)rl::loadFileData(shotname, &bytes_count);
     char[] shot = fs::fileLoadEntireBytes(shotname.str_view());
-    if(bytes_count) {
+    defer {
+        // unload the image data
+        if(shot.len) fs::fileUnloadEntireBytes((ZString)shot);
+    }
+    if(shot.len) 
+    {
         // then change to dir where you want to save the image
-        if(fs::changeDirectory(shots_dir)!! == true) {
-            bool sucess = rl::saveFileData(shotname, (void*)saved_shot_file, bytes_count);
-            if( sucess == false) {
-                lgr::warning(Where.CONSOLE, "failed to transfer file %s to %s", shotname, shots_dir);
+        if(fs::changeDirectory(shots_dir)!! == true) 
+        {
+            bool? sucess = fs::fileSaveEntireBytes(shotname, shot);
+            if(catch excuse = sucess) {
+                lgr::warning(Where.CONSOLE, "failed to transfer file %s to %s with excuse: %s", shotname, shots_dir, excuse);
             }
         }
     }
@@ -320,27 +329,21 @@ fn void takeScreenShot()
 fn void moveScreenShots() 
 {
     String shots_dir = main::gpGame.app_work_dir.tconcat("screenshots\\");
-    if(fs::directoryExists(shots_dir) == false) {
-        bool? sucess = fs::makeDirectory(shots_dir);
-        if(catch excuse = sucess) {
-            lgr::warning(Where.FILE, "Cannot create screenshots directory at: %s!\n\t -> excuse: %s", 
-                        shots_dir, excuse);
-            $if $feature(_DEBUG):
-                unreachable();
-            $endif
-        } 
+    bool? sucess = fs::makeDirectory_IfNotExist(shots_dir);
+    if(catch excuse = sucess) { // will ignore if the directory already exists
+        lgr::warning(Where.FILE, "Cannot create screenshots directory at: %s!\n\t -> excuse: %s", 
+                    shots_dir, excuse);
+        $if $feature(_DEBUG):
+            unreachable();
+        $endif
     }
     
-    int bytes_count;
-    ZString shotname; // screenshot name
-    char[] shot_data;
-    
-    // count how many shots are in the w folder
+    // count how many shots are in the w folder then
     FilePathList files = fs::loadDirectoryFilesEx(main::gpGame.app_work_dir, ".png", scanSubdirs: false);
     for(int i = 0; i < files.count; i++) {
         // move the images to the screenshot folder
-        String file_shot_path = string::tformat("%s", (ZString)files.paths[i]);
-        shot_data = file::load_temp(file_shot_path)!!;
+        String file_shot_path = ((ZString)files.paths[i]).str_view();
+        char[] shot_data = file::load_temp(file_shot_path)!!;
         if(shot_data.len) {
             String file_name = shots_dir.tconcat(fs::getFileName(file_shot_path));
             @catch(file::save(file_name, shot_data));
@@ -407,6 +410,18 @@ fn Vec2f RenderView.getOrigin(&self) @inline {
     return self.origin;
 }
 
+fn void RenderView.resetCamera(&self) @if ($defined(ENABLE_CAMERA_VIEW))
+{
+    // reset camera position
+    self.setOrigin(self.default_origin);
+    // reset camera target
+    self.camera.target.arr = self.default_origin;
+    // reset camera zoom
+    self.camera.zoom = 1.0f;
+    // reset camera offset
+    self.camera.offset = self.camera.target;
+}
+
 fn void RenderView.cameraControls(&self) @if ($defined(ENABLE_CAMERA_VIEW))
 {
 $if $feature(_DEBUG):
@@ -453,16 +468,14 @@ $endif
             self.camera.zoom = math::exp(math::ln(self.camera.zoom) + ((float)rl::getMouseWheelMove() * 0.1f));
 
             if (self.camera.zoom > 3.0f) { self.camera.zoom = 3.0f; }
-            else { if (self.camera.zoom < 0.1f) self.camera.zoom = 0.1f; }
+            else { if (self.camera.zoom < 1.0f) self.camera.zoom = 1.0f; }
 
         }
     }
     
     // Camera reset (zoom && origin)
-    if (input::getAction("cam_reset").fnIsTriggered())
-    {
-        self.setOrigin(self.default_origin);
-        self.camera.zoom = 1.0f;
+    if (input::getAction("cam_reset").fnIsTriggered()) {
+        self.resetCamera();
     }
 }
 
@@ -597,7 +610,7 @@ $endif
         
         // physics debug drawing
         if(main::db_drawPhysics.getBool()) {
-            box2d::worldDebugDraw(main::gpGame.physWorldId, &main::gpGame.phys_debug);
+            main::gpGame.physWorldId.debugDraw(&main::gpGame.phys_debug);
         }
         
 $if $feature(_DEBUG):

@@ -26,6 +26,11 @@
 # 
 *********************************************************************************************************************************************/
 
+// TODO: Swap wren by http://squirrel-lang.org/squirreldoc/reference/embedding/creating_a_c_function.html
+// Squirrel is a OOP language inspired by LUA but with C sintax, and seems to have a better C API.
+// Why I should do this? Because Squirrel seems to have a less complex way to register C (and so c3) functions. 
+
+
 /***************************************************************
 * This are C3 bindings for the wren scripting language. 
 * Wren is a small, OOP class-based concurrent scripting language.

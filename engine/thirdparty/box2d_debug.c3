@@ -30,20 +30,21 @@
 module engine::physics::box2d;
 
 import thirdparty::raylib5::rl;
+import engine::sys::render2d::r2d;
 import engine::misc;
 import game::camview;
 
-//fn Color makeColor( int c, float alpha = 1.0f ) @local
+//fn Color hexToColor( int c, float alpha = 1.0f ) @local
 //{
 	//return { (char)(( c >> 16 ) & 0xFF), (char)( ( c >> 8 ) & 0xFF ), (char)( c & 0xFF ), (char)( 0xFF * alpha ) };
 //}
 
-fn Color makeColor(int hexValue)
+fn Color hexToColor(B2HexColor hexValue)
 {
-  Color rgbColor;
-  rgbColor.r = (char)((hexValue >> 16) & 0xFF) / 255;  // Extract the RR byte
-  rgbColor.g = (char)((hexValue >> 8) & 0xFF) / 255;   // Extract the GG byte
-  rgbColor.b = (char)((hexValue) & 0xFF) / 255;        // Extract the BB byte
+  Color rgbColor = { 0, 0, 0, 255 }; // Initialize with default values
+  rgbColor.r = (char)((hexValue >> 16) & 0xFF);  // Extract the RR byte
+  rgbColor.g = (char)((hexValue >> 8) & 0xFF);   // Extract the GG byte
+  rgbColor.b = (char)((hexValue) & 0xFF);        // Extract the BB byte
 
   return rgbColor;
 }
@@ -137,7 +138,7 @@ fn void dbgDrawPolygonLocal(B2Vec2* vertices, int vertexCount, Color tint) @loca
     for ( int i = 0; i < vertexCount; ++i )
     {
         B2Vec2 p2 = vertices[i];
-        rl::drawLineV(b2Vec2ToVector2f(p1), b2Vec2ToVector2f(p2), tint);
+       r2d::drawLineV(p1.toVector2fast(), p2.toVector2fast(), tint);
         p1 = p2;
     }
 }
@@ -148,10 +149,10 @@ fn void dbgDrawTransformLocal(B2Transform transform) @local
 	B2Vec2 p1 = transform.p;
 
 	B2Vec2 p2 = misc::mulAdd(p1, k_axisScale, misc::rot_GetXAxis(transform.q));
-    rl::drawLineV(b2Vec2ToVector2f(p1), b2Vec2ToVector2f(p2), rl::RED);
+   r2d::drawLineV(p1.toVector2fast(), p2.toVector2fast(), rl::RED);
 
 	p2 = misc::mulAdd(p1, k_axisScale, misc::rot_GetYAxis(transform.q));
-    rl::drawLineV(b2Vec2ToVector2f(p1), b2Vec2ToVector2f(p2), rl::GREEN);
+   r2d::drawLineV(p1.toVector2fast(), p2.toVector2fast(), rl::GREEN);
 }
 
 <*
@@ -164,25 +165,25 @@ fn void dbgDrawTransformLocal(B2Transform transform) @local
     @require vertices != null
 *>
 fn void dbgDrawPolygon(B2Vec2* vertices, int vertexCount, B2HexColor color, void* context = null ) {
-    //rl::drawLineStrip((Vector2*)vertices, vertexCount, rl::BLUE);
-    rl::drawTriangleStrip((Vector2*)vertices, vertexCount, rl::BLUE);
-    //Color c = makeColor(color);
-    //dbgDrawPolygonLocal(vertices, vertexCount, rl::BLUE);
+    //rl::drawLineStrip((Vector2*)vertices, vertexCount,rl::BLUE);
+   r2d::drawTriangleStrip((Vector2*)vertices, vertexCount, /*rl::BLUE*/ hexToColor(color));
+    //Color c = hexToColor(color);
+    //dbgDrawPolygonLocal(vertices, vertexCount,r2d::BLUE);
 }
 /// Draw a solid closed polygon provided in CCW order.
 fn void dbgDrawSolidPolygon(B2Transform transform, B2Vec2* vertices, int vertexCount, float radius, B2HexColor color, void* context ) {
-    rl::drawTriangleStrip((rl::Vector2*)vertices, vertexCount, makeColor(color));
+   r2d::drawTriangleStrip((rl::Vector2*)vertices, vertexCount, hexToColor(color));
 }
 fn void dbgDrawCircle(B2Vec2 center, float radius, B2HexColor color, void* context ) {
-    rl::drawCircleLinesV(b2Vec2ToVector2f(center), radius, makeColor(color));
+   r2d::drawCircleLinesV(center.toVector2fast(), radius, hexToColor(color));
 }
 fn void dbgDrawSolidCircle(B2Transform transform, float radius, B2HexColor color, void* context ) {
-    rl::drawCircleV(b2Vec2ToVector2f(transform.p), radius, makeColor(color));
+   r2d::drawCircleV(transform.p.toVector2fast(), radius, hexToColor(color));
 }
 	//void ( *DrawCapsule )( b2Vec2 p1, b2Vec2 p2, float radius, b2HexColor color, void* context );
 	//void ( *DrawSolidCapsule )( b2Vec2 p1, b2Vec2 p2, float radius, b2HexColor color, void* context );
 fn void dbgDrawLineSegment(B2Vec2 p1, B2Vec2 p2, B2HexColor color, void* context ) {
-    rl::drawLineV(b2Vec2ToVector2f(p1), b2Vec2ToVector2f(p2), makeColor(color));
+   r2d::drawLineV(p1.toVector2fast(), p2.toVector2fast(), hexToColor(color));
 }
 
 /// Draw a transform. Choose your own length scale.
@@ -194,5 +195,5 @@ fn void dbgDrawPoint(B2Vec2 p, float size, B2HexColor color, void* context ) {
     dbgDrawCircle(p, size, color, context);
 }
 fn void dbgDrawString(B2Vec2 p, ZString s, void* context ) {
-    rl::drawTextEx(rl::getFontDefault(), s, b2Vec2ToVector2f(p), 1.0f, 1.0f, rl::WHITE);
+   rl::drawTextEx(rl::getFontDefault(), s, p.toVector2fast(), 1.0f, 1.0f, rl::WHITE);
 }
