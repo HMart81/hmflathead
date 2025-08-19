@@ -149,7 +149,7 @@ fn void start(Desktop* gui) {
 	// start playing the menu sounds
 	//soundSystem->SetPlayingSoundWorld( menuSoundWorld );
     if(rl::isMusicValid(gui.music_stream)) {
-        if(!rl::isMusicStreamPlaying(gui.music_stream)) rl::playMusicStream(gui.music_stream);
+        if(!rl::isMusicStreamPlaying(gui.music_stream) && !main::gpGame.pause_all_music) rl::playMusicStream(gui.music_stream);
     }
 
     setGUI(gui);
@@ -191,8 +191,13 @@ fn void stop(Desktop* guiActive = null)
 	setGUI(null);
 }
 
-fn void exit() {
+fn void exit() 
+{
 	stop(); // menu
+
+    // TODO(HM) This should be set ONLY when we are sure we are ingame and not
+    // in some other menu, right is set when any menu exits
+    main::gpGame.mode = GameMode.PLAYING;
 
 	// go back to the game sounds
 	//soundSystem->SetPlayingSoundWorld( sw );

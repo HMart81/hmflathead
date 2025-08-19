@@ -117,6 +117,22 @@ struct Color @compact
     char a;        // Color alpha value
 }
 
+// macro bool Color.eql(&self, Color other) @operator(==)
+// {
+//     return ( self.r == other.r &&
+//              self.g == other.g &&
+//              self.b == other.b &&
+//              self.a == other.a );
+// }
+
+// macro bool Color.neql(&self, Color other) @operator(!=)
+// {
+//     return ( self.r != other.r ||
+//              self.g != other.g ||
+//              self.b != other.b ||
+//              self.a != other.a );
+// }
+
 // Rectangle, 4 components
 struct Rectangle @compact
 {
@@ -125,6 +141,22 @@ struct Rectangle @compact
     float width;            // Rectangle width
     float height;           // Rectangle height
 }
+
+// macro bool Rectangle.eql(&self, Rectangle other) @operator(==)
+// {
+//     return ( misc::fgetDiff(self.x, other.x) <= 0.01f &&
+//              misc::fgetDiff(self.y, other.y) <= 0.01f &&
+//              misc::fgetDiff(self.width, other.width) <= 0.01f &&
+//              misc::fgetDiff(self.height, other.height) <= 0.01f );
+// }
+
+// macro bool Rectangle.neql(&self, Rectangle other) @operator(!=)
+// {
+//     return ( misc::fgetDiff(self.x, other.x) > 0.01f ||
+//              misc::fgetDiff(self.y, other.y) > 0.01f ||
+//              misc::fgetDiff(self.width, other.width) > 0.01f ||
+//              misc::fgetDiff(self.height, other.height) > 0.01f );
+// }
 
 macro Vector2 Rectangle.getPosition(&self)  => { self.x, self.y }; // in world coords
 macro Vector2 Rectangle.getSize(&self) => { self.width, self.height }; // in pixel coords

@@ -115,7 +115,7 @@ RELEASE_DEFINES := -D _RELEASE -D TRACY_ENABLE -D MICROUI_ENABLE -D WREN_ENABLE
 CC := c3c.exe
 
 # common compiler flags/options
-CFLAGS := --target windows-x64 --threads 8 --output-dir $(BUILD_PATH)
+CFLAGS := --target windows-x64 --threads 8 --output-dir $(BUILD_PATH) --use-old-enums --use-old-compact-eq
 
 # release
 comand_release_compile := $(CC) -O3 $(CFLAGS) $(RELEASE_DEFINES) $(LINKER_SEARCH_PATHS) $(LINKED_LIBRARIES) -o $(APPLICATION_RELEASE_NAME) compile $(GAME_ROOT_SOURCES) $(ENGINE_ROOT_SOURCES) $(ENGINE_CHILD_SOURCES)

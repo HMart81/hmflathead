@@ -35,7 +35,6 @@ import game::main;
 import std::io, std::io::path;
 import std::collections::list;
 import thirdparty::raylib5::rl;
-import engine::misc::slice;
 import engine::logging::lgr;
 // end_region
 
@@ -392,15 +391,13 @@ fn Path? newPath(String _path)
 //////////////////////////////////////////////////////////////////////
 //--------------------------------------------------------
 module engine::filesystem::fs::win32 @if(env::WIN32);
+
 import std::io;
 import std::os::env, std::os::win32;
 import engine::logging::lgr;
 
 // region WIN32 (Windows)
-enum SystemPath : int
-{
-    PERSONAL
-}
+const PERSONAL_FOLDER_MY_GAMES = 0;
 
 enum HResult : int (Win32_HRESULT val, String disc) @local {
     S_OK           = {(Win32_HRESULT)0x00000000, "Operation successful"},
@@ -416,24 +413,23 @@ enum HResult : int (Win32_HRESULT val, String disc) @local {
     E_UNEXPECTED   = {(Win32_HRESULT)0x8000FFFF, "Unexpected failure"}
 }
 
-enum KnownFolderFlag : int (Win32_DWORD val) @local {
-  DEFAULT                          = 0x00000000,
-  FORCE_APP_DATA_REDIRECTION       = 0x00080000,
-  RETURN_FILTER_REDIRECTION_TARGET = 0x00040000,
-  FORCE_PACKAGE_REDIRECTION        = 0x00020000,
-  NO_PACKAGE_REDIRECTION           = 0x00010000,
-  FORCE_APPCONTAINER_REDIRECTION   = 0x00020000,
-  NO_APPCONTAINER_REDIRECTION      = 0x00010000,
-  CREATE                           = 0x00008000,
-  DONT_VERIFY                      = 0x00004000,
-  DONT_UNEXPAND                    = 0x00002000,
-  NO_ALIAS                         = 0x00001000,
-  INIT                             = 0x00000800,
-  DEFAULT_PATH                     = 0x00000400,
-  NOT_PARENT_RELATIVE              = 0x00000200,
-  SIMPLE_IDLIST                    = 0x00000100,
-  ALIAS_ONLY                       = 0x80000000
-}
+const Win32_DWORD KNOWN_FOLDER_FLAG_DEFAULT                          @local = 0x00000000;
+const Win32_DWORD KNOWN_FOLDER_FLAG_FORCE_APP_DATA_REDIRECTION       @local = 0x00080000;
+const Win32_DWORD KNOWN_FOLDER_FLAG_RETURN_FILTER_REDIRECTION_TARGET @local = 0x00040000;
+const Win32_DWORD KNOWN_FOLDER_FLAG_FORCE_PACKAGE_REDIRECTION        @local = 0x00020000;
+const Win32_DWORD KNOWN_FOLDER_FLAG_NO_PACKAGE_REDIRECTION           @local = 0x00010000;
+const Win32_DWORD KNOWN_FOLDER_FLAG_FORCE_APPCONTAINER_REDIRECTION   @local = 0x00020000;
+const Win32_DWORD KNOWN_FOLDER_FLAG_NO_APPCONTAINER_REDIRECTION      @local = 0x00010000;
+const Win32_DWORD KNOWN_FOLDER_FLAG_CREATE                           @local = 0x00008000;
+const Win32_DWORD KNOWN_FOLDER_FLAG_DONT_VERIFY                      @local = 0x00004000;
+const Win32_DWORD KNOWN_FOLDER_FLAG_DONT_UNEXPAND                    @local = 0x00002000;
+const Win32_DWORD KNOWN_FOLDER_FLAG_NO_ALIAS                         @local = 0x00001000;
+const Win32_DWORD KNOWN_FOLDER_FLAG_INIT                             @local = 0x00000800;
+const Win32_DWORD KNOWN_FOLDER_FLAG_DEFAULT_PATH                     @local = 0x00000400;
+const Win32_DWORD KNOWN_FOLDER_FLAG_NOT_PARENT_RELATIVE              @local = 0x00000200;
+const Win32_DWORD KNOWN_FOLDER_FLAG_SIMPLE_IDLIST                    @local = 0x00000100;
+const Win32_DWORD KNOWN_FOLDER_FLAG_ALIAS_ONLY                       @local = 0x80000000;
+
 
 struct OSversionInfo (Printable) 
 {
@@ -694,8 +690,8 @@ if (RegOpenKeyEx(HKEY_LOCAL_MACHINE, "SOFTWARE\\WOW6432Node\\Microsoft\\Microsof
 ////
 
 
-// NOTE(HM) in windows is the MyDocuments folder in Linux is the HOME folder...
-fn String getSystemSpecialPath(SystemPath pathType)
+// NOTE(HM) in windows "Special Path" is the MyDocuments folder in Linux is the HOME folder...
+fn String getSystemSpecialPath(int pathType)
 {
 $if $defined(env::WIN32):
     OSversionInfo osinfo;
@@ -703,8 +699,9 @@ $if $defined(env::WIN32):
         if (osinfo.dwMajorVersion >=6)
         {
             Win32_PWSTR path;
-            HResult result = win32GetKnownFolderPath(FOLDERID_SAVEDGAMES, KnownFolderFlag.CREATE.val, null, &path);
-            if (result == S_OK) {
+            HResult result = win32GetKnownFolderPath(FOLDERID_SAVEDGAMES, KNOWN_FOLDER_FLAG_CREATE, null, &path);
+            if (result == S_OK) 
+            {
                 WString wpath = (WString)path;
                 return string::tfrom_wstring(wpath)!!;
             } else {
@@ -719,7 +716,7 @@ $if $defined(env::WIN32):
 $else
     switch (pathType)
     {
-    case SystemPath.PERSONAL:
+    case PERSONAL_FOLDER_MY_GAMES:
         // ZString home = libc::getenv("HOME");
         // return home.str_view();
         return env::get_home_dir(tmem)!;

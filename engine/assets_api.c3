@@ -381,15 +381,15 @@ fn Texture2D* Manager.getTexture(&self, String name) @inline {
 }
 
 <*
-@ensure return != null
+    @param name: "the name of the shader asset to retrieve"
+    @require name != ""
+    @ensure return != null
 *>
-fn Shader* Manager.getShader(&self, String name) @inline {
-    if(name != "") 
-    {
-        any asset = local_manager.getAsset(name, Shader.typeid);
-        if(asset.ptr != null) {
-            return (Shader*)&((Asset{Shader}*)asset.ptr).data;
-        }
+fn Shader* Manager.getShader(&self, String name) //@inline 
+{
+    any asset = local_manager.getAsset(name, Shader.typeid);
+    if(asset.ptr != null) {
+        return (Shader*)&((Asset{Shader}*)asset.ptr).data;
     }
 
     lgr::warning(Where.FILE,  "[Asset Manager]: Requesting shader asset but returning default shader, because no asset name was provided.");
@@ -510,8 +510,8 @@ fn void loadAsset(String path)
                 } 
                 else 
                 {
-                    // WARNING(HM) 20/07/2025
                     // if no vertex shader is found, try to use the default vertex shader
+                    // WARNING(HM) 20/07/2025
                     // if inputs and outputs don't match, the shader will not work currently!
                     new_asset.data = misc::loadShader("", path);
                 }

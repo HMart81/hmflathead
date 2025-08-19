@@ -25,66 +25,20 @@
 # Hilario Martins, Rua de Sanguinhedo 1010 4850-545 Vieira Do Minho Portugal.
 # 
 *********************************************************************************************************************************************/
-module engine::misc::slice{Type};
-
-alias Slice = Type[];
-
-/*
-struct Slice 
-{
-    Type* data; // pointer to the data
-    int len;    // length of the slice
-}
-
-<*
-    Create a slice from a pointer and a length.
-    @param [&in] data : `pointer to the data`
-    @param len  : `length of the slice`
-    @require len >= 0
-    @ensure return.data != null && return.len >= 0
-*>
-fn Slice makeSlice(Type* data, int len) @inline 
-{
-    return (Slice){data, len};
-}
-
-<*
-    Create a slice from an array.
-    @param [&in] arr : `array to create the slice from`
-    @require arr.len >= 0
-    @ensure return.data != null && return.len >= 0
-*>
-fn Slice sliceFromArray(Type[] arr) @inline 
-{
-    return (Slice){&arr[0], arr.len};
-}
-
-fn void Slice.free(&self) @inline 
-{
-    if(self.data != null) {
-        mem::free(self.data);
-        self.data = null;
-    }
-    self.len = 0;
-}
-*/
-
 module engine::misc;
 
 // region C3 modules
-import std::io;
+import libc;
+import std::io, std::io::file;
 import std::core::mem, std::core::ascii;
-import std::io::file;
 import std::math;
 import std::collections;
-//import std::core::string;
-import libc;
+import engine::logging::lgr;
+import engine::physics::box2d;
 import game::main;
 import game::actors::ent::plyr; // player
-import engine::logging::lgr;
-import thirdparty::raylib5::rl;
-import engine::physics::box2d;
 import game::camview;
+import thirdparty::raylib5::rl;
 // end
 
 alias Vec2f  = float[<2>];
@@ -130,7 +84,7 @@ macro fourcc(string) {
 
 // NOTE(HM) this is used to create a fourcc code from a string
 // do not use this macro with a string that is not 4 characters long
-// do not evaluates to a constant expression
+// this one do not evaluates to a constant expression
 //macro fourcc(string) => (*(uint*)(string));
 
 macro @todo($a = 0) @builtin
@@ -143,7 +97,7 @@ macro @todo($a = 0) @builtin
 // NOTE(HM) this is used to disable a peace of code
 macro @off($a = 0; @body) @builtin
 {
-    $if $defined(_NULLNULL_): // never define _NULLNULL_ in the code, this is just a marker
+    $if $defined(_NULLNULL_): // never define _NULLNULL_ in the code, or this will break! Just a trick to disable code
        unreachable("==> This code is disabled! <==");
        @body();
     $endif
@@ -155,6 +109,19 @@ macro @on($a = 0; @body) @builtin
 }
 
 <*
+    Iterate over an array from a start index to an end index.
+    Usage: 
+    int arr[] = {1, 2, 3, 4, 5};
+    int index = 0;
+    int it = 0;
+    //@forange(0, 10, arr; @body(index, it)) 
+    {
+        // do something with index and it
+        // index is the current index in the array
+        // it is the value at that index
+        lgr::info("Index: %d, Value: %d", index, it);
+    }
+
   @param $a : `start index`
   @param #b : `end index`
   @param [&in] arr : `array to iterate`
@@ -174,7 +141,7 @@ macro @forange($a, #b, arr; @body(x, y)) @builtin
 // TODO(HM) put this in a better place
 fn KeyboardKey getKeyValueFromName(String name) @inline
 {
-    // NOTE(HM) this is used to get the key value from a string
+    // NOTE(HM) this is used to get the key enum value from a string
     // like "KEY_A" or "KEY_LEFT" etc.
     //return rl::getKeyPressedFromName(stringTotempzstring(name));
     switch(name)
@@ -379,9 +346,11 @@ fn String printColor(Color color) @inline {
 
 fn Vector2 Vec2f.toVector2(&self) => (Vector2) {self.x, self.y};
 
-attrdef @Hardcode; // empty user attribute (Need to start with a uppercase...)
-attrdef @Performance;
-attrdef @Exported; // used mainly to mark external functions from static libraries that are accessible because got exported when compiled by VS, CC or GCC
+// NOTE(HM) empty user attributes (Need to start with a uppercase...)
+attrdef @Hardcode; // used to mark hardcoded values for easy search
+attrdef @NoDoc; // used to mark functions that are not documented
+attrdef @Performance; // used to mark functions that are performance critical
+attrdef @Exported; // used mainly to mark external functions from static libraries that are accessible, because got exported when compiled by VS, CC or GCC
 
 // cardinal directions
 const int COORD_180_NORTH =  90;
@@ -413,10 +382,14 @@ const int COORD_360_EAST    = 360; // cardinal direction
 
 
 // region Debug Lines
-alias ArrayOfLinesPtr @local = List{DebugLine*};
-ArrayOfLinesPtr g_debugLines;
+alias ListOfLines @local = List{DebugLine*};
+ListOfLines g_debugLines; // Global list of debug lines for drawing and updating
 
-struct DebugLine {
+const DEBUG_LINE_DEFAULT_LIFETIME = 5000; // 5 seconds
+const DEBUG_LINE_MAX_AMOUNT = 1000; // maximum amount of debug lines to keep in memory
+
+struct DebugLine 
+{
     Vec2f startPos;
     Vec2f endPos;
     Color color;
@@ -427,15 +400,20 @@ struct DebugLine {
 fn void DebugLine.update(&self) @inline {
     if(self.lifetime < main::gpGame.time_ms) {
         self.nodraw = true;
+        self.unregister(); // remove the line from the global list
+        mem::free(self); // free the memory allocated for the line
+        self = null; // set the line pointer to null
     }
 }
 
 fn void DebugLine.draw(&self) @inline {
-    //if(self.nodraw == false) rl::drawLineV(self.startPos.toVector2(), self.endPos.toVector2(), self.color);
-    if(self.nodraw == false) draw_arrow(self.startPos, self.endPos, self.color);
+    if(self == null) return; // if the line is null, do nothing
+    if(self.nodraw) return;
+    draw_arrow(self.startPos, self.endPos, self.color);
 }
 
-fn void makeDebugLine(Vec2f start, Vec2f end, Color color, int lifetime_ms = 5000) @inline {
+fn void makeDbgLine(Vec2f start, Vec2f end, Color color = rl::RED, int lifetime_ms = DEBUG_LINE_DEFAULT_LIFETIME) @inline 
+{
     DebugLine* line = mem::new(DebugLine);
     line.startPos   = start;
     line.endPos     = end;
@@ -444,8 +422,21 @@ fn void makeDebugLine(Vec2f start, Vec2f end, Color color, int lifetime_ms = 500
     line.register();
 }
 
-fn void DebugLine.register(&self) @inline {
+fn void DebugLine.register(&self) @inline 
+{
+    if(g_debugLines.len() > DEBUG_LINE_MAX_AMOUNT) 
+    {
+        lgr::warning(Where.FILE, "Debug lines limit reached! Removing oldest line.");
+        mem::free(g_debugLines[0]); // free the memory allocated for the oldest line
+        g_debugLines[0] = null; // set the pointer to null
+        g_debugLines.remove_at(0); // remove the oldest line pointer from the list
+    }
+
     g_debugLines.push(self);
+}
+
+fn void DebugLine.unregister(&self) @inline {
+    g_debugLines.remove_at(g_debugLines.index_of(self)!!);
 }
 
 fn void freeDebugLines() @inline {
@@ -456,30 +447,43 @@ fn void freeDebugLines() @inline {
     g_debugLines.free();
 }
 
-<*
- @param [&in] line : "pointer to a DebugLine"
-*>
-fn bool debugLineIsValid(DebugLine* line) {
-    return (line.lifetime >= 1000) ? true : false;
+/*
+    Check if the debug line is valid, meaning it has a lifetime greater than 1000 ms.
+*/
+fn bool DebugLine.debugLineIsValid(&self) @inline {
+    return (self.lifetime >= 1000) ? true : false;
 }
 // end_region Debug Lines
 
-// some debug functions
-fn void drawDebugPoint(Vec2f pos, Color color) @inline {
-    rl::drawCircleV(pos.toVector2(), 3.0f, color);
-}
-
-fn void drawDebugLine(Vec2f start, Vec2f end, Color color) @inline {
-    rl::drawLineV(start.toVector2(), end.toVector2(), color);
-}
-
-fn void drawDebugBox(Vec2f pos, Vec2f size, Color color) @inline {
-    rl::drawRectangleV(pos.toVector2(), size.toVector2(), color);
-}
-
 // region MATH misc
+<*
+    Square a number, this is a macro to avoid using the math::pow function
+    return the squared value of x.
+    @param x : `the number to square`
+    @require x >= 0.0f
+*>
 macro float square(float x) {
     return x * x;
+}
+
+<*
+    Square a number, this is a macro to avoid using the math::pow function
+    return the squared value of x.
+    @param x : `the number to square`
+    @require x >= 0
+*>
+macro int square_i(int x) {
+    return x * x;
+}
+
+<*
+    Cube a number, this is a macro to avoid using the math::pow function
+    return the cubed value of x.
+    @param x : `the number to cube`
+    @require x >= 0.0f
+*>
+macro float cubed(float x) {
+    return x * x * x;
 }
 
 macro int sec2ms(x)   => (int)math::floor(x * 1000.0f);
@@ -492,13 +496,18 @@ macro uint bytes2MB(x)        => ((x) >> 20);
 // macro float pixelsTopercent(x) => (x / 10.0f); // 1.0% = 10.0 pixels
 // macro float percentTopixels(x) => (x * 10.0f);
 
+// NOTE(HM) this is used to calculate a percentage of a value
+// mainly used for gui element placement and size calculations
+// untested, but should work
 // @performance!!!!!!!!!!!!!!
-// macro float @percent(#p, $x) { 
-    // var percent = (((float)$p * 1.0f) / 100.0f);
-    // return  percent * $x;
-// }
-
-macro float @percent(float p, #x) => p * $x;
+fn float percent(uint p, float x) @inline
+{
+    if(p == 0) return 0.0f;
+    if(p == 100) return x;
+    // else
+    float percent = (((float)p * 1.0f) / 100.0f);
+    return percent * x;
+}
 
 macro int @bit($x) @builtin => 1 << $x;
 
@@ -590,20 +599,6 @@ fn Vec2f Rectangle.getPosCameraCoords(&self) @if ($defined(ENABLE_CAMERA_VIEW))
 
 // region Texture stuff
 // WARNING(HM) Raylib doesn't support .tga's with RLE compression...
-fn rl::Texture2D loadTexture(String image_path) @inline 
-{
-    assert(rl::isWindowReady() == true, "Window not ready! Unable to load texture");
-    
-    Texture2D tex = rl::loadTexture(stringTotempzstring(image_path));
-
-$if $feature(_DEBUG):
-    assert(rl::isTextureValid(tex));
-    return tex;
-$else
-    lgr::warning(Where.FILE, "Failed to load Texture '%s' returning default texture...", image_path);
-    return main::gpGame.default_texture;
-$endif
-}
 
 fn bool rl::Texture2D.isInvalid(&self) @inline {
     if(self.id      == 0 &&  // OpenGL texture id
@@ -642,7 +637,10 @@ macro Rectangle @recFromVecs(#vec1, #vec2) => (Rectangle) {#vec1.x, #vec1.y, #ve
 
 
 //////////////////// shader stuff /////////////////
-const String SHADER_INCLUDE = `
+const String GLOBAL_SHADER_INCLUDE = `
+#version 330
+#extension GL_ARB_shading_language_420pack: enable
+
 // default vertex layout locations
 #define VERTEX_POSITION   0    // Shader location: vertex attribute: position
 #define VERTEX_TEXCOORD01 1    // Shader location: vertex attribute: texcoord01
@@ -681,12 +679,14 @@ const String SHADER_INCLUDE = `
 const INCLUDE_DIRECTIVE @local = "#include";
 const SHADER_HOME_PATH  @local = "shaders/";
 
-fn String String.handleShaderIncludes(self) @local
+fn void handleShaderIncludes(String* shdcode) @local @inline
 {
-    uint include_count = (uint)self.count(INCLUDE_DIRECTIVE);
+    if((*shdcode) == "")  return;
+
+    uint include_count = (uint)(*shdcode).count(INCLUDE_DIRECTIVE);
     if(include_count > 0)
     {
-        String[] lines = self.tsplit("\r\n");
+        String[] lines = (*shdcode).tsplit("\r\n");
         foreach(String line : lines)
         {
             if(line.is_empty()) continue; // skip empty lines
@@ -736,17 +736,15 @@ fn String String.handleShaderIncludes(self) @local
                 if(catch excuse = code_to_included) {
                     lgr::error(Where.FILE, "Failed to include file: %s, error: %s", include_path, excuse);
                     // NOTE(HM) if the file is not found, we will just remove the include directive
-                    self = self.treplace(replace_directive, "");
+                    (*shdcode) = (*shdcode).treplace(replace_directive, "");
                     continue; // skip to next line
                 }
 
                 // NOTE(HM) else replace the full include directive with the code to include
-                self = self.treplace(replace_directive, code_to_included.tconcat("\n"));
+                (*shdcode) = (*shdcode).treplace(replace_directive, code_to_included.tconcat("\n"));
             }
         }
     }
-
-    return self;
 }
 
 fn Shader loadShader(String vs_path, String fs_path) 
@@ -758,7 +756,7 @@ fn Shader loadShader(String vs_path, String fs_path)
         return {}; // return empty shader will use raylib default shaders
     }
 
-    //String include_marker = "#include \"defines.inc\"";
+    //String include_marker = "#include \"global.inc\"";
     
     // NOTE(HM) if the vertex shader path is empty, it will use the default raylib vertex shader
     String vs_shader_code;
@@ -773,7 +771,7 @@ fn Shader loadShader(String vs_path, String fs_path)
             return {}; // return empty shader will use raylib default shaders
         }
 
-        fs_shader_code = fs_shader_code.handleShaderIncludes();
+        handleShaderIncludes(&fs_shader_code);
         //if(fs_shader_code.contains(include_marker)) fs_shader_code = fs_shader_code.treplace(include_marker, SHADER_INCLUDE);
 
         return rl::loadShaderFromMemory("", stringTotempzstring(fs_shader_code));
@@ -792,7 +790,7 @@ fn Shader loadShader(String vs_path, String fs_path)
     }
 
     //if(vs_shader_code.contains(include_marker)) vs_shader_code = vs_shader_code.treplace(include_marker, SHADER_INCLUDE);
-    if(vs_shader_code != "") vs_shader_code = vs_shader_code.handleShaderIncludes();
+    handleShaderIncludes(&vs_shader_code);
 
     if(fs_path.is_empty()) 
     {
@@ -808,6 +806,8 @@ fn Shader loadShader(String vs_path, String fs_path)
             return rl::loadShaderFromMemory(stringTotempzstring(vs_shader_code), "");
         }
     }
+
+    handleShaderIncludes(&fs_shader_code);
     
     // else both shaders are not empty, so we can load them
     return rl::loadShaderFromMemory(stringTotempzstring(vs_shader_code), stringTotempzstring(fs_shader_code));
@@ -1271,7 +1271,7 @@ fn bool ZString.has_spaces(self, int* out_count) @inline {
 /////////////////////////////////////////////////////////////////////
 // todo make this into a internal module?
 <*
-  @require rl::isWindowReady() == true "right now window most be initialized for Profiling to work"
+  @require rl::isWindowReady() == true : "right now window most be initialized for Profiling to work"
 *>
 macro void @profile_zone(String name, bool on = true; @body()) {
 $if $feature(_PROFILE):
@@ -1298,7 +1298,7 @@ $endif
 
 // deprected functions
 <*
-  @require rl::isWindowReady() == true "right now window most be initialized for Profiling to work"
+  @require rl::isWindowReady() == true : "right now window most be initialized for Profiling to work"
   @return `start time of function`
 *>
 macro float @start_profile_zone() @builtin {
@@ -1314,7 +1314,7 @@ $endif
 }
 
 <*
- @require rl::isWindowReady() == true "right now window most be initialized for Profiling to work"
+ @require rl::isWindowReady() == true : "right now window most be initialized for Profiling to work"
 *>
 macro @end_profile_zone(#start_time) @builtin {
 /*
@@ -1408,11 +1408,11 @@ macro int fmin_to_sec(int minutes)
 }
 
 <*
-  @require type <= uint.max "ulong most be within uint size"
+  @require type <= uint.max : "ulong most be within uint size"
 *>
 fn uint safeTruncateU64(ulong type) @inline => (uint)type;
 <*
-  @require type <= int.max "long most be within int size"
+  @require type <= int.max : "long most be within int size"
 *>
 fn int safeTruncateS64(long type) @inline => (int)type;
 

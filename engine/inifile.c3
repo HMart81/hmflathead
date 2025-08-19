@@ -803,7 +803,7 @@ fn int get_cmd_type_from_value(String value) @inline @local
  * DOC Create a init file data structure for easy parsing
  *
   @param [in] filepath
-  @require filepath.len >= 3 "The file path must be at least 3 characters long"
+  @require filepath.len >= 3 : "The file path must be at least 3 characters long"
  *>
 fn Config*? load(String filepath, bool isrelative = true) 
 {
@@ -832,7 +832,7 @@ fn Config*? load(String filepath, bool isrelative = true)
  * DOC Create a init file data structure for easy parsing
  *
   @param [in] filepath
-  @require filepath.len >= 3 "The file path must be at least 3 characters long"
+  @require filepath.len >= 3 : "The file path must be at least 3 characters long"
  *>
 fn bool? Config.load(&self, String filepath, bool isrelative = true) 
 {
@@ -1023,7 +1023,7 @@ fn void create_default_settings_file(String filepath) @inline
  * Create a init file structure for easy parsing
  *
   @param [in] path
-  @require path.len > 0 "The path must be at least 1 character long"
+  @require path.len > 0 : "The path must be at least 1 character long"
  *>
 fn bool? populate(Config* file_data, String path) @deprecated {
     if(file_data == null) {

@@ -43,6 +43,7 @@ import std::core::string::conv;
 import thirdparty::raylib5::rl;
 import std::collections::list;
 //import std::collections::elastic_array;
+import engine::logging::lgr;
 import game::main;
 import thirdparty::microui::mu_stack @public;
 
@@ -534,6 +535,12 @@ macro void @render(MU_Context* ctx; @body)
 	@body();
 }
 
+macro void MU_Context.@make_rows(&self, int n_rows, int* widths, int height = 0; @body)
+{
+	self.layout_row(n_rows, widths, height);
+  @body();
+}
+
 macro bool MU_Context.@make_popup(&self, name; @body)
 {
 	if (self.begin_popup(name.zstr_tcopy())) {
@@ -612,14 +619,15 @@ fn void log_window(MU_Context *ctx)
     }
 
     /* input textbox + submit button */
-    int submitted = 0;
+    int submitted;
     ctx.layout_row(2, &&(int[*]) { -70, -1 }, 0);
     if (ctx.textbox(&input_buf[0], (int)input_buf.len) & MU_Res.SUBMIT.v)
     {
       ctx.set_focus(ctx.last_id);
-      submitted = 1;
+      submitted = 0; // reset submitted flag
     }
-    if (ctx.button("Submit")) { submitted = 1; }
+
+    submitted = ctx.button("Submit");
     if (submitted) {
       write_log((String)input_buf[0..]);
       input_buf[0] = '\0';
@@ -748,15 +756,49 @@ fn void test_window(MU_Context* ctx)
   }
 }
 
-fn void hello_window(MU_Context* ctx) @inline
+fn void debug_window(MU_Context* ctx) @inline
 {
 	// This function is called to render the test window in the MicroUI context.
 	// It is typically registered as a frame function to be processed in the main loop.
-	bool open = ctx.@make_window("hello_window", mu::rect(50, 50, 400, 300))
+	bool open = ctx.@make_window("debug_window", mu::rect(50, 50, 400, 300))
 	{
 		// Here you can add UI elements and logic for the test window
-		ctx.text("This is a test window.");
-		ctx.button("Click Me");
+		ctx.text("Put here any debug stuff you need.");
+    ctx.@make_rows(1, &&(int[*]) { 100 }) 
+    {
+      ctx.checkbox("Pause Music:", &main::gpGame.pause_all_music);
+    };
+	};
+
+  if (!open) 
+  {
+    // If the window was closed, you can perform any necessary cleanup or state reset.
+  }
+}
+
+fn void statistics_window(MU_Context* ctx) @inline
+{
+	bool open = ctx.@make_window("stats_window", mu::rect(100, 50, 400, 300))
+	{
+    ctx.@make_rows(1, &&(int[*]) { -1 }, -25)
+    {
+      MU_Container *panel;
+      ctx.@make_panel("Frame Statistics")
+      {
+        panel = ctx.get_current_container();
+        ctx.@make_rows(1, &&(int[*]) { -1 }, -1)
+        {
+          int fps = rl::getFPS();
+          float frame_time = rl::getFrameTime();
+          String units = "ms";
+          if (frame_time >= 1.0f) units = "sec";
+          ZString frame_times = string::tformat_zstr("FPS: %s (ft: %.3f %s)", fps, frame_time, units);
+          ctx.text(frame_times);
+        };
+      };
+    };
+    //
+    //ctx.text("ms.");
 	};
 
   if (!open) 
@@ -766,14 +808,19 @@ fn void hello_window(MU_Context* ctx) @inline
 }
 
 
-// in this function we run all test microui "frames"
+// in this function we run all microui "frames"
 fn void run_microui_frames(MU_Context* ctx) @inline
 {
   if(main::gpGame.show_microui_test_frames) 
   {
     ctx.run(&test_window);
     ctx.run(&log_window);
-  	ctx.run(&hello_window);
+  	ctx.run(&debug_window);
+  }
+
+  if(main::gpGame.show_statistics) 
+  {
+    ctx.run(&statistics_window);
   }
 }
 
@@ -975,7 +1022,7 @@ fn void MU_Context.forward_mouse_input(MU_Context* ctx)
       mu_input_mouseup(&ctx, x, y, buttons); 
       [\quote]
     */
-    for(int button = MouseButton.LEFT; button <= MouseButton.MIDDLE; ++button)
+    for(int button = MouseButton.LEFT; button <= (int)MouseButton.MIDDLE; ++button)
     {
         if (rl::isMouseButtonPressed(MouseButton.from_ordinal(button))) {
             ctx.input_mousedown((int)mouse_position.x, (int)mouse_position.y, 1 << button);

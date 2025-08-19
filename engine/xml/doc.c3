@@ -56,7 +56,7 @@ struct XmlDoc {
     usz contents_size;
 }
 
-fn XmlDoc*? read_file(File file, Allocator allocator = allocator::heap()) {
+fn XmlDoc*? read_file(File file, Allocator allocator = allocator::mem) {
 	usz contents_size = file.seek(0, Seek.END)!;
 	file.seek(0, Seek.SET)!; // return to the start
 	//char[] buff = allocator::new_array(allocator, char, 2048);

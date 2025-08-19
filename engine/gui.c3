@@ -1536,15 +1536,26 @@ fn bool Desktop.initFromFile(&self, ZString path, bool cache )
 	//return true;
 }
 
+<*
+    Initializes the desktop with the given name, fullscreen mode, and size.
+    If fullscreen is true, the desktop will cover the entire screen.
+    If fullscreen is false, the desktop will be initialized with the given width and height.
+    The desktop will be registered with the local manager.
+    
+    @param name : "name of the desktop"
+    @param isFullscreen : "if true, the desktop will cover the entire screen"
+    @param w : "width of the desktop, used only if isFullscreen is false"
+    @param h : "height of the desktop, used only if isFullscreen is false"
 
+    @require rl::isWindowReady() == true
+*>
 fn void Desktop.init(&self, String name, bool isFullscreen = true, int w = 800, int h = 600) @inline 
 {
     self.name = string::tformat("Desktop_%s", name);
     self.number = (int)local_manager.desktops.len() + 1;
     //
     //
-    assert(rl::isWindowReady() == true);
-    if(isFullscreen) 
+    if(isFullscreen)
     {
         self.rect = { // @hardcode
             .x      = 0,
@@ -1657,17 +1668,8 @@ fn void Desktop.clear(&self) @inline
                 case KIND_TEXT:
                     ((WidgetText*)child).deinit(); 
                 default:
-                   ((Widget*)child).deinit(); 
+                    child.deinit();
             }
-            // switch (child.type) 
-            // {
-            //     case WidgetButton.typeid:
-            //     case WidgetText.typeid:
-            //     case WidgetContainer.typeid:
-            //         child.ptr.deinit();
-            //     default:
-            //         unreachable("unkown gui widget typeid");
-            // }
         }
     }
 
@@ -1784,12 +1786,24 @@ fn void Desktop.update(&self)
                 case KIND_CONTAINER:
                     ((WidgetContainer*)child).update();
                 default:
-                   ((Widget*)child).update(); 
+                    child.update(); 
             }
         }
     }
 
     if(rl::isMusicValid(self.music_stream)) {
+        if(rl::isMusicStreamPlaying(self.music_stream) && 
+                                        main::gpGame.pause_all_music)
+        {
+            rl::pauseMusicStream(self.music_stream);
+        } 
+        
+        if(!rl::isMusicStreamPlaying(self.music_stream) && 
+                                    !main::gpGame.pause_all_music)
+        {
+            // play music stream
+            rl::resumeMusicStream(self.music_stream);
+        }
         rl::updateMusicStream(self.music_stream);
     }
 }
@@ -1830,7 +1844,7 @@ fn void Desktop.redraw(&self, int _time)
                 case KIND_CONTAINER:
                     ((WidgetContainer*)child).draw();
                 default:
-                   ((Widget*)child).draw();
+                   child.draw();
             }
         }
     }
@@ -1959,8 +1973,7 @@ DesktopManager local_manager @local;
 DesktopManager* gpDeskManager = &local_manager;
 
 <*
- @param [in] _desk : "the desktop to register"
- @require _desk != null
+ @param [&in] _desk : "the desktop to register"
 *>
 fn void DesktopManager.register(&self, Desktop* _desk) @inline {
     foreach(desk : self.desktops) {
@@ -1974,8 +1987,7 @@ fn void DesktopManager.register(&self, Desktop* _desk) @inline {
 }
 
 <*
- @param [inout] _desk : "the desktop to remove"
- @require _desk != null
+ @param [&inout] _desk : "the desktop to remove"
 *>
 fn void DesktopManager.unregister(&self, Desktop* _desk) @inline {
     foreach(desk : self.desktops) {
@@ -2045,8 +2057,8 @@ fn void DesktopManager.editor(&self, bool choice = false) {
 }
 
 // *****************************************************************************
-// NOTE(HM) TODO(HM) move this to a better place, like a gui editor file
 // @deprecated 
+// NOTE(HM) TODO(HM) move this to a better place, like a gui editor file
 // this should be renamed to something like gui_editor because we already have a editor in the game
 // #region ***************************** GUI EDITOR ****************************
 

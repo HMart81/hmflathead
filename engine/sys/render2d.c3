@@ -28,12 +28,15 @@
 
 // Add fields and methods for 2D rendering
 // For example, you might have a method to draw a rectangle or a sprite
-
 module engine::sys::render2d::r2d;
 
 import std::io;
-import thirdparty::raylib5::rl;
+import engine::misc;
+import engine::filesystem::fs;
+import engine::logging::lgr;
 import game::assets::sprt;
+import game::main;
+import thirdparty::raylib5::rl;
 
 /*
 struct Render2D
@@ -366,4 +369,54 @@ fn Vector2 getSplinePointBezierQuad(Vector2 p1, Vector2 c2, Vector2 p3, float t)
 fn Vector2 getSplinePointBezierCubic(Vector2 p1, Vector2 c2, Vector2 c3, Vector2 p4, float t) @inline 
 {
     return rl::getSplinePointBezierCubic(p1, c2, c3, p4, t);
+}
+
+//////////////////////////////////
+// Simple debug drawing functions
+
+// Draw a debug point at the specified position with the given color
+fn void drawDebugPoint(Vec2f pos, Color color) @inline {
+    rl::drawCircleV(*((Vector2*)&pos), 3.0f, color);
+}
+
+// Draw a debug line from start to end position with the specified color
+fn void drawDebugLine(Vec2f start, Vec2f end, Color color) @inline {
+    rl::drawLineV(*((Vector2*)&start), *((Vector2*)&end), color);
+}
+
+// Draw a debug rectangle at the specified position with the given size and color
+fn void drawDebugBox(Vec2f pos, Vec2f size, Color color) @inline {
+    rl::drawRectangleV(*((Vector2*)&pos), *((Vector2*)&size), color);
+}
+
+
+///////////////////////////////////////
+// Texture2D misc functions
+<*
+    Load a texture from the specified path.
+    @param texture_path : `the path to the texture file relative to the textures directory`
+    @require texture_path.len > 0 && rl::isWindowReady() == true
+    @ensure rl::isTextureValid(tex) == true
+*>
+fn Texture2D loadTexture(String texture_path)
+{
+    //assert(rl::isWindowReady() == true, "Window not ready! Unable to load texture");
+    
+    String path = main::gpGame.app_base_folder.tconcat(texture_path);
+    assert(path.len > 0, "Texture path is empty! Unable to load texture");
+    assert(fs::fileExists(path), "Texture file does not exist: %s", path);
+
+
+$if $feature(_DEBUG):
+    Texture2D tex = rl::loadTexture(path.zstr_tcopy());
+    if(rl::isTextureValid(tex)) {
+        return tex;
+    } else {
+        lgr::warning(Where.FILE, "Failed to load Texture '%s' returning default texture...", texture_path);
+        return main::gpGame.default_texture;
+    }
+$else
+    // In release mode, we can skip the debug checks for performance
+    return rl::loadTexture(path.zstr_tcopy());
+$endif
 }

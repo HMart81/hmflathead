@@ -156,7 +156,7 @@ struct AutoComplete @local
 
 AutoComplete globalAutoComplete @local;
 
-enum EditorOpen @local
+enum EditorKind @local
 {
     MAIN_EDITOR,
     MATERIAL_EDITOR,
@@ -205,9 +205,9 @@ struct Editor {
 
     GuiState gui_state;
 
-    EditorOpen editor_opened; // the editor type that is currently opened
-    EditorOpen editor_opened_prev; // the editor type that was previously opened
-    Color* screen_box_border_color; // the color of the screen box border of the current open editor window
+    EditorKind kind; // the kind of editor currently opened
+    EditorKind prev_kind; // the editor type that was previously opened
+    Color* border_color; // the color of the screen box border of the current open editor window
     int input_dialog_open_count; // the number of input dialogs opened
 
     // shows or hides the console input window
@@ -246,27 +246,11 @@ fn void Editor.initDefaults(&self) @inline
     self.con_input_edit_mode = true; // the console input is in edit mode by default
     self.listView_Active = 1; // the active item in the list view of the console history
     self.listView_Focus = -1; // the focused item in the list view of the console history
-
-    // for some reason this does not work and crash's de game... :(
-    // so this means I'm totally cut out from working with raygui styles for now. ;(
-    // if(rl::isWindowReady()) 
-    // {
-    //      // load raygui style
-    //      const String GUI_STYLE_FILE_NAME = "style_dark.rgs";
-    //      String gui_styles_path = main::gpGame.app_default_workdir.tconcat(GUI_STYLE_FILE_NAME);
-    //      ZString final_path = gui_styles_path.zstr_tcopy();
-    //      if(rl::fileExists(final_path)) {
-    //         io::printfn("Loading raygui style from file: %s", final_path.str_view());
-    //         rgui::loadStyle(final_path);
-    //      } else {
-    //         io::printfn("Raygui style file not found: %s", final_path.str_view());
-    //      }
-    // }
 }
 
 fn void Editor.deinit(&self) @inline
 {
-    self.screen_box_border_color = null;
+    self.border_color = null;
     
     // free the editor console history
     if (self.con_history.len() > 0) {
@@ -284,14 +268,14 @@ fn void Editor.open(&self) @inline
         return;
     }
     self.flags.is_opened = true;
-    self.editor_opened = EditorOpen.MAIN_EDITOR;
+    self.kind = EditorKind.MAIN_EDITOR;
     self.setVisible(); // also sets the editor to active
     main::gpGame.mode = GameMode.EDITOR;
 }
 
 fn bool Editor.isOpened(&self) => self.flags.is_opened;
 
-fn EditorOpen Editor.getEditorOpenType(&self) => self.editor_opened;
+fn EditorKind Editor.getOpenKind(&self) => self.kind;
 
 fn void Editor.close(&self) @inline
 {
@@ -498,42 +482,114 @@ fn void Editor.update(&self) @inline
 
 fn void Editor.draw(&self, int screenWidth, int screenHeight) 
 {
-    if (self.isActive() == false || self.isVisible() == false) {
+    if (self.isActive() == false || self.isVisible() == false || self.isOpened() == false) {
         return;
     }
 
-    // draw the entire editor here
-    if (self.flags.is_active)
+    switch(self.kind) 
     {
-        // draw the background
-        rl::drawRectangleRec(self.main_window, self.background_color);
-
-        // draw the main window
-        //rgui::setStyle(DEFAULT, rgui::BORDER, (int)self.background_color.r);
-        //rgui::setStyle(DEFAULT, rgui::BASE,   (int)self.background_color.g);
-        //rgui::setStyle(DEFAULT, rgui::TEXT,   (int)self.background_color.b);
-        //rgui::setStyle(DEFAULT, rgui::OTHER,  (int)self.background_color.a);
-
-        //rgui::setStyle(DEFAULT, 4, (int)self.main_window.x);
-        //rgui::setStyle(DEFAULT, 5, (int)self.main_window.y);
-        //rgui::setStyle(DEFAULT, 6, (int)self.main_window.width);
-        //rgui::setStyle(DEFAULT, 7, (int)self.main_window.height);
-
-        // draw the main editor window
-       if(rgui::windowBox(self.main_window, "Editor")) {
-            self.close();
-       }
-       // draw the main editor tool bar
-       drawEditorMainToolBar(self.main_window, self);
-       // draw the main editor console
-       drawEditorConsole(self.main_window, self);
-
-       drawOpenEditorBorder(self);
+        case EditorKind.MAIN_EDITOR:      drawMainEditor(self);
+        case EditorKind.MATERIAL_EDITOR:  drawMaterialEditor(self);
+        case EditorKind.GUI_EDITOR:       drawGuiEditor(self);
+        case EditorKind.SCENE_EDITOR:     drawSceneEditor(self);
+        case EditorKind.ANIMATION_EDITOR: drawAnimationEditor(self);
+        case EditorKind.SOUND_EDITOR:     drawSoundEditor(self);
+        case EditorKind.SCRIPT_EDITOR:    drawScriptEditor(self);
     }
 }
 
-fn void drawEditorMainToolBar(Rectangle area, Editor* editor)
+<* 
+    Draws the main editor window.
+    @param [&inout] editor: "the editor to draw."
+*>
+fn void drawMainEditor(Editor* editor) @inline
 {
+    // TODO(HM): Implement the main editor drawing logic.
+    io::printfn("Drawing main editor...");
+
+    // draw the background
+    rl::drawRectangleRec(editor.main_window, editor.background_color);
+
+    // draw the main editor window
+    if(rgui::windowBox(editor.main_window, "Editor")) {
+        editor.close();
+    }
+    // draw the main editor tool bar
+    drawEditorMainToolBar(editor);
+    // draw the main editor console
+    drawEditorConsole(editor);
+
+    drawOpenEditorBorder(editor);
+}
+
+<* 
+    Draws the material editor window.
+    @param [&in] editor: "the editor to draw."
+*>
+fn void drawMaterialEditor(Editor* editor) @inline
+{
+    // TODO(HM): Implement the material editor drawing logic.
+    io::printfn("Drawing material editor...");
+}
+
+<* 
+    Draws the GUI editor window.
+    @param [&in] editor: "the editor to draw."
+*>
+fn void drawGuiEditor(Editor* editor) @inline
+{
+    // TODO(HM): Implement the GUI editor drawing logic.
+    io::printfn("Drawing GUI editor...");
+}
+
+<* 
+    Draws the scene editor window.
+    @param [&in] editor: "the editor to draw."
+*>
+fn void drawSceneEditor(Editor* editor) @inline
+{
+    // TODO(HM): Implement the scene editor drawing logic.
+    io::printfn("Drawing scene editor...");
+}
+
+<* 
+    Draws the animation editor window.
+    @param [&in] editor: "the editor to draw."
+*>
+fn void drawAnimationEditor(Editor* editor) @inline
+{
+    // TODO(HM): Implement the animation editor drawing logic.
+    io::printfn("Drawing animation editor...");
+}
+
+<* 
+    Draws the sound editor window.
+    @param [&in] editor: "the editor to draw."
+*>
+fn void drawSoundEditor(Editor* editor) @inline
+{
+    // TODO(HM): Implement the sound editor drawing logic.
+    io::printfn("Drawing sound editor...");
+}
+
+<* 
+    Draws the script editor window.
+    @param [&in] editor: "the editor to draw."
+*>
+fn void drawScriptEditor(Editor* editor) @inline
+{
+    // TODO(HM): Implement the script editor drawing logic.
+    io::printfn("Drawing script editor...");
+}
+
+<* 
+    Draws the main editor tool bar.
+    @param [&in] editor: "the editor to draw the tool bar for."
+*>
+fn void drawEditorMainToolBar(Editor* editor)
+{
+    Rectangle area = editor.main_window;
+
     Vec2f anchor = {area.x, area.y};
     float tb_y_anchor = 0.0075f * area.height;
     Vec2f btn_size = {20.0f, 20.0f};
@@ -568,9 +624,14 @@ $endif
 
 
 // #region editor console
-
-fn void drawEditorConsole(Rectangle area, Editor* editor)
+<* 
+    Draws the editor console.
+    @param [&in] editor: "the editor to draw the console for."
+*>
+fn void drawEditorConsole(Editor* editor)
 {
+    Rectangle area = editor.main_window;
+
     // top left corner of the editor window
     Vec2f anchor = {area.x, area.y};
     float lft_lip = 0.008f * area.width;
@@ -688,6 +749,10 @@ $else
 $endif
 }
 
+<* 
+    Clears the console input buffer.
+    @param [&in] editor: "the editor to clear the console input buffer for."
+*>
 fn void clearConsole(Editor* editor) @inline
 {
     if(editor.con_history.len() > 0) {
@@ -695,6 +760,10 @@ fn void clearConsole(Editor* editor) @inline
     }
 }
 
+<* 
+    eats the console input buffer.
+    @param [&in] editor: "the editor to eat the console input buffer for."
+*>
 fn void eatConsoleInput(Editor* editor) @inline
 {
     String input_text = ((ZString)&editor.con_input_buffer[0]).str_view();
@@ -703,7 +772,10 @@ fn void eatConsoleInput(Editor* editor) @inline
     }
 }
 
-
+<*
+    exit the console input buffer and hides the console input window.
+    @param [&in] editor: "the editor to exit the console input buffer for."
+*>
 fn void exitConsoleInput(Editor* editor) @inline @if($defined(TextInputBox))
 {
     mem::clear(&editor.con_input_buffer, CONSOLE_INPUT_MAX_LINE_LENGTH);
@@ -727,6 +799,10 @@ macro void con_printfn(String fmt, ...) @public @builtin {
 	main::gpGame.editor.con_history.push(str.str_view().copy(mem));
 }
 
+<* 
+    Parses the console input and executes the command.
+    @param [&in] editor: "the editor to parse the console input for."
+*>
 fn void parse_console_input(Editor* editor) //@inline
 {
     String input_text = ((ZString)&editor.con_input_buffer[0]).str_view();
@@ -761,8 +837,8 @@ $endif
             con_printfn("Console help: \n - exit/quit: exits the editor \n - clear: clears the console history \n - help: shows this help message \n - debug: enables console debug mode \n - debug off: disables console debug mode \n - debug info: shows debug info");
         case gui::ui_editGui.name:
             add_to_history = false; // do not add the ui_editGUI command to the console history
-            /*editor.editor_opened_prev = editor.editor_opened;
-            editor.editor_opened = EditorOpen.GUI_EDITOR;
+            /*editor.editor_opened_prev = editor.kind;
+            editor.kind = EditorKind.GUI_EDITOR;
             editor.setActive();
             editor.setVisible();
             main::gpGame.mode = GameMode.EDITOR;
@@ -783,37 +859,41 @@ $endif
 }
 
 // #endregion editor console
-
+<* 
+    Draws the border around the open editor window.
+    This is used to visually distinguish between different editor windows.
+    @param [&inout] editor: "the editor to draw the border for."
+*>
 fn void drawOpenEditorBorder(Editor* editor) @inline
 {
-    switch(editor.editor_opened) {
-        case EditorOpen.MAIN_EDITOR:
-            editor.screen_box_border_color = &EDITOR_BORDER_COLORS[0]; // white
+    switch(editor.kind) {
+        case EditorKind.MAIN_EDITOR:
+            editor.border_color = &EDITOR_BORDER_COLORS[0]; // white
             break;
-        case EditorOpen.MATERIAL_EDITOR:
-            editor.screen_box_border_color = &EDITOR_BORDER_COLORS[3]; // green
+        case EditorKind.MATERIAL_EDITOR:
+            editor.border_color = &EDITOR_BORDER_COLORS[3]; // green
             break;
-        case EditorOpen.GUI_EDITOR:
-            editor.screen_box_border_color = &EDITOR_BORDER_COLORS[5]; // yellow
+        case EditorKind.GUI_EDITOR:
+            editor.border_color = &EDITOR_BORDER_COLORS[5]; // yellow
             break;
-        case EditorOpen.SCENE_EDITOR:
-            editor.screen_box_border_color = &EDITOR_BORDER_COLORS[4]; // blue
+        case EditorKind.SCENE_EDITOR:
+            editor.border_color = &EDITOR_BORDER_COLORS[4]; // blue
             break;
-        case EditorOpen.ANIMATION_EDITOR:
-            editor.screen_box_border_color = &EDITOR_BORDER_COLORS[2]; // red
+        case EditorKind.ANIMATION_EDITOR:
+            editor.border_color = &EDITOR_BORDER_COLORS[2]; // red
             break;
-        case EditorOpen.SOUND_EDITOR:
-            editor.screen_box_border_color = &EDITOR_BORDER_COLORS[6]; // cyan
+        case EditorKind.SOUND_EDITOR:
+            editor.border_color = &EDITOR_BORDER_COLORS[6]; // cyan
             break;
-        case EditorOpen.SCRIPT_EDITOR:
-            editor.screen_box_border_color = &EDITOR_BORDER_COLORS[7]; // magenta
+        case EditorKind.SCRIPT_EDITOR:
+            editor.border_color = &EDITOR_BORDER_COLORS[7]; // magenta
             break;
     }
 
     int w, h;
     w = (int)main::gpGame.screen.w;
     h = (int)main::gpGame.screen.h;
-    rl::drawRectangleLinesEx({0, 0, w, h}, 2.0f, *editor.screen_box_border_color);
+    rl::drawRectangleLinesEx({0, 0, w, h}, 2.0f, *editor.border_color);
 }
 
 // #region DRAWING HELPERS

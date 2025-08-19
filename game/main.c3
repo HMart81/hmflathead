@@ -314,6 +314,7 @@ struct Game (SaveSystemInterface) @local
     // microui
     mu::MU_Context* mu_ctx @if($feature(MICROUI_ENABLE)); // microui context, used for the micro ui system
     bool show_microui_test_frames @if($feature(MICROUI_ENABLE));
+    bool show_statistics @if($feature(MICROUI_ENABLE)); // show statistics window
 
     // script engine
     ScriptEngine script_eng;
@@ -338,6 +339,7 @@ struct Game (SaveSystemInterface) @local
     Shader*   current_global_shader;
     Sound     default_sound;
     Music     default_music;
+    int      pause_all_music; // to pause all music on demand
     Font      default_font;
     //
     
@@ -890,6 +892,10 @@ fn void gameHandleGeneralControls() @local
         if(rl::isKeyPressed(rl::KEY_F2)) {
             local_game.show_microui_test_frames = !local_game.show_microui_test_frames;
         }
+
+        if(rl::isKeyPressed(rl::KEY_F4)) {
+            local_game.show_statistics = !local_game.show_statistics;
+        }
    $endif
     
     // handle ESC key press
@@ -1071,7 +1077,22 @@ fn void gameUpdate() @local
         }
         
         // Todo handle more music but only one music should play at the same time...
-        if(rl::isMusicValid(local_game.default_music)) {
+        if(rl::isMusicValid(local_game.default_music)) 
+        {
+            if(rl::isMusicStreamPlaying(local_game.default_music) && 
+                                        local_game.pause_all_music)
+            {
+                rl::pauseMusicStream(local_game.default_music);
+            }
+
+            if(!rl::isMusicStreamPlaying(local_game.default_music) && 
+                                        !local_game.pause_all_music && 
+                                         local_game.mode != GameMode.PLAYING)
+            {
+                // play music stream
+                rl::resumeMusicStream(local_game.default_music);
+            }
+
             // Update music buffer with new stream data
             rl::updateMusicStream(local_game.default_music);
         }
@@ -1840,7 +1861,7 @@ $endif
     }
     
     // get the home folder to save necessary game data
-    local_game.app_save_folder = win32::getSystemSpecialPath(win32::SystemPath.PERSONAL);
+    local_game.app_save_folder = win32::getSystemSpecialPath(win32::PERSONAL_FOLDER_MY_GAMES);
     if(local_game.app_save_folder.len > 0)
     {
         // NOTE(HM) append the desired final folder 

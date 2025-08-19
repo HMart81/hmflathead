@@ -39,6 +39,7 @@ import game::material::manager::mtrmng;
 import engine::logging::lgr;
 import engine::filesystem::fs;
 import engine::assets_api::astmng; // asset manager
+import engine::sys::render2d::r2d;
 import thirdparty::raylib5::rl;
 import thirdparty::library::xml;
 import std::collections::list, std::collections::tuple;
@@ -154,7 +155,7 @@ fn void MaterialStage.register_args(&self, XmlNode* node) @deprecated
 
 fn void MaterialStage.loadTexture(&self, String path) @inline
 {
-    self.tex = misc::loadTexture(path);
+    self.tex = r2d::loadTexture(path);
 }
 
 fn void MaterialStage.clear(&self)
@@ -572,14 +573,14 @@ fn void HMaterial.parse_maps(&self, XmlNode* maps_node) @public
                     switch 
                     {
                         case mtr::isXmlNode(child, Node.MAP):
-                            // create the full path by concatenating the relative material path to the game base folder
-                            String texture_path = main::gpGame.app_base_folder.tconcat(child.getText());
-                            if(texture_path.extractFileBaseByCopy() == "default.png") {
+                            // path is relative to the game base folder
+                            String relative_texture_path = child.getText();
+                            if(relative_texture_path.extractFileBaseByCopy() == "default.png") {
                                 self.getStage(STAGE_DIFFUSE).tex = main::gpGame.default_texture;
                             } else {
-                                self.getStage(STAGE_DIFFUSE).loadTexture(texture_path);
+                                self.getStage(STAGE_DIFFUSE).loadTexture(relative_texture_path);
                                 $if $feature(_DEBUG):
-                                    lgr::info(Where.FILE, "Loaded texture '%s' for material '%s' in file '%s'", texture_path, self.name, self.mtrfile.path);
+                                    lgr::info(Where.FILE, "Loaded texture '%s' for material '%s' in file '%s'", relative_texture_path, self.name, self.mtrfile.path);
                                 $endif
                             }
                         case mtr::isXmlNode(child, Node.BLEND):

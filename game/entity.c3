@@ -32,7 +32,7 @@ module game::actors::ent;
 import std::io;
 import std::core::mem; // for malloc
 import std::math;
-import std::collections::map;
+import std::collections::map, std::collections::list;
 import game::main;
 import engine::logging::lgr;
 import thirdparty::raylib5::rl;
@@ -70,6 +70,9 @@ const Vec2f MIN_ENTITY_PHYSICS_SIZE = {MIN_PHYSICS_SIZE_VALUE, MIN_PHYSICS_SIZE_
 const float ENTITY_DEFAULT_SIZE_X_METER   = 0.45f; // 45 cm  (minimum size is 10 cm)
 const float ENTITY_DEFAULT_SIZE_Y_METER   = 1.0f;  // 1  m
 
+// Target list is a list of other entities that are activated by this entity in certain situations.
+alias TargetList = List{Entity*}; // list of entities that are targets for this entity
+
 // WORK_IN_PROGRESS!!
 const EventDef EV_ENTITY_GET_MINC @if($defined(ENABLE_EVENTS)) = {"getMinc", "", event::VECTOR}; 
 const EventDef EV_ENTITY_GET_MAXC @if($defined(ENABLE_EVENTS)) = {"getMaxc", "", event::VECTOR};
@@ -95,6 +98,7 @@ struct Entity (SaveSystemInterface)
     Sprite vs;
     //
     Entity* parent;
+	TargetList targets; // list of other entities that are targets for this entity, activated in certain situations
     // physics
     B2BodyId physics;
     //
@@ -361,6 +365,63 @@ fn void Entity.setname(&self, String* aname) @inline
 	}
 }
 
+fn void Entity.setTarget(&self, Entity* other) @inline
+{
+	if(other == null) {
+		lgr::error(Where.FILE, "Cannot set target to null entity.");
+		return;
+	}
+	
+	if(self.targets.contains(other)) {
+		lgr::warning(Where.FILE, "Entity '%s' already has '%s' as a target.", self.name, other.name);
+		return;
+	}
+	
+	self.targets.push(other);
+}
+
+fn bool Entity.hasTarget(&self, Entity* other) @inline
+{
+	if(other == null) {
+		lgr::error(Where.FILE, "Cannot check target for null entity.");
+		return false;
+	}
+	
+	if(self.targets.contains(other)) {
+		return true;
+	}
+	
+	lgr::warning(Where.FILE, "Entity '%s' does not have '%s' as a target.", self.name, other.name);
+	return false;
+}
+
+fn Entity* Entity.getTarget(&self, int index) @inline
+{
+	if(index < 0 || index >= self.targets.len()) {
+		lgr::error(Where.FILE, "Index out of bounds when getting target from entity '%s'.", self.name);
+		return null;
+	}
+	
+	return self.targets[index];
+}
+
+fn void Entity.removeTarget(&self, Entity* other) @inline
+{
+	if(other == null) {
+		lgr::error(Where.FILE, "Cannot remove target from null entity.");
+		return;
+	}
+	
+	if(!self.targets.contains(other)) {
+		lgr::warning(Where.FILE, "Entity '%s' does not have '%s' as a target.", self.name, other.name);
+		return;
+	}
+	
+	self.targets.remove_at(self.targets.index_of(other)!!); // remove the target from the list
+}
+
+
+
 /*
 =================
 find_other_in_radius
@@ -444,8 +505,9 @@ fn Entity* findradius(Entity *startent, Vec2f* org, float rad )
 	return null;
 }
 
-fn void Entity.setAlive(&self, bool alive) @inline {
-	if (alive) {
+fn void Entity.setAlive(&self, bool live) @inline {
+	if (live) 
+	{
 		if (!self.flags.alive) {
 			self.flags.alive = true;
 			self.register(); // register the entity in the game
@@ -456,7 +518,9 @@ fn void Entity.setAlive(&self, bool alive) @inline {
 		if (!(self.thinkFlags & TH_THINK)) {
 			self.startThinking(); // start thinking if it was not thinking
 		}
-	} else {
+	} 
+	else // die
+	{
 		if (self.flags.alive) {
 			self.flags.alive = false;
 			if (self.isActive()) {
@@ -473,6 +537,21 @@ fn void Entity.setAlive(&self, bool alive) @inline {
 fn void Entity.born(&self) @inline
 { 
 	self.setAlive(true);
+
+	if(self.targets.len() > 0) 
+	{
+		// TODO(HM) activate the targets, if they are not already activated
+		foreach(Entity* target : self.targets) 
+		{
+			if(target.isAlive()) {
+				if(target.notOnActiveList()) {
+					target.setActive(true);
+				}
+			} else { 
+				target.born(); // revive the target entity
+			}
+		}
+	}
 }
 
 fn void Entity.kill(&self) 
@@ -480,6 +559,31 @@ fn void Entity.kill(&self)
 //self.mGame = null; // make sure we don't accidently kill the game singleton!!
 	io::printfn("Killing Entity '%s'!!!", self.name);
     self.hide();
+
+	if(self.targets.len() > 0) 
+	{
+		// TODO(HM) activate the targets, if they are not already activated
+		foreach(Entity* target : self.targets) 
+		{
+			if(target.isAlive()) {
+				if(target.notOnActiveList()) {
+					target.setActive(true);
+				}
+			} else { 
+				target.born(); // revive the target entity
+			}
+		}
+	}
+
+	// free the targets list so we don't have dangling pointers
+	// clear the targets list, but not free the entities themselves
+	if(self.targets.len() > 0) {	
+		// foreach(Entity* target : self.targets) {
+		// 	mem::free(target);
+		// }
+		self.targets.clear();
+	}
+
 	self.setAlive(false);
 }
 
