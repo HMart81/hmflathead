@@ -140,7 +140,7 @@ enum ElemID : int (inline String name)
 }
 
 
-alias AttrData = StringTuple;
+alias AttrData = StringPair;
 alias ListOfXmlAttributes = List{AttrData*};
 alias ListOfAttributes    = List{SVGAttribute*};
 

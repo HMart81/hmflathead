@@ -76,11 +76,11 @@ m_debugDraw = { DrawPolygonFcn,
 */
 
 <*
-    @param [inout] dd : "the debugDraw struct to init"
-    @param [in] view : "the view where to draw the stuff"
-    @require dd != null && view != null
+    @param [&inout] dd : "the debugDraw struct to init"
+    @param [&in] view : "the view where to draw the stuff"
 *>
-fn void initDebugDraw(B2DebugDraw* dd, RenderView* view) {
+fn void initDebugDraw(B2DebugDraw* dd, RenderView* view) 
+{
     (*dd) = defaultDebugDraw();
     // draw callbacks
     dd.drawPolygon        = &dbgDrawPolygon;
@@ -115,8 +115,7 @@ fn void initDebugDraw(B2DebugDraw* dd, RenderView* view) {
 }
 
 <*
-    @param [inout] dd : "the debugDraw struct to deinit"
-    @require dd != null
+    @param [&inout] dd : "the debugDraw struct to deinit"
 *>
 fn void deinitDebugDraw(B2DebugDraw* dd) {
     if(dd.drawPolygon     ) dd.drawPolygon      = null;
@@ -138,7 +137,7 @@ fn void dbgDrawPolygonLocal(B2Vec2* vertices, int vertexCount, Color tint) @loca
     for ( int i = 0; i < vertexCount; ++i )
     {
         B2Vec2 p2 = vertices[i];
-       r2d::drawLineV(p1.toVector2fast(), p2.toVector2fast(), tint);
+        r2d::drawLineV(p1.toVector2fast(), p2.toVector2fast(), tint);
         p1 = p2;
     }
 }

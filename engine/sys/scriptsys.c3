@@ -65,13 +65,12 @@ import engine::sys::script_engine::event; // import the event system
 import game::actors::ent;
 //
 
-
-
 //alias VMListPtr = List{WrenVM*};
 alias ScriptList = List{Script*};
 
 const SCRIPT_FOLDER_NAME = "scripts";
 const SCRIPT_FILE_EXTENSION = ".scpt";
+const MAX_VIRTUAL_MACHINES = 1; // for now only one virtual machine is supported
 
 // NOTE(HM) in wren a Module is a file with wren code inside 
 // we call them scripts instead;
@@ -115,8 +114,8 @@ fn void Script.stop(&self)
 
 struct ScriptEngine
 {
-    WrenConfiguration config;
     ScriptList scripts;
+    int next_check_time; // time to check for file changes
     // wren supports multiple virtual machines but I will just use one and instead
     // rely on the virtual machine fivers to run more scripts concunrrently
     //VMListPtr vmachines;  // list of virtual machines
@@ -125,9 +124,11 @@ struct ScriptEngine
 
 fn void ScriptEngine.init(&self)
 {
-    self.config.init();
-    self.bindFunctions();
-    self.createVirtualMachine();
+    WrenConfiguration config;
+    config.init();
+
+    self.bindFunctions(&config);
+    self.createVirtualMachine(&config);
     io::printfn("ScriptEngine initialized");
 }
 
@@ -138,23 +139,31 @@ fn void ScriptEngine.deinit(&self)
     io::printfn("ScriptEngine deinitialized");
 }
 
-fn void ScriptEngine.bindFunctions(&self) @inline @local
+fn void ScriptEngine.bindFunctions(&self, WrenConfiguration* config) @inline @local
 {
-    self.config.writeFn = &writeFn;
-    self.config.errorFn = &errorFn;
-    self.config.loadModuleFn = &loadModule;
-    self.config.bindForeignMethodFn = &bindForeignMethod;
+    if(config == null) unreachable("Script Engine fatal error failed to bind functions!!");
+
+    config.writeFn = &writeFn;
+    config.errorFn = &errorFn;
+    config.loadModuleFn = &loadModule;
+    config.bindForeignMethodFn = &bindForeignMethod;
 }
 
-fn WrenVM* ScriptEngine.makeVM(&self) @inline @local
+<*
+    @param [&in] config : "pointer to wren virtual machine configuration"
+    @ensure return != null
+*>
+fn WrenVM* ScriptEngine.makeVM(&self, WrenConfiguration* config) @inline @local
 {
-    return self.config.newVM();
+    return config.newVM();
 }
 
-fn void ScriptEngine.createVirtualMachine(&self) @inline @local
+fn void ScriptEngine.createVirtualMachine(&self, WrenConfiguration* config) @inline @local
 {
+    if(config == null) unreachable("Script Engine fatal error failed to create virtual machine!!");
+
     self.vmachine.init();
-    self.vmachine.create(self);
+    self.vmachine.create(self, config);
 }
 
 fn void ScriptEngine.closeVirtualMachine(&self) @inline @local
@@ -209,7 +218,6 @@ fn void ScriptEngine.reloadScripts(&self, String script_folder)
 
             if(path::is_file(script_path)) 
             {
-                //();
                 String file_path = script_path.path_string;
                 Script* script = self.getScript(fs::getFileNameWithoutExt(file_path));
                 if(script) 
@@ -220,14 +228,44 @@ fn void ScriptEngine.reloadScripts(&self, String script_folder)
                     {
                         script.data = fs::fileLoadEntireText(script_path.path_string).zstr_tcopy();
                         script.modtime = file_mod_time;
+                        lgr::info(Where.FILE, "Reloaded script %s", script.name);
                     }
+                    continue;
                 }
+                continue;
             } else {
                 self.reloadScripts(script_path.path_string); // Warning(HM) recursion
             }
         }
     } else {
         unreachable("Script Engine fatal error failed to reload scripts!!");
+    }
+}
+
+// note this function will run constantly, to see if any script file was modified
+// if so it will reload the script.
+fn void ScriptEngine.fileWatcher(&self)
+{
+    if(main::developer.getBool() == false) return; // only in developer mode
+    
+    if(main::gpGame.time_ms >= self.next_check_time)
+    {
+        self.next_check_time = main::gpGame.time_ms + 1000; // check every second
+    } else { return; }
+
+    if(self.scripts.len())
+    {
+        foreach(script : self.scripts)
+        { 
+            CLong file_mod_time = fs::getFileModTime(script.path);
+            bool changed = file_mod_time != script.modtime;
+            if(changed) // reload script
+            {
+                script.data = fs::fileLoadEntireText(script.path).zstr_tcopy();
+                script.modtime = file_mod_time;
+                lgr::info(Where.FILE, "Reloaded script %s", script.name);
+            }
+        };
     }
 }
 
@@ -265,23 +303,29 @@ fn void ScriptVirtualMachine.init(&self)
 }
 
 <*
- @param [in] scptengine : "pointer to the current script engine"
- @require scptengine != null
- @ensure self.vm != null
+    @param [&in] scptengine : "pointer to the current script engine"
+    @param [&in] config : "pointer to wren virtual machine configuration"
+    @ensure self.vm != null
 *>
-fn void ScriptVirtualMachine.create(&self, ScriptEngine* scptengine)
+fn void ScriptVirtualMachine.create(&self, ScriptEngine* scptengine, WrenConfiguration* config) @inline
 {
-    // for now we only support one virtual machine per game run
     assert(self.vm == null);
     // create the new machine
-    if(self.id) self.id++;
-    self.vm = scptengine.makeVM();
+    self.id++;
+    // for now we only support one virtual machine per game run
+    assert(self.id && self.id == MAX_VIRTUAL_MACHINES, "For now only one virtual machine is supported");
+    self.vm = scptengine.makeVM(config);
+}
+
+fn void ScriptVirtualMachine.runGarbageCollector(&self) @inline
+{
+    if(self.vm) self.vm.collectGarbage();
 }
 
 fn void ScriptVirtualMachine.deinit(&self) @inline
 {
     if(self.vm) {
-        //self.vm.collectGarbage(); // should I do this?
+        //self.vm.collectGarbage(); // should I do this here?
         self.vm.free();
         self.vm = null;
     }
@@ -289,10 +333,20 @@ fn void ScriptVirtualMachine.deinit(&self) @inline
 
 fn void ScriptVirtualMachine.compile_run(&self, Script* script) @inline
 {
+    if(self.vm == null) {
+        unreachable("Script Virtual Machine not created!!");
+    }
+
+    if(script == null || script.data.len() == 0) {
+        lgr::warning(Where.FILE, "Script Virtual Machine failed to run script, script is null or empty!!");
+        return;
+    }
+
     WrenInterpretResult result = self.vm.interpret(script.name.zstr_tcopy(), script.data);
 
     switch (result)
     {
+        // TODO(HM) handle this errors in the ingame console too if possible
         case wren::RESULT_COMPILE_ERROR: io::printfn("Compile Error!\n");
         case wren::RESULT_RUNTIME_ERROR: io::printfn("Runtime Error!\n");
         case wren::RESULT_SUCCESS: io::printfn("Success!\n");
@@ -359,7 +413,8 @@ fn WrenLoadModuleResult myLoadModule(String name, String path) @local
 //#region basic logging and script error handling
 fn void writeFn(WrenVM* vm, ZString text) @local
 {
-  io::printf("%s", text);
+    // do not put a new line here, wren already does that 
+    io::printf("%s", text);
 }
 
 fn void errorFn(WrenVM* vm, WrenErrorType errorType, ZString _module, int line, ZString msg) @local
@@ -382,17 +437,16 @@ fn void errorFn(WrenVM* vm, WrenErrorType errorType, ZString _module, int line, 
 <*
     Binds C3 functions to methods defined in script classes
 
- @param [in] vm : "current wren virtual machine calling this func"
- @require vm != null
+ @param [&in] vm : "current wren virtual machine calling this func"
 *>
 fn WrenForeignMethodFn bindForeignMethod(WrenVM* vm, ZString script_name, ZString className, bool isStatic, ZString signature)
 {
     String module_name, class_name, fn_signature;
-    module_name = script_name.str_view();
-    class_name = className.str_view();
+    module_name  = script_name.str_view();
+    class_name   = className.str_view();
     fn_signature = signature.str_view();
 
-    WrenForeignMethodFn result;
+    //WrenForeignMethodFn result;
 
     switch MODULES : (module_name)
     {
@@ -403,9 +457,14 @@ fn WrenForeignMethodFn bindForeignMethod(WrenVM* vm, ZString script_name, ZStrin
                     if (isStatic)
                     {
                         if (fn_signature == "tofile(_)") {
-                            result = &event::logToFile;
-                            break MODULES;
+                            //result = &event::logToFile;
+                            return &event::logToFile;
+                            //break MODULES;
                         }
+                    } 
+                    else 
+                    {
+                        unreachable("For now only static methods are supported");
                     }
             }
         case "main":
@@ -415,9 +474,14 @@ fn WrenForeignMethodFn bindForeignMethod(WrenVM* vm, ZString script_name, ZStrin
                     if (isStatic)
                     {
                         if (fn_signature == "add(_,_)") {
-                            result = &event::add;
-                            break MODULES;
+                            //result = &event::add;
+                            return &event::add;
+                            //break MODULES;
                         }
+                    }
+                    else 
+                    {
+                        unreachable("For now only static methods are supported");
                     }
             }
         case "entity":
@@ -429,14 +493,16 @@ fn WrenForeignMethodFn bindForeignMethod(WrenVM* vm, ZString script_name, ZStrin
                         foreach(evfunc : ent::ENTITY_EVENTS_CALLBACKS)
                         {
                             if (fn_signature == event::getSignature(*evfunc.event)) {
-                                result = evfunc.callback;
-                                break MODULES;
+                                //result = evfunc.callback;
+                                return evfunc.callback;
+                                //break MODULES;
                             }
 
                         }
-                        if (result == null) {
-                            lgr::warning(Where.FILE, "Failed to bind foreign method %s.%s with signature %s", module_name, class_name, fn_signature);
-                        }
+                    }
+                    else 
+                    {
+                        unreachable("For now only static methods are supported");
                     }
             }
         case "math":
@@ -446,15 +512,21 @@ fn WrenForeignMethodFn bindForeignMethod(WrenVM* vm, ZString script_name, ZStrin
                     if (isStatic)
                     {
                         if (fn_signature == "translate(_,_)") {
-                            result = &event::vec2_translate;
-                            break MODULES;
+                            //result = &event::vec2_translate;
+                            return &event::vec2_translate;
+                            //break MODULES;
                         }
+                    }
+                    else 
+                    {
+                        unreachable("For now only static methods are supported");
                     }
             }
     }
 
   ///  
-  return result;
+    lgr::error(Where.FILE, "Failed to bind foreign method %s.%s with signature %s", module_name, class_name, fn_signature);
+    return null;
 }
 
 

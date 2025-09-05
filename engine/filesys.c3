@@ -57,10 +57,15 @@ enum FS_Mode: int (inline String str)
 alias StringList @local = List{String};
 
 // file list for directory listings
-struct FileList @private
+struct FileList (Printable) @private
 {
 	String basePath;
 	StringList	list;
+}
+
+fn usz? FileList.to_format(&self, Formatter* f) @dynamic
+{
+    return f.printf("FileList(basePath: '%s', numFiles: %d)", self.basePath, self.getNumFiles());
 }
 
 <*

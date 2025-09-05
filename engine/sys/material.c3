@@ -53,7 +53,7 @@ import std::collections::list, std::collections::tuple;
 *****************************************************************************
 */
 
-alias StageArgument = StringTuple; // alias for a stage argument, which is a tuple of two strings (name, value)
+alias StageArgument = StringPair; // alias for a stage argument, which is a tuple of two strings (name, value)
 alias MaterialStageArgList = List{StageArgument*};
 
 faultdef MAT_INVALID_PATH,

@@ -32,8 +32,7 @@ module game::files::ini;
 import std::io;
 import std::ascii;
 import std::io::file;
-import std::collections::list;
-import std::collections::tuple;
+import std::collections::list, std::collections::pair;
 // end_region
 
 // region custom imports
@@ -138,7 +137,7 @@ const String STR_CHAR           @local = "\"";
 
 alias ListIniSectionPrts @local = List{IniSection*};
 alias ListIniCMDPrts     @local = List{IniCMD*};
-alias IniCmdData         @local = Tuple{String, String};
+alias IniCmdData         @local = Pair{String, String};
 alias game               @local = main::gpGame;
 
 

@@ -611,7 +611,7 @@ fn void? loadAssetsRecursively(String basepath, String parent_folder = "") @inli
         { 
 			String file_name = fs::getFileNameWithoutExt(path_);
 			// NOTE(HM) ignore default assets those are handled directly
-			if (file_name == "default") continue; // to next file
+			if (file_name == "default" || file_name == "splash") continue; // to next file
 			
 			String extension = fs::getFileExtension(path_);
 			bool valid_file;

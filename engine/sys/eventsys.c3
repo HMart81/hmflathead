@@ -48,17 +48,17 @@ import engine::misc;
 import engine::logging::lgr;
 
 
-////// WARNING(HM) For some reason I cannot make foreign functions work, calling C3 custom code.
+////// WARNING(HM) NOTE(HM) For some reason I cannot make, foreign functions work, meaning calling C3 functions.
 ////// This despite bindForeignMethod being called correctly and both 
 ////// writeFn and errorFn, working just fine and are also called from c3 code!!!!!!? :( 
 
 <*
- @param [in] vm : "current wren virtual machine calling this func"
- @require vm != null
+ @param [&in] vm : "current wren virtual machine calling this func"
 *>
 fn void add(WrenVM* vm)
 {
-    vm.ensureSlots(3); // slot 0 is the caller (and return slot), slot 1 and 2 are the fn arguments slots
+    vm.ensureSlots(3);
+	// slot 0 is the caller (and return slot), slot 1 and 2 are the fn arguments slots
     double a = vm.getSlotDouble(1);
     double b = vm.getSlotDouble(2);
     vm.setSlotDouble(0, a + b);
@@ -81,8 +81,7 @@ fn void vec2_translate(WrenVM* vm)
 }
 
 <*
- @param [in] vm : "current wren virtual machine calling this func"
- @require vm != null
+ @param [&in] vm : "current wren virtual machine calling this func"
 *>
 fn void logToFile(WrenVM* vm)
 {

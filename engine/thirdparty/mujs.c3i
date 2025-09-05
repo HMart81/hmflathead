@@ -1,0 +1,327 @@
+/************************************ LICENSE *******************************************
+# hmflathead GPL Source Code
+# Copyright (C) 2025 Hilario Martins.
+# 
+# This file is part of the hmflathead GPL Source Code ("hmflathead Source Code")
+# 
+# hmflathead Source Code is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# hmflathead Source Code is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with hmflathead Source Code.  If not, see <http://www.gnu.org/licenses/>.
+# 
+# In addition, the hmflathead Source Code is also subject to certain additional terms. 
+# You should have received a copy of these additional terms immediately following the terms and conditions of the GNU General Public License 
+# which accompanied the hmflathead Source Code.  If not, please request a copy in writing from me at the address below.
+# 
+# If you have questions concerning this license or the applicable additional terms, you may contact in writing 
+# Hilario Martins, Rua de Sanguinhedo 1010 4850-545 Vieira Do Minho Portugal.
+# 
+*********************************************************************************************************************************************/
+
+// WARNING: This file is a work in progress and may not be fully functional yet.
+// Unfinished was not able to get the bindings working properly, so I am leaving it here for now.
+
+/***************************************************************
+* This are C3 bindings for the micro java script language (mujs). 
+* To know more about it, see: https://mujs.com/index.html
+*
+* NOTE(HM): 
+*   structs in this file, passed by pointer, can be just alias to a void* (opaque pointer) and be done with it! 
+*   The reality is, you don't need to know the full data-layout for most of them to use this... 
+*   (but don't try storing the structs by value after that...)
+****************************************************************/
+/*
+module buffer{Type} @private @if($feature(MUJS_ENABLE));
+
+struct Buffer @if($feature(MUJS_ENABLE))                                             
+{
+  Type* data;
+  int count;
+  int capacity;
+}
+*/
+
+module thirdparty::mujs @if($feature(MUJS_ENABLE));
+
+import std::io;
+import engine::logging::lgr;
+import libc;
+
+//import buffer @public;
+
+const VERSION_MAJOR = 1;
+const VERSION_MINOR = 3;
+const VERSION_PATCH = 7;
+
+const VERSION = (VERSION_MAJOR * 10000 + VERSION_MINOR * 100 + VERSION_PATCH);
+macro check_version(x,y,z) => (VERSION >= (x * 10000 + y * 100 + z));
+
+// A human-friendly string representation of the version.
+const String VERSION_STRING = "1.3.7";
+
+// entire mujs std library.. lol 
+const ZString MUJS_STDLIB = `
+/************************************ LICENSE *******************************************
+# MuJS 1.3.7                     STANDARD LIBRARY
+# Console and file logger
+****************************************************************************************/
+var console = { log: print, error: print, warn: print, debug: print };
+var logfile = { write: printTofile };
+`;
+
+typedef State = inline void;
+
+/* State constructor flags */
+alias StateFlags = int;
+const StateFlags STRICT = 1;
+
+/* RegExp flags */
+const int REGEXP_G = 1;
+const int REGEXP_I = 2;
+const int REGEXP_M = 4;
+
+/* Property attribute flags */
+const int READONLY = 1;
+const int DONTENUM = 2;
+const int DONTCONF = 4;
+
+/* enum for js_type() */
+const int ISUNDEFINED = 0;
+const int ISNULL      = 1;
+const int ISBOOLEAN   = 2;
+const int ISNUMBER    = 3;
+const int ISSTRING    = 4;
+const int ISFUNCTION  = 5;
+const int ISOBJECT    = 6;
+
+const STACK_IDX_RETURN = STACK_IDX_TOP; // function return value slot
+const STACK_IDX_SUBTOP = -2; // second from top of the stack
+const STACK_IDX_TOP  = -1; // top of the stack
+const STACK_IDX_THIS = 0; // this slot for objects
+const STACK_IDX_ARG1 = 1; // first function argument slot
+const STACK_IDX_ARG2 = 2;
+const STACK_IDX_ARG3 = 3;
+const STACK_IDX_ARG4 = 4;
+const STACK_IDX_ARG5 = 5;
+const STACK_IDX_ARG6 = 6;
+
+// Atrribute flags for functions and variables 
+const ISGLOBAL = 1; // global to the state
+const ISLOCAL  = 2; // local to a object
+const ISMENBER = 4; // member of an object or a method
+
+// garbage collection options
+const GC_NOREPORT = 0;
+const GC_REPORT   = 1;
+
+/* Exception handling */
+extern fn void* State.savetry(&self) @extern("js_savetry");  /* returns a jmp_buf */
+macro State._catch(&self) @local => libc::setjmp(self.savetry());
+extern fn void State.endtry(&self) @extern("js_endtry");
+
+macro void @try(State* state; @body) 
+{
+  assert(state != null, "state must not be null");
+  if(state._catch()) 
+  {
+    lgr::error(Where.CONSOLE, "mujs exception: %s", state.tostring(-1));
+    state.pop(1); // remove error message from stack
+    state.free();
+    unreachable("Error code inside @try(){...} has trown a exception.");
+  }
+  @body();
+  state.endtry();
+}
+//
+
+alias FnAlloc       = fn void*(void* memctx, void* ptr, int size);
+alias FnPanic       = fn void(State* state);
+alias FnCFunction   = fn void(State* state);
+alias FnFinalize    = fn void(State* state, void* p);
+alias FnHasProperty = fn int(State* state, void* p, ZString name);
+alias FnPut         = fn int(State* state, void* p, ZString name);
+alias FnDelete      = fn int(State* state, void* p, ZString name);
+alias FnReport      = fn void(State* state, ZString message);
+
+/* Basic functions */
+extern fn State* new_state(FnAlloc* alloc = null, void *actx = null, int flags = STRICT) @extern("js_newstate");
+extern fn void State.setcontext(&self, void *uctx) @extern("js_setcontext");
+extern fn void *State.getcontext(&self) @extern("js_getcontext");
+extern fn void State.setreport(&self, FnReport report) @extern("js_setreport");
+extern fn FnPanic State.atpanic(&self, FnPanic panic) @extern("js_atpanic");
+extern fn void State.freestate(&self) @extern("js_freestate");
+extern fn void State.gc(&self, int report) @extern("js_gc");
+
+extern fn void State.loadstring(&self, ZString filename, ZString source) @extern("js_loadstring");
+extern fn void State.loadfile(&self, ZString filename) @extern("js_loadfile");
+
+extern fn void State.eval(&self) @extern("js_eval");
+extern fn void State.call(&self, int n) @extern("js_call");
+extern fn void State.construct(&self, int n) @extern("js_construct");
+
+extern fn ZString State.ref(&self) @extern("js_ref");
+extern fn void State.unref(&self, ZString ref) @extern("js_unref");
+
+extern fn int State.dofile(&self, ZString filename) @extern("js_dofile");
+macro int State.compile_and_or_Run_or_throw(&self, ZString filename) @local {
+  if(self.dofile(filename) != 0 ) {
+    unreachable("Failed to execute mujs file: %s with excuse: %s", filename, self.tostring(-1));
+  }
+  //assert(result == 0, "Failed to execute mujs file: %s", filename);
+  return 0;
+}
+macro int State.runScript(&self, String source_code) => self.compile_and_or_Run_or_throw(source_code.zstr_tcopy());
+extern fn int State.dostring(&self, ZString source) @extern("js_dostring");
+extern fn void State.free(&self) @extern("js_freestate");
+
+// protected environment calls
+extern fn int State.ploadstring(&self, ZString filename, ZString source) @extern("js_ploadstring");
+extern fn int State.ploadfile(&self, ZString filename) @extern("js_ploadfile");
+extern fn int State.pcall(&self, int n) @extern("js_pcall");
+extern fn int State.pconstruct(&self, int n) @extern("js_pconstruct");
+//
+
+extern fn void State.getglobal(&self, ZString name) @extern("js_getglobal");
+extern fn void State.setglobal(&self, ZString name) @extern("js_setglobal");
+extern fn void State.defglobal(&self, ZString name, int atts) @extern("js_defglobal");
+extern fn void State.delglobal(&self, ZString name) @extern("js_delglobal");
+
+extern fn int  State.gettop(&self) @extern("js_gettop");
+extern fn void State.pop(&self, int n) @extern("js_pop");
+extern fn void State.rot(&self, int n) @extern("js_rot");
+extern fn void State.copy(&self, int idx) @extern("js_copy");
+extern fn void State.remove(&self, int idx) @extern("js_remove");
+extern fn void State.insert(&self, int idx) @extern("js_insert");
+extern fn void State.replace(&self, int idx) @extern("js_replace");
+
+extern fn int State.toboolean(&self, int idx) @extern("js_toboolean");
+extern fn double State.tonumber(&self, int idx) @extern("js_tonumber");
+extern fn ZString State.tostring(&self, int idx) @extern("js_tostring");
+
+// 
+extern fn void State.newcfunction(&self, FnCFunction fun, ZString name, int length) @extern("js_newcfunction");
+
+macro void State.bindFunction(&self, FnCFunction c3_fn, ZString js_fn_name, int argcount, bool is_global = true) {
+  self.newcfunction(c3_fn, js_fn_name, argcount);
+  if(is_global) self.setglobal(js_fn_name);
+}
+
+extern fn int State.isdefined(&self, int idx) @extern("js_isdefined");
+extern fn int State.isundefined(&self, int idx) @extern("js_isundefined");
+extern fn int State.isnull(&self, int idx) @extern("js_isnull");
+extern fn int State.isboolean(&self, int idx) @extern("js_isboolean");
+extern fn int State.isnumber(&self, int idx) @extern("js_isnumber");
+extern fn int State.isstring(&self, int idx) @extern("js_isstring");
+extern fn int State.isprimitive(&self, int idx) @extern("js_isprimitive");
+extern fn int State.isobject(&self, int idx) @extern("js_isobject");
+extern fn int State.isarray(&self, int idx) @extern("js_isarray");
+extern fn int State.isregexp(&self, int idx) @extern("js_isregexp");
+extern fn int State.iscoercible(&self, int idx) @extern("js_iscoercible");
+extern fn int State.iscallable(&self, int idx) @extern("js_iscallable");
+extern fn int State.isuserdata(&self, int idx, ZString tag) @extern("js_isuserdata");
+extern fn int State.iserror(&self, int idx) @extern("js_iserror");
+extern fn int State.isnumberobject(&self, int idx) @extern("js_isnumberobject");
+extern fn int State.isstringobject(&self, int idx) @extern("js_isstringobject");
+extern fn int State.isbooleanobject(&self, int idx) @extern("js_isbooleanobject");
+extern fn int State.isdateobject(&self, int idx) @extern("js_isdateobject");
+
+extern fn void State.currentfunction(&self) @extern("js_currentfunction");
+extern fn void*State.currentfunctiondata(&self) @extern("js_currentfunctiondata");
+extern fn void State.pushglobal(&self) @extern("js_pushglobal");
+extern fn void State.pushundefined(&self) @extern("js_pushundefined");
+extern fn void State.pushnull(&self) @extern("js_pushnull");
+extern fn void State.pushboolean(&self, int v) @extern("js_pushboolean");
+extern fn void State.pushnumber(&self, double v) @extern("js_pushnumber");
+extern fn void State.pushstring(&self, ZString v) @extern("js_pushstring");
+extern fn void State.pushlstring(&self, ZString v, int n) @extern("js_pushlstring");
+extern fn void State.pushliteral(&self, ZString v) @extern("js_pushliteral");
+
+
+extern fn int  State.hasproperty(&self, int idx, ZString name) @extern("js_hasproperty");
+extern fn void State.getproperty(&self, int idx, ZString name) @extern("js_getproperty");
+extern fn void State.setproperty(&self, int idx, ZString name) @extern("js_setproperty");
+extern fn void State.defproperty(&self, int idx, ZString name, int atts) @extern("js_defproperty");
+extern fn void State.delproperty(&self, int idx, ZString name) @extern("js_delproperty");
+extern fn void State.defaccessor(&self, int idx, ZString name, int atts) @extern("js_defaccessor");
+
+extern fn void State.concat(&self) @extern("js_concat");
+extern fn int State.compare(&self, int *okay) @extern("js_compare");
+extern fn int State.equal(&self) @extern("js_equal");
+extern fn int State.strictequal(&self) @extern("js_strictequal");
+extern fn int State.instanceof(&self) @extern("js_instanceof");
+extern fn ZString State.typeof(&self, int idx) @extern("js_typeof");
+extern fn int State.type(&self, int idx) @extern("js_type");
+
+extern fn void State.repr(&self, int idx) @extern("js_repr");
+extern fn ZString State.torepr(&self, int idx) @extern("js_torepr");
+extern fn ZString State.tryrepr(&self, int idx, ZString error) @extern("js_tryrepr");
+/*
+extern fn ScriptEngine *createEngine(uint version = ANGELSCRIPT_VERSION) @extern("asCreateScriptEngine");
+extern fn ZString getLibraryVersion() @extern("asGetLibraryVersion");
+extern fn ZString getLibraryOptions() @extern("asGetLibraryOptions");
+
+// Memory management
+extern fn int ScriptEngine.addRef(ScriptEngine *e) @extern("asEngine_AddRef");
+extern fn int ScriptEngine.release(ScriptEngine *e) @extern("asEngine_Release");
+extern fn int ScriptEngine.shutDownAndRelease(ScriptEngine *e) @extern("asEngine_ShutDownAndRelease");
+
+// Compiler messages
+extern fn ContextState ScriptEngine._setMessageCallback(ScriptEngine *e, FunctionCallback callback, void *obj, uint callConv) @local @extern("asEngine_SetMessageCallback");
+macro ContextState ScriptEngine.setMessageCallback(&self, FunctionCallback callback, void *obj = null, uint callConv = CallConv.CDECL) {
+  ContextState result = self._setMessageCallback(callback, obj, CallConv.CDECL);
+  assert(result >= 0, "Failed to set message callback");
+  return result;
+}
+extern fn int ScriptEngine.clearMessageCallback(ScriptEngine *e) @extern("asEngine_ClearMessageCallback");
+extern fn int ScriptEngine.writeMessage(ScriptEngine *e, ZString section, int row, int col, MsgType type, ZString message) @extern("asEngine_WriteMessage");
+
+// Global functions
+extern fn ContextState ScriptEngine._registerGlobalFunction(ScriptEngine *e, ZString declaration, FunctionCallback funcPointer, uint callConv, void *auxiliary) @local @extern("asEngine_RegisterGlobalFunction");
+macro ContextState ScriptEngine.registerGlobalFunction(&self, ZString declaration, FunctionCallback funcPointer, uint callConv = CallConv.CDECL, void *auxiliary = null) {
+  ContextState result = self._registerGlobalFunction(declaration, funcPointer, callConv, auxiliary); 
+  assert(result >= 0, "Failed to register global function: %s", declaration);
+  return result;
+}
+extern fn uint            ScriptEngine.getGlobalFunctionCount(ScriptEngine *e) @extern("asEngine_GetGlobalFunctionCount");
+extern fn ScriptFunction* ScriptEngine.getGlobalFunctionByIndex(ScriptEngine *e, uint index) @extern("asEngine_GetGlobalFunctionByIndex");
+extern fn ScriptFunction* ScriptEngine.getGlobalFunctionByDecl(ScriptEngine *e, ZString declaration) @extern("asEngine_GetGlobalFunctionByDecl");
+
+// Script execution
+extern fn ScriptContext *        ScriptEngine.createContext(ScriptEngine *e) @extern("asEngine_CreateContext");
+extern fn void *                 ScriptEngine.createScriptObject(ScriptEngine *e, TypeInfo *type) @extern("asEngine_CreateScriptObject");
+extern fn void *                 ScriptEngine.createScriptObjectCopy(ScriptEngine *e, void *obj, TypeInfo *type) @extern("asEngine_CreateScriptObjectCopy");
+extern fn void *                 ScriptEngine.createUninitializedScriptObject(ScriptEngine *e, TypeInfo *type) @extern("asEngine_CreateUninitializedScriptObject");
+extern fn ScriptFunction *       ScriptEngine.createDelegate(ScriptEngine *e, ScriptFunction *func, void *obj) @extern("asEngine_CreateDelegate");
+extern fn int                    ScriptEngine.assignScriptObject(ScriptEngine *e, void *dstObj, void *srcObj, TypeInfo *type) @extern("asEngine_AssignScriptObject");
+extern fn void                   ScriptEngine.releaseScriptObject(ScriptEngine *e, void *obj, TypeInfo *type) @extern("asEngine_ReleaseScriptObject");
+extern fn void                   ScriptEngine.addRefScriptObject(ScriptEngine *e, void *obj, TypeInfo *type) @extern("asEngine_AddRefScriptObject");
+extern fn int                    ScriptEngine.refCastObject(ScriptEngine *e, void *obj, TypeInfo *fromType, TypeInfo *toType, void **newPtr, bool useOnlyImplicitCast) @extern("asEngine_RefCastObject");
+extern fn LockableSharedBool *ScriptEngine.getWeakRefFlagOfScriptObject(ScriptEngine *e, void *obj, TypeInfo *type) @extern("asEngine_GetWeakRefFlagOfScriptObject");
+
+///////////////////////////////////////////
+module thirdparty::angel::ctx @if($feature(ANGEL_ENABLE));
+
+// Memory management
+extern fn int  ScriptContext.addRef(ScriptContext *c) @extern("asContext_AddRef");
+extern fn int  ScriptContext.release(ScriptContext *c) @extern("asContext_Release");
+
+// Execution
+extern fn int ScriptContext.prepare(ScriptContext *c, ScriptFunction *func) @extern("asContext_Prepare");
+extern fn ContextState ScriptContext.execute(ScriptContext *c) @extern("asContext_Execute");
+
+
+
+macro ContextState ScriptContext.run(&self, ScriptFunction *func) {
+  ContextState result = self.prepare(func); assert(result >= 0, "Failed to prepare context for execution");
+  result = self.execute(); assert(result >= 0, "Failed to execute script function");
+  return result;
+}
+

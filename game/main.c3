@@ -35,7 +35,7 @@ import std::math;
 import std::ascii;
 import std::math::complex;
 import std::core::mem; // for malloc/new
-import std::collections::list, std::collections::map, std::collections::tuple;
+import std::collections::list, std::collections::map, std::collections::pair;
 import libc;
 import engine::input;
 import engine::tokanizer::tok; // tokanizer
@@ -73,6 +73,7 @@ import thirdparty::microui::mu;  // micro ui
 import engine::physics::box2d;
 import thirdparty::tracy;
 import thirdparty::tsoding::fg; // flaglib
+import thirdparty::mujs; // micro java script
 // #endregion
 
 // #region Constants
@@ -214,8 +215,8 @@ const String GAME_SUB_NAME @Hardcode = "engine"; // NOTE(HM) optional...
 // if alising a Constant the alias also needs to be all caps, etc.
 
 alias RShader        @public = rl::Shader;
-alias StringTuple    @public = Tuple{String, String};
-alias IniFileCMDList = List{StringTuple*};
+alias StringPair    @public = Pair{String, String};
+alias IniFileCMDList = List{StringPair*};
 alias asstManager    @public= astmng::assetManager;
 
 // #endregion Alias
@@ -225,11 +226,13 @@ Cvar developer      @public = { "developer"     , CvarType.BOOLEAN, "0",    "ena
 Cvar editor         @public = { "editor"        , CvarType.BOOLEAN, "0",    "enables the game editor (requires developer mode)"};
 Cvar r_mode         @public = { "r_mode"        , CvarType.INT,     "-1",   "window resolution index 0.."};
 Cvar r_showFPS      @public = { "r_showFPS"     , CvarType.BOOLEAN, "1",    "draws framerate on screen"};
+Cvar r_noSplashPic  @public = { "r_noSplashPic" , CvarType.BOOLEAN, "1",    "disables the splash image at game start"};
 Cvar r_fullscreen   @public = { "r_fullscreen"  , CvarType.INT,     "-1",   "screen mode 0 = window, 1 = borderless, 2 = dedicated, -1 = ini file setting"};
 Cvar fs_base        @public = { "fs_base"       , CvarType.STRING,  "data", "default game base folder"};
 Cvar fs_mod_name    @public = { "fs_mod_name"   , CvarType.STRING,  "",     "folder name of mod to run"};
 Cvar fs_mod_base    @public = { "fs_mod_base"   , CvarType.STRING,  "",     "folder name for custom database of running mod"};
 Cvar db_drawPhysics @public = { "db_drawPhysics", CvarType.BOOLEAN, "1",    "show debug visualization for world physics" };
+Cvar s_noaudio      @public = { "s_noaudio"     , CvarType.BOOLEAN, "0",    "disables all audio"};
 // TODO(HM) disable editor cvar, when not used anymore
 //Cvar r_window_resizable @public = { "r_window_resizable", CvarType.BOOLEAN,  "0",   "makes window resizable, window mode only."};
 
@@ -239,6 +242,7 @@ fn void register_cvars() @local
     cvar::@register(&editor);
     cvar::@register(&r_mode);
     cvar::@register(&r_showFPS);
+    cvar::@register(&r_noSplashPic);
     cvar::@register(&r_fullscreen);
     cvar::@register(&fs_base);
     cvar::@register(&fs_mod_name);
@@ -317,11 +321,14 @@ struct Game (SaveSystemInterface) @local
     bool show_statistics @if($feature(MICROUI_ENABLE)); // show statistics window
 
     // script engine
-    ScriptEngine script_eng;
+    ScriptEngine script_eng @if($feature(WREN_ENABLE));
     //
     // angel script engine
     ContextState script_result @if($feature(ANGEL_ENABLE)); // current script state
     ScriptEngine* asEngine @if($feature(ANGEL_ENABLE)); // angel script engine
+    // mujs script engine
+    State* mujs_state @if($feature(MUJS_ENABLE)); // mujs context
+    //
 
     GameMode mode;
 
@@ -937,6 +944,22 @@ $endif
     if(rl::isKeyPressed(rl::KEY_G)) {
         menu::exit();
     }
+
+$if $feature(MUJS_ENABLE):
+     if(rl::isKeyPressed(rl::KEY_F6)) 
+     {
+        // TODO(HM) make a file watcher for scripts and automatically reload them
+        // DELETE(HM) just a developer code for hot reload of the main script file.
+        if(local_game.mujs_state)
+        {
+            mujs::@try(local_game.mujs_state)
+            {
+                int ret = local_game.mujs_state.runScript(local_game.app_base_folder.tconcat("scripts/main.js"));
+                assert(ret == 0);
+            };
+        }
+    }
+$endif
     
         
     // exit game
@@ -1040,6 +1063,10 @@ fn void gameUpdate() @local
 			local_game.physWorldId.step(local_game.phys_time_step, local_game.phys_substep_count);
         }
         //
+
+$if $feature(WREN_ENABLE) &&& !$feature(ANGEL_ENABLE):
+        local_game.script_eng.fileWatcher();
+$endif
         
         // updates all fullscreen menus state like the main menu
         gui::gpDeskManager.update();
@@ -1178,26 +1205,31 @@ fn void gameReset() @local {
 // for future
 }
 
-fn void drawGameVersion(int screenWidth, int screenHeight) @inline @local
+fn void drawGameVersion(Vec2i at_pos) @inline @local
 {
     // draw game version
-        const VERSION_FONT_SCALE = 12;
-        ZString game_version     = string::tformat_zstr("version: (%s, %s, %s)", MAX_VERSION, MIN_VERSION, BABY_VERSION);
-        int version_text_len     = rl::measureText(game_version, VERSION_FONT_SCALE);
-        rl::drawText(
-            game_version,
-            (int)(screenWidth - (2.0f * version_text_len)), //(float)(font_w * libc::strlen(game_version))),
-            (int)0.25f*screenHeight,
-            VERSION_FONT_SCALE,
-            {127, 127, 255, 255} // @Hardcode color
-        );
+    const Color COLOR @Hardcode = {127, 127, 255, 255};
+    const VERSION_FONT_SCALE = 12;
+    ZString game_version     = string::tformat_zstr("version: (%s, %s, %s)", MAX_VERSION, MIN_VERSION, BABY_VERSION);
+    //int version_text_len     = rl::measureText(game_version, VERSION_FONT_SCALE);
+    rl::drawText(
+        game_version,
+        //(int)(screenWidth - (2.0f * version_text_len)), //(float)(font_w * libc::strlen(game_version))),
+        //(int)0.25f*screenHeight,
+        at_pos.x,
+        at_pos.y,
+        VERSION_FONT_SCALE,
+        COLOR
+    );
 }
 
 fn void drawWorkInProgressMessage(int screen_w, int screen_h) @local 
 {
     const Color COLOR @Hardcode = {223, 196, 125, 127};
     Font* font = local_game.candara_font;
+    if(!font) unreachable("Required font for WIP message is missing!");
     if(!rl::isFontValid(*font))  font = &local_game.default_font;
+    if(!font) unreachable("Trying to use default font for WIP message but it is missing!");
     
     //int font_w = (int)font.recs.width;
 
@@ -1210,6 +1242,7 @@ fn void drawWorkInProgressMessage(int screen_w, int screen_h) @local
     int y = (int)math::floor(0.01f*screen_h);
     rl::drawText(string::tformat_zstr("%s (Raylib %s)", message, rl::VERSION), x, y, 12, COLOR);
     //rl::drawTextEx(*font, string::tformat_zstr("%s (Raylib %s)", message, rl::VERSION), {x, y}, 12, 1.0f, rl::RED);
+    drawGameVersion({x, y + 16});
 }
 
 fn void drawGameOnScreenDebugInfo(int screen_w, int screen_h) @local
@@ -1419,15 +1452,27 @@ fn void draw_game_cursor() @local @inline
 // good place to put debug code...
 fn void gameOnPostGUIDraw(int screenWidth, int screenHeight) @public 
 {
-    // draw game fps
+    // draw game fps and frametime
     if(r_showFPS.getBool()) {
-        rl::drawFPS((int)(0.93f * screenWidth), (int)(0.02f * screenHeight));
+        int x = (int)((0.93f * screenWidth) - 120.0f);
+        int y = (int)(0.02f * screenHeight);
+        rl::drawTextEx(
+            *local_game.candara_font,
+            string::tformat_zstr("OpenGL %s FPS: %d", rl::glsl_version(), rl::getFPS()), 
+            (Vector2){(float)x, (float)y}, 18.0f, 1.0f, 
+            rl::LIME
+        );
+        rl::drawTextEx(
+            *local_game.candara_font,
+            string::tformat_zstr("frametime: %.2f ms", rl::getFrameTime()*1000), 
+            (Vector2){(float)x, (float)y + 18}, 16.0f, 1.0f, 
+            rl::LIME
+        );
+        //rl::drawFPS((int)(0.93f * screenWidth), (int)(0.02f * screenHeight));
     }
     
     if(developer.getBool())
     {
-        drawGameVersion(screenWidth, screenHeight);
-        
         drawWorkInProgressMessage(screenWidth, screenHeight);
 
         if(editor.getBool()) {
@@ -1903,6 +1948,10 @@ $endif
     lgr::info(Where.FILE, "---------------------------------------------\n");
 // #endregion
 
+////////////////////////////////////////////////////
+    // show splash screen
+    if(r_noSplashPic.getBool() == false) showSplashScreenImage();
+////////////////////////////////////////////////////
 
 // #region InitRaylib library stuff
     
@@ -2395,7 +2444,7 @@ $endif
 // #endregion Asset manager
 
 $if $feature(WREN_ENABLE) &&& !$feature(ANGEL_ENABLE):
-    lgr::info(Where.FILE, "Initializing Script Engine: %s", wren::VERSION_STRING);
+    lgr::info(Where.FILE, "Initializing Script Engine: %s (%s)", wren::VERSION_STRING, "WREN");
     lgr::info(Where.FILE, "---------------------------------------------");
     // init the game editor defaults
     local_game.script_eng.init();
@@ -2409,7 +2458,7 @@ $endif
 
 $if $feature(ANGEL_ENABLE) &&& !$feature(WREN_ENABLE):
     // Todo(HM) modify the script engine to use angelScript instead of wren
-    lgr::info(Where.FILE, "Initializing Script Engine: %s", angel::VERSION_STRING);
+    lgr::info(Where.FILE, "Initializing Script Engine: %s (%s)", angel::VERSION_STRING, "ANGELSCRIPT");
     lgr::info(Where.FILE, "---------------------------------------------");
     local_game.asEngine = angel::createEngine();
     ScriptEngine* scpt_engine = local_game.asEngine;
@@ -2436,6 +2485,31 @@ $if $feature(ANGEL_ENABLE) &&& !$feature(WREN_ENABLE):
             io::printn("The script was executed successfully.");
         }*/
         ctx.release();
+    }
+$endif
+
+    // test mujs initialization
+$if $feature(MUJS_ENABLE):
+    local_game.mujs_state = mujs::new_state();
+    if(local_game.mujs_state) 
+    {
+        io::printfn("mujs script engine initialized successfully. > %s", local_game.mujs_state);
+        int ret;
+        ret = local_game.mujs_state.initStdLib();
+        if(ret != 0) {
+            io::printfn("mujs script engine failed to init stdlib with code: %d", ret);
+        }
+        
+        mujs::@try(local_game.mujs_state)
+        {
+            ret = local_game.mujs_state.runScript(local_game.app_base_folder.tconcat("scripts/main.js"));
+            local_game.mujs_state.runFunction("hello", mujs::ISGLOBAL);
+            //any[*] _args = { any_make(&&5, int.typeid), any_make(&&5, int.typeid) };
+            local_game.mujs_state.runFunction("testwithargs", mujs::ISGLOBAL, 5, 5);
+        };
+        lgr::warning(Where.CONSOLE, "mujs script main.js run returned: %d", ret);
+    } else {
+        lgr::warning(Where.CONSOLE, "Failed to initialize mujs script engine!");
     }
 $endif
 
@@ -2552,6 +2626,7 @@ fn void gameOnExit() @local
     deinit_game_cursor();
     // make sure to release all assets last, so you don't try to release a asset that is already released.
     asstManager.releaseAllAssets();
+
 $if $feature(WREN_ENABLE):
     lgr::info(Where.FILE, "close Script Engine: %s", wren::VERSION_STRING);
     lgr::info(Where.FILE, "---------------------------------------------");
@@ -2565,6 +2640,17 @@ $if $feature(ANGEL_ENABLE):
     if(local_game.asEngine != null) {
         local_game.asEngine.release();
         local_game.asEngine = null;
+    }
+    lgr::info(Where.FILE, "---------------------------------------------\n");
+$endif
+
+$if $feature(MUJS_ENABLE):
+    lgr::info(Where.FILE, "close mujs Script State: %s", mujs::VERSION_STRING);
+    lgr::info(Where.FILE, "---------------------------------------------");
+    if(local_game.mujs_state) {
+        local_game.mujs_state.gc(mujs::GC_NOREPORT); // run a full garbage collection cycle
+        local_game.mujs_state.free();
+        local_game.mujs_state = null;
     }
     lgr::info(Where.FILE, "---------------------------------------------\n");
 $endif
@@ -2639,8 +2725,8 @@ fn void saveGame() {
     }
 }
 
-fn void loadGame() {
-
+fn void loadGame() 
+{
     usz file_index;
     
     FilePathList files = fs::loadDirectoryFiles(local_game.app_save_folder);
@@ -2893,6 +2979,56 @@ fn void disconnect()
 	//if ( soundSystem ) {
 		//soundSystem->SetMute( false );
 	//}
+}
+
+// you can change the splash screen image. 
+// Make sure your image is sized to 600 x 200 pixels
+fn void showSplashScreenImage()
+{
+    // NOTE(HM) this function is not used right now
+    // because I want to show a video intro instead of a static image.
+    // But you can use it if you want to show a static image.
+    String splash_path = local_game.app_base_folder.tconcat("images/splash.bmp");
+    if(fs::fileExists(splash_path)) 
+    {
+        rl::Image splash_img = rl::loadImage(splash_path.zstr_tcopy());
+        if(splash_img.data != null) 
+        {
+            assert(splash_img.width == 600 && splash_img.height == 200, "Splash image must be 600x200 pixels!");
+            int flags;
+            flags |= (int)rl::FLAG_WINDOW_UNDECORATED;
+            // set/apply the final window flags
+            rl::setConfigFlags((ConfigFlag)flags);
+            rl::initWindow(600, 200, "");
+            rl::setWindowMonitor(0); // set to first monitor
+            rl::setTargetFPS(24); // set to 24 fps
+            rl::Texture2D texture = rl::loadTextureFromImage(splash_img);
+            float time_start = (float)rl::getTime();
+            // show the image for X seconds
+            while(!rl::windowShouldClose()) 
+            {
+                if(((float)rl::getTime() - time_start) > 2.0f) break;
+                // draw
+                rl::beginDrawing();
+                rl::clearBackground(rl::RAYWHITE);
+                rl::drawTexture(texture, (600 - texture.width)/2, (200 - texture.height)/2, rl::WHITE);
+                rl::endDrawing();
+            }
+            //rl::beginDrawing();
+            //rl::drawTexture(texture, (local_game.screen.w - texture.width)/2, (local_game.screen.h - texture.height)/2, rl::WHITE);
+            // wait some time to let the user see the logo
+            //rl::waitTime(5000); // wait 2 seconds
+            //rl::endDrawing();
+            rl::unloadImage(splash_img);
+            rl::unloadTexture(texture);
+            rl::clearWindowState((int)rl::FLAG_WINDOW_UNDECORATED);
+            rl::closeWindow();
+        } else {
+            lgr::warning(Where.CONSOLE, "Failed to load splash image: %s", splash_path);
+        }
+    } else {
+        lgr::warning(Where.CONSOLE, "Splash image not found: %s", splash_path);
+    }
 }
 
 fn int playIntro(void*) 
