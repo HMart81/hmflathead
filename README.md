@@ -18,6 +18,7 @@
     + developer (enables developer mode, for now only turns on/off some code lines)
     + r_mode (sets screen resolution index)
     + r_showFPS
+    + r_noSplashPic (disables the small splash image at game start)
     + r_fullscreen (screen mode 0 = window, 1 = borderless, 2 = dedicated, -1 = ini file setting)
     + ui_debugDraw (show debug visualization for gui development) **not fully implemented**
     + fs_base ( sets name for default base folder, for the game data, right now is called `base`)
@@ -26,7 +27,8 @@
  - XML file reading (using a third party C3 simple xml parser).
  - Very basic INI file parsing.
  - A simple Tokanizer to make it easy to parse custom files.
- - Boids system.
+ - Very simple Boids system (simulates schools of birds, fix, etc).
+ - Support for both Wren (OOP) scripting langauge and Mujs javascript.
  ## Game
  - Ability to create simple game menus using **Basic Custom Retained-Mode GUI system**
  - Import fonts, textures, sounds and music inside the game base folder, at game loading time.
@@ -48,7 +50,7 @@
 
 Open **makefile** in the main folder to see how the project is set up. I recommend reading about Makefile syntax and rules before
 changing things inside.  
-There's also a very simple and basic C3 language highlight for Notepad++ in there as well.
+There's also a very simple and basic C3 language highlight for Notepad++ in there as well (maybe out of date for more modern C3 versions).
 
   
 ## license
