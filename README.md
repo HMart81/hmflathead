@@ -28,7 +28,7 @@
  - Very basic INI file parsing.
  - A simple Tokanizer to make it easy to parse custom files.
  - Very simple Boids system (simulates schools of birds, fix, etc).
- - Support for both Wren (OOP) scripting langauge and Mujs javascript.
+ - Support for both Wren (OOP) scripting language and Mujs javascript.
  ## Game
  - Ability to create simple game menus using **Basic Custom Retained-Mode GUI system**
  - Import fonts, textures, sounds and music inside the game base folder, at game loading time.
