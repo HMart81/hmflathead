@@ -72,7 +72,7 @@ import thirdparty::library::xml;
 import thirdparty::microui::mu;  // micro ui
 import engine::physics::box2d;
 import thirdparty::tracy;
-import thirdparty::tsoding::fg; // flaglib
+import thirdparty::tsoding::flg; // simple flag library
 import thirdparty::mujs; // micro java script
 // #endregion
 
@@ -201,12 +201,10 @@ const Vec2f DEFAULT_WORLD_CENTER   = {0, 0}; // top left coorner of screen (this
 //
 
 // Game Info
-const int MAX_VERSION                = 0;
-const int MIN_VERSION                = 0;
-const int BABY_VERSION               = 3;
-const String GAME_NAME     @Hardcode = "hmflathead"; // TODO(HM) give me a final name!!!!
-const String GAME_SUB_NAME @Hardcode = "engine"; // NOTE(HM) optional...
+import engine::sys::licensee;
+alias lic @public = module engine::sys::licensee;
 //
+
 // #endregion Constants
 
 // #region Alias
@@ -429,8 +427,10 @@ struct Game (SaveSystemInterface) @local
     //ParticleSpawner particleSpawner1;
 }
 
-Game local_game @local; // global game singleton
+/*************** global game singleton ***************/
+Game local_game @local; 
 Game* gpGame @public = &local_game;
+/*****************************************************/
 
 // ***********************
 // #endregion game manager
@@ -1210,10 +1210,10 @@ fn void drawGameVersion(Vec2i at_pos) @inline @local
     // draw game version
     const Color COLOR @Hardcode = {127, 127, 255, 255};
     const VERSION_FONT_SCALE = 12;
-    ZString game_version     = string::tformat_zstr("version: (%s, %s, %s)", MAX_VERSION, MIN_VERSION, BABY_VERSION);
+    //ZString game_version     = string::tformat_zstr("version: (%s, %s, %s)", lic::MAX_VERSION, lic::MIN_VERSION, lic::BABY_VERSION);
     //int version_text_len     = rl::measureText(game_version, VERSION_FONT_SCALE);
     rl::drawText(
-        game_version,
+        lic::@game_version().zstr_tcopy(),
         //(int)(screenWidth - (2.0f * version_text_len)), //(float)(font_w * libc::strlen(game_version))),
         //(int)0.25f*screenHeight,
         at_pos.x,
@@ -1749,12 +1749,18 @@ fn void handle_cmdline(String[] args)
 //////////////////////////////////////////////////////////////////
 
 
+fn void usage() @local @if($feature(TSODING_FLAG))
+{
+    io::printfn("Usage: %s [options]", flg::program_name());
+    io::printfn("Options:");
+    flg::print_options();
+}
+
 /* This is where game execution begins */
 fn void? gameOnStart(String[]* args) @local 
 {
     local_game.mode = STARTING;
-    String game_version = string::tformat("\"%s.%s.%s\"", MAX_VERSION, MIN_VERSION, BABY_VERSION);
-    lgr::info(Where.FILE, "Game Version: %s\n", game_version);
+    lgr::info(Where.FILE, "Game Version: %s\n", lic::@game_version());
     lgr::info(Where.FILE, "-------- THE <toname> ENGINE LOG ------------");
     
     // Handle cmdline arguments if any.
@@ -1765,11 +1771,10 @@ $if $feature(TSODING_FLAG):
         argv.push((*args)[i].zstr_tcopy());
     }
 
-    if (!fg::flag_parse(args.len, argv.to_tarray())) {
-        //usage(stderr);
-        fg::flag_print_error(&&io::stderr());
+    if (!flg::flag_parse(args.len, argv.to_tarray())) {
+        usage();
+        flg::print_error(&&io::stderr());
         return GAME_START_FAILED?;
-        //exit(1);
     }
 $else
     handle_cmdline(*args);
@@ -1793,12 +1798,12 @@ $endif
     String app_exe_path = (*args)[0];
     
     // Set the game name
-    local_game.app_name = GAME_NAME;
+    local_game.app_name = lic::GAME_NAME;
     if(local_game.app_name != "")
     {
-        if(GAME_SUB_NAME.len > 0)
+        if(lic::GAME_SUB_NAME.len > 0)
         {
-            local_game.app_name = local_game.app_name.tconcat(GAME_SUB_NAME);
+            local_game.app_name = local_game.app_name.tconcat(lic::GAME_SUB_NAME);
         }
     } else {
         // take the name from the exe path
@@ -2161,7 +2166,7 @@ lgr::info(Where.FILE, "---------------------------------------------\n");
     
     int screenWidth     = local_game.screen.w;
     int screenHeight    = local_game.screen.h;
-    ZString window_name = string::tformat_zstr("%s version: (%s, %s, %s)", local_game.app_name.zstr_tcopy(), MAX_VERSION, MIN_VERSION, BABY_VERSION);
+    ZString window_name = string::tformat_zstr("%s version: (%s, %s, %s)", local_game.app_name.zstr_tcopy(), lic::MAX_VERSION, lic::MIN_VERSION, lic::BABY_VERSION);
     
     //===============================//
     //========= Init Window ======== // 

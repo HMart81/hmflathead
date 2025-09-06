@@ -1,0 +1,85 @@
+/************************************ LICENSE *******************************************
+# hmflathead GPL Source Code
+# Copyright (C) 2025 Hilario Martins.
+# 
+# This file is part of the hmflathead GPL Source Code ("hmflathead Source Code")
+# 
+# hmflathead Source Code is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# hmflathead Source Code is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with hmflathead Source Code.  If not, see <http://www.gnu.org/licenses/>.
+# 
+# In addition, the hmflathead Source Code is also subject to certain additional terms. 
+# You should have received a copy of these additional terms immediately following the terms and conditions of the GNU General Public License 
+# which accompanied the hmflathead Source Code.  If not, please request a copy in writing from me at the address below.
+# 
+# If you have questions concerning this license or the applicable additional terms, you may contact in writing 
+# Hilario Martins, Rua de Sanguinhedo 1010 4850-545 Vieira Do Minho Portugal.
+# 
+*********************************************************************************************************************************************/
+
+module engine::sys::licensee;
+
+import std::io;
+import engine::misc; // misc code
+/*
+===============================================================================
+
+	Definitions for information that is related to a licensee's game name and location.
+
+===============================================================================
+*/
+const ENGINE_VERSION @Hardcode	= "hmpixy2d 1.5.1";	// printed in console
+
+const int MAX_VERSION                = 0;
+const int MIN_VERSION                = 0;
+const int BABY_VERSION               = 4;
+const GAME_NAME	@Hardcode = "hmflathead"; // appears on window titles and errors
+const GAME_SUB_NAME @Hardcode = "engine"; // NOTE(HM) optional...
+macro @game_version() => string::tformat("%d.%d.%d", MAX_VERSION, MIN_VERSION, BABY_VERSION);
+
+// paths
+const BASE_GAMEDIR = "data";	// directory where the game data exists, relative to the executable
+
+// filenames
+const CONFIG_FILE =	"hmpixy2d.ini";	// configuration file name, in BASE_GAMEDIR
+
+// base folder where the source code lives
+const SOURCE_CODE_BASE_FOLDER = "src";
+
+// Savegame Version
+// Update when you can no longer maintain compatibility with previous savegames
+// NOTE: a seperate core savegame version and game savegame version could be useful
+const SAVEGAME_VERSION = 1;
+
+// editor info
+const EDITOR_DEFAULT_PROJECT = "def.proj";
+const EDITOR_WINDOWTEXT = "HMeditor";
+
+// win32 info
+const WIN32_CONSOLE_CLASS = "hmpixy2d WinConsole";
+
+// Linux info
+// allow overriding it from the build system with -L LINUX_DEFAULT_PATH
+const LINUX_DEFAULT_PATH = "/usr/local/games/hmflathead"; // default install path
+
+// CD Key file info
+// goes into BASE_GAMEDIR whatever the fs_game is set to
+// two distinct files for easier win32 installer job
+const CDKEY_FILE = "hmpixy2dkey"; // name of the cd key file
+const CDKEY_TEXT = `
+// Do not give this file to ANYONE.
+// The developer will NEVER ask you to send this file to him or anyone, so don't do it!
+// The file contains a unique CD key that is used to identify your copy of the game.
+// So don't lose it or give it away!
+`;
+
+const CONFIG_SPEC = "config.spec";

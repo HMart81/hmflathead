@@ -26,7 +26,7 @@
 # 
 *********************************************************************************************************************************************/
 
-module thirdparty::tsoding::fg @if($feature(TSODING_FLAG));
+module thirdparty::tsoding::flg @if($feature(TSODING_FLAG));
 
 import std::io;
 import libc;
@@ -123,11 +123,11 @@ extern fn usz* flag_size(ZString  name, ulong def, ZString  desc) @extern("flag_
 extern fn ZString* flag_str(ZString  name, ZString  def, ZString  desc) @extern("flag_str");
 extern fn Flag_List* flag_list(ZString  name, ZString  desc) @extern("flag_list");
 extern fn bool flag_parse(int argc, ZString* argv) @extern("flag_parse");
-extern fn int flag_rest_argc() @extern("flag_rest_argc");
-extern fn ZString* flag_rest_argv() @extern("flag_rest_argv");
-extern fn void flag_print_error(CFile *stream) @extern("flag_print_error");
-extern fn void flag_print_options(CFile *stream) @extern("flag_print_options");
-extern fn ZString flag_program_name() @extern("flag_program_name");
+extern fn int rest_argc() @extern("flag_rest_argc");
+extern fn ZString* rest_argv() @extern("flag_rest_argv");
+extern fn void print_error(CFile *stream) @extern("flag_print_error");
+extern fn void print_options(CFile *stream) @extern("flag_print_options");
+extern fn ZString program_name() @extern("flag_program_name");
 
 
 /*
