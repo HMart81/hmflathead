@@ -44,7 +44,7 @@ import engine::input;
 //import engine::assets::astmng; // asset manager
 import game::material::mat;
 import game::material::manager::mtrmng;
-import engine::logging::lgr;
+import engine::logging::log;
 import game::main;
 import game::camview;
 import game::actors::ent;
@@ -174,7 +174,7 @@ fn void Panel.scale(&self, float w_scaler, float h_scaler) @inline
     if( w_scaler >= 0.05f && w_scaler < 0.06f &&
         h_scaler >= 0.05f && h_scaler < 0.06f )
     {
-        lgr::warning(Where.FILE, "scaled a panel to almost invisible size! Was that desired?");
+        log::warning(Where.FILE, "scaled a panel to almost invisible size! Was that desired?");
     }
 
     self.rect.width  *= w_scaler;
@@ -397,7 +397,7 @@ fn void Panel.draw(&self, bool selected = false)
             /*case (bool)(self.mat.coverage & (mat::COVERAGE_PERFORATED | mat::COVERAGE_TRANSLUCENT)):
                 blending = BlendMode.CUSTOM; // custom blending mode*/
             case (bool)(self.mat.coverage & mat::COVERAGE_BAD):
-                lgr::error(Where.FILE, "Panel with material %s has a bad material coverage type.", self.mat.name);
+                log::error(Where.FILE, "Panel with material %s has a bad material coverage type.", self.mat.name);
                 unreachable();
         }
 
@@ -842,7 +842,7 @@ fn Desktop* Widget.getDesktop(&self) @dynamic => self.parent.desktop;
 *>
 fn void Widget.bindTo(&self, Widget* other) @dynamic {
     if(self.bound()) {
-        lgr::warning(Where.CONSOLE, "Cannot Bind %s to %s because is already bound to %s.", self.id, other.id, self.parent.other.id);
+        log::warning(Where.CONSOLE, "Cannot Bind %s to %s because is already bound to %s.", self.id, other.id, self.parent.other.id);
         return;
     }
     
@@ -875,7 +875,7 @@ fn void Widget.link(&self, Widget* other) @dynamic {
     if (other == null) return;
 
     if (self.isLinked()) {
-        lgr::warning(Where.CONSOLE, "Cannot link %s to %s because is already linked to %s.", self.id, other.id, self.next.id);
+        log::warning(Where.CONSOLE, "Cannot link %s to %s because is already linked to %s.", self.id, other.id, self.next.id);
         return;
     }
 
@@ -977,7 +977,7 @@ fn Vec2f WidgetText.getBounds(&self) @inline {
 
 fn void WidgetText.setFont(&self, Font* font) @inline {
     if (font == null) {
-        lgr::error(Where.CONSOLE, "WidgetText: Cannot set font to null.");
+        log::error(Where.CONSOLE, "WidgetText: Cannot set font to null.");
         return;
     }
     self.font = font;
@@ -1111,7 +1111,7 @@ fn void WidgetButton.manage_interactions(&self) @local
 {
     if (self.active() == false) return;
 
-    //main::lgr::info(Where.CONSOLE, "Gui: I'm over button: %s", self.name);
+    //main::log::info(Where.CONSOLE, "Gui: I'm over button: %s", self.name);
     if (self.asFocus() && self.selected == false)
     {
         if(self.onOver) self.onOver(self);
@@ -1119,7 +1119,7 @@ fn void WidgetButton.manage_interactions(&self) @local
         if(!ui_editGui.getBool()) 
         {
             if (rl::isMouseButtonDown(MouseButton.LEFT) && self.press_count >= 1) {
-                //main::lgr::info(Where.CONSOLE, "Gui: I'm pressing button: %s", self.name);
+                //main::log::info(Where.CONSOLE, "Gui: I'm pressing button: %s", self.name);
                 if (self.onPress) { 
                     self.onPress(self);
                 }
@@ -1878,7 +1878,7 @@ macro Desktop.@addChildren(&self; @body(self))
 macro Desktop.getChild(&self, int id) {
     Widget* child = self.children[id];
     if (child == null) {
-        lgr::warning(Where.CONSOLE, "Cannot get child %d from %s because is null.", id, self.name);
+        log::warning(Where.CONSOLE, "Cannot get child %d from %s because is null.", id, self.name);
         return null;
     }
     return child;
@@ -1978,7 +1978,7 @@ DesktopManager* gpDeskManager = &local_manager;
 fn void DesktopManager.register(&self, Desktop* _desk) @inline {
     foreach(desk : self.desktops) {
         if(desk.name == _desk.name) {
-            lgr::warning(Where.CONSOLE, "Cannot register \"%s\" because is already registered.", desk.name);
+            log::warning(Where.CONSOLE, "Cannot register \"%s\" because is already registered.", desk.name);
             return;
         }
     }
@@ -2073,7 +2073,7 @@ macro bool drawEditorButton(String text, Vector2 pos) @local
 
 fn void editor_open() @inline {
     if(main::gpGame.guiActive == null) {
-        lgr::error(Where.CONSOLE, "Cannot open gui editor because no gui is active.");
+        log::error(Where.CONSOLE, "Cannot open gui editor because no gui is active.");
         return;
     }
     ui_editGui.set("1");
@@ -2157,7 +2157,7 @@ fn void drawGuiEditor(Desktop* mng)
     
      // gui saving 
     if(drawEditorButton("Gui SAVE", {left_marging, top_margin * 3})) {
-         lgr::info(Where.CONSOLE, "Trying to save gui \"%s\" but that is still not possible.", mng.name);
+        log::info(Where.CONSOLE, "Trying to save gui \"%s\" but that is still not possible.", mng.name);
     }
     
     // close editor

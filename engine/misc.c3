@@ -33,7 +33,7 @@ import std::io, std::io::file;
 import std::core::mem, std::core::ascii;
 import std::math;
 import std::collections;
-import engine::logging::lgr;
+import engine::logging::log;
 import engine::physics::box2d;
 import game::main;
 import game::actors::ent::plyr; // player
@@ -119,7 +119,7 @@ macro @on($a = 0; @body) @builtin
         // do something with index and it
         // index is the current index in the array
         // it is the value at that index
-        lgr::info("Index: %d, Value: %d", index, it);
+        log::info("Index: %d, Value: %d", index, it);
     }
 
   @param $a : `start index`
@@ -257,7 +257,7 @@ fn KeyboardKey getKeyValueFromName(String name) @inline
         case "KEY_VOLUME_UP":       return rl::KEY_VOLUME_UP;
         case "KEY_VOLUME_DOWN":     return rl::KEY_VOLUME_DOWN;
         default:
-            lgr::error(Where.FILE, "Unknown key name: %s", name);
+            log::error(Where.FILE, "Unknown key name: %s", name);
             return rl::KEY_NULL; // unknown key
     }
 }
@@ -426,7 +426,7 @@ fn void DebugLine.register(&self) @inline
 {
     if(g_debugLines.len() > DEBUG_LINE_MAX_AMOUNT) 
     {
-        lgr::warning(Where.FILE, "Debug lines limit reached! Removing oldest line.");
+        log::warning(Where.FILE, "Debug lines limit reached! Removing oldest line.");
         mem::free(g_debugLines[0]); // free the memory allocated for the oldest line
         g_debugLines[0] = null; // set the pointer to null
         g_debugLines.remove_at(0); // remove the oldest line pointer from the list
@@ -622,7 +622,7 @@ fn Sound loadSound(String asset_path) @inline {
         return sd;
     }
     
-    lgr::warning(Where.FILE,  "Unable to load » %s", asset_path);
+    log::warning(Where.FILE,  "Unable to load » %s", asset_path);
     return main::gpGame.default_sound;
 }
 // end_region
@@ -734,7 +734,7 @@ fn void handleShaderIncludes(String* shdcode) @local @inline
 
                 String? code_to_included = readEntireFileX(main::gpGame.app_base_folder.tconcat(include_path));
                 if(catch excuse = code_to_included) {
-                    lgr::error(Where.FILE, "Failed to include file: %s, error: %s", include_path, excuse);
+                    log::error(Where.FILE, "Failed to include file: %s, error: %s", include_path, excuse);
                     // NOTE(HM) if the file is not found, we will just remove the include directive
                     (*shdcode) = (*shdcode).treplace(replace_directive, "");
                     continue; // skip to next line
@@ -752,7 +752,7 @@ fn Shader loadShader(String vs_path, String fs_path)
     // NOTE(HM) this is used to load a shader from a vertex and fragment shader file
     // if the paths are empty it will return the default shader
     if(vs_path.is_empty() && fs_path.is_empty()) {
-        lgr::warning(Where.FILE, "Both vertex and fragment shader paths are empty, returning default shaders: %s::%s:%s", $$MODULE, $$FUNC, $$LINE);
+        log::warning(Where.FILE, "Both vertex and fragment shader paths are empty, returning default shaders: %s::%s:%s", $$MODULE, $$FUNC, $$LINE);
         return {}; // return empty shader will use raylib default shaders
     }
 
@@ -767,7 +767,7 @@ fn Shader loadShader(String vs_path, String fs_path)
         // NOTE(HM) if the vertex shader path is empty, we will try to load the custom fragment shader only
         fs_shader_code = readEntireFileX(fs_path)!!;
         if(fs_shader_code.is_empty()) {
-            lgr::error(Where.FILE, "Failed to load fragment shader from path: %s", fs_path);
+            log::error(Where.FILE, "Failed to load fragment shader from path: %s", fs_path);
             return {}; // return empty shader will use raylib default shaders
         }
 
@@ -780,12 +780,12 @@ fn Shader loadShader(String vs_path, String fs_path)
     // NOTE(HM) if the vertex shader path is not empty, we will try to read the custom vertex shader
     vs_shader_code = readEntireFileX(vs_path)!!;
     if(vs_shader_code.is_empty()) {
-        lgr::error(Where.FILE, "Failed to load vertex shader from path: %s", vs_path);
+        log::error(Where.FILE, "Failed to load vertex shader from path: %s", vs_path);
         vs_shader_code = ""; // if for some reason we fail to read our vertex shader, use the raylib default vertex shader
     }
 
     if(vs_shader_code.is_empty() && fs_path.is_empty()) {
-        lgr::warning(Where.FILE, "Both vertex and fragment shader paths are empty, returning default shaders: %s::%s:%s", $$MODULE, $$FUNC, $$LINE);
+        log::warning(Where.FILE, "Both vertex and fragment shader paths are empty, returning default shaders: %s::%s:%s", $$MODULE, $$FUNC, $$LINE);
         return {}; // return empty shader will use raylib default shaders
     }
 
@@ -801,7 +801,7 @@ fn Shader loadShader(String vs_path, String fs_path)
     {
         fs_shader_code = readEntireFileX(fs_path)!!;
         if(fs_shader_code.is_empty()) {
-            lgr::error(Where.FILE, "Failed to load fragment shader from path: %s", fs_path);
+            log::error(Where.FILE, "Failed to load fragment shader from path: %s", fs_path);
             // NOTE(HM) we will use the default raylib fragment shader then
             return rl::loadShaderFromMemory(stringTotempzstring(vs_shader_code), "");
         }
@@ -822,7 +822,7 @@ fn void Shader.setUniformFloatValue(self, String uniform_name, float value) @inl
     if(rl::isShaderValid(self)) {
         rl::setShaderValue(self, locIndex, (void*)&value, rl::ShdUniTyp.FLOAT);
     } else {
-        lgr::warning(Where.FILE, "Shader is invalid, unable to set value.");
+        log::warning(Where.FILE, "Shader is invalid, unable to set value.");
     }
 }
 
@@ -835,7 +835,7 @@ fn void Shader.setAttributeFloatValue(self, String attribute_name, float value) 
     if(rl::isShaderValid(self)) {
         rl::setShaderValue(self, locIndex, (void*)&value, rl::ShdUniTyp.FLOAT);
     } else {
-        lgr::warning(Where.FILE, "Shader is invalid, unable to set value.");
+        log::warning(Where.FILE, "Shader is invalid, unable to set value.");
     }
 }
 
@@ -845,7 +845,7 @@ fn void Shader.setAttributelocFloatValue(self, int locIndex, float value) @inlin
     if(rl::isShaderValid(self)) {
         rl::setShaderValue(self, self.locs[locIndex], (void*)&value, rl::ShdUniTyp.FLOAT);
     } else {
-        lgr::warning(Where.FILE, "Shader is invalid, unable to set value.");
+        log::warning(Where.FILE, "Shader is invalid, unable to set value.");
     }
 }
 
@@ -858,7 +858,7 @@ fn void Shader.setUniformFloatSliceValues(self, String uniform_name, float[] val
     if(rl::isShaderValid(self)) {
         rl::setShaderValueV(self, locIndex, (void*)values.ptr, rl::ShdUniTyp.FLOAT, values.len);
     } else {
-        lgr::warning(Where.FILE, "Shader is invalid, unable to set value.");
+        log::warning(Where.FILE, "Shader is invalid, unable to set value.");
     }
 }
 
@@ -871,7 +871,7 @@ fn void Shader.setAttributeFloatSliceValues(self, String attribute_name, float[]
     if(rl::isShaderValid(self)) {
         rl::setShaderValueV(self, locIndex, (void*)values.ptr, rl::ShdUniTyp.FLOAT, values.len);
     } else {
-        lgr::warning(Where.FILE, "Shader is invalid, unable to set value.");
+        log::warning(Where.FILE, "Shader is invalid, unable to set value.");
     }
 }
 
@@ -884,7 +884,7 @@ fn void Shader.setUniformIntValue(self, String uniform_name, int value) @inline 
     if(rl::isShaderValid(self)) {
         rl::setShaderValue(self, locIndex, (void*)&value, rl::ShdUniTyp.INT);
     } else {
-        lgr::warning(Where.FILE, "Shader is invalid, unable to set value.");
+        log::warning(Where.FILE, "Shader is invalid, unable to set value.");
     }
 }
 
@@ -897,7 +897,7 @@ fn void Shader.setAttributeIntValue(self, String attribute_name, int value) @inl
     if(rl::isShaderValid(self)) {
         rl::setShaderValue(self, locIndex, (void*)&value, rl::ShdUniTyp.INT);
     } else {
-        lgr::warning(Where.FILE, "Shader is invalid, unable to set value.");
+        log::warning(Where.FILE, "Shader is invalid, unable to set value.");
     }
 }
 
@@ -910,7 +910,7 @@ fn void Shader.setUniformIntSliceValues(self, String uniform_name, int[] values)
     if(rl::isShaderValid(self)) {
         rl::setShaderValueV(self, locIndex, (void*)values.ptr, rl::ShdUniTyp.INT, values.len);
     } else {
-        lgr::warning(Where.FILE, "Shader is invalid, unable to set value.");
+        log::warning(Where.FILE, "Shader is invalid, unable to set value.");
     }
 }
 
@@ -923,7 +923,7 @@ fn void Shader.setAttributeIntSliceValues(self, String attribute_name, int[] val
     if(rl::isShaderValid(self)) {
         rl::setShaderValueV(self, locIndex, (void*)values.ptr, rl::ShdUniTyp.INT, values.len);
     } else {
-        lgr::warning(Where.FILE, "Shader is invalid, unable to set value.");
+        log::warning(Where.FILE, "Shader is invalid, unable to set value.");
     }
 }
 
@@ -936,7 +936,7 @@ fn void Shader.setUniformVector2Value(self, String uniform_name, Vector2 vec) @i
     if(rl::isShaderValid(self)) {
         rl::setShaderValueV(self, locIndex, (void*)&vec, rl::ShdUniTyp.VEC2, 1);
     } else {
-        lgr::warning(Where.FILE, "Shader is invalid, unable to set value.");
+        log::warning(Where.FILE, "Shader is invalid, unable to set value.");
     }
 }
 
@@ -949,7 +949,7 @@ fn void Shader.setAttributeVector2Value(self, String attribute_name, Vector2 vec
     if(rl::isShaderValid(self)) {
         rl::setShaderValueV(self, locIndex, (void*)&vec, rl::ShdUniTyp.VEC2, 1);
     } else {
-        lgr::warning(Where.FILE, "Shader is invalid, unable to set value.");
+        log::warning(Where.FILE, "Shader is invalid, unable to set value.");
     }
 }
 
@@ -965,10 +965,10 @@ fn void Shader.setAttributeLocValueV(self, int locIndex, float[] vec) @inline {
         } else if(vec.len == 4) {   
             rl::setShaderValueV(self, self.locs[locIndex], (void*)vec.ptr, rl::ShdUniTyp.VEC4, 1);
         } else {
-            lgr::warning(Where.FILE, "Shader attribute value vector must be of size 2, 3 or 4.");
+            log::warning(Where.FILE, "Shader attribute value vector must be of size 2, 3 or 4.");
         }
     } else {
-        lgr::warning(Where.FILE, "Shader is invalid, unable to set value.");
+        log::warning(Where.FILE, "Shader is invalid, unable to set value.");
     }
 }
 
@@ -981,7 +981,7 @@ fn void Shader.setUniformMatrixValue(self, String uniform_name, Matrix mat) @inl
     if(rl::isShaderValid(self)) {
         rl::setShaderValueMatrix(self, locIndex, mat);
     } else {
-        lgr::warning(Where.FILE, "Shader is invalid, unable to set value.");
+        log::warning(Where.FILE, "Shader is invalid, unable to set value.");
     }
 }
 
@@ -994,7 +994,7 @@ fn void Shader.setUniformTexture(self, String uniform_name, Texture2D tex) @inli
     if(rl::isShaderValid(self)) {
         rl::setShaderValueTexture(self, locIndex, tex);
     } else {
-        lgr::warning(Where.FILE, "Shader is invalid, unable to set value.");
+        log::warning(Where.FILE, "Shader is invalid, unable to set value.");
     }
 }
 
@@ -1099,7 +1099,7 @@ fn String String.stripExtension(self) {
     if(known_extension) {
         return self.strip_end(needle);
     } else {
-        lgr::warning(Where.FILE,  "Cannot strip extension is unkown: %s.", needle);
+        log::warning(Where.FILE,  "Cannot strip extension is unkown: %s.", needle);
         return self; // do nothing
     }
 }
@@ -1218,7 +1218,7 @@ fn String? readEntireFileX(String filepath)
         data.read(buffer[:_file.contents_size])!;
         return ((String)buffer).tcopy();
     } else{
-        lgr::error(Where.FILE, "Cannot open file: %s", filepath);
+        log::error(Where.FILE, "Cannot open file: %s", filepath);
     }
     
     return (String)"";

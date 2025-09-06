@@ -35,7 +35,7 @@ import game::main;
 import std::io, std::io::path;
 import std::collections::list;
 import thirdparty::raylib5::rl;
-import engine::logging::lgr;
+import engine::logging::log;
 // end_region
 
 faultdef FS_FAILED_SAVE_DATA,
@@ -359,7 +359,7 @@ fn void moveFiles(String from, String to, String fileExtensions = "")
 
         bool? sucess = fs::makeDirectory_IfNotExist(files_to);
         if(catch excuse = sucess) { // will ignore if the directory already exists
-            lgr::warning(Where.FILE, "Failed to create directory at: %s!\n\t -> excuse: %s", 
+            log::warning(Where.FILE, "Failed to create directory at: %s!\n\t -> excuse: %s", 
                         files_to, excuse);
             $if $feature(_DEBUG):
                 unreachable();
@@ -399,7 +399,7 @@ module engine::filesystem::fs::win32 @if(env::WIN32);
 
 import std::io;
 import std::os::env, std::os::win32;
-import engine::logging::lgr;
+import engine::logging::log;
 
 // region WIN32 (Windows)
 const PERSONAL_FOLDER_MY_GAMES = 0;
@@ -637,7 +637,7 @@ fn bool writeRegistryValue(String reg_key, String reg_value, String reg_data) @i
     /*Win32_PHKEY? currentUserKey = regOpenCurrentUser(WIN32_KEY_WRITE);
     if(catch excuse = currentUserKey) 
     {
-        lgr::warning(Where.FILE,"Failed to open current user register key with excuse: %s", excuse);
+        log::warning(Where.FILE,"Failed to open current user register key with excuse: %s", excuse);
         return false;
     }
     defer regCloseKey(currentUserKey);*/
@@ -645,7 +645,7 @@ fn bool writeRegistryValue(String reg_key, String reg_value, String reg_data) @i
     /*Win32_HKEY? folder_key = regOpenKey(HKEY_CURRENT_USER, (Win32_LPCSTR)reg_key.zstr_tcopy(), 0, WIN32_KEY_WRITE);
     if(catch excuse = folder_key) 
     {
-        lgr::warning(Where.FILE,"Failed to open key '%s' with excuse: %s", reg_key, excuse);
+        log::warning(Where.FILE,"Failed to open key '%s' with excuse: %s", reg_key, excuse);
         return false;
     }
     defer regCloseKey(folder_key);*/
@@ -655,7 +655,7 @@ fn bool writeRegistryValue(String reg_key, String reg_value, String reg_data) @i
     bool? result = regCreateKey(HKEY_CURRENT_USER, (Win32_LPCSTR)reg_key.zstr_tcopy(), 0, null, REG_OPTION_BACKUP_RESTORE, WIN32_KEY_WRITE, null, &folder_key, &dwDisposition);
     if(catch excuse = result)
     {
-        lgr::warning(Where.FILE, "Failed to create or open registry key '%s' with excuse: %s", reg_key, excuse);
+        log::warning(Where.FILE, "Failed to create or open registry key '%s' with excuse: %s", reg_key, excuse);
         return false; // return false on failure
     }
     defer regCloseKey(folder_key);

@@ -36,7 +36,7 @@
 module thirdparty::mujs @if($feature(MUJS_ENABLE));
 
 import std::io;
-import engine::logging::lgr;
+import engine::logging::log;
 import game::main;
 
 fn int State.initStdLib(&self)
@@ -77,7 +77,7 @@ fn void bindPrintToFile(State* state) @local
     ZString s = state.tostring(i);
     if(i > 1) io::printf(" "); // separate multiple args with spaces
     //io::printfn("%s", s);
-    lgr::info(Where.FILE, "%s", s);
+    log::info(Where.FILE, "%s", s);
   }
   state.pushundefined();
 }
@@ -86,7 +86,7 @@ fn void State.panic(&self) @local
 {
   ZString msg = self.tostring(-1);
   unreachable("mujs panic: %s", msg);
-  //lgr::error(Where.FILE, "mujs panic: %s", msg);
+  //log::error(Where.FILE, "mujs panic: %s", msg);
   // Handle panic appropriately, e.g., log the error, clean up resources, etc.
   // For this example, we'll just exit the program.
  // exit(1);
@@ -94,7 +94,7 @@ fn void State.panic(&self) @local
 
 fn void State.report(&self, ZString message) @local
 {
-  lgr::warning(Where.FILE, "mujs report: %s", message);
+  log::warning(Where.FILE, "mujs report: %s", message);
 }
 //
 

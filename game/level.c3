@@ -37,7 +37,7 @@ import game::main; // for file logging or console logging
 import engine::misc;
 import game::serialize::svs;
 import engine::sys::cvar;
-import engine::logging::lgr;
+import engine::logging::log;
 import engine::filesystem::fs;
 import engine::sys::reader::svg;
 import game::actors::ent, /*entity module*/ game::actors::ent::plyr; // player module

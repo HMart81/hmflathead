@@ -44,7 +44,7 @@ import thirdparty::raylib5::rl;
 import engine::misc;
 import engine::assets_api::asset; // for the asset system
 import engine::assets_api::astmng; // asset manager
-import engine::logging::lgr;
+import engine::logging::log;
 // end_region
 
 // region defines
@@ -98,7 +98,7 @@ fn SaveFile? open(String filepath, int file_version = SAVE_FILE_VERSION)
 	$foreach $menber : $typeof(file_data).membersof:
  		$if $menber.tagof("version") == SAVE_FILE_VERSION:
 		$else
-			lgr::warning(Where.CONSOLE, "SaveFile member %s is not compatible with version %d. Please update the save file version.", $menber.nameof, SAVE_FILE_VERSION);
+			log::warning(Where.CONSOLE, "SaveFile member %s is not compatible with version %d. Please update the save file version.", $menber.nameof, SAVE_FILE_VERSION);
 			return VERSION_MISMATCH?;
 		$endif
 	$endforeach
@@ -127,7 +127,7 @@ fn SaveFile? make_new(String filepath, int file_version = SAVE_FILE_VERSION) {
 		$foreach $menber : $typeof(file_data).membersof:
 			$if $menber.tagof("version") == SAVE_FILE_VERSION:
 			$else
-				lgr::warning(Where.CONSOLE, "SaveFile member %s is not compatible with version %d. Please update the save file version.", $menber.nameof, SAVE_FILE_VERSION);
+				log::warning(Where.CONSOLE, "SaveFile member %s is not compatible with version %d. Please update the save file version.", $menber.nameof, SAVE_FILE_VERSION);
 				return VERSION_MISMATCH?;
 			$endif
 		$endforeach
@@ -151,7 +151,7 @@ fn void? close(SaveFile* save) @inline {
 fn void	write(SaveFile* savefile, void* buffer, int bytes_len ) {
     char[] _buffer = ((char*)buffer)[:bytes_len];
     if(@catch(savefile.file.write(_buffer))) {
-        lgr::warning(Where.CONSOLE, "failed to write data to file %s! : %s:%s", savefile.path, $$FUNC, $$LINE);
+        log::warning(Where.CONSOLE, "failed to write data to file %s! : %s:%s", savefile.path, $$FUNC, $$LINE);
     }
 }
 <*
@@ -182,7 +182,7 @@ fn void	writeShort(SaveFile* savefile, short value ) {
 *>
 fn void	writeChar(SaveFile* savefile, char value ) {
     if(@catch(savefile.file.write_byte(value))) {
-        lgr::warning(Where.CONSOLE, "failed to write char to file %s! : %s:%s", savefile.path, $$FUNC, $$LINE);
+        log::warning(Where.CONSOLE, "failed to write char to file %s! : %s:%s", savefile.path, $$FUNC, $$LINE);
     }
 }
 <*
@@ -220,7 +220,7 @@ fn void	writeBool(SaveFile* savefile, bool value ) {
 *>
 fn void	writeString(SaveFile* savefile, String str) {
     if(@catch(savefile.file.write(str))) {
-        lgr::warning(Where.CONSOLE, "failed to write string to file %s! : %s:%s", savefile.path, $$FUNC, $$LINE);
+        log::warning(Where.CONSOLE, "failed to write string to file %s! : %s:%s", savefile.path, $$FUNC, $$LINE);
     }
 }
 <*
@@ -368,7 +368,7 @@ fn void advance_reading_position(SaveFile* f, usz n) @inline @local @deprecated
 
 fn void read(SaveFile* savefile, void *buffer, usz bytes_len) {
     if(@catch(savefile.file.read(((char*)buffer)[:bytes_len]))) {
-        lgr::warning(Where.CONSOLE, "failed to read data from file %s! : %s:%s", savefile.path, $$FUNC, $$LINE);
+        log::warning(Where.CONSOLE, "failed to read data from file %s! : %s:%s", savefile.path, $$FUNC, $$LINE);
         return;
     }
     //advance_reading_position(savefile, bytes_len);
@@ -407,7 +407,7 @@ fn void readBool(SaveFile* file, bool* value) {
 
 fn void readString(SaveFile* savefile, String* string) {
     if(@catch(savefile.file.read(*string))) {
-        lgr::warning(Where.CONSOLE, "failed to read data from file %s! : %s:%s", savefile.path, $$FUNC, $$LINE);
+        log::warning(Where.CONSOLE, "failed to read data from file %s! : %s:%s", savefile.path, $$FUNC, $$LINE);
         return;
     }
     // advance_reading_position(savefile, string.len);
@@ -416,7 +416,7 @@ fn void readString(SaveFile* savefile, String* string) {
 fn void readZString(SaveFile* savefile, ZString* string) {
     String result;
     if(@catch(savefile.file.read(result))) {
-        lgr::warning(Where.CONSOLE, "failed to read data from file %s! : %s:%s", savefile.path, $$FUNC, $$LINE);
+        log::warning(Where.CONSOLE, "failed to read data from file %s! : %s:%s", savefile.path, $$FUNC, $$LINE);
         return;
     }
     *string = result.zstr_tcopy();
@@ -686,7 +686,7 @@ ActionManager* gpActnMnagr = &local_manager;
 fn void ActionManager.register(&self, Action* action) @inline {
     foreach(act : self.actions) {
         if(act.name == action.name) {
-            main::lgr::warning(Where.CONSOLE, "Cannot register \"%s\" because is already registered.", action.name) {}
+            main::log::warning(Where.CONSOLE, "Cannot register \"%s\" because is already registered.", action.name) {}
             return;
         }
     }

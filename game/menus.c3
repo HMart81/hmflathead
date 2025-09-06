@@ -70,7 +70,7 @@ import std::collections::list;
 import game::main;
 import engine::gui;
 import engine::misc;
-import engine::logging::lgr;
+import engine::logging::log;
 import engine::filesystem::fs;
 import thirdparty::raylib5::rl;
 // end_region
@@ -319,7 +319,7 @@ fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
     String music_path = main::gpGame.app_base_folder.tconcat("music\\main_menu\\Swallow.ogg");
     if(fs::fileExists(music_path))
     {
-        lgr::info(Where.FILE, "\tloading %s music: %s", desk_main.name, music_path);
+        log::info(Where.FILE, "\tloading %s music: %s", desk_main.name, music_path);
     } else { 
         unreachable("music path not found: %s", music_path);
     }
@@ -475,7 +475,7 @@ fn void button_onLoad(Widget* widget) {
     // if(self.active_visible_infocus() && self.asFocus()) {
     //     self.setColor(self.over_color);
     // }
-    lgr::info(Where.CONSOLE, "WidgetButton '%s' loaded.", self.name);
+    log::info(Where.CONSOLE, "WidgetButton '%s' loaded.", self.name);
 }
 
 // generic button callbacks
@@ -584,8 +584,8 @@ fn void options_button_onSinglePress(Widget* widget) {
             start(next_menu); // set the next menu
         }
     }
-    //lgr::info(Where.CONSOLE, "Options Menu is still not done.");
-    //lgr::info(Where.CONSOLE, "Pressed Count = %s.", ((WidgetButton*)widget).press_count);
+    //log::info(Where.CONSOLE, "Options Menu is still not done.");
+    //log::info(Where.CONSOLE, "Pressed Count = %s.", ((WidgetButton*)widget).press_count);
     // TODO(HM) 
     //  Need to create a options menu
     //  I have two options, one create a new Desktop
@@ -618,7 +618,7 @@ fn void checkbox1_onSinglePress(Widget* widget) {
     //button_onPress(widget);
     WidgetCheckBox* self = (WidgetCheckBox*)widget;
     (self.isChecked()) ? self.setChecked(false) : self.setChecked(true);
-    lgr::info(Where.CONSOLE, "Checkbox 1 is now %s.", self.isChecked() ? "checked" : "unchecked");
+    log::info(Where.CONSOLE, "Checkbox 1 is now %s.", self.isChecked() ? "checked" : "unchecked");
     // TODO(HM) do something with checkbox state
 }
 // end_region Main Menu

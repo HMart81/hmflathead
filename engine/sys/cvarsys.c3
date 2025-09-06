@@ -39,7 +39,7 @@ import std::io;
 import std::collections::list;
 import engine::misc;
 //import engine::sys::cmd; still not fully implemented
-import engine::logging::lgr;
+import engine::logging::log;
 import thirdparty::raylib5::rl;
 import game::main;
 // #endregion
@@ -199,7 +199,7 @@ macro Cvar.initWithStrings( String name, String value, int flags, String descrip
 fn bool Cvar.getBool(&self, bool default_value = false) @inline
 {
     if(self.type != CvarType.BOOLEAN) {
-        lgr::warning(Where.FILE, "Trying to get boolean value from Cvar: %s but it is not a bool: %s->%d", self.name, $$FUNC, $$LINE);
+        log::warning(Where.FILE, "Trying to get boolean value from Cvar: %s but it is not a bool: %s->%d", self.name, $$FUNC, $$LINE);
         return default_value;
     }
     
@@ -212,7 +212,7 @@ fn bool Cvar.getBool(&self, bool default_value = false) @inline
     // from here we expect a valid char value
     char? value = self.value.to_uchar();
     if(catch excuse = value) {
-        lgr::error(Where.FILE, "Cvar: %s fault '%s' :: %s->%d", self.name, excuse, $$FUNC, $$LINE);
+        log::error(Where.FILE, "Cvar: %s fault '%s' :: %s->%d", self.name, excuse, $$FUNC, $$LINE);
         return default_value;
     }
     
@@ -223,7 +223,7 @@ fn int Cvar.getInt(&self, int default_value = 0) @inline {
     if(try int result = self.value.to_int()) {
         return result;
     } else {
-        lgr::warning(Where.FILE, "unable to get integer value for '%s' :: %s->%d", self.name, $$FUNC, $$LINE);
+        log::warning(Where.FILE, "unable to get integer value for '%s' :: %s->%d", self.name, $$FUNC, $$LINE);
         return default_value;
     }
 }
@@ -232,14 +232,14 @@ fn float Cvar.getfloat(&self, float default_value = 0.0f) @inline {
     if(try float result = self.value.to_float()) {
         return result;
     } else {
-        lgr::warning(Where.FILE, "unable to get float value for '%s' :: %s->%d", self.name, $$FUNC, $$LINE);
+        log::warning(Where.FILE, "unable to get float value for '%s' :: %s->%d", self.name, $$FUNC, $$LINE);
         return default_value;
     }
 }
 
 fn String Cvar.getString(&self, String default_value = "") @inline {
     if(self.type != CvarType.STRING) {
-        lgr::warning(Where.FILE, "Cvar: %s was not defined as a string: %s->%d", self.name, $$FUNC, $$LINE);
+        log::warning(Where.FILE, "Cvar: %s was not defined as a string: %s->%d", self.name, $$FUNC, $$LINE);
         return default_value;
     }
     

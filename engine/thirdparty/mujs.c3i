@@ -52,7 +52,7 @@ struct Buffer @if($feature(MUJS_ENABLE))
 module thirdparty::mujs @if($feature(MUJS_ENABLE));
 
 import std::io;
-import engine::logging::lgr;
+import engine::logging::log;
 import libc;
 
 //import buffer @public;
@@ -132,7 +132,7 @@ macro void @try(State* state; @body)
   assert(state != null, "state must not be null");
   if(state._catch()) 
   {
-    lgr::error(Where.CONSOLE, "mujs exception: %s", state.tostring(-1));
+    log::error(Where.CONSOLE, "mujs exception: %s", state.tostring(-1));
     state.pop(1); // remove error message from stack
     state.free();
     unreachable("Error code inside @try(){...} has trown a exception.");

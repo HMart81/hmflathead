@@ -33,7 +33,7 @@ module engine::sys::render2d::r2d;
 import std::io;
 import engine::misc;
 import engine::filesystem::fs;
-import engine::logging::lgr;
+import engine::logging::log;
 import game::assets::sprt;
 import game::main;
 import thirdparty::raylib5::rl;
@@ -412,7 +412,7 @@ $if $feature(_DEBUG):
     if(rl::isTextureValid(tex)) {
         return tex;
     } else {
-        lgr::warning(Where.FILE, "Failed to load Texture '%s' returning default texture...", texture_path);
+        log::warning(Where.FILE, "Failed to load Texture '%s' returning default texture...", texture_path);
         return main::gpGame.default_texture;
     }
 $else

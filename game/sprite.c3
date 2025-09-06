@@ -40,7 +40,7 @@ import game::camview;
 import engine::assets_api::astmng; // asset manager
 import game::material::mat;
 import game::material::manager::mtrmng;
-import engine::logging::lgr;
+import engine::logging::log;
 import game::serialize::svs; // save system
 import game::lowlevel::bounds;
 import game::actors::ent;
@@ -341,7 +341,7 @@ fn void Sprite.setMaterial(&self, String material_name) @inline {
     {
         self.mat = mtrmng::getMaterial(material_name);
         if(self.mat == null || rl::isTextureValid(*self.mat.getTexture(mat::STAGE_DIFFUSE)) == false) {
-            lgr::error(Where.FILE, "Unnable to set Sprite material '%s'.\n", material_name);
+            log::error(Where.FILE, "Unnable to set Sprite material '%s'.\n", material_name);
             unreachable("Unnable to set Sprite material.");
         }
     } else {
@@ -448,7 +448,7 @@ fn void Sprite.draw(&self)  @inline
             case main::UNITS_PIXEL:
                 rect;  // do nothing already in pixels
             default:
-                lgr::error(Where.FILE, "Unsupported units set for Sprite rendering.", self.kind);
+                log::error(Where.FILE, "Unsupported units set for Sprite rendering.", self.kind);
                 unreachable();
         }
         
@@ -496,7 +496,7 @@ fn void Sprite.draw(&self)  @inline
                 case *self == mat::COVERAGE_TRANSLUCENT && *self == mat::COVERAGE_PERFORATED:
                     blending = BlendMode.CUSTOM_SEPARATE; // use the custom blending mode
                 case *self == mat::COVERAGE_BAD:
-                    lgr::error(Where.FILE, "Panel with material %s has a bad material coverage type.", self.mat.name);
+                    log::error(Where.FILE, "Panel with material %s has a bad material coverage type.", self.mat.name);
                     unreachable();
             }
 
@@ -569,7 +569,7 @@ import game::assets::sprt;
 import std::math::vector;
 import game::actors::ent;
 import engine::assets::astmng;
-import engine::logging::lgr;
+import engine::logging::log;
 import engine::misc;
 // end_region
 
@@ -693,7 +693,7 @@ fn void ParticleSpawner.think(&self) {
     if(self.flags & ent::TH_THINK)
     {
         int current_time = main::gpGame.time_ms;
-        lgr::info(Where.CONSOLE, "Entity '%s' has flag %s!!!\n", self.name, self.flags);
+        log::info(Where.CONSOLE, "Entity '%s' has flag %s!!!\n", self.name, self.flags);
         if(current_time < self.delay_ms) {
            // do nothing
         }

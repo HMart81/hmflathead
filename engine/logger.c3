@@ -26,7 +26,7 @@
 # 
 *********************************************************************************************************************************************/
 
-module engine::logging::lgr;
+module engine::logging::log;
 
 // region modules
 import std::io;
@@ -103,14 +103,14 @@ fn void closeLogFile()
 fn String getfilepath() @inline => gpath.str_view();
 
 
-fn void log(Where where, TraceLogLevel level, String fmt, args...) @public {
+/*fn void log(Where where, TraceLogLevel level, String fmt, args...) @public {
     switch (where) {
         case FILE:
             logTofile(level, fmt, ...args);
         case CONSOLE:
             logToConsole(level, fmt, ...args);
     }
-}
+}*/
 
 fn void info(Where where, String fmt, args...) @public
 {
@@ -154,8 +154,7 @@ fn void fatal(Where where, String fmt, args...) @public {
 
 fn void logTofile(TraceLogLevel level, String fmt, args...) @local @format(1)
 {
-	bool not_should_log = !g_log.getBool() || fmt.len == 0;
-	if(not_should_log) return;
+	if(g_log.getBool() == false || fmt.len == 0) return; // turn off logging
     
 $if $feature(_DEBUG):
 	bool should_log = level.ordinal >= glevel.ordinal;

@@ -44,7 +44,7 @@ import game::main;
 import thirdparty::raylib5::rl;
 //import raygui;
 import engine::misc;
-import engine::logging::lgr;
+import engine::logging::log;
 //import game::assets_api::astmng; // asset manager
 // end_region
 
@@ -251,11 +251,11 @@ fn void Action.handleInput(&self) {
 
     /*
     if (input::gpManager.getActionByName("quit").fnDoubleTriggered(0.250f)) {
-        lgr::info(Where.CONSOLE, "Quit Action DOUBLE triggered!!!!!!");
+        log::info(Where.CONSOLE, "Quit Action DOUBLE triggered!!!!!!");
     }
 
     if (input::gpManager.getActionByName("quit").wasTriggered()) {
-        lgr::info(Where.CONSOLE, "Quit Action WAS triggered!!!!!!");
+        log::info(Where.CONSOLE, "Quit Action WAS triggered!!!!!!");
     }
     */
 }
@@ -456,7 +456,7 @@ ActionManager* gpManager = &local_manager;
 fn void ActionManager.register(&self, Action* action) @inline {
     foreach(act : self.actions) {
         if(act.name == action.name) {
-            lgr::warning(Where.CONSOLE, "Cannot register \"%s\" because is already registered.", action.name);
+            log::warning(Where.CONSOLE, "Cannot register \"%s\" because is already registered.", action.name);
             return;
         }
     }
@@ -535,11 +535,11 @@ fn void ActionManager.free(&self) {
 fn void ActionManager.listActions(&self) @local @inline
 {
     if(self.actions.len()) {
-        lgr::info(Where.FILE, "[ KEY ACTIONS ]");
+        log::info(Where.FILE, "[ KEY ACTIONS ]");
         foreach(action: self.actions) {
-           lgr::info(Where.FILE, "\t-> \"%s\" : {%s, %s},", action.name, getKeyboardKeyName(action.keyboard.key1), getKeyboardKeyName(action.keyboard.key2));
+           log::info(Where.FILE, "\t-> \"%s\" : {%s, %s},", action.name, getKeyboardKeyName(action.keyboard.key1), getKeyboardKeyName(action.keyboard.key2));
         }
-        lgr::info(Where.FILE, "[ END ACTIONS ]]");
+        log::info(Where.FILE, "[ END ACTIONS ]]");
     }
 }
 

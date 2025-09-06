@@ -57,7 +57,7 @@ import game::assets::sprt; // sprites
 import game::serialize::svs; // save system
 import game::logic::timer;
 import engine::tools::editor;
-import engine::logging::lgr;
+import engine::logging::log;
 import game::actors::ent::plyr;  // player module
 import engine::misc; // misc code
 import game::camview;
@@ -248,14 +248,14 @@ fn void register_cvars() @local
     cvar::@register(&db_drawPhysics);
     //cvar::@register(r_window_resizable);
     
-    //if(cvar::cvars.len()) foreach(cv: cvar::cvars) {lgr::info(Where.CONSOLE, cv.name);}
+    //if(cvar::cvars.len()) foreach(cv: cvar::cvars) {log::info(Where.CONSOLE, cv.name);}
 }
 
 fn void register_modulo_cvars() @local {
     register_cvars(); // main
     gui::register_cvars();
     intro::register_cvars();
-    lgr::register_cvars();
+    log::register_cvars();
     ent::register_cvars();
     bounds::register_cvars();
     editor::register_cvars();
@@ -440,8 +440,8 @@ fn void Game.freeGameEntities(&self) @inline {
     if(int count = (int)self.entityList.len()) {
         foreach(&it: self.entityList) if(it) (*it).kill();
         self.entityList.free();
-        lgr::info(Where.FILE, "['%s'] Entities were cleared!", count);
-        //lgr::info(Where.FILE,  "Done.");
+        log::info(Where.FILE, "['%s'] Entities were cleared!", count);
+        //log::info(Where.FILE,  "Done.");
     }
 }
 
@@ -630,7 +630,7 @@ fn void? Game.loadDefaultAssets(&self)
     // get required default game texture
     self.default_texture = rl::loadTexture(self.app_base_folder.tconcat("images//default.png").zstr_tcopy());
     if(self.default_texture.isInvalid()) {
-        lgr::fatal(Where.FILE, "Required asset: images//default.png failed to load!");
+        log::fatal(Where.FILE, "Required asset: images//default.png failed to load!");
         return MISSING_REQUIRED_ASSET?;
     }
     
@@ -656,7 +656,7 @@ fn void? Game.loadDefaultAssets(&self)
         self.app_base_folder.tconcat("shaders//default.fs")
     );
     if(rl::isShaderValid(self.default_shader) == false) {
-        lgr::fatal(Where.FILE, "Required default shader not found in folder %s!", self.app_base_folder.tconcat("//shaders"));
+        log::fatal(Where.FILE, "Required default shader not found in folder %s!", self.app_base_folder.tconcat("//shaders"));
         return MISSING_REQUIRED_ASSET?;
     }
     
@@ -677,14 +677,14 @@ fn void? Game.loadDefaultAssets(&self)
             //if(rl::isAudioDeviceReady()) rl::playSound(self.default_sound);
         //$endif
     } else {
-        lgr::fatal(Where.FILE, "Required default asset: \"sounds/default.wav\" failed to load!");
+        log::fatal(Where.FILE, "Required default asset: \"sounds/default.wav\" failed to load!");
         return MISSING_REQUIRED_ASSET?;
     }
     
     // load required default music
     self.default_music = rl::loadMusicStream(self.app_base_folder.tconcat("music//default.mp3").zstr_tcopy());
     if(rl::isMusicValid(self.default_music) == false) {
-        lgr::fatal(Where.FILE, "Required default asset: \"music/default.mp3\" failed to load!");
+        log::fatal(Where.FILE, "Required default asset: \"music/default.mp3\" failed to load!");
         return MISSING_REQUIRED_ASSET?;
     }
     
@@ -732,7 +732,7 @@ $endif
     if(usz count = self.sprites.len()) {
         foreach(&it: self.sprites) if(it) (*it).deinit();
         self.sprites.free();
-        lgr::info(Where.FILE, "['%s'] sprites were cleared!", count);
+        log::info(Where.FILE, "['%s'] sprites were cleared!", count);
     }
     self.view.deinit();
     self.boidManager1.release();
@@ -1011,16 +1011,16 @@ $endif
         if(action.fnBecameTriggered()) {
              unreachable();
             //if(local_game.particleSpawner1.isActive() == false) local_game.particleSpawner1.activate();
-            //lgr::info(Where.CONSOLE, "Action BECAME triggered!!!!!!");
+            //log::info(Where.CONSOLE, "Action BECAME triggered!!!!!!");
         }
     }
     /*
     if(input::gpManager.getActionByName("quit").fnDoubleTriggered(0.250f)) {
-        lgr::info(Where.CONSOLE, "Quit Action DOUBLE triggered!!!!!!");
+        log::info(Where.CONSOLE, "Quit Action DOUBLE triggered!!!!!!");
     }
     
     if(input::gpManager.getActionByName("quit").wasTriggered()) {
-        lgr::info(Where.CONSOLE, "Quit Action WAS triggered!!!!!!");
+        log::info(Where.CONSOLE, "Quit Action WAS triggered!!!!!!");
     }*/
     
     if(rl::getKeyPressed()) {
@@ -1150,9 +1150,9 @@ $endif
                         local_game.entityList.remove_at(i);
                         usz new_size = old_size - 1;
                         if(new_size == 0) {
-                            lgr::info(Where.FILE, "All entities were destroyed!");
+                            log::info(Where.FILE, "All entities were destroyed!");
                         } else {
-                            lgr::info(Where.FILE, "Entity '%s' was removed from the game! Remaining entities: %d", ent.name, new_size);
+                            log::info(Where.FILE, "Entity '%s' was removed from the game! Remaining entities: %d", ent.name, new_size);
                         }
                         local_game.entityList._update_size_change(old_size, new_size);
                     }
@@ -1172,7 +1172,7 @@ $endif
 
                 if(ent.isDead()) 
                 {
-                    lgr::error(Where.FILE, "Entity '%s' was in thinking list but is dead!\n", ent.name);
+                    log::error(Where.FILE, "Entity '%s' was in thinking list but is dead!\n", ent.name);
                     local_game.thinkingEntities.remove_at(local_game.thinkingEntities.index_of(ent)!!);
                     continue;
                 }
@@ -1202,7 +1202,7 @@ $endif
 }
 
 fn void gameReset() @local {
-// for future
+    @todo("reset game state");
 }
 
 fn void drawGameVersion(Vec2i at_pos) @inline @local
@@ -1536,7 +1536,7 @@ fn void handle_boolean_cmd(String cmd) @inline
         case "developer":
             developer.set("1");
         case "g_log":
-            lgr::g_log.set("true"); 
+            log::g_log.set("true"); 
         case "editor":
             editor.set("1");
         case "window": nextcase;
@@ -1545,12 +1545,12 @@ fn void handle_boolean_cmd(String cmd) @inline
             int value = r_fullscreen.getInt();
             if(value > 0) {
                 r_fullscreen.set("0");
-                lgr::warning(Where.CONSOLE, "cmdline arg '%s' is overriding the value set by r_fullscreen.", cmd); 
+                log::warning(Where.CONSOLE, "cmdline arg '%s' is overriding the value set by r_fullscreen.", cmd); 
             } else {
-                lgr::warning(Where.CONSOLE, "cmdline arg '%s' is not doing anything as r_fullscreen is already zero.", cmd); 
+                log::warning(Where.CONSOLE, "cmdline arg '%s' is not doing anything as r_fullscreen is already zero.", cmd); 
             }
         default:
-            lgr::warning(Where.CONSOLE, "Invalid cmdline argument '%s'!", cmd);
+            log::warning(Where.CONSOLE, "Invalid cmdline argument '%s'!", cmd);
     }
 }
 
@@ -1565,7 +1565,7 @@ fn void handle_cmdline(String[] args)
 {
     if(args.len == 0 || args.len == 1) return;
     
-    lgr::info(Where.FILE, "Handling cmd line args: %s\n", args);
+    log::info(Where.FILE, "Handling cmd line args: %s\n", args);
 
     String cmd_arg;
 
@@ -1619,7 +1619,7 @@ fn void handle_cmdline(String[] args)
             case arg.starts_with("-"): // negative numbers
                 if(single_char_value) 
                 {
-                    lgr::warning(Where.CONSOLE, "rogue minus sign found in value of cmd \"%s\".", cmd_arg);
+                    log::warning(Where.CONSOLE, "rogue minus sign found in value of cmd \"%s\".", cmd_arg);
                     continue; // skip to next argument
                 }
 
@@ -1638,14 +1638,14 @@ fn void handle_cmdline(String[] args)
                 {
                     arg_is_string = true;
                 } else {
-                    lgr::warning(Where.CONSOLE, "malformed string assigned to \"%s\", strings most be defined between two \"\".", arg, cmd_arg);
+                    log::warning(Where.CONSOLE, "malformed string assigned to \"%s\", strings most be defined between two \"\".", arg, cmd_arg);
                     continue; // skip to next argument
                 }
             case ascii::is_alpha(arg[0]):
-                lgr::warning(Where.CONSOLE, "malformed string assigned to \"%s\", strings most be defined between two \"\".", arg, cmd_arg);
+                log::warning(Where.CONSOLE, "malformed string assigned to \"%s\", strings most be defined between two \"\".", arg, cmd_arg);
                 continue;
             default:
-                lgr::warning(Where.CONSOLE, "invalid value '%s' assigned to cmd '%s'.", arg, cmd_arg);
+                log::warning(Where.CONSOLE, "invalid value '%s' assigned to cmd '%s'.", arg, cmd_arg);
                 continue;
         }
         
@@ -1666,7 +1666,7 @@ fn void handle_cmdline(String[] args)
                     
                     if(ch == ',') 
                     {
-                        lgr::warning(Where.CONSOLE, "value %s in cmdline has a comma seperator.\n   -That is not supported for numbers, please use dot instead.", arg);
+                        log::warning(Where.CONSOLE, "value %s in cmdline has a comma seperator.\n   -That is not supported for numbers, please use dot instead.", arg);
                         invalid_value_arg = true;
                     }
                 }
@@ -1683,14 +1683,14 @@ fn void handle_cmdline(String[] args)
                     {
                         fvalue = value;
                     } else {
-                        lgr::warning(Where.CONSOLE, "Unnable to convert value \"%s\" of cmdline arg \"%s\" to float value!", arg, cmd_arg);
+                        log::warning(Where.CONSOLE, "Unnable to convert value \"%s\" of cmdline arg \"%s\" to float value!", arg, cmd_arg);
                     }
                 } else {
                     if(try value = arg.to_int()) 
                     {
                         ivalue = value;
                     } else {
-                        lgr::warning(Where.CONSOLE, "Unnable to convert value \"%s\" of cmdline arg \"%s\" to integer value!", arg, cmd_arg);
+                        log::warning(Where.CONSOLE, "Unnable to convert value \"%s\" of cmdline arg \"%s\" to integer value!", arg, cmd_arg);
                     }
                 }
                 
@@ -1702,29 +1702,29 @@ fn void handle_cmdline(String[] args)
                         {
                             if(ivalue <= 4)
                             {
-                                lgr::g_log.set(arg);
+                                log::g_log.set(arg);
                             } else { // clamp it
-                                lgr::g_log.set("4");
+                                log::g_log.set("4");
                             }
                         } else {
-                            lgr::g_log.set("0");
+                            log::g_log.set("0");
                         } 
                     case "r_mode":
                         if(ivalue >= 0 && ivalue <= SCREEN_RES.len - 1) 
                         {
                             r_mode.set(arg);
                         } else {
-                            lgr::warning(Where.CONSOLE, "Ignoring cmdline arg '%s' invalid resolution index, expected '0..%s' found \"%s\".", cmd_arg, SCREEN_RES.len - 1, arg);
+                            log::warning(Where.CONSOLE, "Ignoring cmdline arg '%s' invalid resolution index, expected '0..%s' found \"%s\".", cmd_arg, SCREEN_RES.len - 1, arg);
                         }
                     case "r_fullscreen":
                         if(ivalue >= 0 && ivalue <= 2) 
                         {
                             r_fullscreen.set(arg);
                         } else {
-                            lgr::warning(Where.CONSOLE, "Ignoring cmdline arg '%s' invalid value, should be from '0..2'.", cmd_arg); 
+                            log::warning(Where.CONSOLE, "Ignoring cmdline arg '%s' invalid value, should be from '0..2'.", cmd_arg); 
                         }
                     default:
-                        lgr::warning(Where.CONSOLE, "cmdline arg '%s' with value = %s is still not handled.", cmd_arg, arg);
+                        log::warning(Where.CONSOLE, "cmdline arg '%s' with value = %s is still not handled.", cmd_arg, arg);
                 }
             }
         }
@@ -1739,7 +1739,7 @@ fn void handle_cmdline(String[] args)
                 case "fs_mod_base":
                     fs_mod_base.set(arg);
                 default:
-                    lgr::warning(Where.CONSOLE, "cmdline arg '%s' with string = %s is still not handled.", cmd_arg, arg);
+                    log::warning(Where.CONSOLE, "cmdline arg '%s' with string = %s is still not handled.", cmd_arg, arg);
             }
         }
     }
@@ -1748,20 +1748,12 @@ fn void handle_cmdline(String[] args)
 // #endregion ARGS HANDLING ******************
 //////////////////////////////////////////////////////////////////
 
-
-fn void usage() @local @if($feature(TSODING_FLAG))
-{
-    io::printfn("Usage: %s [options]", flg::program_name());
-    io::printfn("Options:");
-    flg::print_options();
-}
-
 /* This is where game execution begins */
 fn void? gameOnStart(String[]* args) @local 
 {
     local_game.mode = STARTING;
-    lgr::info(Where.FILE, "Game Version: %s\n", lic::@game_version());
-    lgr::info(Where.FILE, "-------- THE <toname> ENGINE LOG ------------");
+    log::info(Where.FILE, "Game Version: %s\n", lic::@game_version());
+    log::info(Where.FILE, "-------- THE <toname> ENGINE LOG ------------");
     
     // Handle cmdline arguments if any.
 $if $feature(TSODING_FLAG):
@@ -1787,14 +1779,14 @@ $endif
     // ******* Main Game Start *******
     //
 
-    lgr::info(Where.FILE, "Initializing game:");
-    lgr::info(Where.FILE, "---------------------------------------------");
+    log::info(Where.FILE, "Initializing game:");
+    log::info(Where.FILE, "---------------------------------------------");
     
     // TODO load the user.ini at this time?
     
 // #region Paths/Folders Setup
-    lgr::info(Where.FILE, "Registering game paths:");
-    lgr::info(Where.FILE, "---------------------------------------------");
+    log::info(Where.FILE, "Registering game paths:");
+    log::info(Where.FILE, "---------------------------------------------");
     String app_exe_path = (*args)[0];
     
     // Set the game name
@@ -1817,7 +1809,7 @@ $endif
     local_game.app_default_workdir = fs::getWorkingDirectory().tconcat("\\");
     if(fs::directoryExists(local_game.app_default_workdir)) 
     {
-        lgr::info(Where.FILE, "\tWorking from default Dir: %s", local_game.app_default_workdir);
+        log::info(Where.FILE, "\tWorking from default Dir: %s", local_game.app_default_workdir);
     } else { 
         return INVALID_WORK_DIR?; // will this ever happen?
     }
@@ -1838,7 +1830,7 @@ $endif
 
         mod_name = fs_mod_name.getString();
         if(mod_name.len <= 2) {
-            lgr::warning(Where.FILE, "mod name: \"%s\" seems to be very small are you sure that is correct?", mod_name);
+            log::warning(Where.FILE, "mod name: \"%s\" seems to be very small are you sure that is correct?", mod_name);
         }
 
         mods_dir = local_game.app_default_workdir.tconcat("mods");
@@ -1857,21 +1849,21 @@ $endif
                 {
                     local_game.app_base_folder = mod_base_folder;
                 } else { 
-                    lgr::warning(Where.FILE, "base directory for mod \"%s\" is missing cannot run mod!", mod_name);
+                    log::warning(Where.FILE, "base directory for mod \"%s\" is missing cannot run mod!", mod_name);
                     mod_handling_failed = true;
                 }
             } else { 
-                lgr::warning(Where.FILE, "Work directory for mod \"%s\" is missing cannot run mod!", mod_name);
+                log::warning(Where.FILE, "Work directory for mod \"%s\" is missing cannot run mod!", mod_name);
                 mod_handling_failed = true;
             }
         } else {
-            lgr::warning(Where.FILE, "Mod %s has to be run from inside folder \"mods\" but none was found at: %s", mod_name, local_game.app_default_workdir);
+            log::warning(Where.FILE, "Mod %s has to be run from inside folder \"mods\" but none was found at: %s", mod_name, local_game.app_default_workdir);
             mod_handling_failed = true;
         }
 
         if(mod_handling_failed)
         {
-            lgr::warning(Where.FILE, "Mod handling failed, using default work dir: %s", local_game.app_default_workdir);
+            log::warning(Where.FILE, "Mod handling failed, using default work dir: %s", local_game.app_default_workdir);
             local_game.app_work_dir    = local_game.app_default_workdir;
             local_game.app_base_folder = local_game.app_default_base_folder;
         }
@@ -1882,7 +1874,7 @@ $endif
     {
         if(local_game.app_work_dir != local_game.app_default_workdir) 
         {
-            lgr::info(Where.FILE,  "\tWorking now from Dir: %s", local_game.app_work_dir);
+            log::info(Where.FILE,  "\tWorking now from Dir: %s", local_game.app_work_dir);
         }
     } else {
         return INVALID_WORK_DIR?;
@@ -1891,19 +1883,19 @@ $endif
     // make sure required base folder exists
     if(fs::directoryExists(local_game.app_base_folder)) 
     {
-        lgr::info(Where.FILE,  "\tBase Dir set to: %s", local_game.app_base_folder);
+        log::info(Where.FILE,  "\tBase Dir set to: %s", local_game.app_base_folder);
     } 
     else
     {
         if(local_game.is_modded_game) 
         {
-            lgr::error(Where.FILE,`Required base folder inside %s not found!\n
+            log::error(Where.FILE,`Required base folder inside %s not found!\n
                        A non-empty folder called '%s' (case sensitive) most exist!`, 
                        local_game.app_work_dir, 
                        (fs_mod_base.getString().len > 0) ? fs_mod_base.getString() : fs_base.getString(), 
                        local_game.app_name);
         } else {
-            lgr::error(Where.FILE,`Required base folder inside %s not found!\n
+            log::error(Where.FILE,`Required base folder inside %s not found!\n
                        A non-empty folder called '%s' (case sensitive) most exist.\n
                        Please reinstall game.`, local_game.app_work_dir, fs_base.getString(), local_game.app_name);
         }
@@ -1920,14 +1912,14 @@ $endif
         local_game.app_save_folder = local_game.app_save_folder.tconcat("\\").tconcat(local_game.app_name);
         if(fs::directoryExists(local_game.app_save_folder)) 
         {
-            lgr::info(Where.FILE, "\tUser Save folder set to: %s", local_game.app_save_folder);
+            log::info(Where.FILE, "\tUser Save folder set to: %s", local_game.app_save_folder);
         } else { // create it
             //Path? save_path = path::temp_new(save_folder)!;
             //bool? sucess    = path::mkdir(save_path);
             bool? sucess    = fs::makeDirectory_IfNotExist(local_game.app_save_folder);
             if(catch excuse = sucess) 
             {
-                lgr::warning(Where.FILE,"Failed to create user folder %s inside %s with excuse: %s", 
+                log::warning(Where.FILE,"Failed to create user folder %s inside %s with excuse: %s", 
                            local_game.app_name, local_game.app_save_folder, excuse);
                 return NO_USER_SAVE_FOLDER?;
             }
@@ -1944,13 +1936,13 @@ $endif
         String reg_data = "TestData";
         
         if(!win32::writeRegistryValue(reg_key, reg_value, reg_data)) {
-            lgr::warning(Where.FILE, "Failed to write to registry key: %s", reg_key);
+            log::warning(Where.FILE, "Failed to write to registry key: %s", reg_key);
             //return REGISTRY_WRITE_FAILED?;
         }
     }
     $endif // $if $defined(env::WIN32)
 
-    lgr::info(Where.FILE, "---------------------------------------------\n");
+    log::info(Where.FILE, "---------------------------------------------\n");
 // #endregion
 
 ////////////////////////////////////////////////////
@@ -1976,8 +1968,8 @@ $endif
     // Print engine version in the console
 
 // #region Ini file handling
-    lgr::info(Where.FILE, "Loading settings file:");
-    lgr::info(Where.FILE, "---------------------------------------------");
+    log::info(Where.FILE, "Loading settings file:");
+    log::info(Where.FILE, "---------------------------------------------");
     String ini_file_path = local_game.app_base_folder.tconcat(ini::SETTINGS_FILE_NAME);
     bool settings_file_missing = fs::fileExists(ini_file_path) == false;
     if (settings_file_missing) // create it with default settings
@@ -1990,14 +1982,14 @@ $endif
     bool? settings_load_sucess = settings_file.load(ini_file_path, false);
     //ini::Config*? settings_file = ini::load(ini_file_path, false); //ini::load(SETTINGS_FILE_NAME);
     if( catch excuse = settings_load_sucess) {
-        lgr::warning(Where.FILE, "Failed to load %s file with excuse: %s", ini_file_path, excuse);
+        log::warning(Where.FILE, "Failed to load %s file with excuse: %s", ini_file_path, excuse);
         settings_file = null;
         return excuse?;
     }
     //defer if(settings_load_sucess) ini::unload(&settings_file);
 
-    lgr::info(Where.FILE, "Settings file loaded: %s", ini_file_path);
-    lgr::info(Where.FILE, "---------------------------------------------\n");
+    log::info(Where.FILE, "Settings file loaded: %s", ini_file_path);
+    log::info(Where.FILE, "---------------------------------------------\n");
 // #endregion Ini file handling
 
     // change raylib log level
@@ -2014,21 +2006,21 @@ $endif
             default:
                 // NOTE(HM) default is set to INFO
                 rl::setTraceLogLevel(rl::TraceLogLevel.WARNING);
-                lgr::warning(Where.FILE, "Unknown Raylib logging option '%s' setting to default WARNING level.", log_mode);
+                log::warning(Where.FILE, "Unknown Raylib logging option '%s' setting to default WARNING level.", log_mode);
         }
     }
     else if(settings_file.getBool("rl_Log")! == false)
     {
         // NOTE(HM) disable raylib logging
         rl::setTraceLogLevel(rl::TraceLogLevel.NONE);
-        lgr::info(Where.FILE, "Raylib logging disabled.");
+        log::info(Where.FILE, "Raylib logging disabled.");
     }
 
     // log the amount of screen resolutions and their Mode
-    lgr::info(Where.FILE, "Total video modes : %d", SCREEN_RES.len);
-    lgr::info(Where.FILE, "Enumerating rendering video modes:");
+    log::info(Where.FILE, "Total video modes : %d", SCREEN_RES.len);
+    log::info(Where.FILE, "Enumerating rendering video modes:");
     foreach(res: SCREEN_RES) {
-        lgr::info(Where.FILE, "\t%s", res.str);
+        log::info(Where.FILE, "\t%s", res.str);
     }
     
     // default screen resolution
@@ -2044,7 +2036,7 @@ $endif
     {
         // first prevent array overflow
         if(res_index >= SCREEN_RES.len) {
-            lgr::warning(Where.FILE, "Array index overflow, r_mode = %d is not valid, setting to default: %d", res_index, DEFAULT_SCREEN_INDEX);
+            log::warning(Where.FILE, "Array index overflow, r_mode = %d is not valid, setting to default: %d", res_index, DEFAULT_SCREEN_INDEX);
             res_index = DEFAULT_SCREEN_INDEX;
         }
 
@@ -2071,7 +2063,7 @@ $endif
             res_index = getResolutionIndexFromValues(w_value, h_value);
             if(res_index == -1) 
             {
-                lgr::warning(Where.FILE, "Custom resolution %dx%d not found in the list of video modes, using it as is.", w_value, h_value);
+                log::warning(Where.FILE, "Custom resolution %dx%d not found in the list of video modes, using it as is.", w_value, h_value);
                 local_game.screen.w = w_value;
                 local_game.screen.h = h_value;
             }
@@ -2079,7 +2071,7 @@ $endif
             {
                 local_game.screen.w = SCREEN_RES[res_index].w;
                 local_game.screen.h = SCREEN_RES[res_index].h;
-                lgr::info(Where.FILE, "Custom resolution %dx%d found in the list of video modes, using it.", 
+                log::info(Where.FILE, "Custom resolution %dx%d found in the list of video modes, using it.", 
                           local_game.screen.w, local_game.screen.h);
             }
         }
@@ -2088,21 +2080,21 @@ $endif
     // at this point we should have a valid screen resolution
     if(res_index == -1 || local_game.screen.w <= 0 || local_game.screen.h <= 0) 
     {
-        lgr::error(Where.FILE, "Invalid screen resolution %dx%d, cannot continue!", local_game.screen.w, local_game.screen.h);
+        log::error(Where.FILE, "Invalid screen resolution %dx%d, cannot continue!", local_game.screen.w, local_game.screen.h);
         return INVALID_SCREEN_RESOLUTION?;
     }
     
-    lgr::info(Where.FILE,  "Video mode set -> %s", SCREEN_RES[res_index].str);
+    log::info(Where.FILE,  "Video mode set -> %s", SCREEN_RES[res_index].str);
 
-    lgr::info(Where.FILE, "---------------------------------------------\n");
-    lgr::info(Where.FILE, "Window settings:");
-    lgr::info(Where.FILE, "---------------------------------------------");
+    log::info(Where.FILE, "---------------------------------------------\n");
+    log::info(Where.FILE, "Window settings:");
+    log::info(Where.FILE, "---------------------------------------------");
     // Vertical sync (this is a hint so may or may not apply...)
     if(try settings_file.getBool("vsync")) 
     {
         window_flags |= (int)rl::FLAG_VSYNC_HINT;
         local_game.screen.vsync_hint = true;
-        lgr::info(Where.FILE, "VSync hint enabled. (This is a hint, not a guarantee!)");
+        log::info(Where.FILE, "VSync hint enabled. (This is a hint, not a guarantee!)");
     }
     
     // NOTE(HM) cvar r_fullscreen has top priority
@@ -2114,7 +2106,7 @@ $endif
     if(fullscreen_choice < -1 || fullscreen_choice > 2) 
     {
         int choice = fullscreen_choice;
-        lgr::warning(Where.FILE, "invalid value: %d for r_fullscreen, using default. Valid values are '-1, 0, 1, 2'", choice);
+        log::warning(Where.FILE, "invalid value: %d for r_fullscreen, using default. Valid values are '-1, 0, 1, 2'", choice);
         if(choice < -1) {
             fullscreen_choice = -1;
         } else {
@@ -2144,7 +2136,7 @@ $endif
             {
                 window_flags |= (int)rl::FLAG_MSAA_4X_HINT;
                 local_game.screen.multiSamples = msaa_samples;
-                lgr::info(Where.FILE, "4x MSAA hint enabled (as a hint, may not apply).");
+                log::info(Where.FILE, "4x MSAA hint enabled (as a hint, may not apply).");
             }
         }
     }
@@ -2156,11 +2148,11 @@ $endif
             // local_game.screen.state.resizable = true;
         // }
     // }
-lgr::info(Where.FILE, "---------------------------------------------\n");
+log::info(Where.FILE, "---------------------------------------------\n");
 
 // #region Window initialization
-    lgr::info(Where.FILE, "Initializing window:");
-    lgr::info(Where.FILE, "---------------------------------------------");
+    log::info(Where.FILE, "Initializing window:");
+    log::info(Where.FILE, "---------------------------------------------");
     // set/apply the final window flags
     rl::setConfigFlags((ConfigFlag)window_flags);
     
@@ -2175,22 +2167,22 @@ lgr::info(Where.FILE, "---------------------------------------------\n");
     
     if(rl::isWindowReady() == false) 
     {
-        lgr::fatal(Where.FILE, "Failed to init rl window and OpenGL context!");
+        log::fatal(Where.FILE, "Failed to init rl window and OpenGL context!");
         return WINDOW_INIT_FAILED?;
     } else {
-        lgr::info(Where.FILE, "Window initialized successfully.");
+        log::info(Where.FILE, "Window initialized successfully.");
 
         if(local_game.screen.state.fullscreen == true)
         {
-            lgr::info(Where.FILE,  "Game window set to Real/Dedicated Fullscreen mode.");
+            log::info(Where.FILE,  "Game window set to Real/Dedicated Fullscreen mode.");
         }
         else if(local_game.screen.state.borderless == true)
         {
-            lgr::info(Where.FILE,  "Game window set to Borderless fullscreen mode.");
+            log::info(Where.FILE,  "Game window set to Borderless fullscreen mode.");
         }
         else if(local_game.screen.state.window == true)
         {
-            lgr::info(Where.FILE,  "Game window set to Windowed mode.");
+            log::info(Where.FILE,  "Game window set to Windowed mode.");
         }
         else
         {
@@ -2206,10 +2198,10 @@ $if env::WIN32:
     Win32_HWND window_handle = (Win32_HWND)rl::getWindowHandle();
     if(window_handle == null) 
     {
-        lgr::fatal(Where.FILE, "Failed to get window handle!");
+        log::fatal(Where.FILE, "Failed to get window handle!");
         //return WINDOW_HANDLE_FAILED?;
     } else {
-        lgr::info(Where.FILE, "Window handle obtained successfully.");
+        log::info(Where.FILE, "Window handle obtained successfully.");
         local_game.screen.handle = window_handle;
     }
 
@@ -2226,24 +2218,24 @@ $endif
     // NOTE(HM) Gameplay timing, is always counted since initWindow above;
     local_game.time_sec = (float)rl::getTime();
     local_game.time_ms  = misc::sec2ms(local_game.time_sec);
-    lgr::info(Where.FILE, "---------------------------------------------\n");
+    log::info(Where.FILE, "---------------------------------------------\n");
 
     // init raygui dark style
-    // lgr::info(Where.FILE, "loading raygui dark style:");
-    // lgr::info(Where.FILE, "---------------------------------------------\n");
+    // log::info(Where.FILE, "loading raygui dark style:");
+    // log::info(Where.FILE, "---------------------------------------------\n");
     // rgui::style::dark::load();
-    // lgr::info(Where.FILE, "- done -\n");
+    // log::info(Where.FILE, "- done -\n");
 
 // #region MONITOR STATES
-    lgr::info(Where.FILE, "Setting up monitor states:");
-    lgr::info(Where.FILE, "---------------------------------------------");
+    log::info(Where.FILE, "Setting up monitor states:");
+    log::info(Where.FILE, "---------------------------------------------");
     // See how many monitors user has and change the window placement if necessary.
     // WARNING(HM) This is not guarantied to work for all multi-monitor setups, 
     // it seems that even glfw, that rl uses internally, fails to set the correct monitor on some setups :(
     int monitor_count = rl::getMonitorCount();
     if(monitor_count >= 2) // is multi-monitor setup
     {
-        lgr::info(Where.FILE, "\tMulti-Monitor setup found:");
+        log::info(Where.FILE, "\tMulti-Monitor setup found:");
         bool chose_screen_pos_by_mouse = true; // @Hardcode
         if(chose_screen_pos_by_mouse)
         {
@@ -2287,7 +2279,7 @@ $endif
         }
     }
     
-    lgr::info(Where.FILE,  "\tWindow put on monitor id: '%d'", local_game.screen.id);
+    log::info(Where.FILE,  "\tWindow put on monitor id: '%d'", local_game.screen.id);
     
     // @Todo 
     // support unlocked framerates? 
@@ -2296,33 +2288,33 @@ $endif
     if(rl::isWindowFullscreen() && rl::isWindowFocused()) 
     {
         local_game.screen.displayHz = rl::getMonitorRefreshRate(local_game.screen.index);
-        lgr::info(Where.FILE,  "\tGame set to %shz update rate.", local_game.screen.displayHz);
+        log::info(Where.FILE,  "\tGame set to %shz update rate.", local_game.screen.displayHz);
     } else {
         local_game.screen.displayHz = 15;
-        lgr::info(Where.FILE,  "\tGame set to %shz update rate because lost focus.", local_game.screen.displayHz);
+        log::info(Where.FILE,  "\tGame set to %shz update rate because lost focus.", local_game.screen.displayHz);
     }
     rl::setTargetFPS(local_game.screen.displayHz);
 
-    lgr::info(Where.FILE, "---------------------------------------------\n");
+    log::info(Where.FILE, "---------------------------------------------\n");
 // #endregion MONITOR STATES
 
 $if $feature(MICROUI_ENABLE):
     // #region MicroUI initialization
-    lgr::info(Where.FILE, "Initializing MicroUI:");
-    lgr::info(Where.FILE, "---------------------------------------------");
+    log::info(Where.FILE, "Initializing MicroUI:");
+    log::info(Where.FILE, "---------------------------------------------");
     // NOTE(HM) This needs to be done before any microUI function requiring units is used!!!
     local_game.mu_ctx = mem::new(MU_Context);
     local_game.mu_ctx.init();
     local_game.mu_ctx.text_width  = &mu::text_width;
     local_game.mu_ctx.text_height = &mu::text_height;
-    lgr::info(Where.FILE, "---------------------------------------------\n");
+    log::info(Where.FILE, "---------------------------------------------\n");
 $endif
     
-    lgr::info(Where.FILE, "Setting up game view:");
-    lgr::info(Where.FILE, "---------------------------------------------");
+    log::info(Where.FILE, "Setting up game view:");
+    log::info(Where.FILE, "---------------------------------------------");
     // setup/init game view (for now is a static view)
     local_game.view.init(screenWidth, screenHeight);
-    lgr::info(Where.FILE, "---------------------------------------------\n");
+    log::info(Where.FILE, "---------------------------------------------\n");
 
 $if $feature(_DEBUG):
     // TODO(HM) On release version quit should only be done from main menu (or alt+f4...).
@@ -2331,18 +2323,18 @@ $if $feature(_DEBUG):
     //rl::setExitKey(rl::KEY_F10);
     String key_name = settings_file.getString("quit", "KEY_ESCAPE");
     rl::setExitKey(misc::getKeyValueFromName(key_name));
-    lgr::info(Where.FILE, "Exit key set to: %s", key_name);
-    lgr::info(Where.FILE, "---------------------------------------------\n");
+    log::info(Where.FILE, "Exit key set to: %s", key_name);
+    log::info(Where.FILE, "---------------------------------------------\n");
 $endif
 
 // #endregion Window initialization
 
 // #region physics engine
-    lgr::info(Where.FILE, "Starting Box2D physics engine:");
-    lgr::info(Where.FILE, "---------------------------------------------");
+    log::info(Where.FILE, "Starting Box2D physics engine:");
+    log::info(Where.FILE, "---------------------------------------------");
     // TODO(HM) refactor this into a physics engine module that wraps box2d?
     B2Version version = box2d::getVersion();
-    lgr::info(Where.FILE, "\tBox2D version: \"%d.%d.%d\"", version.major, version.minor, version.revision);
+    log::info(Where.FILE, "\tBox2D version: \"%d.%d.%d\"", version.major, version.minor, version.revision);
     
     // NOTE(HM) This needs to be done before any box2d function requiring units is used!!!
 	box2d::setLengthUnitsPerMeter(DEFAULT_PIXELS_PER_METER);
@@ -2361,9 +2353,9 @@ $endif
     //
 	local_game.physWorldId = box2d::createWorld(&physWorld);
     if(local_game.physWorldId.isValid()) {
-        lgr::info(Where.FILE, "\tBox2D Started.");
+        log::info(Where.FILE, "\tBox2D Started.");
     } else {
-        lgr::error(Where.FILE, "Failed to start Box2D physics engine! Halting game initialization.");
+        log::error(Where.FILE, "Failed to start Box2D physics engine! Halting game initialization.");
         unreachable();
     }
     
@@ -2381,12 +2373,12 @@ $endif
     
     box2d::initDebugDraw(&local_game.phys_debug, &local_game.view);
 
-    lgr::info(Where.FILE, "---------------------------------------------\n");
+    log::info(Where.FILE, "---------------------------------------------\n");
 // #endregion physics engine
     
 // #region AUDIO DEVICE initialization
-    lgr::info(Where.FILE, "Initializing Audio Device:");
-    lgr::info(Where.FILE, "---------------------------------------------");
+    log::info(Where.FILE, "Initializing Audio Device:");
+    log::info(Where.FILE, "---------------------------------------------");
 
     rl::initAudioDevice();
     
@@ -2394,27 +2386,27 @@ $endif
     {
         if(rl::getMasterVolume() < 1.0f) {
             rl::setMasterVolume(1.0f);
-            lgr::info(Where.FILE, "\tAudio Master Volume set to = %s", 1.0f);
+            log::info(Where.FILE, "\tAudio Master Volume set to = %s", 1.0f);
         } else {
             float master_volume = rl::getMasterVolume();
             if(master_volume > 1.0f) {
-                lgr::warning(Where.FILE, "\tAudio Master Volume is set to %.2f, this is not recommended!", master_volume);
+                log::warning(Where.FILE, "\tAudio Master Volume is set to %.2f, this is not recommended!", master_volume);
                 rl::setMasterVolume(1.0f); // clamp it
             } else {
-                lgr::info(Where.FILE, "\tAudio Master Volume is = %.1f", master_volume);
+                log::info(Where.FILE, "\tAudio Master Volume is = %.1f", master_volume);
             }
         }
     } else {
-        lgr::warning(Where.FILE, "AudioDevice: Not ready, sound will be disabled! %s:%s", $$MODULE, $$FUNC );
+        log::warning(Where.FILE, "AudioDevice: Not ready, sound will be disabled! %s:%s", $$MODULE, $$FUNC );
     }
 
-    lgr::info(Where.FILE, "---------------------------------------------\n");
+    log::info(Where.FILE, "---------------------------------------------\n");
 // #endregion AUDIO DEVICE initialization
 
     
 // #region Asset manager
-    lgr::info(Where.FILE, "Loading game assets:");
-    lgr::info(Where.FILE, "---------------------------------------------");
+    log::info(Where.FILE, "Loading game assets:");
+    log::info(Where.FILE, "---------------------------------------------");
     // first load default assets
     @catch(local_game.loadDefaultAssets());
     //
@@ -2437,20 +2429,20 @@ $endif
     svg::SVGData svgfile;
     svgfile.path = local_game.app_base_folder.tconcat("levels/test.svg").copy(mem);
     if(svgfile.load()!) {
-        lgr::info(Where.FILE, "SVG file loaded successfully: %s", svgfile.path);
+        log::info(Where.FILE, "SVG file loaded successfully: %s", svgfile.path);
         //svgfile.printTofile(local_game.app_base_folder.tconcat("levels/test.txt"));
         //svgfile.print();
     } else {
-        lgr::warning(Where.FILE, "Failed to load SVG file: %s", svgfile.path);
+        log::warning(Where.FILE, "Failed to load SVG file: %s", svgfile.path);
     }
         
-    lgr::info(Where.FILE,  "** done **");
-    lgr::info(Where.FILE, "---------------------------------------------\n");
+    log::info(Where.FILE,  "** done **");
+    log::info(Where.FILE, "---------------------------------------------\n");
 // #endregion Asset manager
 
 $if $feature(WREN_ENABLE) &&& !$feature(ANGEL_ENABLE):
-    lgr::info(Where.FILE, "Initializing Script Engine: %s (%s)", wren::VERSION_STRING, "WREN");
-    lgr::info(Where.FILE, "---------------------------------------------");
+    log::info(Where.FILE, "Initializing Script Engine: %s (%s)", wren::VERSION_STRING, "WREN");
+    log::info(Where.FILE, "---------------------------------------------");
     // init the game editor defaults
     local_game.script_eng.init();
     local_game.script_eng.registerScripts(local_game.app_base_folder.tconcat(scpt::SCRIPT_FOLDER_NAME));
@@ -2458,24 +2450,24 @@ $if $feature(WREN_ENABLE) &&& !$feature(ANGEL_ENABLE):
     if(main != null) {
         main.run();
     }
-    lgr::info(Where.FILE, "---------------------------------------------\n");
+    log::info(Where.FILE, "---------------------------------------------\n");
 $endif
 
 $if $feature(ANGEL_ENABLE) &&& !$feature(WREN_ENABLE):
     // Todo(HM) modify the script engine to use angelScript instead of wren
-    lgr::info(Where.FILE, "Initializing Script Engine: %s (%s)", angel::VERSION_STRING, "ANGELSCRIPT");
-    lgr::info(Where.FILE, "---------------------------------------------");
+    log::info(Where.FILE, "Initializing Script Engine: %s (%s)", angel::VERSION_STRING, "ANGELSCRIPT");
+    log::info(Where.FILE, "---------------------------------------------");
     local_game.asEngine = angel::createEngine();
     ScriptEngine* scpt_engine = local_game.asEngine;
     if(scpt_engine == null) {
-        lgr::fatal(Where.FILE, "Failed to create AngelScript engine!");
+        log::fatal(Where.FILE, "Failed to create AngelScript engine!");
         //return ANGELSCRIPT_INIT_FAILED?;
     } else {
-        lgr::info(Where.FILE, "AngelScript engine created successfully.");
+        log::info(Where.FILE, "AngelScript engine created successfully.");
         local_game.script_result = scpt_engine.setMessageCallback((FunctionCallback)&scpt::messageCallback);
 	    local_game.script_result = scpt_engine.registerGlobalFunction("void print()", (FunctionCallback)&scpt::asPrint);
 
-        lgr::info(Where.FILE, "Initialization of Angel Script Engine done;");
+        log::info(Where.FILE, "Initialization of Angel Script Engine done;");
 
         ScriptFunction *func = scpt_engine.getGlobalFunctionByDecl("void print()");
         ScriptContext *ctx = scpt_engine.createContext();
@@ -2512,17 +2504,17 @@ $if $feature(MUJS_ENABLE):
             //any[*] _args = { any_make(&&5, int.typeid), any_make(&&5, int.typeid) };
             local_game.mujs_state.runFunction("testwithargs", mujs::ISGLOBAL, 5, 5);
         };
-        lgr::warning(Where.CONSOLE, "mujs script main.js run returned: %d", ret);
+        log::info(Where.CONSOLE, "mujs script main.js run returned: %d", ret);
     } else {
-        lgr::warning(Where.CONSOLE, "Failed to initialize mujs script engine!");
+        log::warning(Where.CONSOLE, "Failed to initialize mujs script engine!");
     }
 $endif
 
-    lgr::info(Where.FILE, "Initializing game editor:");
-    lgr::info(Where.FILE, "---------------------------------------------");
+    log::info(Where.FILE, "Initializing game editor:");
+    log::info(Where.FILE, "---------------------------------------------");
     // init the game editor defaults
     local_game.editor.initDefaults();
-    lgr::info(Where.FILE, "---------------------------------------------\n");
+    log::info(Where.FILE, "---------------------------------------------\n");
 
     // init intro stuff here
     // Todo(HM) create real pre loading logo videos?
@@ -2550,7 +2542,7 @@ $endif
     // NOTE(HM) Create main menu here but don't show it now
     local_game.main_menu = menu::mainMenuCreate(screenWidth, screenHeight);
     if(local_game.main_menu == null) {
-        lgr::fatal(Where.FILE, "Something went very wrong, failed to init Main Menu!");
+        log::fatal(Where.FILE, "Something went very wrong, failed to init Main Menu!");
         unreachable("!!!!!!!!! Failed to create main menu. !!!!!!!!!!!!!!");
     }
 // #endregion MAIN MENU
@@ -2581,11 +2573,11 @@ $endif
     // NOTE(HM) todo: the player and ingame entities should be created only at spawn of a level 
     // but right now, I don't have a concept of a "level" or game World.
     // TODO(HM) when possible make a dedicated spawn point entity for the player.
-    lgr::info(Where.FILE,  "** Creating test player. **");
+    log::info(Where.FILE,  "** Creating test player. **");
     local_game.main_player = plyr::makePlayer(id: 1, color: rl::BLUE);
     // NOTE(HM) The first entity is always the main player1
     local_game.entityList.push((Entity*)local_game.main_player);
-    lgr::info(Where.FILE,  "** Done **.");
+    log::info(Where.FILE,  "** Done **.");
     
     // local_game.particleSpawner1.init({
     //     0.5f*local_game.screen.w,
@@ -2593,7 +2585,7 @@ $endif
     // });
     
     // Create test entities @delete
-    lgr::info(Where.FILE,  "** Creating test entities. **");
+    log::info(Where.FILE,  "** Creating test entities. **");
     for(int i = 1; i <= 2; i++) 
     {
         $if $defined(ENABLE_CAMERA_VIEW):
@@ -2607,9 +2599,9 @@ $endif
         test_ent.setMaterial("figure");
     }
     
-    lgr::info(Where.FILE,  "** Done. **");
+    log::info(Where.FILE,  "** Done. **");
     
-    lgr::info(Where.FILE,  "** Enabling test entities brains. **");
+    log::info(Where.FILE,  "** Enabling test entities brains. **");
     if(local_game.entityList.len() >= 1) {
         local_game.should_update_entities = true;
     }
@@ -2618,53 +2610,53 @@ $endif
     local_game.boidManager1.init();
     
     
-    lgr::info(Where.FILE,  "** Done. **");
+    log::info(Where.FILE,  "** Done. **");
 // #endregion Test game stuff
     
     local_game.should_quit = false;
-    lgr::info(Where.FILE,  "Game Start Done Sucessfully.\n//**//");
+    log::info(Where.FILE,  "Game Start Done Sucessfully.\n//**//");
 }
 
 fn void gameOnExit() @local 
 {
-    lgr::info(Where.FILE,  "Game shutdown starting.");
+    log::info(Where.FILE,  "Game shutdown starting.");
     deinit_game_cursor();
     // make sure to release all assets last, so you don't try to release a asset that is already released.
     asstManager.releaseAllAssets();
 
 $if $feature(WREN_ENABLE):
-    lgr::info(Where.FILE, "close Script Engine: %s", wren::VERSION_STRING);
-    lgr::info(Where.FILE, "---------------------------------------------");
+    log::info(Where.FILE, "close Script Engine: %s", wren::VERSION_STRING);
+    log::info(Where.FILE, "---------------------------------------------");
     local_game.script_eng.deinit();
-    lgr::info(Where.FILE, "---------------------------------------------\n");
+    log::info(Where.FILE, "---------------------------------------------\n");
 $endif
 
 $if $feature(ANGEL_ENABLE):
-    lgr::info(Where.FILE, "close Script Engine: %s", angel::VERSION_STRING);
-    lgr::info(Where.FILE, "---------------------------------------------");
+    log::info(Where.FILE, "close Script Engine: %s", angel::VERSION_STRING);
+    log::info(Where.FILE, "---------------------------------------------");
     if(local_game.asEngine != null) {
         local_game.asEngine.release();
         local_game.asEngine = null;
     }
-    lgr::info(Where.FILE, "---------------------------------------------\n");
+    log::info(Where.FILE, "---------------------------------------------\n");
 $endif
 
 $if $feature(MUJS_ENABLE):
-    lgr::info(Where.FILE, "close mujs Script State: %s", mujs::VERSION_STRING);
-    lgr::info(Where.FILE, "---------------------------------------------");
+    log::info(Where.FILE, "close mujs Script State: %s", mujs::VERSION_STRING);
+    log::info(Where.FILE, "---------------------------------------------");
     if(local_game.mujs_state) {
         local_game.mujs_state.gc(mujs::GC_NOREPORT); // run a full garbage collection cycle
         local_game.mujs_state.free();
         local_game.mujs_state = null;
     }
-    lgr::info(Where.FILE, "---------------------------------------------\n");
+    log::info(Where.FILE, "---------------------------------------------\n");
 $endif
     // close physics engine
     box2d::deinitDebugDraw(&local_game.phys_debug);
     if(local_game.physWorldId.isValid()) {
-        lgr::info(Where.FILE, "Destroying physics engine.");
+        log::info(Where.FILE, "Destroying physics engine.");
         box2d::destroyWorld(local_game.physWorldId);
-        lgr::info(Where.FILE, "Done.");
+        log::info(Where.FILE, "Done.");
     }
     //
     rl::closeAudioDevice();
@@ -2672,11 +2664,11 @@ $endif
     if(local_game.settings_file.isModified())
     {
         // save the settings file
-        lgr::info(Where.FILE, "Saving settings file: %s", local_game.settings_file.path);
+        log::info(Where.FILE, "Saving settings file: %s", local_game.settings_file.path);
         if(local_game.settings_file.save()) {
-            lgr::info(Where.FILE, "Settings file saved successfully.");
+            log::info(Where.FILE, "Settings file saved successfully.");
         } else {
-            lgr::warning(Where.FILE, "Failed to save settings file.");
+            log::warning(Where.FILE, "Failed to save settings file.");
         }
     }
     ini::unload(&local_game.settings_file);
@@ -2689,11 +2681,11 @@ $endif
     rl::closeWindow();
     local_game.unload();
     //rl::memFree(memory_pool);
-    //lgr::info(Where.FILE,  "clearing game singletons and log system!\n\t** Printing done on OS terminal from this point on **");
-    lgr::info(Where.FILE,  "clearing game singletons!");
+    //log::info(Where.FILE,  "clearing game singletons and log system!\n\t** Printing done on OS terminal from this point on **");
+    log::info(Where.FILE,  "clearing game singletons!");
     clear_game_singletons();
-    lgr::info(Where.FILE,  "Game shutdown done!!");
-    lgr::closeLogFile();
+    log::info(Where.FILE,  "Game shutdown done!!");
+    log::closeLogFile();
 }
 
 fn void clear_game_singletons() @inline {
@@ -2704,7 +2696,7 @@ fn void clear_game_singletons() @inline {
     //
     gui::gpDeskManager.free();
     gui::gpDeskManager = null;
-     lgr::info(Where.FILE,  "**done**");
+     log::info(Where.FILE,  "**done**");
 }
 
 fn void saveGame() {
@@ -2715,13 +2707,13 @@ fn void saveGame() {
         svs::SaveFile? save_file = svs::make_new(file_path);
         defer (void)svs::close(&save_file);
         if(catch excuse = save_file) {
-            lgr::warning(Where.FILE, "Unable to save to file: %s with excuse: %s", file_path, excuse);
+            log::warning(Where.FILE, "Unable to save to file: %s with excuse: %s", file_path, excuse);
             return;
         }
         local_game.save(&save_file);
-        lgr::info(Where.FILE,  "Saved \"%s\" to folder: %s", file_path, save_folder);
+        log::info(Where.FILE,  "Saved \"%s\" to folder: %s", file_path, save_folder);
     } else {
-        lgr::warning(Where.FILE,`Required save folder inside %s not found!\n
+        log::warning(Where.FILE,`Required save folder inside %s not found!\n
                     A folder called '%s' (case sensitive) most exist there!`,
                     local_game.app_save_folder, local_game.app_name);
         $if $feature(_DEBUG):
@@ -2736,7 +2728,7 @@ fn void loadGame()
     
     FilePathList files = fs::loadDirectoryFiles(local_game.app_save_folder);
     if(files.count == 0) {
-        lgr::warning(Where.CONSOLE, "Failed to get save files from: %s.", local_game.app_save_folder);
+        log::warning(Where.CONSOLE, "Failed to get save files from: %s.", local_game.app_save_folder);
         return;
     }
     
@@ -2762,7 +2754,7 @@ fn void loadGame()
          svs::SaveFile? save_file = svs::open(((ZString)files.paths[file_index]).str_view());
         defer (void)svs::close(&save_file);
         if(catch excuse = save_file) {
-            lgr::warning(Where.FILE, "Unable to open save file: %s with excuse: %s", files.paths[file_index], excuse);
+            log::warning(Where.FILE, "Unable to open save file: %s with excuse: %s", files.paths[file_index], excuse);
             return;
         }
         
@@ -2772,13 +2764,13 @@ fn void loadGame()
 /* 
     Path? path = path::temp_new(local_game.app_save_folder);
     if(catch excuse = path) {
-        lgr::warning(Where.CONSOLE, "Failed to get home dir where save files are at with excuse: %s.", excuse);
+        log::warning(Where.CONSOLE, "Failed to get home dir where save files are at with excuse: %s.", excuse);
         return;
     }
     
     PathList! files  = path::new_ls(path)!!; // new_ls only returns the filenames
     if(catch excuse = files) {
-       lgr::warning(Where.CONSOLE, "Failed to get save files from home dir with excuse: %s.", excuse);
+       log::warning(Where.CONSOLE, "Failed to get save files from home dir with excuse: %s.", excuse);
         return;
     }
     
@@ -2809,7 +2801,7 @@ fn void loadGame()
         svs::SaveFile! save_file = svs::open(file_path);
         defer (void)svs::close(&save_file);
         if(catch excuse = save_file) {
-            lgr::warning(Where.FILE, "Unable to open save file: %s with excuse: %s", file_path, excuse);
+            log::warning(Where.FILE, "Unable to open save file: %s with excuse: %s", file_path, excuse);
             return;
         }
         
@@ -2905,29 +2897,45 @@ fn void pre_InitFunc() @init {
     gameArena.init(mem, GAME_ARENA_PAGE_SIZE);
     
     // Controls raylib console logging
-    // Raylib library gets initialized here, because this is the first call of a raylib function.
+    // NOTE(HM) Raylib library/context gets initialized here!!
+    // This is because is the first call from raylib we make.
     // NOTE(HM) This means the MINIMUM log level not the only level to log
     // anything bellow this level will not log
+    // WARNING(HM) MAY BE OVERRIDEN LATER BY THE INI FILE SETTING!!!
     rl::setTraceLogLevel(rl::TraceLogLevel.INFO);
     
     // ************* My own logging system ****************
     // NOTE(HM) controls file and Console logging 
     // plus sets where the log file is saved as well.
-    lgr::initGlobalLoggingDir(); 
+    log::initGlobalLoggingDir();
     
     // This means the MINIMUM log level not the only level to log
     // anything bellow this level will not log
-    lgr::setLogLevel(rl::TraceLogLevel.INFO);
+    // WARNING(HM) MAY BE OVERRIDEN LATER BY THE INI FILE SETTING!!!
+    log::setLogLevel(rl::TraceLogLevel.INFO);
     // *********************************************************
+}
+
+
+fn void usage() @local @if($feature(TSODING_FLAG))
+{
+    io::printfn("Usage: %s [options]", flg::program_name());
+    io::printfn("Options:");
+    flg::print_options();
 }
 
 fn int main(String[] args) @public
 {
     tracy::set_thread_name("main_thread");
-    
+
+$if $feature(TSODING_FLAG):
+    ZString* version = flg::flag_bool("version", false, "Print engine version");
+    ZString* help    = flg::flag_bool("help", false, "Show this help message");
+$endif
+
     fault excuse = @catch(gameOnStart(&args));
     if (excuse) {
-        lgr::error(Where.CONSOLE, "Game initialization failed with excuse: %s", excuse);
+        log::error(Where.CONSOLE, "Game initialization failed with excuse: %s", excuse);
         return -1;
     } else {
         //assetsLoadingMutex.init()!!;
@@ -3029,10 +3037,10 @@ fn void showSplashScreenImage()
             rl::clearWindowState((int)rl::FLAG_WINDOW_UNDECORATED);
             rl::closeWindow();
         } else {
-            lgr::warning(Where.CONSOLE, "Failed to load splash image: %s", splash_path);
+            log::warning(Where.CONSOLE, "Failed to load splash image: %s", splash_path);
         }
     } else {
-        lgr::warning(Where.CONSOLE, "Splash image not found: %s", splash_path);
+        log::warning(Where.CONSOLE, "Splash image not found: %s", splash_path);
     }
 }
 
@@ -3064,7 +3072,7 @@ fn void parse_user_settings(Config* settings, int* window_flags)
     {
         // handle empty sections
         if(section.cmds.is_empty()) {
-            lgr::warning(Where.CONSOLE, "Cmd list of section %s is empty. Using defaults.", section.name, ini::SETTINGS_FILE_NAME);
+            log::warning(Where.CONSOLE, "Cmd list of section %s is empty. Using defaults.", section.name, ini::SETTINGS_FILE_NAME);
             continue;
         }
         
@@ -3085,7 +3093,7 @@ fn void parse_user_settings(Config* settings, int* window_flags)
                                 case "developer":
                                 nextcase;
                                 default:
-                                    lgr::warning(Where.CONSOLE, "Cmd \"%s = %s\" in file %s is still not handled.", cmd_id, cmd_value, ini::SETTINGS_FILE_NAME);
+                                    log::warning(Where.CONSOLE, "Cmd \"%s = %s\" in file %s is still not handled.", cmd_id, cmd_value, ini::SETTINGS_FILE_NAME);
                             }
                         case ini::INT:
                             switch(cmd_id) 
@@ -3100,7 +3108,7 @@ fn void parse_user_settings(Config* settings, int* window_flags)
                                             (*window_flags) |= (int)rl::FLAG_WINDOW_UNDECORATED;
                                         }
                                     } else {
-                                        lgr::warning(Where.CONSOLE, "Unnable to convert value %s of cmd %s of section %s to int.", cmd_value, cmd_id, section.name);
+                                        log::warning(Where.CONSOLE, "Unnable to convert value %s of cmd %s of section %s to int.", cmd_value, cmd_id, section.name);
                                     }
                                     
                                 case "r_mode":
@@ -3116,7 +3124,7 @@ fn void parse_user_settings(Config* settings, int* window_flags)
                                 case "brightness":
                                 nextcase;
                                 default:
-                                    lgr::warning(Where.CONSOLE, "Cmd \"%s = %s\" in file %s is still not handled.", cmd_id, cmd_value, ini::SETTINGS_FILE_NAME);
+                                    log::warning(Where.CONSOLE, "Cmd \"%s = %s\" in file %s is still not handled.", cmd_id, cmd_value, ini::SETTINGS_FILE_NAME);
                             }
                         case ini::FLOAT:
                             switch(cmd_id) 
@@ -3124,7 +3132,7 @@ fn void parse_user_settings(Config* settings, int* window_flags)
                                 case "unknown":
                                 nextcase;
                                 default:
-                                    lgr::warning(Where.CONSOLE, "Cmd \"%s = %s\" in file %s is still not handled.", cmd_id, cmd_value, ini::SETTINGS_FILE_NAME);
+                                    log::warning(Where.CONSOLE, "Cmd \"%s = %s\" in file %s is still not handled.", cmd_id, cmd_value, ini::SETTINGS_FILE_NAME);
                             }
                         case ini::STRING:
                             switch(cmd_id) 
@@ -3132,7 +3140,7 @@ fn void parse_user_settings(Config* settings, int* window_flags)
                                 case "unknown":
                                 nextcase;
                                 default:
-                                    lgr::warning(Where.CONSOLE, "Cmd \"%s = %s\" in file %s is still not handled.", cmd_id, cmd_value, ini::SETTINGS_FILE_NAME);
+                                    log::warning(Where.CONSOLE, "Cmd \"%s = %s\" in file %s is still not handled.", cmd_id, cmd_value, ini::SETTINGS_FILE_NAME);
                             }
                         default:
                             unreachable();
@@ -3158,11 +3166,11 @@ fn void parse_user_settings(Config* settings, int* window_flags)
                         nextcase;
                         case "editor":
                         default:
-                            lgr::warning(Where.CONSOLE, "action \"%s = %s\" in file %s is still not handled.", cmd_id, cmd_value, ini::SETTINGS_FILE_NAME);
+                            log::warning(Where.CONSOLE, "action \"%s = %s\" in file %s is still not handled.", cmd_id, cmd_value, ini::SETTINGS_FILE_NAME);
                     }
                 }
             default:
-                lgr::warning(Where.CONSOLE, "Found empty section %s in ini file %s.", section.name, ini::SETTINGS_FILE_NAME);
+                log::warning(Where.CONSOLE, "Found empty section %s in ini file %s.", section.name, ini::SETTINGS_FILE_NAME);
         }
     }
 }

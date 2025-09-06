@@ -34,7 +34,7 @@ import std::core::mem; // for malloc
 import std::math;
 import std::collections::map, std::collections::list;
 import game::main;
-import engine::logging::lgr;
+import engine::logging::log;
 import thirdparty::raylib5::rl;
 import thirdparty::tracy;  // profiling
 import engine::misc;
@@ -123,11 +123,11 @@ fn void Entity.register(&self) @inline
 fn bool Entity.shouldSkip(&self, String name) @inline @local {
     if(main::gpGame.entityList.len() > main::MAX_ENTITY_COUNT) {
 		if(name != "") {
-			lgr::warning(Where.FILE, "Skipping entity: '%s' creation, max count of '%s' reached!", 
+			log::warning(Where.FILE, "Skipping entity: '%s' creation, max count of '%s' reached!", 
 				name, main::MAX_ENTITY_COUNT);
 		} else {
             Vec2f origin = self.getPosition();
-			lgr::warning(Where.FILE, "Skipping entity to create at {%s, %s}, because max count '%s' was reached!", 
+			log::warning(Where.FILE, "Skipping entity to create at {%s, %s}, because max count '%s' was reached!", 
 				origin.x, origin.y, main::MAX_ENTITY_COUNT);
 		}
 		return true;
@@ -160,7 +160,7 @@ fn void Entity.init(&self, String aname, Vec2f origin, Color color = rl::WHITE)
 	}
     
 $if $feature(_DEBUG):
-	lgr::info(Where.FILE, "Created entity-> id: %s with name: %s.", self.id, self.name);
+	log::info(Where.FILE, "Created entity-> id: %s with name: %s.", self.id, self.name);
 $endif
     
 	//
@@ -280,7 +280,7 @@ fn void Entity.scaleV(&self, Vec2f scaler) @inline {
 *>
 fn void Entity.bindTo(&self, Entity* other, bool release_from_other = false) {
     if(self.bound() && !release_from_other) {
-        lgr::warning(Where.CONSOLE, "Cannot Bind %s to %s because is already bound to %s.", self.name, other.name, self.parent.name);
+        log::warning(Where.CONSOLE, "Cannot Bind %s to %s because is already bound to %s.", self.name, other.name, self.parent.name);
         return;
     }
     
@@ -368,12 +368,12 @@ fn void Entity.setname(&self, String* aname) @inline
 fn void Entity.setTarget(&self, Entity* other) @inline
 {
 	if(other == null) {
-		lgr::error(Where.FILE, "Cannot set target to null entity.");
+		log::error(Where.FILE, "Cannot set target to null entity.");
 		return;
 	}
 	
 	if(self.targets.contains(other)) {
-		lgr::warning(Where.FILE, "Entity '%s' already has '%s' as a target.", self.name, other.name);
+		log::warning(Where.FILE, "Entity '%s' already has '%s' as a target.", self.name, other.name);
 		return;
 	}
 	
@@ -383,7 +383,7 @@ fn void Entity.setTarget(&self, Entity* other) @inline
 fn bool Entity.hasTarget(&self, Entity* other) @inline
 {
 	if(other == null) {
-		lgr::error(Where.FILE, "Cannot check target for null entity.");
+		log::error(Where.FILE, "Cannot check target for null entity.");
 		return false;
 	}
 	
@@ -391,14 +391,14 @@ fn bool Entity.hasTarget(&self, Entity* other) @inline
 		return true;
 	}
 	
-	lgr::warning(Where.FILE, "Entity '%s' does not have '%s' as a target.", self.name, other.name);
+	log::warning(Where.FILE, "Entity '%s' does not have '%s' as a target.", self.name, other.name);
 	return false;
 }
 
 fn Entity* Entity.getTarget(&self, int index) @inline
 {
 	if(index < 0 || index >= self.targets.len()) {
-		lgr::error(Where.FILE, "Index out of bounds when getting target from entity '%s'.", self.name);
+		log::error(Where.FILE, "Index out of bounds when getting target from entity '%s'.", self.name);
 		return null;
 	}
 	
@@ -408,12 +408,12 @@ fn Entity* Entity.getTarget(&self, int index) @inline
 fn void Entity.removeTarget(&self, Entity* other) @inline
 {
 	if(other == null) {
-		lgr::error(Where.FILE, "Cannot remove target from null entity.");
+		log::error(Where.FILE, "Cannot remove target from null entity.");
 		return;
 	}
 	
 	if(!self.targets.contains(other)) {
-		lgr::warning(Where.FILE, "Entity '%s' does not have '%s' as a target.", self.name, other.name);
+		log::warning(Where.FILE, "Entity '%s' does not have '%s' as a target.", self.name, other.name);
 		return;
 	}
 	
@@ -695,7 +695,7 @@ fn void Entity.draw(&self)
 		case main::UNITS_PIXEL:
 			rect;  // do nothing already in pixels
 		default:
-			lgr::error(Where.FILE, "Unsupported units set for Entity rendering.");
+			log::error(Where.FILE, "Unsupported units set for Entity rendering.");
 			unreachable();
 	}
 
@@ -736,7 +736,7 @@ fn void Entity.draw(&self)
 			case *self == mat::COVERAGE_TRANSLUCENT && *self == mat::COVERAGE_PERFORATED:
 				blending = BlendMode.CUSTOM_SEPARATE; // use the custom blending mode					
             case *self == mat::COVERAGE_BAD:
-                lgr::error(Where.FILE, "Entity material %s has a bad material coverage type.", self.vs.mat.name);
+                log::error(Where.FILE, "Entity material %s has a bad material coverage type.", self.vs.mat.name);
                 unreachable();
         }
 

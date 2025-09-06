@@ -40,7 +40,7 @@ import game::main;
 import thirdparty::raylib5::rl;
 import engine::misc;
 import engine::sys::cvar;
-import engine::logging::lgr;
+import engine::logging::log;
 // end_region
 
 const String SETTINGS_FILE_NAME  @Hardcode = "user.ini";
@@ -165,7 +165,7 @@ fn void Config.register(&self, IniSection* section) @local @inline {
 fn IniSection* Config.createSection(&self, String name) @local
 {
     if(self.hasSection(name)) {
-        lgr::warning(Where.FILE, "Trying to create in the config file a Section %s that already exists.", name);
+        log::warning(Where.FILE, "Trying to create in the config file a Section %s that already exists.", name);
         return self.getSection(name);
     }
 
@@ -616,13 +616,13 @@ fn String[]? openConfigfileAndCutDataByLines(String filepath, bool isrelative) @
     INIFile file_data = (INIFile)file::open(filepath, "r")!;
     defer (void)file_data.close();
     // if(catch excuse = file_data) {
-        // lgr::warning(Where.FILE, "Unable to open ini file: %s with excuse: %s", filepath, excuse);
+        // log::warning(Where.FILE, "Unable to open ini file: %s with excuse: %s", filepath, excuse);
         // return IniFault.FAILED_OPEN_FILE?;
     // }
     
     String? entire_file = misc::readEntireFileX(filepath);
     if(catch excuse = entire_file) {
-        lgr::warning(Where.FILE,  "Unable to read data from file: %s with excuse: %s", filepath, excuse);
+        log::warning(Where.FILE,  "Unable to read data from file: %s with excuse: %s", filepath, excuse);
         return FAILED_READ_FILE?;
     }
     
@@ -812,14 +812,14 @@ fn Config*? load(String filepath, bool isrelative = true)
     
     String[]? data = openConfigfileAndCutDataByLines(filepath, isrelative);
     if(catch excuse = data) {
-        lgr::warning(Where.FILE,  "Unable to open file %s to cut with excuse: %s", filepath, excuse);
+        log::warning(Where.FILE,  "Unable to open file %s to cut with excuse: %s", filepath, excuse);
         return INI_FILE_LOAD_FAILED?;
     }
     
     //data is valid from here
     Config*? file_data = parse_file(data);
     if(catch excuse = file_data) {
-        lgr::warning(Where.FILE, "Failed to parse config file: %s with excuse: %s", filepath, excuse);
+        log::warning(Where.FILE, "Failed to parse config file: %s with excuse: %s", filepath, excuse);
         return MALFORMED_INI_FILE?;
     }
     file_data.path = filepath.tcopy();
@@ -837,7 +837,7 @@ fn bool? Config.load(&self, String filepath, bool isrelative = true)
 {
     String[]? lines = openConfigfileAndCutDataByLines(filepath, isrelative);
     if(catch excuse = lines) {
-        lgr::warning(Where.FILE,  "Unable to open file %s to cut with excuse: %s", filepath, excuse);
+        log::warning(Where.FILE,  "Unable to open file %s to cut with excuse: %s", filepath, excuse);
         return INI_FILE_LOAD_FAILED?;
     }
 
@@ -880,7 +880,7 @@ fn bool Config.save(&self, String filename = SETTINGS_FILE_NAME)
 
     INIFile? file_data = (INIFile)file::open(self.path, "wt");
     if(catch excuse = file_data) {
-        lgr::warning(Where.FILE, "Failed to open config file: %s to write with excuse: %s", filepath, excuse);
+        log::warning(Where.FILE, "Failed to open config file: %s to write with excuse: %s", filepath, excuse);
         return false;
     }
     defer (void)file_data.close();
@@ -934,7 +934,7 @@ fn void Config.reload(&self)
     // reload the config file
     Config*? new_data = load(SETTINGS_FILE_NAME, true);
     if(catch excuse = new_data) {
-        lgr::warning(Where.FILE, "Failed to reload config file with excuse: %s", excuse);
+        log::warning(Where.FILE, "Failed to reload config file with excuse: %s", excuse);
         return;
     }
     
@@ -1009,12 +1009,12 @@ fn void create_default_settings_file(String filepath) @inline
 {
     File? data = file::open(filepath, "w");
     if(catch excuse = data) {
-        lgr::warning(Where.FILE, "Failed to open config file: %s to write with excuse: %s", filepath, excuse);
+        log::warning(Where.FILE, "Failed to open config file: %s to write with excuse: %s", filepath, excuse);
         return;
     }
     @catch(data.write(SAFE_SETTINGS));
     data.close()!!;
-    lgr::warning(Where.FILE, "Settings file missing, creating one with default settings at: %s", filepath);
+    log::warning(Where.FILE, "Settings file missing, creating one with default settings at: %s", filepath);
 }
 
 

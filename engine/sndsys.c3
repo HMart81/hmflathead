@@ -44,7 +44,7 @@ import thirdparty::raylib5::rl;
 //import raygui5::rgui;
 import thirdparty::raylib5::rmath;
 import game::serialize::svs; // save system
-import engine::logging::lgr;
+import engine::logging::log;
 // end_region
 
 // SSMusic management functions
@@ -94,7 +94,7 @@ fn bool? populateMusicDataBase() {
     String music_folder = main::gpGame.app_base_folder.tconcat("\\").tconcat("music\\");
 	PathList? paths = path::ls(tmem, path::temp(music_folder));
 	if(catch excuse = paths) {
-		lgr::warning(Where.FILE,  "Unable to get audio from folder music with excuse: %s", excuse);
+		log::warning(Where.FILE,  "Unable to get audio from folder music with excuse: %s", excuse);
 		return astmng::FOLDER_SCAN_ERROR?;
 	}
 	
@@ -111,7 +111,7 @@ fn bool? populateMusicDataBase() {
 			
 			String extension = fs::getFileExtension(path_);
             if(extension != ".mp3" && extension != ".ogg") {
-                lgr::warning(Where.FILE, "Non valid audio \"%s\" inside music folder.", file_name);
+                log::warning(Where.FILE, "Non valid audio \"%s\" inside music folder.", file_name);
                 continue; // to next file
             }
 			

@@ -32,7 +32,7 @@ import std::io, std::math, std::collections::list, std::io::path;
 import thirdparty::library::xml;
 import thirdparty::raylib5::rl;
 import engine::filesystem::fs;
-import engine::logging::lgr;
+import engine::logging::log;
 import engine::misc;
 import game::main;
 import std::ascii;
@@ -202,7 +202,7 @@ fn GUIPElement* GUIPStructure.findElementByName(&self, String name) @inline
         if(elem.name == name) return elem;
     }
     
-    lgr::error(Where.FILE, "Failed to find element '%s' in guip file '%s'", name, self.path);
+    log::error(Where.FILE, "Failed to find element '%s' in guip file '%s'", name, self.path);
     return null;
 }
 
@@ -213,21 +213,21 @@ fn GUIPElement* GUIPStructure.findElementByType(&self, typeid type) @inline
         if(elem.type == type) return elem;
     }
     
-    lgr::error(Where.FILE, "Failed to find element of type '%s' in guip file '%s'", type, self.path);
+    log::error(Where.FILE, "Failed to find element of type '%s' in guip file '%s'", type, self.path);
     return null;
 }
 
 fn bool? GUIPStructure.load(&self, String path)
 {
     if(path == "") {
-        lgr::warning(Where.FILE, "GUIP file path was empty, cannot load guip file data!");
+        log::warning(Where.FILE, "GUIP file path was empty, cannot load guip file data!");
         return MISSING_GUIP?;
     }
     self.path = path;
 
     String file_data = misc::readEntireFileX(self.path)!;
     if(file_data == "") {
-        lgr::error(Where.FILE, "Failed to read data from guip file '%s'", self.path);
+        log::error(Where.FILE, "Failed to read data from guip file '%s'", self.path);
         return GUIP_READ_ERROR?;
     }
 
@@ -244,7 +244,7 @@ fn bool? GUIPStructure.load(&self, String path)
 fn bool? GUIPStructure.parse(&self, String data) @local
 {
     if(data == "") {
-        lgr::error(Where.FILE, "Invalid guip file '%s', no data found!", self.path);
+        log::error(Where.FILE, "Invalid guip file '%s', no data found!", self.path);
         return GUIP_PARSING_ERROR?;
     }
 
@@ -257,7 +257,7 @@ fn bool? GUIPStructure.parse(&self, String data) @local
 
         String[] words = line.tsplit(" ");
         if(parts.len < 2) {
-            lgr::error(Where.FILE, "Invalid guip file '%s', line '%s' is malformed!", self.path, line);
+            log::error(Where.FILE, "Invalid guip file '%s', line '%s' is malformed!", self.path, line);
             return false;
         }
 
@@ -271,7 +271,7 @@ fn bool? GUIPStructure.parse(&self, String data) @local
                 // TODO(HM) parse the element data
                 break;
             default:
-                lgr::warning(Where.FILE, "Unknown guip file directive '%s' in file '%s'", parts[0], self.path);
+                log::warning(Where.FILE, "Unknown guip file directive '%s' in file '%s'", parts[0], self.path);
         }
     }
 
@@ -428,7 +428,7 @@ fn SVGElement* SVGData.findElementByID(&self, String id)
         }
 	}
 
-    lgr::error(Where.FILE, "Failed to find element '%s' in svg file '%s'", id, self.path);
+    log::error(Where.FILE, "Failed to find element '%s' in svg file '%s'", id, self.path);
 	return null;
 }
 
@@ -450,28 +450,28 @@ fn SVGElement* SVGData.findElementByName(&self, String name)
         }
 	}
 
-    lgr::error(Where.FILE, "Failed to find element '%s' in svg file '%s'", name, self.path);
+    log::error(Where.FILE, "Failed to find element '%s' in svg file '%s'", name, self.path);
 	return null;
 }
 
 fn bool? SVGData.load(&self)
 {
     if(self.path == "") {
-        lgr::error(Where.FILE, "SVG file path is empty, cannot load svg file data!");
+        log::error(Where.FILE, "SVG file path is empty, cannot load svg file data!");
         return SVG_FILE_PATH_EMPTY?;
     }
     // check if the file exists
     File file = fs::openFile(self.path)!;
     defer file.close()!!;
     if(file.file == null) {
-        lgr::error(Where.FILE, "Failed to open svg file '%s'", self.path);
+        log::error(Where.FILE, "Failed to open svg file '%s'", self.path);
         return SVG_LOAD_ERROR?;
     }
 
     SVGFile* svg_file = (SVGFile*)xml::read_file(file)!;
     defer svg_file.free();
     if(svg_file == null) {
-        lgr::error(Where.FILE, "Failed to read svg file '%s'", self.path);
+        log::error(Where.FILE, "Failed to read svg file '%s'", self.path);
         return SVG_LOAD_ERROR?;
     }
 
@@ -491,12 +491,12 @@ fn bool SVGData.parse(&self, SVGFile* doc) @local
     bool invalid_svg = (doc.rootNode.name == "" && doc.rootNode.name != ElemID.SVG);
     if(invalid_svg)
     {
-       lgr::error(Where.FILE, " Invalid svg file '%s', root element should be 'svg' but is '%s' instead.", self.path, doc.rootNode.name);
+       log::error(Where.FILE, " Invalid svg file '%s', root element should be 'svg' but is '%s' instead.", self.path, doc.rootNode.name);
        return false;
     }
 
      if(doc.rootNode.children.len() == 0) {
-        lgr::error(Where.FILE, " Invalid svg file '%s', root <%s> has no children!", self.path, doc.rootNode.name);
+        log::error(Where.FILE, " Invalid svg file '%s', root <%s> has no children!", self.path, doc.rootNode.name);
         return false;
     }
 
@@ -557,7 +557,7 @@ fn void get_node_Attributes(XmlNode* node, SVGData* svgfile, SVGElement* inElem 
             parse_attribute_data(atrb, elem);
         }
     } else {
-        lgr::error(Where.FILE, " Failed to get attribute data for <%s> in svg file '%s'!!!", node.name, svgfile.path);
+        log::error(Where.FILE, " Failed to get attribute data for <%s> in svg file '%s'!!!", node.name, svgfile.path);
         unreachable();
     }
 }
@@ -675,7 +675,7 @@ fn void parse_attribute_data(SVGElemNodeAttribute* inAtrb, SVGElement* elem, SVG
             } else if(inAtrb.value.starts_with("rotate")) {
                 new_atrb.type  = AttrType.VEC3;
             } else {
-                lgr::warning(Where.FILE,  "Unknown transform value <%s> in file '%s'", inAtrb.value, svgdata.path);
+                log::warning(Where.FILE,  "Unknown transform value <%s> in file '%s'", inAtrb.value, svgdata.path);
             }
         case AttrID.D:
             new_atrb.type  = AttrType.STRING;
@@ -683,11 +683,11 @@ fn void parse_attribute_data(SVGElemNodeAttribute* inAtrb, SVGElement* elem, SVG
         case AttrID.CLIPPATH:
             new_atrb.type  = AttrType.URL;
         case AttrID.INVALID:
-            lgr::warning(Where.FILE,  "SVG attrb <%s> in file '%s' is invalid", elem.id.name, svgdata.path);
+            log::warning(Where.FILE,  "SVG attrb <%s> in file '%s' is invalid", elem.id.name, svgdata.path);
             should_register = false;
             return;
         default:
-            lgr::warning(Where.FILE,  "SVG attrb <%s> in file '%s' is still not supported", elem.id.name, svgdata.path);
+            log::warning(Where.FILE,  "SVG attrb <%s> in file '%s' is still not supported", elem.id.name, svgdata.path);
             should_register = false;
             return;
     }
@@ -698,7 +698,7 @@ fn void parse_attribute_data(SVGElemNodeAttribute* inAtrb, SVGElement* elem, SVG
             if(try value = to_int(inAtrb.value)) {
                 new_atrb.value.i = value;
             } else {
-                lgr::warning(Where.FILE, "Failed to convert attribute '%s' value '%s' to int in file '%s'", 
+                log::warning(Where.FILE, "Failed to convert attribute '%s' value '%s' to int in file '%s'", 
                              elem.id.name, inAtrb.value, svgdata.path);
                 should_register = false;
             }
@@ -706,7 +706,7 @@ fn void parse_attribute_data(SVGElemNodeAttribute* inAtrb, SVGElement* elem, SVG
             if(try value = to_float(inAtrb.value)) {
                 new_atrb.value.f = value;
             } else {
-                lgr::warning(Where.FILE, "Failed to convert attribute '%s' value '%s' to float in file '%s'", 
+                log::warning(Where.FILE, "Failed to convert attribute '%s' value '%s' to float in file '%s'", 
                              elem.id.name, inAtrb.value, svgdata.path);
                 should_register = false;
             }
@@ -724,7 +724,7 @@ fn void parse_attribute_data(SVGElemNodeAttribute* inAtrb, SVGElement* elem, SVG
                 else if(inAtrb.value.starts_with("rotate")) {
                     nextcase AttrType.VEC3;
                 } else {
-                    lgr::warning(Where.FILE,  "Unknown transform value <%s> in file '%s'", inAtrb.value, svgdata.path);
+                    log::warning(Where.FILE,  "Unknown transform value <%s> in file '%s'", inAtrb.value, svgdata.path);
                 }
             } 
             else 
@@ -732,7 +732,7 @@ fn void parse_attribute_data(SVGElemNodeAttribute* inAtrb, SVGElement* elem, SVG
                  if(try value = to_vec2(inAtrb.value)) {
                 new_atrb.value.v2 = value;
                 } else {
-                    lgr::warning(Where.FILE, "Failed to convert attribute '%s' value '%s' to vec2 in file '%s'", 
+                    log::warning(Where.FILE, "Failed to convert attribute '%s' value '%s' to vec2 in file '%s'", 
                                 elem.id.name, inAtrb.value, svgdata.path);
                     should_register = false;
                 }
@@ -747,7 +747,7 @@ fn void parse_attribute_data(SVGElemNodeAttribute* inAtrb, SVGElement* elem, SVG
                 else if(inAtrb.value.starts_with("rotate")) {
                     new_atrb.value.v3 = get_transform_rotation(inAtrb.value);
                 } else {
-                    lgr::warning(Where.FILE,  "Unknown transform value <%s> in file '%s'", inAtrb.value, svgdata.path);
+                    log::warning(Where.FILE,  "Unknown transform value <%s> in file '%s'", inAtrb.value, svgdata.path);
                 }
             } 
             else 
@@ -755,7 +755,7 @@ fn void parse_attribute_data(SVGElemNodeAttribute* inAtrb, SVGElement* elem, SVG
                 if(try value = to_vec3(inAtrb.value)) {
                 new_atrb.value.v3 = value;
                 } else {
-                    lgr::warning(Where.FILE, "Failed to convert attribute '%s' value '%s' to vec3 in file '%s'", 
+                    log::warning(Where.FILE, "Failed to convert attribute '%s' value '%s' to vec3 in file '%s'", 
                                 elem.id.name, inAtrb.value, svgdata.path);
                     should_register = false;
                 }
@@ -764,7 +764,7 @@ fn void parse_attribute_data(SVGElemNodeAttribute* inAtrb, SVGElement* elem, SVG
             if(try value = to_vec4(inAtrb.value)) {
                 new_atrb.value.v4 = value;
             } else {
-                lgr::warning(Where.FILE, "Failed to convert attribute '%s' value '%s' to vec4 in file '%s'", 
+                log::warning(Where.FILE, "Failed to convert attribute '%s' value '%s' to vec4 in file '%s'", 
                              elem.id.name, inAtrb.value, svgdata.path);
                 should_register = false;
             }
@@ -794,10 +794,10 @@ fn void parse_attribute_data(SVGElemNodeAttribute* inAtrb, SVGElement* elem, SVG
                 String value = inAtrb.value.trim_left("url(#").trim_right(")");
                 new_atrb.value.pelem = svgdata.findElementByID(value);
                 if(new_atrb.value.pelem == null) {
-                    lgr::error(Where.FILE, "Failed to get element pointed by url '%s' in file '%s'", value, svgdata.path);
+                    log::error(Where.FILE, "Failed to get element pointed by url '%s' in file '%s'", value, svgdata.path);
                 }
             } else {
-                lgr::warning(Where.FILE, "SVG attrb <%s> in file '%s' is not a valid pointer", elem.id.name, svgdata.path);
+                log::warning(Where.FILE, "SVG attrb <%s> in file '%s' is not a valid pointer", elem.id.name, svgdata.path);
             }
     }
 }
@@ -1216,9 +1216,9 @@ fn bool handle_svg_elements(XmlNode* elem, SVGData* svgdata)
         case ElemID.VIEW:
             nextcase default;
         case ElemID.INVALID:
-            lgr::warning(Where.FILE,  "SVG element <%s> in file '%s' is marked invalid", elem.name, svgdata.path);
+            log::warning(Where.FILE,  "SVG element <%s> in file '%s' is marked invalid", elem.name, svgdata.path);
         default:
-            lgr::warning(Where.FILE,  "SVG element <%s> in file '%s' is still not supported or valid", elem.name, svgdata.path);
+            log::warning(Where.FILE,  "SVG element <%s> in file '%s' is still not supported or valid", elem.name, svgdata.path);
     }
 
     return true;
@@ -1276,7 +1276,7 @@ fn void SVGData.printTofile(&self, String path) @inline
             }
         }
     } else {
-        lgr::warning(Where.CONSOLE, "Failed to save svg '%s' parsed data to optimized file '%s'.", self.path, path);
+        log::warning(Where.CONSOLE, "Failed to save svg '%s' parsed data to optimized file '%s'.", self.path, path);
         return;
     }
 }

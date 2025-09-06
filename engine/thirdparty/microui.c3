@@ -43,7 +43,7 @@ import std::core::string::conv;
 import thirdparty::raylib5::rl;
 import std::collections::list;
 //import std::collections::elastic_array;
-import engine::logging::lgr;
+import engine::logging::log;
 import game::main;
 import thirdparty::microui::mu_stack @public;
 

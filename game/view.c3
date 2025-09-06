@@ -49,7 +49,7 @@ import thirdparty::raylib5::rmath;
 import game::serialize::svs; // save system
 import game::lowlevel::bounds;
 import game::material::mat;
-import engine::logging::lgr;
+import engine::logging::log;
 import engine::physics::box2d;
 // end_region
 
@@ -272,7 +272,7 @@ fn void takeScreenShot()
     if(fs::directoryExists(shots_dir) == false) {
         bool? sucess = fs::makeDirectory(shots_dir);
         if(catch excuse = sucess) {
-            lgr::warning(Where.FILE, "Cannot create screenshots directory at: %s!\n\t -> excuse: %s", 
+            log::warning(Where.FILE, "Cannot create screenshots directory at: %s!\n\t -> excuse: %s", 
                         shots_dir, excuse);
             $if $feature(_DEBUG):
                 unreachable();
@@ -291,7 +291,7 @@ fn void takeScreenShot()
     defer {
         // at the end return everything to defaults
         fs::unloadDirectoryFiles(files);
-        //lgr::info(Where.CONSOLE, "current dir after all = %s", rl::getWorkingDirectory());
+        //log::info(Where.CONSOLE, "current dir after all = %s", rl::getWorkingDirectory());
         if(bytes_count) {
             // return to main work dir
             fs::changeDirectory(main::gpGame.app_work_dir)!!;
@@ -319,7 +319,7 @@ fn void takeScreenShot()
         {
             bool? sucess = fs::fileSaveEntireBytes(shotname, shot);
             if(catch excuse = sucess) {
-                lgr::warning(Where.CONSOLE, "failed to transfer file %s to %s with excuse: %s", shotname, shots_dir, excuse);
+                log::warning(Where.CONSOLE, "failed to transfer file %s to %s with excuse: %s", shotname, shots_dir, excuse);
             }
         }
     }
@@ -331,7 +331,7 @@ fn void moveScreenShots()
     String shots_dir = main::gpGame.app_work_dir.tconcat("screenshots\\");
     bool? sucess = fs::makeDirectory_IfNotExist(shots_dir);
     if(catch excuse = sucess) { // will ignore if the directory already exists
-        lgr::warning(Where.FILE, "Cannot create screenshots directory at: %s!\n\t -> excuse: %s", 
+        log::warning(Where.FILE, "Cannot create screenshots directory at: %s!\n\t -> excuse: %s", 
                     shots_dir, excuse);
         $if $feature(_DEBUG):
             unreachable();

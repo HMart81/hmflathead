@@ -45,7 +45,7 @@ import std::collections::linkedlist, std::collections::list;
 import thirdparty::wren;
 import engine::sys::script_engine::scpt;
 import engine::misc;
-import engine::logging::lgr;
+import engine::logging::log;
 
 
 ////// WARNING(HM) NOTE(HM) For some reason I cannot make, foreign functions work, meaning calling C3 functions.

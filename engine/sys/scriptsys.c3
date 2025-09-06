@@ -30,7 +30,7 @@ module engine::sys::script_engine::scpt @if($feature(ANGEL_ENABLE));
 
 import std::io;
 import thirdparty::angel; // for the message callback
-import engine::logging::lgr;
+import engine::logging::log;
 
 // for the angel script engine ONLY
 fn void messageCallback(SMessageInfo *msg, void * /*obj*/)
@@ -57,7 +57,7 @@ import std::io;
 import std::collections::list;
 import thirdparty::wren;
 import engine::filesystem::fs;
-import engine::logging::lgr;
+import engine::logging::log;
 import thirdparty::raylib5::rl;
 import engine::misc; // misc code
 import game::main;
