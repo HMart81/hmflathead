@@ -57,6 +57,8 @@ enum Where {
     FILE,
     CONSOLE
 }
+const Where FILE @export = Where.FILE;
+const Where CONSOLE @export = Where.CONSOLE;
 
 /*
 // Trace log level      *copy pasta* from raylib55.c3i just for doc reasons
@@ -221,19 +223,49 @@ $endif
 fn void logToConsole(TraceLogLevel level, String fmt, args...) @format(1) @local {
 	DString str = dstring::temp_with_capacity(fmt.len + args.len * 8);
 	str.appendf(fmt, ...args);
-	rl::traceLog(level, str.zstr_view());
+
+	String color;
+	switch(level)
+	{
+		case TraceLogLevel.WARNING:
+			color = ANSI_COLOR_BR_YELLOW;
+		case TraceLogLevel.ERROR:
+			color = ANSI_COLOR_RED;
+		case TraceLogLevel.FATAL:
+			color = ANSI_COLOR_BR_RED;
+		case TraceLogLevel.INFO:
+		default:
+			color = ANSI_COLOR_YELLOW;
+	}
+	String message = string::tformat("%s%s%s", color, str, ANSI_COLOR_RESET);
+	rl::traceLog(level, message.zstr_tcopy());
 }
 
-/*
 
 // color escape string for ** console logging only **
+
 const String ANSI_COLOR_RED     = "\x1b[31m";
+const String ANSI_COLOR_BR_RED     = "\x1b[91m";
 const String ANSI_COLOR_GREEN   = "\x1b[32m";
 const String ANSI_COLOR_YELLOW  = "\x1b[33m";
+const String ANSI_COLOR_BR_YELLOW  = "\x1b[93m";
 const String ANSI_COLOR_BLUE    = "\x1b[34m";
 const String ANSI_COLOR_MAGENTA = "\x1b[35m";
+const String ANSI_COLOR_BR_MAGENTA = "\x1b[95m";
 const String ANSI_COLOR_CYAN    = "\x1b[36m";
 const String ANSI_COLOR_RESET   = "\x1b[0m";
+const String ANSI_COLOR_WHITE   = "\x1b[107m";
+
+/*
+const String ANSI_COLOR_RED     = "[31m";
+const String ANSI_COLOR_GREEN   = "[32m";
+const String ANSI_COLOR_YELLOW  = "[33m";
+const String ANSI_COLOR_BLUE    = "[34m";
+const String ANSI_COLOR_MAGENTA = "[35m";
+const String ANSI_COLOR_CYAN    = "[36m";
+const String ANSI_COLOR_RESET   = "[0m";
+const String ANSI_COLOR_WHITE   = "[97m";
+/*
 
 //////////////////////// HM ////////////////////////////////////
 
