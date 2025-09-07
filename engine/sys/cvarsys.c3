@@ -232,14 +232,14 @@ fn float Cvar.getfloat(&self, float default_value = 0.0f) @inline {
     if(try float result = self.value.to_float()) {
         return result;
     } else {
-        log::warning(Where.FILE, "unable to get float value for '%s' :: %s->%d", self.name, $$FUNC, $$LINE);
+        log::warning(FILE, "unable to get float value for '%s' :: %s->%d", self.name, $$FUNC, $$LINE);
         return default_value;
     }
 }
 
 fn String Cvar.getString(&self, String default_value = "") @inline {
     if(self.type != CvarType.STRING) {
-        log::warning(Where.FILE, "Cvar: %s was not defined as a string: %s->%d", self.name, $$FUNC, $$LINE);
+        log::warning(FILE, "Cvar: %s was not defined as a string: %s->%d", self.name, $$FUNC, $$LINE);
         return default_value;
     }
     
@@ -251,9 +251,9 @@ fn Cvar* Cvar.set(&self, String value) @inline {
     self.value = value.tcopy();
 $if $feature(_DEBUG):
     if(self.type == CvarType.BOOLEAN) {
-        io::printfn("[INFO] Cvar %s was set to %s.", self.name, (self.value == "1") ? "true" : "false");
+        log::info(CONSOLE, "Cvar %s was set to %s.", self.name, (self.value == "1") ? "true" : "false");
     } else {
-        io::printfn("[INFO] Cvar %s was set to value %s.", self.name, value);
+        log::info(CONSOLE, "Cvar %s was set to value %s.", self.name, value);
     }
 $endif
     return self;

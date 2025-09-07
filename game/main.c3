@@ -184,11 +184,11 @@ macro ScreenRes* @getResolutionFromIndex(#index) => &ScreenRes[#index];
 // multithreading 
 // *unused*
 const int NUM_THREADS = 3;
-Thread assetsLoadingThread;
-Mutex  assetsLoadingMutex;
+//Mutex  assetsLoadingMutex;
+//Thread assetsLoadingThread;
 //
-Thread introThread;
 Mutex  introMutex;
+Thread introThread;
 //
 
 // TODO make font sizes dependent on the screen size?
@@ -502,7 +502,7 @@ fn void Game.save(&self, SaveFile* file) @dynamic {
     svs::writeFloat(file,  self.dt);
     svs::writeBool(file,   self.showMessageBox);
     svs::writeInt(file,    self.last_key_pressed);
-    self.testTimer.save(file);
+    //self.testTimer.save(file);
 }
 
 fn void Game.reload(&self, SaveFile* file) @dynamic {
@@ -1104,7 +1104,7 @@ $endif
         local_game.boidManager1.update(rl::getScreenWidth(), rl::getScreenHeight(), local_game.dt);
         
         if(local_game.testTimer.alive()) {
-            io::printfn("Timer time = %s!!!", local_game.testTimer.lifetime);
+            //io::printfn("Timer time = %s!!!", local_game.testTimer.lifetime);
         } else { 
             //io::printfn("Timer run out press F2 to start again!!!");
             if (rgui::button((Rectangle) { 24, 24, 120, 30 }, "#191#Show Message")) local_game.showMessageBox = true;
@@ -3019,9 +3019,11 @@ $endif
             t.detach()!!;
         }*/
         
-        introMutex.init()!!;
-        introThread.create(&playIntro, null)!!;
-        introThread.detach()!!;
+        // Play the intro in a separate thread
+        introMutex.init()!!; // used to protect intro state
+        introThread.create(&playIntro, null)!!; // create and run intro thread
+        //assert(introThread.join()!! == 0); // for some reason this hangs here???
+        introThread.detach()!!; // detach it so it cleans up itself on exit
         
         // run the game loop
         gameDoOneFrame();
@@ -3117,11 +3119,15 @@ fn void showSplashScreenImage()
 fn int playIntro(void*) 
 {
     tracy::set_thread_name("intro_thread");
+    introMutex.lock()!!;
+    defer introMutex.unlock()!!;
+
     menu::stop();
     
     do {
         intro::play(&local_game.intro);
         local_game.intro_playing = true;
+        thread::sleep_ms(16);
     } while(intro::updateIntroAnimation(&local_game.intro));
     
     local_game.intro_playing = false;
@@ -3181,13 +3187,21 @@ fn void parse_user_settings(Config* settings, int* window_flags)
                                         log::warning(CONSOLE, "Unnable to convert value %s of cmd %s of section %s to int.", cmd_value, cmd_id, section.name);
                                     }
                                     
+                                case "maxFPS":
+                                    if( try value = cmd_value.to_int()) {
+                                        if(value > 0) {
+                                            //rl::setTargetFPS(value);
+                                            r_max_fps.set(cmd_value);
+                                            log::warning(FILE, "Cvar 'r_max_fps' value got changed to %s by cmd %s of section %s.", cmd_value, cmd_id, section.name);
+                                        }
+                                    } else {
+                                        log::warning(FILE, "Unnable to convert value %s of cmd %s of section %s to int.", cmd_value, cmd_id, section.name);
+                                    }
                                 case "r_mode":
                                 nextcase;
                                 case "r_custom_width" :
                                 nextcase;
                                 case "r_custom_heigth":
-                                nextcase;
-                                case "maxFPS":
                                 nextcase;
                                 case "gamma":
                                 nextcase;

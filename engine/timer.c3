@@ -47,11 +47,11 @@ struct Timer (SaveSystemInterface) {
 }
 
 fn void Timer.save(&self, SaveFile* file) @dynamic {
-// todo
+	svs::writeFloat(file, self.lifetime);
 }
 
 fn void Timer.reload(&self, SaveFile* file) @dynamic {
-// todo
+	svs::readFloat(file, &self.lifetime);
 }
 
 fn bool Timer.initialized(&self) @inline => self.lifetime > 0;
