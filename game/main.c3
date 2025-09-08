@@ -74,6 +74,7 @@ import engine::physics::box2d;
 import thirdparty::tracy;
 import thirdparty::tsoding::flg; // simple flag library
 import thirdparty::mujs; // micro java script
+import thirdparty::scripting::lua; // lua script
 // #endregion
 
 // #region Constants
@@ -334,6 +335,9 @@ struct Game (SaveSystemInterface) @local
     ScriptEngine* asEngine @if($feature(ANGEL_ENABLE)); // angel script engine
     // mujs script engine
     State* mujs_state @if($feature(MUJS_ENABLE)); // mujs context
+    //
+    // LUA script engine
+    LUAState* lua_state @if($feature(LUA_ENABLE)); // lua context
     //
 
     GameMode mode;
@@ -2563,6 +2567,45 @@ $if $feature(MUJS_ENABLE):
     }
 $endif
 
+    // test LUA initialization
+$if $feature(LUA_ENABLE):
+    /*
+    lua_State * L = luaL_newstate(); 
+      luaL_dostring(L, "a = 10 + 5"); 
+      lua_getglobal(L, "a"); 
+      int i = lua_tointeger(L, -1); 
+      printf("%d\n", i); 
+      lua_close(L); 
+    */
+    local_game.lua_state = lua::newstate();
+    if(local_game.lua_state) 
+    {
+        log::info(CONSOLE, "lua script engine initialized successfully.");
+        local_game.lua_state.openlibs();
+
+        //local_game.lua_state.dostring("print('Hello, World!')"); // Execute Lua script
+        
+        int status = local_game.lua_state.@loadfile(local_game.app_base_folder.tconcat("scripts/main.lua"));
+        if(status != lua::OK) {
+            /* If something went wrong, error message is at the top of */
+            /* the stack */
+            String error = local_game.lua_state.tostring(lua::LUASTACK_RETURN).str_view(); // Get error message
+            log::warning(CONSOLE, "lua script engine failed to load main.lua with code: %s", error);
+            local_game.lua_state.pop(1); // Remove error message from the stack
+        } else {
+            // If no errors, we can run the loaded chunk
+            status = local_game.lua_state.pcall(0, lua::MULTRET, 0);
+            if(status != lua::OK) {
+                String error = local_game.lua_state.tostring(lua::LUASTACK_RETURN).str_view(); // Get error message
+                log::warning(CONSOLE, "lua script engine failed to run main.lua with code: %s", error);
+                local_game.lua_state.pop(1); // Remove error message from the stack
+            }
+        }
+    } else {
+        log::warning(CONSOLE, "Failed to initialize lua script engine!");
+    }
+$endif
+
     log::info(FILE, "Initializing game editor:");
     log::info(FILE, "---------------------------------------------");
     // init the game editor defaults
@@ -2679,32 +2722,56 @@ fn void gameOnExit() @local
     asstManager.releaseAllAssets();
 
 $if $feature(WREN_ENABLE):
-    log::info(FILE, "close Script Engine: %s", wren::VERSION_STRING);
+    log::info(FILE, "close wren Script Engine: %s", wren::VERSION_STRING);
     log::info(FILE, "---------------------------------------------");
     local_game.script_eng.deinit();
+    log::info(FILE, "wren Script Engine closed.");
     log::info(FILE, "---------------------------------------------\n");
 $endif
 
 $if $feature(ANGEL_ENABLE):
-    log::info(FILE, "close Script Engine: %s", angel::VERSION_STRING);
+    log::info(FILE, "close angel Script Engine: %s", angel::VERSION_STRING);
     log::info(FILE, "---------------------------------------------");
     if(local_game.asEngine != null) {
         local_game.asEngine.release();
         local_game.asEngine = null;
+        log::info(FILE, "angel Script Engine closed.");
     }
     log::info(FILE, "---------------------------------------------\n");
 $endif
 
 $if $feature(MUJS_ENABLE):
-    log::info(FILE, "close mujs Script State: %s", mujs::VERSION_STRING);
+    log::info(FILE, "close mujs Script Engine: %s", mujs::VERSION_STRING);
     log::info(FILE, "---------------------------------------------");
     if(local_game.mujs_state) {
         local_game.mujs_state.gc(mujs::GC_NOREPORT); // run a full garbage collection cycle
         local_game.mujs_state.free();
         local_game.mujs_state = null;
+        log::info(FILE, "mujs Script closed.");
     }
     log::info(FILE, "---------------------------------------------\n");
 $endif
+
+$if $feature(LUA_ENABLE):
+    /*
+    lua_State * L = luaL_newstate(); 
+      luaL_dostring(L, "a = 10 + 5"); 
+      lua_getglobal(L, "a"); 
+      int i = lua_tointeger(L, -1); 
+      printf("%d\n", i); 
+      lua_close(L); 
+    */
+    if(local_game.lua_state) 
+    {
+        log::info(FILE, "close lua Script: %s", lua::VERSION_STR);
+        log::info(FILE, "---------------------------------------------");
+        local_game.lua_state.close();
+        local_game.lua_state = null;
+        log::info(FILE, "lua script engine closed.");
+        log::info(FILE, "---------------------------------------------\n");
+    }
+$endif
+
     // close physics engine
     box2d::deinitDebugDraw(&local_game.phys_debug);
     if(local_game.physWorldId.isValid()) {
@@ -3022,8 +3089,13 @@ $endif
         // Play the intro in a separate thread
         introMutex.init()!!; // used to protect intro state
         introThread.create(&playIntro, null)!!; // create and run intro thread
-        //assert(introThread.join()!! == 0); // for some reason this hangs here???
-        introThread.detach()!!; // detach it so it cleans up itself on exit
+        introThread.detach()!!; // detach it so it runs independently and cleans up itself on exit
+
+        // using join hangs the game, very probably because intro thread 
+        // blocks the main game thread and intro needs the main thread 
+        // to display itself and update the window.
+        //assert(introThread.join()!! == 0);
+        //introMutex.destroy()!!;
         
         // run the game loop
         gameDoOneFrame();

@@ -1,0 +1,553 @@
+/************************************ LICENSE *******************************************
+# hmflathead GPL Source Code
+# Copyright (C) 2025 Hilario Martins.
+# 
+# This file is part of the hmflathead GPL Source Code ("hmflathead Source Code")
+# 
+# hmflathead Source Code is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# hmflathead Source Code is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with hmflathead Source Code.  If not, see <http://www.gnu.org/licenses/>.
+# 
+# In addition, the hmflathead Source Code is also subject to certain additional terms. 
+# You should have received a copy of these additional terms immediately following the terms and conditions of the GNU General Public License 
+# which accompanied the hmflathead Source Code.  If not, please request a copy in writing from me at the address below.
+# 
+# If you have questions concerning this license or the applicable additional terms, you may contact in writing 
+# Hilario Martins, Rua de Sanguinhedo 1010 4850-545 Vieira Do Minho Portugal.
+# 
+*********************************************************************************************************************************************/
+
+// WARNING: This file is a work in progress and may not be fully functional yet.
+// Unfinished was not able to get the bindings working properly, so I am leaving it here for now.
+
+/***************************************************************
+* This are C3 bindings for the micro lua script language (5.3). 
+* To know more about it, see: http://lua-users.org/wiki/SimpleLuaApiExample
+*
+* NOTE(HM): 
+*   structs in this file, passed by pointer, can be just alias to a void* (opaque pointer) and be done with it! 
+*   The reality is, you don't need to know the full data-layout for most of them to use this... 
+*   (but don't try storing the structs by value after that...)
+****************************************************************/
+
+module thirdparty::scripting::lua @if($feature(LUA_ENABLE));
+
+import std::io;
+import engine::logging::log;
+import libc;
+
+//import buffer @public;
+
+const VERSION_MAJOR   = "5";
+const VERSION_MINOR   = "4";
+const VERSION_RELEASE = "8";
+
+const VERSION_NUM = 504;
+const VERSION_RELEASE_NUM =	(VERSION_NUM * 100 + 8);
+macro version() => VERSION_NUM;
+
+// A human-friendly string representation of the version.
+const VERSION_STR =	"Lua " +++ VERSION_MAJOR +++ "." +++ VERSION_MINOR;
+const RELEASE =	VERSION_STR +++ "." +++ VERSION_RELEASE;
+const COPYRIGHT =	RELEASE +++ "  Copyright (C) 1994-2025 Lua.org, PUC-Rio";
+const AUTHORS =	"R. Ierusalimschy, L. H. de Figueiredo, W. Celes";
+
+/* mark for precompiled code ('<esc>Lua') */
+const SIGNATURE =	"\x1bLua";
+
+/* option for multiple returns in 'lua_pcall' and 'lua_call' */
+const MULTRET =	-1;
+
+const EXTRASPACE = (void*).sizeof; // space for userdata in LuaState
+
+const I_MAXSTACK = 1000000;
+/*
+** Pseudo-indices
+** (-I_MAXSTACK is the minimum valid index; we keep some free empty
+** space after that to help overflow detection)
+*/
+const REGISTRY_INDEX =	(-I_MAXSTACK - 1000);
+macro @upvalueindex($i)	=> (REGISTRY_INDEX - ($i));
+
+const LUASTACK_RETURN = LUASTACK_TOP; // function return value slot
+//const LUASTACK_SUBTOP = -2; // second from top of the stack
+const LUASTACK_TOP  = -1; // top of the stack
+//const LUASTACK_THIS = 0; // this slot for objects
+const LUASTACK_ARG1 = 1; // first function argument slot
+const LUASTACK_ARG2 = 2;
+const LUASTACK_ARG3 = 3;
+const LUASTACK_ARG4 = 4;
+const LUASTACK_ARG5 = 5;
+const LUASTACK_ARG6 = 6;
+
+/* thread status */
+const OK        = 0;
+const YIELD     = 1;
+const ERRRUN    = 2;
+const ERRSYNTAX = 3;
+const ERRMEM    = 4;
+const ERRERR    = 5;
+
+macro statusName(status) {
+  switch (status) {
+    case 0: return "OK";
+    case 1: return "YIELD";
+    case 2: return "ERRRUN";
+    case 3: return "ERRSYNTAX";
+    case 4: return "ERRMEM";
+    case 5: return "ERRERR";
+    default: return "???";
+  }
+}
+  
+
+
+typedef LUAState = inline void;
+
+const TYPE_NONE          = -1;
+const TYPE_NIL           = 0;
+const TYPE_BOOLEAN       = 1;
+const TYPE_LIGHTUSERDATA = 2;
+const TYPE_NUMBER        = 3;
+const TYPE_STRING        = 4;
+const TYPE_TABLE         = 5;
+const TYPE_FUNCTION      = 6;
+const TYPE_USERDATA      = 7;
+const TYPE_THREAD        = 8;
+const NUM_TYPES          = 9;
+
+
+
+/* minimum Lua stack available to a C function */
+const MINSTACK = 20;
+
+
+/* predefined values in the registry */
+const RIDX_MAINTHREAD	= 1;
+const RIDX_GLOBALS = 2;
+const RIDX_LAST	= RIDX_GLOBALS;
+
+/* type of numbers in Lua */
+alias Number = double;
+
+/* type for integer functions */
+alias Integer = isz;
+
+/* unsigned integer type */
+alias Unsigned = usz;
+
+/* type for continuation-function contexts */
+alias KContext = Integer;
+
+
+/*
+** Type for C functions registered with Lua
+*/
+alias CFunction = fn int(LUAState *state);
+
+/*
+** Type for continuation functions
+*/
+alias KFunction = fn int(LUAState *state, int status, KContext ctx);
+
+/*
+** Type for functions that read/write blocks when loading/dumping Lua chunks
+*/
+alias LUAReader = fn ZString (LUAState *state, void *ud, usz *sz);
+
+alias LUAWriter = fn int (LUAState *state, void *p, usz sz, void *ud);
+
+/*
+** Type for memory-allocation functions
+*/
+alias Alloc_callback = fn void*(void* ud, void* ptr, usz osize, usz nsize);
+
+/*
+** {==============================================================
+** some useful macros
+** ===============================================================
+*/
+
+macro getextraspace(l) =>	((void *)((char *)(l) - EXTRASPACE));
+
+macro LUAState.pop(&self,n)	=>	self.settop(-n-1);
+/*
+macro lua_newtable(L)		lua_createtable(L, 0, 0)
+
+macro lua_register(L,n,f) (lua_pushcfunction(L, (f)), lua_setglobal(L, (n)))
+
+macro lua_pushcfunction(L,f)	lua_pushcclosure(L, (f), 0)
+
+macro lua_isfunction(L,n)	(lua_type(L, (n)) == LUA_TFUNCTION)
+macro lua_istable(L,n)	(lua_type(L, (n)) == LUA_TTABLE)
+macro lua_islightuserdata(L,n)	(lua_type(L, (n)) == LUA_TLIGHTUSERDATA)
+macro lua_isnil(L,n)		(lua_type(L, (n)) == LUA_TNIL)
+macro lua_isboolean(L,n)	(lua_type(L, (n)) == LUA_TBOOLEAN)
+macro lua_isthread(L,n)	(lua_type(L, (n)) == LUA_TTHREAD)
+macro lua_isnone(L,n)		(lua_type(L, (n)) == LUA_TNONE)
+macro lua_isnoneornil(L, n)	(lua_type(L, (n)) <= 0)
+
+macro lua_pushliteral(L, s)	lua_pushstring(L, "" s)
+
+macro lua_pushglobaltable(L)  \
+	((void)lua_rawgeti(L, LUA_REGISTRYINDEX, LUA_RIDX_GLOBALS))
+
+
+
+macro lua_insert(L,idx)	lua_rotate(L, (idx), 1)
+
+macro lua_remove(L,idx)	(lua_rotate(L, (idx), -1), lua_pop(L, 1))
+
+macro lua_replace(L,idx)	(lua_copy(L, -1, (idx)), lua_pop(L, 1))
+*/
+/* }============================================================== */
+
+
+/*
+** state manipulation
+*/
+extern fn  LUAState* newstate() @extern("luaL_newstate");
+extern fn  LUAState* newstateExt(Alloc_callback f, void* ud) @extern("lua_newstate");
+extern fn  void   LUAState.close(&self) @extern("lua_close");
+extern fn  LUAState* LUAState.newthread(&self) @extern("lua_newthread");
+extern fn  int    LUAState.closethread(&self, LUAState* from) @extern("lua_closethread");
+//extern fn  int        (lua_resetthread) (lua_State *L);  /* Deprecated! */
+
+extern fn  CFunction LUAState.atpanic(&self, CFunction panicf) @extern("lua_atpanic");
+
+
+extern fn int LUAState.version(&self) @extern("lua_version");
+
+extern fn void LUAState.openlibs(&self) @extern("luaL_openlibs");
+
+extern fn int LUAState.loadfilex(&self, ZString filename, ZString mode) @local @extern("luaL_loadfilex");
+
+macro LUAState.@loadfile(&self, #f) =>	self.loadfilex(#f.zstr_tcopy(), null);
+
+extern fn int LUAState.loadstring(&self, ZString s) @extern("luaL_loadstring");
+
+macro LUAState.dofile(&self, f) => (self.@loadfile(f) || self.pcall(0, MULTRET, 0));
+macro LUAState.dostring(&self, s) => (self.loadstring(s.zstr_tcopy()) || self.pcall(0, MULTRET, 0));
+
+/*
+** 'load' and 'call' functions (load and run Lua code)
+*/
+extern fn void LUAState.callk(&self, int nargs, int nresults,
+                           KContext ctx, KFunction k) @extern("lua_callk");
+macro LUAState.call(&self,n,r) => self.callk(n, r, 0, null);
+
+extern fn int LUAState.pcallk(&self, int nargs, int nresults, int errfunc,
+                            KContext ctx, KFunction k) @extern("lua_pcallk");
+macro LUAState.pcall(&self,n,r,f)	=> self.pcallk(n, r, f, 0, null);
+
+extern fn int LUAState.load(&self, LUAReader reader, void *dt,
+                          ZString chunkname, ZString mode) @extern("lua_load");
+
+extern fn int LUAState.dump(&self, LUAWriter writer, void *data, int strip) @extern("lua_dump");
+
+
+
+/*
+** basic stack manipulation
+*/
+extern fn int  LUAState.absindex(&self, int idx) @extern("lua_absindex");
+extern fn int  LUAState.gettop(&self) @extern("lua_gettop");
+extern fn void LUAState.settop(&self, int idx) @extern("lua_settop");
+extern fn void LUAState.pushvalue(&self, int idx) @extern("lua_pushvalue");
+extern fn void LUAState.rotate(&self, int idx, int n) @extern("lua_rotate");
+extern fn void LUAState.copy(&self, int fromidx, int toidx) @extern("lua_copy");
+extern fn int  LUAState.checkstack(&self, int n) @extern("lua_checkstack");
+
+extern fn void LUAState.xmove(LUAState *from, LUAState *to, int n) @extern("lua_xmove");
+
+/*
+** access functions (stack -> C)
+*/
+
+extern fn int LUAState.isnumber(&self , int idx) @extern("lua_isnumber");
+extern fn int LUAState.isstring(&self , int idx) @extern("lua_isstring");
+extern fn int LUAState.iscfunction(&self , int idx) @extern("lua_iscfunction");
+extern fn int LUAState.isinteger(&self , int idx) @extern("lua_isinteger");
+extern fn int LUAState.isuserdata(&self , int idx) @extern("lua_isuserdata");
+extern fn int LUAState.type(&self, int idx) @extern("lua_type");
+extern fn ZString LUAState.typename(&self , int tp) @extern("lua_typename");
+
+extern fn Number LUAState.tonumber(&self , int idx, int *isnum = null) @extern("lua_tonumberx");
+extern fn Integer LUAState.tointeger(&self , int idx, int *isnum = null) @extern("lua_tointegerx");
+extern fn int LUAState.toboolean(&self , int idx) @extern("lua_toboolean");
+extern fn ZString LUAState.tostring(&self , int idx, usz *len = null) @extern("lua_tolstring");
+extern fn Unsigned LUAState.rawlen(&self , int idx) @extern("lua_rawlen");
+extern fn CFunction LUAState.tocfunction(&self , int idx) @extern("lua_tocfunction");
+extern fn void* LUAState.touserdata(&self , int idx) @extern("lua_touserdata");
+extern fn LUAState* LUAState.tothread(&self , int idx) @extern("lua_tothread");
+extern fn void* LUAState.topointer(&self , int idx) @extern("lua_topointer");
+
+/*
+
+// entire mujs std library.. lol 
+const ZString MUJS_STDLIB = `
+/************************************ LICENSE *******************************************
+# MuJS 1.3.7                     STANDARD LIBRARY
+# Console and file logger
+****************************************************************************************/
+var console = { log: print, error: print, warn: print, debug: print };
+var logfile = { write: printTofile };
+`;
+
+typedef LUAState = inline void;
+
+/* LUAState constructor flags */
+alias StateFlags = int;
+const StateFlags STRICT = 1;
+
+/* RegExp flags */
+const int REGEXP_G = 1;
+const int REGEXP_I = 2;
+const int REGEXP_M = 4;
+
+/* Property attribute flags */
+const int READONLY = 1;
+const int DONTENUM = 2;
+const int DONTCONF = 4;
+
+/* enum for js_type() */
+const int ISUNDEFINED = 0;
+const int IS0      = 1;
+const int ISBOOLEAN   = 2;
+const int ISNUMBER    = 3;
+const int ISSTRING    = 4;
+const int ISFUNCTION  = 5;
+const int ISOBJECT    = 6;
+
+const STACK_IDX_RETURN = STACK_IDX_TOP; // function return value slot
+const STACK_IDX_SUBTOP = -2; // second from top of the stack
+const STACK_IDX_TOP  = -1; // top of the stack
+const STACK_IDX_THIS = 0; // this slot for objects
+const STACK_IDX_ARG1 = 1; // first function argument slot
+const STACK_IDX_ARG2 = 2;
+const STACK_IDX_ARG3 = 3;
+const STACK_IDX_ARG4 = 4;
+const STACK_IDX_ARG5 = 5;
+const STACK_IDX_ARG6 = 6;
+
+// Atrribute flags for functions and variables 
+const ISGLOBAL = 1; // global to the state
+const ISLOCAL  = 2; // local to a object
+const ISMENBER = 4; // member of an object or a method
+
+// garbage collection options
+const GC_NOREPORT = 0;
+const GC_REPORT   = 1;
+
+/* Exception handling */
+extern fn void* LUAState.savetry(&self) @extern("js_savetry");  /* returns a jmp_buf */
+macro LUAState._catch(&self) @local => libc::setjmp(self.savetry());
+extern fn void LUAState.endtry(&self) @extern("js_endtry");
+
+macro void @try(LUAState* state; @body) 
+{
+  assert(state != null, "state must not be null");
+  if(state._catch()) 
+  {
+    log::error(Where.CONSOLE, "mujs exception: %s", state.tostring(-1));
+    state.pop(1); // remove error message from stack
+    state.free();
+    unreachable("Error code inside @try(){...} has trown a exception.");
+  }
+  @body();
+  state.endtry();
+}
+//
+
+alias FnAlloc       = fn void*(void* memctx, void* ptr, int size);
+alias FnPanic       = fn void(LUAState* state);
+alias FnCFunction   = fn void(LUAState* state);
+alias FnFinalize    = fn void(LUAState* state, void* p);
+alias FnHasProperty = fn int(LUAState* state, void* p, ZString name);
+alias FnPut         = fn int(LUAState* state, void* p, ZString name);
+alias FnDelete      = fn int(LUAState* state, void* p, ZString name);
+alias FnReport      = fn void(LUAState* state, ZString message);
+
+/* Basic functions */
+extern fn LUAState* new_state(FnAlloc* alloc = null, void *actx = null, int flags = STRICT) @extern("js_newstate");
+extern fn void LUAState.setcontext(&self, void *uctx) @extern("js_setcontext");
+extern fn void *LUAState.getcontext(&self) @extern("js_getcontext");
+extern fn void LUAState.setreport(&self, FnReport report) @extern("js_setreport");
+extern fn FnPanic LUAState.atpanic(&self, FnPanic panic) @extern("js_atpanic");
+extern fn void LUAState.freestate(&self) @extern("js_freestate");
+extern fn void LUAState.gc(&self, int report) @extern("js_gc");
+
+extern fn void LUAState.loadstring(&self, ZString filename, ZString source) @extern("js_loadstring");
+extern fn void LUAState.loadfile(&self, ZString filename) @extern("js_loadfile");
+
+extern fn void LUAState.eval(&self) @extern("js_eval");
+extern fn void LUAState.call(&self, int n) @extern("js_call");
+extern fn void LUAState.construct(&self, int n) @extern("js_construct");
+
+extern fn ZString LUAState.ref(&self) @extern("js_ref");
+extern fn void LUAState.unref(&self, ZString ref) @extern("js_unref");
+
+extern fn int LUAState.dofile(&self, ZString filename) @extern("js_dofile");
+macro int LUAState.compile_and_or_Run_or_throw(&self, ZString filename) @local {
+  if(self.dofile(filename) != 0 ) {
+    unreachable("Failed to execute mujs file: %s with excuse: %s", filename, self.tostring(-1));
+  }
+  //assert(result == 0, "Failed to execute mujs file: %s", filename);
+  return 0;
+}
+macro int LUAState.runScript(&self, String source_code) => self.compile_and_or_Run_or_throw(source_code.zstr_tcopy());
+extern fn int LUAState.dostring(&self, ZString source) @extern("js_dostring");
+extern fn void LUAState.free(&self) @extern("js_freestate");
+
+// protected environment calls
+extern fn int LUAState.ploadstring(&self, ZString filename, ZString source) @extern("js_ploadstring");
+extern fn int LUAState.ploadfile(&self, ZString filename) @extern("js_ploadfile");
+extern fn int LUAState.pcall(&self, int n) @extern("js_pcall");
+extern fn int LUAState.pconstruct(&self, int n) @extern("js_pconstruct");
+//
+
+extern fn void LUAState.getglobal(&self, ZString name) @extern("js_getglobal");
+extern fn void LUAState.setglobal(&self, ZString name) @extern("js_setglobal");
+extern fn void LUAState.defglobal(&self, ZString name, int atts) @extern("js_defglobal");
+extern fn void LUAState.delglobal(&self, ZString name) @extern("js_delglobal");
+
+extern fn int  LUAState.gettop(&self) @extern("js_gettop");
+extern fn void LUAState.pop(&self, int n) @extern("js_pop");
+extern fn void LUAState.rot(&self, int n) @extern("js_rot");
+extern fn void LUAState.copy(&self, int idx) @extern("js_copy");
+extern fn void LUAState.remove(&self, int idx) @extern("js_remove");
+extern fn void LUAState.insert(&self, int idx) @extern("js_insert");
+extern fn void LUAState.replace(&self, int idx) @extern("js_replace");
+
+extern fn int LUAState.toboolean(&self, int idx) @extern("js_toboolean");
+extern fn double LUAState.tonumber(&self, int idx) @extern("js_tonumber");
+extern fn ZString LUAState.tostring(&self, int idx) @extern("js_tostring");
+
+// 
+extern fn void LUAState.newcfunction(&self, FnCFunction fun, ZString name, int length) @extern("js_newcfunction");
+
+macro void LUAState.bindFunction(&self, FnCFunction c3_fn, ZString js_fn_name, int argcount, bool is_global = true) {
+  self.newcfunction(c3_fn, js_fn_name, argcount);
+  if(is_global) self.setglobal(js_fn_name);
+}
+
+extern fn int LUAState.isdefined(&self, int idx) @extern("js_isdefined");
+extern fn int LUAState.isundefined(&self, int idx) @extern("js_isundefined");
+extern fn int LUAState.isnull(&self, int idx) @extern("js_isnull");
+extern fn int LUAState.isboolean(&self, int idx) @extern("js_isboolean");
+extern fn int LUAState.isnumber(&self, int idx) @extern("js_isnumber");
+extern fn int LUAState.isstring(&self, int idx) @extern("js_isstring");
+extern fn int LUAState.isprimitive(&self, int idx) @extern("js_isprimitive");
+extern fn int LUAState.isobject(&self, int idx) @extern("js_isobject");
+extern fn int LUAState.isarray(&self, int idx) @extern("js_isarray");
+extern fn int LUAState.isregexp(&self, int idx) @extern("js_isregexp");
+extern fn int LUAState.iscoercible(&self, int idx) @extern("js_iscoercible");
+extern fn int LUAState.iscallable(&self, int idx) @extern("js_iscallable");
+extern fn int LUAState.isuserdata(&self, int idx, ZString tag) @extern("js_isuserdata");
+extern fn int LUAState.iserror(&self, int idx) @extern("js_iserror");
+extern fn int LUAState.isnumberobject(&self, int idx) @extern("js_isnumberobject");
+extern fn int LUAState.isstringobject(&self, int idx) @extern("js_isstringobject");
+extern fn int LUAState.isbooleanobject(&self, int idx) @extern("js_isbooleanobject");
+extern fn int LUAState.isdateobject(&self, int idx) @extern("js_isdateobject");
+
+extern fn void LUAState.currentfunction(&self) @extern("js_currentfunction");
+extern fn void*LUAState.currentfunctiondata(&self) @extern("js_currentfunctiondata");
+extern fn void LUAState.pushglobal(&self) @extern("js_pushglobal");
+extern fn void LUAState.pushundefined(&self) @extern("js_pushundefined");
+extern fn void LUAState.pushnull(&self) @extern("js_pushnull");
+extern fn void LUAState.pushboolean(&self, int v) @extern("js_pushboolean");
+extern fn void LUAState.pushnumber(&self, double v) @extern("js_pushnumber");
+extern fn void LUAState.pushstring(&self, ZString v) @extern("js_pushstring");
+extern fn void LUAState.pushlstring(&self, ZString v, int n) @extern("js_pushlstring");
+extern fn void LUAState.pushliteral(&self, ZString v) @extern("js_pushliteral");
+
+
+extern fn int  LUAState.hasproperty(&self, int idx, ZString name) @extern("js_hasproperty");
+extern fn void LUAState.getproperty(&self, int idx, ZString name) @extern("js_getproperty");
+extern fn void LUAState.setproperty(&self, int idx, ZString name) @extern("js_setproperty");
+extern fn void LUAState.defproperty(&self, int idx, ZString name, int atts) @extern("js_defproperty");
+extern fn void LUAState.delproperty(&self, int idx, ZString name) @extern("js_delproperty");
+extern fn void LUAState.defaccessor(&self, int idx, ZString name, int atts) @extern("js_defaccessor");
+
+extern fn void LUAState.concat(&self) @extern("js_concat");
+extern fn int LUAState.compare(&self, int *okay) @extern("js_compare");
+extern fn int LUAState.equal(&self) @extern("js_equal");
+extern fn int LUAState.strictequal(&self) @extern("js_strictequal");
+extern fn int LUAState.instanceof(&self) @extern("js_instanceof");
+extern fn ZString LUAState.typeof(&self, int idx) @extern("js_typeof");
+extern fn int LUAState.type(&self, int idx) @extern("js_type");
+
+extern fn void LUAState.repr(&self, int idx) @extern("js_repr");
+extern fn ZString LUAState.torepr(&self, int idx) @extern("js_torepr");
+extern fn ZString LUAState.tryrepr(&self, int idx, ZString error) @extern("js_tryrepr");
+/*
+extern fn ScriptEngine *createEngine(uint version = ANGELSCRIPT_VERSION) @extern("asCreateScriptEngine");
+extern fn ZString getLibraryVersion() @extern("asGetLibraryVersion");
+extern fn ZString getLibraryOptions() @extern("asGetLibraryOptions");
+
+// Memory management
+extern fn int ScriptEngine.addRef(ScriptEngine *e) @extern("asEngine_AddRef");
+extern fn int ScriptEngine.release(ScriptEngine *e) @extern("asEngine_Release");
+extern fn int ScriptEngine.shutDownAndRelease(ScriptEngine *e) @extern("asEngine_ShutDownAndRelease");
+
+// Compiler messages
+extern fn ContextState ScriptEngine._setMessageCallback(ScriptEngine *e, FunctionCallback callback, void *obj, uint callConv) @local @extern("asEngine_SetMessageCallback");
+macro ContextState ScriptEngine.setMessageCallback(&self, FunctionCallback callback, void *obj = null, uint callConv = CallConv.CDECL) {
+  ContextState result = self._setMessageCallback(callback, obj, CallConv.CDECL);
+  assert(result >= 0, "Failed to set message callback");
+  return result;
+}
+extern fn int ScriptEngine.clearMessageCallback(ScriptEngine *e) @extern("asEngine_ClearMessageCallback");
+extern fn int ScriptEngine.writeMessage(ScriptEngine *e, ZString section, int row, int col, MsgType type, ZString message) @extern("asEngine_WriteMessage");
+
+// Global functions
+extern fn ContextState ScriptEngine._registerGlobalFunction(ScriptEngine *e, ZString declaration, FunctionCallback funcPointer, uint callConv, void *auxiliary) @local @extern("asEngine_RegisterGlobalFunction");
+macro ContextState ScriptEngine.registerGlobalFunction(&self, ZString declaration, FunctionCallback funcPointer, uint callConv = CallConv.CDECL, void *auxiliary = null) {
+  ContextState result = self._registerGlobalFunction(declaration, funcPointer, callConv, auxiliary); 
+  assert(result >= 0, "Failed to register global function: %s", declaration);
+  return result;
+}
+extern fn uint            ScriptEngine.getGlobalFunctionCount(ScriptEngine *e) @extern("asEngine_GetGlobalFunctionCount");
+extern fn ScriptFunction* ScriptEngine.getGlobalFunctionByIndex(ScriptEngine *e, uint index) @extern("asEngine_GetGlobalFunctionByIndex");
+extern fn ScriptFunction* ScriptEngine.getGlobalFunctionByDecl(ScriptEngine *e, ZString declaration) @extern("asEngine_GetGlobalFunctionByDecl");
+
+// Script execution
+extern fn ScriptContext *        ScriptEngine.createContext(ScriptEngine *e) @extern("asEngine_CreateContext");
+extern fn void *                 ScriptEngine.createScriptObject(ScriptEngine *e, TypeInfo *type) @extern("asEngine_CreateScriptObject");
+extern fn void *                 ScriptEngine.createScriptObjectCopy(ScriptEngine *e, void *obj, TypeInfo *type) @extern("asEngine_CreateScriptObjectCopy");
+extern fn void *                 ScriptEngine.createUninitializedScriptObject(ScriptEngine *e, TypeInfo *type) @extern("asEngine_CreateUninitializedScriptObject");
+extern fn ScriptFunction *       ScriptEngine.createDelegate(ScriptEngine *e, ScriptFunction *func, void *obj) @extern("asEngine_CreateDelegate");
+extern fn int                    ScriptEngine.assignScriptObject(ScriptEngine *e, void *dstObj, void *srcObj, TypeInfo *type) @extern("asEngine_AssignScriptObject");
+extern fn void                   ScriptEngine.releaseScriptObject(ScriptEngine *e, void *obj, TypeInfo *type) @extern("asEngine_ReleaseScriptObject");
+extern fn void                   ScriptEngine.addRefScriptObject(ScriptEngine *e, void *obj, TypeInfo *type) @extern("asEngine_AddRefScriptObject");
+extern fn int                    ScriptEngine.refCastObject(ScriptEngine *e, void *obj, TypeInfo *fromType, TypeInfo *toType, void **newPtr, bool useOnlyImplicitCast) @extern("asEngine_RefCastObject");
+extern fn LockableSharedBool *ScriptEngine.getWeakRefFlagOfScriptObject(ScriptEngine *e, void *obj, TypeInfo *type) @extern("asEngine_GetWeakRefFlagOfScriptObject");
+
+///////////////////////////////////////////
+module thirdparty::angel::ctx @if($feature(ANGEL_ENABLE));
+
+// Memory management
+extern fn int  ScriptContext.addRef(ScriptContext *c) @extern("asContext_AddRef");
+extern fn int  ScriptContext.release(ScriptContext *c) @extern("asContext_Release");
+
+// Execution
+extern fn int ScriptContext.prepare(ScriptContext *c, ScriptFunction *func) @extern("asContext_Prepare");
+extern fn ContextState ScriptContext.execute(ScriptContext *c) @extern("asContext_Execute");
+
+
+
+macro ContextState ScriptContext.run(&self, ScriptFunction *func) {
+  ContextState result = self.prepare(func); assert(result >= 0, "Failed to prepare context for execution");
+  result = self.execute(); assert(result >= 0, "Failed to execute script function");
+  return result;
+}
+

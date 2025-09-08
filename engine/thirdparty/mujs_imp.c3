@@ -27,7 +27,6 @@
 *********************************************************************************************************************************************/
 
 // WARNING: This file is a work in progress and may not be fully functional yet.
-// Unfinished was not able to get the bindings working properly, so I am leaving it here for now.
 
 /***************************************************************
 * This is C3 implementation code for the micro java script language (mujs). 
