@@ -25,6 +25,48 @@
 # Hilario Martins, Rua de Sanguinhedo 1010 4850-545 Vieira Do Minho Portugal.
 # 
 *********************************************************************************************************************************************/
+module thirdparty::scripting::lua @if($feature(LUA_ENABLE));
+
+import game::main;
+import engine::logging::log;
+
+alias game = main::gpGame;
+
+fn void preloadscript(String name)
+{
+    assert(game.app_base_folder != "", "Fatal Error: Application base folder not set!!");
+    assert(game.lua_state != null, "Fatal Error: Lua state not initialized!!");
+
+    if(!name.ends_with(".lua")) {
+        name = name.tconcat(".lua");
+    }
+    String path = game.app_base_folder.tconcat("scripts/").tconcat(name);
+    int r = game.lua_state.@loadfile(path);
+    if(r != OK) {
+        // If something went wrong, error message is at the top of the stack.
+        String error = game.lua_state.tostring(lua::LUASTACK_RETURN).str_view(); // Get error message
+        log::warning(CONSOLE, "lua script engine failed to load %s.lua with code: %s", name, error);
+        game.lua_state.pop(1); // Remove error message from the stack
+    }
+}
+
+fn void runscript(String name)
+{
+    assert(game.app_base_folder != "", "Fatal Error: Application base folder not set!!");
+    assert(game.lua_state != null, "Fatal Error: Lua state not initialized!!");
+
+    String path = game.app_base_folder.tconcat("scripts/").tconcat(name).tconcat(".lua");
+    int r = game.lua_state.@loadfile(path);
+    if(r != OK) {
+        // If something went wrong, error message is at the top of the stack.
+        String error = game.lua_state.tostring(lua::LUASTACK_RETURN).str_view(); // Get error message
+        log::warning(CONSOLE, "lua script engine failed to load %s.lua with code: %s", name, error);
+        game.lua_state.pop(1); // Remove error message from the stack
+    }
+}
+
+
+
 
 module engine::sys::script_engine::scpt @if($feature(ANGEL_ENABLE));
 
@@ -33,13 +75,13 @@ import thirdparty::angel; // for the message callback
 import engine::logging::log;
 
 // for the angel script engine ONLY
-fn void messageCallback(SMessageInfo *msg, void * /*obj*/)
+fn void messageCallback(SMessageInfo* msg, void * /*obj*/)
 {
 	switch
     {
-	    case msg.type == 0: lgr::error(Where.CONSOLE, "%s (%d, %d) : %s\n", msg.section, msg.row, msg.col, msg.message);
-	    case msg.type == 1: lgr::warning(Where.CONSOLE, "%s (%d, %d) : %s\n", msg.section, msg.row, msg.col, msg.message);
-	    case msg.type == 2: lgr::info(Where.CONSOLE, "%s (%d, %d) : %s\n", msg.section, msg.row, msg.col, msg.message);
+	    case msg.type.ordinal == 0: log::error(CONSOLE, "%s (%d, %d) : %s\n", msg.section, msg.row, msg.col, msg.message);
+	    case msg.type.ordinal == 1: log::warning(CONSOLE, "%s (%d, %d) : %s\n", msg.section, msg.row, msg.col, msg.message);
+	    case msg.type.ordinal == 2: log::info(CONSOLE, "%s (%d, %d) : %s\n", msg.section, msg.row, msg.col, msg.message);
     }
 }
 

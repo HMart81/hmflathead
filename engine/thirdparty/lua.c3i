@@ -99,12 +99,12 @@ const ERRERR    = 5;
 
 macro statusName(status) {
   switch (status) {
-    case 0: return "OK";
-    case 1: return "YIELD";
-    case 2: return "ERRRUN";
-    case 3: return "ERRSYNTAX";
-    case 4: return "ERRMEM";
-    case 5: return "ERRERR";
+    case OK       : return "OK";
+    case YIELD    : return "YIELD";
+    case ERRRUN   : return "ERRRUN";
+    case ERRSYNTAX: return "ERRSYNTAX";
+    case ERRMEM   : return "ERRMEM";
+    case ERRERR   : return "ERRERR";
     default: return "???";
   }
 }
@@ -186,18 +186,19 @@ macro lua_newtable(L)		lua_createtable(L, 0, 0)
 macro lua_register(L,n,f) (lua_pushcfunction(L, (f)), lua_setglobal(L, (n)))
 
 macro lua_pushcfunction(L,f)	lua_pushcclosure(L, (f), 0)
+*/
 
-macro lua_isfunction(L,n)	(lua_type(L, (n)) == LUA_TFUNCTION)
-macro lua_istable(L,n)	(lua_type(L, (n)) == LUA_TTABLE)
-macro lua_islightuserdata(L,n)	(lua_type(L, (n)) == LUA_TLIGHTUSERDATA)
-macro lua_isnil(L,n)		(lua_type(L, (n)) == LUA_TNIL)
-macro lua_isboolean(L,n)	(lua_type(L, (n)) == LUA_TBOOLEAN)
-macro lua_isthread(L,n)	(lua_type(L, (n)) == LUA_TTHREAD)
-macro lua_isnone(L,n)		(lua_type(L, (n)) == LUA_TNONE)
-macro lua_isnoneornil(L, n)	(lua_type(L, (n)) <= 0)
+macro LUAState.isfunction(&self,n) =>	(self.type(n) == TYPE_FUNCTION);
+macro LUAState.istable(&self,n)	=> (self.type(n) == TYPE_TABLE);
+macro LUAState.islightuserdata(&self,n)	=> (self.type(n) == TYPE_LIGHTUSERDATA);
+macro LUAState.isnil(&self,n)		=> (self.type(n) == TYPE_NIL);
+macro LUAState.isboolean(&self,n)	=> (self.type(n) == TYPE_BOOLEAN);
+macro LUAState.isthread(&self,n)	=> (self.type(n) == TYPE_THREAD);
+macro LUAState.isnone(&self,n)		=> (self.type(n) == TYPE_NONE);
+macro LUAState.isnoneornil(&self,n)	=> (self.type(n) <= 0);
 
-macro lua_pushliteral(L, s)	lua_pushstring(L, "" s)
-
+macro LUAState.pushliteral(&self, s) =>	self.pushstring("");
+/*
 macro lua_pushglobaltable(L)  \
 	((void)lua_rawgeti(L, LUA_REGISTRYINDEX, LUA_RIDX_GLOBALS))
 
@@ -290,6 +291,52 @@ extern fn CFunction LUAState.tocfunction(&self , int idx) @extern("lua_tocfuncti
 extern fn void* LUAState.touserdata(&self , int idx) @extern("lua_touserdata");
 extern fn LUAState* LUAState.tothread(&self , int idx) @extern("lua_tothread");
 extern fn void* LUAState.topointer(&self , int idx) @extern("lua_topointer");
+
+/*
+** push functions (C -> stack)
+*/
+extern fn void    LUAState.pushnil(&self) @extern("lua_pushnil");
+extern fn void    LUAState.pushnumber(&self, Number n) @extern("lua_pushnumber");
+extern fn void    LUAState.pushinteger(&self, Integer n) @extern("lua_pushinteger");
+extern fn ZString LUAState.pushlstring(&self, ZString s, usz len) @extern("lua_pushlstring");
+extern fn ZString LUAState.pushstring(&self, ZString s) @extern("lua_pushstring");
+extern fn ZString LUAState.pushvfstring(&self, ZString fmt, /*va_list*/void* argp) @extern("lua_pushvfstring");
+extern fn ZString LUAState.pushfstring(&self, ZString fmt, ...) @extern("lua_pushfstring");
+extern fn void    LUAState.pushcclosure(&self, CFunction func, int n) @extern("lua_pushcclosure");
+extern fn void    LUAState.pushboolean(&self, int b) @extern("lua_pushboolean");
+extern fn void    LUAState.pushlightuserdata(&self, void* p) @extern("lua_pushlightuserdata");
+extern fn int     LUAState.pushthread(&self) @extern("lua_pushthread");
+
+
+/*
+** get functions (Lua -> stack)
+*/
+extern fn int LUAState.getglobal(&self, ZString name);
+extern fn int LUAState.gettable(&self, int idx);
+extern fn int LUAState.getfield(&self, int idx, ZString k);
+extern fn int LUAState.geti(&self, int idx, Integer n);
+extern fn int LUAState.rawget(&self, int idx);
+extern fn int LUAState.rawgeti(&self, int idx, Integer n);
+extern fn int LUAState.rawgetp(&self, int idx, void *p);
+
+extern fn void  LUAState.createtable(&self, int narr, int nrec);
+extern fn void* LUAState.newuserdatauv(&self, usz sz, int nuvalue);
+extern fn int   LUAState.getmetatable(&self, int objindex);
+extern fn int  LUAState.getiuservalue(&self, int idx, int n);
+
+
+/*
+** set functions (stack -> Lua)
+*/
+extern fn void  LUAState.setglobal(&self, ZString name);
+extern fn void  LUAState.settable(&self, int idx);
+extern fn void  LUAState.setfield(&self, int idx, ZString k);
+extern fn void  LUAState.seti(&self, int idx, Integer n);
+extern fn void  LUAState.rawset(&self, int idx);
+extern fn void  LUAState.rawseti(&self, int idx, Integer n);
+extern fn void  LUAState.rawsetp(&self, int idx, void *p);
+extern fn int   LUAState.setmetatable(&self, int objindex);
+extern fn int   LUAState.setiuservalue(&self, int idx, int n);
 
 /*
 

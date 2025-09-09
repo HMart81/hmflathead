@@ -2584,11 +2584,12 @@ $if $feature(LUA_ENABLE):
         local_game.lua_state.openlibs();
 
         //local_game.lua_state.dostring("print('Hello, World!')"); // Execute Lua script
-        
+        //int status = local_game.lua_state.@loadfile(local_game.app_base_folder.tconcat("scripts/printpath.lua"));
         int status = local_game.lua_state.@loadfile(local_game.app_base_folder.tconcat("scripts/main.lua"));
         if(status != lua::OK) {
             /* If something went wrong, error message is at the top of */
             /* the stack */
+            //lua::preloadscript("common.lua");
             String error = local_game.lua_state.tostring(lua::LUASTACK_RETURN).str_view(); // Get error message
             log::warning(CONSOLE, "lua script engine failed to load main.lua with code: %s", error);
             local_game.lua_state.pop(1); // Remove error message from the stack
