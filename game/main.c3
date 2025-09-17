@@ -2583,24 +2583,29 @@ $if $feature(LUA_ENABLE):
         log::info(CONSOLE, "lua script engine initialized successfully.");
         local_game.lua_state.openlibs();
 
+        // register needed paths in lua environment
+        lua::registerGlobalType("g_baseFolder", any_make(&gpGame.app_base_folder, String.typeid));
+        lua::registerGlobalType("g_timeSc", any_make(&local_game.time_sec, float.typeid));
+        lua::registerGlobalType("g_timeMs", any_make(&gpGame.time_ms, int.typeid));
+
         //local_game.lua_state.dostring("print('Hello, World!')"); // Execute Lua script
         //int status = local_game.lua_state.@loadfile(local_game.app_base_folder.tconcat("scripts/printpath.lua"));
         int status = local_game.lua_state.@loadfile(local_game.app_base_folder.tconcat("scripts/main.lua"));
         if(status != lua::OK) {
             /* If something went wrong, error message is at the top of */
             /* the stack */
-            //lua::preloadscript("common.lua");
             String error = local_game.lua_state.tostring(lua::LUASTACK_RETURN).str_view(); // Get error message
             log::warning(CONSOLE, "lua script engine failed to load main.lua with code: %s", error);
             local_game.lua_state.pop(1); // Remove error message from the stack
         } else {
             // If no errors, we can run the loaded chunk
-            status = local_game.lua_state.pcall(0, lua::MULTRET, 0);
+            lua::runModulefunction("main", "init", 0);
+            /*status = local_game.lua_state.pcall(0, lua::MULTRET, 0);
             if(status != lua::OK) {
                 String error = local_game.lua_state.tostring(lua::LUASTACK_RETURN).str_view(); // Get error message
                 log::warning(CONSOLE, "lua script engine failed to run main.lua with code: %s", error);
                 local_game.lua_state.pop(1); // Remove error message from the stack
-            }
+            }*/
         }
     } else {
         log::warning(CONSOLE, "Failed to initialize lua script engine!");
@@ -2998,6 +3003,11 @@ fn void gameDoOneFrame() @local
                     local_game.dt       = rl::getFrameTime(); // last frame time
                     local_game.time_sec = (float)rl::getTime();
                     local_game.time_ms  = misc::sec2ms(local_game.time_sec);
+
+                    $if $feature(LUA_ENABLE):
+                    lua::updateGlobalType("g_timeSc", any_make(&local_game.time_sec, float.typeid));
+                    lua::updateGlobalType("g_timeMs", any_make(&gpGame.time_ms, int.typeid));
+                    $endif
 
                     int screen_w = rl::getScreenWidth();
                     int screen_h = rl::getScreenHeight();

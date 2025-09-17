@@ -78,16 +78,18 @@ const I_MAXSTACK = 1000000;
 const REGISTRY_INDEX =	(-I_MAXSTACK - 1000);
 macro @upvalueindex($i)	=> (REGISTRY_INDEX - ($i));
 
+// Stack indices start at 1, so 0 means an empty stack
+// NOTE: when using negative indices,  -1 is the top element, this is the last pushed element.
+// for easy of use, we will do indexing using negative indices only
+const LUASTACK_EMPTY  = 0; // empty stack
+const LUASTACK_IDX1   = -1; // first element in the stack argument slot
+const LUASTACK_IDX2   = -2;
+const LUASTACK_IDX3   = -3;
+const LUASTACK_IDX4   = -4;
+const LUASTACK_IDX5   = -5;
+const LUASTACK_IDX6   = -6;
+const LUASTACK_TOP    = LUASTACK_IDX1; // top of the stack
 const LUASTACK_RETURN = LUASTACK_TOP; // function return value slot
-//const LUASTACK_SUBTOP = -2; // second from top of the stack
-const LUASTACK_TOP  = -1; // top of the stack
-//const LUASTACK_THIS = 0; // this slot for objects
-const LUASTACK_ARG1 = 1; // first function argument slot
-const LUASTACK_ARG2 = 2;
-const LUASTACK_ARG3 = 3;
-const LUASTACK_ARG4 = 4;
-const LUASTACK_ARG5 = 5;
-const LUASTACK_ARG6 = 6;
 
 /* thread status */
 const OK        = 0;
@@ -116,16 +118,31 @@ typedef LUAState = inline void;
 const TYPE_NONE          = -1;
 const TYPE_NIL           = 0;
 const TYPE_BOOLEAN       = 1;
-const TYPE_LIGHTUSERDATA = 2;
+const TYPE_LIGHTUSERDATA = 2; // A light userdata represents a pointer, a void*.
 const TYPE_NUMBER        = 3;
 const TYPE_STRING        = 4;
 const TYPE_TABLE         = 5;
 const TYPE_FUNCTION      = 6;
-const TYPE_USERDATA      = 7;
+const TYPE_USERDATA      = 7; // custom C3 types to be used/managed in Lua
 const TYPE_THREAD        = 8;
 const NUM_TYPES          = 9;
 
-
+macro typeTostr(t) 
+{
+  switch (t) {
+    case TYPE_NONE         : return "NONE"; 
+    case TYPE_NIL          : return "NIL"; 
+    case TYPE_BOOLEAN      : return "BOOLEAN"; 
+    case TYPE_LIGHTUSERDATA: return "LIGHTUSERDATA"; 
+    case TYPE_NUMBER       : return "NUMBER"; 
+    case TYPE_STRING       : return "STRING"; 
+    case TYPE_TABLE        : return "TABLE"; 
+    case TYPE_FUNCTION     : return "FUNCTION"; 
+    case TYPE_USERDATA     : return "USERDATA"; 
+    case TYPE_THREAD       : return "THREAD"; 
+    default: return "???";
+  }
+}
 
 /* minimum Lua stack available to a C function */
 const MINSTACK = 20;
@@ -140,14 +157,22 @@ const RIDX_LAST	= RIDX_GLOBALS;
 alias Number = double;
 
 /* type for integer functions */
-alias Integer = isz;
+alias Integer = long; // 64-bit two-complement signed integer
 
 /* unsigned integer type */
-alias Unsigned = usz;
+alias Unsigned = ulong; // 64-bit unsigned integer type
 
 /* type for continuation-function contexts */
 alias KContext = Integer;
 
+
+// generic type for when getting stack values
+alias TValue = int; // also known as lua_Object or lua_TValue in modern lua
+
+// Userdata represent C values in Lua. 
+// A light userdata represents a pointer, a void*. 
+// It is a value (like a number): you do not create it, it has no individual metatable, and it is not collected (as it was never created). A light userdata is equal to "any" light userdata with the same C address.
+alias UData = void*;
 
 /*
 ** Type for C functions registered with Lua
@@ -171,6 +196,12 @@ alias LUAWriter = fn int (LUAState *state, void *p, usz sz, void *ud);
 */
 alias Alloc_callback = fn void*(void* ud, void* ptr, usz osize, usz nsize);
 
+
+
+extern fn int LUAState.rawequal(&self, int idx1, int idx2) @extern("lua_rawequal");
+extern fn int LUAState.compare(&self, int idx1, int idx2, int op) @extern("lua_compare");
+
+
 /*
 ** {==============================================================
 ** some useful macros
@@ -180,37 +211,40 @@ alias Alloc_callback = fn void*(void* ud, void* ptr, usz osize, usz nsize);
 macro getextraspace(l) =>	((void *)((char *)(l) - EXTRASPACE));
 
 macro LUAState.pop(&self,n)	=>	self.settop(-n-1);
+
 /*
 macro lua_newtable(L)		lua_createtable(L, 0, 0)
-
-macro lua_register(L,n,f) (lua_pushcfunction(L, (f)), lua_setglobal(L, (n)))
-
-macro lua_pushcfunction(L,f)	lua_pushcclosure(L, (f), 0)
 */
+
+macro LUAState.register(&self, n, f) { self.pushcfunction(f); self.setglobal(n); }
+
+macro LUAState.pushcfunction(&self, f) => self.pushcclosure(f, 0);
 
 macro LUAState.isfunction(&self,n) =>	(self.type(n) == TYPE_FUNCTION);
 macro LUAState.istable(&self,n)	=> (self.type(n) == TYPE_TABLE);
+
+// checks whether the value is a UDATA (void*).
 macro LUAState.islightuserdata(&self,n)	=> (self.type(n) == TYPE_LIGHTUSERDATA);
+//
 macro LUAState.isnil(&self,n)		=> (self.type(n) == TYPE_NIL);
 macro LUAState.isboolean(&self,n)	=> (self.type(n) == TYPE_BOOLEAN);
 macro LUAState.isthread(&self,n)	=> (self.type(n) == TYPE_THREAD);
 macro LUAState.isnone(&self,n)		=> (self.type(n) == TYPE_NONE);
 macro LUAState.isnoneornil(&self,n)	=> (self.type(n) <= 0);
 
-macro LUAState.pushliteral(&self, s) =>	self.pushstring("");
+//This macro is equivalent to lua_pushstring, but should be used only when s is a literal string. (Lua may optimize this case.)
+macro LUAState.pushliteral(&self, s = "") =>	self.pushstring(s.zstr_tcopy());
+//
+macro LUAState.remove(&self, idx)	{ self.rotate(idx, LUASTACK_TOP); self.pop(1); }
+macro LUAState.insert(&self, idx)	=> self.rotate(idx, 1);
+
 /*
 macro lua_pushglobaltable(L)  \
 	((void)lua_rawgeti(L, LUA_REGISTRYINDEX, LUA_RIDX_GLOBALS))
 
-
-
-macro lua_insert(L,idx)	lua_rotate(L, (idx), 1)
-
-macro lua_remove(L,idx)	(lua_rotate(L, (idx), -1), lua_pop(L, 1))
-
-macro lua_replace(L,idx)	(lua_copy(L, -1, (idx)), lua_pop(L, 1))
 */
 /* }============================================================== */
+macro LUAState.replace(&self, idx) { self.copy(-1, idx); self.pop(1); }
 
 
 /*
@@ -225,6 +259,35 @@ extern fn  int    LUAState.closethread(&self, LUAState* from) @extern("lua_close
 
 extern fn  CFunction LUAState.atpanic(&self, CFunction panicf) @extern("lua_atpanic");
 
+// A macro to create a local Lua stack that is automatically closed at the end of the scope.
+/*
+** Usage:
+** LUAState* state;
+** localStack(state) {
+**    // push stuff into the stack here using 'state'
+**    state.pushnumber(42);
+**    state.pushnumber(69);
+**    state.pushnumber(420);
+
+**    // do stuff with the stack here
+**    Number x = state.tonumber(2); // get the second element (69)
+**    log::info(CONSOLE, "The second element in the stack is: %s", x);
+**    // etc...
+** }; // 'state' or stack is automatically closed and cleared here
+
+    Stack visualization:
+    +------------------+
+    |  42 -> 1 || -3   |
+    |  69 -> 2 || -2   |
+    | 420 -> 3 || -1   |
+    +------------------+
+*/
+macro @localStack(LUAState* state; @body) {
+  state = newstate();
+  assert(state != null, "Failed to create new local Lua stack");
+  defer state.close();
+  @body();
+}
 
 extern fn int LUAState.version(&self) @extern("lua_version");
 
@@ -309,34 +372,51 @@ extern fn int     LUAState.pushthread(&self) @extern("lua_pushthread");
 
 
 /*
-** get functions (Lua -> stack)
+** get functions (Lua -> stack)  Pushes onto the stack the value
 */
-extern fn int LUAState.getglobal(&self, ZString name);
-extern fn int LUAState.gettable(&self, int idx);
-extern fn int LUAState.getfield(&self, int idx, ZString k);
-extern fn int LUAState.geti(&self, int idx, Integer n);
-extern fn int LUAState.rawget(&self, int idx);
-extern fn int LUAState.rawgeti(&self, int idx, Integer n);
-extern fn int LUAState.rawgetp(&self, int idx, void *p);
+extern fn TValue LUAState.getglobal(&self, ZString name) @extern("lua_getglobal");
+extern fn int LUAState.gettable(&self, int idx) @extern("lua_gettable");
+extern fn int LUAState.getfield(&self, int idx, ZString k) @extern("lua_getfield");
+extern fn int LUAState.geti(&self, int idx, Integer n) @extern("lua_geti");
+extern fn int LUAState.rawget(&self, int idx) @extern("lua_rawget");
+extern fn int LUAState.rawgeti(&self, int idx, Integer n) @extern("lua_rawgeti");
+extern fn int LUAState.rawgetp(&self, int idx, void *p) @extern("lua_rawgetp");
 
-extern fn void  LUAState.createtable(&self, int narr, int nrec);
-extern fn void* LUAState.newuserdatauv(&self, usz sz, int nuvalue);
-extern fn int   LUAState.getmetatable(&self, int objindex);
-extern fn int  LUAState.getiuservalue(&self, int idx, int n);
+extern fn void  LUAState.createtable(&self, int narr, int nrec) @extern("lua_createtable");
+extern fn void* LUAState.newuserdatauv(&self, usz sz, int nuvalue) @extern("lua_newuserdatauv");
+extern fn int   LUAState.getmetatable(&self, int objindex) @extern("lua_getmetatable");
+extern fn int  LUAState.getiuservalue(&self, int idx, int n) @extern("lua_getiuservalue");
 
 
 /*
 ** set functions (stack -> Lua)
 */
-extern fn void  LUAState.setglobal(&self, ZString name);
-extern fn void  LUAState.settable(&self, int idx);
-extern fn void  LUAState.setfield(&self, int idx, ZString k);
-extern fn void  LUAState.seti(&self, int idx, Integer n);
-extern fn void  LUAState.rawset(&self, int idx);
-extern fn void  LUAState.rawseti(&self, int idx, Integer n);
-extern fn void  LUAState.rawsetp(&self, int idx, void *p);
-extern fn int   LUAState.setmetatable(&self, int objindex);
-extern fn int   LUAState.setiuservalue(&self, int idx, int n);
+extern fn void  LUAState.setglobal(&self, ZString name) @extern("lua_setglobal");
+extern fn void  LUAState.settable(&self, int idx) @extern("lua_settable");
+extern fn void  LUAState.setfield(&self, int idx, ZString k) @extern("lua_setfield");
+extern fn void  LUAState.seti(&self, int idx, Integer n) @extern("lua_seti");
+extern fn void  LUAState.rawset(&self, int idx) @extern("lua_rawset");
+extern fn void  LUAState.rawseti(&self, int idx, Integer n) @extern("lua_rawseti");
+extern fn void  LUAState.rawsetp(&self, int idx, void *p) @extern("lua_rawsetp");
+extern fn int   LUAState.setmetatable(&self, int objindex) @extern("lua_setmetatable");
+extern fn int   LUAState.setiuservalue(&self, int idx, int n) @extern("lua_setiuservalue");
+
+
+/*
+** miscellaneous functions
+*/
+
+extern fn int LUAState.error(&self) @extern("lua_error");
+extern fn int   LUAState.next(&self, int idx) @extern("lua_next");
+extern fn void  LUAState.concat(&self, int n) @extern("lua_concat");
+extern fn void  LUAState.len(&self, int idx) @extern("lua_len");
+extern fn usz   LUAState.stringtonumber(&self, ZString s) @extern("lua_stringtonumber");
+
+extern fn Alloc_callback LUAState.getallocf(&self, void **ud) @extern("lua_getallocf");
+extern fn void      LUAState.setallocf(&self, Alloc_callback f, void *ud) @extern("lua_setallocf");
+
+extern fn void LUAState.toclose(&self, int idx) @extern("lua_toclose");
+extern fn void LUAState.closeslot(&self, int idx) @extern("lua_closeslot");
 
 /*
 

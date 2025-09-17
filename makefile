@@ -108,10 +108,14 @@ EXES_TO_CLEAN := $(wildcard $(BUILD_PATH)/*.exe)
 GAME_ARGUMENTS := +developer +editor +g_log +r_mode 9
 
 # in c3 you need to use $feature(_DEBUG) to check for this defines, C3 $define doesn't work for this...
-DEBUG_DEFINES   := -D _DEBUG -D TRACY_ENABLE -D MICROUI_ENABLE -D MUJS_ENABLE -D LUA_ENABLE
+DEBUG_DEFINES   := -D _DEBUG -D TRACY_ENABLE -D MICROUI_ENABLE -D LUA_ENABLE
 #-D _PROFILE
+########## available script engines ##########
 #-D WREN_ENABLE
-#-D ANGEL_ENABLE
+#-D MUJS_ENABLE
+#-D LUA_ENABLE
+#-D ANGEL_ENABLE (not working yet)
+################################################
 # current release defines aren't really usefull... 
 RELEASE_DEFINES := -D _RELEASE -D TRACY_ENABLE -D MICROUI_ENABLE -D WREN_ENABLE
 
