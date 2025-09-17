@@ -87,10 +87,10 @@ macro fourcc(string) {
 // this one do not evaluates to a constant expression
 //macro fourcc(string) => (*(uint*)(string));
 
-macro @todo($a = 0) @builtin
+macro @todo($a = "Not yet implemented!") @builtin
 {
     $if $feature(_DEBUG):
-        unreachable("==> Not yet implemented! <==");
+        unreachable("TODO(HM) func \"%s\" ==> %s", $$FUNC, $a);
     $endif
 }
 

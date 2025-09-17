@@ -329,7 +329,7 @@ fn bool Panel.active_visible_infocus(&self) @inline => (self.active() && !self.h
 //    If so it will require conversion from world space coordinates to camera space.
 fn bool Panel.isMouseOver(&self)
 {
-    if (!self.active() || self.hidden() || editor_as_focus()) return false;
+    if (!self.active() || self.hidden() || editor_as_focus() || main::gpGame.showMessageBox) return false;
 
     // gets windows mouse position...
     Vec2f mouseWorldPos = rl::getMousePosition().toVec2f();

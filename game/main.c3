@@ -429,10 +429,14 @@ struct Game (SaveSystemInterface) @local
     
     String app_save_folder;
     
+    // raygui message box stuff
+    bool showMessageBox;
+    String titleMsgBox;
+    String msgBoxText;
+    //
     float time_sec;
     int   time_ms;
     float dt;
-    bool showMessageBox;
     bool fps_unlocked;
     int max_fps;
     int last_key_pressed;
@@ -612,6 +616,25 @@ fn bool Game.isPointInsideScreenView(&self, Vector2 point) {
     };
     
     return rl::checkCollisionPointRec(point, rec);
+}
+
+fn void drawMsgBox(int w, int h) @public 
+{
+    if (local_game.showMessageBox)
+    {
+        float box_h = 100;
+        float box_width = 250;
+        float text_len = rl::measureText(local_game.msgBoxText.zstr_tcopy(), 10);
+        if(text_len > 250) box_width = (float)text_len + 20.0f;
+        w /= 2;
+        w -= (int)box_width / 2;
+        h /= 2;
+        h -= (int)box_h / 2;
+        int result = rgui::messageBox((Rectangle) {w, h, box_width, box_h},
+            string::tformat_zstr("%s%s","#191#", local_game.titleMsgBox), local_game.msgBoxText.zstr_tcopy(), "close");
+
+        if (result >= 0) local_game.showMessageBox = false;
+    }
 }
 
 /*
@@ -1491,6 +1514,9 @@ fn void gameOnPostGUIDraw(int screenWidth, int screenHeight) @public
         );
         //rl::drawFPS((int)(0.93f * screenWidth), (int)(0.02f * screenHeight));
     }
+
+    // draw raygui message box error
+    drawMsgBox(screenWidth, screenHeight);
     
     if(developer.getBool())
     {

@@ -78,18 +78,42 @@ const I_MAXSTACK = 1000000;
 const REGISTRY_INDEX =	(-I_MAXSTACK - 1000);
 macro @upvalueindex($i)	=> (REGISTRY_INDEX - ($i));
 
-// Stack indices start at 1, so 0 means an empty stack
-// NOTE: when using negative indices,  -1 is the top element, this is the last pushed element.
-// for easy of use, we will do indexing using negative indices only
-const LUASTACK_EMPTY  = 0; // empty stack
-const LUASTACK_IDX1   = -1; // first element in the stack argument slot
+
+//============================= LUA STACK INDICES =============================================
+// Stack indices start at 1 or -1, 0 means an empty stack.
+// NOTE(HM): 
+// when using negative indices, -1 is the top element aka last pushed element.
+// when using positive indices, 1 is the bottom element aka first pushed element.
+const LUASTACK_EMPTY  =  0; // empty stack
+const LUASTACK_TOP    = -1; // top of the stack
+const LUASTACK_RETURN = LUASTACK_TOP; // function return value slot
+// Because a stack in the real world, is usually last-in-first-out (LIFO),
+// we will do indexing using negative indices, from top to bottom, 
+// where top is the last pushed element:
+// WARNING: 
+// This is different from Lua's own API, where positive indices are used,
+// starting from 1 at the bottom of the stack (first pushed element).
+// And also be mindfull that online examples and tutorials may use positive indices.
+const LUASTACK_IDX1   = -1; // first/top element in the stack argument slot
 const LUASTACK_IDX2   = -2;
 const LUASTACK_IDX3   = -3;
 const LUASTACK_IDX4   = -4;
 const LUASTACK_IDX5   = -5;
 const LUASTACK_IDX6   = -6;
-const LUASTACK_TOP    = LUASTACK_IDX1; // top of the stack
-const LUASTACK_RETURN = LUASTACK_TOP; // function return value slot
+//============================= LUA STACK INDICES =============================================
+
+macro stackIDXToSTR(idx) {
+  switch (idx) {
+    case LUASTACK_EMPTY : return "EMPTY";
+    case LUASTACK_TOP   : return "TOP/RETURN/IDX1";
+    case LUASTACK_IDX2  : return "IDX2";
+    case LUASTACK_IDX3  : return "IDX3";
+    case LUASTACK_IDX4  : return "IDX4";
+    case LUASTACK_IDX5  : return "IDX5";
+    case LUASTACK_IDX6  : return "IDX6";
+    default: return "???";
+  }
+}
 
 /* thread status */
 const OK        = 0;
@@ -259,7 +283,6 @@ extern fn  int    LUAState.closethread(&self, LUAState* from) @extern("lua_close
 
 extern fn  CFunction LUAState.atpanic(&self, CFunction panicf) @extern("lua_atpanic");
 
-// A macro to create a local Lua stack that is automatically closed at the end of the scope.
 /*
 ** Usage:
 ** LUAState* state;
@@ -277,11 +300,12 @@ extern fn  CFunction LUAState.atpanic(&self, CFunction panicf) @extern("lua_atpa
 
     Stack visualization:
     +------------------+
-    |  42 -> 1 || -3   |
-    |  69 -> 2 || -2   |
     | 420 -> 3 || -1   |
+    |  69 -> 2 || -2   |
+    |  42 -> 1 || -3   |
     +------------------+
 */
+// A macro to create a local Lua stack that is automatically closed at the end of the scope.
 macro @localStack(LUAState* state; @body) {
   state = newstate();
   assert(state != null, "Failed to create new local Lua stack");

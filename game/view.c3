@@ -29,7 +29,9 @@
 // NOTE(HM) This module is the main game view, it handles the rendering of the game world
 // TODO(HM)
 //       - Refactor this to use meters instead of pixels because of box2d physics, 
-//       - also right now this code is very confusing, most of the info bellow is outdated...
+//       - also right now this code is very confusing, 
+// MOST OF THE INFO BELLOW IS OUTDATED!!!
+
 module game::camview;
 
 // region modules

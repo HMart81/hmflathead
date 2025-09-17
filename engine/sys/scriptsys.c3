@@ -35,10 +35,16 @@ module thirdparty::scripting::lua @if($feature(LUA_ENABLE));
 // lua manual: https://www.lua.org/manual/5.4/
 
 import game::main;
-import engine::logging::log;
+import std::thread;
 import engine::misc; // misc code
+import engine::logging::log;
+import thirdparty::raylib5::rl;
+import thirdparty::raygui5::rgui;
 
 alias game = main::gpGame;
+
+const TRUE @builtin  = 1;
+const FALSE @builtin = 0;
 
 fn void preloadscript(String name)
 {
@@ -176,7 +182,9 @@ fn void runModulefunction(String module_name, String menber_func, int rtrn_count
         // Remove the function from the stack
         state.pop(state.gettop());
     }
-    */    @todo("implement runModulefunction");
+    */
+    //float test = game.lua_state.toF32(LUASTACK_TOP); // just to test the toF32 conversion function
+    @todo();
 }
 
 <*
@@ -317,6 +325,80 @@ fn void updateGlobalType(String name, any obj, LUAState* state = game.lua_state)
             unreachable("lua script engine failed to update type: %s", obj);
     }*/
 }*/
+
+// Convert lua types to C3 types
+fn float LUAState.toF32(&self, int stack_idx) @inline
+{
+    $if $feature(RELEASE):
+        if(self.isnumber(stack_idx) == FALSE) {
+            game.titleMsgBox = "LUA Error Box";
+            game.msgBoxText = string::tformat("Lua stack index: '%s' is not a number!!", stackIDXToSTR(stack_idx));
+            if(game.showMessageBox) { // a previous message box is being shown
+               // do nothing
+            } else { // show a new message box
+                game.showMessageBox = true;
+            }
+            return 0.0f; // return a default value
+        }
+    $else
+        assert(self.isnumber(stack_idx), "lua stack index %d is not a number!!", stack_idx);
+        return (float)self.tonumber(stack_idx);
+    $endif
+}
+
+fn double LUAState.toF64(&self, int stack_idx) @inline
+{
+    assert(self.isnumber(stack_idx), "lua stack index %d is not a number!!", stack_idx);
+    return (double)self.tonumber(stack_idx);
+}
+
+fn int LUAState.toS32(&self, int stack_idx) @inline
+{
+    assert(self.isinteger(stack_idx), "lua stack index %d is not an integer!!", stack_idx);
+    return (int)self.tointeger(stack_idx);
+}
+
+fn uint LUAState.toU32(&self, int stack_idx) @inline
+{
+    assert(self.isinteger(stack_idx), "lua stack index %d is not an integer!!", stack_idx);
+    return (uint)self.tointeger(stack_idx);
+}
+
+fn short LUAState.toS16(&self, int stack_idx) @inline
+{
+    assert(self.isinteger(stack_idx), "lua stack index %d is not an integer!!", stack_idx);
+    return (short)self.tointeger(stack_idx);
+}
+
+fn ushort LUAState.toU16(&self, int stack_idx) @inline
+{
+    assert(self.isinteger(stack_idx), "lua stack index %d is not an integer!!", stack_idx);
+    return (ushort)self.tointeger(stack_idx);
+}
+
+fn char LUAState.toU8(&self, int stack_idx) @inline
+{
+    assert(self.isinteger(stack_idx), "lua stack index %d is not an integer!!", stack_idx);
+    return (char)self.tointeger(stack_idx);
+}
+
+fn ichar LUAState.toS8(&self, int stack_idx) @inline
+{
+    assert(self.isinteger(stack_idx), "lua stack index %d is not an integer!!", stack_idx);
+    return (ichar)self.tointeger(stack_idx);
+}
+
+fn String LUAState.toStr(&self, int stack_idx) @inline
+{
+    assert(self.isstring(stack_idx), "lua stack index %d is not a string!!", stack_idx);
+    return self.tostring(stack_idx).str_view().tcopy();
+}
+
+fn ZString LUAState.toZStr(&self, int stack_idx) @inline
+{
+    assert(self.isstring(stack_idx), "lua stack index %d is not a string!!", stack_idx);
+    return self.tostring(stack_idx);
+}
 // end of lua script engine
 
 
