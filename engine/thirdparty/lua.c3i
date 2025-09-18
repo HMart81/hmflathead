@@ -234,7 +234,7 @@ extern fn int LUAState.compare(&self, int idx1, int idx2, int op) @extern("lua_c
 
 macro getextraspace(l) =>	((void *)((char *)(l) - EXTRASPACE));
 
-macro LUAState.pop(&self,n)	=>	self.settop(-n-1);
+macro LUAState.pop(&self, n) => self.settop(-n-1);
 
 /*
 macro lua_newtable(L)		lua_createtable(L, 0, 0)
@@ -283,6 +283,19 @@ extern fn  int    LUAState.closethread(&self, LUAState* from) @extern("lua_close
 
 extern fn  CFunction LUAState.atpanic(&self, CFunction panicf) @extern("lua_atpanic");
 
+macro createVirtualMachine(LUAState** state) 
+{
+  (*state) = newstate();
+  assert(*state != null, "Failed to create new local Lua stack/VM.");
+  // init the lua libraries (math, string, table, etc) for this state
+  (*state).openlibs();
+}
+
+macro closeVirtualMachine(LUAState** state) 
+{
+  if(*state) { (*state).close(); (*state) = null; } 
+}
+
 /*
 ** Usage:
 ** LUAState* state;
@@ -305,11 +318,10 @@ extern fn  CFunction LUAState.atpanic(&self, CFunction panicf) @extern("lua_atpa
     |  42 -> 1 || -3   |
     +------------------+
 */
-// A macro to create a local Lua stack that is automatically closed at the end of the scope.
-macro @localStack(LUAState* state; @body) {
-  state = newstate();
-  assert(state != null, "Failed to create new local Lua stack");
-  defer state.close();
+// A macro to create a local Lua stack/VM that is automatically closed at the end of the scope.
+macro @localStack(LUAState** state; @body) {
+  createVirtualMachine(state);
+  defer closeVirtualMachine(state);
   @body();
 }
 
@@ -319,6 +331,15 @@ extern fn void LUAState.openlibs(&self) @extern("luaL_openlibs");
 
 extern fn int LUAState.loadfilex(&self, ZString filename, ZString mode) @local @extern("luaL_loadfilex");
 
+// WARNING(HM):
+// loadfile loads the file's contents as a chunk but DOES NOT EXECUTE IT, 
+//  if load is sucessfull, it returns a function on the lua stack that can be called later. 
+//  This allows for more flexibility with loadfile, as you can call the loaded function- 
+//  multiple times without reloading the file.
+// But again, it will NOT run any of the lua code or initialize its contents,
+//  meaning no variables are assigned or functions are run.
+// To run the loaded script code, you need to call pcall() after this.
+// And then after you can inspect the stack for any variables or functions defined in the script.
 macro LUAState.@loadfile(&self, #f) =>	self.loadfilex(#f.zstr_tcopy(), null);
 
 extern fn int LUAState.loadstring(&self, ZString s) @extern("luaL_loadstring");
@@ -441,6 +462,22 @@ extern fn void      LUAState.setallocf(&self, Alloc_callback f, void *ud) @exter
 
 extern fn void LUAState.toclose(&self, int idx) @extern("lua_toclose");
 extern fn void LUAState.closeslot(&self, int idx) @extern("lua_closeslot");
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 /*
 

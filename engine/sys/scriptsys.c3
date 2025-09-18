@@ -34,6 +34,7 @@ module thirdparty::scripting::lua @if($feature(LUA_ENABLE));
 
 // lua manual: https://www.lua.org/manual/5.4/
 
+import std::io;
 import game::main;
 import std::thread;
 import engine::misc; // misc code
@@ -80,6 +81,55 @@ fn void runscript(String name)
     }*/
 }
 
+<*
+ @param [&in] state : "pointer to the lua state"
+ @param r : "return code from lua function calls"
+*>
+fn bool check(LUAState* state, int r) @inline
+{
+    if ( r != lua::OK) {
+        String error = state.tostring(LUASTACK_RETURN).str_view(); // Get error message
+        log::warning(CONSOLE, "lua script engine failed with code: %s", error);
+        state.pop(1); // Remove error message from the stack
+        return false;
+    }
+    return true;
+}
+
+fn void dumpstack(LUAState *state) @inline
+{
+    io::printf("\n==========================\n");
+    int top = state.gettop();
+    if(top == 0) {
+        io::print("Stack is empty\n");
+        io::print("==========================\n\n");
+        return;
+    }
+
+    io::printfn("Stack elements: %s \n", top);
+    for (int i = top; i >= 1; i--)
+    {
+        //io::printfn("%d\t%s\t", i, state.typename(i));
+        int type = state.type(i);
+        io::printf("%s > [%s] = ", i, typeTostr(type));
+        switch (type)
+        {
+            case TYPE_NUMBER:
+                io::printfn("%s",state.tonumber(i));
+            case TYPE_STRING:
+                io::printfn("%s",state.tostring(i));
+            case TYPE_BOOLEAN:
+                io::printfn("%s", (state.toboolean(i) ? "true" : "false"));
+            case TYPE_NIL:
+                io::printfn("%s", "nil");
+            default:
+                //io::printf("[%s] >> ", typeTostr(type));
+                io::printfn("%d",state.topointer(i));
+        }
+    }
+    io::print("==========================\n\n");
+}
+
 /*
 ** Search for 'objidx' in table at index -1 (top). ('objidx' must be an
 ** absolute index.) Return 1 + string at top if it found a good name.
@@ -121,70 +171,94 @@ fn int LUAState.findfield(&self, int objidx, int level)
 *> 
 fn void runModulefunction(String module_name, String menber_func, int rtrn_count, args...) @format(0)
 {
-    /*
     assert(game.lua_state != null, "Fatal Error: Lua state not initialized!!");
 
     LUAState* state = game.lua_state;
+    //dumpstack(state);
 
-    // get and put the module to be called onto the stack (at this point the stack has only the module table)
-    // and is -1
+    // first cheack if stack has space for the args + 2 for the module and menber function itself
+    if(args.len)
+    {
+        if(state.checkstack((int)args.len + 2) == FALSE) {
+            unreachable("lua script engine stack overflow!! cannot push %d args for func %s of module %s", args.len, menber_func, module_name);
+        }
+    } else {
+        if(state.checkstack(2) == FALSE) {
+            unreachable("lua script engine stack overflow!! cannot push module %s and menber func %s unto stack.", module_name, menber_func);
+        }
+    }
+
     TValue tp = state.getglobal(module_name.zstr_tcopy());
     assert(state.type(tp) == TYPE_TABLE, "Value pushed unto stack is not a table! it is %s", typeTostr(tp));
+    // ^ get and put the module to be called onto the stack 
+    // NOTE(HM):
+    //  at this point the module name is at the top of the stack)
+    // Warning(HM): 
+    //  for some reason this will push nil to the top of the stack here!?
+    state.pop(1); // remove the nil value in the stack after the table
 
-    // now get the menber func and push it onto the stack
-    // at this point the stack has the module table at -2 and the function at -1
     state.pushstring(menber_func.zstr_tcopy());
-    assert(state.gettable(LUASTACK_IDX1) == TYPE_FUNCTION, "Value pushed unto stack is not a function! it is %s", typeTostr(state.gettable(LUASTACK_IDX1)));
+    // ^ Now push the menber func NAME onto the stack
+    // NOTE(HM) 
+    //  at this point the menber func NAME (as a STRING) is at the top of the stack)
+    //  and the module table is just below it in the stack at index -2
 
-    // Push arguments onto the stack if any
+    state.gettable(-2); // misleading name, it does not get a table, it gets the value of the key in the table at index -2
+    // ^ Now pop the previous function NAME from the stack
+    // and push the FUNCTION pointer from the table onto the stack
+    // NOTE(HM): 
+    //   at this point the function to be called, should be the one at the top of the stack
+    //   and ready to be called.
+    assert(state.isfunction(LUASTACK_TOP), "Value pushed unto stack is not a function! it is %s", state.typename(LUASTACK_TOP));
+
+    // After the function, push any existing function arguments onto the stack, one after the other
     foreach(i, arg : args)
     {
         switch(arg.type)
         {
-            case ichar.typeid  : state.pushinteger((Integer)*(ichar*)arg.ptr);
-            case short.typeid  : state.pushinteger((Integer)*(short*)arg.ptr);
-            case int.typeid    : state.pushinteger((Integer)*(int*)arg.ptr);
-            case char.typeid   : state.pushinteger((Unsigned)*(char*)arg.ptr);
-            case ushort.typeid : state.pushinteger((Unsigned)*(ushort*)arg.ptr);
-            case uint.typeid   : state.pushinteger((Unsigned)*(uint*)arg.ptr);
-            case float.typeid  : state.pushnumber((Number)*(float*)arg.ptr);
-            case double.typeid : state.pushnumber(*(Number*)arg.ptr);
-            case String.typeid : state.pushstring((*(String*)arg.ptr).zstr_tcopy());
-            case ZString.typeid: state.pushstring(*(ZString*)arg.ptr);
+            case ichar.typeid  : (!arg.ptr) ? state.pushnil() : state.pushinteger((Integer)*(ichar*)arg.ptr);
+            case short.typeid  : (!arg.ptr) ? state.pushnil() : state.pushinteger((Integer)*(short*)arg.ptr);
+            case int.typeid    : (!arg.ptr) ? state.pushnil() : state.pushinteger((Integer)*(int*)arg.ptr);
+            case char.typeid   : (!arg.ptr) ? state.pushnil() : state.pushinteger((Unsigned)*(char*)arg.ptr);
+            case ushort.typeid : (!arg.ptr) ? state.pushnil() : state.pushinteger((Unsigned)*(ushort*)arg.ptr);
+            case uint.typeid   : (!arg.ptr) ? state.pushnil() : state.pushinteger((Unsigned)*(uint*)arg.ptr);
+            case float.typeid  : (!arg.ptr) ? state.pushnil() : state.pushnumber((Number)*(float*)arg.ptr);
+            case double.typeid : (!arg.ptr) ? state.pushnil() : state.pushnumber(*(Number*)arg.ptr);
+            case String.typeid :
+                String* str = (String*)arg.ptr;
+                (!arg.ptr) ? state.pushstring("") : state.pushlstring(*(ZString*)str, str.len);
+            case ZString.typeid: (!arg.ptr) ? state.pushstring("") : state.pushstring(*(ZString*)arg.ptr);
             default: 
-                unreachable("lua failed to register unknown arg %d for func %s", i, name);
+                unreachable("lua failed to register unknown arg %d for func %s", i, menber_func);
         }
     }
 
-    // Execute the function with the number of arguments and expected return values
+    //dumpstack(state);
+
+    // If all went well 
+    // Try execute the function with the number of arguments and expected return values.
     int r = state.pcall((int)args.len, (rtrn_count >= 0) ? rtrn_count : MULTRET, 0);
-    if ( r != lua::OK) {
-        String error = state.tostring(LUASTACK_RETURN).str_view(); // Get error message
-        log::warning(CONSOLE, "lua script engine failed to run function %s with code: %s", name, error);
-        state.pop(1); // Remove error message from the stack
-    } else {
+    if (lua::check(state, r)) 
+    {
         // If the function executed successfully, the return values are on the stack
         // You can retrieve them as needed
         // For example, if you expect one integer return value:
         if(rtrn_count == 1 && state.isinteger(LUASTACK_TOP)) {
             // Convert the return value to integer
-            int returnValue = (int)state.tointeger(LUASTACK_TOP);
-            state.pop(1); // Remove return value from the stack
+            int returnValue = state.toS32(LUASTACK_RETURN, true);
             // Use returnValue as needed
             $if $defined(DEBUG):
-                log::info(CONSOLE, "lua script engine successfully ran function %s with return value: %d", name, returnValue);
+                log::warning(CONSOLE, "lua script engine successfully ran function %s with return value: %d", name, returnValue);
             $endif
         } else if(rtrn_count > 1) {
             // Handle multiple return values if necessary
             // For simplicity, we'll just pop them off the stack here
             state.pop(rtrn_count);
         }
-        // Remove the function from the stack
+        // Remove the function amd all its data from the stack
         state.pop(state.gettop());
+        //dumpstack(state);
     }
-    */
-    //float test = game.lua_state.toF32(LUASTACK_TOP); // just to test the toF32 conversion function
-    @todo();
 }
 
 <*
@@ -204,40 +278,45 @@ fn void runGlobalfunction(String name, int rtrn_count, args...) @format(0)
     TValue tp = state.getglobal(name.zstr_tcopy());
     assert(state.type(tp) == TYPE_FUNCTION, "Value pushed unto stack is not a function! it is %s", typeTostr(tp));
 
-    // Push arguments onto the stack if any
-    foreach(i, arg : args)
-    {
-        switch(arg.type)
+    if(args.len) // if there are args to push onto the stack
+    { 
+        // first cheack if stack has space for the args + 1 for the function itself
+        if(state.checkstack((int)args.len + 1) == FALSE) {
+            unreachable("lua script engine stack overflow!! cannot push %d args for func %s", args.len, name);
+        }
+
+        // Push arguments onto the stack
+        foreach(i, arg : args)
         {
-            case ichar.typeid  : state.pushinteger((Integer)*(ichar*)arg.ptr);
-            case short.typeid  : state.pushinteger((Integer)*(short*)arg.ptr);
-            case int.typeid    : state.pushinteger((Integer)*(int*)arg.ptr);
-            case char.typeid   : state.pushinteger((Unsigned)*(char*)arg.ptr);
-            case ushort.typeid : state.pushinteger((Unsigned)*(ushort*)arg.ptr);
-            case uint.typeid   : state.pushinteger((Unsigned)*(uint*)arg.ptr);
-            case float.typeid  : state.pushnumber((Number)*(float*)arg.ptr);
-            case double.typeid : state.pushnumber(*(Number*)arg.ptr);
-            case String.typeid : state.pushstring((*(String*)arg.ptr).zstr_tcopy());
-            case ZString.typeid: state.pushstring(*(ZString*)arg.ptr);
-            default: 
-                unreachable("lua failed to register unknown arg %d for func %s", i, name);
+            switch(arg.type)
+            {
+                case ichar.typeid  : state.pushinteger((Integer)*(ichar*)arg.ptr);
+                case short.typeid  : state.pushinteger((Integer)*(short*)arg.ptr);
+                case int.typeid    : state.pushinteger((Integer)*(int*)arg.ptr);
+                case char.typeid   : state.pushinteger((Unsigned)*(char*)arg.ptr);
+                case ushort.typeid : state.pushinteger((Unsigned)*(ushort*)arg.ptr);
+                case uint.typeid   : state.pushinteger((Unsigned)*(uint*)arg.ptr);
+                case float.typeid  : state.pushnumber((Number)*(float*)arg.ptr);
+                case double.typeid : state.pushnumber(*(Number*)arg.ptr);
+                case String.typeid : state.pushstring((*(String*)arg.ptr).zstr_tcopy());
+                case ZString.typeid: state.pushstring(*(ZString*)arg.ptr);
+                default: 
+                    unreachable("lua failed to register unknown arg %d for func %s", i, name);
+            }
         }
     }
 
      // Execute the function with the number of arguments and expected return values
     int r = state.pcall((int)args.len, (rtrn_count >= 0) ? rtrn_count : MULTRET, 0);
-    if ( r != lua::OK) {
-        String error = state.tostring(LUASTACK_RETURN).str_view(); // Get error message
-        log::warning(CONSOLE, "lua script engine failed to run function %s with code: %s", name, error);
-        state.pop(1); // Remove error message from the stack
-    } else {
-        // If the function executed successfully, the return values are on the stack
+    if (lua::check(state, r)) 
+    {
+        // If the function executed successfully, the return value/s are on the stack
         // You can retrieve them as needed
         // For example, if you expect one integer return value:
-        if(rtrn_count == 1 && state.isinteger(LUASTACK_TOP)) {
-            // Convert the return value to integer
-            int returnValue = (int)state.tointeger(LUASTACK_TOP);
-            state.pop(1); // Remove return value from the stack
+        if(rtrn_count == 1 && state.isinteger(LUASTACK_TOP)) 
+        {
+            // Convert the return value to a C3 int
+            int returnValue = state.toS32(LUASTACK_RETURN, true); // true means it will pop the value from the stack
             // Use returnValue as needed
             $if $defined(DEBUG):
                 log::info(CONSOLE, "lua script engine successfully ran function %s with return value: %d", name, returnValue);
@@ -257,39 +336,49 @@ fn void runGlobalfunction(String name, int rtrn_count, args...) @format(0)
     @param name : "name of the global variable in lua"
     @param obj : "the any object to register"
     @param [&in] state : "pointer to the lua state"
-    @require obj.ptr != null
 *>
 fn void registerGlobalType(String name, any obj, LUAState* state = game.lua_state) @inline
 {
-    //assert(state != null, "Fatal Error: Lua state not initialized!!");
+    // first cheack if stack has space for the global variable
+    if(state.checkstack(1) == FALSE) {
+        unreachable("lua script engine stack overflow!! cannot push global %s unto stack.", name);
+    }
+
     void* val = obj.ptr;
-    assert(val != null, "Fatal Error: any points to null object!! cannot register to lua!!");
+
+    // runs only in debug mode
+    assert(val != null, "lua script engine failed to register null type: %s", obj);
 
     switch(obj.type)
     {
         case ichar.typeid:
-           state.pushinteger((Integer)*(ichar*)val);
+           (val == null) ? state.pushnil() : state.pushinteger((Integer)*(ichar*)val);
         case short.typeid:
-           state.pushinteger((Integer)*(short*)val);
+           (val == null) ? state.pushnil() : state.pushinteger((Integer)*(short*)val);
         case int.typeid:
-           state.pushinteger((Integer)*(int*)val);
+           (val == null) ? state.pushnil() : state.pushinteger((Integer)*(int*)val);
         case char.typeid:
-           state.pushinteger((Unsigned)*(char*)val);
+           (val == null) ? state.pushnil() : state.pushinteger((Unsigned)*(char*)val);
         case ushort.typeid:
-           state.pushinteger((Unsigned)*(ushort*)val);
+           (val == null) ? state.pushnil() : state.pushinteger((Unsigned)*(ushort*)val);
         case uint.typeid:
-           state.pushinteger((Unsigned)*(uint*)val);
+           (val == null) ? state.pushnil() : state.pushinteger((Unsigned)*(uint*)val);
         case float.typeid:
-           state.pushnumber((Number)*(float*)val);
+           (val == null) ? state.pushnil() : state.pushnumber((Number)*(float*)val);
         case double.typeid:
-           state.pushnumber(*(Number*)val);
+           (val == null) ? state.pushnil() : state.pushnumber(*(Number*)val);
         case String.typeid:
-           state.pushstring((*(String*)val).zstr_tcopy());
+           (val == null) ? state.pushstring("") : state.pushstring((*(String*)val).zstr_tcopy());
         case ZString.typeid:
-           state.pushstring(*(ZString*)val);
-        default: 
-            unreachable("lua script engine failed to register type: %s", obj);
+           (val == null) ? state.pushstring("") : state.pushstring(*(ZString*)val);
+        default:
+            $if $feature(RELEASE):
+                break; // in release mode just ignore unknown types
+            $else
+                unreachable("lua script engine failed to register type: %s", obj);
+            $endif
     }
+
    state.setglobal(name.zstr_tcopy()); // set it as a global variable
 }
 
@@ -327,7 +416,7 @@ fn void updateGlobalType(String name, any obj, LUAState* state = game.lua_state)
 }*/
 
 // Convert lua types to C3 types
-fn float LUAState.toF32(&self, int stack_idx) @inline
+fn float LUAState.toF32(&self, int stack_idx, bool pop = false) @inline
 {
     $if $feature(RELEASE):
         if(self.isnumber(stack_idx) == FALSE) {
@@ -342,62 +431,129 @@ fn float LUAState.toF32(&self, int stack_idx) @inline
         }
     $else
         assert(self.isnumber(stack_idx), "lua stack index %d is not a number!!", stack_idx);
+        defer if(pop) self.pop(1); // pop the value from the stack after returning it
         return (float)self.tonumber(stack_idx);
     $endif
 }
 
-fn double LUAState.toF64(&self, int stack_idx) @inline
+fn double LUAState.toF64(&self, int stack_idx, bool pop = false) @inline
 {
-    assert(self.isnumber(stack_idx), "lua stack index %d is not a number!!", stack_idx);
-    return (double)self.tonumber(stack_idx);
+    $if $feature(RELEASE):
+        if(self.isnumber(stack_idx) == FALSE) {
+            game.titleMsgBox = "LUA Error Box";
+            game.msgBoxText = string::tformat("Lua stack index: '%s' is not a number!!", stackIDXToSTR(stack_idx));
+            if(game.showMessageBox) { // a previous message box is being shown
+               // do nothing
+            } else { // show a new message box
+                game.showMessageBox = true;
+            }
+            return 0.0; // return a default value
+        }
+    $else
+        assert(self.isnumber(stack_idx), "lua stack index %d is not a number!!", stack_idx);
+        defer if(pop) self.pop(1); // pop the value from the stack after returning it
+        return (double)self.tonumber(stack_idx);
+    $endif
 }
 
-fn int LUAState.toS32(&self, int stack_idx) @inline
+fn int LUAState.toS32(&self, int stack_idx, bool pop = false) @inline
 {
-    assert(self.isinteger(stack_idx), "lua stack index %d is not an integer!!", stack_idx);
-    return (int)self.tointeger(stack_idx);
+    $if $feature(RELEASE):
+        if(self.isinteger(stack_idx) == FALSE) {
+            game.titleMsgBox = "LUA Error Box";
+            game.msgBoxText = string::tformat("Lua stack index: '%s' is not a integer!!", stackIDXToSTR(stack_idx));
+            if(game.showMessageBox) { // a previous message box is being shown
+               // do nothing
+            } else { // show a new message box
+                game.showMessageBox = true;
+            }
+            return 0; // return a default value
+        }
+    $else
+        assert(self.isinteger(stack_idx), "lua stack index %d is not a integer!!", stack_idx);
+        defer if(pop) self.pop(1); // pop the value from the stack after returning it
+        return (int)self.isinteger(stack_idx);
+    $endif
 }
 
-fn uint LUAState.toU32(&self, int stack_idx) @inline
+fn uint LUAState.toU32(&self, int stack_idx, bool pop = false) @inline
 {
-    assert(self.isinteger(stack_idx), "lua stack index %d is not an integer!!", stack_idx);
-    return (uint)self.tointeger(stack_idx);
+    $if $feature(RELEASE):
+        if(self.isinteger(stack_idx) == FALSE) {
+            game.titleMsgBox = "LUA Error Box";
+            game.msgBoxText = string::tformat("Lua stack index: '%s' is not a integer!!", stackIDXToSTR(stack_idx));
+            if(game.showMessageBox) { // a previous message box is being shown
+               // do nothing
+            } else { // show a new message box
+                game.showMessageBox = true;
+            }
+            return 0; // return a default value
+        }
+    $else
+        assert(self.isinteger(stack_idx), "lua stack index %d is not a integer!!", stack_idx);
+        defer if(pop) self.pop(1); // pop the value from the stack after returning it
+        return (uint)self.isinteger(stack_idx);
+    $endif
 }
 
-fn short LUAState.toS16(&self, int stack_idx) @inline
+fn short LUAState.toS16(&self, int stack_idx, bool pop = false) @inline
 {
-    assert(self.isinteger(stack_idx), "lua stack index %d is not an integer!!", stack_idx);
-    return (short)self.tointeger(stack_idx);
+    return (short)self.toS32(stack_idx, pop);
 }
 
-fn ushort LUAState.toU16(&self, int stack_idx) @inline
+fn ushort LUAState.toU16(&self, int stack_idx, bool pop = false) @inline
 {
-    assert(self.isinteger(stack_idx), "lua stack index %d is not an integer!!", stack_idx);
-    return (ushort)self.tointeger(stack_idx);
+    return (ushort)self.toU32(stack_idx, pop);
 }
 
-fn char LUAState.toU8(&self, int stack_idx) @inline
+fn char LUAState.toU8(&self, int stack_idx, bool pop = false) @inline
 {
-    assert(self.isinteger(stack_idx), "lua stack index %d is not an integer!!", stack_idx);
-    return (char)self.tointeger(stack_idx);
+    return (char)self.toU32(stack_idx, pop);
 }
 
-fn ichar LUAState.toS8(&self, int stack_idx) @inline
+fn ichar LUAState.toS8(&self, int stack_idx, bool pop = false) @inline
 {
-    assert(self.isinteger(stack_idx), "lua stack index %d is not an integer!!", stack_idx);
-    return (ichar)self.tointeger(stack_idx);
+    return (ichar)self.toS32(stack_idx, pop);
 }
 
-fn String LUAState.toStr(&self, int stack_idx) @inline
+fn String LUAState.toStr(&self, int stack_idx, bool pop = false) @inline
 {
-    assert(self.isstring(stack_idx), "lua stack index %d is not a string!!", stack_idx);
-    return self.tostring(stack_idx).str_view().tcopy();
+    $if $feature(RELEASE):
+        if(self.isstring(stack_idx) == FALSE) {
+            game.titleMsgBox = "LUA Error Box";
+            game.msgBoxText = string::tformat("Lua stack index: '%s' is not a string!!", stackIDXToSTR(stack_idx));
+            if(game.showMessageBox) { // a previous message box is being shown
+               // do nothing
+            } else { // show a new message box
+                game.showMessageBox = true;
+            }
+            return ""; // return a default value
+        }
+    $else
+        assert(self.isstring(stack_idx), "lua stack index %d is not a string!!", stack_idx);
+        defer if(pop) self.pop(1); // pop the value from the stack after returning it
+        return self.tostring(stack_idx).str_view().tcopy();
+    $endif
 }
 
-fn ZString LUAState.toZStr(&self, int stack_idx) @inline
+fn ZString LUAState.toZStr(&self, int stack_idx, bool pop = false) @inline
 {
-    assert(self.isstring(stack_idx), "lua stack index %d is not a string!!", stack_idx);
-    return self.tostring(stack_idx);
+    $if $feature(RELEASE):
+        if(self.isstring(stack_idx) == FALSE) {
+            game.titleMsgBox = "LUA Error Box";
+            game.msgBoxText = string::tformat("Lua stack index: '%s' is not a string!!", stackIDXToSTR(stack_idx));
+            if(game.showMessageBox) { // a previous message box is being shown
+               // do nothing
+            } else { // show a new message box
+                game.showMessageBox = true;
+            }
+            return ""; // return a default value
+        }
+    $else
+        assert(self.isstring(stack_idx), "lua stack index %d is not a string!!", stack_idx);
+        defer if(pop) self.pop(1); // pop the value from the stack after returning it
+        return self.tostring(stack_idx);
+    $endif
 }
 // end of lua script engine
 

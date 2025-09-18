@@ -90,7 +90,7 @@ macro fourcc(string) {
 macro @todo($a = "Not yet implemented!") @builtin
 {
     $if $feature(_DEBUG):
-        unreachable("TODO(HM) func \"%s\" ==> %s", $$FUNC, $a);
+        unreachable("TODO(HM) func \"%s:%s\" ==> %s", $$FUNC, $$LINE, $a);
     $endif
 }
 
