@@ -1082,14 +1082,25 @@ fn void MU_Context.forward_keyboard_input(MU_Context* ctx)
 // micro ui icons 
 fn void r_draw_icon(int id, MU_Rect _rect, MU_Color color) @local 
 {
+  assert(rl::isTextureValid(main::gpGame.mu_font_atlas), "MicroUI font texture is not initialized.");
   MU_Rect src = atlas[id].rect;
   int x = _rect.x + (_rect.w - src.w) / 2;
   int y = _rect.y + (_rect.h - src.h) / 2;
    // Assuming cmd->icon.id corresponds to a valid icon in the MicroUI icon set
   // Here we would draw the icon based on its ID and rectangle
   // For simplicity, we can use a placeholder drawing function
-  draw_rect(rect(x, y, src.w, src.h), color); // Placeholder for actual icon drawing logic
+  //draw_rect(rect(x, y, src.w, src.h), color); // Placeholder for actual icon drawing logic
+  rl::setBlendFactors(rl::RL_ONE, rl::RL_ONE, rl::RL_FUNC_ADD);
+  rl::@blendMode(BlendMode.CUSTOM) 
+  {
+    rl::drawTexturePro(main::gpGame.mu_font_atlas,
+      (Rectangle){src.x, src.y, src.w, src.h},
+      (Rectangle){x, y, src.w, src.h},
+      (Vector2){0, 0}, 0.0f, color);
+  };
 }
+
+// Define the icon atlas
 // The atlas texture is a 128x128 pixel image that contains icons used in the MicroUI.
 const ATLAS_WHITE  = MU_Icon.MAX.v;
 const ATLAS_FONT   = MU_Icon.MAX.v + 1;

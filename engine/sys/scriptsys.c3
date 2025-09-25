@@ -42,10 +42,56 @@ import engine::logging::log;
 import thirdparty::raylib5::rl;
 import thirdparty::raygui5::rgui;
 
+import engine::sys::licensee;
+alias lic = module engine::sys::licensee;
+
 alias game = main::gpGame;
 
 const TRUE @builtin  = 1;
 const FALSE @builtin = 0;
+
+const LUASCRIPTS_FOLDER_NAME = "scripts/";
+
+// UPDATE this value if more globals are needed!!!!
+const int MAX_GAME_LUAGLOBALS = 6; // max number of game lua globals to register
+
+struct LUAGlobal 
+{
+    String name;
+    any value;
+    bool is_const; // if true the value is always constant and cannot be changed from lua as well
+}
+
+LUAGlobal[MAX_GAME_LUAGLOBALS] lua_globals;
+
+fn void registerGameLuaGlobals()
+{
+    assert(game.lua_state != null, "Fatal Error: Lua state not initialized!!");
+    lua_globals = {
+        {"g_appName", any_make(&game.app_name, String.typeid), true},
+        {"g_appVersion", any_make(&&lic::@game_version(), String.typeid), true},
+        {"g_baseFolder", any_make(&game.app_base_folder, String.typeid), true},
+        {"g_timeSc", any_make(&game.time_sec, float.typeid), false},
+        {"g_timeMs", any_make(&game.time_ms, int.typeid), false},
+        {"g_deltaTime", any_make(&game.dt, float.typeid), false}
+    };
+
+    foreach(global : lua_globals)
+    {
+        lua::registerGlobalType(global.name, global.value);
+    }
+}
+
+fn void updateGameLuaGlobals()
+{
+    //assert(game.lua_state != null, "Fatal Error: Lua state not initialized!!");
+
+    foreach(global : lua_globals)
+    {
+        // only update non constant globals
+        if(!global.is_const) lua::updateGlobalType(global.name, global.value);
+    }
+}
 
 fn void preloadscript(String name)
 {
@@ -55,7 +101,7 @@ fn void preloadscript(String name)
     if(!name.ends_with(".lua")) {
         name = name.tconcat(".lua");
     }
-    String path = game.app_base_folder.tconcat("scripts/").tconcat(name);
+    String path = game.app_base_folder.tconcat(LUASCRIPTS_FOLDER_NAME).tconcat(name);
     int r = game.lua_state.@loadfile(path);
     if(r != OK) {
         // If something went wrong, error message is at the TOP of the stack.
@@ -65,20 +111,17 @@ fn void preloadscript(String name)
     }
 }
 
-fn void runscript(String name)
+<*
+ @param name : "name of the lua script file without the .lua extension"
+ @require name != "" && game.lua_state != null && game.app_base_folder != ""
+*>
+fn bool initScript(String name)
 {
-    @todo("implement runscript");
-    /*assert(game.app_base_folder != "", "Fatal Error: Application base folder not set!!");
-    assert(game.lua_state != null, "Fatal Error: Lua state not initialized!!");
-
-    String path = game.app_base_folder.tconcat("scripts/").tconcat(name).tconcat(".lua");
-    int r = game.lua_state.@loadfile(path);
-    if(r != OK) {
-        // If something went wrong, error message is at the top of the stack.
-        String error = game.lua_state.tostring(lua::LUASTACK_RETURN).str_view(); // Get error message
-        log::warning(CONSOLE, "lua script engine failed to load %s.lua with code: %s", name, error);
-        game.lua_state.pop(1); // Remove error message from the stack
-    }*/
+    if(!name.ends_with(".lua")) {
+        name = name.tconcat(".lua");
+    }
+    String path = game.app_base_folder.tconcat(LUASCRIPTS_FOLDER_NAME).tconcat(name);
+    return check(game.lua_state, (int)game.lua_state.dofile(path));
 }
 
 <*
@@ -130,6 +173,9 @@ fn void dumpstack(LUAState *state) @inline
     io::print("==========================\n\n");
 }
 
+<* @require state != null *>
+macro clearStack(state) => state.pop(state.gettop());
+
 /*
 ** Search for 'objidx' in table at index -1 (top). ('objidx' must be an
 ** absolute index.) Return 1 + string at top if it found a good name.
@@ -176,6 +222,12 @@ fn void runModulefunction(String module_name, String menber_func, int rtrn_count
     LUAState* state = game.lua_state;
     //dumpstack(state);
 
+    // make sure the module code is loaded and setup
+    // this will also put the module table onto the stack
+    if(initScript(module_name) == false) {
+        unreachable("lua script engine failed to run module %s, cannot continue!!", module_name);
+    }
+
     // first cheack if stack has space for the args + 2 for the module and menber function itself
     if(args.len)
     {
@@ -188,14 +240,21 @@ fn void runModulefunction(String module_name, String menber_func, int rtrn_count
         }
     }
 
-    TValue tp = state.getglobal(module_name.zstr_tcopy());
-    assert(state.type(tp) == TYPE_TABLE, "Value pushed unto stack is not a table! it is %s", typeTostr(tp));
+    //state.getstack(LUASTACK_TOP, game.lua_debug); // get the current stack frame info
+    //state.getinfo("nSl", game.lua_debug); // get info about the function at the current stack frame
+    //ZString l = state.getlocal(null, LUASTACK_TOP);
+    //io::printfn("local name at top of stack: %s", l);   
+   // TValue tp = state.getglobal("_ENV"); // get the _ENV table
+   
+    //TValue tp = state.getglobal(module_name.zstr_tcopy());
+    dumpstack(state);
+    //assert(state.type(tp) == TYPE_TABLE, "Value pushed unto stack is not a table! it is %s", typeTostr(tp));
     // ^ get and put the module to be called onto the stack 
     // NOTE(HM):
     //  at this point the module name is at the top of the stack)
     // Warning(HM): 
     //  for some reason this will push nil to the top of the stack here!?
-    state.pop(1); // remove the nil value in the stack after the table
+    //state.pop(1); // remove the nil value in the stack after the table
 
     state.pushstring(menber_func.zstr_tcopy());
     // ^ Now push the menber func NAME onto the stack
@@ -237,27 +296,41 @@ fn void runModulefunction(String module_name, String menber_func, int rtrn_count
 
     // If all went well 
     // Try execute the function with the number of arguments and expected return values.
-    int r = state.pcall((int)args.len, (rtrn_count >= 0) ? rtrn_count : MULTRET, 0);
-    if (lua::check(state, r)) 
+    int r = state.pcall((int)args.len, (rtrn_count >= 0) ? rtrn_count : MULTI_RET, 0);
+    if (lua::check(state, r))
     {
-        // If the function executed successfully, the return values are on the stack
-        // You can retrieve them as needed
-        // For example, if you expect one integer return value:
-        if(rtrn_count == 1 && state.isinteger(LUASTACK_TOP)) {
-            // Convert the return value to integer
-            int returnValue = state.toS32(LUASTACK_RETURN, true);
-            // Use returnValue as needed
-            $if $defined(DEBUG):
-                log::warning(CONSOLE, "lua script engine successfully ran function %s with return value: %d", name, returnValue);
-            $endif
-        } else if(rtrn_count > 1) {
+        // If the function executed successfully, 
+        // the return values are at the top of the lua stack
+        // You can retrieve them as needed,
+        // for example, if you expect one integer return value:
+        if(rtrn_count == 1)
+        {
+            if(state.isinteger(LUASTACK_TOP))
+            {
+                // Convert the return value to integer
+                int returnValue = state.toS32(LUASTACK_RETURN, true);
+                // Use returnValue as needed
+                $if $defined(DEBUG):
+                    log::warning(CONSOLE, "lua script engine successfully ran function %s with return value: %d", name, returnValue);
+                $endif
+            } 
+            else
+            {
+                @todo("handle other return types");
+            }
+        } 
+        else if(rtrn_count > 1) 
+        {
             // Handle multiple return values if necessary
             // For simplicity, we'll just pop them off the stack here
             state.pop(rtrn_count);
+            @todo("Handle multiple return values");
         }
-        // Remove the function amd all its data from the stack
-        state.pop(state.gettop());
-        //dumpstack(state);
+
+        // Remove the function and all its data from the stack
+        state.pop(state.gettop() - 1); // -1 to keep the module table in the stack
+        //clearStack(state);
+        //dumpstack(state);                                  
     }
 }
 
@@ -307,7 +380,7 @@ fn void runGlobalfunction(String name, int rtrn_count, args...) @format(0)
     }
 
      // Execute the function with the number of arguments and expected return values
-    int r = state.pcall((int)args.len, (rtrn_count >= 0) ? rtrn_count : MULTRET, 0);
+    int r = state.pcall((int)args.len, (rtrn_count >= 0) ? rtrn_count : MULTI_RET, 0);
     if (lua::check(state, r)) 
     {
         // If the function executed successfully, the return value/s are on the stack

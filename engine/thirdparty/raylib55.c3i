@@ -2139,9 +2139,10 @@ macro void @shaderMode(Shader shader ;@body)
  */
 macro void @blendMode(BlendMode mode ;@body)
 {
-  beginBlendMode(mode);
-  defer endBlendMode();
-  @body();
+    setBlendMode(mode); // WARNING(HM) don't forget to set blend factors before this
+    beginBlendMode(mode);
+    defer endBlendMode();
+    @body();
 }
 
 /**

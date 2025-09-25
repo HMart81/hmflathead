@@ -207,7 +207,7 @@ const Vec2f DEFAULT_WORLD_CENTER   = {0, 0}; // top left coorner of screen (this
 
 // Game Info
 import engine::sys::licensee;
-alias lic @public = module engine::sys::licensee;
+alias lic = module engine::sys::licensee;
 //
 
 // #endregion Constants
@@ -326,6 +326,7 @@ struct Game (SaveSystemInterface) @local
     mu::MU_Context* mu_ctx @if($feature(MICROUI_ENABLE)); // microui context, used for the micro ui system
     bool show_microui_test_frames @if($feature(MICROUI_ENABLE));
     bool show_statistics @if($feature(MICROUI_ENABLE)); // show statistics window
+    Texture2D mu_font_atlas @if($feature(MICROUI_ENABLE)); // microui font texture
 
     // script engine
     ScriptEngine script_eng @if($feature(WREN_ENABLE));
@@ -338,6 +339,7 @@ struct Game (SaveSystemInterface) @local
     //
     // LUA script engine
     LUAState* lua_state @if($feature(LUA_ENABLE)); // lua context
+    LUADebug* lua_debug @if($feature(LUA_ENABLE)); // lua debug context
     //
 
     GameMode mode;
@@ -1094,6 +1096,16 @@ fn void gameUpdate() @local
         }
         
         gameHandleGeneralControls();
+
+        $if $feature(LUA_ENABLE):
+            // todo run this on a seperate thread?
+            //bool status = local_game.lua_state.dofile(local_game.app_base_folder.tconcat("scripts/main.lua"));
+            //if(lua::check(local_game.lua_state, (int)status))
+            //{
+                // If no errors, we can run the loaded chunk
+                //lua::runModulefunction("main", "update", 0);
+            //}
+        $endif
 
         if(editor.getBool() && local_game.editor.isOpened()) {
             local_game.editor.update();
@@ -2390,6 +2402,7 @@ $if $feature(MICROUI_ENABLE):
     local_game.mu_ctx.init();
     local_game.mu_ctx.text_width  = &mu::text_width;
     local_game.mu_ctx.text_height = &mu::text_height;
+    local_game.mu_font_atlas = rl::loadTexture(local_game.app_base_folder.tconcat("images\\mu_atlas.png").zstr_tcopy());
     log::info(FILE, "---------------------------------------------\n");
 $endif
     
@@ -2599,19 +2612,75 @@ $if $feature(LUA_ENABLE):
     if(local_game.lua_state) 
     {
         log::info(CONSOLE, "lua script engine initialized successfully.");
+        local_game.lua_debug = mem::new(LUADebug);
+
 
         // register needed paths in lua environment
-        lua::registerGlobalType("g_baseFolder", any_make(&gpGame.app_base_folder, String.typeid));
+        lua::registerGameLuaGlobals();
+        /*lua::registerGlobalType("g_baseFolder", any_make(&gpGame.app_base_folder, String.typeid));
         lua::registerGlobalType("g_timeSc", any_make(&local_game.time_sec, float.typeid));
         lua::registerGlobalType("g_timeMs", any_make(&gpGame.time_ms, int.typeid));
+        lua::registerGlobalType("g_deltaTime", any_make(&gpGame.dt, float.typeid));*/
 
+        lua::runModulefunction("main", "init", 0);
         //int status = local_game.lua_state.@loadfile(local_game.app_base_folder.tconcat("scripts/main.lua"));
-        bool status = local_game.lua_state.dofile(local_game.app_base_folder.tconcat("scripts/main.lua"));
+        /*bool status = local_game.lua_state.dofile(local_game.app_base_folder.tconcat("scripts/main.lua"));
         if(lua::check(local_game.lua_state, (int)status))
         {
+            @off() 
+            {
+                // init the main.lua script
+                if(local_game.lua_state.isfunction(-1)) 
+                {
+                    // call it
+                    int r = local_game.lua_state.pcall(0, -1, 0);
+                    if (lua::check(local_game.lua_state, r))
+                    {
+                        log::warning(CONSOLE, "'module' main.lua initialized sucessfully.");
+                    } else {
+                        log::warning(CONSOLE, "Failed to run 'module' main.lua!");
+                    }
+                }
+                // get the main table
+                TValue tp = local_game.lua_state.getglobal("main");
+                local_game.lua_state.pop(1); // remove the nil value in the stack after the table
+                if(local_game.lua_state.istable(-1)) 
+                {
+                    //lua::dumpstack(local_game.lua_state);
+                    local_game.lua_state.pushstring("init");
+                    local_game.lua_state.gettable(-2); // get main.init function
+                    if(local_game.lua_state.isfunction(-1)) 
+                    {
+                        // call main.init()
+                        int r = local_game.lua_state.pcall(0, 1, 0);
+                        if (lua::check(local_game.lua_state, r))
+                        {
+                            // get return value
+                            if(local_game.lua_state.isboolean(-1))
+                            {
+                                bool init_sucess = (bool)local_game.lua_state.toboolean(-1);
+                                if(init_sucess) {
+                                    log::info(CONSOLE, "'init' function in main.lua script ran sucessfully.");
+                                } else {
+                                    log::warning(CONSOLE, "'init' function in main.lua script failed to run sucessfully!");
+                                }
+                            } else {
+                                log::warning(CONSOLE, "'init' function in main.lua script did not return a boolean value!");
+                            }
+                            // Remove the function and all its data from the stack
+                            lua::clearStack(local_game.lua_state);
+                        }
+                    } else {
+                        log::warning(CONSOLE, "Failed to find 'init' function in main.lua script!");
+                        local_game.lua_state.pop(1); // remove the nil value in the stack after the function
+                    }
+                    //lua::clearStack(local_game.lua_state);
+                }
+            };
             // If no errors, we can run the loaded chunk
+            // NOTE(HM) this will push the main module into the stack
             lua::runModulefunction("main", "init", 0);
-        }
+        }*/
     } else {
         log::warning(CONSOLE, "Failed to initialize lua script engine!");
     }
@@ -2776,6 +2845,10 @@ $if $feature(LUA_ENABLE):
     {
         log::info(FILE, "close lua Script: %s", lua::VERSION_STR);
         log::info(FILE, "---------------------------------------------");
+        if(local_game.lua_debug != null) {
+            mem::free(local_game.lua_debug);
+            local_game.lua_debug = null;
+        }
         local_game.lua_state.close();
         local_game.lua_state = null;
         log::info(FILE, "lua script engine closed.");
@@ -2811,6 +2884,23 @@ $endif
         misc::freeDebugLines();
     }
     rl::closeWindow();
+
+    // DELETE THIS
+    /*Image img = {
+        .data = &mu::atlas_texture,
+        .width = 128,
+        .height = 128,
+        .format = PixelFormat.UNCOMPRESSED_GRAYSCALE,
+        .mipmaps = 1
+    };
+
+    //Texture2D texture = LoadTextureFromImage(img);
+    if(rl::isImageValid(img)) {
+        log::warning(FILE, "Exporting mu atlas texture to file: %s", local_game.app_base_folder.tconcat("images/").tconcat("mu_atlas.png"));
+        rl::exportImage(img, local_game.app_base_folder.tconcat("images/").tconcat("mu_atlas.png").zstr_tcopy());
+    }*/
+    //
+
     local_game.unload();
     //rl::memFree(memory_pool);
     //log::info(FILE,  "clearing game singletons and log system!\n\t** Printing done on OS terminal from this point on **");
@@ -3010,8 +3100,10 @@ fn void gameDoOneFrame() @local
                     local_game.time_ms  = misc::sec2ms(local_game.time_sec);
 
                     $if $feature(LUA_ENABLE):
-                    lua::updateGlobalType("g_timeSc", any_make(&local_game.time_sec, float.typeid));
+                    /*lua::updateGlobalType("g_timeSc", any_make(&local_game.time_sec, float.typeid));
                     lua::updateGlobalType("g_timeMs", any_make(&gpGame.time_ms, int.typeid));
+                    lua::updateGlobalType("g_deltaTime", any_make(&gpGame.dt, float.typeid));*/
+                    lua::updateGameLuaGlobals();
                     $endif
 
                     int screen_w = rl::getScreenWidth();
