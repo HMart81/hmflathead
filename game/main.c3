@@ -227,7 +227,7 @@ alias asstManager    @public= astmng::assetManager;
 // #region Cvars
 Cvar developer      @public = { "developer"     , CvarType.BOOLEAN, "0",    "enables developer mode"};
 Cvar editor         @public = { "editor"        , CvarType.BOOLEAN, "0",    "enables the game editor (requires developer mode)"};
-Cvar r_mode         @public = { "r_mode"        , CvarType.INT,     "-1",   "window resolution index 0.."};
+Cvar r_mode         @public = { "r_mode"        , CvarType.INT,     "-1",   "index of window resolution [0 to 32], -1 = ini file setting"};
 Cvar r_showFPS      @public = { "r_showFPS"     , CvarType.BOOLEAN, "1",    "draws framerate on screen"};
 Cvar r_noSplashPic  @public = { "r_noSplashPic" , CvarType.BOOLEAN, "1",    "disables the splash image at game start"};
 Cvar r_fullscreen   @public = { "r_fullscreen"  , CvarType.INT,     "-1",   "screen mode 0 = window, 1 = borderless, 2 = dedicated, -1 = ini file setting"};
@@ -238,6 +238,7 @@ Cvar fs_mod_name    @public = { "fs_mod_name"   , CvarType.STRING,  "",     "fol
 Cvar fs_mod_base    @public = { "fs_mod_base"   , CvarType.STRING,  "",     "folder name for custom database of running mod"};
 Cvar db_drawPhysics @public = { "db_drawPhysics", CvarType.BOOLEAN, "1",    "show debug visualization for world physics" };
 Cvar s_noaudio      @public = { "s_noaudio"     , CvarType.BOOLEAN, "0",    "disables all audio"};
+Cvar fl_help        @public = { "help"          , CvarType.BOOLEAN, "0",    "shows help message"};
 // TODO(HM) disable editor cvar, when not used anymore
 //Cvar r_window_resizable @public = { "r_window_resizable", CvarType.BOOLEAN,  "0",   "makes window resizable, window mode only."};
 
@@ -255,6 +256,8 @@ fn void register_cvars() @local
     cvar::@register(&fs_mod_name);
     cvar::@register(&fs_mod_base);
     cvar::@register(&db_drawPhysics);
+    cvar::@register(&s_noaudio);
+    cvar::@register(&fl_help);
     //cvar::@register(r_window_resizable);
     
     //if(cvar::cvars.len()) foreach(cv: cvar::cvars) {log::info(Where.CONSOLE, cv.name);}
@@ -1848,6 +1851,13 @@ $endif
     log::info(FILE, "---------------------------------------------");
     
     // TODO load the user.ini at this time?
+
+    if(fl_help.getBool()) 
+    {
+        cvar::printCvars();
+        // TODO(HM) print key actions and cmdline args as well
+        //usage(); todo make this function a reality...
+    }
     
 // #region Paths/Folders Setup
     log::info(FILE, "Registering game paths:");

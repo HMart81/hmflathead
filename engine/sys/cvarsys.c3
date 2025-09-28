@@ -86,6 +86,17 @@ enum CvarType : char
     STRING
 }
 
+fn String typeToString(CvarType type) @local @inline {
+    switch(type) {
+        case CvarType.FLOAT:   return "float";  
+        case CvarType.INT:     return "int";    
+        case CvarType.BOOLEAN: return "boolean";
+        case CvarType.STRING:  return "string"; 
+        case CvarType.NONE: 
+        default:               return "unknown";
+    }
+}
+
 struct Cvar
 {
     String   name;
@@ -121,6 +132,24 @@ macro @register(#cvar) {
 $if $feature(_DEBUG):
     io::printfn("[INFO] Registered Cvar %s (%s).", #cvar.name, #cvar.description);
 $endif
+}
+
+fn void printCvars() @inline
+{
+    if(cvars.len() == 0) {
+        io::printfn("No cvars registered.");
+        return;
+    }
+
+    io::printfn("\n============== CONSOLE/FLAGS VARS =====================");
+    foreach(cv: cvars) {
+        io::printfn("%s : %s", cv.name, typeToString(cv.type));
+        io::printfn("\t - desc: %s", cv.description);
+        io::printfn("\t - default: %s", (cv.type != CvarType.BOOLEAN) ? cv.value : (cv.value == "1") ? "true" : "false");
+        //io::printfn("--------------------------------------------------------");
+    }
+    io::printfn("Total cvars: %d", cvars.len());
+    io::printfn("============== CONSOLE/FLAGS VARS END =====================\n");
 }
 
 /*
