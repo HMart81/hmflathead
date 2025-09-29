@@ -29,8 +29,9 @@
 // NOTE(HM) This module is the main game view, it handles the rendering of the game world
 // TODO(HM)
 //       - Refactor this to use meters instead of pixels because of box2d physics, 
-//       - also right now this code is very confusing, 
-// MOST OF THE INFO BELLOW IS OUTDATED!!!
+//       - also right now this code is very confusing.
+//
+// WARNING(HM) MOST OF THE SCREEN INFO BELLOW IS TOTALLY OUTDATED!!!
 
 module game::camview;
 
@@ -144,11 +145,15 @@ struct RenderView (SaveSystemInterface)
     RenderLayer gameFrameBuffer;
     RenderLayer guiFrameBuffer;
     RenderLayer postGuiFrameBuffer;
+    //RenderLayer shadowFrameBuffer; // not used yet
+    RenderLayer debugFrameBuffer; // not used yet
 
     // function pointers callbacks for functions rendering into the render targets
     RenderFunctionCallback gameFrameBufferCallback;
     RenderFunctionCallback guiFrameBufferCallback;
     RenderFunctionCallback postGuiFrameBufferCallback;
+    //RenderFunctionCallback shadowFrameBufferCallback; // not used yet
+    RenderFunctionCallback debugFrameBufferCallback; // not used yet
     //
     RenderLayer* currentRender; // current render target/layer displayed
     bool taking_screenshot;
@@ -180,10 +185,14 @@ fn void RenderView.init(&self, int screenWidth, int screenHeight) @inline
     self.gameFrameBuffer    = (RenderLayer)rl::loadRenderTexture(screenWidth, screenHeight);
     self.guiFrameBuffer     = (RenderLayer)rl::loadRenderTexture(screenWidth, screenHeight);
     self.postGuiFrameBuffer = (RenderLayer)rl::loadRenderTexture(screenWidth, screenHeight);
+    //self.shadowFrameBuffer  = (RenderLayer)rl::loadRenderTexture(screenWidth, screenHeight); // not used yet
+    self.debugFrameBuffer  = (RenderLayer)rl::loadRenderTexture(screenWidth, screenHeight);
     //
     self.gameFrameBufferCallback    = &renderGameFBO;
     self.guiFrameBufferCallback     = &renderGuiFBO;
     self.postGuiFrameBufferCallback = &renderPostGuiFBO;
+    //self.shadowFrameBufferCallback  = &renderShadowFBO; // not used yet
+    self.debugFrameBufferCallback  = &renderDebugFBO; // not used yet
     //
     // NOTE(HM) used to point to the main render layer to be used for shaders and such if necessary
     self.currentRender              = &self.gameFrameBuffer;
@@ -611,17 +620,11 @@ $endif
         main::gpGame.boidManager1.draw();
         
         // physics debug drawing
+        // NOTE(HM) this is done here because I want it to draw
+        // before/behind the gui and other debug stuff at the same time as the game entities.
         if(main::db_drawPhysics.getBool()) {
             main::gpGame.physWorldId.debugDraw(&main::gpGame.phys_debug);
         }
-        
-$if $feature(_DEBUG):
-        //view.debug();
-       // view.drawWorldSpaceCoords();
-$if $defined(ENABLE_CAMERA_VIEW):
-        view.drawCameraSpaceCoords();
-$endif
-$endif
 
 $if $defined(ENABLE_CAMERA_VIEW):
         rl::endMode2D();
@@ -639,43 +642,59 @@ $endif
 *>
 fn void renderGuiFBO(RenderView* view, RenderLayer* layer) @local 
 {
-    rl::beginTextureMode(*layer);
+    rl::@textureMode(*layer) {
         rl::clearBackground(rl::fade(rl::WHITE, 0.0f));
-    
 $if $defined(ENABLE_CAMERA_VIEW):
-        rl::beginMode2D(view.camera);
+        rl::@mode2D(view.camera) {
+$if $feature(_DEBUG):
+            //view.debug();
+            //view.drawWorldSpaceCoords();
+            view.drawCameraSpaceCoords();
 $endif
             main::gameOnGuiDraw(view.w, view.h);
-$if $defined(ENABLE_CAMERA_VIEW):
-        rl::endMode2D();
+        };
 $endif
-
-    rl::endTextureMode(); // End drawing to texture (now we have a texture available for next passes)
+    }; // End drawing to texture (now we have a texture available for next passes)
 }
 
 <*
     // NOTE(HM) This renders AFTER the game gui layer
     
-    @param [in] view : "the view to render to the framebuffer layer" 
-    @param [inout] layer : "the framebuffer layer to render to"
-    @require view != null && layer != null
+    @param [&in] view : "the view to render to the framebuffer layer" 
+    @param [&inout] layer : "the framebuffer layer to render to"
 *>
 fn void renderPostGuiFBO(RenderView* view, RenderLayer* layer) @local 
 {
-    rl::beginTextureMode(*layer);
+     rl::@textureMode(*layer) {
         rl::clearBackground(rl::fade(rl::WHITE, 0.0f));
-    
 $if $defined(ENABLE_CAMERA_VIEW):
-        rl::beginMode2D(view.camera);
+        rl::@mode2D(view.camera) {
+            main::gameOnPostGUIDraw(view.w, view.h);
+        };
 $endif
-        main::gameOnPostGUIDraw(view.w, view.h);
-$if $defined(ENABLE_CAMERA_VIEW):
-        rl::endMode2D();
-$endif
-
-    rl::endTextureMode(); // End drawing to texture (now we have a texture available for next passes)
+    }; // End drawing to texture (now we have a texture available for next passes)
 }
 
+<*
+    // NOTE(HM) This renders AFTER the post gui layer
+    // both the post gui and debug layers are used for debugging purposes
+    // but the post gui layers is mostly used for text/line debugging
+    // and the debug layer is used for visual debugging
+    
+    @param [&in] view : "the view to render to the framebuffer layer" 
+    @param [&inout] layer : "the framebuffer layer to render to"
+*>
+fn void renderDebugFBO(RenderView* view, RenderLayer* layer) @local 
+{
+    rl::@textureMode(*layer) {
+        rl::clearBackground(rl::fade(rl::WHITE, 0.0f));
+$if $defined(ENABLE_CAMERA_VIEW):
+        rl::@mode2D(view.camera) {
+            // nothing for now...
+        };
+$endif
+    }; // End drawing to texture (now we have a texture available for next passes)
+}
 
 fn void RenderView.renderToFBO(&self) @inline
 {
@@ -685,6 +704,8 @@ fn void RenderView.renderToFBO(&self) @inline
     self.guiFrameBufferCallback(self, &self.guiFrameBuffer);
     // render to the post gui layer
     self.postGuiFrameBufferCallback(self, &self.postGuiFrameBuffer);
+    // render to the debug layer
+    self.debugFrameBufferCallback(self, &self.debugFrameBuffer);
 }
 
 fn void RenderView.draw(&self) @inline 
@@ -697,6 +718,8 @@ fn void RenderView.draw(&self) @inline
     rl::drawTextureRec(self.guiFrameBuffer.texture, { 0, 0, (float)self.w, (float)-self.h }, { 0, 0 }, rl::WHITE);
     // draw the post gui framebuffer
     rl::drawTextureRec(self.postGuiFrameBuffer.texture, { 0, 0, (float)self.w, (float)-self.h }, { 0, 0 }, rl::WHITE);
+    // draw the debug framebuffer
+    rl::drawTextureRec(self.debugFrameBuffer.texture, { 0, 0, (float)self.w, (float)-self.h }, { 0, 0 }, rl::WHITE);
 }
 
 /*

@@ -1272,7 +1272,7 @@ fn void drawGameVersion(Vec2i at_pos) @inline @local
     //ZString game_version     = string::tformat_zstr("version: (%s, %s, %s)", lic::MAX_VERSION, lic::MIN_VERSION, lic::BABY_VERSION);
     //int version_text_len     = rl::measureText(game_version, VERSION_FONT_SCALE);
     rl::drawText(
-        lic::@game_version().zstr_tcopy(),
+        string::tformat_zstr("game version: %s", lic::@game_version()),
         //(int)(screenWidth - (2.0f * version_text_len)), //(float)(font_w * libc::strlen(game_version))),
         //(int)0.25f*screenHeight,
         at_pos.x,
@@ -1299,7 +1299,7 @@ fn void drawWorkInProgressMessage(int screen_w, int screen_h) @local
     //int x = (int)(0.65f * ((float)(screen_middle + (font_w * message.len))));
     int x = (int)(0.60f * ((float)(screen_middle + text_len)));
     int y = (int)math::floor(0.01f*screen_h);
-    rl::drawText(string::tformat_zstr("%s (Raylib %s)", message, rl::VERSION), x, y, 12, COLOR);
+    rl::drawText(string::tformat_zstr("%s (uses Raylib %s)", message, rl::VERSION), x, y, 12, COLOR);
     //rl::drawTextEx(*font, string::tformat_zstr("%s (Raylib %s)", message, rl::VERSION), {x, y}, 12, 1.0f, rl::RED);
     drawGameVersion({x, y + 16});
 }
@@ -1517,7 +1517,7 @@ fn void gameOnPostGUIDraw(int screenWidth, int screenHeight) @public
         int y = (int)(0.02f * screenHeight);
         rl::drawTextEx(
             *local_game.candara_font,
-            string::tformat_zstr("OpenGL %s FPS: %d", rl::glsl_version(), rl::getFPS()), 
+            string::tformat_zstr("OpenGL v%s, FPS: %d", rl::glsl_version(), rl::getFPS()), 
             (Vector2){(float)x, (float)y}, 18.0f, 1.0f, 
             rl::LIME
         );
