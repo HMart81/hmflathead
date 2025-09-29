@@ -1119,7 +1119,9 @@ fn void playAutomationEvent(AutomationEvent event) @extern("PlayAutomationEvent"
 
 // Input-related functions: keyboard
 // Check if a key has been pressed once
+// NOTE(HM) has issues when pressing and releasing a key very fast
 fn bool isKeyPressed(KeyboardKey key) @extern("IsKeyPressed");
+//
 // Check if a key has been pressed again (Only PLATFORM_DESKTOP)
 fn bool isKeyPressedRepeat(KeyboardKey key) @extern("IsKeyPressedRepeat");
 // Check if a key is being pressed

@@ -2755,6 +2755,11 @@ $endif
     
 // #region Test game stuff
     createGameInputActions(settings_file);
+
+    if(fl_help.getBool())
+    {
+        input::printKeyActions();
+    }
     
     // Create the main Single Player
     // NOTE(HM) todo: the player and ingame entities should be created only at spawn of a level 

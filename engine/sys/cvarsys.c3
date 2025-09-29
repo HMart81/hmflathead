@@ -145,7 +145,7 @@ fn void printCvars() @inline
     foreach(cv: cvars) {
         io::printfn("%s : %s", cv.name, typeToString(cv.type));
         io::printfn("\t - desc: %s", cv.description);
-        io::printfn("\t - default: %s", (cv.type != CvarType.BOOLEAN) ? cv.value : (cv.value == "1") ? "true" : "false");
+        io::printfn("\t - default: %s", (cv.type != CvarType.BOOLEAN) ? cv.value : misc::bool2str(cv.value == "1"));
         //io::printfn("--------------------------------------------------------");
     }
     io::printfn("Total cvars: %d", cvars.len());

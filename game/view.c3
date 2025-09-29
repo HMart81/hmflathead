@@ -270,11 +270,10 @@ fn void RenderView.debug(&self)
 }
 
 
-// NOTE(HM) This is now really inconvinient
-// This because I found Raysan decided to not give a way 
-// to override the screenshot key, or the quit key for that matter,
-// so if I use this with another key than F12 or 
-// I call rl::takeScreenshot() I will take TWO screenshots!! :(
+// NOTE(HM) This was disabled because I found Raysan's
+// hardcoded F12 key for the screenshot action, very annoying,
+// and also didn't provided a way to override the folder 
+// where the screenshot is saved, is always next to the .exe
 fn void takeScreenShot() 
 {
     unreachable();
@@ -495,6 +494,7 @@ fn void RenderView.update(&self)
     if(main::developer.getBool()) 
     {
         // for some stupid reason raysan from raylib hardcoded F12 to the screenshot action
+        // so now I can't reuse that key for something else
         // if(!self.taking_screenshot && rl::isKeyDown(rl::KEY_F2)) {
             // self.taking_screenshot = true;
             // //takeScreenShot();

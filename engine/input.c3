@@ -66,6 +66,18 @@ enum ActionKind {
     GAMEPAD,
     MOBILE
 }
+
+macro String actionKindToString(ActionKind k) {
+    switch (k)
+    {
+        case UNKNOWN : return "UNKNOWN";
+        case KEYBOARD: return "KEYBOARD";
+        case MOUSE   : return "MOUSE";
+        case GAMEPAD : return "GAMEPAD";
+        case MOBILE  : return "MOBILE";
+        default      : return "UNKNOWN";
+    }
+}
 // end_region
 
 interface ActionInterface {
@@ -134,7 +146,6 @@ struct Action (ActionInterface)
 	bool triggerDown;
 	double timeCount;
 }
-
 
 fn bool Action.fnIsTriggered(&self) @dynamic
 {
@@ -442,6 +453,49 @@ fn void listActions() @inline {
     local_manager.listActions();
 }
 
+fn String getMouseBtnName(MouseButton btn) @inline @local {
+    switch (btn)
+    {
+        case rl::MouseButton.LEFT  : return "MOUSE_BUTTON_LEFT";
+        case rl::MouseButton.RIGHT : return "MOUSE_BUTTON_RIGHT";
+        case rl::MouseButton.MIDDLE: return "MOUSE_BUTTON_MIDDLE";
+        case rl::MouseButton.SIDE  : return "MOUSE_BUTTON_SIDE";
+        case rl::MouseButton.EXTRA : return "MOUSE_BUTTON_EXTRA";
+        case rl::MouseButton.FORWARD: return "MOUSE_BUTTON_FORWARD";
+        case rl::MouseButton.BACK  : return "MOUSE_BUTTON_BACK";
+        default: return "UNKNOWN";
+    }
+}
+
+<*
+    @param [&in] action : "the action to retrieve the main button name from"
+*>
+fn String getMainBtnNameFrom(Action* action) @inline @local {
+    switch (action.kind)
+    {
+        case KEYBOARD: return getKeyboardKeyName(action.keyboard.key1);
+        case MOUSE   : return getMouseBtnName(action.mouse.btn);
+        case GAMEPAD : return "GAMEPAD BTN"; // TODO(HM) implement this
+        case MOBILE  : return "MOBILE GESTURE"; // TODO(HM) implement this
+        default      : return "UNKNOWN";
+    }
+}
+
+fn void printKeyActions() @inline
+{
+    io::printfn("\n============== Input Actions =====================");
+    usz count = local_manager.actions.len();
+    if(count == 0) {
+        io::printfn("No input actions to print found.");
+    } else {
+        foreach(act: local_manager.actions) {
+            io::printfn("\t-> %s Action: \"%s\" - Key1: %s - Key2: %s", actionKindToString(act.kind), act.name, getMainBtnNameFrom(act), getKeyboardKeyName(act.keyboard.key2));
+        }
+        io::printfn("Total actions: %d", count);
+    }
+    io::printfn("============== Input Actions END =====================\n");
+}
+
 
 struct ActionManager {
     ActionQueue actions;
@@ -542,7 +596,6 @@ fn void ActionManager.listActions(&self) @local @inline
         log::info(Where.FILE, "[ END ACTIONS ]]");
     }
 }
-
 
 // TODO(HM) Move this to the cmds module
 // region input cmds

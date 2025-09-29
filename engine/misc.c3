@@ -47,6 +47,8 @@ alias Vec4f  = float[<4>];
 alias Vec2i  = int[<2>];
 alias Vec3i  = int[<3>];
 
+macro String bool2str(bool b) => b ? "true" : "false";
+
 // NOTE(HM) There's no Z or backward and forward, because this is 2D engine
 const Vec2f VEC_UP    = {0.0f, -1.0f};
 const Vec2f VEC_DOWN  = {0.0f,  1.0f};
