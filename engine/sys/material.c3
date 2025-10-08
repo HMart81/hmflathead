@@ -78,6 +78,8 @@ void SetMaterialTexture(Material *material, int mapType, Texture2D texture);    
 void SetModelMeshMaterial(Model *model, int meshId, int materialId);                  // Set material for a mesh
 */
 
+const NEW_MATERAL_SYSTEM = true; // enable the new material system, still WIP
+
 // TODO(HM) Support more than one stage type per material, 
 // for example more than one diffuse map, etc.
 // Material stage index
@@ -112,15 +114,40 @@ const int BLEND_MODULATE @public = rl::RL_DST_COLOR | rl::RL_ZERO;              
 
 
 /* 
-TODO(HM) Support more than one stage type per material:
-    Example of a material stage in XML format:
+TODO(HM) potencial new material and stage system in XML format:
 
-<stage type="diffuse">
-    <blend mode="blend" />
-    <map url="images/textures/figure" />
-    <keyword>alpha = 0.5</keyword>
-    ...
-</stage>
+<MTR version="1.0" generator="hmflathead mtrgen v0.1">
+    <library_materials>
+        <material name="images/textures/brick" path="materials/images/textures/brick.mtr" />
+        <material name="images/textures/figure">
+            <comments>This is a figure texture material</comments>
+            <editor_image path="images/textures/figure_preview.png" />
+            <-- fallback material used when this main material is unsupported -->
+            <fallback_material name="images/textures/brick" />
+            <-- global parameters, affect the entire material -->
+            <parms 
+                sort="10" 
+                coverage="translucent" 
+                contents="solid, terrain" 
+                flags="alpha_test, no_shadows"
+            />
+            <library_stages>
+                <stage type="diffuse">
+                    <blend mode="blend" />
+                    <map path="images/textures/figure.png" />
+                    <-- local parameters, affect only this stage -->
+                    <parms alpha="0.5" wrap_s="repeat" wrap_t="repeat" />
+                </stage>
+                <stage type="normal">
+                    <map path="images/textures/figure_normal.png" />
+                </stage>
+                <stage type="specular">
+                    <map path="images/textures/figure_specular.png" />
+                </stage>
+            </library_stages>
+        </material>
+    </library_materials>
+</MTR>
 */
 // NOTE(HM) raylib has the MaterialMap already that is almost equivalent, should we use that?
 // Material stage represents each texture type in a material
@@ -131,11 +158,19 @@ struct MaterialStage @public
     //NOTE(HM) width and Height are encoded on the Texture2D data
     Texture2D tex;
     Color color;
-    int drawStateBits; // draw state bits for this stage, used for blending and who knows other effects
+    int drawStateBits @if(!$defined(NEW_MATERAL_SYSTEM)); // draw state bits for this stage, used for blending and who knows other effects
+    union @if($defined(NEW_MATERAL_SYSTEM))
+    {
+        int drawStateBits; // draw state bits for this stage, used for blending and who knows other effects
+        int blendMode @NewMatSystem(1); // is the same as drawStateBits
+    }
     int lighting; // lighting type for this stage, used for lighting calculations
     
     // Todo perhaps rethink this per stage args stuff....
     MaterialStageArgList args;
+
+    MatStageIndex type @NewMatSystem(1); // is also a index
+    StageArgument[MAX_STAGE_ARGS] new_args @NewMatSystem(1); // array of arguments for this stage
 }
 
 <*
@@ -186,6 +221,46 @@ const Coverage COVERAGE_BAD         @public = 0; // invalid coverage type
 const Coverage COVERAGE_OPAQUE      @public = 1; // completely fills the triangle
 const Coverage COVERAGE_PERFORATED  @public = 2; // may have alpha tested holes
 const Coverage COVERAGE_TRANSLUCENT	@public = 4; // blended with background
+//
+//
+// TODO(HM) implement this new stage system
+attrdef @NewMatSystem(value) = @tag("version", value), @if($defined(NEW_MATERAL_SYSTEM));
+
+const int MAX_STAGE_ARGS @if($defined(NEW_MATERAL_SYSTEM)) = 16; // max number of arguments per stage
+struct NewStage @if($defined(NEW_MATERAL_SYSTEM)) @public
+{
+    Texture2D tex; // GPU texture id
+    MatStageIndex type; // is also a index
+    int blendMode;
+    StageLighting lighting;
+    Color color;
+    StageArgument[MAX_STAGE_ARGS] args; // array of arguments for this stage
+}
+
+fn void NewStage.init(&self, MatStageIndex _type = STAGE_DIFFUSE, int _lighting = SL_DIFFUSE) @public @if($defined(NEW_MATERAL_SYSTEM))
+{
+    //self.tex = rl::INVALID_TEXTURE;
+    self.type = _type; // invalid type
+    //self.blendMode = BLEND_NONE;
+    self.lighting = _lighting;
+    self.color = rl::WHITE;
+    //self.args.clear();
+}
+
+fn void NewStage.free(&self) @public @if($defined(NEW_MATERAL_SYSTEM))
+{
+    if(rl::isTextureValid(self.tex) || self.tex != rl::INVALID_TEXTURE) {
+        rl::unloadTexture(self.tex);
+    }
+    foreach(arg : self.args) {
+        arg.first = "";
+        arg.second = "";
+    }
+}
+///////////////////////////////////////////
+//
+//
+
 
 
 // contents flags used to mark entities in the game, max 31 bits

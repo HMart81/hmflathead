@@ -58,6 +58,8 @@ import engine::physics::box2d;
 
 /*
     NOTE(HM) 
+    In raylib, screen coordinates use a 2D Cartesian system 
+    with the origin (0,0) at the top-left corner of the window.
     
     ** world view space **
     
@@ -68,21 +70,30 @@ import engine::physics::box2d;
     |             |
     |             |
     |_____________|
+
+    Unfortunatly OpenGL uses a different coordinate system
+    with the origin (0,0) at the bottom-left corner of the window.
+    And positive Y axis goes up, not down as in raylib screen space.
+    So when drawing to a framebuffer texture, the Y axis is inverted!!!
+
+     _____________
+    | +y          |
+    | |           |
+    | |____ +x    |
+    |             |
+    |             |
+    0,0___________|
     
+    WARNING: Again when displaying framebuffer textures, 
+             the Y coordinate, will be inverted!!!
+             Meaning, Y up becomes +Y and down becomes -Y!!!!!
+             Raylib functions getting 2D screen coordinates like rl::getMouseY(), 
+             will return the value has if Y is NOT inverted, so have that in mind!!!
+
     world_matrix:
     s = scale
     r = rotation
     t = translation
-    
-    * collum Major*
-    |1 0 0| = |sx ry 0|  
-    |0 1 0|   |rx sy 0|
-    |0 0 1|   |tx ty 1|
-    
-    * Row Major*
-    |sx ry tx|   |m00 m01 m02|
-    |rx sy ty| = |m10 m11 m12|
-    | 0  0  1|   |m20 m21 m22|
     
     ** camera coordinate space **
     
@@ -94,22 +105,21 @@ import engine::physics::box2d;
     |     +y      |
     |_____________|
     
-    -z is towards the viewer (not used for now...)
+    CCW rotation (counter clockwise) using the right hand rule
+    with +Z towards the viewer, it is also axis of rotation (not used for now...)
     
-    WARNING: When displaying framebuffer textures the Y coordinate, will be inverted!!!
-             Meaning, Y up becomes +Y and down becomes -Y!!!!!
-             Functions getting screen coordinates like rl::getMouseY() will return 
-             the value has if Y is NOT inverted, so have that in mind!!!
     
     ** entity/model space **
     
     [3D] (not used for now)
     
+    Right handed coord system CCW rotation
+    
     +z up
     ^
-    |__> +x right
+    |__> +y right
     
-    +y is towards the viewer (this is also model forward)
+    +X is towards the viewer (this is also model forward)
     
     [2D] = (camera coordinate space)
     
@@ -120,10 +130,10 @@ import engine::physics::box2d;
 */
 
 /*
-* Row Major*
-|sx ry tx|   |m00 m01 m02|
-|rx sy ty| = |m10 m11 m12|
-| 0  0  1|   |m20 m21 m22|
+* column Major*
+|sx ry tx|   |a c e|   |m00 m01 m02|
+|rx sy ty| = |b d f| = |m10 m11 m12|
+| 0  0  1|   |0 0 1|   |m20 m21 m22|
 */
 
 const Matrix3f VIEW_AXIS_IDENTITY = {
@@ -159,16 +169,22 @@ struct RenderView (SaveSystemInterface)
     bool taking_screenshot;
     
     // render view size
-    struct @packed {
-        int w;
-        int h;
+    union {
+        struct @packed {
+            int w;
+            int h;
+        }
+        Vec2i size;
     }
     // render view position/origin
     Vec2f origin;
     Vec2f default_origin;
     Bounds bounds;
-    
+
+    Matrix3f axis; // world to view axis transform matrix
+
     Camera2D camera  @if ($defined(ENABLE_CAMERA_VIEW));
+    Camera3D camera3D @if ($defined(ENABLE_CAMERA3D_VIEW)); // not used for now...
 }
 
 fn void RenderView.save(&self, SaveFile* file) @dynamic {
@@ -205,6 +221,7 @@ $if $defined(ENABLE_CAMERA_VIEW):
     self.origin = { self.w / 2.0f, self.h / 2.0f };
     self.default_origin = self.origin;
     // sets camera view target and view direction
+    // look at the origin
     self.camera.target.arr = self.origin;
     // move the view axis center to be the target
     //self.axis.translate(self.camera.target.arr);
@@ -217,6 +234,29 @@ $if $defined(ENABLE_CAMERA_VIEW):
     //self.camera.rotation = 0;
     //
     self.camera.zoom = 1.0f;
+$endif
+
+    self.axis = VIEW_AXIS_IDENTITY;
+    {
+        // flip Y axis to match the camera coordinate space
+        self.axis.m11 = -1.0f;
+    }
+
+$if ($defined(ENABLE_CAMERA3D_VIEW)):
+    float aspect_ratio = (float)screenWidth / (float)screenHeight;
+    float fov_y = 45.0f;
+    float camera_distance = 10.0f;
+    // 3D camera view (not used for now...)
+    self.camera.position = { self.w / 2.0f, self.h / 2.0f , 0.0f} + {0, 0, -1} * camera_distance; // Camera position
+    self.camera.target = (Vector3){ self.w / 2.0f, self.h / 2.0f , 0.0f};      // Camera looking at point
+    self.camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };          // Camera up vector (rotation over its axis)
+    /*
+    float fovy;                     // Camera field-of-view apperture in Y (degrees) in perspective, used as near plane width in orthographic
+    CameraProjection projection;    // Camera projection: CAMERA_PERSPECTIVE or CAMERA_ORTHOGRAPHIC
+    */
+    self.camera.fovy = fov_y;    
+    self.camera.projection = rl::CAMERA_ORTHOGRAPHIC;
+
 $endif
 
     // view bounds

@@ -1486,31 +1486,29 @@ macro reverse_digits(num)
     return rev_num;
 }
 
-    //-----------------------------------------------------------------------------
-    // Purpose: Return the difference between two floats
-    //-----------------------------------------------------------------------------
-    fn float fgetDiff(float f1, float f2) 
-    {
-        if (f1 > f2) {
-            return f1 - f2;
-        }
-        else {
-            return f2 - f1;
-        }
+//-----------------------------------------------------------------------------
+// Purpose: Return the difference between two floats
+//-----------------------------------------------------------------------------
+fn float fgetDiff(float f1, float f2) 
+{
+    if (f1 > f2) {
+        return f1 - f2;
+    } else {
+        return f2 - f1;
     }
+}
 
-    //-----------------------------------------------------------------------------
-    // Purpose: Return the difference between two int integers
-    //-----------------------------------------------------------------------------
-    fn int igetDiff(int s1, int s2)
-    {
-        if (s1 > s2) {
-            return s1 - s2;
-        }
-        else {
-            return s2 - s1;
-        }
+//-----------------------------------------------------------------------------
+// Purpose: Return the difference between two int integers
+//-----------------------------------------------------------------------------
+fn int igetDiff(int s1, int s2)
+{
+    if (s1 > s2) {
+        return s1 - s2;
+    } else {
+        return s2 - s1;
     }
+}
 
 // end_region MISC
 

@@ -37,6 +37,12 @@ import engine::misc;
 import game::main;
 import std::ascii;
 
+// ******************************************************************************
+// NOTE(HM) This module handles the loading and parsing of .guip files
+// this custom file format is similar to svg files but much simpler and easier to parse
+// is used to define GUI elements and their properties
+// ******************************************************************************
+
 faultdef MALFORMED_GUIP_FILE,
          GUIP_PARSING_ERROR,
 	     GUIP_LOAD_ERROR,
@@ -58,6 +64,9 @@ faultdef MALFORMED_GUIP_FILE,
 // }
 
 alias GUIPFile = File;
+
+const FILE_SIGNATURE @local = "GUIP";
+const FILE_VERSION   @local = 1;
 
 alias TransformKind = String;
 const TransformKind TRANSFORM_NONE      = "none";

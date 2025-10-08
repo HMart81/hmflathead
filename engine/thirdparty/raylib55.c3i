@@ -109,7 +109,7 @@ struct Matrix @compact
 }
 
 // Color, 4 components, R8G8B8A8 (32bit)
-struct Color @compact
+struct Color
 {
     char r;        // Color red value
     char g;        // Color green value
@@ -117,24 +117,24 @@ struct Color @compact
     char a;        // Color alpha value
 }
 
-// macro bool Color.eql(&self, Color other) @operator(==)
-// {
-//     return ( self.r == other.r &&
-//              self.g == other.g &&
-//              self.b == other.b &&
-//              self.a == other.a );
-// }
+macro bool Color.eql(&self, Color other) @operator(==)
+{
+    return ( self.r == other.r &&
+             self.g == other.g &&
+             self.b == other.b &&
+             self.a == other.a );
+}
 
-// macro bool Color.neql(&self, Color other) @operator(!=)
-// {
-//     return ( self.r != other.r ||
-//              self.g != other.g ||
-//              self.b != other.b ||
-//              self.a != other.a );
-// }
+macro bool Color.neql(&self, Color other) @operator(!=)
+{
+    return ( self.r != other.r ||
+             self.g != other.g ||
+             self.b != other.b ||
+             self.a != other.a );
+}
 
 // Rectangle, 4 components
-struct Rectangle @compact
+struct Rectangle
 {
     float x;                // Rectangle top-left corner position x
     float y;                // Rectangle top-left corner position y
@@ -142,21 +142,21 @@ struct Rectangle @compact
     float height;           // Rectangle height
 }
 
-// macro bool Rectangle.eql(&self, Rectangle other) @operator(==)
-// {
-//     return ( misc::fgetDiff(self.x, other.x) <= 0.01f &&
-//              misc::fgetDiff(self.y, other.y) <= 0.01f &&
-//              misc::fgetDiff(self.width, other.width) <= 0.01f &&
-//              misc::fgetDiff(self.height, other.height) <= 0.01f );
-// }
+macro bool Rectangle.eql(&self, Rectangle other) @operator(==)
+{
+    return ( misc::fgetDiff(self.x, other.x) <= 0.01f &&
+             misc::fgetDiff(self.y, other.y) <= 0.01f &&
+             misc::fgetDiff(self.width, other.width) <= 0.01f &&
+             misc::fgetDiff(self.height, other.height) <= 0.01f );
+}
 
-// macro bool Rectangle.neql(&self, Rectangle other) @operator(!=)
-// {
-//     return ( misc::fgetDiff(self.x, other.x) > 0.01f ||
-//              misc::fgetDiff(self.y, other.y) > 0.01f ||
-//              misc::fgetDiff(self.width, other.width) > 0.01f ||
-//              misc::fgetDiff(self.height, other.height) > 0.01f );
-// }
+macro bool Rectangle.neql(&self, Rectangle other) @operator(!=)
+{
+    return ( misc::fgetDiff(self.x, other.x) > 0.01f ||
+             misc::fgetDiff(self.y, other.y) > 0.01f ||
+             misc::fgetDiff(self.width, other.width) > 0.01f ||
+             misc::fgetDiff(self.height, other.height) > 0.01f );
+}
 
 macro Vector2 Rectangle.getPosition(&self)  => { self.x, self.y }; // in world coords
 macro Vector2 Rectangle.getSize(&self) => { self.width, self.height }; // in pixel coords
@@ -182,8 +182,29 @@ struct Texture @packed
     PixelFormat format;     // Data format (PixelFormat type)
 }
 
+macro bool Texture.eql(&self, Texture other) @operator(==)
+{
+    return (bool)(self.id == other.id &&
+           self.width == other.width &&
+           self.height == other.height &&
+           self.mipmaps == other.mipmaps &&
+           self.format == other.format);
+}
+
+macro bool Texture.neql(&self, Texture other) @operator(!=)
+{
+    return (bool)(self.id != other.id ||
+           self.width != other.width ||
+           self.height != other.height ||
+           self.mipmaps != other.mipmaps ||
+           self.format != other.format);
+}
+
 // Texture2D, same as Texture
 alias Texture2D = Texture;
+// C3 is a zero initialized language so this is done automatically 
+// but sometimes it's better to be explicit
+const INVALID_TEXTURE = (Texture2D){0, 0, 0, 0, (PixelFormat)0};
 
 // TextureCubemap, same as Texture
 alias TextureCubemap = Texture;
@@ -217,7 +238,7 @@ struct GlyphInfo
     int offsetX;            // Character offset X when drawing
     int offsetY;            // Character offset Y when drawing
     int advanceX;           // Character advance position X
-    Image image;            // Character image data
+    Image image;            // Character CPU/RAM image data
 }
 
 // Font, font texture and GlyphInfo array data
