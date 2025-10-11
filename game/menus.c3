@@ -79,7 +79,7 @@ import thirdparty::raylib5::rl;
 // end_region
 
 // region constants
-const SCREEN_TOP_CORNER = (Vec2f) {0.0f, 0.0f};
+const SCREEN_TOP_CORNER = (Vec2f) {0.0f, 0.0f}; // In Raylib the top-left corner is (0,0), is different from OpenGL where the bottom-left corner is (0,0)
 // end_region
 
 fn Desktop* getActiveMenu() @local @inline {
@@ -91,34 +91,28 @@ fn void setGUI(Desktop* menu)
     Desktop* guiActive;
 
     // if the menu is set to null, deactivate the current menu
-	if (menu == null)
-    {
+	if (menu == null) {
         guiActive = getActiveMenu();
         if ( guiActive != null ) {
-            guiActive.activate(false, main::gpGame.time_ms);
-            main::gpGame.guiActive = null;
+            guiActive.deactivate();
         }
+        main::gpGame.guiActive = null;
 		return;
 	}
 
     //else set the current menu
     guiActive = main::gpGame.guiActive = menu;
-    if(guiActive.hidden())
-    {
+    if(guiActive.hidden()) {
         guiActive.show();
     }
 
-    // todo
-	if (guiActive == main::gpGame.main_menu) 
-    {
-        if(main::gpGame.editor.isOpened()) 
-        {
-            if(main::game_cursor_hidden() == false) main::hide_game_cursor();
-        } 
-        else 
-        {
+	if (guiActive == main::gpGame.main_menu) {
+        if(main::gpGame.editor.isOpened()) {
+            if(main::game_cursor_visible()) main::hide_game_cursor();
+        } else {
            if(main::game_cursor_hidden()) main::show_game_cursor();
         }
+        // todo set the gui vars
 		//SetSaveGameGuiVars();
 		//SetMainMenuGuiVars();
 	} /*else if ( guiActive == main::gpGame.restart_menu ) {

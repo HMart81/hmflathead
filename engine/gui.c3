@@ -1116,6 +1116,8 @@ fn void WidgetButton.manage_interactions(&self) @local
     {
         if(self.onOver) self.onOver(self);
 
+        // Todo(HM) support keyboard/gamepad navigation to buttons
+        // like using tab or arrow keys to navigate between buttons and enter to press them
         if(!ui_editGui.getBool()) 
         {
             if (rl::isMouseButtonDown(MouseButton.LEFT) && self.press_count >= 1) {
@@ -1628,9 +1630,14 @@ fn Vec2f Desktop.getSize(&self) @inline
     return {self.rect.width, self.rect.height};
 }
 
-fn void Desktop.activate(&self, bool activate, int _time) {
+fn void Desktop.activate(&self, bool activate = true, int _time = main::gpGame.time_ms) @inline {
 	self.time   = _time;
 	self.active = activate;
+}
+
+fn void Desktop.deactivate(&self, int _time = main::gpGame.time_ms) @inline {
+    self.time   = _time;
+    self.active = false;
 }
 
 fn void Desktop.stateChanged(&self, int _time, bool redraw ) {
@@ -1852,6 +1859,14 @@ fn void Desktop.redraw(&self, int _time)
     self.debug();
 }
 
+<*
+    Draws this desktop, but only if is the currently active GUI in the game,
+    if not draws the other active desktop instead.
+    This is a function that should be called from the main game loop.
+    
+    @param self : "the current desktop instance"
+    @param time : "the current time in milliseconds"    
+*>
 fn void Desktop.draw(&self, int time) {
     Desktop* guiActive = main::gpGame.guiActive;
 

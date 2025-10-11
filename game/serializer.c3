@@ -45,6 +45,7 @@ import engine::misc;
 import engine::assets_api::asset; // for the asset system
 import engine::assets_api::astmng; // asset manager
 import engine::logging::log;
+import engine::filesystem::fs; // for file system
 // end_region
 
 // region defines
@@ -75,7 +76,7 @@ faultdef MISSING_FILE_PATH,
 
 struct SaveFile 
 {
-    io::File file   @tag("version", 1);
+    File file       @tag("version", 1);
     String path     @tag("version", 1);
     int version     @tag("version", 1);
     int buildNumber @tag("version", 1);
@@ -105,7 +106,7 @@ fn SaveFile? open(String filepath, int file_version = SAVE_FILE_VERSION)
 
     file_data.version = file_version;
     file_data.path    = filepath;
-    io::File? file    = file::open(filepath, "rb");
+    io::File? file    = fs::openFile(filepath, fs::FileMode.READ_BINARY);
     if(catch excuse = file) {
         return FAILED_OPEN_FILE?;
     } else {
@@ -119,7 +120,8 @@ fn SaveFile? make_new(String filepath, int file_version = SAVE_FILE_VERSION) {
         return MISSING_FILE_PATH?;
     }
     
-    io::File? file  = file::open(filepath, "wb");
+	// create the file by trying to open it for writing
+    io::File? file  = fs::openFile(filepath, fs::FileMode.WRITE_BINARY);
     if(catch excuse = file) {
         return FAILED_OPEN_FILE?;
     } else {

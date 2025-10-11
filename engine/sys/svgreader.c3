@@ -72,7 +72,7 @@ faultdef MALFORMED_SVG_FILE,
 fn bool XmlNode.isNode(XmlNode* node, String name) @inline @local => (node.name == name) ? true : false;
 
 // NOTE(HM) acording to Zeal Doc this is mostly complete (minus deprecated elements)
-enum ElemID : int (inline String name)
+enum ElemID : (inline String name)
 {
     INVALID             = "",     // not really a real svg element just used to mark invalid elements
     ANIMATE             = "animate",
@@ -148,7 +148,7 @@ alias ListOfAttributes    = List{SVGAttribute*};
 // so this is very much incomplete.
 // NOTE(HM) I'm still using here some deprecated attributes because the svg tool I use 
 // still relies on them, at lest for now.
-enum AttrID : char (inline String name)
+enum AttrID : char (String name)
 {
     INVALID             = "",     // not really a real svg attribute just used to mark invalid ones
     WIDTH               = "width",
@@ -175,7 +175,7 @@ enum AttrID : char (inline String name)
     CLIPPATH            = "clip-path",
 }
 
-enum AttrType : char
+enum AttrType : const char
 {
     INT,
     FLOAT,
@@ -308,7 +308,7 @@ fn SVGElement* SVGData.findElementByID(&self, String id)
         foreach(atrb: elem.attributes) 
         {
             // check if the element has an id attribute
-            if(atrb.id == AttrID.ID && atrb.value.s == id) 
+            if(atrb.id.ordinal == AttrID.ID.ordinal && atrb.value.s == id) 
             {
                 return elem;
             }
@@ -375,7 +375,7 @@ fn bool? SVGData.load(&self)
 *>
 fn bool SVGData.parse(&self, SVGFile* doc) @local
 {
-    bool invalid_svg = (doc.rootNode.name == "" && doc.rootNode.name != ElemID.SVG);
+    bool invalid_svg = (doc.rootNode.name == "" && doc.rootNode.name != ElemID.SVG.name);
     if(invalid_svg)
     {
        log::error(Where.FILE, " Invalid svg file '%s', root element should be 'svg' but is '%s' instead.", self.path, doc.rootNode.name);

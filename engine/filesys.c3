@@ -43,7 +43,7 @@ faultdef FS_FAILED_SAVE_DATA,
          FS_FAILED_CHANGE_DIR;
 
 // modes for OpenFileByMode. used as bit mask internally
-enum FS_Mode: int (inline String str)
+enum FileMode: const inline String
 {
     READ              = "r",
     WRITE             = "w",
@@ -111,8 +111,9 @@ fn String ModList.getDescription(&self, uint index ) => self.descriptions[index]
 
 // region Files management functions
 <*
-    Returns file data as char slice (read)
+    Returns file data as char slice (pointer and len) not a array! (read)
     Needs to be unloaded with fileUnloadEntireBytes() after use.
+
     @param fileName : "The name of the file to load."
     @ensure return.ptr != null && return.len > 0
 *>
@@ -151,9 +152,24 @@ fn bool? fileSaveEntireText(String fileName, String text) {
 }
 
 
-fn File? openFile(String path, String mode = FS_Mode.READ.str) @inline
+fn File? openFile(String path, String mode = FileMode.READ) @inline
 {
     return io::file::open(path, mode)!;
+}
+
+fn void? saveFile(String path, char[] data) @inline
+{
+    io::file::save(path, data)!;
+}
+
+fn char[]? loadBinaryFile(String path) @inline
+{
+    return io::file::load_temp(path)!;
+}
+
+fn char[]? loadBinaryFileFromPath(Path path) @inline
+{
+    return io::file::load_path_temp(path)!;
 }
 
 // end_region

@@ -2941,12 +2941,13 @@ fn void saveGame() {
     String save_folder = local_game.app_save_folder;
     if(fs::directoryExists(save_folder)) {
         String file_path = save_folder.tconcat("\\").tconcat(string::tformat("%s%s%s", local_game.app_name, local_game.time_ms, ".sav"));
-        svs::SaveFile? save_file = svs::make_new(file_path);
+        SaveFile? save_file = svs::make_new(file_path);
         defer (void)svs::close(&save_file);
         if(catch excuse = save_file) {
             log::warning(FILE, "Unable to save to file: %s with excuse: %s", file_path, excuse);
             return;
         }
+        // save the game state to the file
         local_game.save(&save_file);
         log::info(FILE,  "Saved \"%s\" to folder: %s", file_path, save_folder);
     } else {
@@ -2988,7 +2989,7 @@ fn void loadGame()
     
     // load the newer file then
     if(files.count) {
-         svs::SaveFile? save_file = svs::open(((ZString)files.paths[file_index]).str_view());
+        SaveFile? save_file = svs::open(((ZString)files.paths[file_index]).str_view());
         defer (void)svs::close(&save_file);
         if(catch excuse = save_file) {
             log::warning(FILE, "Unable to open save file: %s with excuse: %s", files.paths[file_index], excuse);
