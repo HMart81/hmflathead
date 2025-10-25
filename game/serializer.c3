@@ -38,9 +38,7 @@ import std::collections::list;
 
 // region custom modules
 import game::main;
-//import game::actors::ent;
 import thirdparty::raylib5::rl;
-//import raygui;
 import engine::misc;
 import engine::assets_api::asset; // for the asset system
 import engine::assets_api::astmng; // asset manager
@@ -48,17 +46,7 @@ import engine::logging::log;
 import engine::filesystem::fs; // for file system
 // end_region
 
-// region defines
-//alias assetManager = astmng::assetManager @private;
-//alias WidgetQueue  = List{Widget*} {}
-//alias DesktopList  = List{Action*} {}
-//alias ActionQueue    = List{Action*} {}
-//alias ActionCallBack = fn void(args...) {}
-// end_region
-
-
 // region constants
-const int MAX_ACTION_COUNT  = 1024;
 const int INITIAL_RELEASE_BUILD_NUMBER = 1262;
 const int SAVE_FILE_VERSION = 1; // update this version if the save file structure is modified to much!!!
 // NOTE(HM) I'm not using the '\0' null terminator 
@@ -74,6 +62,12 @@ faultdef MISSING_FILE_PATH,
 
 // end_region
 
+interface SaveSystemInterface 
+{
+	fn void save(SaveFile*);
+	fn void reload(SaveFile*);
+}
+
 struct SaveFile 
 {
     File file       @tag("version", 1);
@@ -82,24 +76,54 @@ struct SaveFile
     int buildNumber @tag("version", 1);
 }
 
-interface SaveSystemInterface {
-	fn void save(SaveFile*);
-	fn void reload(SaveFile*);
+<*
+ @param filepath : "the path to the save file"
+ @require filepath != "" && filepath.len > 3
+ @ensure self != null
+*>
+fn void SaveFile.openself(&self, String filepath) @inline
+{
+	SaveFile? file = open(filepath, SAVE_FILE_VERSION);
+	if( catch excuse = file) {
+		log::warning(CONSOLE, "Failed to open save file %s : %s:%s", filepath, $$FUNC, $$LINE);
+		if(main::developer.getBool()) unreachable();
+	} else {
+		*self = file;
+	}
 }
 
+fn void SaveFile.makeself(&self, String filepath) @inline
+{
+	SaveFile? file = make_new(filepath, SAVE_FILE_VERSION);
+	if( catch excuse = file) {
+		log::warning(CONSOLE, "Failed to create save file %s : %s:%s", filepath, $$FUNC, $$LINE);
+		if(main::developer.getBool()) unreachable();
+	} else {
+		*self = file;
+	}
+}
+
+fn void SaveFile.closeself(&self) @inline
+{
+	if(try close(self)) {
+		return;
+	} else {
+		log::warning(CONSOLE, "Failed to close save file %s : %s:%s", self.path, $$FUNC, $$LINE);
+		if(main::developer.getBool()) unreachable();
+	}
+}
 
 fn SaveFile? open(String filepath, int file_version = SAVE_FILE_VERSION) 
 {
-    if(filepath == "") {
+    if(filepath == "" || filepath.len < 3) {
         return MISSING_FILE_PATH?;
     }
 
     SaveFile file_data;
 
 	$foreach $menber : $typeof(file_data).membersof:
- 		$if $menber.tagof("version") == SAVE_FILE_VERSION:
-		$else
-			log::warning(Where.CONSOLE, "SaveFile member %s is not compatible with version %d. Please update the save file version.", $menber.nameof, SAVE_FILE_VERSION);
+ 		$if $menber.tagof("version") != SAVE_FILE_VERSION:
+			log::warning(CONSOLE, "SaveFile member %s is not compatible with version %d. Please update the save file version.", $menber.nameof, SAVE_FILE_VERSION);
 			return VERSION_MISMATCH?;
 		$endif
 	$endforeach
@@ -127,8 +151,7 @@ fn SaveFile? make_new(String filepath, int file_version = SAVE_FILE_VERSION) {
     } else {
         SaveFile file_data;
 		$foreach $menber : $typeof(file_data).membersof:
-			$if $menber.tagof("version") == SAVE_FILE_VERSION:
-			$else
+			$if $menber.tagof("version") != SAVE_FILE_VERSION:
 				log::warning(Where.CONSOLE, "SaveFile member %s is not compatible with version %d. Please update the save file version.", $menber.nameof, SAVE_FILE_VERSION);
 				return VERSION_MISMATCH?;
 			$endif
@@ -136,11 +159,13 @@ fn SaveFile? make_new(String filepath, int file_version = SAVE_FILE_VERSION) {
         file_data.version = file_version;
         file_data.path    = filepath;
         file_data.file    = file;
-        
         return file_data;
     }
 }
 
+<*
+ @param [&in] save : "the save file to close"
+*>
 fn void? close(SaveFile* save) @inline {
     save.file.close()!;
 }

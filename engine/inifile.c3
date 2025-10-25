@@ -47,6 +47,7 @@ const String SETTINGS_FILE_NAME  @Hardcode = "user.ini";
 
 // default safe settings
 const String SAFE_SETTINGS @Hardcode = `
+[video]
 maxFPS          = 120
 ; vsync is just a hint and may not apply, depends on window mode you'r in.
 ; window mode, borderless fullscreen and native fullscreen, equal 0, 1 and 2 values respectively.

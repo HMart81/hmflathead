@@ -112,7 +112,7 @@ enum MU_Clip : const int
 	ALL  = 2,
 }
 */
-enum MU_Clip : int (inline int v) 
+enum MU_Clip : const inline int 
 {
 	PART = 1,
 	ALL  = 2,
@@ -128,7 +128,7 @@ enum MU_Clip : int (inline int v)
   MAX = 5
 }
 */
-enum MU_Icon : int ( inline int v )
+enum MU_Icon : const inline int
 {
 	CLOSE = 1,
 	CHECK = 2,
@@ -145,7 +145,7 @@ enum MU_Icon : int ( inline int v )
   CHANGE = (1 << 2)
 }
 */
-enum MU_Res : int (inline int v) 
+enum MU_Res : const inline int 
 {
 	ACTIVE = (1 << 0),
 	SUBMIT = (1 << 1),
@@ -621,7 +621,7 @@ fn void log_window(MU_Context *ctx)
     /* input textbox + submit button */
     int submitted;
     ctx.layout_row(2, &&(int[*]) { -70, -1 }, 0);
-    if (ctx.textbox(&input_buf[0], (int)input_buf.len) & MU_Res.SUBMIT.v)
+    if (ctx.textbox(&input_buf[0], (int)input_buf.len) & MU_Res.SUBMIT)
     {
       ctx.set_focus(ctx.last_id);
       submitted = 0; // reset submitted flag
@@ -806,7 +806,6 @@ fn void statistics_window(MU_Context* ctx) @inline
     // If the window was closed, you can perform any necessary cleanup or state reset.
   }
 }
-
 
 // in this function we run all microui "frames"
 fn void run_microui_frames(MU_Context* ctx) @inline
@@ -1102,8 +1101,8 @@ fn void r_draw_icon(int id, MU_Rect _rect, MU_Color color) @local
 
 // Define the icon atlas
 // The atlas texture is a 128x128 pixel image that contains icons used in the MicroUI.
-const ATLAS_WHITE  = MU_Icon.MAX.v;
-const ATLAS_FONT   = MU_Icon.MAX.v + 1;
+const ATLAS_WHITE  = MU_Icon.MAX;
+const ATLAS_FONT   = MU_Icon.MAX + 1;
 const ATLAS_WIDTH  = 128;
 const ATLAS_HEIGHT = 128;
 

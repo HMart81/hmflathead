@@ -57,7 +57,7 @@ alias ActionCallBack = fn void(args...);
 // end_region
 
 // region constants
-const int MAX_ACTION_COUNT = 1024;
+const MAX_ACTION_COUNT @local = 1024;
 
 enum ActionKind {
     UNKNOWN,
@@ -280,8 +280,38 @@ fn void Action.updateLogic(&self, float timeStep) @dynamic
 
 fn String Action.getName(&self) => self.name;
 
+<*
+ @param name : "the name of the action to create"
+ @param key1 : "the main key for the action"
+ @param key2 : "an optional secondary key for the action, like alt, shift, ctrl, etc..."
+ @param func : "an optional callback function to call when the action is triggered"
+ @require name != ""
+ @require key1 != rl::KEY_NULL && key2 != key1
+*>
 fn void makeKeyboardAction(String name, KeyboardKey key1, KeyboardKey key2 = rl::KEY_NULL, ActionCallBack func = null)  @inline
 {
+    if(name == "" || key1 == rl::KEY_NULL) {
+        log::warning(Where.CONSOLE, "Cannot create keyboard action with empty name or KEY_NULL key.");
+        return;
+    }
+
+    if(local_manager.actions.len() >= MAX_ACTION_COUNT) {
+        log::warning(Where.CONSOLE, "Cannot create more actions, reached the max limit of %d actions.", MAX_ACTION_COUNT);
+        return;
+    }
+
+    if(getAction(name) != null) {
+        log::warning(Where.CONSOLE, "Cannot create action with name \"%s\", already exists.", name);
+        return;
+    }
+
+    foreach(act : local_manager.actions) {
+        if(act.kind == ActionKind.KEYBOARD && act.keyboard.key1 == key1 && act.keyboard.key2 == key2) {
+            log::warning(Where.CONSOLE, "Cannot create action with key1 \"%s\" and key2 \"%s\", already assigned to action \"%s\".", getKeyboardKeyName(key1), getKeyboardKeyName(key2), act.name);
+            return;
+        }
+    }
+
     Action* action       = mem::new(Action);
     action.type          = Action.typeid;
     action.name          = name;
@@ -319,7 +349,6 @@ fn void makeGamepadAction(String name, GamepadButton btn, GamepadAxis axis, Acti
 <*
  @param name : "the name of the action to retrieve"
  @require name != ""
- @ensure return != null
 *>
 fn Action* getAction(String name) @inline {
     return local_manager.getActionByName(name);

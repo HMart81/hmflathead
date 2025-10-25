@@ -16,6 +16,27 @@ $else   // PLATFORM_ANDROID, PLATFORM_WEB
 $endif
 }
 
+alias GLFWwindow = void*;
+fn GLFWwindow getOpenGLContext() @extern("glfwGetCurrentContext");
+//----------------------------------------------------------------------------------
+const uint GL_VENDOR = 0x1F00;
+// Returns the company responsible for this GL implementation. 
+// This name does not change from release to release.
+const uint GL_RENDERER = 0x1F01;
+// Returns the name of the renderer. 
+// This name is typically specific to a particular configuration of a hardware platform. 
+// It does not change from release to release.
+
+// requires opengl context run after window creation
+<*
+    @param name : "GL_VENDOR or GL_RENDERER"
+    @require name == GL_VENDOR || name == GL_RENDERER
+*>
+fn ZString glGetString(uint name) @extern("glGetString");
+macro ZString getGLVendor() => glGetString(GL_VENDOR); // gets GPU vendor name
+macro ZString getGLRenderer() => glGetString(GL_RENDERER); // gets GPU model name
+//----------------------------------------------------------------------------------
+
 // Some Basic Colors
 // NOTE: Custom raylib color palette for amazing visuals on WHITE background
 const Color LIGHTGRAY   = { 200, 200, 200, 255 };   // Light Gray
@@ -2197,7 +2218,7 @@ macro void @vrMode(VrStereoConfig config ;@body)
 // NOTE: Every bit registers one state (use it with bit masks)
 // By default all flags are set to 0
 
-typedef ConfigFlag = uint;
+typedef ConfigFlag = inline uint;
 
 const ConfigFlag FLAG_VSYNC_HINT         = 0x00000040;   // Set to try enabling V-Sync on GPU
 const ConfigFlag FLAG_FULLSCREEN_MODE    = 0x00000002;   // Set to run program in fullscreen

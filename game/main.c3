@@ -433,6 +433,10 @@ struct Game (SaveSystemInterface) @local
     String app_base_folder;
     
     String app_save_folder;
+
+    // save game message
+    bool showSaveMessage;
+    int  saveMessageTime; // time (in ms) to show the save message
     
     // raygui message box stuff
     bool showMessageBox;
@@ -883,6 +887,21 @@ fn void show_game_cursor() @public @inline {
     if(local_game.mouse_cursor.hidden()) local_game.mouse_cursor.show();
 }
 
+fn void draw_game_cursor() @local @inline
+{
+    if(game_cursor_visible()) 
+    {
+        hide_system_cursor(); // hide operating system cursor
+        foreach(sprite : local_game.sprites) 
+        {
+            if(sprite.kind == SpriteKind.CURSOR) 
+            {
+                sprite.draw();
+            }
+        }
+    }
+}
+
 // NOTE(HM) only hides the cursor doesn't disable it, will still move regardless of visibility.
 fn void hide_game_cursor() @public @inline {
     if(game_cursor_visible()) local_game.mouse_cursor.hide();
@@ -912,6 +931,7 @@ fn EscReply handleESC( Desktop** gui )
 	return EscReply.ESC_MAIN;
 }
 
+// todo change all direct raylib input handling to use the actions system
 fn void gameHandleGeneralControls() @local
 {
     input::gpManager.update();
@@ -1492,21 +1512,6 @@ $endif
     draw_game_cursor();
 }
 
-fn void draw_game_cursor() @local @inline
-{
-    if(game_cursor_visible()) 
-    {
-        hide_system_cursor(); // hide operating system cursor
-        foreach(sprite : local_game.sprites) 
-        {
-            if(sprite.kind == SpriteKind.CURSOR) 
-            {
-                sprite.draw();
-            }
-        }
-    }
-}
-
 // NOTE(HM) Any code here draws on top of the game user interface
 // good place to put debug code...
 fn void gameOnPostGUIDraw(int screenWidth, int screenHeight) @public 
@@ -1561,6 +1566,26 @@ fn void gameOnGuiDraw(int screenWidth, int screenHeight) @public @inline {
     
     if(local_game.intro_playing) {
         intro::drawIntroAnimation(&local_game.intro, screenWidth, screenHeight);
+    }
+
+    if(local_game.showSaveMessage && 
+       local_game.mode != STARTING && 
+       local_game.mode != INTRO &&
+       local_game.time_ms <= local_game.saveMessageTime) 
+    {
+        //rgui::drawNotification((Rectangle){(float)(screenWidth - 220), 20.0f, 200.0f, 30.0f}, "#191#Game Saved!", 2.0f);
+        String message = "Game Saved!";
+        int text_size = rl::measureText(message.zstr_tcopy(), 20);
+        int x = screenWidth / 2 - (text_size / 2);
+        int y = screenHeight / 2 - 10;
+        rl::drawTextEx(
+            *local_game.candara_font,
+            string::tformat_zstr("%s", message), 
+            (Vector2){(float)x, (float)y}, 20.0f, 1.0f, 
+            rl::LIME
+        );
+    } else {
+        local_game.showSaveMessage = false;
     }
     
     // // update & draw cursor sprite
@@ -2936,7 +2961,8 @@ fn void clear_game_singletons() @inline {
      log::info(FILE,  "**done**");
 }
 
-fn void saveGame() {
+fn void saveGame()
+{
     // look in the directory for the game save folder
     String save_folder = local_game.app_save_folder;
     if(fs::directoryExists(save_folder)) {
@@ -2948,8 +2974,13 @@ fn void saveGame() {
             return;
         }
         // save the game state to the file
-        local_game.save(&save_file);
+        // #### TODO ENABLE THIS LATER!!!!! #####
+        @off() { local_game.save(&save_file); };
+        // ######################################
         log::info(FILE,  "Saved \"%s\" to folder: %s", file_path, save_folder);
+        //todo show some ui message that the game was saved
+        local_game.showSaveMessage = true;
+        local_game.saveMessageTime = local_game.time_ms + 2000; // show for 2 seconds
     } else {
         log::warning(FILE,`Required save folder inside %s not found!\n
                     A folder called '%s' (case sensitive) most exist there!`,
@@ -3310,6 +3341,131 @@ fn void showSplashScreenImage()
     } else {
         log::warning(CONSOLE, "Splash image not found: %s", splash_path);
     }
+}
+
+
+// ============================================================================================
+const SETTINGS_WINDOW_WIDTH  = 400;
+const SETTINGS_WINDOW_HEIGHT = 300;
+// global settings window state
+bool show_settings_window @public = true;
+<*
+  Microui settings window
+  Shown before game start for user to configure some options
+  @param [&in] ctx : "The current MicroUI context."
+ *> 
+fn void settings_window(MU_Context* ctx) @inline
+{
+  // todo show a image/logo at the top of the window
+  // see demoscene apps from cocoon for example of that
+  // TODO(HM) add more settings here
+  // like audio volume, key bindings, etc
+  // FINISH THIS LATER!!!
+  // TODO(HM) add apply button to apply changes
+	bool open = ctx.@make_window("Settings", mu::rect(0, 0, SETTINGS_WINDOW_WIDTH, SETTINGS_WINDOW_HEIGHT))
+	{
+    ctx.@make_rows(1, &&(int[*]) { -1 }, -25)
+    {
+      MU_Container *panel;
+      ctx.@make_panel("Video Options")
+      {
+        panel = ctx.get_current_container();
+        bool submitted = false;
+        ctx.@make_rows(10, &&(int[*]) { -1 }, -1)
+        {
+            ZString gpu_name = rl::getGLRenderer();
+            ctx.label("Adapter:"); 
+            ctx.label(gpu_name);
+            //
+            ctx.label("Screen Resolution:");
+            CChar[32] buffer_width;
+            CChar[32] buffer_height;
+            if(ctx.textbox(&buffer_width, 32) & MU_Res.SUBMIT)
+            {
+                ctx.set_focus(ctx.last_id);
+                submitted = false; // reset submitted flag
+            }
+            ctx.label("x");
+            ctx.textbox(&buffer_height, 32);
+            ctx.label("Display Hz:");
+            CChar[5] buffer_hz;
+            ctx.textbox(&buffer_hz, 5);
+            //
+            int choice = 0;
+            // todo support more fullscreen modes like borderless windowed
+            ctx.checkbox("Fullscreen:", &choice);
+            if(choice) {
+                r_fullscreen.set("1");
+            } else {
+                r_fullscreen.set("0");
+            }
+            choice = 0;
+            //ctx.checkbox("VSync:", &main::gpGame.vsync);
+        };
+      };
+    };
+	};
+
+  if (!open) 
+  {
+    if(show_settings_window) show_settings_window = false;
+  }
+}
+// ============================================================================================
+
+
+fn void showSettingsWindow()
+{
+$if $feature(MICROUI_ENABLE):
+    MU_Context* mu_ctx = mem::tnew(MU_Context);
+    mu_ctx.init();
+    mu_ctx.text_width  = &mu::text_width;
+    mu_ctx.text_height = &mu::text_height;
+
+    ZString font_path = rl::getApplicationDirectory().str_view().tconcat("base/images/mu_atlas.png").zstr_tcopy();
+    Texture2D mu_font_atlas = rl::loadTexture(font_path);
+
+    int flags;
+    flags |= (int)rl::FLAG_WINDOW_UNDECORATED;
+    // set/apply the final window flags
+    rl::setConfigFlags((ConfigFlag)flags);
+    rl::initWindow(SETTINGS_WINDOW_WIDTH, SETTINGS_WINDOW_HEIGHT, "");
+    rl::setWindowMonitor(0); // set to first monitor
+    rl::setTargetFPS(24); // set to 24 fps
+
+    while(!rl::windowShouldClose())
+    {
+        if(show_settings_window == false) break;
+
+        rl::@drawing()
+        {
+            rl::clearBackground(rl::RAYWHITE);
+
+            mu::@render(mu_ctx)
+            {
+                mu_ctx.run(&settings_window);
+            };
+            // NOTE(HM) microui context end, should be called before calling this microui commands
+            // that is done inside @render() function.
+
+            MU_Command * cmd = null;
+            while (mu_ctx.next_command(&cmd))
+            {
+                switch (cmd.type)
+                {
+                    case mu::MU_COMMAND_JUMP: io::printfn("MU_COMMAND_JUMP");
+                    case mu::MU_COMMAND_TEXT: mu::draw_text((ZString)&cmd.text.str, cmd.text.pos, cmd.text.color);
+                    case mu::MU_COMMAND_RECT: mu::draw_rect(cmd.rect.rect, cmd.rect.color);
+                    case mu::MU_COMMAND_ICON: mu::draw_icon(cmd.icon.id, cmd.icon.rect, cmd.icon.color);
+                    case mu::MU_COMMAND_CLIP: mu::set_clip_rect(cmd.clip.rect);
+                }
+            }
+        };
+    }
+    rl::unloadTexture(mu_font_atlas);
+    rl::clearWindowState((int)rl::FLAG_WINDOW_UNDECORATED);
+    rl::closeWindow();
+$endif;
 }
 
 fn int playIntro(void*) 
