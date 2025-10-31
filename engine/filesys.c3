@@ -473,14 +473,54 @@ fn String OSversionInfo.to_constant_string(&self) @dynamic
 alias Win32_REFKNOWNFOLDERID = Win32_GUID;
 const Win32_REFKNOWNFOLDERID  HOME_FOLDER = {0x4c5c32ff, 0xbb9d, 0x43b0, {0xb5, 0xb4, 0x2d, 0x72, 0xe5, 0x4e, 0xaa, 0xa4}};
 alias FOLDERID_SAVEDGAMES = HOME_FOLDER;
+// NOTE(HM): I made this before realizing that shGetKnownFolderPath was already defined in std file shell32.c3 win32 module
+// i'm letting this be because it works in a tad different way (using our own HResult enum type)
+extern fn HResult getKnownFolderPath(Win32_REFKNOWNFOLDERID rfid, Win32_DWORD dwFlags, Win32_HANDLE hToken /*null*/, Win32_PWSTR *ppszPath /*out*/) @cname("SHGetKnownFolderPath") @if(env::WIN32);
 
-extern fn HResult win32GetKnownFolderPath(Win32_REFKNOWNFOLDERID rfid, Win32_DWORD dwFlags, Win32_HANDLE hToken /*null*/, Win32_PWSTR *ppszPath /*out*/) @extern("SHGetKnownFolderPath") @if(env::WIN32);
-//extern fn bool isWindowsVistaOrGreater() @extern("IsWindowsVistaOrGreater");
-extern fn int win32GetVersion(OSversionInfoPrt lpVersionInformation) @extern("RtlGetVersion");
-extern fn int copyFileA( Win32_LPCSTR lpExistingFileName, Win32_LPCSTR lpNewFileName, Win32_BOOL bFailIfExists ) @extern("CopyFileA");
+
+//extern fn bool isWindowsVistaOrGreater() @cname("IsWindowsVistaOrGreater");
+extern fn int getVersion(OSversionInfoPrt lpVersionInformation) @cname("RtlGetVersion");
+extern fn int copyFileA( Win32_LPCSTR lpExistingFileName, Win32_LPCSTR lpNewFileName, Win32_BOOL bFailIfExists ) @cname("CopyFileA");
 // end_region WIN32 (Windows)
 
-extern fn Win32_DWORD_PTR setThreadAffinityMask( Win32_HANDLE hThread, Win32_DWORD_PTR dwThreadAffinityMask) @extern("SetThreadAffinityMask");
+extern fn Win32_DWORD_PTR setThreadAffinityMask( Win32_HANDLE hThread, Win32_DWORD_PTR dwThreadAffinityMask) @cname("SetThreadAffinityMask");
+
+extern fn Win32_BOOL setProcessWorkingSetSize( Win32_HANDLE hProcess, Win32_SSIZE_T dwMinimumWorkingSetSize, Win32_SSIZE_T dwMaximumWorkingSetSize ) @cname("SetProcessWorkingSetSize");
+macro setPhysicalWorkMemory( int minBytes, int maxBytes ) => setProcessWorkingSetSize( win32::getCurrentProcess(), minBytes, maxBytes );
+
+// does not work for some reason
+//extern fn Win32_BOOL getSystemRAM( Win32_PULONGLONG totalMemoryInKilobytes ) @cname("GetPhysicallyInstalledSystemMemory");
+
+extern fn Win32_BOOL globalMemoryStatusEx( MemoryStatus* memstatus ) @cname("GlobalMemoryStatusEx");
+
+struct MemoryStatus @local
+{
+  Win32_DWORD     dwLength;
+  Win32_DWORD     dwMemoryLoad;
+  Win32_DWORDLONG ullTotalPhys;
+  Win32_DWORDLONG ullAvailPhys;
+  Win32_DWORDLONG ullTotalPageFile;
+  Win32_DWORDLONG ullAvailPageFile;
+  Win32_DWORDLONG ullTotalVirtual;
+  Win32_DWORDLONG ullAvailVirtual;
+  Win32_DWORDLONG ullAvailExtendedVirtual;
+}
+
+/*
+================
+getSystemRAM - returns amount of physical memory in MB
+================
+*/
+fn int getSystemRAM() 
+{
+	MemoryStatus statex;
+	statex.dwLength = MemoryStatus.sizeof;
+	globalMemoryStatusEx(&statex);
+	int physRam = (int)(statex.ullTotalPhys / ( 1024 * 1024 ));
+	// HACK: For some reason, ullTotalPhys is sometimes off by a meg or two, so we round up to the nearest 16 megs
+	physRam = ( physRam + 8 ) & ~15;
+	return physRam;
+}
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 // Win32 registry constants and types
@@ -530,7 +570,7 @@ LSTATUS RegOpenCurrentUser(
   [out] PHKEY  phkResult
 );
 */
-extern fn Win32_LSTATUS regOpenCurrentUserEx(Reg_SAM desired, Win32_PHKEY result) @extern("RegOpenCurrentUser");
+extern fn Win32_LSTATUS regOpenCurrentUserEx(Reg_SAM desired, Win32_PHKEY result) @cname("RegOpenCurrentUser");
 fn Win32_PHKEY? regOpenCurrentUser(Reg_SAM desired) 
 {
     Win32_PHKEY result;
@@ -551,7 +591,7 @@ LSTATUS RegOpenKeyExA(
   [out]          PHKEY  phkResult
 );
 */
-extern fn Win32_LSTATUS regOpenKeyExA(Win32_HKEY key, Win32_LPCSTR sub_key, Win32_DWORD options, Reg_SAM desired, Win32_PHKEY result) @extern("RegOpenKeyExA");
+extern fn Win32_LSTATUS regOpenKeyExA(Win32_HKEY key, Win32_LPCSTR sub_key, Win32_DWORD options, Reg_SAM desired, Win32_PHKEY result) @cname("RegOpenKeyExA");
 fn Win32_PHKEY? regOpenKey(Win32_HKEY key, Win32_LPCSTR sub_key, Win32_DWORD options, Reg_SAM desired) 
 {
     Win32_PHKEY result;
@@ -578,7 +618,7 @@ LSTATUS RegCreateKeyExA(
 */
 extern fn Win32_LSTATUS regCreateKeyEx(Win32_HKEY key, Win32_LPCSTR sub_key, Win32_DWORD reserve, Win32_LPSTR class, 
                        Win32_DWORD options, Reg_SAM desired, Win32_LPSECURITY_ATTRIBUTES securityAttributes,
-                       Win32_PHKEY  result, Win32_LPDWORD disposition) @extern("RegCreateKeyExA");
+                       Win32_PHKEY  result, Win32_LPDWORD disposition) @cname("RegCreateKeyExA");
 
 fn bool? regCreateKey(Win32_HKEY key, Win32_LPCSTR sub_key, Win32_DWORD reserve, Win32_LPSTR class, 
                        Win32_DWORD options, Reg_SAM desired, Win32_LPSECURITY_ATTRIBUTES securityAttributes,
@@ -604,9 +644,9 @@ fn bool? regCreateKey(Win32_HKEY key, Win32_LPCSTR sub_key, Win32_DWORD reserve,
   [in]           DWORD      cbData
 );*/
 extern fn Win32_LSTATUS regSetValue(Win32_HKEY key, Win32_LPCSTR valueName, Win32_DWORD reserved, Win32_DWORD type,
-                                Win32_BYTE *data, Win32_DWORD data_size) @extern("RegSetValueExA");
+                                Win32_BYTE *data, Win32_DWORD data_size) @cname("RegSetValueExA");
 
-extern fn Win32_LSTATUS regCloseKey(Win32_HKEY key) @extern("RegCloseKey");
+extern fn Win32_LSTATUS regCloseKey(Win32_HKEY key) @cname("RegCloseKey");
 
 // creates or opens a new subkey under the current user registry key
 // The subkey is created under "Software\\HMartSoftware\\unnnamed\\settings"
@@ -716,11 +756,11 @@ fn String getSystemSpecialPath(int pathType)
 {
 $if $defined(env::WIN32):
     OSversionInfo osinfo;
-    if(win32GetVersion(&osinfo) == 0) {
+    if(win32::getVersion(&osinfo) == 0) {
         if (osinfo.dwMajorVersion >=6)
         {
             Win32_PWSTR path;
-            HResult result = win32GetKnownFolderPath(FOLDERID_SAVEDGAMES, KNOWN_FOLDER_FLAG_CREATE, null, &path);
+            HResult result = getKnownFolderPath(FOLDERID_SAVEDGAMES, KNOWN_FOLDER_FLAG_CREATE, null, &path);
             if (result == S_OK) 
             {
                 WString wpath = (WString)path;

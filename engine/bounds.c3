@@ -53,8 +53,8 @@ struct Bounds {
  @require rect != null
 *>
 fn Bounds Bounds.fromRect(&self, Rectangle* rect) @inline {
-    Vec2f size = rect.getSize().arr;
-    self.maxc  = rect.getPosition().arr;
+    Vec2f size = rect.getSize();
+    self.maxc  = rect.getPosition();
     self.minc  = self.maxc + misc::VEC_RIGHT * size.x + misc::VEC_DOWN * size.y;
     return *self;
 }
@@ -207,7 +207,7 @@ fn void Bounds.pequals(&self, Bounds* other) @operator(+=)
 // }
 
 fn void Bounds.setRect(&self, Rectangle rect) @inline {
-    Vec2f origin = rect.getPosition().arr;
+    Vec2f origin = rect.getPosition();
     float w, h;
     w = rect.getSize().x;
     h = rect.getSize().y;

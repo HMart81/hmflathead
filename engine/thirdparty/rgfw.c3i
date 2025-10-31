@@ -256,7 +256,7 @@ const RGFW_WindowFlags WINDOWED_FULLSCREEN       = WINDOW_NO_BORDER | WINDOW_MAX
     @param rect : "rectangle struct with x, y, width, height"
     @param flags : "window flags, (uint)0 assigned to flags means no flags used"
 *>
-fn RGFW_window* createWindow(ZString name, RGFW_rect rect, RGFW_WindowFlags flags ) @extern("RGFW_createWindow"); 
+fn RGFW_window* createWindow(ZString name, RGFW_rect rect, RGFW_WindowFlags flags ) @cname("RGFW_createWindow"); 
 
 <* 
     function to create a window (without allocating a window struct)
@@ -265,7 +265,7 @@ fn RGFW_window* createWindow(ZString name, RGFW_rect rect, RGFW_WindowFlags flag
     @param flags : "window flags, (uint)0 assigned to flags means no flags used"
     @param [&in] win : "ptr to the window struct you want to use"
 *>
-fn RGFW_window* createWindowPtr(ZString name, RGFW_rect rect, RGFW_WindowFlags flags, RGFW_window* win ) @extern("RGFW_createWindowPtr");
+fn RGFW_window* createWindowPtr(ZString name, RGFW_rect rect, RGFW_WindowFlags flags, RGFW_window* win ) @cname("RGFW_createWindowPtr");
 
 <* 
     function to set window icon
@@ -276,7 +276,7 @@ fn RGFW_window* createWindowPtr(ZString name, RGFW_rect rect, RGFW_WindowFlags f
     @param area : "area struct with width and height of the icon"
     @param channels : "how many channels the icon bitmap has (rgb : 3, rgba : 4)"
 *>
-fn RGFW_bool RGFW_window.setIcon(RGFW_window* win, CUChar* icon, RGFW_area area, int channels) @extern("RGFW_window_setIcon");
+fn RGFW_bool RGFW_window.setIcon(RGFW_window* win, CUChar* icon, RGFW_area area, int channels) @cname("RGFW_window_setIcon");
 
 enum RGFW_icon : const CUChar 
 {
@@ -284,42 +284,42 @@ enum RGFW_icon : const CUChar
 	WINDOW  = @bit(1),
 	BOTH    = RGFW_icon.TASKBAR | RGFW_icon.WINDOW
 }
-fn RGFW_bool RGFW_window.setIconEx(RGFW_window* win, CUChar* icon, RGFW_area a, int channels, CUChar type) @extern("RGFW_window_setIconEx");
+fn RGFW_bool RGFW_window.setIconEx(RGFW_window* win, CUChar* icon, RGFW_area a, int channels, CUChar type) @cname("RGFW_window_setIconEx");
 
 /*!< sets mouse to RGFW_mouse icon (loaded from a bitmap struct) */
-fn void RGFW_window.setMouse(RGFW_window* win, RGFW_mouse* mouse) @extern("RGFW_window_setMouse");
+fn void RGFW_window.setMouse(RGFW_window* win, RGFW_mouse* mouse) @cname("RGFW_window_setMouse");
 /*!< sets the mouse to a standard API cursor (based on RGFW_MOUSE, as seen at the end of the RGFW_HEADER part of this file) */
-fn RGFW_bool RGFW_window.setMouseStandard(RGFW_window* win, CUChar mouse) @extern("RGFW_window_setMouseStandard");
+fn RGFW_bool RGFW_window.setMouseStandard(RGFW_window* win, CUChar mouse) @cname("RGFW_window_setMouseStandard");
 /*!< sets the mouse to the default mouse icon */
-fn RGFW_bool RGFW_window.setMouseDefault(RGFW_window* win) @extern("RGFW_window_setMouseDefault");
+fn RGFW_bool RGFW_window.setMouseDefault(RGFW_window* win) @cname("RGFW_window_setMouseDefault");
 /*
 	Locks cursor at the center of the window
 	win->event.point becomes raw mouse movement data
 
 	this is useful for a 3D camera
 */
-fn void RGFW_window.mouseHold(RGFW_window* win, RGFW_area area) @extern("RGFW_window_mouseHold");
+fn void RGFW_window.mouseHold(RGFW_window* win, RGFW_area area) @cname("RGFW_window_mouseHold");
 /*! stop holding the mouse and let it move freely */
-fn void RGFW_window.mouseUnhold(RGFW_window* win) @extern("RGFW_window_mouseUnhold");
+fn void RGFW_window.mouseUnhold(RGFW_window* win) @cname("RGFW_window_mouseUnhold");
 /*! hide the window */
-fn void RGFW_window.hide(RGFW_window* win) @extern("RGFW_window_hide");
+fn void RGFW_window.hide(RGFW_window* win) @cname("RGFW_window_hide");
 /*! show the window */
-fn void RGFW_window.show(RGFW_window* win) @extern("RGFW_window_show");
+fn void RGFW_window.show(RGFW_window* win) @cname("RGFW_window_show");
 /*
 	makes it so `RGFW_window.shouldClose` returns true or overrides a window close
 	by modifying window flags
 */
-fn void RGFW_window.setShouldClose(RGFW_window* win, RGFW_bool shouldClose) @extern("RGFW_window_setShouldClose");
+fn void RGFW_window.setShouldClose(RGFW_window* win, RGFW_bool shouldClose) @cname("RGFW_window_setShouldClose");
 /*! where the mouse is on the screen */
-fn RGFW_point getGlobalMousePoint() @extern("RGFW_getGlobalMousePoint");
+fn RGFW_point getGlobalMousePoint() @cname("RGFW_getGlobalMousePoint");
 /*! where the mouse is on the window */
-fn RGFW_point RGFW_window.getMousePoint(RGFW_window* win) @extern("RGFW_window_getMousePoint");
+fn RGFW_point RGFW_window.getMousePoint(RGFW_window* win) @cname("RGFW_window_getMousePoint");
 /*! show the mouse or hide the mouse */
-fn void RGFW_window.showMouse(RGFW_window* win, RGFW_bool show) @extern("RGFW_window_showMouse");
+fn void RGFW_window.showMouse(RGFW_window* win, RGFW_bool show) @cname("RGFW_window_showMouse");
 /*! if the mouse is hidden */
-fn RGFW_bool RGFW_window.mouseHidden(RGFW_window* win) @extern("RGFW_window_mouseHidden");
+fn RGFW_bool RGFW_window.mouseHidden(RGFW_window* win) @cname("RGFW_window_mouseHidden");
 /*! move the mouse to a given point */
-fn void RGFW_window.moveMouse(RGFW_window* win, RGFW_point v) @extern("RGFW_window_moveMouse");
+fn void RGFW_window.moveMouse(RGFW_window* win, RGFW_point v) @cname("RGFW_window_moveMouse");
 /*! if the window should close (RGFW_close was sent or escape was pressed) */
 fn RGFW_bool RGFW_window.shouldClose(RGFW_window* win);
 /*! if the window is fullscreen */
@@ -352,39 +352,39 @@ fn RGFW_event* RGFW_window.checkEvent(RGFW_window* win); /*!< check current even
 	you have to run RGFW_window_makeCurrent(NULL); on the old thread
 	then RGFW_window_makeCurrent(valid_window) on the new thread
 */
-fn void RGFW_window.makeCurrent(RGFW_window* win) @extern("RGFW_window_makeCurrent");
+fn void RGFW_window.makeCurrent(RGFW_window* win) @cname("RGFW_window_makeCurrent");
 
 /*! get current RGFW window graphics context */
-fn RGFW_window* getCurrent() @extern("RGFW_getCurrent");
+fn RGFW_window* getCurrent() @cname("RGFW_getCurrent");
 
 /* supports openGL, directX, OSMesa, EGL and software rendering */
-fn void RGFW_window.swapBuffers(RGFW_window* win) @extern("RGFW_window_swapBuffers"); /*!< swap the rendering buffer */
-fn void RGFW_window.swapInterval(RGFW_window* win, int swapInterval) @extern("RGFW_window_swapInterval"); /*!< set the swap interval (v-sync) */
+fn void RGFW_window.swapBuffers(RGFW_window* win) @cname("RGFW_window_swapBuffers"); /*!< swap the rendering buffer */
+fn void RGFW_window.swapInterval(RGFW_window* win, int swapInterval) @cname("RGFW_window_swapInterval"); /*!< set the swap interval (v-sync) */
 /*!< render the software rendering buffer (this is called by RGFW_window_swapInterval)  */
-fn void RGFW_window.swapBuffers_software(RGFW_window* win) @extern("RGFW_window_swapBuffers_software");
+fn void RGFW_window.swapBuffers_software(RGFW_window* win) @cname("RGFW_window_swapBuffers_software");
 /*! window managment functions */
-fn void RGFW_window.close(RGFW_window* win) @extern("RGFW_window_close"); /*!< close the window and free leftover data */
+fn void RGFW_window.close(RGFW_window* win) @cname("RGFW_window_close"); /*!< close the window and free leftover data */
 
 /** * @defgroup Input
 * @{ */
 
 /*! if window == NULL, it checks if the key is pressed globally. Otherwise, it checks only if the key is pressed while the window in focus. */
-fn RGFW_bool RGFW_window.isPressed(RGFW_window* win, RGFW_key key) @extern("RGFW_isPressed"); /*!< if key is pressed (key code)*/
+fn RGFW_bool RGFW_window.isPressed(RGFW_window* win, RGFW_key key) @cname("RGFW_isPressed"); /*!< if key is pressed (key code)*/
 
-fn RGFW_bool RGFW_window.wasPressed(RGFW_window* win, RGFW_key key) @extern("RGFW_wasPressed"); /*!< if key was pressed (checks previous state only) (key code) */
+fn RGFW_bool RGFW_window.wasPressed(RGFW_window* win, RGFW_key key) @cname("RGFW_wasPressed"); /*!< if key was pressed (checks previous state only) (key code) */
 
-fn RGFW_bool RGFW_window.isHeld(RGFW_window* win, RGFW_key key) @extern("RGFW_isHeld"); /*!< if key is held (key code) */
-fn RGFW_bool RGFW_window.isReleased(RGFW_window* win, RGFW_key key) @extern("RGFW_isReleased"); /*!< if key is released (key code) */
+fn RGFW_bool RGFW_window.isHeld(RGFW_window* win, RGFW_key key) @cname("RGFW_isHeld"); /*!< if key is held (key code) */
+fn RGFW_bool RGFW_window.isReleased(RGFW_window* win, RGFW_key key) @cname("RGFW_isReleased"); /*!< if key is released (key code) */
 
 /* if a key is pressed and then released, pretty much the same as RGFW_isReleased */
-fn RGFW_bool RGFW_window.isClicked(RGFW_window* win, RGFW_key key /*!< key code */) @extern("RGFW_isClicked");
+fn RGFW_bool RGFW_window.isClicked(RGFW_window* win, RGFW_key key /*!< key code */) @cname("RGFW_isClicked");
 
 /*! if a mouse button is pressed */
-fn RGFW_bool RGFW_window.isMousePressed(RGFW_window* win, RGFW_mouseButton button /*!< mouse button code */ ) @extern("RGFW_isMousePressed");
+fn RGFW_bool RGFW_window.isMousePressed(RGFW_window* win, RGFW_mouseButton button /*!< mouse button code */ ) @cname("RGFW_isMousePressed");
 /*! if a mouse button is held */
-fn RGFW_bool RGFW_window.isMouseHeld(RGFW_window* win, RGFW_mouseButton button /*!< mouse button code */ ) @extern("RGFW_isMouseHeld");
+fn RGFW_bool RGFW_window.isMouseHeld(RGFW_window* win, RGFW_mouseButton button /*!< mouse button code */ ) @cname("RGFW_isMouseHeld");
 /*! if a mouse button was released */
-fn RGFW_bool RGFW_window.isMouseReleased(RGFW_window* win, RGFW_mouseButton button /*!< mouse button code */ ) @extern("RGFW_isMouseReleased");
+fn RGFW_bool RGFW_window.isMouseReleased(RGFW_window* win, RGFW_mouseButton button /*!< mouse button code */ ) @cname("RGFW_isMouseReleased");
 /*! if a mouse button was pressed (checks previous state only) */
-fn RGFW_bool RGFW_window.wasMousePressed(RGFW_window* win, RGFW_mouseButton button /*!< mouse button code */ ) @extern("RGFW_wasMousePressed");
+fn RGFW_bool RGFW_window.wasMousePressed(RGFW_window* win, RGFW_mouseButton button /*!< mouse button code */ ) @cname("RGFW_wasMousePressed");
 /** @} */

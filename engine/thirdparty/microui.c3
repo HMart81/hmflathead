@@ -26,7 +26,7 @@
 # 
 *********************************************************************************************************************************************/
 
-module thirdparty::microui::mu_stack {Type, MAX_SIZE} @private;
+module thirdparty::microui::mu_stack {Type, MAX_SIZE} @private @if($feature(MICROUI_ENABLE));
 
 struct MU_Stack
 {
@@ -405,57 +405,57 @@ struct MU_Context
 }
 
 
-extern fn MU_Vec2 vec2(int x, int y)  @extern("mu_vec2");
-extern fn MU_Rect rect(int x, int y, int w, int h) @extern("mu_rect");
-extern fn MU_Color color(int r, int g, int b, int a) @extern("mu_color");
+extern fn MU_Vec2 vec2(int x, int y)  @cname("mu_vec2");
+extern fn MU_Rect rect(int x, int y, int w, int h) @cname("mu_rect");
+extern fn MU_Color color(int r, int g, int b, int a) @cname("mu_color");
 
-extern fn void MU_Context.init(&self) @extern("mu_init");
-extern fn void MU_Context.begin(&self) @extern("mu_begin");
-extern fn void MU_Context.end(&self) @extern("mu_end");
-extern fn void MU_Context.set_focus(&self, MU_Id id) @extern("mu_set_focus");
-extern fn MU_Id MU_Context.get_id(&self, void* data, int size) @extern("mu_get_id");
-extern fn void MU_Context.push_id(&self, void* data, int size) @extern("mu_push_id");
-extern fn void MU_Context.pop_id(&self) @extern("mu_pop_id");
-extern fn void MU_Context.push_clip_rect(&self, MU_Rect rect) @extern("mu_push_clip_rect");
-extern fn void MU_Context.pop_clip_rect(&self) @extern("mu_pop_clip_rect");
-extern fn MU_Rect MU_Context.get_clip_rect(&self) @extern("mu_get_clip_rect");
-extern fn int MU_Context.check_clip(&self, MU_Rect r) @extern("mu_check_clip");
-extern fn MU_Container* MU_Context.get_current_container(&self) @extern("mu_get_current_container");
-extern fn MU_Container* MU_Context.get_container(&self, ZString name) @extern("mu_get_container");
-extern fn void MU_Context.bring_to_front(&self, MU_Container *cnt) @extern("mu_bring_to_front");
+extern fn void MU_Context.init(&self) @cname("mu_init");
+extern fn void MU_Context.begin(&self) @cname("mu_begin");
+extern fn void MU_Context.end(&self) @cname("mu_end");
+extern fn void MU_Context.set_focus(&self, MU_Id id) @cname("mu_set_focus");
+extern fn MU_Id MU_Context.get_id(&self, void* data, int size) @cname("mu_get_id");
+extern fn void MU_Context.push_id(&self, void* data, int size) @cname("mu_push_id");
+extern fn void MU_Context.pop_id(&self) @cname("mu_pop_id");
+extern fn void MU_Context.push_clip_rect(&self, MU_Rect rect) @cname("mu_push_clip_rect");
+extern fn void MU_Context.pop_clip_rect(&self) @cname("mu_pop_clip_rect");
+extern fn MU_Rect MU_Context.get_clip_rect(&self) @cname("mu_get_clip_rect");
+extern fn int MU_Context.check_clip(&self, MU_Rect r) @cname("mu_check_clip");
+extern fn MU_Container* MU_Context.get_current_container(&self) @cname("mu_get_current_container");
+extern fn MU_Container* MU_Context.get_container(&self, ZString name) @cname("mu_get_container");
+extern fn void MU_Context.bring_to_front(&self, MU_Container *cnt) @cname("mu_bring_to_front");
 
-extern fn int MU_Context.pool_init(&self, MU_PoolItem *items, int len, MU_Id id) @extern("mu_pool_init");
-extern fn int MU_Context.pool_get(&self, MU_PoolItem *items, int len, MU_Id id) @extern("mu_pool_get");
-extern fn void MU_Context.pool_update(&self, MU_PoolItem *items, int idx) @extern("mu_pool_update");
+extern fn int MU_Context.pool_init(&self, MU_PoolItem *items, int len, MU_Id id) @cname("mu_pool_init");
+extern fn int MU_Context.pool_get(&self, MU_PoolItem *items, int len, MU_Id id) @cname("mu_pool_get");
+extern fn void MU_Context.pool_update(&self, MU_PoolItem *items, int idx) @cname("mu_pool_update");
 
-extern fn void MU_Context.input_mousemove(&self, int x, int y) @extern("mu_input_mousemove");
-extern fn void MU_Context.input_mousedown(&self, int x, int y, int btn) @extern("mu_input_mousedown");
-extern fn void MU_Context.input_mouseup(&self, int x, int y, int btn) @extern("mu_input_mouseup");
-extern fn void MU_Context.input_scroll(&self, int x, int y) @extern("mu_input_scroll");
-extern fn void MU_Context.input_keydown(&self, int key) @extern("mu_input_keydown");
-extern fn void MU_Context.input_keyup(&self, int key) @extern("mu_input_keyup");
-extern fn void MU_Context.input_textfn(&self, ZString text) @extern("mu_input_text");
+extern fn void MU_Context.input_mousemove(&self, int x, int y) @cname("mu_input_mousemove");
+extern fn void MU_Context.input_mousedown(&self, int x, int y, int btn) @cname("mu_input_mousedown");
+extern fn void MU_Context.input_mouseup(&self, int x, int y, int btn) @cname("mu_input_mouseup");
+extern fn void MU_Context.input_scroll(&self, int x, int y) @cname("mu_input_scroll");
+extern fn void MU_Context.input_keydown(&self, int key) @cname("mu_input_keydown");
+extern fn void MU_Context.input_keyup(&self, int key) @cname("mu_input_keyup");
+extern fn void MU_Context.input_textfn(&self, ZString text) @cname("mu_input_text");
 
-extern fn MU_Command* MU_Context.push_command(&self, int type, int size) @extern("mu_push_command");
-extern fn int MU_Context.next_command(&self, MU_Command** cmd) @extern("mu_next_command");
-extern fn void MU_Context.set_clip(&self, MU_Rect rect) @extern("mu_set_clip");
-extern fn void MU_Context.draw_rect(&self, MU_Rect rect, MU_Color color) @extern("mu_draw_rect");
-extern fn void MU_Context.draw_box(&self, MU_Rect rect, MU_Color color) @extern("mu_draw_box");
-extern fn void MU_Context.draw_text(&self, MU_Font font, ZString str, int len, MU_Vec2 pos, MU_Color color) @extern("mu_draw_text");
-extern fn void MU_Context.draw_icon(&self, int id, MU_Rect rect, MU_Color color) @extern("mu_draw_icon");
+extern fn MU_Command* MU_Context.push_command(&self, int type, int size) @cname("mu_push_command");
+extern fn int MU_Context.next_command(&self, MU_Command** cmd) @cname("mu_next_command");
+extern fn void MU_Context.set_clip(&self, MU_Rect rect) @cname("mu_set_clip");
+extern fn void MU_Context.draw_rect(&self, MU_Rect rect, MU_Color color) @cname("mu_draw_rect");
+extern fn void MU_Context.draw_box(&self, MU_Rect rect, MU_Color color) @cname("mu_draw_box");
+extern fn void MU_Context.draw_text(&self, MU_Font font, ZString str, int len, MU_Vec2 pos, MU_Color color) @cname("mu_draw_text");
+extern fn void MU_Context.draw_icon(&self, int id, MU_Rect rect, MU_Color color) @cname("mu_draw_icon");
 
-extern fn void MU_Context.layout_row(&self, int items, int* widths, int height) @extern("mu_layout_row");
-extern fn void MU_Context.layout_width(&self, int width) @extern("mu_layout_width");
-extern fn void MU_Context.layout_height(&self, int height) @extern("mu_layout_height");
-extern fn void MU_Context.layout_begin_column(&self) @extern("mu_layout_begin_column");
-extern fn void MU_Context.layout_end_column(&self) @extern("mu_layout_end_column");
-extern fn void MU_Context.layout_set_next(&self, MU_Rect r, int relative) @extern("mu_layout_set_next");
-extern fn MU_Rect MU_Context.layout_next(&self) @extern("mu_layout_next");
+extern fn void MU_Context.layout_row(&self, int items, int* widths, int height) @cname("mu_layout_row");
+extern fn void MU_Context.layout_width(&self, int width) @cname("mu_layout_width");
+extern fn void MU_Context.layout_height(&self, int height) @cname("mu_layout_height");
+extern fn void MU_Context.layout_begin_column(&self) @cname("mu_layout_begin_column");
+extern fn void MU_Context.layout_end_column(&self) @cname("mu_layout_end_column");
+extern fn void MU_Context.layout_set_next(&self, MU_Rect r, int relative) @cname("mu_layout_set_next");
+extern fn MU_Rect MU_Context.layout_next(&self) @cname("mu_layout_next");
 
-extern fn void MU_Context.draw_control_frame(&self, MU_Id id, MU_Rect rect, int colorid, int opt) @extern("mu_draw_control_frame");
-extern fn void MU_Context.draw_control_text(&self, ZString str, MU_Rect rect, int colorid, int opt) @extern("mu_draw_control_text");
-extern fn int MU_Context.mouse_over(&self, MU_Rect rect) @extern("mu_mouse_over");
-extern fn void MU_Context.update_control(&self, MU_Id id, MU_Rect rect, int opt) @extern("mu_update_control");
+extern fn void MU_Context.draw_control_frame(&self, MU_Id id, MU_Rect rect, int colorid, int opt) @cname("mu_draw_control_frame");
+extern fn void MU_Context.draw_control_text(&self, ZString str, MU_Rect rect, int colorid, int opt) @cname("mu_draw_control_text");
+extern fn int MU_Context.mouse_over(&self, MU_Rect rect) @cname("mu_mouse_over");
+extern fn void MU_Context.update_control(&self, MU_Id id, MU_Rect rect, int opt) @cname("mu_update_control");
 
 macro MU_Context.button(&self, label)             => self.button_ex(label.zstr_tcopy(), 0, MU_Opt.ALIGNCENTER.v);
 macro MU_Context.textbox(&self, buf, bufsz)       => self.textbox_ex(buf, bufsz, 0);
@@ -466,24 +466,24 @@ macro MU_Context.begin_treenode(&self, label)     => self.begin_treenode_ex(labe
 macro MU_Context.begin_window(&self, title, rect) => self.begin_window_ex(title.zstr_tcopy(), rect, 0);
 macro MU_Context.begin_panel(&self, name)         => self.begin_panel_ex(name.zstr_tcopy(), 0);
 
-extern fn void MU_Context.text(&self, ZString text) @extern("mu_text");
-extern fn void MU_Context.label(&self, ZString text) @extern("mu_label");
-extern fn int MU_Context.button_ex(&self, ZString label, int icon, int opt) @extern("mu_button_ex");
-extern fn int MU_Context.checkbox(&self, ZString label, int* state) @extern("mu_checkbox");
-extern fn int MU_Context.textbox_raw(&self, ZString buf, int bufsz, MU_Id id, MU_Rect r, int opt) @extern("mu_textbox_raw");
-extern fn int MU_Context.textbox_ex(&self, CChar* buf, int bufsz, int opt) @extern("mu_textbox_ex");
-extern fn int MU_Context.slider_ex(&self, MU_Real *value, MU_Real low, MU_Real high, MU_Real step, ZString fmt, int opt) @extern("mu_slider_ex");
-extern fn int MU_Context.number_ex(&self, MU_Real *value, MU_Real step, ZString fmt, int opt) @extern("mu_number_ex");
-extern fn int MU_Context.header_ex(&self, ZString label, int opt) @extern("mu_header_ex");
-extern fn int MU_Context.begin_treenode_ex(&self, ZString label, int opt) @extern("mu_begin_treenode_ex");
-extern fn void MU_Context.end_treenode(&self) @extern("mu_end_treenode");
-extern fn int MU_Context.begin_window_ex(&self, ZString title, MU_Rect rect, int opt) @extern("mu_begin_window_ex");
-extern fn void MU_Context.end_window(&self) @extern("mu_end_window");
-extern fn void MU_Context.open_popup(&self, ZString name) @extern("mu_open_popup");
-extern fn int MU_Context.begin_popup(&self, ZString name) @extern("mu_begin_popup");
-extern fn void MU_Context.end_popup(&self) @extern("mu_end_popup");
-extern fn void MU_Context.begin_panel_ex(&self, ZString name, int opt) @extern("mu_begin_panel_ex");
-extern fn void MU_Context.end_panel(&self) @extern("mu_end_panel");
+extern fn void MU_Context.text(&self, ZString text) @cname("mu_text");
+extern fn void MU_Context.label(&self, ZString text) @cname("mu_label");
+extern fn int MU_Context.button_ex(&self, ZString label, int icon, int opt) @cname("mu_button_ex");
+extern fn int MU_Context.checkbox(&self, ZString label, int* state) @cname("mu_checkbox");
+extern fn int MU_Context.textbox_raw(&self, ZString buf, int bufsz, MU_Id id, MU_Rect r, int opt) @cname("mu_textbox_raw");
+extern fn int MU_Context.textbox_ex(&self, CChar* buf, int bufsz, int opt) @cname("mu_textbox_ex");
+extern fn int MU_Context.slider_ex(&self, MU_Real *value, MU_Real low, MU_Real high, MU_Real step, ZString fmt, int opt) @cname("mu_slider_ex");
+extern fn int MU_Context.number_ex(&self, MU_Real *value, MU_Real step, ZString fmt, int opt) @cname("mu_number_ex");
+extern fn int MU_Context.header_ex(&self, ZString label, int opt) @cname("mu_header_ex");
+extern fn int MU_Context.begin_treenode_ex(&self, ZString label, int opt) @cname("mu_begin_treenode_ex");
+extern fn void MU_Context.end_treenode(&self) @cname("mu_end_treenode");
+extern fn int MU_Context.begin_window_ex(&self, ZString title, MU_Rect rect, int opt) @cname("mu_begin_window_ex");
+extern fn void MU_Context.end_window(&self) @cname("mu_end_window");
+extern fn void MU_Context.open_popup(&self, ZString name) @cname("mu_open_popup");
+extern fn int MU_Context.begin_popup(&self, ZString name) @cname("mu_begin_popup");
+extern fn void MU_Context.end_popup(&self) @cname("mu_end_popup");
+extern fn void MU_Context.begin_panel_ex(&self, ZString name, int opt) @cname("mu_begin_panel_ex");
+extern fn void MU_Context.end_panel(&self) @cname("mu_end_panel");
 
 alias OpenMicroUIFrames = List{String};
 OpenMicroUIFrames open_frames @public;

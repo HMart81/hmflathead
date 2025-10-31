@@ -332,7 +332,7 @@ fn bool Panel.isMouseOver(&self)
     if (!self.active() || self.hidden() || editor_as_focus() || main::gpGame.showMessageBox) return false;
 
     // gets windows mouse position...
-    Vec2f mouseWorldPos = rl::getMousePosition().toVec2f();
+    Vec2f mouseWorldPos = rl::getMousePosition();
 
     Vec2f mouse_size = main::getGameCursorSize() * 0.5f; // half size of the cursor
     Rectangle mouseRect = misc::@recFromVecs(mouseWorldPos, mouse_size);

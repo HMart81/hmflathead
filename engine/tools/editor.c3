@@ -448,7 +448,7 @@ fn bool Editor.isMouseOver(&self) @local
     if (self.isVisible() == false) return false;
 
     // gets windows mouse position...
-    Vec2f mouseWorldPos = rl::getMousePosition().toVec2f();
+    Vec2f mouseWorldPos = rl::getMousePosition();
 
     Vec2f mouse_rect_size = main::getGameCursorSize() * 0.5f; // half the size of the game cursor
     Rectangle mouseRect = misc::@recFromVecs(mouseWorldPos, mouse_rect_size);

@@ -39,6 +39,8 @@ import game::main;
 import game::actors::ent::plyr; // player
 import game::camview;
 import thirdparty::raylib5::rl;
+import std::os::win32;
+import engine::filesystem::fs::win32;
 // end
 
 alias Vec2f  = float[<2>];
@@ -137,6 +139,26 @@ macro @forange($a, #b, arr; @body(x, y)) @builtin
         var it = (*arr)[index];
         @body(index, it);
     }
+}
+
+fn bool isLittleEndian() @inline @local { int n = 1; return (*(CChar *)&n == 1) ? true : false; }
+fn void printMachineInfo() @if(env::WIN32)
+{
+    log::info(Where.FILE, "Machine Information:");
+    log::info(Where.FILE, "  - CPU Cores: %d", os::num_cpu());
+    /*Win32_PULONGLONG totalMemKB;
+    if(win32::getSystemRAM(totalMemKB)) {
+        log::info(Where.FILE, "  - System RAM: %.2f GB", (float)*totalMemKB / 1024.0f / 1024.0f);
+    } else {
+        log::info(Where.FILE, "  - System RAM: Unknown, got error! %s", win32::getLastError());
+    }*/
+    int ram_amount = win32::getSystemRAM();
+    log::info(Where.FILE, "  - System RAM: %s %s", ram_amount, (ram_amount < 1000) ? "MB" : "GB");
+    OSversionInfo osvi;
+    win32::getVersion(&osvi);
+    log::info(Where.FILE, "  - Windows: %s.%s build: %s", osvi.dwMajorVersion, osvi.dwMinorVersion, osvi.dwBuildNumber);//getOSInfo());
+    log::info(Where.FILE, "  - Endianness: %s", isLittleEndian() ? "Little Endian" : "Big Endian");
+    log::info(FILE, "---------------------------------------------\n");
 }
 
 
@@ -591,11 +613,11 @@ macro Vec2f Rectangle.getScreenPos(self) => worldToScreen(self.getPosition());
 fn Vec2f Rectangle.getPosCameraCoords(&self) @if ($defined(ENABLE_CAMERA_VIEW))
 {
     Vec2f world_origin   = {0, 0};
-    Vec2f cam_org        = main::gpGame.view.camera.target.toVec2f();
+    Vec2f cam_org        = main::gpGame.view.camera.target;
     Vec2f offset_vec_dir = cam_org - world_origin;
     float offset_len     = offset_vec_dir.length();
     
-    return self.getPosition().toVec2f() * offset_vec_dir.normalize() * offset_len; 
+    return self.getPosition() * offset_vec_dir.normalize() * offset_len; 
 }
 // end_region raylib Rectangle extensions
 
@@ -1301,9 +1323,8 @@ $endif
 // deprected functions
 <*
   @require rl::isWindowReady() == true : "right now window most be initialized for Profiling to work"
-  @return `start time of function`
 *>
-macro float @start_profile_zone() @builtin {
+macro float @start_profile_zone() @builtin @deprecated("Use @profile_zone macro instead") {
     return 0.0f;
 /*
 $if $feature(PROFILE):
@@ -1318,7 +1339,7 @@ $endif
 <*
  @require rl::isWindowReady() == true : "right now window most be initialized for Profiling to work"
 *>
-macro @end_profile_zone(#start_time) @builtin {
+macro @end_profile_zone(#start_time) @builtin @deprecated("Use @profile_zone macro instead") {
 /*
 $if $feature(PROFILE):
         var ms    = (float)rl::getTime() * 1000.0f;
@@ -1333,9 +1354,7 @@ $if $feature(PROFILE):
 $endif
 */
 }
-
 // end_region PROFILING //////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 
 // region MISC
 fn Vec2f dir_mul(plyr::Move_Dir d, float a) @inline {
@@ -1386,8 +1405,8 @@ fn void draw_arrow(Vec2f start, Vec2f end, Color color, Vec2f arrow_size = {16.0
     v3 = end;
     /*
     v1 = v1 + vdir.rotate(90) * arrow_size.x / 2;
-    v2 = end.toVec2f() + vdir * arrow_size.y;
-    v3 = end.toVec2f();
+    v2 = end + vdir * arrow_size.y;
+    v3 = end;
     v3 = v3 + vdir.rotate(-90) * arrow_size.x / 2;
     */
     v1.translateV(vdir.rotate(90) * arrow_size.x / 2);

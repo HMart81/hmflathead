@@ -30,13 +30,13 @@
 module game::main @private;
 
 // #region imports
+import libc;
 import std::io, std::thread, std::os;
 import std::math;
 import std::ascii;
 import std::math::complex;
 import std::core::mem; // for malloc/new
 import std::collections::list, std::collections::map, std::collections::pair;
-import libc;
 import engine::input;
 import engine::tokanizer::tok; // tokanizer
 import engine::filesystem::fs;
@@ -218,7 +218,7 @@ alias lic = module engine::sys::licensee;
 // if alising a Constant the alias also needs to be all caps, etc.
 
 alias RShader        @public = rl::Shader;
-alias StringPair    @public = Pair{String, String};
+alias StringPair     @public = Pair{String, String};
 alias IniFileCMDList = List{StringPair*};
 alias asstManager    @public= astmng::assetManager;
 
@@ -296,13 +296,6 @@ enum GameMode @public
 // ********************
 // #region game manager
 // ********************
-
-// The type of menu gui set right now
-enum EscReply {
-   ESC_IGNORE,	// do nothing
-   ESC_MAIN,	// start main menu GUI
-   ESC_GUI		// set an explicit GUI
-}
 
 const usz GAME_ARENA_PAGE_SIZE = 256 * 1024; // 256 KB
 DynamicArenaAllocator gameArena @public;
@@ -785,6 +778,26 @@ $endif
     self.editor.deinit();
 }
 
+// The type of menu gui set right now
+enum ESCReply : char {
+	IGNORE,	// do nothing
+	MAIN,	// start main menu GUI
+	GUI		// set an explicit GUI
+}
+
+fn ESCReply Game.handleESC(&self, Desktop** gui ) @dynamic
+{
+	Player* player = self.getLocalPlayer();
+	if ( player ) {
+		if ( player.handleESC() ) {
+			return ESCReply.IGNORE;
+		} else {
+			return ESCReply.MAIN;
+		}
+	}
+	return ESCReply.MAIN;
+}
+
 // #region System OS Cursor
 
 fn void enable_system_cursor() @inline @public
@@ -872,7 +885,7 @@ fn void update_game_cursor(int screen_w, int screen_h) @public
     
     // update position
     //local_game.mouse_cursor.setPositionV({x, y});
-    local_game.mouse_cursor.setPositionV(rl::getWorldToScreen2D({x, y}, local_game.view.camera).toVec2f());
+    local_game.mouse_cursor.setPositionV(rl::getWorldToScreen2D({x, y}, local_game.view.camera));
     
     // update size
     // TODO do a better mouse cursor size dependent on screen size!!
@@ -917,20 +930,6 @@ fn bool game_cursor_hidden() @public @inline {
 
 // #endregion Game Custom Cursor functions
 
-
-fn EscReply handleESC( Desktop** gui ) 
-{
-	Player* player = local_game.getLocalPlayer();
-	if ( player ) {
-		if ( player.handleESC() ) {
-			return EscReply.ESC_IGNORE;
-		} else {
-			return EscReply.ESC_MAIN;
-		}
-	}
-	return EscReply.ESC_MAIN;
-}
-
 // todo change all direct raylib input handling to use the actions system
 fn void gameHandleGeneralControls() @local
 {
@@ -972,10 +971,10 @@ fn void gameHandleGeneralControls() @local
         !rl::isKeyDown(rl::KEY_LEFT_SHIFT) && !rl::isKeyDown(rl::KEY_RIGHT_SHIFT)) 
     {
 		Desktop* gui;
-        EscReply op = main::handleESC( &gui );
-        if(op == ESC_GUI) {
+        ESCReply op = local_game.handleESC( &gui );
+        if(op == ESCReply.GUI) {
             menu::setGUI(gui);
-        } else if(op == ESC_MAIN) {
+        } else if(op == ESCReply.MAIN) {
             menu::start(local_game.main_menu);
         } else {
             menu::setGUI(null); // disable any gui
@@ -2248,7 +2247,7 @@ $endif
             // local_game.screen.state.resizable = true;
         // }
     // }
-log::info(FILE, "---------------------------------------------\n");
+    log::info(FILE, "---------------------------------------------\n");
 
 // #region Window initialization
     log::info(FILE, "Initializing window:");
@@ -2357,7 +2356,7 @@ $endif
             {
                 int w = rl::getMonitorPhysicalWidth(i);
                 int h = rl::getMonitorPhysicalHeight(i);
-                Vec2f mpos = rl::getMonitorPosition(i).toVec2f();
+                Vec2f mpos = rl::getMonitorPosition(i);
                 rl::Rectangle rect = {mpos.x, mpos.y, w, h};
                 if ( x >= rect.x && x < rect.x + rect.width
                     && y >= rect.y && y < rect.y + rect.height )
@@ -2806,7 +2805,7 @@ $endif
     for(int i = 1; i <= 2; i++) 
     {
         $if $defined(ENABLE_CAMERA_VIEW):
-            Vec2f origin = local_game.view.camera.target.arr;
+            Vec2f origin = local_game.view.camera.target;
         $else
             Vec2f origin;
         $endif
@@ -3207,6 +3206,11 @@ fn void pre_InitFunc() @init {
     // WARNING(HM) MAY BE OVERRIDEN LATER BY THE INI FILE SETTING!!!
     log::setLogLevel(rl::TraceLogLevel.INFO);
     // *********************************************************
+
+    // print machine info
+    misc::printMachineInfo();
+
+    win32::setPhysicalWorkMemory(192 << 20, 1024 << 20); // set min 192mb and max 1gb physical memory usage for this process
 }
 
 fn void usage() @local @if($feature(TSODING_FLAG))

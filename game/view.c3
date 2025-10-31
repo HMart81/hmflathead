@@ -222,7 +222,7 @@ $if $defined(ENABLE_CAMERA_VIEW):
     self.default_origin = self.origin;
     // sets camera view target and view direction
     // look at the origin
-    self.camera.target.arr = self.origin;
+    self.camera.target = self.origin;
     // move the view axis center to be the target
     //self.axis.translate(self.camera.target.arr);
     
@@ -438,12 +438,12 @@ fn void RenderView.showModelViewAxis(&self)
 
 fn void RenderView.updateTarget(&self) @inline @if ($defined(ENABLE_CAMERA_VIEW))
 {
-    self.camera.target.arr = self.getOrigin();
+    self.camera.target = self.getOrigin();
 }
 
 fn Vec2f RenderView.getTarget(&self) @inline @if ($defined(ENABLE_CAMERA_VIEW))
 {
-    return (Vec2f)self.camera.target.arr;
+    return (Vec2f)self.camera.target;
 }
 
 fn void RenderView.setOrigin(&self, Vec2f new_pos) {
@@ -465,7 +465,7 @@ fn void RenderView.resetCamera(&self) @if ($defined(ENABLE_CAMERA_VIEW))
     // reset camera position
     self.setOrigin(self.default_origin);
     // reset camera target
-    self.camera.target.arr = self.default_origin;
+    self.camera.target = self.default_origin;
     // reset camera zoom
     self.camera.zoom = 1.0f;
     // reset camera offset

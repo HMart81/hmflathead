@@ -26,12 +26,10 @@
 # 
 *********************************************************************************************************************************************/
 
-/*
+/* #delete
 module engine::sys::framework::game;
 
 import std::io;
-import engine::logging::log;
-import std::collections::list;
 
 /*
 ===============================================================================
@@ -42,23 +40,6 @@ import std::collections::list;
 */
 
 const MAX_STRING_CHARS = 1024;
-
-struct GameReturn {
-	char[MAX_STRING_CHARS]	sessionCommand;	// "map", "disconnect", "victory", etc
-	int	 consistencyHash;					// used to check for network game divergence
-	int	 health;
-	int	 heartRate;
-	int	 stamina;
-	int	 combat;
-	bool syncNextGameFrame;					// used when cinematics are skipped to prevent session from simulating several game frames to
-											// keep the game time in sync with real time
-}
-
-enum ESCAction {
-	IGNORE,	// do nothing
-	MAIN,	// start main menu GUI
-	GUI		// set an explicit GUI
-}
 
 interface IGame
 {
@@ -117,3 +98,4 @@ interface IGame
 
     fn void	getMapLoadingGUI( char[ MAX_STRING_CHARS ] gui );
 }
+

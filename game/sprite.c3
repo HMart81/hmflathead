@@ -264,17 +264,17 @@ fn void Sprite.addToSizeV(&self, Vec2f size) @inline {
 
 // in meter coordinates
 fn Vec2f Sprite.getSize(&self) @inline {
-    return self.rect.getSize().toVec2f();
+    return self.rect.getSize();
 }
 
 // in meter coordinates
 fn float Sprite.getSizeX(&self) @inline {
-    return self.rect.getSize().toVec2f().x;
+    return self.rect.getSize().x;
 }
 
 // in meter coordinates
 fn float Sprite.getSizeY(&self) @inline {
-    return self.rect.getSize().toVec2f().y;
+    return self.rect.getSize().y;
 }
 
 // in screen pixel coordinates
@@ -324,7 +324,7 @@ fn void Sprite.addToPositionV(&self, Vec2f pos) @inline {
 }
 
 // this is a world position
-fn Vec2f Sprite.getPos(&self) @inline => self.rect.getPosition().toVec2f();
+fn Vec2f Sprite.getPos(&self) @inline => self.rect.getPosition();
 
 fn bool Sprite.isValid(&self) {
     if(self.rect.x >= 0 &&
