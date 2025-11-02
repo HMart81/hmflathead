@@ -26,7 +26,7 @@
 # 
 *********************************************************************************************************************************************/
 
-module game::effects::boid;
+module game::effects::boid @if($defined(BOIDS_ENABLE));
 
 // region modules
 import std::core::mem::allocator; // arena allocator

@@ -657,7 +657,9 @@ $endif
         }
         
         // draw the boid entities
+        $if $defined(BOIDS_ENABLE):
         main::gpGame.boidManager1.draw();
+        $endif
         
         // physics debug drawing
         // NOTE(HM) this is done here because I want it to draw

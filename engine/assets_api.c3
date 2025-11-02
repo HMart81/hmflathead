@@ -659,14 +659,14 @@ fn void? loadAssetsRecursively(String basepath, String parent_folder = "") @inli
 *>
 fn void? loadAssets() {
 
-	float loadAsset_st = @start_profile_zone();
-	defer @end_profile_zone(loadAsset_st);
-	
-	loadAssetsRecursively(main::gpGame.app_base_folder)!!;
-	
-	$if $feature(_DEBUG):
-		//assetManager.listAssets();
-	$endif
+	@profile_zone("loadAssets", false)
+    {
+        loadAssetsRecursively(main::gpGame.app_base_folder)!!;
+        
+        $if $feature(_DEBUG):
+            //assetManager.listAssets();
+        $endif
+    }; // end @profile_zone
 }
 
 

@@ -222,8 +222,8 @@ alias Alloc_callback = fn void*(void* ud, void* ptr, usz osize, usz nsize);
 
 
 
-extern fn int LUAState.rawequal(&self, int idx1, int idx2) @extern("lua_rawequal");
-extern fn int LUAState.compare(&self, int idx1, int idx2, int op) @extern("lua_compare");
+extern fn int LUAState.rawequal(&self, int idx1, int idx2) @cname("lua_rawequal");
+extern fn int LUAState.compare(&self, int idx1, int idx2, int op) @cname("lua_compare");
 
 
 /*
@@ -274,14 +274,14 @@ macro LUAState.replace(&self, idx) { self.copy(-1, idx); self.pop(1); }
 /*
 ** state manipulation
 */
-extern fn  LUAState* newstate() @extern("luaL_newstate");
-extern fn  LUAState* newstateExt(Alloc_callback f, void* ud) @extern("lua_newstate");
-extern fn  void   LUAState.close(&self) @extern("lua_close");
-extern fn  LUAState* LUAState.newthread(&self) @extern("lua_newthread");
-extern fn  int    LUAState.closethread(&self, LUAState* from) @extern("lua_closethread");
+extern fn  LUAState* newstate() @cname("luaL_newstate");
+extern fn  LUAState* newstateExt(Alloc_callback f, void* ud) @cname("lua_newstate");
+extern fn  void   LUAState.close(&self) @cname("lua_close");
+extern fn  LUAState* LUAState.newthread(&self) @cname("lua_newthread");
+extern fn  int    LUAState.closethread(&self, LUAState* from) @cname("lua_closethread");
 //extern fn  int        (lua_resetthread) (lua_State *L);  /* Deprecated! */
 
-extern fn  CFunction LUAState.atpanic(&self, CFunction panicf) @extern("lua_atpanic");
+extern fn  CFunction LUAState.atpanic(&self, CFunction panicf) @cname("lua_atpanic");
 
 macro createVirtualMachine(LUAState** state) 
 {
@@ -325,11 +325,11 @@ macro @localStack(LUAState** state; @body) {
   @body();
 }
 
-extern fn int LUAState.version(&self) @extern("lua_version");
+extern fn int LUAState.version(&self) @cname("lua_version");
 
-extern fn void LUAState.openlibs(&self) @extern("luaL_openlibs");
+extern fn void LUAState.openlibs(&self) @cname("luaL_openlibs");
 
-extern fn int LUAState.loadfilex(&self, ZString filename, ZString mode) @local @extern("luaL_loadfilex");
+extern fn int LUAState.loadfilex(&self, ZString filename, ZString mode) @local @cname("luaL_loadfilex");
 
 // WARNING(HM):
 // loadfile loads the file's contents as a chunk but DOES NOT EXECUTE IT, 
@@ -342,7 +342,7 @@ extern fn int LUAState.loadfilex(&self, ZString filename, ZString mode) @local @
 // And then after you can inspect the stack for any variables or functions defined in the script.
 macro LUAState.@loadfile(&self, #f) =>	self.loadfilex(#f.zstr_tcopy(), null);
 
-extern fn int LUAState.loadstring(&self, ZString s) @extern("luaL_loadstring");
+extern fn int LUAState.loadstring(&self, ZString s) @cname("luaL_loadstring");
 
 macro LUAState.dofile(&self, f) => (self.@loadfile(f) || self.pcall(0, MULTI_RET, 0));
 macro LUAState.dostring(&self, s) => (self.loadstring(s.zstr_tcopy()) || self.pcall(0, MULTRET, 0));
@@ -351,124 +351,124 @@ macro LUAState.dostring(&self, s) => (self.loadstring(s.zstr_tcopy()) || self.pc
 ** 'load' and 'call' functions (load and run Lua code)
 */
 extern fn void LUAState.callk(&self, int nargs, int nresults,
-                           KContext ctx, KFunction k) @extern("lua_callk");
+                           KContext ctx, KFunction k) @cname("lua_callk");
 macro LUAState.call(&self,n,r) => self.callk(n, r, 0, null);
 
 extern fn int LUAState.pcallk(&self, int nargs, int nresults, int errfunc,
-                            KContext ctx, KFunction k) @extern("lua_pcallk");
+                            KContext ctx, KFunction k) @cname("lua_pcallk");
 macro LUAState.pcall(&self,n,r,f)	=> self.pcallk(n, r, f, 0, null);
 
 extern fn int LUAState.load(&self, LUAReader reader, void *dt,
-                          ZString chunkname, ZString mode) @extern("lua_load");
+                          ZString chunkname, ZString mode) @cname("lua_load");
 
-extern fn int LUAState.dump(&self, LUAWriter writer, void *data, int strip) @extern("lua_dump");
+extern fn int LUAState.dump(&self, LUAWriter writer, void *data, int strip) @cname("lua_dump");
 
 
 
 /*
 ** basic stack manipulation
 */
-extern fn int  LUAState.absindex(&self, int idx) @extern("lua_absindex");
-extern fn int  LUAState.gettop(&self) @extern("lua_gettop");
-extern fn void LUAState.settop(&self, int idx) @extern("lua_settop");
-extern fn void LUAState.pushvalue(&self, int idx) @extern("lua_pushvalue");
-extern fn void LUAState.rotate(&self, int idx, int n) @extern("lua_rotate");
-extern fn void LUAState.copy(&self, int fromidx, int toidx) @extern("lua_copy");
-extern fn int  LUAState.checkstack(&self, int n) @extern("lua_checkstack");
+extern fn int  LUAState.absindex(&self, int idx) @cname("lua_absindex");
+extern fn int  LUAState.gettop(&self) @cname("lua_gettop");
+extern fn void LUAState.settop(&self, int idx) @cname("lua_settop");
+extern fn void LUAState.pushvalue(&self, int idx) @cname("lua_pushvalue");
+extern fn void LUAState.rotate(&self, int idx, int n) @cname("lua_rotate");
+extern fn void LUAState.copy(&self, int fromidx, int toidx) @cname("lua_copy");
+extern fn int  LUAState.checkstack(&self, int n) @cname("lua_checkstack");
 
-extern fn void LUAState.xmove(LUAState *from, LUAState *to, int n) @extern("lua_xmove");
+extern fn void LUAState.xmove(LUAState *from, LUAState *to, int n) @cname("lua_xmove");
 
 /*
 ** access functions (stack -> C)
 */
 
-extern fn int LUAState.isnumber(&self , int idx) @extern("lua_isnumber");
-extern fn int LUAState.isstring(&self , int idx) @extern("lua_isstring");
-extern fn int LUAState.iscfunction(&self , int idx) @extern("lua_iscfunction");
-extern fn int LUAState.isinteger(&self , int idx) @extern("lua_isinteger");
-extern fn int LUAState.isuserdata(&self , int idx) @extern("lua_isuserdata");
-extern fn int LUAState.type(&self, int idx) @extern("lua_type");
-extern fn ZString LUAState.typename(&self , int tp) @extern("lua_typename");
+extern fn int LUAState.isnumber(&self , int idx) @cname("lua_isnumber");
+extern fn int LUAState.isstring(&self , int idx) @cname("lua_isstring");
+extern fn int LUAState.iscfunction(&self , int idx) @cname("lua_iscfunction");
+extern fn int LUAState.isinteger(&self , int idx) @cname("lua_isinteger");
+extern fn int LUAState.isuserdata(&self , int idx) @cname("lua_isuserdata");
+extern fn int LUAState.type(&self, int idx) @cname("lua_type");
+extern fn ZString LUAState.typename(&self , int tp) @cname("lua_typename");
 
-extern fn Number LUAState.tonumber(&self , int idx, int *isnum = null) @extern("lua_tonumberx");
-extern fn Integer LUAState.tointeger(&self , int idx, int *isnum = null) @extern("lua_tointegerx");
-extern fn int LUAState.toboolean(&self , int idx) @extern("lua_toboolean");
-extern fn ZString LUAState.tostring(&self , int idx, usz *len = null) @extern("lua_tolstring");
-extern fn Unsigned LUAState.rawlen(&self , int idx) @extern("lua_rawlen");
-extern fn CFunction LUAState.tocfunction(&self , int idx) @extern("lua_tocfunction");
-extern fn void* LUAState.touserdata(&self , int idx) @extern("lua_touserdata");
-extern fn LUAState* LUAState.tothread(&self , int idx) @extern("lua_tothread");
-extern fn void* LUAState.topointer(&self , int idx) @extern("lua_topointer");
+extern fn Number LUAState.tonumber(&self , int idx, int *isnum = null) @cname("lua_tonumberx");
+extern fn Integer LUAState.tointeger(&self , int idx, int *isnum = null) @cname("lua_tointegerx");
+extern fn int LUAState.toboolean(&self , int idx) @cname("lua_toboolean");
+extern fn ZString LUAState.tostring(&self , int idx, usz *len = null) @cname("lua_tolstring");
+extern fn Unsigned LUAState.rawlen(&self , int idx) @cname("lua_rawlen");
+extern fn CFunction LUAState.tocfunction(&self , int idx) @cname("lua_tocfunction");
+extern fn void* LUAState.touserdata(&self , int idx) @cname("lua_touserdata");
+extern fn LUAState* LUAState.tothread(&self , int idx) @cname("lua_tothread");
+extern fn void* LUAState.topointer(&self , int idx) @cname("lua_topointer");
 
 /*
 ** push functions (C -> stack)
 */
-extern fn void    LUAState.pushnil(&self) @extern("lua_pushnil");
-extern fn void    LUAState.pushnumber(&self, Number n) @extern("lua_pushnumber");
-extern fn void    LUAState.pushinteger(&self, Integer n) @extern("lua_pushinteger");
-extern fn ZString LUAState.pushlstring(&self, ZString s, usz len) @extern("lua_pushlstring");
-extern fn ZString LUAState.pushstring(&self, ZString s) @extern("lua_pushstring");
-extern fn ZString LUAState.pushvfstring(&self, ZString fmt, /*va_list*/void* argp) @extern("lua_pushvfstring");
-extern fn ZString LUAState.pushfstring(&self, ZString fmt, ...) @extern("lua_pushfstring");
-extern fn void    LUAState.pushcclosure(&self, CFunction func, int n) @extern("lua_pushcclosure");
-extern fn void    LUAState.pushboolean(&self, int b) @extern("lua_pushboolean");
-extern fn void    LUAState.pushlightuserdata(&self, void* p) @extern("lua_pushlightuserdata");
-extern fn int     LUAState.pushthread(&self) @extern("lua_pushthread");
+extern fn void    LUAState.pushnil(&self) @cname("lua_pushnil");
+extern fn void    LUAState.pushnumber(&self, Number n) @cname("lua_pushnumber");
+extern fn void    LUAState.pushinteger(&self, Integer n) @cname("lua_pushinteger");
+extern fn ZString LUAState.pushlstring(&self, ZString s, usz len) @cname("lua_pushlstring");
+extern fn ZString LUAState.pushstring(&self, ZString s) @cname("lua_pushstring");
+extern fn ZString LUAState.pushvfstring(&self, ZString fmt, /*va_list*/void* argp) @cname("lua_pushvfstring");
+extern fn ZString LUAState.pushfstring(&self, ZString fmt, ...) @cname("lua_pushfstring");
+extern fn void    LUAState.pushcclosure(&self, CFunction func, int n) @cname("lua_pushcclosure");
+extern fn void    LUAState.pushboolean(&self, int b) @cname("lua_pushboolean");
+extern fn void    LUAState.pushlightuserdata(&self, void* p) @cname("lua_pushlightuserdata");
+extern fn int     LUAState.pushthread(&self) @cname("lua_pushthread");
 
 
 /*
 ** get functions (Lua -> stack)  Pushes onto the stack the value
 */
-extern fn TValue LUAState.getglobal(&self, ZString name) @extern("lua_getglobal");
-extern fn int LUAState.gettable(&self, int idx) @extern("lua_gettable");
-extern fn int LUAState.getfield(&self, int idx, ZString k) @extern("lua_getfield");
-extern fn int LUAState.geti(&self, int idx, Integer n) @extern("lua_geti");
-extern fn int LUAState.rawget(&self, int idx) @extern("lua_rawget");
-extern fn int LUAState.rawgeti(&self, int idx, Integer n) @extern("lua_rawgeti");
-extern fn int LUAState.rawgetp(&self, int idx, void *p) @extern("lua_rawgetp");
+extern fn TValue LUAState.getglobal(&self, ZString name) @cname("lua_getglobal");
+extern fn int LUAState.gettable(&self, int idx) @cname("lua_gettable");
+extern fn int LUAState.getfield(&self, int idx, ZString k) @cname("lua_getfield");
+extern fn int LUAState.geti(&self, int idx, Integer n) @cname("lua_geti");
+extern fn int LUAState.rawget(&self, int idx) @cname("lua_rawget");
+extern fn int LUAState.rawgeti(&self, int idx, Integer n) @cname("lua_rawgeti");
+extern fn int LUAState.rawgetp(&self, int idx, void *p) @cname("lua_rawgetp");
 
-extern fn void  LUAState.createtable(&self, int narr, int nrec) @extern("lua_createtable");
-extern fn void* LUAState.newuserdatauv(&self, usz sz, int nuvalue) @extern("lua_newuserdatauv");
-extern fn int   LUAState.getmetatable(&self, int objindex) @extern("lua_getmetatable");
-extern fn int  LUAState.getiuservalue(&self, int idx, int n) @extern("lua_getiuservalue");
+extern fn void  LUAState.createtable(&self, int narr, int nrec) @cname("lua_createtable");
+extern fn void* LUAState.newuserdatauv(&self, usz sz, int nuvalue) @cname("lua_newuserdatauv");
+extern fn int   LUAState.getmetatable(&self, int objindex) @cname("lua_getmetatable");
+extern fn int  LUAState.getiuservalue(&self, int idx, int n) @cname("lua_getiuservalue");
 
 
 /*
 ** set functions (stack -> Lua)
 */
-extern fn void  LUAState.setglobal(&self, ZString name) @extern("lua_setglobal");
-extern fn void  LUAState.settable(&self, int idx) @extern("lua_settable");
-extern fn void  LUAState.setfield(&self, int idx, ZString k) @extern("lua_setfield");
-extern fn void  LUAState.seti(&self, int idx, Integer n) @extern("lua_seti");
-extern fn void  LUAState.rawset(&self, int idx) @extern("lua_rawset");
-extern fn void  LUAState.rawseti(&self, int idx, Integer n) @extern("lua_rawseti");
-extern fn void  LUAState.rawsetp(&self, int idx, void *p) @extern("lua_rawsetp");
-extern fn int   LUAState.setmetatable(&self, int objindex) @extern("lua_setmetatable");
-extern fn int   LUAState.setiuservalue(&self, int idx, int n) @extern("lua_setiuservalue");
+extern fn void  LUAState.setglobal(&self, ZString name) @cname("lua_setglobal");
+extern fn void  LUAState.settable(&self, int idx) @cname("lua_settable");
+extern fn void  LUAState.setfield(&self, int idx, ZString k) @cname("lua_setfield");
+extern fn void  LUAState.seti(&self, int idx, Integer n) @cname("lua_seti");
+extern fn void  LUAState.rawset(&self, int idx) @cname("lua_rawset");
+extern fn void  LUAState.rawseti(&self, int idx, Integer n) @cname("lua_rawseti");
+extern fn void  LUAState.rawsetp(&self, int idx, void *p) @cname("lua_rawsetp");
+extern fn int   LUAState.setmetatable(&self, int objindex) @cname("lua_setmetatable");
+extern fn int   LUAState.setiuservalue(&self, int idx, int n) @cname("lua_setiuservalue");
 
 
 /*
 ** miscellaneous functions
 */
 
-extern fn int LUAState.error(&self) @extern("lua_error");
-extern fn int   LUAState.next(&self, int idx) @extern("lua_next");
-extern fn void  LUAState.concat(&self, int n) @extern("lua_concat");
-extern fn void  LUAState.len(&self, int idx) @extern("lua_len");
-extern fn usz   LUAState.stringtonumber(&self, ZString s) @extern("lua_stringtonumber");
+extern fn int LUAState.error(&self) @cname("lua_error");
+extern fn int   LUAState.next(&self, int idx) @cname("lua_next");
+extern fn void  LUAState.concat(&self, int n) @cname("lua_concat");
+extern fn void  LUAState.len(&self, int idx) @cname("lua_len");
+extern fn usz   LUAState.stringtonumber(&self, ZString s) @cname("lua_stringtonumber");
 
-extern fn Alloc_callback LUAState.getallocf(&self, void **ud) @extern("lua_getallocf");
-extern fn void      LUAState.setallocf(&self, Alloc_callback f, void *ud) @extern("lua_setallocf");
+extern fn Alloc_callback LUAState.getallocf(&self, void **ud) @cname("lua_getallocf");
+extern fn void      LUAState.setallocf(&self, Alloc_callback f, void *ud) @cname("lua_setallocf");
 
-extern fn void LUAState.toclose(&self, int idx) @extern("lua_toclose");
-extern fn void LUAState.closeslot(&self, int idx) @extern("lua_closeslot");
+extern fn void LUAState.toclose(&self, int idx) @cname("lua_toclose");
+extern fn void LUAState.closeslot(&self, int idx) @cname("lua_closeslot");
 
-extern fn int LUAState.getstack(&self, int level, LUADebug *ar) @extern("lua_getstack");
-extern fn int LUAState.getinfo(&self, ZString what, LUADebug *ar) @extern("lua_getinfo");
-extern fn ZString LUAState.getlocal(&self, LUADebug *ar, int n) @extern("lua_getlocal");
-extern fn ZString LUAState.setlocal(&self, LUADebug *ar, int n) @extern("lua_setlocal");
-extern fn ZString LUAState.getupvalue(&self, int funcindex, int n) @extern("lua_getupvalue");
-extern fn ZString LUAState.setupvalue(&self, int funcindex, int n) @extern("lua_setupvalue");
+extern fn int LUAState.getstack(&self, int level, LUADebug *ar) @cname("lua_getstack");
+extern fn int LUAState.getinfo(&self, ZString what, LUADebug *ar) @cname("lua_getinfo");
+extern fn ZString LUAState.getlocal(&self, LUADebug *ar, int n) @cname("lua_getlocal");
+extern fn ZString LUAState.setlocal(&self, LUADebug *ar, int n) @cname("lua_setlocal");
+extern fn ZString LUAState.getupvalue(&self, int funcindex, int n) @cname("lua_getupvalue");
+extern fn ZString LUAState.setupvalue(&self, int funcindex, int n) @cname("lua_setupvalue");
 /*
 LUA_API void *(lua_upvalueid) (lua_State *L, int fidx, int n);
 LUA_API void  (lua_upvaluejoin) (lua_State *L, int fidx1, int n1,

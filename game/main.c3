@@ -75,6 +75,7 @@ import thirdparty::tracy;
 import thirdparty::tsoding::flg; // simple flag library
 import thirdparty::mujs; // micro java script
 import thirdparty::scripting::lua; // lua script
+import thirdparty::scripting::umka; // umka script
 // #endregion
 
 // #region Constants
@@ -402,7 +403,7 @@ struct Game (SaveSystemInterface) @local
     List{Sprite*} sprites;
 
     // BoidManager
-    BoidManager boidManager1;
+    BoidManager boidManager1 @if($defined(BOIDS_ENABLE));
     
     MaterialDataBase mtrDB;
     
@@ -499,8 +500,11 @@ fn void Game.save(&self, SaveFile* file) @dynamic {
     svs::write(file, &self.screen, $sizeof(self.screen));
     svs::write(file, &self.entityList, $sizeof(self.entityList));
     svs::write(file, &self.sprites, $sizeof(self.sprites));
+
+    $if $defined(BOIDS_ENABLE):
     self.boidManager1.save(file);
-    
+    $endif
+
     svs::writeString(file, self.app_name);
     svs::writeString(file, self.app_default_workdir); // usefull if a mod is set
     svs::writeString(file, self.app_default_base_folder); // usefull if a mod is set
@@ -774,7 +778,11 @@ $endif
         log::info(FILE, "['%s'] sprites were cleared!", count);
     }
     self.view.deinit();
+
+    $if $defined(BOIDS_ENABLE):
     self.boidManager1.release();
+    $endif
+
     self.editor.deinit();
 }
 
@@ -1162,8 +1170,10 @@ $endif
         local_game.testTimer.update();
         
         // boids
+        $if $defined(BOIDS_ENABLE):
         local_game.boidManager1.update(rl::getScreenWidth(), rl::getScreenHeight(), local_game.dt);
-        
+        $endif
+
         if(local_game.testTimer.alive()) {
             //io::printfn("Timer time = %s!!!", local_game.testTimer.lifetime);
         } else { 
@@ -2720,6 +2730,30 @@ $if $feature(LUA_ENABLE):
     }
 $endif
 
+$if $feature(UMKA_ENABLE):
+    Umka* umkaContext = umka::alloc();
+    String umScriptMain = local_game.app_base_folder.tconcat("scripts/main.um");
+    String umfiledata = fs::fileLoadEntireText(umScriptMain);
+    //if(catch excuse = umkaContext.init("main.um", umfiledata.zstr_tcopy(), 1024*1024, null, 0, null, false, false)) {
+    if(catch excuse = umkaContext.init(umScriptMain.zstr_tcopy(), null, 1024*1024, null, 0, null, false, false)) {
+        log::info(CONSOLE, "failed to initialize umka script engine!!");
+    } else {
+        log::info(CONSOLE, "umka script engine initialized successfully.");
+        log::info(CONSOLE, "\tCompiling main umka script.");
+        bool umkaOk = umkaContext.compile();
+        if (umkaOk)
+        {
+            log::info(CONSOLE, "\tSucess.");
+            umkaContext.run();
+        }
+        else
+        {
+            UmkaError *error = umkaContext.getError();
+            log::info(CONSOLE, "Umka error %s (%d, %d): %s\n", error.fileName, error.line, error.pos, error.msg);
+        }
+    }
+$endif
+
     log::info(FILE, "Initializing game editor:");
     log::info(FILE, "---------------------------------------------");
     // init the game editor defaults
@@ -2823,8 +2857,9 @@ $endif
     }
     
     // init the boids system
+    $if $defined(BOIDS_ENABLE):
     local_game.boidManager1.init();
-    
+    $endif
     
     log::info(FILE,  "** Done. **");
 // #endregion Test game stuff
@@ -3135,38 +3170,39 @@ fn void gameDoOneFrame() @local
                 tracy::@messageL( "Tick" );
                 tracy::@zoneN("Game loop", 1)
                 {
-                    float gameDoOneFrame_st = @start_profile_zone();
-                    defer @end_profile_zone(gameDoOneFrame_st);
-                    
-                    if(local_game.should_quit) break;
-                    
-                    // update game timing
-                    local_game.dt       = rl::getFrameTime(); // last frame time
-                    local_game.time_sec = (float)rl::getTime();
-                    local_game.time_ms  = misc::sec2ms(local_game.time_sec);
-
-                    $if $feature(LUA_ENABLE):
-                    /*lua::updateGlobalType("g_timeSc", any_make(&local_game.time_sec, float.typeid));
-                    lua::updateGlobalType("g_timeMs", any_make(&gpGame.time_ms, int.typeid));
-                    lua::updateGlobalType("g_deltaTime", any_make(&gpGame.dt, float.typeid));*/
-                    lua::updateGameLuaGlobals();
-                    $endif
-
-                    int screen_w = rl::getScreenWidth();
-                    int screen_h = rl::getScreenHeight();
-                    
-                    gameUpdate();
-                    gameDraw(screen_w, screen_h);
-
-                    /*if(r_fps_unlocked.getBool() && r_max_fps.getInt() > 0)
+                    @profile_zone("gameDoOneFrame", false)
                     {
-                        int max_fps = r_max_fps.getInt();
-                        if(max_fps > 240) {
-                            max_fps = 240; // clamp to max 240 fps
-                        }
-                        // NOTE(HM) this will cap the framerate to the user defined value
-                        waitFrame(misc::sec2ms(1.0f / max_fps));
-                    }*/
+
+                        if(local_game.should_quit) break;
+                        
+                        // update game timing
+                        local_game.dt       = rl::getFrameTime(); // last frame time
+                        local_game.time_sec = (float)rl::getTime();
+                        local_game.time_ms  = misc::sec2ms(local_game.time_sec);
+
+                        $if $feature(LUA_ENABLE):
+                        /*lua::updateGlobalType("g_timeSc", any_make(&local_game.time_sec, float.typeid));
+                        lua::updateGlobalType("g_timeMs", any_make(&gpGame.time_ms, int.typeid));
+                        lua::updateGlobalType("g_deltaTime", any_make(&gpGame.dt, float.typeid));*/
+                        lua::updateGameLuaGlobals();
+                        $endif
+
+                        int screen_w = rl::getScreenWidth();
+                        int screen_h = rl::getScreenHeight();
+                        
+                        gameUpdate();
+                        gameDraw(screen_w, screen_h);
+
+                        /*if(r_fps_unlocked.getBool() && r_max_fps.getInt() > 0)
+                        {
+                            int max_fps = r_max_fps.getInt();
+                            if(max_fps > 240) {
+                                max_fps = 240; // clamp to max 240 fps
+                            }
+                            // NOTE(HM) this will cap the framerate to the user defined value
+                            waitFrame(misc::sec2ms(1.0f / max_fps));
+                        }*/
+                    }; // end @profile_zone
                 }; // tracy scope end
            // };
         }
@@ -3194,7 +3230,7 @@ fn void pre_InitFunc() @init {
     // NOTE(HM) This means the MINIMUM log level not the only level to log
     // anything bellow this level will not log
     // WARNING(HM) MAY BE OVERRIDEN LATER BY THE INI FILE SETTING!!!
-    rl::setTraceLogLevel(rl::TraceLogLevel.INFO);
+    rl::setTraceLogLevel(rl::TraceLogLevel.ERROR);
     
     // ************* My own logging system ****************
     // NOTE(HM) controls file and Console logging 

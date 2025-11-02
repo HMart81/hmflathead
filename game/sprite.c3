@@ -64,7 +64,7 @@ const Vec2f MIN_SIZE @local = {MIN_SPRIT_SIZE, MIN_SPRIT_SIZE};
 //const int DEBUG_SPRITES = 1;
 
 // Used for very special sprites only
-enum SpriteKind : inline int 
+enum SpriteKind : const int 
 {
     GENERIC,
     CURSOR,
@@ -76,7 +76,7 @@ enum SpriteKind : inline int
 *>
 fn SpriteKind kindFrom(int value) @inline 
 {
-  return SpriteKind.from_ordinal(value);
+  return (SpriteKind)value; //SpriteKind.from_ordinal(value);
 }
 // end_region defines
 
@@ -111,7 +111,7 @@ struct Sprite (SaveSystemInterface)
 
 fn void Sprite.save(&self, SaveFile* file) @dynamic {
     svs::writeTypeid(file, self.type);
-    svs::writeInt(file, self.kind.ordinal);
+    svs::writeInt(file, (int)self.kind);
     svs::writeRect(file, self.rect);
     svs::writeColor(file, self.color);
     // cannot save pointers so just save the material name
@@ -122,7 +122,7 @@ fn void Sprite.reload(&self, SaveFile* file) @dynamic {
     svs::readTypeid(file, &self.type);
     int kind;
     svs::readInt(file, &kind);
-    self.kind = SpriteKind.from_ordinal(kind);
+    self.kind = (SpriteKind)kind;//SpriteKind.from_ordinal(kind);
     svs::readRect(file, &self.rect);
     svs::readColor(file, &self.color);
     String mat_name;

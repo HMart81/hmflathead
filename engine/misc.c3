@@ -1297,7 +1297,7 @@ fn bool ZString.has_spaces(self, int* out_count) @inline {
 <*
   @require rl::isWindowReady() == true : "right now window most be initialized for Profiling to work"
 *>
-macro void @profile_zone(String name, bool on = true; @body()) {
+macro void @profile_zone(String name, bool on = true; @body()) @builtin {
 $if $feature(_PROFILE):
     if(on) {
         var start_time = rl::getTime(); // in seconds
