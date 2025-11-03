@@ -25,643 +25,13 @@
 # Hilario Martins, Rua de Sanguinhedo 1010 4850-545 Vieira Do Minho Portugal.
 # 
 *********************************************************************************************************************************************/
-module thirdparty::scripting::lua @if($feature(LUA_ENABLE));
-
-
-// lua embedding tutorials:
-// https://www.youtube.com/watch?v=bg_7iRwfiOg&list=PLLwK93hM93Z3nhfJyRRWGRXHaXgNX0Itk&index=9
-// https://www.youtube.com/watch?v=4l5HdmPoynw
-
-// lua manual: https://www.lua.org/manual/5.4/
-
-import std::io;
-import game::main;
-import std::thread;
-import engine::misc; // misc code
-import engine::logging::log;
-import thirdparty::raylib5::rl;
-import thirdparty::raygui5::rgui;
-
-import engine::sys::licensee;
-alias lic = module engine::sys::licensee;
-
-alias game = main::gpGame;
-
-const TRUE @builtin  = 1;
-const FALSE @builtin = 0;
-
-const LUASCRIPTS_FOLDER_NAME = "scripts/";
-
-// UPDATE this value if more globals are needed!!!!
-const int MAX_GAME_LUAGLOBALS = 6; // max number of game lua globals to register
-
-struct LUAGlobal 
-{
-    String name;
-    any value;
-    bool is_const; // if true the value is always constant and cannot be changed from lua as well
-}
-
-LUAGlobal[MAX_GAME_LUAGLOBALS] lua_globals;
-
-fn void registerGameLuaGlobals()
-{
-    assert(game.lua_state != null, "Fatal Error: Lua state not initialized!!");
-    lua_globals = {
-        {"g_appName", any_make(&game.app_name, String.typeid), true},
-        {"g_appVersion", any_make(&&lic::@game_version(), String.typeid), true},
-        {"g_baseFolder", any_make(&game.app_base_folder, String.typeid), true},
-        {"g_timeSc", any_make(&game.time_sec, float.typeid), false},
-        {"g_timeMs", any_make(&game.time_ms, int.typeid), false},
-        {"g_deltaTime", any_make(&game.dt, float.typeid), false}
-    };
-
-    foreach(global : lua_globals)
-    {
-        lua::registerGlobalType(global.name, global.value);
-    }
-}
-
-fn void updateGameLuaGlobals()
-{
-    //assert(game.lua_state != null, "Fatal Error: Lua state not initialized!!");
-
-    foreach(global : lua_globals)
-    {
-        // only update non constant globals
-        if(!global.is_const) lua::updateGlobalType(global.name, global.value);
-    }
-}
-
-fn void preloadscript(String name)
-{
-    assert(game.app_base_folder != "", "Fatal Error: Application base folder not set!!");
-    assert(game.lua_state != null, "Fatal Error: Lua state not initialized!!");
-
-    if(!name.ends_with(".lua")) {
-        name = name.tconcat(".lua");
-    }
-    String path = game.app_base_folder.tconcat(LUASCRIPTS_FOLDER_NAME).tconcat(name);
-    int r = game.lua_state.@loadfile(path);
-    if(r != OK) {
-        // If something went wrong, error message is at the TOP of the stack.
-        String error = game.lua_state.tostring(lua::LUASTACK_RETURN).str_view(); // Get error message
-        log::warning(CONSOLE, "lua script engine failed to preload %s.lua with error: %s", name, error);
-        game.lua_state.pop(1); // Remove error message from the stack
-    }
-}
-
-<*
- @param name : "name of the lua script file without the .lua extension"
- @require name != "" && game.lua_state != null && game.app_base_folder != ""
-*>
-fn bool initScript(String name)
-{
-    if(!name.ends_with(".lua")) {
-        name = name.tconcat(".lua");
-    }
-    String path = game.app_base_folder.tconcat(LUASCRIPTS_FOLDER_NAME).tconcat(name);
-    return check(game.lua_state, (int)game.lua_state.dofile(path));
-}
-
-<*
- @param [&in] state : "pointer to the lua state"
- @param r : "return code from lua function calls"
-*>
-fn bool check(LUAState* state, int r) @inline
-{
-    if ( r != lua::OK) {
-        String error = state.tostring(LUASTACK_RETURN).str_view(); // Get error message
-        log::warning(CONSOLE, "lua script engine failed with code: %s", error);
-        state.pop(1); // Remove error message from the stack
-        return false;
-    }
-    return true;
-}
-
-fn void dumpstack(LUAState *state) @inline
-{
-    io::printf("\n==========================\n");
-    int top = state.gettop();
-    if(top == 0) {
-        io::print("Stack is empty\n");
-        io::print("==========================\n\n");
-        return;
-    }
-
-    io::printfn("Stack elements: %s \n", top);
-    for (int i = top; i >= 1; i--)
-    {
-        //io::printfn("%d\t%s\t", i, state.typename(i));
-        int type = state.type(i);
-        io::printf("%s > [%s] = ", i, typeTostr(type));
-        switch (type)
-        {
-            case TYPE_NUMBER:
-                io::printfn("%s",state.tonumber(i));
-            case TYPE_STRING:
-                io::printfn("%s",state.tostring(i));
-            case TYPE_BOOLEAN:
-                io::printfn("%s", (state.toboolean(i) ? "true" : "false"));
-            case TYPE_NIL:
-                io::printfn("%s", "nil");
-            default:
-                //io::printf("[%s] >> ", typeTostr(type));
-                io::printfn("%d",state.topointer(i));
-        }
-    }
-    io::print("==========================\n\n");
-}
-
-<* @require state != null *>
-macro clearStack(state) => state.pop(state.gettop());
-
-/*
-** Search for 'objidx' in table at index -1 (top). ('objidx' must be an
-** absolute index.) Return 1 + string at top if it found a good name.
-*/
-fn int LUAState.findfield(&self, int objidx, int level) 
-{
-  if (level == 0 || !self.istable(LUASTACK_TOP)) {
-    return 0;  /* not found */
-  }
-
-  self.pushnil();  /* start 'next' loop */
-  while (self.next(LUASTACK_IDX2)) {  /* for each pair in table */
-    if (self.type(LUASTACK_IDX2) == TYPE_STRING) {  /* ignore non-string keys */
-      if (self.rawequal(objidx, LUASTACK_TOP)) {  /* found object? */
-        self.pop(1);  /* remove value (but keep name) */
-        return 1;
-      }
-      else if (self.findfield(objidx, level - 1)) {  /* try recursively */
-        /* stack: lib_name, lib_table, field_name (top) */
-        self.pushliteral(".");  /* place '.' between the two names */
-        self.replace(LUASTACK_IDX3);  /* (in the slot occupied by table) */
-        self.concat(3);  /* lib_name.field_name */
-        return 1;
-      }
-    }
-    self.pop(1);  /* remove value */
-  }
-  return 0;  /* not found */
-}
-
-<*
-    In lua modules are just tables with functions inside them
-    This function will run a function inside a table.
-
-    @param module_name : "name of the table in lua"
-    @param menber_func : "name of the function inside the table"
-    @param rtrn_count : "number of return values expected from the function, -1 for multiple return values"
-    @param args : "arguments to be passed to the function, supported types are: ichar, short, int, char, ushort, uint, float, double, String, ZString"
-*> 
-fn void runModulefunction(String module_name, String menber_func, int rtrn_count, args...) @format(0)
-{
-    assert(game.lua_state != null, "Fatal Error: Lua state not initialized!!");
-
-    LUAState* state = game.lua_state;
-    //dumpstack(state);
-
-    // make sure the module code is loaded and setup
-    // this will also put the module table onto the stack
-    if(initScript(module_name) == false) {
-        unreachable("lua script engine failed to run module %s, cannot continue!!", module_name);
-    }
-
-    // first cheack if stack has space for the args + 2 for the module and menber function itself
-    if(args.len)
-    {
-        if(state.checkstack((int)args.len + 2) == FALSE) {
-            unreachable("lua script engine stack overflow!! cannot push %d args for func %s of module %s", args.len, menber_func, module_name);
-        }
-    } else {
-        if(state.checkstack(2) == FALSE) {
-            unreachable("lua script engine stack overflow!! cannot push module %s and menber func %s unto stack.", module_name, menber_func);
-        }
-    }
-
-    //state.getstack(LUASTACK_TOP, game.lua_debug); // get the current stack frame info
-    //state.getinfo("nSl", game.lua_debug); // get info about the function at the current stack frame
-    //ZString l = state.getlocal(null, LUASTACK_TOP);
-    //io::printfn("local name at top of stack: %s", l);   
-   // TValue tp = state.getglobal("_ENV"); // get the _ENV table
-   
-    //TValue tp = state.getglobal(module_name.zstr_tcopy());
-    dumpstack(state);
-    //assert(state.type(tp) == TYPE_TABLE, "Value pushed unto stack is not a table! it is %s", typeTostr(tp));
-    // ^ get and put the module to be called onto the stack 
-    // NOTE(HM):
-    //  at this point the module name is at the top of the stack)
-    // Warning(HM): 
-    //  for some reason this will push nil to the top of the stack here!?
-    //state.pop(1); // remove the nil value in the stack after the table
-
-    state.pushstring(menber_func.zstr_tcopy());
-    // ^ Now push the menber func NAME onto the stack
-    // NOTE(HM) 
-    //  at this point the menber func NAME (as a STRING) is at the top of the stack)
-    //  and the module table is just below it in the stack at index -2
-
-    state.gettable(-2); // misleading name, it does not get a table, it gets the value of the key in the table at index -2
-    // ^ Now pop the previous function NAME from the stack
-    // and push the FUNCTION pointer from the table onto the stack
-    // NOTE(HM): 
-    //   at this point the function to be called, should be the one at the top of the stack
-    //   and ready to be called.
-    assert(state.isfunction(LUASTACK_TOP), "Value pushed unto stack is not a function! it is %s", state.typename(LUASTACK_TOP));
-
-    // After the function, push any existing function arguments onto the stack, one after the other
-    foreach(i, arg : args)
-    {
-        switch(arg.type)
-        {
-            case ichar.typeid  : (!arg.ptr) ? state.pushnil() : state.pushinteger((Integer)*(ichar*)arg.ptr);
-            case short.typeid  : (!arg.ptr) ? state.pushnil() : state.pushinteger((Integer)*(short*)arg.ptr);
-            case int.typeid    : (!arg.ptr) ? state.pushnil() : state.pushinteger((Integer)*(int*)arg.ptr);
-            case char.typeid   : (!arg.ptr) ? state.pushnil() : state.pushinteger((Unsigned)*(char*)arg.ptr);
-            case ushort.typeid : (!arg.ptr) ? state.pushnil() : state.pushinteger((Unsigned)*(ushort*)arg.ptr);
-            case uint.typeid   : (!arg.ptr) ? state.pushnil() : state.pushinteger((Unsigned)*(uint*)arg.ptr);
-            case float.typeid  : (!arg.ptr) ? state.pushnil() : state.pushnumber((Number)*(float*)arg.ptr);
-            case double.typeid : (!arg.ptr) ? state.pushnil() : state.pushnumber(*(Number*)arg.ptr);
-            case String.typeid :
-                String* str = (String*)arg.ptr;
-                (!arg.ptr) ? state.pushstring("") : state.pushlstring(*(ZString*)str, str.len);
-            case ZString.typeid: (!arg.ptr) ? state.pushstring("") : state.pushstring(*(ZString*)arg.ptr);
-            default: 
-                unreachable("lua failed to register unknown arg %d for func %s", i, menber_func);
-        }
-    }
-
-    //dumpstack(state);
-
-    // If all went well 
-    // Try execute the function with the number of arguments and expected return values.
-    int r = state.pcall((int)args.len, (rtrn_count >= 0) ? rtrn_count : MULTI_RET, 0);
-    if (lua::check(state, r))
-    {
-        // If the function executed successfully, 
-        // the return values are at the top of the lua stack
-        // You can retrieve them as needed,
-        // for example, if you expect one integer return value:
-        if(rtrn_count == 1)
-        {
-            if(state.isinteger(LUASTACK_TOP))
-            {
-                // Convert the return value to integer
-                int returnValue = state.toS32(LUASTACK_RETURN, true);
-                // Use returnValue as needed
-                $if $defined(DEBUG):
-                    log::warning(CONSOLE, "lua script engine successfully ran function %s with return value: %d", name, returnValue);
-                $endif
-            } 
-            else
-            {
-                @todo("handle other return types");
-            }
-        } 
-        else if(rtrn_count > 1) 
-        {
-            // Handle multiple return values if necessary
-            // For simplicity, we'll just pop them off the stack here
-            state.pop(rtrn_count);
-            @todo("Handle multiple return values");
-        }
-
-        // Remove the function and all its data from the stack
-        state.pop(state.gettop() - 1); // -1 to keep the module table in the stack
-        //clearStack(state);
-        //dumpstack(state);                                  
-    }
-}
-
-<*
-    This function will run a global free function inside a file.
-
-    @param name : "name of the table in lua"
-    @param rtrn_count : "number of return values expected from the function, -1 for multiple return values"
-    @param args : "arguments to be passed to the function, supported types are: ichar, short, int, char, ushort, uint, float, double, String, ZString"
-*> 
-fn void runGlobalfunction(String name, int rtrn_count, args...) @format(0)
-{
-    assert(game.lua_state != null, "Fatal Error: Lua state not initialized!!");
-
-    LUAState* state = game.lua_state;
-
-    // get and put the function to be called onto the stack
-    TValue tp = state.getglobal(name.zstr_tcopy());
-    assert(state.type(tp) == TYPE_FUNCTION, "Value pushed unto stack is not a function! it is %s", typeTostr(tp));
-
-    if(args.len) // if there are args to push onto the stack
-    { 
-        // first cheack if stack has space for the args + 1 for the function itself
-        if(state.checkstack((int)args.len + 1) == FALSE) {
-            unreachable("lua script engine stack overflow!! cannot push %d args for func %s", args.len, name);
-        }
-
-        // Push arguments onto the stack
-        foreach(i, arg : args)
-        {
-            switch(arg.type)
-            {
-                case ichar.typeid  : state.pushinteger((Integer)*(ichar*)arg.ptr);
-                case short.typeid  : state.pushinteger((Integer)*(short*)arg.ptr);
-                case int.typeid    : state.pushinteger((Integer)*(int*)arg.ptr);
-                case char.typeid   : state.pushinteger((Unsigned)*(char*)arg.ptr);
-                case ushort.typeid : state.pushinteger((Unsigned)*(ushort*)arg.ptr);
-                case uint.typeid   : state.pushinteger((Unsigned)*(uint*)arg.ptr);
-                case float.typeid  : state.pushnumber((Number)*(float*)arg.ptr);
-                case double.typeid : state.pushnumber(*(Number*)arg.ptr);
-                case String.typeid : state.pushstring((*(String*)arg.ptr).zstr_tcopy());
-                case ZString.typeid: state.pushstring(*(ZString*)arg.ptr);
-                default: 
-                    unreachable("lua failed to register unknown arg %d for func %s", i, name);
-            }
-        }
-    }
-
-     // Execute the function with the number of arguments and expected return values
-    int r = state.pcall((int)args.len, (rtrn_count >= 0) ? rtrn_count : MULTI_RET, 0);
-    if (lua::check(state, r)) 
-    {
-        // If the function executed successfully, the return value/s are on the stack
-        // You can retrieve them as needed
-        // For example, if you expect one integer return value:
-        if(rtrn_count == 1 && state.isinteger(LUASTACK_TOP)) 
-        {
-            // Convert the return value to a C3 int
-            int returnValue = state.toS32(LUASTACK_RETURN, true); // true means it will pop the value from the stack
-            // Use returnValue as needed
-            $if $defined(DEBUG):
-                log::info(CONSOLE, "lua script engine successfully ran function %s with return value: %d", name, returnValue);
-            $endif
-        } else if(rtrn_count > 1) {
-            // For simplicity, we'll just pop them off the stack here
-            state.pop(rtrn_count);
-            @todo("Handle multiple return values");
-        }
-        // Remove the function from the stack
-        state.pop(state.gettop());
-    }
-}
-
-// register C types to lua
-<*
-    @param name : "name of the global variable in lua"
-    @param obj : "the any object to register"
-    @param [&in] state : "pointer to the lua state"
-*>
-fn void registerGlobalType(String name, any obj, LUAState* state = game.lua_state) @inline
-{
-    // first cheack if stack has space for the global variable
-    if(state.checkstack(1) == FALSE) {
-        unreachable("lua script engine stack overflow!! cannot push global %s unto stack.", name);
-    }
-
-    void* val = obj.ptr;
-
-    // runs only in debug mode
-    assert(val != null, "lua script engine failed to register null type: %s", obj);
-
-    switch(obj.type)
-    {
-        case ichar.typeid:
-           (val == null) ? state.pushnil() : state.pushinteger((Integer)*(ichar*)val);
-        case short.typeid:
-           (val == null) ? state.pushnil() : state.pushinteger((Integer)*(short*)val);
-        case int.typeid:
-           (val == null) ? state.pushnil() : state.pushinteger((Integer)*(int*)val);
-        case char.typeid:
-           (val == null) ? state.pushnil() : state.pushinteger((Unsigned)*(char*)val);
-        case ushort.typeid:
-           (val == null) ? state.pushnil() : state.pushinteger((Unsigned)*(ushort*)val);
-        case uint.typeid:
-           (val == null) ? state.pushnil() : state.pushinteger((Unsigned)*(uint*)val);
-        case float.typeid:
-           (val == null) ? state.pushnil() : state.pushnumber((Number)*(float*)val);
-        case double.typeid:
-           (val == null) ? state.pushnil() : state.pushnumber(*(Number*)val);
-        case String.typeid:
-           (val == null) ? state.pushstring("") : state.pushstring((*(String*)val).zstr_tcopy());
-        case ZString.typeid:
-           (val == null) ? state.pushstring("") : state.pushstring(*(ZString*)val);
-        default:
-            $if $feature(RELEASE):
-                break; // in release mode just ignore unknown types
-            $else
-                unreachable("lua script engine failed to register type: %s", obj);
-            $endif
-    }
-
-   state.setglobal(name.zstr_tcopy()); // set it as a global variable
-}
-
-alias updateGlobalType = registerGlobalType;
-/*
-<*
-    @param name : "name of the global variable in lua"
-    @param obj : "the any object to update"
-    @param [&in] state : "pointer to the lua state"
-    @require obj.ptr != null
-*>
-fn void updateGlobalType(String name, any obj, LUAState* state = game.lua_state) @inline
-{
-    // just call register again it will overwrite the previous value
-    registerGlobalType(name, obj, state);
-    /*int r = state.getglobal(name.zstr_tcopy());
-    if(r != TYPE_NIL) {
-        state.pop(1); // remove the previous value from the stack
-    } else {
-        unreachable("lua script engine failed to update global type %s, variable not found!!", name);
-    }
-
-    switch
-    {
-        case state.isinteger(LUASTACK_TOP):
-            state.pushinteger(state.tointeger(LUASTACK_TOP));
-        case state.isnumber(LUASTACK_TOP):
-            state.pushnumber(state.tonumber(LUASTACK_TOP));
-        case state.isstring(LUASTACK_TOP):
-            state.pushstring(state.tostring(LUASTACK_TOP));
-            self.pop(1);
-        default: 
-            unreachable("lua script engine failed to update type: %s", obj);
-    }*/
-}*/
-
-// Convert lua types to C3 types
-fn float LUAState.toF32(&self, int stack_idx, bool pop = false) @inline
-{
-    $if $feature(RELEASE):
-        if(self.isnumber(stack_idx) == FALSE) {
-            game.titleMsgBox = "LUA Error Box";
-            game.msgBoxText = string::tformat("Lua stack index: '%s' is not a number!!", stackIDXToSTR(stack_idx));
-            if(game.showMessageBox) { // a previous message box is being shown
-               // do nothing
-            } else { // show a new message box
-                game.showMessageBox = true;
-            }
-            return 0.0f; // return a default value
-        }
-    $else
-        assert(self.isnumber(stack_idx), "lua stack index %d is not a number!!", stack_idx);
-        defer if(pop) self.pop(1); // pop the value from the stack after returning it
-        return (float)self.tonumber(stack_idx);
-    $endif
-}
-
-fn double LUAState.toF64(&self, int stack_idx, bool pop = false) @inline
-{
-    $if $feature(RELEASE):
-        if(self.isnumber(stack_idx) == FALSE) {
-            game.titleMsgBox = "LUA Error Box";
-            game.msgBoxText = string::tformat("Lua stack index: '%s' is not a number!!", stackIDXToSTR(stack_idx));
-            if(game.showMessageBox) { // a previous message box is being shown
-               // do nothing
-            } else { // show a new message box
-                game.showMessageBox = true;
-            }
-            return 0.0; // return a default value
-        }
-    $else
-        assert(self.isnumber(stack_idx), "lua stack index %d is not a number!!", stack_idx);
-        defer if(pop) self.pop(1); // pop the value from the stack after returning it
-        return (double)self.tonumber(stack_idx);
-    $endif
-}
-
-fn int LUAState.toS32(&self, int stack_idx, bool pop = false) @inline
-{
-    $if $feature(RELEASE):
-        if(self.isinteger(stack_idx) == FALSE) {
-            game.titleMsgBox = "LUA Error Box";
-            game.msgBoxText = string::tformat("Lua stack index: '%s' is not a integer!!", stackIDXToSTR(stack_idx));
-            if(game.showMessageBox) { // a previous message box is being shown
-               // do nothing
-            } else { // show a new message box
-                game.showMessageBox = true;
-            }
-            return 0; // return a default value
-        }
-    $else
-        assert(self.isinteger(stack_idx), "lua stack index %d is not a integer!!", stack_idx);
-        defer if(pop) self.pop(1); // pop the value from the stack after returning it
-        return (int)self.isinteger(stack_idx);
-    $endif
-}
-
-fn uint LUAState.toU32(&self, int stack_idx, bool pop = false) @inline
-{
-    $if $feature(RELEASE):
-        if(self.isinteger(stack_idx) == FALSE) {
-            game.titleMsgBox = "LUA Error Box";
-            game.msgBoxText = string::tformat("Lua stack index: '%s' is not a integer!!", stackIDXToSTR(stack_idx));
-            if(game.showMessageBox) { // a previous message box is being shown
-               // do nothing
-            } else { // show a new message box
-                game.showMessageBox = true;
-            }
-            return 0; // return a default value
-        }
-    $else
-        assert(self.isinteger(stack_idx), "lua stack index %d is not a integer!!", stack_idx);
-        defer if(pop) self.pop(1); // pop the value from the stack after returning it
-        return (uint)self.isinteger(stack_idx);
-    $endif
-}
-
-fn short LUAState.toS16(&self, int stack_idx, bool pop = false) @inline
-{
-    return (short)self.toS32(stack_idx, pop);
-}
-
-fn ushort LUAState.toU16(&self, int stack_idx, bool pop = false) @inline
-{
-    return (ushort)self.toU32(stack_idx, pop);
-}
-
-fn char LUAState.toU8(&self, int stack_idx, bool pop = false) @inline
-{
-    return (char)self.toU32(stack_idx, pop);
-}
-
-fn ichar LUAState.toS8(&self, int stack_idx, bool pop = false) @inline
-{
-    return (ichar)self.toS32(stack_idx, pop);
-}
-
-fn String LUAState.toStr(&self, int stack_idx, bool pop = false) @inline
-{
-    $if $feature(RELEASE):
-        if(self.isstring(stack_idx) == FALSE) {
-            game.titleMsgBox = "LUA Error Box";
-            game.msgBoxText = string::tformat("Lua stack index: '%s' is not a string!!", stackIDXToSTR(stack_idx));
-            if(game.showMessageBox) { // a previous message box is being shown
-               // do nothing
-            } else { // show a new message box
-                game.showMessageBox = true;
-            }
-            return ""; // return a default value
-        }
-    $else
-        assert(self.isstring(stack_idx), "lua stack index %d is not a string!!", stack_idx);
-        defer if(pop) self.pop(1); // pop the value from the stack after returning it
-        return self.tostring(stack_idx).str_view().tcopy();
-    $endif
-}
-
-fn ZString LUAState.toZStr(&self, int stack_idx, bool pop = false) @inline
-{
-    $if $feature(RELEASE):
-        if(self.isstring(stack_idx) == FALSE) {
-            game.titleMsgBox = "LUA Error Box";
-            game.msgBoxText = string::tformat("Lua stack index: '%s' is not a string!!", stackIDXToSTR(stack_idx));
-            if(game.showMessageBox) { // a previous message box is being shown
-               // do nothing
-            } else { // show a new message box
-                game.showMessageBox = true;
-            }
-            return ""; // return a default value
-        }
-    $else
-        assert(self.isstring(stack_idx), "lua stack index %d is not a string!!", stack_idx);
-        defer if(pop) self.pop(1); // pop the value from the stack after returning it
-        return self.tostring(stack_idx);
-    $endif
-}
-// end of lua script engine
-
-
-module engine::sys::script_engine::scpt @if($feature(ANGEL_ENABLE));
-
-import std::io;
-import thirdparty::angel; // for the message callback
-import engine::logging::log;
-
-// for the angel script engine ONLY
-fn void messageCallback(SMessageInfo* msg, void * /*obj*/)
-{
-	switch
-    {
-	    case msg.type.ordinal == 0: log::error(CONSOLE, "%s (%d, %d) : %s\n", msg.section, msg.row, msg.col, msg.message);
-	    case msg.type.ordinal == 1: log::warning(CONSOLE, "%s (%d, %d) : %s\n", msg.section, msg.row, msg.col, msg.message);
-	    case msg.type.ordinal == 2: log::info(CONSOLE, "%s (%d, %d) : %s\n", msg.section, msg.row, msg.col, msg.message);
-    }
-}
-
-fn void asPrint(String fmt, args...) @format(0)
-{
-    DString str = dstring::temp_with_capacity(fmt.len + args.len * 8);
-	str.appendf(fmt, ...args);
-    io::printf("%s", str.zstr_view());
-}
-// end of message callback
 
 module engine::sys::script_engine::scpt @if($feature(WREN_ENABLE));
 
 import std::io;
 import std::collections::list;
-import thirdparty::wren;
 import engine::filesystem::fs;
+import thirdparty::wren;
 import engine::logging::log;
 import thirdparty::raylib5::rl;
 import engine::misc; // misc code
@@ -670,12 +40,17 @@ import engine::sys::script_engine::event; // import the event system
 import game::actors::ent;
 //
 
-//alias VMListPtr = List{WrenVM*};
 alias ScriptList = List{Script*};
 
-const SCRIPT_FOLDER_NAME = "scripts";
+const SCRIPT_FOLDER_PATH = "scripts/wren/";
+const SCRIPT_MAIN_MODULE_NAME = "main";
+//
+const SCRIPT_LANGUAGE = "WREN";
+//
+const SCRIPT_LANG_VERSION = wren::VERSION_STRING;
+//
 const SCRIPT_FILE_EXTENSION = ".scpt";
-const MAX_VIRTUAL_MACHINES = 1; // for now only one virtual machine is supported
+const MAX_VIRTUAL_MACHINES  = 1; // for now only one virtual machine is supported
 
 // NOTE(HM) in wren a Module is a file with wren code inside 
 // we call them scripts instead;
@@ -685,20 +60,62 @@ struct Script
     String name;
     ZString data;
     CLong modtime; // to see if the file was modified
-    //WrenVM* vm;
+
     ScriptEngine* sengine;
+}
+
+<*
+    Initialize a new Script
+    @param name : "name of the script, no extension"
+    @param [&inout] sengine : "the script system/manager"
+*>
+fn void Script.init(&self, String path)
+{
+    self.path = path.tcopy();
+    self.name = fs::getFileNameWithoutExt(self.path).tcopy();
+    self.data = fs::fileLoadEntireText(self.path).zstr_tcopy();
+    self.modtime = fs::getFileModTime(self.path);
+}
+
+fn bool Script.isValid() 
+{
+    return  self.path.len >= 4 &&
+            self.name.len >= 3 &&
+            self.modtime >= (CLong)1; // to see if the file was modified
 }
 
 fn void Script.deinit(&self)
 {
     if(self.sengine) self.sengine = null;
+    if(self.isRunning()) self.stop();
     mem::free(self);
 }
 
+<*
+    Run this script
+    @param [in] this : "the script being run"
+    @require this.sengine != null
+*>
 fn void Script.run(&this) @inline
 {
-    assert(this.sengine != null);
-    this.sengine.vmachine.compile_run(this); 
+    //assert(this.sengine != null);
+    if(this.isValid() == false) {
+        log::warning(FILE, "Cannot run invalid script! '%s' ", (this.name.len) ? this.name : "<unnamed>");
+        $if $feature(_DEBUG):
+            @unreachable("Cannot run invalid script! '%s' ", (this.name.len) ? this.name : "<unnamed>");
+        $else
+            return;
+        $endif
+    }
+
+    this.sengine.vmachine.compile_run(this);
+}
+
+fn void Script.reloadData(CLong new_mod_time)
+{
+    self.data    = fs::fileLoadEntireText(self.path).zstr_tcopy();
+    self.modtime = new_mod_time;
+    log::info(Where.FILE, "Reloaded script %s", self.name);
 }
 
 <*
@@ -709,42 +126,73 @@ fn void Script.linkTo(&self, ScriptEngine* _sengine) @inline
     self.sengine = _sengine;
 }
 
-fn void Script.stop(&self) 
+fn void Script.stop(&self)
 {
-    if(self.sengine != null)
-    {
-        self.sengine.vmachine.vm.abortFiber((int)wren::RESULT_SUCCESS);
-    }
+   if(self.sengine != null) self.sengine.vmachine.vm.abortFiber((int)wren::RESULT_SUCCESS);
 }
 
-struct ScriptEngine
+interface IScriptEngine
+{
+    fn void	init();
+    fn void	deinit();
+    fn void update();
+    fn void bindFunctions(WrenConfiguration* config);
+    fn WrenVM* makeVM(WrenConfiguration* config);
+    fn void createVirtualMachine(WrenConfiguration* config);
+    fn void closeVirtualMachine();
+    fn void createScript(Path script_path);
+    fn Script* getScript(String name);
+    fn void registerScripts(String path);
+    fn void reloadScripts(String script_folder);
+    fn void fileWatcher();
+    fn void callMainScript() @optional;
+}
+
+struct ScriptEngine (IScriptEngine)
 {
     ScriptList scripts;
     int next_check_time; // time to check for file changes
-    // wren supports multiple virtual machines but I will just use one and instead
+    
+    //////////////////////////////////////////
+    // WREN supports multiple virtual machines but I will just use one and instead
     // rely on the virtual machine fivers to run more scripts concunrrently
     //VMListPtr vmachines;  // list of virtual machines
     ScriptVirtualMachine vmachine;
 }
 
-fn void ScriptEngine.init(&self)
+<*
+    Initialize the Script Engine
+    @param [&in] game : "a pointer to the game struct, it is a global, so I don't really need this but i'm doing it this way, to simply things"
+*>
+fn void ScriptEngine.init(&self) @dynamic
 {
+    log::info(FILE, "- Language(%s) - Version(%s)", SCRIPT_LANGUAGE, SCRIPT_LANG_VERSION);
     WrenConfiguration config;
     config.init();
-
     self.bindFunctions(&config);
     self.createVirtualMachine(&config);
-    io::printfn("ScriptEngine initialized");
+    log::info(FILE, "Script Engine initialized!");
+    log::info(FILE, "---------------------------------------------\n");
+
+    log::info(FILE, "-----------Registering Scripts -----------------\n");
+    self.registerScripts(main::gpGame.app_base_folder.tconcat(SCRIPT_FOLDER_PATH));
+    log::info(FILE, "%d scripts registered.", self.scripts.len());
+    log::info(FILE, "---------------------------------------------\n");
 }
 
-fn void ScriptEngine.deinit(&self)
+fn void ScriptEngine.deinit(&self) @dynamic
 {
     if(self.scripts.len()) foreach(script : self.scripts) { script.deinit(); };
     self.closeVirtualMachine();
     io::printfn("ScriptEngine deinitialized");
 }
 
-fn void ScriptEngine.bindFunctions(&self, WrenConfiguration* config) @inline @local
+fn void ScriptEngine.update(&self) @dynamic
+{
+    self.fileWatcher();
+}
+
+fn void ScriptEngine.bindFunctions(&self, WrenConfiguration* config) @dynamic
 {
     if(config == null) unreachable("Script Engine fatal error failed to bind functions!!");
 
@@ -758,12 +206,12 @@ fn void ScriptEngine.bindFunctions(&self, WrenConfiguration* config) @inline @lo
     @param [&in] config : "pointer to wren virtual machine configuration"
     @ensure return != null
 *>
-fn WrenVM* ScriptEngine.makeVM(&self, WrenConfiguration* config) @inline @local
+fn WrenVM* ScriptEngine.makeVM(&self, WrenConfiguration* config) @dynamic
 {
     return config.newVM();
 }
 
-fn void ScriptEngine.createVirtualMachine(&self, WrenConfiguration* config) @inline @local
+fn void ScriptEngine.createVirtualMachine(&self, WrenConfiguration* config) @dynamic
 {
     if(config == null) unreachable("Script Engine fatal error failed to create virtual machine!!");
 
@@ -771,12 +219,12 @@ fn void ScriptEngine.createVirtualMachine(&self, WrenConfiguration* config) @inl
     self.vmachine.create(self, config);
 }
 
-fn void ScriptEngine.closeVirtualMachine(&self) @inline @local
+fn void ScriptEngine.closeVirtualMachine(&self) @dynamic
 {
     self.vmachine.deinit();
 }
 
-fn void ScriptEngine.registerScripts(&self, String script_folder)
+fn void ScriptEngine.registerScripts(&self, String script_folder) @dynamic
 {
     FilePathList scriptlist = fs::loadDirectoryFiles(script_folder);
     defer if(scriptlist.count) fs::unloadDirectoryFiles(scriptlist);
@@ -788,8 +236,8 @@ fn void ScriptEngine.registerScripts(&self, String script_folder)
             Path? script_path = fs::newPath(scriptlist.paths[i].str_view());
             if(catch excuse = script_path) 
             {
-                lgr::warning(Where.FILE,"Failed to load script %s inside %s with excuse: %s", 
-                                fs::getFileNameWithoutExt(script_path.path_string), SCRIPT_FOLDER_NAME, excuse)!!;
+                log::warning(Where.FILE,"Failed to load script %s inside %s with excuse: %s", 
+                                fs::getFileNameWithoutExt(script_path.path_string), SCRIPT_FOLDER_PATH, excuse)!!;
                 continue;
             }
 
@@ -804,7 +252,7 @@ fn void ScriptEngine.registerScripts(&self, String script_folder)
     }
 }
 
-fn void ScriptEngine.reloadScripts(&self, String script_folder)
+fn void ScriptEngine.reloadScripts(&self, String script_folder) @dynamic
 {
     FilePathList scriptlist = fs::loadDirectoryFiles(script_folder);
     defer if(scriptlist.count) fs::unloadDirectoryFiles(scriptlist);
@@ -816,8 +264,8 @@ fn void ScriptEngine.reloadScripts(&self, String script_folder)
             Path? script_path = fs::newPath(scriptlist.paths[i].str_view());
             if(catch excuse = script_path) 
             {
-                lgr::warning(Where.FILE,"Failed to reload script %s inside %s with excuse: %s", 
-                                fs::getFileNameWithoutExt(script_path.path_string), SCRIPT_FOLDER_NAME, excuse)!!;
+                log::warning(Where.FILE,"Failed to reload script %s inside %s with excuse: %s", 
+                                fs::getFileNameWithoutExt(script_path.path_string), SCRIPT_FOLDER_PATH, excuse)!!;
                 continue;
             }
 
@@ -833,7 +281,7 @@ fn void ScriptEngine.reloadScripts(&self, String script_folder)
                     {
                         script.data = fs::fileLoadEntireText(script_path.path_string).zstr_tcopy();
                         script.modtime = file_mod_time;
-                        lgr::info(Where.FILE, "Reloaded script %s", script.name);
+                        log::info(Where.FILE, "Reloaded script %s", script.name);
                     }
                     continue;
                 }
@@ -849,14 +297,15 @@ fn void ScriptEngine.reloadScripts(&self, String script_folder)
 
 // note this function will run constantly, to see if any script file was modified
 // if so it will reload the script.
-fn void ScriptEngine.fileWatcher(&self)
+fn void ScriptEngine.fileWatcher(&self) @dynamic
 {
     if(main::developer.getBool() == false) return; // only in developer mode
     
     if(main::gpGame.time_ms >= self.next_check_time)
     {
         self.next_check_time = main::gpGame.time_ms + 1000; // check every second
-    } else { return; }
+    } 
+    else { return; }
 
     if(self.scripts.len())
     {
@@ -866,26 +315,21 @@ fn void ScriptEngine.fileWatcher(&self)
             bool changed = file_mod_time != script.modtime;
             if(changed) // reload script
             {
-                script.data = fs::fileLoadEntireText(script.path).zstr_tcopy();
-                script.modtime = file_mod_time;
-                lgr::info(Where.FILE, "Reloaded script %s", script.name);
+                script.reloadData(file_mod_time); 
             }
         };
     }
 }
 
-fn void ScriptEngine.createScript(&this, Path script_path)
-{
-    Script* new_module = mem::new(Script);
-    new_module.path = script_path.path_string.tcopy();
-    new_module.name = fs::getFileNameWithoutExt(script_path.path_string).tcopy();
-    new_module.data = fs::fileLoadEntireText(script_path.path_string).zstr_tcopy();
-    new_module.modtime = fs::getFileModTime(script_path.path_string);
-    new_module.linkTo(this);
-    this.scripts.push(new_module);
+fn void ScriptEngine.createScript(&this, Path script_path) @dynamic
+{   
+    Script* new_script = mem::new(Script);
+    new_script.init(script_path.path_string);
+    new_script.linkTo(this);
+    this.scripts.push(new_script);
 }
 
-fn Script* ScriptEngine.getScript(&self, String name) 
+fn Script* ScriptEngine.getScript(&self, String name) @dynamic
 {
     foreach(script : self.scripts) 
     { 
@@ -896,15 +340,21 @@ fn Script* ScriptEngine.getScript(&self, String name)
 }
 
 /////////////////////////////////////////// Virtual Machine ///////////////////////////////////
+module engine::sys::script_engine::scpt @if($feature(WREN_ENABLE));
+
 struct ScriptVirtualMachine
 {
     uint id;
-    WrenVM* vm;
+    // WREN
+    WrenVM* vm @if($feature(WREN_ENABLE));
+    // LUA
+    LUAState* state @if($feature(LUA_ENABLE));
+    LUADebug* debug @if($feature(LUA_ENABLE)); // lua debug context
 }
 
 fn void ScriptVirtualMachine.init(&self)
 {
-    
+   // future init code 
 }
 
 <*
@@ -943,7 +393,7 @@ fn void ScriptVirtualMachine.compile_run(&self, Script* script) @inline
     }
 
     if(script == null || script.data.len() == 0) {
-        lgr::warning(Where.FILE, "Script Virtual Machine failed to run script, script is null or empty!!");
+        log::warning(Where.FILE, "Script Virtual Machine failed to run script, script is null or empty!!");
         return;
     }
 
@@ -965,7 +415,7 @@ fn void ScriptVirtualMachine.compile_run(&self, Script* script) @inline
 //#region import support
 fn WrenLoadModuleResult loadModule(WrenVM* vm, ZString name) @local
 {
-    String path = main::gpGame.app_base_folder.tconcat(SCRIPT_FOLDER_NAME);
+    String path = game.app_base_folder.tconcat(SCRIPT_FOLDER_PATH);
     return myLoadModule(name.str_view(), path);
 }
 
@@ -982,8 +432,8 @@ fn WrenLoadModuleResult myLoadModule(String name, String path) @local
             Path? script_path = fs::newPath(scriptlist.paths[i].str_view());
             if(catch excuse = script_path) 
             {
-                lgr::warning(Where.FILE,"Failed to get path for script %s inside %s with excuse: %s", 
-                                fs::getFileNameWithoutExt(script_path.path_string), SCRIPT_FOLDER_NAME, excuse)!!;
+                log::warning(Where.FILE,"Failed to get path for script %s inside %s with excuse: %s", 
+                                fs::getFileNameWithoutExt(script_path.path_string), SCRIPT_FOLDER_PATH, excuse)!!;
                 continue;
             }
 
@@ -1130,7 +580,7 @@ fn WrenForeignMethodFn bindForeignMethod(WrenVM* vm, ZString script_name, ZStrin
     }
 
   ///  
-    lgr::error(Where.FILE, "Failed to bind foreign method %s.%s with signature %s", module_name, class_name, fn_signature);
+    log::error(Where.FILE, "Failed to bind foreign method %s.%s with signature %s", module_name, class_name, fn_signature);
     return null;
 }
 
@@ -1196,4 +646,963 @@ fn WrenForeignClassMethods bindForeignClass(WrenVM* vm, ZString script_name, ZSt
 
   ///  
   return methods;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+//
+//                          MUJS SCRIPT
+//
+//////////////////////////////////////////////////////////////////////////////
+module engine::sys::script_engine::scpt @if($feature(MUJS_ENABLE));
+import thirdparty::mujs;
+
+import std::io;
+import std::collections::list;
+import engine::filesystem::fs;
+import thirdparty::wren;
+import engine::logging::log;
+import thirdparty::raylib5::rl;
+import engine::misc; // misc code
+import game::main;
+import engine::sys::script_engine::event; // import the event system
+import game::actors::ent;
+//
+
+alias ScriptList = List{Script*};
+
+const SCRIPT_FOLDER_PATH = "scripts/mujs/";
+const SCRIPT_MAIN_MODULE_NAME = "main";
+//
+const SCRIPT_LANGUAGE = "MUJS";
+//
+const SCRIPT_LANG_VERSION = mujs::VERSION_STRING;
+//
+const SCRIPT_FILE_EXTENSION = ".scpt";
+
+struct Script 
+{
+    String path;
+    String name;
+    ZString data;
+    CLong modtime; // to see if the file was modified
+    State* context; // mujs state (current script being handled)
+    ScriptEngine* sengine;
+}
+
+<*
+    Initialize a new Script
+    @param name : "name of the script, no extension"
+    @param [&inout] sengine : "the script system/manager"
+*>
+fn void Script.init(&self, String path)
+{
+    self.path = path.tcopy();
+    self.name = fs::getFileNameWithoutExt(self.path).tcopy();
+    self.data = fs::fileLoadEntireText(self.path).zstr_tcopy();
+    self.modtime = fs::getFileModTime(self.path);
+
+    self.context = mujs::new_state();
+    if(self.context)
+    {
+        int ret = self.context.initStdLib();
+        if(ret != 0) {
+            log::warning(FILE, "mujs script failed to init stdlib with code: %d", ret);
+        }
+    }
+}
+
+fn bool Script.isValid() 
+{
+    return  self.isInitialized() && 
+            self.path.len >= 4 &&
+            self.name.len >= 3 &&
+            self.modtime >= (CLong)1; // to see if the file was modified
+}
+
+fn void Script.deinit(&self)
+{
+    if(self.sengine) self.sengine = null;
+    if(self.isRunning()) self.stop();
+    mem::free(self);
+}
+
+<*
+    Run this script
+    @param [in] this : "the script being run"
+    @require this.sengine != null
+*>
+fn void Script.run(&this) @inline
+{
+    //assert(this.sengine != null);
+    if(this.isValid() == false) {
+        log::warning(FILE, "Cannot run invalid script! '%s' ", (this.name.len) ? this.name : "<unnamed>");
+        $if $feature(_DEBUG):
+            @unreachable("Cannot run invalid script! '%s' ", (this.name.len) ? this.name : "<unnamed>");
+        $else
+            return;
+        $endif
+    }
+
+    mujs::@try(self.context)
+    {
+        ret = self.context.runScript(self.path);
+        self.context.runFunction("hello", mujs::ISGLOBAL);
+        //any[*] _args = { any_make(&&5, int.typeid), any_make(&&5, int.typeid) };
+        self.context.runFunction("testwithargs", mujs::ISGLOBAL, 5, 5);
+    };
+    log::info(FILE, "mujs script &s run returned: %d", self.name, ret);
+}
+
+fn bool Script.isInitialized() @inline
+{
+    return (self.context) ? true : false;
+}
+
+fn bool Script.isRunning() @inline 
+{
+    if(self.isInitialized() == false) return false;
+
+    @todo();
+
+    return false;
+}
+
+fn void Script.reloadData(CLong new_mod_time) 
+{
+    self.data    = fs::fileLoadEntireText(self.path).zstr_tcopy();
+    self.modtime = new_mod_time;
+    log::info(Where.FILE, "Reloaded script %s", self.name);
+}
+
+<*
+ @param [&in] _sengine : "pointer to the script engine"
+*>
+fn void Script.linkTo(&self, ScriptEngine* _sengine) @inline
+{
+    self.sengine = _sengine;
+}
+
+fn void Script.stop(&self) 
+{
+    if(!self.isRunning()) return;
+    if(self.isInitialized()) self.context.free();
+}
+
+interface IScriptEngine
+{
+    fn void	init();
+    fn void	deinit();
+    fn void update();
+    fn void createScript(Path script_path);
+    fn Script* getScript(String name);
+    fn void registerScripts(String path);
+    fn void reloadScripts(String script_folder);
+    fn void fileWatcher();
+    fn void callMainScript() @optional;
+}
+
+struct ScriptEngine (IScriptEngine)
+{
+    ScriptList scripts;
+    int next_check_time; // time to check for file changes
+}
+
+<*
+    Initialize the Script Engine
+    @param [&in] game : "a pointer to the game struct, it is a global, so I don't really need this but i'm doing it this way, to simply things"
+*>
+fn void ScriptEngine.init(&self) @dynamic
+{
+    @todo();
+
+    log::info(FILE, "- Language(%s) - Version(%s)", SCRIPT_LANGUAGE, SCRIPT_LANG_VERSION);
+    // todo put self.context in the script now
+    self.context = mujs::new_state();
+    if(self.context) 
+    {
+        int ret = self.context.initStdLib();
+        if(ret != 0) {
+            log::warning(FILE, "mujs script failed to init stdlib with code: %d", ret);
+        }
+    }
+    log::info(FILE, "Script Engine initialized!");
+    log::info(FILE, "---------------------------------------------\n");
+
+    log::info(FILE, "-----------Registering Scripts -----------------\n");
+    self.registerScripts(main::gpGame.app_base_folder.tconcat(SCRIPT_FOLDER_PATH));
+    log::info(FILE, "%d scripts registered.", self.scripts.len());
+    log::info(FILE, "---------------------------------------------\n");
+}
+
+fn void ScriptEngine.deinit(&self) @dynamic
+{
+    if(self.scripts.len()) foreach(script : self.scripts) { script.deinit(); };
+
+    @todo();
+
+    io::printfn("ScriptEngine deinitialized");
+}
+
+fn void ScriptEngine.update(&self) @dynamic
+{
+    self.fileWatcher();
+}
+
+fn void ScriptEngine.registerScripts(&self, String script_folder) @dynamic
+{
+    FilePathList scriptlist = fs::loadDirectoryFiles(script_folder);
+    defer if(scriptlist.count) fs::unloadDirectoryFiles(scriptlist);
+
+    if(scriptlist.count >= 1) 
+    {
+        for(int i = 0; i < scriptlist.count; i++) 
+        {
+            Path? script_path = fs::newPath(scriptlist.paths[i].str_view());
+            if(catch excuse = script_path) 
+            {
+                log::warning(Where.FILE,"Failed to load script %s inside %s with excuse: %s", 
+                                fs::getFileNameWithoutExt(script_path.path_string), SCRIPT_FOLDER_PATH, excuse)!!;
+                continue;
+            }
+
+            if(path::is_file(script_path)) {
+                self.createScript(script_path);
+            } else {
+                self.registerScripts(script_path.path_string); // Warning(HM) recursion
+            }
+        }
+    } else {
+        unreachable("Script Engine fatal error failed to register scripts!!");
+    }
+}
+
+fn void ScriptEngine.reloadScripts(&self, String script_folder) @dynamic
+{
+    FilePathList scriptlist = fs::loadDirectoryFiles(script_folder);
+    defer if(scriptlist.count) fs::unloadDirectoryFiles(scriptlist);
+
+    if(scriptlist.count >= 1) 
+    {
+        for(int i = 0; i < scriptlist.count; i++) 
+        {
+            Path? script_path = fs::newPath(scriptlist.paths[i].str_view());
+            if(catch excuse = script_path) 
+            {
+                log::warning(Where.FILE,"Failed to reload script %s inside %s with excuse: %s", 
+                                fs::getFileNameWithoutExt(script_path.path_string), SCRIPT_FOLDER_PATH, excuse)!!;
+                continue;
+            }
+
+            if(path::is_file(script_path)) 
+            {
+                String file_path = script_path.path_string;
+                Script* script = self.getScript(fs::getFileNameWithoutExt(file_path));
+                if(script) 
+                {
+                    CLong file_mod_time = fs::getFileModTime(file_path); //fs::getFileSize(script_path.path_string);
+                    bool mismatch = file_mod_time != script.modtime;
+                    if(mismatch) // reload script
+                    {
+                        script.data = fs::fileLoadEntireText(script_path.path_string).zstr_tcopy();
+                        script.modtime = file_mod_time;
+                        log::info(Where.FILE, "Reloaded script %s", script.name);
+                    }
+                    continue;
+                }
+                continue;
+            } else {
+                self.reloadScripts(script_path.path_string); // Warning(HM) recursion
+            }
+        }
+    } else {
+        unreachable("Script Engine fatal error failed to reload scripts!!");
+    }
+}
+
+// note this function will run constantly, to see if any script file was modified
+// if so it will reload the script.
+fn void ScriptEngine.fileWatcher(&self) @dynamic
+{
+    if(main::developer.getBool() == false) return; // only in developer mode
+    
+    if(main::gpGame.time_ms >= self.next_check_time)
+    {
+        self.next_check_time = main::gpGame.time_ms + 1000; // check every second
+    } 
+    else { return; }
+
+    if(self.scripts.len())
+    {
+        foreach(script : self.scripts)
+        { 
+            CLong file_mod_time = fs::getFileModTime(script.path);
+            bool changed = file_mod_time != script.modtime;
+            if(changed) // reload script
+            {
+                script.reloadData(file_mod_time); 
+            }
+        };
+    }
+}
+
+fn void ScriptEngine.createScript(&this, Path script_path) @dynamic
+{   
+    Script* new_script = mem::new(Script);
+    new_script.init(script_path.path_string);
+    new_script.linkTo(this);
+    this.scripts.push(new_script);
+}
+
+fn Script* ScriptEngine.getScript(&self, String name) @dynamic
+{
+    foreach(script : self.scripts) 
+    { 
+        if(script.name == name) return script;
+    };
+
+    return null;
+}
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+//                          LUA SCRIPT
+//
+//////////////////////////////////////////////////////////////////////////////
+module engine::sys::script_engine::scpt @if($feature(LUA_ENABLE));
+import thirdparty::scripting::lua;
+
+import std::io;
+import std::collections::list;
+import engine::filesystem::fs;
+import thirdparty::wren;
+import engine::logging::log;
+import thirdparty::raylib5::rl;
+import engine::misc; // misc code
+import game::main;
+import engine::sys::script_engine::event; // import the event system
+import game::actors::ent;
+//
+
+alias ScriptList = List{Script*};
+
+const SCRIPT_FOLDER_PATH = "scripts/lua/";
+const SCRIPT_MAIN_MODULE_NAME = "main";
+//
+const SCRIPT_LANGUAGE = "LUA";
+//
+const SCRIPT_LANG_VERSION = lua::RELEASE;
+//
+const SCRIPT_FILE_EXTENSION = ".scpt";
+const MAX_VIRTUAL_MACHINES = 1; // for now only one virtual machine is supported
+
+// NOTE(HM) in wren a Module is a file with wren code inside 
+// we call them scripts instead;
+struct Script 
+{
+    String path;
+    String name;
+    ZString data;
+    CLong modtime; // to see if the file was modified
+    LUAState* context; // lua context
+    ScriptEngine* sengine;
+}
+
+<*
+    Initialize a new Script
+    @param name : "name of the script, no extension"
+    @param [&inout] sengine : "the script system/manager"
+*>
+fn void Script.init(&self, String path)
+{
+    self.path = path.tcopy();
+    self.name = fs::getFileNameWithoutExt(self.path).tcopy();
+    self.data = fs::fileLoadEntireText(self.path).zstr_tcopy();
+    self.modtime = fs::getFileModTime(self.path);
+
+    self.context = lua::newstate();
+    if(self.context) {
+        // init the lua libraries (math, string, table, etc) for this context
+        self.context.openlibs();
+    }
+}
+
+fn bool Script.isValid() 
+{
+    return  self.isInitialized() && 
+            self.path.len >= 4 &&
+            self.name.len >= 3 &&
+            self.modtime >= (CLong)1; // to see if the file was modified
+}
+
+fn void Script.deinit(&self)
+{
+    if(self.sengine) self.sengine = null;
+    if(self.isRunning()) self.stop();
+    mem::free(self);
+}
+
+<*
+    Run this script
+    @param [in] this : "the script being run"
+    @require this.sengine != null
+*>
+fn void Script.run(&this) @inline
+{
+    //assert(this.sengine != null);
+    if(this.isValid() == false) {
+        log::warning(FILE, "Cannot run invalid script! '%s' ", (this.name.len) ? this.name : "<unnamed>");
+        $if $feature(_DEBUG):
+            @unreachable("Cannot run invalid script! '%s' ", (this.name.len) ? this.name : "<unnamed>");
+        $else
+            return;
+        $endif
+    }
+
+    @todo();
+}
+
+fn bool Script.isInitialized() @inline
+{
+    @todo();
+
+    return false;
+}
+
+fn bool Script.isRunning() @inline 
+{
+    if(self.isInitialized() == false) return false;
+
+    @todo();
+
+    return false;
+}
+
+fn void Script.reloadData(CLong new_mod_time) 
+{
+    self.data    = fs::fileLoadEntireText(self.path).zstr_tcopy();
+    self.modtime = new_mod_time;
+    log::info(Where.FILE, "Reloaded script %s", self.name);
+}
+
+<*
+ @param [&in] _sengine : "pointer to the script engine"
+*>
+fn void Script.linkTo(&self, ScriptEngine* _sengine) @inline
+{
+    self.sengine = _sengine;
+}
+
+fn void Script.stop(&self) 
+{
+    if(!self.isRunning()) return;
+    @todo();
+}
+
+interface IScriptEngine
+{
+    fn void	init();
+    fn void	deinit();
+    fn void update();
+    fn void createScript(Path script_path);
+    fn Script* getScript(String name);
+    fn void registerScripts(String path);
+    fn void reloadScripts(String script_folder);
+    fn void fileWatcher();
+    fn void callMainScript() @optional;
+}
+
+struct ScriptEngine (IScriptEngine)
+{
+    ScriptList scripts;
+    int next_check_time; // time to check for file changes
+    LUADebug* debug; // lua debug context
+}
+
+<*
+    Initialize the Script Engine
+    @param [&in] game : "a pointer to the game struct, it is a global, so I don't really need this but i'm doing it this way, to simply things"
+*>
+fn void ScriptEngine.init(&self) @dynamic
+{
+    log::info(FILE, "- Language(%s) - Version(%s)", SCRIPT_LANGUAGE, SCRIPT_LANG_VERSION);
+    log::info(FILE, "-----------Registering LUA globals -----------------\n");
+    lua::registerGameLuaGlobals();
+    log::info(FILE, "------------------ done ---------------------\n");
+
+    log::info(FILE, "-----------Registering Scripts -----------------\n");
+    self.registerScripts(main::gpGame.app_base_folder.tconcat(SCRIPT_FOLDER_PATH));
+    log::info(FILE, "%d scripts registered.", self.scripts.len());
+    log::info(FILE, "------------------ done ---------------------\n");
+    self.debug = mem::new(LUADebug);
+    log::info(FILE, "Script Engine initialized!");
+    log::info(FILE, "---------------------------------------------\n");
+}
+
+fn void ScriptEngine.deinit(&self) @dynamic
+{
+    if(self.scripts.len()) foreach(script : self.scripts) { script.deinit(); };
+
+    if(self.debug != null) {
+        mem::free(self.debug);
+        self.debug = null;
+    }
+    io::printfn("ScriptEngine deinitialized");
+}
+
+fn void ScriptEngine.update(&self) @dynamic
+{
+    /*lua::updateGlobalType("g_timeSc", any_make(&local_game.time_sec, float.typeid));
+    lua::updateGlobalType("g_timeMs", any_make(&gpGame.time_ms, int.typeid));
+    lua::updateGlobalType("g_deltaTime", any_make(&gpGame.dt, float.typeid));*/
+    lua::updateGameLuaGlobals();
+    self.fileWatcher();
+}
+
+fn void ScriptEngine.registerScripts(&self, String script_folder) @dynamic
+{
+    FilePathList scriptlist = fs::loadDirectoryFiles(script_folder);
+    defer if(scriptlist.count) fs::unloadDirectoryFiles(scriptlist);
+
+    if(scriptlist.count >= 1) 
+    {
+        for(int i = 0; i < scriptlist.count; i++) 
+        {
+            Path? script_path = fs::newPath(scriptlist.paths[i].str_view());
+            if(catch excuse = script_path) 
+            {
+                log::warning(Where.FILE,"Failed to load script %s inside %s with excuse: %s", 
+                                fs::getFileNameWithoutExt(script_path.path_string), SCRIPT_FOLDER_PATH, excuse)!!;
+                continue;
+            }
+
+            if(path::is_file(script_path)) {
+                self.createScript(script_path);
+            } else {
+                self.registerScripts(script_path.path_string); // Warning(HM) recursion
+            }
+        }
+    } else {
+        unreachable("Script Engine fatal error failed to register scripts!!");
+    }
+}
+
+fn void ScriptEngine.reloadScripts(&self, String script_folder) @dynamic
+{
+    FilePathList scriptlist = fs::loadDirectoryFiles(script_folder);
+    defer if(scriptlist.count) fs::unloadDirectoryFiles(scriptlist);
+
+    if(scriptlist.count >= 1) 
+    {
+        for(int i = 0; i < scriptlist.count; i++) 
+        {
+            Path? script_path = fs::newPath(scriptlist.paths[i].str_view());
+            if(catch excuse = script_path) 
+            {
+                log::warning(Where.FILE,"Failed to reload script %s inside %s with excuse: %s", 
+                                fs::getFileNameWithoutExt(script_path.path_string), SCRIPT_FOLDER_PATH, excuse)!!;
+                continue;
+            }
+
+            if(path::is_file(script_path)) 
+            {
+                String file_path = script_path.path_string;
+                Script* script = self.getScript(fs::getFileNameWithoutExt(file_path));
+                if(script) 
+                {
+                    CLong file_mod_time = fs::getFileModTime(file_path); //fs::getFileSize(script_path.path_string);
+                    bool mismatch = file_mod_time != script.modtime;
+                    if(mismatch) // reload script
+                    {
+                        script.data = fs::fileLoadEntireText(script_path.path_string).zstr_tcopy();
+                        script.modtime = file_mod_time;
+                        log::info(Where.FILE, "Reloaded script %s", script.name);
+                    }
+                    continue;
+                }
+                continue;
+            } else {
+                self.reloadScripts(script_path.path_string); // Warning(HM) recursion
+            }
+        }
+    } else {
+        unreachable("Script Engine fatal error failed to reload scripts!!");
+    }
+}
+
+// note this function will run constantly, to see if any script file was modified
+// if so it will reload the script.
+fn void ScriptEngine.fileWatcher(&self) @dynamic
+{
+    if(main::developer.getBool() == false) return; // only in developer mode
+    
+    if(main::gpGame.time_ms >= self.next_check_time)
+    {
+        self.next_check_time = main::gpGame.time_ms + 1000; // check every second
+    } 
+    else { return; }
+
+    if(self.scripts.len())
+    {
+        foreach(script : self.scripts)
+        { 
+            CLong file_mod_time = fs::getFileModTime(script.path);
+            bool changed = file_mod_time != script.modtime;
+            if(changed) // reload script
+            {
+                script.reloadData(file_mod_time); 
+            }
+        };
+    }
+}
+
+fn void ScriptEngine.createScript(&this, Path script_path) @dynamic
+{   
+    Script* new_script = mem::new(Script);
+    new_script.init(script_path.path_string);
+    new_script.linkTo(this);
+    this.scripts.push(new_script);
+}
+
+fn Script* ScriptEngine.getScript(&self, String name) @dynamic
+{
+    foreach(script : self.scripts) 
+    { 
+        if(script.name == name) return script;
+    };
+
+    return null;
+}
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+//                          UMKA SCRIPT
+//
+//////////////////////////////////////////////////////////////////////////////
+
+module engine::sys::script_engine::scpt @if($feature(UMKA_ENABLE));
+
+import std::io;
+import std::collections::list;
+import engine::filesystem::fs;
+import engine::logging::log;
+import thirdparty::raylib5::rl; // for FilePathList
+import thirdparty::scripting::umka;
+import engine::misc; // misc code
+import game::main;
+import engine::sys::script_engine::event; // import the event system
+//import game::actors::ent;
+//
+
+alias ScriptList = List{Script*};
+
+const SCRIPT_FOLDER_PATH      = "scripts/umka/";
+const SCRIPT_MAIN_MODULE_NAME = "main";
+const SCRIPT_LANGUAGE         = "UMKA";
+const SCRIPT_LANG_VERSION     = umka::RELEASE;
+const SCRIPT_FILE_EXTENSION   = ".scpt";
+
+struct ScriptFlags @local
+{
+    bool inited; // initialized
+    bool compiled;
+}
+
+// each script is container for a language context/environment
+struct Script 
+{
+    String path;    // the path to the script module/file
+    String name;    // the name of the script file
+    ZString data;   // the full text data of the module/file 
+    CLong modtime;  // file modification time, to see if the file was modified
+    Umka* context;  // current script being handled
+    ScriptFlags fl; // flags
+    ScriptEngine* sengine; // pointer to the main Script System if necessary
+}
+
+
+fn void Script.init(&self, String path, int argc = 0, ZString* argv = null)
+{
+    self.path = path.tcopy();
+    self.name = fs::getFileNameWithoutExt(self.path).tcopy();
+    self.data = fs::fileLoadEntireText(self.path).zstr_tcopy();
+    self.modtime = fs::getFileModTime(self.path);
+
+    // create umka context
+    self.context = umka::alloc();
+    // init/setup the script data (is not compiled or run at this time)
+    UmkaScriptInitData inidata =
+    {
+        .fileName = self.name.zstr_tcopy(),
+        .sourceString = self.data, 
+        .stackSize = 1024*1024, // 2MB (amount of stack memory for the context)
+        .reserved = null, // unused 
+        .argc = argc, // script flags count passed during game initialization if any...
+        .argv = argv, // script flags cmds passed during game initialization if any...
+        .fileSystemEnabled = false, // todo find whats this...
+        .implLibsEnabled = false // todo find whats this...
+    };
+    if(catch excuse = self.context.init(&inidata)) {
+        log::info(FILE, "failed to initialize umka script: %s with excuse: %s!!", self.name, excuse);
+    } else {
+        self.fl.inited = true;
+    }
+}
+
+fn bool Script.isValid(&self) @inline
+{
+    return  self.hasContext() && self.fl.inited && 
+            self.path.len >= 4 &&
+            self.name.len >= 3 &&
+            self.modtime >= (CLong)1; // to see if the file was modified
+}
+
+macro Script.hasContext(&self) => self.context != null;
+macro Script.freeContext(&self) => self.context.free();
+
+fn void Script.deinit(&self)
+{
+    if(self.sengine) self.sengine = null;
+    // do Umka de-initialization
+    if(self.hasContext()) self.freeContext();
+    // free the script container itself
+    //mem::free(self); this is done by the script engine now!!
+}
+
+fn void Script.compile(&this) @inline
+{
+    if(this.isValid() == false) {
+        log::warning(FILE, "Cannot compile invalid script! '%s' ", (this.name.len) ? this.name : "<unnamed>");
+        $if $feature(_DEBUG):
+            unreachable("Cannot compile invalid script! '%s' ", (this.name.len) ? this.name : "<unnamed>");
+        $else
+            return;
+        $endif
+    }
+
+    if (this.context.compile() == false) {
+        UmkaError *error = this.context.getError();
+        log::warning(FILE, "script failed to compile: %s (%d, %d): %s\n", error.fileName, error.line, error.pos, error.msg);
+    } else {
+        this.fl.compiled = true;
+    }
+}
+
+fn void Script.run(&this) @inline
+{
+    if(this.fl.compiled == false) {
+        log::warning(FILE, "Trying to run a non compiled script! '%s' ", (this.name.len) ? this.name : "<unnamed>");
+        $if $feature(_DEBUG):
+            unreachable("Trying to run a non compiled script! '%s' ", (this.name.len) ? this.name : "<unnamed>");
+        $else
+            return;
+        $endif
+    }
+
+    assert(this.hasContext());
+    int result = this.context.run();
+    if (result == -1) {
+        UmkaError *error = this.context.getError();
+        log::warning(FILE, "script failed to run: %s (%d, %d): %s\n", error.fileName, error.line, error.pos, error.msg);
+    }
+}
+
+fn void Script.compile_run(&this) @inline
+{
+    this.compile();
+    this.run();
+}
+
+macro Script.isRunning(&self) => (self.hasContext()) ? self.context.alive() : false;
+
+fn void Script.reloadData(&self, CLong new_mod_time) 
+{
+    self.data    = fs::fileLoadEntireText(self.path).zstr_tcopy();
+    self.modtime = new_mod_time;
+    log::info(Where.FILE, "Reloaded script %s", self.name);
+}
+
+<*
+ @param [&in] _sengine : "pointer to the script engine"
+*>
+fn void Script.linkTo(&self, ScriptEngine* _sengine) @inline
+{
+    self.sengine = _sengine;
+}
+
+interface IScriptEngine
+{
+    fn void	init();
+    fn void	deinit();
+    fn void update();
+    fn void createScript(Path script_path);
+    fn void removeScript(String name) @optional;
+    fn Script* getScript(String name);
+    fn void registerScripts(String path);
+    fn void reloadScripts(String script_folder);
+    fn void fileWatcher();
+    fn void callMainScript() @optional;
+}
+
+struct ScriptEngine (IScriptEngine)
+{
+    ScriptList scripts;
+    int next_check_time; // time to check for file changes
+}
+
+fn void ScriptEngine.init(&self) @dynamic
+{
+    log::info(FILE, "- Language(%s) - Version(%s)", SCRIPT_LANGUAGE, SCRIPT_LANG_VERSION);
+    log::info(FILE, "-----------Registering Scripts -----------------\n");
+        self.registerScripts(main::gpGame.app_base_folder.tconcat(SCRIPT_FOLDER_PATH));
+        usz scpt_count = self.scripts.len();
+        log::info(FILE, "\t- '%d' %s registered.", scpt_count, (scpt_count > 1) ? "scripts" : "script");
+    log::info(FILE, "Script Engine initialized!");
+    log::info(FILE, "---------------------------------------------\n");
+}
+
+fn void ScriptEngine.deinit(&self) @dynamic
+{
+    if(self.scripts.len()) foreach(script : self.scripts) { 
+        script.deinit();
+        mem::free(script);
+        script = null;
+    };
+    self.scripts.clear();
+    io::printfn("ScriptEngine deinitialized");
+}
+
+fn void ScriptEngine.update(&self) @dynamic
+{
+    self.fileWatcher();
+}
+
+fn void ScriptEngine.registerScripts(&self, String script_folder) @dynamic
+{
+    FilePathList scriptlist = fs::loadDirectoryFiles(script_folder);
+    defer if(scriptlist.count) fs::unloadDirectoryFiles(scriptlist);
+
+    if(scriptlist.count >= 1) 
+    {
+        for(int i = 0; i < scriptlist.count; i++) 
+        {
+            Path? script_path = fs::newPath(scriptlist.paths[i].str_view());
+            if(catch excuse = script_path) 
+            {
+                log::warning(Where.FILE,"Failed to load script %s inside %s with excuse: %s", 
+                                fs::getFileNameWithoutExt(script_path.path_string), SCRIPT_FOLDER_PATH, excuse)!!;
+                continue;
+            }
+
+            if(path::is_file(script_path)) {
+                self.createScript(script_path);
+            } else {
+                self.registerScripts(script_path.path_string); // Warning(HM) recursion
+            }
+        }
+    } else {
+        unreachable("Script Engine fatal error failed to register scripts!!");
+    }
+}
+
+fn void ScriptEngine.reloadScripts(&self, String script_folder) @dynamic
+{
+    FilePathList scriptlist = fs::loadDirectoryFiles(script_folder);
+    defer if(scriptlist.count) fs::unloadDirectoryFiles(scriptlist);
+
+    if(scriptlist.count >= 1) 
+    {
+        for(int i = 0; i < scriptlist.count; i++) 
+        {
+            Path? script_path = fs::newPath(scriptlist.paths[i].str_view());
+            if(catch excuse = script_path) 
+            {
+                log::warning(Where.FILE,"Failed to reload script %s inside %s with excuse: %s", 
+                                fs::getFileNameWithoutExt(script_path.path_string), SCRIPT_FOLDER_PATH, excuse)!!;
+                continue;
+            }
+
+            if(path::is_file(script_path)) 
+            {
+                String file_path = script_path.path_string;
+                Script* script = self.getScript(fs::getFileNameWithoutExt(file_path));
+                if(script) 
+                {
+                    CLong file_mod_time = fs::getFileModTime(file_path); //fs::getFileSize(script_path.path_string);
+                    bool mismatch = file_mod_time != script.modtime;
+                    if(mismatch) // reload script
+                    {
+                        script.data = fs::fileLoadEntireText(script_path.path_string).zstr_tcopy();
+                        script.modtime = file_mod_time;
+                        log::info(Where.FILE, "Reloaded script %s", script.name);
+                    }
+                    continue;
+                }
+                continue;
+            } else {
+                self.reloadScripts(script_path.path_string); // Warning(HM) recursion
+            }
+        }
+    } else {
+        unreachable("Script Engine fatal error failed to reload scripts!!");
+    }
+}
+
+fn void ScriptEngine.removeScript(&self, String name) @dynamic 
+{
+    foreach(script : self.scripts)
+    { 
+        if(script.name == name)
+        {
+            script.deinit();
+            mem::free(script);
+            self.scripts.remove_item(script);
+            return;
+        }
+    };
+}
+
+// note this function will run constantly, to see if any script file was modified
+// if so it will reload the script.
+fn void ScriptEngine.fileWatcher(&self) @dynamic
+{
+    if(main::developer.getBool() == false) return; // only in developer mode
+    
+    if(main::gpGame.time_ms >= self.next_check_time)
+    {
+        self.next_check_time = main::gpGame.time_ms + 1000; // check every second
+    } 
+    else { return; }
+
+    if(self.scripts.len())
+    {
+        foreach(script : self.scripts)
+        { 
+            CLong file_mod_time = fs::getFileModTime(script.path);
+            bool changed = file_mod_time != script.modtime;
+            if(changed) // reload script
+            {
+                script.reloadData(file_mod_time); 
+            }
+        };
+    }
+}
+
+fn void ScriptEngine.createScript(&this, Path script_path) @dynamic
+{   
+    Script* new_script = mem::new(Script);
+    new_script.init(script_path.path_string);
+    new_script.linkTo(this);
+    this.scripts.push(new_script);
+}
+
+fn Script* ScriptEngine.getScript(&self, String name) @dynamic
+{
+    foreach(script : self.scripts) 
+    { 
+        if(script.name == name) return script;
+    };
+
+    return null;
 }

@@ -516,7 +516,7 @@ struct AutomationEventList
 
 // Trace log level
 // NOTE: Organized by priority level
-enum TraceLogLevel : int
+enum TraceLogLevel : const inline int
 {
     ALL,            // Display all logs (0)
     TRACE,          // Trace logging, intended for internal use only
@@ -881,6 +881,7 @@ alias LoadFileTextCallback = fn char*(char* fileName);                          
 alias SaveFileTextCallback = fn bool(char* fileName, char* text);                            // FileIO: Save text data
 
 // Window-related functions
+alias MonitorIndex @local = int;
 fn void initWindow(int width, int height, char* title) @cname("InitWindow");              // Initialize window and OpenGL context
 fn void closeWindow() @cname("CloseWindow");                                              // Close window and unload OpenGL context
 fn bool windowShouldClose() @cname("WindowShouldClose");                                  // Check if KEY_ESCAPE pressed or Close icon pressed
@@ -914,13 +915,13 @@ fn int getScreenHeight() @cname("GetScreenHeight");                             
 fn int getRenderWidth() @cname("GetRenderWidth");                                         // Get current render width (it considers HiDPI)
 fn int getRenderHeight() @cname("GetRenderHeight");                                       // Get current render height (it considers HiDPI)
 fn int getMonitorCount() @cname("GetMonitorCount");                                       // Get number of connected monitors
-fn int getCurrentMonitor() @cname("GetCurrentMonitor");                                   // Get current connected monitor
-fn Vector2 getMonitorPosition(int monitor) @cname("GetMonitorPosition");                  // Get specified monitor position
-fn int getMonitorWidth(int monitor) @cname("GetMonitorWidth");                            // Get specified monitor width (max available by monitor)
-fn int getMonitorHeight(int monitor) @cname("GetMonitorHeight");                          // Get specified monitor height (max available by monitor)
-fn int getMonitorPhysicalWidth(int monitor) @cname("GetMonitorPhysicalWidth");            // Get specified monitor physical width in millimetres
-fn int getMonitorPhysicalHeight(int monitor) @cname("GetMonitorPhysicalHeight");          // Get specified monitor physical height in millimetres
-fn int getMonitorRefreshRate(int monitor) @cname("GetMonitorRefreshRate");                // Get specified monitor refresh rate
+fn MonitorIndex getCurrentMonitor() @cname("GetCurrentMonitor");                                   // Get current connected monitor
+fn Vector2 getMonitorPosition(MonitorIndex monitor) @cname("GetMonitorPosition");                  // Get specified monitor position
+fn int getMonitorWidth(MonitorIndex monitor) @cname("GetMonitorWidth");                            // Get specified monitor width (max available by monitor)
+fn int getMonitorHeight(MonitorIndex monitor) @cname("GetMonitorHeight");                          // Get specified monitor height (max available by monitor)
+fn int getMonitorPhysicalWidth(MonitorIndex monitor) @cname("GetMonitorPhysicalWidth");            // Get specified monitor physical width in millimetres
+fn int getMonitorPhysicalHeight(MonitorIndex monitor) @cname("GetMonitorPhysicalHeight");          // Get specified monitor physical height in millimetres
+fn int getMonitorRefreshRate(MonitorIndex monitor) @cname("GetMonitorRefreshRate");                // Get specified monitor refresh rate
 fn Vector2 getWindowPosition() @cname("GetWindowPosition");                               // Get window position XY on monitor
 //
 fn Vector2 getWindowScaleDPI() @cname("GetWindowScaleDPI");                               // Get window scale DPI factor ex: (1.0f, 1.0f) for 100% scale, (2.0f, 2.0f) for 200% scale, etc.
@@ -930,7 +931,7 @@ Note(HM) GetWindowScaleDPI() function is only useful, if we want to manage DPI s
 If FLAG_WINDOW_HIGHDPI is enabled, that's up to the backend to automatically rescale the size of the window's content 
 to match the DPI scale of the display.
 */
-fn ZString getMonitorName(int monitor) @cname("GetMonitorName");                          // Get the human-readable, UTF-8 encoded name of the primary monitor
+fn ZString getMonitorName(MonitorIndex monitor) @cname("GetMonitorName");                          // Get the human-readable, UTF-8 encoded name of the primary monitor
 fn void setClipboardText(ZString text) @cname("SetClipboardText");                        // Set clipboard text content
 fn ZString getClipboardText() @cname("GetClipboardText");                                 // Get clipboard text content
 fn Image getClipboardImage() @cname("GetClipboardImage");                                 // Get clipboard image content

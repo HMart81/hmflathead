@@ -199,9 +199,27 @@ faultdef INIT_FAILED;
 extern fn Umka alloc() @cname("umkaAlloc");
 extern fn bool Umka._init(&self, ZString fileName, ZString sourceString, int stackSize, void *reserved, int argc, ZString *argv, bool fileSystemEnabled, bool implLibsEnabled, WarningCallback warningCallback = &umkaWarning) @cname("umkaInit");
 
-fn bool? Umka.init(&self, ZString fileName, ZString sourceString, int stackSize, void *reserved, int argc, ZString *argv, bool fileSystemEnabled, bool implLibsEnabled, WarningCallback warningCallback = &umkaWarning) 
+struct UmkaScriptInitData 
 {
-  bool ok = self._init(fileName, sourceString, stackSize, reserved, argc, argv, fileSystemEnabled, implLibsEnabled);
+    ZString fileName; 
+    ZString sourceString; 
+    int stackSize; 
+    void *reserved; 
+    int argc; 
+    ZString *argv; 
+    bool fileSystemEnabled; 
+    bool implLibsEnabled;
+}
+
+fn bool? Umka.init(&self, UmkaScriptInitData* inidata) 
+{
+  bool ok = self._init(inidata.fileName, 
+                       inidata.sourceString, 
+                       inidata.stackSize, 
+                       inidata.reserved, 
+                       inidata.argc, inidata.argv, 
+                       inidata.fileSystemEnabled, 
+                       inidata.implLibsEnabled);
   if(ok) return ok; 
 
   return INIT_FAILED?;

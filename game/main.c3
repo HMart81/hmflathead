@@ -80,7 +80,7 @@ import thirdparty::scripting::umka; // umka script
 
 // #region Constants
 const TRACY_ENABLE_ZONE @if($feature(TRACY_ENABLE)) = 1;
-
+const SCRIPT_ENGINE = true; // use the new script engine
 /*
    ===== Game Scale Units =====
    
@@ -326,11 +326,8 @@ struct Game (SaveSystemInterface) @local
     Texture2D mu_font_atlas @if($feature(MICROUI_ENABLE)); // microui font texture
 
     // script engine
-    ScriptEngine script_eng @if($feature(WREN_ENABLE));
+    ScriptEngine script_eng;
     //
-    // angel script engine
-    ContextState script_result @if($feature(ANGEL_ENABLE)); // current script state
-    ScriptEngine* asEngine @if($feature(ANGEL_ENABLE)); // angel script engine
     // mujs script engine
     State* mujs_state @if($feature(MUJS_ENABLE)); // mujs context
     //
@@ -376,8 +373,8 @@ struct Game (SaveSystemInterface) @local
     
     struct screen 
     {
-        int id; // monitor id (index + 1)
         int index; // monitor index
+        int id; // monitor id (index + 1)
         int  w;
         int  h;
         float width_in_meters;
@@ -1106,7 +1103,9 @@ fn void gameUpdate() @local
         // make game run at lower rate in case window loses focus
         int runningHz = rl::getFPS();
         int max_fps = local_game.max_fps;
-        if(max_fps <= 0) max_fps = math::clamp(local_game.max_fps, MIN_DISPLAY_HZ, local_game.screen.displayHz);
+        if(max_fps <= 0) {
+            max_fps = math::clamp(local_game.max_fps, MIN_DISPLAY_HZ, local_game.screen.displayHz);
+        }
         int targetHz = (local_game.fps_unlocked && max_fps > 0) ? max_fps : local_game.screen.displayHz;
         if(rl::isWindowFocused())
         {
@@ -1124,18 +1123,9 @@ fn void gameUpdate() @local
                 local_game.pause_all_music = 1;
             //$endif
         }
+        //////////
         
         gameHandleGeneralControls();
-
-        $if $feature(LUA_ENABLE):
-            // todo run this on a seperate thread?
-            //bool status = local_game.lua_state.dofile(local_game.app_base_folder.tconcat("scripts/main.lua"));
-            //if(lua::check(local_game.lua_state, (int)status))
-            //{
-                // If no errors, we can run the loaded chunk
-                //lua::runModulefunction("main", "update", 0);
-            //}
-        $endif
 
         if(editor.getBool() && local_game.editor.isOpened()) {
             local_game.editor.update();
@@ -1148,8 +1138,8 @@ fn void gameUpdate() @local
         }
         //
 
-$if $feature(WREN_ENABLE) &&& !$feature(ANGEL_ENABLE):
-        local_game.script_eng.fileWatcher();
+$if $defined(SCRIPT_ENGINE):
+        local_game.script_eng.update();
 $endif
         
         // updates all fullscreen menus state like the main menu
@@ -2103,26 +2093,26 @@ $endif
 
     // change raylib log level
     // NOTE(HM) this will override the default log level set before in pre_InitFunc()
-    if(settings_file.getBool("rl_log")! == true)
+    if(settings_file.getBool("log")! == true)
     {
-        String log_mode = settings_file.getString("rl_log_mode");
+        String log_mode = settings_file.getString("log_level");
         switch(log_mode)
         {
-            case "info": rl::setTraceLogLevel(rl::TraceLogLevel.INFO);
-            case "warn": rl::setTraceLogLevel(rl::TraceLogLevel.WARNING);
-            case "error": rl::setTraceLogLevel(rl::TraceLogLevel.ERROR);
-            case "fatal": rl::setTraceLogLevel(rl::TraceLogLevel.FATAL);
+            case "info": log::setLogLevel(TraceLogLevel.INFO);
+            case "warn": log::setLogLevel(TraceLogLevel.WARNING);
+            case "error": log::setLogLevel(TraceLogLevel.ERROR);
+            case "fatal": log::setLogLevel(TraceLogLevel.FATAL);
             default:
                 // NOTE(HM) default is set to INFO
-                rl::setTraceLogLevel(rl::TraceLogLevel.WARNING);
-                log::warning(FILE, "Unknown Raylib logging option '%s' setting to default WARNING level.", log_mode);
+                log::setLogLevel(TraceLogLevel.WARNING);
+                log::warning(FILE, "Unknown logging option '%s' setting to default WARNING level.", log_mode);
         }
     }
-    else if(settings_file.getBool("rl_Log")! == false)
+    else if(settings_file.getBool("log")! == false)
     {
         // NOTE(HM) disable raylib logging
-        rl::setTraceLogLevel(rl::TraceLogLevel.NONE);
-        log::info(FILE, "Raylib logging disabled.");
+        log::setLogLevel(TraceLogLevel.NONE);
+        log::info(FILE, "Logging disabled.");
     }
 
     // log the amount of screen resolutions and their Mode
@@ -2382,21 +2372,20 @@ $endif
                 displayIndex = 0;
             }
 
-            rl::setWindowMonitor(displayIndex);
             local_game.screen.index = displayIndex;
-            local_game.screen.id = ++local_game.screen.index;
+            local_game.screen.id    = displayIndex + 1;
+            rl::setWindowMonitor(local_game.screen.index);
         }
     }
     
-    log::info(FILE,  "\tWindow put on monitor id: '%d'", local_game.screen.id);
+    log::info(FILE,  "\tWindow put on monitor id: '%d' name: '%s", local_game.screen.id, rl::getMonitorName(local_game.screen.index));
     
     // @Todo 
-    // support unlocked framerates? 
     // Support user setting frame rate on main menu?
-    
     local_game.screen.displayHz = rl::getMonitorRefreshRate(local_game.screen.index);
-    local_game.fps_unlocked = r_fps_unlocked.getBool();
-    local_game.max_fps = r_max_fps.getInt();
+    local_game.fps_unlocked     = r_fps_unlocked.getBool();
+    local_game.max_fps          = r_max_fps.getInt();
+
     if(/*rl::isWindowFullscreen() &&*/rl::isWindowFocused()) 
     {
         if(local_game.fps_unlocked && local_game.max_fps > 0)
@@ -2408,9 +2397,9 @@ $endif
                 local_game.max_fps = MAX_DISPLAY_HZ; // to prevent extreme values
             }
             rl::setTargetFPS(local_game.max_fps);
-            log::info(FILE,  "\tGame set to unlocked framerate with max of %shz.", local_game.max_fps);
+            log::info(FILE,  "\tGame set to unlocked framerate with a max of %shz.", local_game.max_fps);
             if(local_game.max_fps > local_game.screen.displayHz) {
-                log::info(FILE,  "\tNote: max fps is higher than monitor hz of %shz, tearing may occur!", local_game.screen.displayHz);
+                log::info(FILE,  "\tNote: max fps is higher than monitor speed of %s hz, tearing may occur!", local_game.screen.displayHz);
                 log::info(FILE,  "\t      consider enabling vsync or lowering max fps using fps limiter in the main menu.");
                 log::info(FILE,  "\t      (you can also set a custom max fps value using r_max_fps in the ini file).");
                 log::info(FILE,  "\t      (or set 'r_fps_unlocked' to false in the ini file, to use current set monitor hz)");
@@ -2418,11 +2407,11 @@ $endif
                 log::warning(FILE,  "\t      (running the game at a rate above display rate, is wastefull the monitor cannot display those frames to you).");
             }
         }
-        else if(!local_game.fps_unlocked || local_game.fps_unlocked && local_game.max_fps <= 0)
+        else //if((!local_game.fps_unlocked || local_game.fps_unlocked) && local_game.max_fps <= 0)
         {
             // set the target fps to monitor set hz (framerate)
             rl::setTargetFPS(local_game.screen.displayHz);
-            log::info(FILE,  "\tGame set to display update rate of %shz.", local_game.screen.displayHz);
+            log::info(FILE,  "\tSetting game to display update rate of %shz.", local_game.screen.displayHz);
         }
     } 
     else if(local_game.screen.state.window || local_game.screen.state.borderless) // and lost focus
@@ -2580,49 +2569,15 @@ $endif
     log::info(FILE, "---------------------------------------------\n");
 // #endregion Asset manager
 
-$if $feature(WREN_ENABLE) &&& !$feature(ANGEL_ENABLE):
-    log::info(FILE, "Initializing Script Engine: %s (%s)", wren::VERSION_STRING, "WREN");
+$if $defined(SCRIPT_ENGINE):
+    log::info(FILE, "Initializing Script Engine:");
     log::info(FILE, "---------------------------------------------");
     // init the game editor defaults
     local_game.script_eng.init();
-    local_game.script_eng.registerScripts(local_game.app_base_folder.tconcat(scpt::SCRIPT_FOLDER_NAME));
-    Script* main = local_game.script_eng.getScript("main");
-    if(main != null) {
-        main.run();
+    if(Script* main = local_game.script_eng.getScript("main")) {
+        main.compile_run();
     }
     log::info(FILE, "---------------------------------------------\n");
-$endif
-
-$if $feature(ANGEL_ENABLE) &&& !$feature(WREN_ENABLE):
-    // Todo(HM) modify the script engine to use angelScript instead of wren
-    log::info(FILE, "Initializing Script Engine: %s (%s)", angel::VERSION_STRING, "ANGELSCRIPT");
-    log::info(FILE, "---------------------------------------------");
-    local_game.asEngine = angel::createEngine();
-    ScriptEngine* scpt_engine = local_game.asEngine;
-    if(scpt_engine == null) {
-        log::fatal(FILE, "Failed to create AngelScript engine!");
-        //return ANGELSCRIPT_INIT_FAILED?;
-    } else {
-        log::info(FILE, "AngelScript engine created successfully.");
-        local_game.script_result = scpt_engine.setMessageCallback((FunctionCallback)&scpt::messageCallback);
-	    local_game.script_result = scpt_engine.registerGlobalFunction("void print()", (FunctionCallback)&scpt::asPrint);
-
-        log::info(FILE, "Initialization of Angel Script Engine done;");
-
-        ScriptFunction *func = scpt_engine.getGlobalFunctionByDecl("void print()");
-        ScriptContext *ctx = scpt_engine.createContext();
-        ctx.run(func);
-        /*ctx.prepare(func);
-        if(ctx.execute(ctx) != angel::EXECUTION_FINISHED)
-        {
-            io::printn("Something wen't wrong with the execution.");
-        }
-        else
-        {
-            io::printn("The script was executed successfully.");
-        }*/
-        ctx.release();
-    }
 $endif
 
     // test mujs initialization
@@ -2731,11 +2686,23 @@ $if $feature(LUA_ENABLE):
 $endif
 
 $if $feature(UMKA_ENABLE):
+    /*
     Umka* umkaContext = umka::alloc();
     String umScriptMain = local_game.app_base_folder.tconcat("scripts/main.um");
     String umfiledata = fs::fileLoadEntireText(umScriptMain);
     //if(catch excuse = umkaContext.init("main.um", umfiledata.zstr_tcopy(), 1024*1024, null, 0, null, false, false)) {
-    if(catch excuse = umkaContext.init(umScriptMain.zstr_tcopy(), null, 1024*1024, null, 0, null, false, false)) {
+     UmkaScriptInitData inidata =
+    {
+        .fileName = umScriptMain.zstr_tcopy(),
+        .sourceString = null, 
+        .stackSize = 1024*1024, // 2MB (amount of stack memory for the context)
+        .reserved = null, // unused 
+        .argc = 0, // script flags count passed during game initialization if any...
+        .argv = null, // script flags cmds passed during game initialization if any...
+        .fileSystemEnabled = false, // todo find whats this...
+        .implLibsEnabled = false // todo find whats this...
+    };
+    if(catch excuse = umkaContext.init(&inidata)) {
         log::info(CONSOLE, "failed to initialize umka script engine!!");
     } else {
         log::info(CONSOLE, "umka script engine initialized successfully.");
@@ -2752,6 +2719,7 @@ $if $feature(UMKA_ENABLE):
             log::info(CONSOLE, "Umka error %s (%d, %d): %s\n", error.fileName, error.line, error.pos, error.msg);
         }
     }
+    */
 $endif
 
     log::info(FILE, "Initializing game editor:");
@@ -3181,9 +3149,6 @@ fn void gameDoOneFrame() @local
                         local_game.time_ms  = misc::sec2ms(local_game.time_sec);
 
                         $if $feature(LUA_ENABLE):
-                        /*lua::updateGlobalType("g_timeSc", any_make(&local_game.time_sec, float.typeid));
-                        lua::updateGlobalType("g_timeMs", any_make(&gpGame.time_ms, int.typeid));
-                        lua::updateGlobalType("g_deltaTime", any_make(&gpGame.dt, float.typeid));*/
                         lua::updateGameLuaGlobals();
                         $endif
 
@@ -3230,7 +3195,7 @@ fn void pre_InitFunc() @init {
     // NOTE(HM) This means the MINIMUM log level not the only level to log
     // anything bellow this level will not log
     // WARNING(HM) MAY BE OVERRIDEN LATER BY THE INI FILE SETTING!!!
-    rl::setTraceLogLevel(rl::TraceLogLevel.ERROR);
+    rl::setTraceLogLevel(TraceLogLevel.ERROR);
     
     // ************* My own logging system ****************
     // NOTE(HM) controls file and Console logging 
@@ -3240,7 +3205,7 @@ fn void pre_InitFunc() @init {
     // This means the MINIMUM log level not the only level to log
     // anything bellow this level will not log
     // WARNING(HM) MAY BE OVERRIDEN LATER BY THE INI FILE SETTING!!!
-    log::setLogLevel(rl::TraceLogLevel.INFO);
+    log::setLogLevel(TraceLogLevel.INFO);
     // *********************************************************
 
     // print machine info
