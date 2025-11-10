@@ -88,9 +88,17 @@ fn void setLogLevel(TraceLogLevel level) @inline
 	glevel = level;
 }
 
-fn void initGlobalLoggingDir() 
+// NOTE(HM) controls file and Console logging 
+// plus sets where the log file is saved as well.
+fn void initGlobalLoggingDir() @inline
 {
     gpath = rl::getWorkingDirectory().str_view().tconcat("\\debug.log").zstr_tcopy();
+}
+
+fn void init(TraceLogLevel level) @inline
+{
+	initGlobalLoggingDir();
+	setLogLevel(level);
 }
 
 fn void closeLogFile() 

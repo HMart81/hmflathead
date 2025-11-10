@@ -107,7 +107,7 @@ Manager* assetManager = &local_manager;
 fn void Manager.register(&self, any asset) @local
 {
     if(asset.ptr == null) {
-        log::error(Where.FILE, "Trying to register a null asset, skipping it.");
+        log::error(FILE, "Trying to register a null asset, skipping it.");
         return;
     }
 
@@ -124,7 +124,7 @@ fn void Manager.register(&self, any asset) @local
         case Shader.typeid:
             self.shaders.push((Asset{Shader}*)asset.ptr);
         default:
-            log::error(Where.FILE, "Trying to register an asset of unknown type!");
+            log::error(FILE, "Trying to register an asset of unknown type!");
     }
 }
 
@@ -200,43 +200,46 @@ fn void Manager.listAssets(&self) @if($feature(_DEBUG))
 }
 
 // WARNING(HM) 06/11/2024
-// To be used only at game exit, for now assets are all loaded at game start and stay in RAM, 
-// during the entire game run, aka they only get freed at game end.
-// I made this like so because, one I don't have many assets in this game for now,
-// nor a way to make individual levels, when that is done I will change this,
+// To be used only at game exit, for now ALL assets are loaded at game start and stay in RAM, 
+// for the duration of the game, aka they only get freed at game end.
+// I made this like so because, 
+// one I don't have many assets in this game for now,
+// two nor I have a way to make real individual levels, 
+// when that is done, I will have to change this to only load assets at level load,
 // for now getting them hot from RAM, is very fast, compared
-// 	to reading the data from the HD/SSD/MD2 drive.
+// to reading the data from the HD/SSD/MD2 drive.
 fn void Manager.releaseAllAssets(&self) @inline 
 {
-    switch {
-		case self.textures.len() > 0:
-			foreach(texture: self.textures) {
-                rl::unloadTexture(texture.data);
-		    }
-		    self.textures.free();
-		case self.shaders.len() > 0:
-			foreach(shader: self.shaders) {
-                rl::unloadShader(shader.data);
-            }
-            self.shaders.free();
-		case self.sounds.len() > 0:
-			foreach(sound: self.sounds) {
-                rl::unloadSound(sound.data);
-            }
-            self.sounds.free();
-		case self.musics.len() > 0:
-			foreach(music: self.musics) {
-                rl::unloadMusicStream(music.data);
-            }
-            self.musics.free();
-		case self.fonts.len() > 0:
-			foreach(font: self.fonts) {
-                rl::unloadFont(font.data);
-            }
-            self.fonts.free();
-		default:
-			unreachable("Can't release unknown asssets list!");
-	}
+    if (self.textures.len() > 0) {
+        foreach(texture: self.textures) {
+            rl::unloadTexture(texture.data);
+        }
+        self.textures.free();
+    }
+    if (self.shaders.len() > 0) {
+        foreach(shader: self.shaders) {
+            rl::unloadShader(shader.data);
+        }
+        self.shaders.free();
+    }
+    if (self.sounds.len() > 0) {
+        foreach(sound: self.sounds) {
+            rl::unloadSound(sound.data);
+        }
+        self.sounds.free();
+    }
+    if (self.musics.len() > 0) {
+        foreach(music: self.musics) {
+            rl::unloadMusicStream(music.data);
+        }
+        self.musics.free();
+    }
+    if (self.fonts.len() > 0) {
+        foreach(font: self.fonts) {
+            rl::unloadFont(font.data);
+        }
+        self.fonts.free();
+    }
 }
 
 /*
@@ -281,8 +284,43 @@ fn any Manager.getAsset(&self, String name, typeid type)
         name = name.extractFileBase();
     }
 
+    int i; // asset index
+
+    i = self.hasAsset(name, type);
+    if( i == -1 ) {
+        log::error(FILE, "Asset with name \"%s\" and type \"%s\" not found in the asset manager.", name, type);
+        return null;
+    }
+    
+	switch(type)
+    {
+        case Texture2D.typeid:
+            return any_make(&(*self.textures[i]).data, type);
+        case Sound.typeid:
+            return any_make(&(*self.sounds[i]).data, type);
+        case Music.typeid:
+            return any_make(&(*self.musics[i]).data, type);
+        case Font.typeid:
+            return any_make(&(*self.fonts[i]).data, type);
+        case Shader.typeid:
+            return any_make(&(*self.shaders[i]).data, type);
+        default:
+            unreachable();
+    }
+	
+	return null;
+}
+
+/*
+fn any Manager.getAsset(&self, String name, typeid type)
+{
+    String needle = "/";
+    if(name.contains(needle)) {
+        name = name.extractFileBase();
+    }
+
     if(self.hasAsset(name, type) == false) {
-        log::error(Where.FILE, "Asset with name \"%s\" and type \"%s\" not found in the asset manager.", name, type);
+        log::error(FILE, "Asset with name \"%s\" and type \"%s\" not found in the asset manager.", name, type);
         return null;
     }
     
@@ -322,7 +360,9 @@ fn any Manager.getAsset(&self, String name, typeid type)
 	
 	return null;
 }
+*/
 
+/*
 fn bool Manager.hasAsset(&self, String name, typeid type) @inline 
 {
     if(name == "") return false; // no asset name provided
@@ -363,6 +403,38 @@ fn bool Manager.hasAsset(&self, String name, typeid type) @inline
     
     return false;
 }
+*/
+
+fn int Manager.hasAsset(&self, String name, typeid type) @inline 
+{
+    if(name == "") return -1; // no asset name provided
+
+    switch(type)
+    {
+        case Texture2D.typeid:
+            foreach(i, texture: self.textures) {
+                if(texture.name == name) return (int)i;
+            }
+        case Sound.typeid:
+           foreach(i, sound: self.sounds) {
+                if(sound.name == name) return (int)i;
+            }
+        case Music.typeid:
+           foreach(i, music: self.musics) {
+                if(music.name == name) return (int)i;
+            }
+        case Font.typeid:
+           foreach(i, font: self.fonts) {
+                if(font.name == name) return (int)i;
+            }
+        case Shader.typeid:
+           foreach(i, shader: self.shaders) {
+                if(shader.name == name) return (int)i;
+            }
+    }
+    
+    return -1;
+}
 
 <*
 @ensure return != null
@@ -381,7 +453,7 @@ fn Texture2D* Manager.getTexture(&self, String name) @inline {
 }
 
 <*
-    @param name: "the name of the shader asset to retrieve"
+    @param name : "the name of the shader asset to retrieve"
     @require name != ""
     @ensure return != null
 *>
@@ -475,7 +547,7 @@ fn void loadAsset(String path)
 	case ".png":
 	case ".jpg":
 	case ".tga":
-        should_load = !local_manager.hasAsset(asset_name, Texture2D.typeid);
+        should_load = local_manager.hasAsset(asset_name, Texture2D.typeid) == -1;
         if(should_load) 
         {
             //path = path.trim_right(extension);
@@ -489,7 +561,7 @@ fn void loadAsset(String path)
         }
 	case ".vs":
 	case ".fs":
-        should_load = !local_manager.hasAsset(asset_name, Shader.typeid);
+        should_load = local_manager.hasAsset(asset_name, Shader.typeid) == -1;
         if(should_load) 
         {
             //path = path.trim_right(extension);
@@ -538,7 +610,7 @@ fn void loadAsset(String path)
         }
 	case ".mp3": nextcase;
 	case ".ogg":
-		should_load = !local_manager.hasAsset(asset_name, Music.typeid);
+		should_load = local_manager.hasAsset(asset_name, Music.typeid) == -1;
         if(should_load) 
         {
             //path = path.trim_right(extension);
@@ -551,7 +623,7 @@ fn void loadAsset(String path)
             local_manager.register(any_make(new_asset, new_asset.type));
         }
 	case ".wav":
-		should_load = !local_manager.hasAsset(asset_name, Sound.typeid);
+		should_load = local_manager.hasAsset(asset_name, Sound.typeid) == -1;
         if(should_load) 
         {
             //path = path.trim_right(extension);
@@ -564,7 +636,7 @@ fn void loadAsset(String path)
             local_manager.register(any_make(new_asset, new_asset.type));
         }
 	case ".fnt":
-		should_load = !local_manager.hasAsset(asset_name, Font.typeid);
+		should_load = local_manager.hasAsset(asset_name, Font.typeid) == -1;
         if(should_load) 
         {
             //path = path.trim_right(extension);

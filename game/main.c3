@@ -67,7 +67,7 @@ import game::effects::boid;
 import game::lowlevel::bounds;
 // third party libraries
 import thirdparty::raylib5::rl;
-import thirdparty::raygui5::rgui/*, thirdparty::raygui5::rgui::style::dark*/;
+import thirdparty::raygui5::rgui, thirdparty::raygui5::rgui::style::dark;
 import thirdparty::library::xml;
 import thirdparty::microui::mu;  // micro ui
 import engine::physics::box2d;
@@ -430,6 +430,10 @@ struct Game (SaveSystemInterface) @local
     int  saveMessageTime; // time (in ms) to show the save message
     
     // raygui message box stuff
+    MessageBox warningBox;
+    MessageBox errorBox;
+    MessageBox infoBox;
+
     bool showMessageBox;
     String titleMsgBox;
     String msgBoxText;
@@ -621,6 +625,104 @@ fn bool Game.isPointInsideScreenView(&self, Vector2 point) {
     return rl::checkCollisionPointRec(point, rec);
 }
 
+
+//////////// Message box stuff based on raygui
+
+alias MessageBoxList = List{MessageBox*};
+MessageBoxList messageBoxs;
+List{usz} messageBoxsIndecesToRemove;
+
+const DEFAULT_MESSAGE_BOX_TEXT_SIZE = 10;
+const DEFAULT_MESSAGE_BOX_H = 100;
+const DEFAULT_MESSAGE_BOX_W = 250;
+const DEFAULT_MESSAGE_BOX_MARGIN = 20;
+
+enum MessageBoxType : const inline int
+{
+    NONE,
+    INFO,
+    WARN,
+    ERROR
+}
+
+struct MessageBox 
+{
+    int type;
+    String message;
+    float text_len;
+    Rectangle box;
+    bool initted;
+    bool isVisible;
+    bool show;
+    bool setupDone;
+    bool shouldRemove;
+}
+
+fn void MessageBox.init(&self, int type) {
+    if(self.initted) return;
+    self.type = type;
+    int w = local_game.screen.w / 2;
+    w -= (int)DEFAULT_MESSAGE_BOX_W / 2;
+    int h = local_game.screen.h / 2;
+    h -= (int)DEFAULT_MESSAGE_BOX_H / 2;
+    self.box.height = h;
+    self.box.width  = w;
+    self.initted = true;
+    self.register();
+}
+
+fn void MessageBox.updateSize(&self) @inline {
+    if(self.text_len > self.box.width) self.box.width = self.text_len + DEFAULT_MESSAGE_BOX_MARGIN;
+}
+
+fn void MessageBox.setMessage(&self, String msg) {
+    self.message  = msg;
+    self.text_len = rl::measureText(self.message.zstr_tcopy(), DEFAULT_MESSAGE_BOX_TEXT_SIZE);
+    self.updateSize();
+}
+
+fn void MessageBox.register(&self) @local => messageBoxs.push(self);
+
+fn void MessageBox.delete(&self) {
+    if(self.isVisible) self.isVisible = false;
+    messageBoxs.remove_item(self);
+}
+
+fn void MessageBox.open(&self) => self.show = true;
+fn void MessageBox.close(&self, bool kill = false) {
+    self.show = false;
+    if(kill) self.shouldRemove = true;
+}
+
+fn void MessageBox.draw(&self) 
+{
+    if (self.show)
+    {
+        self.isVisible = true;
+        float x, y;
+        x = self.box.width;
+        y = self.box.height;
+        ZString msg_title;
+        switch(self.type)
+        {
+            case MessageBoxType.WARN:
+                msg_title = string::tformat_zstr("%s%s","#220#", "Warn");
+            case MessageBoxType.ERROR:
+                msg_title = string::tformat_zstr("%s%s","#152#", "Error");
+            case MessageBoxType.INFO:
+            default:
+                msg_title = string::tformat_zstr("%s%s","#191#", "Info");
+        }
+        int result = rgui::messageBox((Rectangle) {x, y, self.box.width, self.box.height},
+            title: msg_title, 
+            message: local_game.msgBoxText.zstr_tcopy(), 
+            buttons: "close");
+            if(result >= 0) self.show = false;
+    } else {
+        self.isVisible = false;
+    }
+}
+
 fn void drawMsgBox(int w, int h) @public 
 {
     if (local_game.showMessageBox)
@@ -639,6 +741,9 @@ fn void drawMsgBox(int w, int h) @public
         if (result >= 0) local_game.showMessageBox = false;
     }
 }
+
+///////////////////////////////////////////////////
+
 
 /*
 fn void Game.updateScreenSize(&self, int rez_index) @inline @deprecated {
@@ -1275,6 +1380,26 @@ $endif
                 line.update();
             }
         }
+
+        // update message box's
+        if(messageBoxs.len()) {
+            messageBoxsIndecesToRemove.clear();
+
+            foreach(i, box : messageBoxs) {
+                if(box.shouldRemove && !box.isVisible) {
+                    messageBoxsIndecesToRemove.push(i);
+                } else if(box.shouldRemove && box.isVisible) {
+                    log::warning(CONSOLE, "Message box set to remove but still visible!!!");
+                    unreachable();
+                }
+            }
+
+            if(messageBoxsIndecesToRemove.len()) {
+                foreach(i : messageBoxsIndecesToRemove) {
+                    messageBoxs.remove_at(i);
+                }
+            }
+        }
     }; // tracy
     }; // profile_zone
 }
@@ -1469,6 +1594,13 @@ $endif
         // NOTE(HM) 
         // drawing after the GUI is draw
         //gameOnPostGUIDraw(screenWidth, screenHeight);
+
+        // draw message box's
+        if(messageBoxs.len()) {
+            foreach(box : messageBoxs ) {
+                box.draw();
+            }
+        }
         
         // this is where input pooling and swapping buffers happens
         rl::endDrawing();
@@ -2319,11 +2451,11 @@ $endif
     local_game.time_ms  = misc::sec2ms(local_game.time_sec);
     log::info(FILE, "---------------------------------------------\n");
 
-    // init raygui dark style
-    // log::info(FILE, "loading raygui dark style:");
-    // log::info(FILE, "---------------------------------------------\n");
-    // rgui::style::dark::load();
-    // log::info(FILE, "- done -\n");
+    // init raygui dark style (needs to be done after raylib window is initialized)
+    log::info(FILE, "loading raygui dark style:");
+    log::info(FILE, "---------------------------------------------\n");
+    rgui::style::dark::load();
+    log::info(FILE, "- done -\n");
 
 // #region MONITOR STATES
     log::info(FILE, "Setting up monitor states:");
@@ -2513,7 +2645,8 @@ $endif
     
     if(rl::isAudioDeviceReady()) 
     {
-        if(rl::getMasterVolume() < 1.0f) {
+        if(rl::getMasterVolume() < 1.0f) 
+        {
             rl::setMasterVolume(1.0f);
             log::info(FILE, "\tAudio Master Volume set to = %s", 1.0f);
         } else {
@@ -3198,15 +3331,18 @@ fn void pre_InitFunc() @init {
     rl::setTraceLogLevel(TraceLogLevel.ERROR);
     
     // ************* My own logging system ****************
-    // NOTE(HM) controls file and Console logging 
-    // plus sets where the log file is saved as well.
-    log::initGlobalLoggingDir();
-    
-    // This means the MINIMUM log level not the only level to log
-    // anything bellow this level will not log
+    // TraceLogLevel means the MINIMUM log level, 
+    // not the only level to log, anything bellow this level will not log.
     // WARNING(HM) MAY BE OVERRIDEN LATER BY THE INI FILE SETTING!!!
-    log::setLogLevel(TraceLogLevel.INFO);
+    log::init(TraceLogLevel.INFO);
     // *********************************************************
+
+    local_game.warningBox.init(MessageBoxType.WARN);
+    local_game.errorBox.init(MessageBoxType.ERROR);
+    local_game.infoBox.init(MessageBoxType.INFO);
+
+    // Update(HM): can't be done here needs window/Opengl context to be initialize because of loading textures
+    // rgui::style::dark::load(); 
 
     // print machine info
     misc::printMachineInfo();

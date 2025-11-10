@@ -424,16 +424,16 @@ fn void RenderView.showModelViewAxis(&self)
     start    = axis_org;
     // +X coord
     end = start + (Vec2f) {axis.m0, axis.m1} * (0.10f * self.w);
-    rl::drawLineV(start.toVector2(), end.toVector2(), rl::RED);
+    rl::drawLineV(start, end, rl::RED);
     // -X coord
     end = start + (Vec2f) {-axis.m0, axis.m1} * (0.10f * self.w);
-    rl::drawLineV(start.toVector2(), end.toVector2(), {255, 50, 15, 127});
+    rl::drawLineV(start, end, {255, 50, 15, 127});
     // +Y coord arrow
     end = start + (Vec2f) {axis.m4, axis.m5} * (0.10f * self.h);
-    rl::drawLineV(start.toVector2(), end.toVector2(), rl::GREEN);
+    rl::drawLineV(start, end, rl::GREEN);
     // -Y coord
     end = start + (Vec2f) {axis.m4, -axis.m5} * (0.10f * self.h);
-    rl::drawLineV(start.toVector2(), end.toVector2(), {10, 255, 15, 127});
+    rl::drawLineV(start, end, {10, 255, 15, 127});
 }
 
 fn void RenderView.updateTarget(&self) @inline @if ($defined(ENABLE_CAMERA_VIEW))

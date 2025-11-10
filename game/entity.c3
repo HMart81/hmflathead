@@ -45,6 +45,7 @@ import engine::sys::cvar;
 import game::lowlevel::bounds;
 import engine::physics::box2d;
 import engine::sys::script_engine::event; // still in testing phase (delete if not finished)
+import thirdparty::scripting::umka; // umka scripting
 import thirdparty::wren; // wren scripting engine
 // end_region
 
@@ -74,12 +75,12 @@ const float ENTITY_DEFAULT_SIZE_Y_METER   = 1.0f;  // 1  m
 alias TargetList = List{Entity*}; // list of entities that are targets for this entity
 
 // WORK_IN_PROGRESS!!
-const EventDef EV_ENTITY_GET_MINC @if($defined(ENABLE_EVENTS)) = {"getMinc", "", event::VECTOR}; 
-const EventDef EV_ENTITY_GET_MAXC @if($defined(ENABLE_EVENTS)) = {"getMaxc", "", event::VECTOR};
+const EventDef EV_ENTITY_GET_NAME @if($defined(ENABLE_EVENTS)) = {"getName", "p", "s"}; 
+const EventDef EV_ENTITY_GET_ID @if($defined(ENABLE_EVENTS)) = {"getID", "p", "i"};
 
-const EventFunc[*] ENTITY_EVENTS_CALLBACKS @if($defined(ENABLE_EVENTS)) = {
-	{&EV_ENTITY_GET_MINC, &ent::getMinc},
-	{&EV_ENTITY_GET_MAXC, &ent::getMaxc},
+const EventFunc[*] ENTITY_EVENTS @if($defined(ENABLE_EVENTS)) = {
+	{&EV_ENTITY_GET_NAME, &ent::event_getName},
+	{&EV_ENTITY_GET_ID, &ent::event_getID},
 };
 
 struct EntityFlags
@@ -892,6 +893,28 @@ fn void cloneEntity( Entity* dest, Entity* src )
 	*/
 }
 
+///////////////////////////////////
+/// Entity script events
+///////////////////////////////////
+fn void event_getName(UmkaStackSlot *params, UmkaStackSlot *result) @if($feature(UMKA_ENABLE))
+{
+	//Entity *ent = (Entity *)umkaGetParam(params, 0);
+	//@todo();
+	Umka *umk = umka::getInstance(result);
+    UmkaAPI *api = umk.getAPI();
+
+    Entity *ent = api.umkaGetParam(params, 0).ptrVal;
+    api.umkaGetResult(params, result).ptrVal = api.umkaMakeStr(umk, ent.name.zstr_tcopy());
+}
+
+fn void event_getID(UmkaStackSlot *params, UmkaStackSlot *result) @if($feature(UMKA_ENABLE))
+{
+	Umka *umk = umka::getInstance(result);
+    UmkaAPI *api = umk.getAPI();
+
+    Entity *ent = api.umkaGetParam(params, 0).ptrVal;
+    api.umkaGetResult(params, result).intVal = (long)ent.id;
+}
 
 ///////////////////////////////////
 /// Entity script callbacks

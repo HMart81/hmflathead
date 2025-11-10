@@ -368,7 +368,7 @@ fn String printColor(Color color) @inline {
     return string::tformat("{%s,%s,%s,%s}", color.r, color.g, color.b, color.a);
 } 
 
-fn Vector2 Vec2f.toVector2(&self) => (Vector2) {self.x, self.y};
+//fn Vector2 Vec2f.toVector2(&self) => (Vector2) {self.x, self.y};
 
 // NOTE(HM) empty user attributes (Need to start with a uppercase...)
 attrdef @Hardcode; // used to mark hardcoded values for easy search

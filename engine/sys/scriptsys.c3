@@ -64,11 +64,6 @@ struct Script
     ScriptEngine* sengine;
 }
 
-<*
-    Initialize a new Script
-    @param name : "name of the script, no extension"
-    @param [&inout] sengine : "the script system/manager"
-*>
 fn void Script.init(&self, String path)
 {
     self.path = path.tcopy();
@@ -160,10 +155,6 @@ struct ScriptEngine (IScriptEngine)
     ScriptVirtualMachine vmachine;
 }
 
-<*
-    Initialize the Script Engine
-    @param [&in] game : "a pointer to the game struct, it is a global, so I don't really need this but i'm doing it this way, to simply things"
-*>
 fn void ScriptEngine.init(&self) @dynamic
 {
     log::info(FILE, "- Language(%s) - Version(%s)", SCRIPT_LANGUAGE, SCRIPT_LANG_VERSION);
@@ -689,11 +680,6 @@ struct Script
     ScriptEngine* sengine;
 }
 
-<*
-    Initialize a new Script
-    @param name : "name of the script, no extension"
-    @param [&inout] sengine : "the script system/manager"
-*>
 fn void Script.init(&self, String path)
 {
     self.path = path.tcopy();
@@ -807,10 +793,6 @@ struct ScriptEngine (IScriptEngine)
     int next_check_time; // time to check for file changes
 }
 
-<*
-    Initialize the Script Engine
-    @param [&in] game : "a pointer to the game struct, it is a global, so I don't really need this but i'm doing it this way, to simply things"
-*>
 fn void ScriptEngine.init(&self) @dynamic
 {
     @todo();
@@ -1008,11 +990,6 @@ struct Script
     ScriptEngine* sengine;
 }
 
-<*
-    Initialize a new Script
-    @param name : "name of the script, no extension"
-    @param [&inout] sengine : "the script system/manager"
-*>
 fn void Script.init(&self, String path)
 {
     self.path = path.tcopy();
@@ -1119,10 +1096,6 @@ struct ScriptEngine (IScriptEngine)
     LUADebug* debug; // lua debug context
 }
 
-<*
-    Initialize the Script Engine
-    @param [&in] game : "a pointer to the game struct, it is a global, so I don't really need this but i'm doing it this way, to simply things"
-*>
 fn void ScriptEngine.init(&self) @dynamic
 {
     log::info(FILE, "- Language(%s) - Version(%s)", SCRIPT_LANGUAGE, SCRIPT_LANG_VERSION);
@@ -1372,7 +1345,8 @@ fn void Script.deinit(&self)
 
 fn void Script.compile(&this) @inline
 {
-    if(this.isValid() == false) {
+    if(this.isValid() == false) 
+    {
         log::warning(FILE, "Cannot compile invalid script! '%s' ", (this.name.len) ? this.name : "<unnamed>");
         $if $feature(_DEBUG):
             unreachable("Cannot compile invalid script! '%s' ", (this.name.len) ? this.name : "<unnamed>");
@@ -1381,11 +1355,17 @@ fn void Script.compile(&this) @inline
         $endif
     }
 
-    if (this.context.compile() == false) {
+    /*if (this.context.compile() == false) {
         UmkaError *error = this.context.getError();
-        log::warning(FILE, "script failed to compile: %s (%d, %d): %s\n", error.fileName, error.line, error.pos, error.msg);
+        log::warning(FILE, "Failed to compile script: %s (l:%d, p:%d): %s\n", error.fileName, error.line, error.pos, error.msg);
     } else {
         this.fl.compiled = true;
+    }*/
+    if (try this.context.compile()) {
+        this.fl.compiled = true;
+    } else {
+        UmkaError *error = this.context.getError();
+        log::warning(FILE, "Failed to compile script: %s (l:%d, p:%d):> '%s'\n", error.fileName, error.line, error.pos, error.msg);
     }
 }
 

@@ -68,21 +68,28 @@ const RELEASE =	VERSION_STR +++ "." +++ VERSION_RELEASE;
 const COPYRIGHT =	RELEASE +++ "  Copyright (c) 2020-2025, Vasiliy Tereshkov";
 const AUTHORS =	"Vasiliy Tereshkov";
 
+// types
+alias UmkaInt     = long;
+alias UmkaUint    = ulong;
+alias UmkaReal32  = float;
+alias UmkaReal    = double;
+alias UmkaVoid    = void;
+
 // opaque pointer
-alias Umka = void*;
+alias Umka = UmkaVoid*;
 
 union UmkaStackSlot
 {
-  long intVal;
-  ulong uintVal;
-  void *ptrVal;
-  double realVal;
-  float real32Val;
+  UmkaInt    intVal;
+  UmkaUint   uintVal;
+  UmkaVoid*  ptrVal;
+  UmkaReal   realVal;
+  UmkaReal32 real32Val;
 }
 
 struct UmkaFuncContext
 {
-  long entryOffset;
+  UmkaInt entryOffset;
   UmkaStackSlot *params;
   UmkaStackSlot *result;
 }
@@ -111,7 +118,7 @@ struct UmkaAny
 
 struct UmkaClosure
 {
-  long entryOffset;
+  UmkaInt entryOffset;
   UmkaAny upvalue;
 }
 
@@ -126,7 +133,7 @@ struct UmkaError
 alias WarningCallback = fn void(UmkaError *warning);
 
 fn void umkaWarning(UmkaError *warning) @local {
-  io::printfn("Warning: (UMKA) %s:%d::%d -> %s", warning.fnName, warning.line, warning.pos, warning.msg);
+  io::printfn("UMKA: Warning from script: %s \n\t-> %s:%d::%d -> %s", warning.fileName, warning.fnName, warning.line, warning.pos, warning.msg);
 }
 
 struct UmkaAPI
@@ -194,7 +201,8 @@ alias GetResultCallback       = fn UmkaStackSlot *(UmkaStackSlot *params, UmkaSt
 alias GetMetadataCallback     = fn void*(void *umka);
 alias SetMetadataCallback     = fn void(void *umka, void *metadata);
 
-faultdef INIT_FAILED;
+faultdef INIT_FAILED, 
+         COMPILE_FAILED;
 
 extern fn Umka alloc() @cname("umkaAlloc");
 extern fn bool Umka._init(&self, ZString fileName, ZString sourceString, int stackSize, void *reserved, int argc, ZString *argv, bool fileSystemEnabled, bool implLibsEnabled, WarningCallback warningCallback = &umkaWarning) @cname("umkaInit");
@@ -204,7 +212,7 @@ struct UmkaScriptInitData
     ZString fileName; 
     ZString sourceString; 
     int stackSize; 
-    void *reserved; 
+    void *reserved; // always null?
     int argc; 
     ZString *argv; 
     bool fileSystemEnabled; 
@@ -225,7 +233,11 @@ fn bool? Umka.init(&self, UmkaScriptInitData* inidata)
   return INIT_FAILED?;
 }
 
-extern fn bool Umka.compile(&self) @cname("umkaCompile");
+extern fn bool Umka._compile(&self) @local @cname("umkaCompile");
+macro bool? Umka.compile(&self) {
+  if(self._compile()) return true;
+  return COMPILE_FAILED?;
+}
 extern fn int  Umka.run(&self) @cname("umkaRun");
 extern fn int  Umka.call(&self, UmkaFuncContext *func) @cname("umkaCall");
 extern fn void Umka.free(&self) @cname("umkaFree");

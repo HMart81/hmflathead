@@ -134,13 +134,13 @@ const TRACE			= 't'; // todo
 struct EventDef
 {
 	String name;
-	String args; // ex: "ffd" or "" or "dfde", etc.
+	String argtypes; // ex: "ffd" or "" or "dfde", etc.
 	char returnType;
 }
 
 // double because wren uses double as the only number type, we use it to store the size of the eventDef
 fn usz EventDef.getArgBytesCountInWren(&self) {
-	return (self.args.len * double.sizeof);
+	return (self.argtypes.len * double.sizeof);
 }
 
 <*
@@ -171,7 +171,7 @@ struct EventFunc {
 fn String getSignature(EventDef ev) @inline 
 {
 	String sig = ev.name;
-	int args_count = ev.args.len;
+	int args_count = ev.argtypes.len;
 	if(args_count > 0) 
 	{
 		sig = "(".tconcat(sig);
@@ -187,7 +187,7 @@ fn String getSignature(EventDef ev) @inline
 				break;
 			}
 		}
-		sig = sig.tconcat(")"); // close the args signature
+		sig = sig.tconcat(")"); // close the argtypes signature
 	}
 	else
 	{
@@ -207,3 +207,141 @@ fn String getSignature(EventDef ev) @inline
 //         { 0, 0 }
 //     };
 // }
+
+///////////////////////////////////////////////////////////////////////////////
+//
+//                          UMKA SCRIPT EVENTS
+//
+//////////////////////////////////////////////////////////////////////////////
+
+
+/*
+Event's are used to link scripts fn to c3 fn.
+
+NOTE(HM) They work like this
+EV_name("script func name", "func PARAM types", 'func RETURN type')
+
+example:
+    EV_Foo("foo","f",'d'); ==  fn int foo(float value) { return some_int; }
+    EV_Foo2("foo2", "",'f'); == fn float foo2() { return some_float; }
+    EV_Bar("bar", "ff",'e'); == fn Entity* bar(float value, float value2) { return some_entity_adress; }
+*/
+
+module engine::sys::script_engine::event @if($feature(UMKA_ENABLE));
+
+import std::collections::linkedlist, std::collections::list;
+
+import thirdparty::scripting::umka;
+import engine::sys::script_engine::scpt;
+import engine::misc;
+import engine::logging::log;
+
+const ENABLE_EVENTS = true; // enable events system, if false, the event system will not be compiled
+
+
+const MAX_PARMS = 8;
+const MAX_EVENTS = 8192;
+const MAX_EVENTSPERFRAME = 8192;
+
+const VOID		= ((char)0);
+// The int and uint are the recommended 64-bit integer types. 
+// Other integer types are for compatibility with an external environment.
+const INT    = 'i'; // a 64bits signed integer (int)
+const UINT	 = 'y'; // a 64bits unsigned integer (uint)
+//
+const REAL32 = 'f'; // a 64bits floating point number (real)
+const REAL   = 'F'; // a 64bits floating point number (real)
+//
+const VECTOR = 'v'; // a list of f64's/REAL's
+const STRING = 's'; // a char/u8 array
+const PTR    = 'p';
+//
+// TODO: "pointers" will be defined as a single double value (like they are in reality on 64bits OS's...)
+const ENTITY		= 'e'; // entity pointer
+const ENTITY_NULL	= '€'; // null entity
+// TODO: ability todo 2d collision traces in script
+const TRACE			= 't'; // todo
+
+alias EventDefList = List{EventDef*}; // list of entities that are targets for this entity
+
+EventDefList eventDefList @local;
+
+struct EventDef @packed
+{
+	String name; // script function name
+	String argtypes; // fn params as array of strings
+	String returnType; // fn return type as a string
+}
+
+macro EventDef.getName(&self) => self.name;
+macro EventDef.getArgs(&self) => self.argtypes;
+macro EventDef.getReturnType(&self) => self.returnType;
+
+fn uint getNum(EventDef _ev) {
+	foreach(i, ev : eventDefList) 
+	{
+		if ( ev.name == _ev.name ) {
+			return (uint)(i + 1);
+		}
+	}
+
+	return 0;
+}
+
+fn uint getIndex(EventDef _ev) {
+	foreach(i, ev : eventDefList) 
+	{
+		if ( ev.name == _ev.name ) {
+			return (uint)i;
+		}
+	}
+
+	return 0;
+}
+
+fn uint numEventCommands() => (uint)eventDefList.len();
+
+fn EventDef* find(String name)
+{
+	assert( name != "" );
+
+	foreach( ev : eventDefList) 
+	{
+		if ( ev.name == name ) {
+			return ev;
+		}
+	}
+
+	return null;
+}
+
+fn void registerEvents(EventFunc[]* events) {
+	@todo();
+	/*
+	foreach(i, ev : events) 
+	{
+		/*if () {
+			return i;
+		}*/
+	}
+	*/
+}
+
+struct EventFunc 
+{
+	EventDef* event;
+	// signature = fn void(UmkaStackSlot *params, UmkaStackSlot *result);
+	ExternFuncCallback callback;
+}
+
+<*
+	ex: 
+		EventDef* entity_cmd_x = event::getEventCommand(ENTITY_EVENTS, 5); 
+
+	@param [&in] events : "pointer to the array of events"
+	@param index : "index of the event in the array"
+	@ensure return != null
+*>
+fn EventDef* getEventCommand(EventFunc[]* events,  int index ) {
+	return (*events)[index].event;
+}

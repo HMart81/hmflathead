@@ -694,20 +694,20 @@ fn void Widget.draw_origin_coordinates(Widget* wgt) @local @inline
     r2d::drawCircle((int)widget_center.x, (int)widget_center.y, 2.0f, rl::SKYBLUE);
     
     // draw lines going from widget center to the screen ends
-    r2d::drawLineEx(widget_center.toVector2(),
-        (widget_center + misc::VEC_LEFT * (scr_w - widget_center.x)).toVector2(),
+    r2d::drawLineEx(widget_center,
+        (widget_center + misc::VEC_LEFT * (scr_w - widget_center.x)),
         lineThick, rl::RED
     );
-    r2d::drawLineEx(widget_center.toVector2(),
-        (widget_center + misc::VEC_RIGHT * (scr_w - widget_center.x)).toVector2(),
+    r2d::drawLineEx(widget_center,
+        (widget_center + misc::VEC_RIGHT * (scr_w - widget_center.x)),
         lineThick, rl::RED
     );
-    r2d::drawLineEx(widget_center.toVector2(),
-        (widget_center + misc::VEC_UP * (scr_h - widget_center.y)).toVector2(),
+    r2d::drawLineEx(widget_center,
+        (widget_center + misc::VEC_UP * (scr_h - widget_center.y)),
         lineThick, rl::RED
     );
-    r2d::drawLineEx(widget_center.toVector2(),
-        (widget_center + misc::VEC_DOWN * (scr_h - widget_center.y)).toVector2(),
+    r2d::drawLineEx(widget_center,
+        (widget_center + misc::VEC_DOWN * (scr_h - widget_center.y)),
         lineThick, rl::RED
     );
 }
@@ -777,8 +777,8 @@ fn void Widget.draw(&self) @dynamic
             
             if(this.isChecked()) {
                 r2d::drawRectangleLines((int)center.x, (int)center.y, 20, 20, rl::BLACK);
-                r2d::drawLineEx(center.toVector2(), (center + misc::VEC_RIGHT * 20).toVector2(), 2.0f, rl::GREEN);
-                r2d::drawLineEx(center.toVector2(), (center + misc::VEC_DOWN * 20).toVector2(), 2.0f, rl::GREEN);
+                r2d::drawLineEx(center, (center + misc::VEC_RIGHT * 20), 2.0f, rl::GREEN);
+                r2d::drawLineEx(center, (center + misc::VEC_DOWN * 20), 2.0f, rl::GREEN);
             }
         case KIND_CONTAINER:
         case KIND_BUTTON:
@@ -1355,7 +1355,7 @@ fn void WidgetContainer.update(&self) {
                     Vec2f start, end;
                     start = offset + misc::VEC_UP * ((float)self.params.itemGap / 2.0f);
                     end   = start + misc::VEC_LEFT * (self.getWidth() - pad_right);
-                    rl::drawLineEx( start.toVector2(), end.toVector2(), 
+                    rl::drawLineEx( start, end, 
                         self.params.border_between.lineThick, self.params.border_between.color
                     );
                 }
@@ -1914,16 +1914,16 @@ fn void Desktop.debug(&self)
         for(int i = 0; i < scr_w; i++) {
             for(int j = 0; j < scr_h; j++) {
                 rl::drawLineEx( 
-                    h_startPos.toVector2(), 
-                    (h_startPos + misc::VEC_RIGHT * scr_w).toVector2(), 
+                    h_startPos, 
+                    (h_startPos + misc::VEC_RIGHT * scr_w), 
                     lineThick, rl::GRAY
                 );
                 float h_line_seperation = (0.05f * scr_w);
                 h_startPos += (Vec2f){h_line_seperation, 0};
             }
             rl::drawLineEx(
-                w_startPos.toVector2(), 
-                (w_startPos + misc::VEC_DOWN * scr_h).toVector2(), 
+                w_startPos, 
+                (w_startPos + misc::VEC_DOWN * scr_h), 
                 lineThick, rl::GRAY
             );
             float w_line_seperation = (0.05f * scr_h);
