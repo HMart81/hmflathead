@@ -472,6 +472,8 @@ fn Texture2D* HMaterial.getTexture(&self, MatStageIndex index, bool isPBR = fals
         default:
             return &self.getStage(STAGE_DIFFUSE).tex;
     }
+
+    return null;
 }
 
 
@@ -1860,15 +1862,17 @@ fn void MaterialDataBase.register(&self, MTRFile* mtr) @local @inline {
 	self.data.push(mtr);
 }
 
-fn void MaterialDataBase.listMTRs(&self) @public @if($feature(_DEBUG)) 
+fn void MaterialDataBase.listMTRs(&self) @public 
 {
-	if(self.data.len())
-	{
-		log::info(Where.CONSOLE, "[MATERIAL FILES]");
-		foreach(mtr: self.data) {
-			io::printfn("\t-> \"%s\"", mtr.path);
-		}
-	}
+    $if $feature(_DEBUG):
+        if(self.data.len())
+        {
+            log::info(Where.CONSOLE, "[MATERIAL FILES]");
+            foreach(mtr: self.data) {
+                io::printfn("\t-> \"%s\"", mtr.path);
+            }
+        }
+    $endif
 }
 
 // WARNING(HM) 06/11/2024

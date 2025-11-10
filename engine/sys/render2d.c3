@@ -396,7 +396,7 @@ fn void drawDebugBox(Vec2f pos, Vec2f size, Color color) @inline {
     Load a texture from the specified path.
     @param texture_path : `the path to the texture file relative to the textures directory`
     @require texture_path.len > 0 && rl::isWindowReady() == true
-    @ensure rl::isTextureValid(tex) == true
+    @ensure rl::isTextureValid(return) == true
 *>
 fn Texture2D loadTexture(String texture_path)
 {

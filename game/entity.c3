@@ -669,14 +669,22 @@ fn void Entity.think(&self, float dt) // update in other engines
 {
     if(self.thinkFlags & TH_THINK)
     {
-        tracy::@zoneN("Entity.think", 1)
-        {
-            self.move();
-            
-            if(bounds::db_showBounds.getBool()) {
-                self.bounds.debugDraw();
-            }
-        };
+		$if $feature(TRACY_ENABLE):
+			tracy::@zoneN("Entity.think", 1)
+			{
+				self.move();
+				
+				if(bounds::db_showBounds.getBool()) {
+					self.bounds.debugDraw();
+				}
+			};
+		$else
+			self.move();
+			
+			if(bounds::db_showBounds.getBool()) {
+				self.bounds.debugDraw();
+			}
+		$endif
     }
 }
 

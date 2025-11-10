@@ -1203,7 +1203,12 @@ fn void gameUpdate() @local
 {
     misc::@profile_zone("Game Update")
     {
-    tracy::@zoneN("gameUpdate", 1)
+    $if $feature(_DEBUG):
+        const CHOICE = 1;
+    $else
+        const CHOICE = 0;
+    $endif
+    tracy::@zoneN("gameUpdate", CHOICE)
     {
         // make game run at lower rate in case window loses focus
         int runningHz = rl::getFPS();
@@ -3357,7 +3362,19 @@ fn void usage() @local @if($feature(TSODING_FLAG))
     flg::print_options();
 }
 
-fn int main(String[] args) @public
+
+
+fn int main(String[] args) @public @if($feature(_DEBUG))
+{
+    return mainEntryFunc(args);
+}
+
+fn int main(String[] args) @public @winmain @if($feature(_RELEASE)) 
+{
+    return mainEntryFunc(args);
+}
+
+fn int mainEntryFunc(String[] args)
 {
     tracy::set_thread_name("main_thread");
 

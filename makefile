@@ -127,7 +127,8 @@ PDBS_TO_CLEAN := $(wildcard $(BUILD_PATH)/*.pdb)
 EXES_TO_CLEAN := $(wildcard $(BUILD_PATH)/*.exe)
 
 # arguments to set at game start
-GAME_ARGUMENTS := +developer +editor +r_mode 9
+DEBUG_GAME_ARGUMENTS := +developer +editor +r_mode 9
+RELEASE_GAME_ARGUMENTS := +r_fullscreen 2
 
 # in c3 you need to use $feature(_DEBUG) to check for this defines, C3 $define doesn't work for this...
 ifeq ($(SCRIPT_LANG), umka)
@@ -151,7 +152,7 @@ endif
 #-D ANGEL_ENABLE (not working yet)
 ################################################
 # current release defines aren't really usefull... 
-RELEASE_DEFINES := -D _RELEASE -D TRACY_ENABLE -D MICROUI_ENABLE -D WREN_ENABLE
+RELEASE_DEFINES := -D _RELEASE -D TRACY_ENABLE -D MICROUI_ENABLE -D UMKA_ENABLE
 
 # compiler to use, right now there's only one, c3c
 CC := c3c.exe
@@ -164,8 +165,8 @@ comand_release_compile := $(CC) -O3 $(CFLAGS) $(RELEASE_DEFINES) $(LINKER_SEARCH
 # debug
 comand_debug_compile := $(CC) -O0 $(CFLAGS) $(DEBUG_DEFINES) $(LINKER_SEARCH_PATHS) $(LINKED_LIBRARIES) -o $(APPLICATION_DEBUG_NAME) compile $(GAME_ROOT_SOURCES) $(ENGINE_ROOT_SOURCES) $(ENGINE_CHILD_SOURCES)
 #
-comand_release_run := cd ${CURDIR}/build/ & start $(APPLICATION_RELEASE_NAME).exe $(GAME_ARGUMENTS)
-comand_debug_run := cd ${CURDIR}/build/ & start $(APPLICATION_DEBUG_NAME).exe $(GAME_ARGUMENTS)
+comand_release_run := cd ${CURDIR}/build/ & start $(APPLICATION_RELEASE_NAME).exe $(RELEASE_GAME_ARGUMENTS)
+comand_debug_run := cd ${CURDIR}/build/ & start $(APPLICATION_DEBUG_NAME).exe $(DEBUG_GAME_ARGUMENTS)
 
 ################################### LOGGING #########################################################
 # uncoment one of them in case you need error log, warning or just info log, 

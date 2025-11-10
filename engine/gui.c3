@@ -1479,6 +1479,7 @@ fn void Desktop.reload(&self, SaveFile* file) @dynamic {
 fn bool Desktop.initFromFile(&self, ZString path, bool cache ) 
 {
     @todo();
+    return false;
 /*
 
 	if ( !path.len ) {
