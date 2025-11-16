@@ -308,7 +308,7 @@ fn any Manager.getAsset(&self, String name, typeid type)
             unreachable();
     }
 	
-	return null;
+	//return null;
 }
 
 /*

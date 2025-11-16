@@ -74,6 +74,7 @@ WREN := wren\wren_d.lib
 MUJS := mujs\mujslib.lib
 LUA := lua\LuaLib.lib
 UMKA := umka\libumka.lib
+PLMPEG := plmpeg\plmpeg_d.lib
 # Define scripting language to use
 SCRIPT_LANG ?= umka
 ##
@@ -81,15 +82,15 @@ LIBRARY_ROOT_PATH := .\thirdparty\include\libs\\
 LINKER_SEARCH_PATHS := -L $(LIBRARY_ROOT_PATH)
 
 ifeq ($(filter umka,$(SCRIPT_LANG)),umka)
-LINKED_LIBRARIES := -l $(RAYLIB) -l $(BOX2D) -l kernel32.lib -z $(RAYGUI) -l $(MICROUI) -l $(UMKA) -l $(TSOD_FLAG) -l $(TRACY)
+LINKED_LIBRARIES := -l $(RAYLIB) -l $(BOX2D) -l kernel32.lib -z $(RAYGUI) -l $(MICROUI) -l $(UMKA) -l $(TSOD_FLAG) -l $(TRACY) -l $(PLMPEG)
 else
 ifeq ($(filter wren,$(SCRIPT_LANG)),wren)
-LINKED_LIBRARIES := -l $(RAYLIB) -l $(BOX2D) -l kernel32.lib -z $(RAYGUI) -l $(MICROUI) -l $(WREN) -l $(TSOD_FLAG) -l $(TRACY)
+LINKED_LIBRARIES := -l $(RAYLIB) -l $(BOX2D) -l kernel32.lib -z $(RAYGUI) -l $(MICROUI) -l $(WREN) -l $(TSOD_FLAG) -l $(TRACY) -l $(PLMPEG)
 else
 ifeq ($(filter mujs,$(SCRIPT_LANG)),mujs)
-LINKED_LIBRARIES := -l $(RAYLIB) -l $(BOX2D) -l kernel32.lib -z $(RAYGUI) -l $(MICROUI) -l $(MUJS) -l $(TSOD_FLAG) -l $(TRACY)
+LINKED_LIBRARIES := -l $(RAYLIB) -l $(BOX2D) -l kernel32.lib -z $(RAYGUI) -l $(MICROUI) -l $(MUJS) -l $(TSOD_FLAG) -l $(TRACY) -l $(PLMPEG)
 else
-LINKED_LIBRARIES := -l $(RAYLIB) -l $(BOX2D) -l kernel32.lib -z $(RAYGUI) -l $(MICROUI) -l $(LUA) -l $(TSOD_FLAG) -l $(TRACY)
+LINKED_LIBRARIES := -l $(RAYLIB) -l $(BOX2D) -l kernel32.lib -z $(RAYGUI) -l $(MICROUI) -l $(LUA) -l $(TSOD_FLAG) -l $(TRACY) -l $(PLMPEG)
 endif
 endif
 endif
@@ -128,7 +129,7 @@ EXES_TO_CLEAN := $(wildcard $(BUILD_PATH)/*.exe)
 
 # arguments to set at game start
 DEBUG_GAME_ARGUMENTS := +developer +editor +r_mode 9
-RELEASE_GAME_ARGUMENTS := +r_fullscreen 2
+RELEASE_GAME_ARGUMENTS := +r_fullscreen 0 +r_mode 9
 
 # in c3 you need to use $feature(_DEBUG) to check for this defines, C3 $define doesn't work for this...
 ifeq ($(SCRIPT_LANG), umka)

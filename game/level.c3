@@ -56,12 +56,12 @@ struct MapEntity
 
 fn MapEntity* MapEntity.parse(&self, Path src, bool worldSpawn = false, int version = CURRENT_MAP_VERSION ) {
     @todo("Implement MapEntity parsing");
-    return null;
+    //return null;
 }
 
 fn bool	MapEntity.write(&self, File* fp, int entityNum ) {
     @todo();
-    return false;
+    //return false;
 }
 
 struct Level 

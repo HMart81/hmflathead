@@ -114,7 +114,7 @@ fn String ModList.getDescription(&self, uint index ) => self.descriptions[index]
     Returns file data as char slice (pointer and len) not a array! (read)
     Needs to be unloaded with fileUnloadEntireBytes() after use.
 
-    @param fileName : "The name of the file to load."
+    @param [in] fileName : "The name of the file to load."
     @ensure return.ptr != null && return.len > 0
 *>
 fn char[] fileLoadEntireBytes(String fileName) 

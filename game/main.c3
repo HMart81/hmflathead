@@ -32,6 +32,7 @@ module game::main @private;
 // #region imports
 import libc;
 import std::io, std::thread, std::os;
+import std::time;
 import std::math;
 import std::ascii;
 import std::math::complex;
@@ -76,6 +77,7 @@ import thirdparty::tsoding::flg; // simple flag library
 import thirdparty::mujs; // micro java script
 import thirdparty::scripting::lua; // lua script
 import thirdparty::scripting::umka; // umka script
+import engine::sys::videoplay::vid; // video playing
 // #endregion
 
 // #region Constants
@@ -318,6 +320,9 @@ struct Game (SaveSystemInterface) @local
     gui::Desktop* guiActive; // to handle all guis
     gui::Desktop* main_menu;
     //
+
+    // video player
+    VideoPlayer* vidplayer;
 
     // microui
     mu::MU_Context* mu_ctx @if($feature(MICROUI_ENABLE)); // microui context, used for the micro ui system
@@ -1974,6 +1979,12 @@ fn void handle_cmdline(String[] args)
     }
 }
 
+fn void print_game_version() @local @inline {
+    log::info(FILE, "---------------------------------------------");
+    log::info(FILE, "Game Version: %s", lic::@game_version());
+    log::info(FILE, "---------------------------------------------\n");
+}
+
 // #endregion ARGS HANDLING ******************
 //////////////////////////////////////////////////////////////////
 
@@ -1981,8 +1992,8 @@ fn void handle_cmdline(String[] args)
 fn void? gameOnStart(String[]* args) @local 
 {
     local_game.mode = STARTING;
-    log::info(FILE, "Game Version: %s\n", lic::@game_version());
-    log::info(FILE, "-------- THE <toname> ENGINE LOG ------------");
+    
+    print_game_version();
     
     // Handle cmdline arguments if any.
 $if $feature(TSODING_FLAG):
@@ -2595,6 +2606,12 @@ $endif
 
 // #endregion Window initialization
 
+//  init video player
+    local_game.vidplayer = vid::initVideoPlayer(local_game.app_base_folder.tconcat("videos/"));
+    if(local_game.vidplayer) {
+        local_game.vidplayer.registerVideos()!;
+    }
+
 // #region physics engine
     log::info(FILE, "Starting Box2D physics engine:");
     log::info(FILE, "---------------------------------------------");
@@ -3044,7 +3061,13 @@ $endif
         log::info(FILE, "Done.");
     }
     //
+
+    if(local_game.vidplayer) {
+        vid::deinitVideoPlayer(local_game.vidplayer);
+    }
+
     rl::closeAudioDevice();
+
     //
     if(local_game.settings_file.isModified())
     {
@@ -3347,7 +3370,13 @@ fn void pre_InitFunc() @init {
     local_game.infoBox.init(MessageBoxType.INFO);
 
     // Update(HM): can't be done here needs window/Opengl context to be initialize because of loading textures
-    // rgui::style::dark::load(); 
+    // rgui::style::dark::load();
+
+    log::info(FILE, "-------- THE <toname> ENGINE LOG ------------");
+    DateTime date = datetime::now();
+    log::info(FILE, "\t%s of %s of %s at %sh:%sm", date.day, date.month, date.year, date.hour, date.min);
+    log::info(FILE, "---------------------------------------------");
+    log::info(FILE, "---------------------------------------------\n"); 
 
     // print machine info
     misc::printMachineInfo();

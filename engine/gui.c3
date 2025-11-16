@@ -84,7 +84,7 @@ const int  MIN_PANEL_SIZE = 32;
 const uint HORIZONTAL_DIR = 1;
 const uint VERTICAL_DIR   = 2;
 
-enum PanelShape : inline int
+enum PanelShape : const inline int
 {
     BOX,
     ROUNDED_BOX
@@ -108,6 +108,8 @@ struct PanelFlags
 */
 struct Panel (SaveSystemInterface)
 {
+    int id;  // used to uniquily identify each panel
+    String name;
     PanelFlags flags;
     PanelShape shape;
     Rectangle  rect;
@@ -130,7 +132,7 @@ fn void Panel.reload(&self, SaveFile* file) @dynamic
 {
     int value;
     svs::readInt(file, &value);
-    self.shape = PanelShape.from_ordinal(value);
+    self.shape = (PanelShape)value;
     svs::readRect(file, &self.rect);
     svs::readColor(file, &self.color);
     svs::readColor(file, &self.selected_color);
@@ -165,8 +167,8 @@ fn void Panel.setShape(&self, PanelShape shape) @inline => self.shape = shape;
 <*
     Todo(HM) Make a way to select or view pannels with very low sizes or huge sizes
 
-    @param w_scaler : "vector to scale the panel horizontally, from 0.05f to INF"
-    @param h_scaler : "vector to scale the panel verticaly, from 0.05f to INF"
+    @param w_scaler : "value to scale the panel horizontally, from 0.05f to INF"
+    @param h_scaler : "value to scale the panel verticaly, from 0.05f to INF"
     @require w_scaler >= 0.05f && h_scaler >= 0.05f
 *>
 fn void Panel.scale(&self, float w_scaler, float h_scaler) @inline 
@@ -174,7 +176,7 @@ fn void Panel.scale(&self, float w_scaler, float h_scaler) @inline
     if( w_scaler >= 0.05f && w_scaler < 0.06f &&
         h_scaler >= 0.05f && h_scaler < 0.06f )
     {
-        log::warning(Where.FILE, "scaled a panel to almost invisible size! Was that desired?");
+        log::warning(FILE, "scaled a panel to almost invisible size! Was that desired?");
     }
 
     self.rect.width  *= w_scaler;
@@ -478,7 +480,7 @@ fn void Frame.init(&self, String name) @inline {
     self.super.init();
 
     // init the frame menbers
-    self.name = string::tformat("Frame_%s", name);
+    self.super.name = string::tformat("Frame_%s", name);
     self.show();
     
     // todo
@@ -562,8 +564,6 @@ struct Widget (WidgetInterface)
     // extends Panel (super/base class)
     inline Panel super;
     
-    int id;  // used to uniquily identify each widget on a gui
-    String name;
     //int layer;
     int kind;
     bool selected;  // for the gui editor
@@ -813,18 +813,18 @@ fn void Widget.addTo(&self, Desktop* desktop) @dynamic
         self.activate();
     }
 
-    self.id = (int)self.parent.desktop.children.len() + 1;
+    self.super.id = (int)self.parent.desktop.children.len() + 1;
     
     // concatenate with desktop name
-    if (self.id < 10) {
-        self.name = string::tformat("%s_%s%d", self.parent.desktop.name, self.name.tconcat("0"), self.id);
+    if (self.super.id < 10) {
+        self.super.name = string::tformat("%s_%s%d", self.parent.desktop.name, self.super.name.tconcat("0"), self.super.id);
         if (self.bound()) {
-            self.name = string::tformat("%s_%s_%s%d", self.parent.desktop.name, self.parent.other.name, self.name.tconcat("0"), self.id);
+            self.super.name = string::tformat("%s_%s_%s%d", self.parent.desktop.name, self.parent.other.super.name, self.super.name.tconcat("0"), self.super.id);
         }
     } else {
-      self.name = string::tformat("%s_%s%d", self.parent.desktop.name, self.name, self.id);
+      self.super.name = string::tformat("%s_%s%d", self.parent.desktop.name, self.super.name, self.super.id);
       if (self.bound()) {
-          self.name = string::tformat("%s_%s_%s%d", self.parent.desktop.name, self.parent.other.name, self.name, self.id);
+          self.super.name = string::tformat("%s_%s_%s%d", self.parent.desktop.name, self.parent.other.super.name, self.super.name, self.super.id);
       }
     }
     
@@ -842,7 +842,7 @@ fn Desktop* Widget.getDesktop(&self) @dynamic => self.parent.desktop;
 *>
 fn void Widget.bindTo(&self, Widget* other) @dynamic {
     if(self.bound()) {
-        log::warning(Where.CONSOLE, "Cannot Bind %s to %s because is already bound to %s.", self.id, other.id, self.parent.other.id);
+        log::warning(Where.CONSOLE, "Cannot Bind %s to %s because is already bound to %s.", self.super.id, other.super.id, self.parent.other.super.id);
         return;
     }
     
@@ -869,13 +869,13 @@ fn void Widget.unbind(&self) @dynamic {
     self.parent.other = null;
 }
 
-fn String Widget.getName(&self) @inline @dynamic => self.name;
+fn String Widget.getName(&self) @inline @dynamic => self.super.name;
 
 fn void Widget.link(&self, Widget* other) @dynamic {
     if (other == null) return;
 
     if (self.isLinked()) {
-        log::warning(Where.CONSOLE, "Cannot link %s to %s because is already linked to %s.", self.id, other.id, self.next.id);
+        log::warning(Where.CONSOLE, "Cannot link %s to %s because is already linked to %s.", self.super.id, other.super.id, self.next.id);
         return;
     }
 
@@ -931,7 +931,7 @@ fn void WidgetText.init(&self) //@inline
 {
     self.super.init();
     self.super.hide(); // don't show the button shape
-    self.name = "TextLabel";
+    self.super.name = "TextLabel";
     self.setColor({0, 0, 0, 0});
     self.kind       = KIND_TEXT;
     self.spacing    = 2.0f; //@hardcode, todo make this int a cvar
@@ -1077,7 +1077,7 @@ fn void WidgetButton.init(&self) //@inline
 {
     self.super.init();
     self.kind = KIND_BUTTON;
-    self.name = "Button";
+    self.super.name = "Button";
     self.setDefaultColor(rl::WHITE); //@hardcode
     self.setSound(&main::gpGame.default_sound); //@hardcode, todo give this a better sound
 }
@@ -1111,7 +1111,7 @@ fn void WidgetButton.manage_interactions(&self) @local
 {
     if (self.active() == false) return;
 
-    //main::log::info(Where.CONSOLE, "Gui: I'm over button: %s", self.name);
+    //main::log::info(Where.CONSOLE, "Gui: I'm over button: %s", self.super.name);
     if (self.asFocus() && self.selected == false)
     {
         if(self.onOver) self.onOver(self);
@@ -1121,7 +1121,7 @@ fn void WidgetButton.manage_interactions(&self) @local
         if(!ui_editGui.getBool()) 
         {
             if (rl::isMouseButtonDown(MouseButton.LEFT) && self.press_count >= 1) {
-                //main::log::info(Where.CONSOLE, "Gui: I'm pressing button: %s", self.name);
+                //main::log::info(Where.CONSOLE, "Gui: I'm pressing button: %s", self.super.name);
                 if (self.onPress) { 
                     self.onPress(self);
                 }
@@ -1204,7 +1204,7 @@ struct WidgetCheckBox
 fn void WidgetCheckBox.init(&self) @inline 
 {
     self.super.init();
-    self.name = "CheckBox";
+    self.super.name = "CheckBox";
     self.setColor(rl::WHITE);
     self.kind = KIND_CHECKBOX;
 }
@@ -1479,7 +1479,7 @@ fn void Desktop.reload(&self, SaveFile* file) @dynamic {
 fn bool Desktop.initFromFile(&self, ZString path, bool cache ) 
 {
     @todo();
-    return false;
+    //return false;
 /*
 
 	if ( !path.len ) {
@@ -1894,7 +1894,7 @@ macro Desktop.@addChildren(&self; @body(self))
 macro Desktop.getChild(&self, int id) {
     Widget* child = self.children[id];
     if (child == null) {
-        log::warning(Where.CONSOLE, "Cannot get child %d from %s because is null.", id, self.name);
+        log::warning(Where.CONSOLE, "Cannot get child %d from %s because is null.", id, self.super.name);
         return null;
     }
     return child;

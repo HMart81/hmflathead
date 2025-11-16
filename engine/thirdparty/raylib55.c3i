@@ -717,7 +717,7 @@ $assert(ShaderAttributeDataType.FLOAT.ordinal == 0);
 
 // Pixel formats
 // NOTE: Support depends on OpenGL version and platform
-enum PixelFormat : int
+enum PixelFormat : const inline int
 {
 	NONE,
     UNCOMPRESSED_GRAYSCALE,     // 8 bit per pixel (no alpha)
@@ -743,7 +743,7 @@ enum PixelFormat : int
     COMPRESSED_ASTC_8X8_RGBA    // 2 bpp
 }
 
-$assert(PixelFormat.UNCOMPRESSED_GRAYSCALE.ordinal == 1);
+$assert(PixelFormat.UNCOMPRESSED_GRAYSCALE == 1);
 
 // Texture parameters: filter mode
 // NOTE 1: Filtering considers mipmaps if available in the texture

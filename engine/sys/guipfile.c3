@@ -25,6 +25,7 @@
 # Hilario Martins, Rua de Sanguinhedo 1010 4850-545 Vieira Do Minho Portugal.
 # 
 *********************************************************************************************************************************************/
+// UNFINISHED!!!
 
 module engine::sys::guipfile::guip;
 
@@ -98,8 +99,18 @@ fn void GUIPElement.init(&self)
 {
     self.type = GUIPElement.typeid;
     self.color = rl::WHITE; // default color is white
-    self.transform.scale = {1.0f, 1.0f};
+    self.transform.scale = {1.0f, 1.0f}; // sets translation and rotation to the same value.
     self.transform.matrix = math::MATRIX4F_IDENTITY;
+}
+
+fn GUIPElement* createElement(String _name = "<noname>") {
+    return mem::new(GUIPElement, {
+        .type = GUIPElement.typeid,
+        .name = _name,
+        .color = rl::WHITE,
+        .transform.scale = {1.0f, 1.0f},
+        .transform.matrix = math::MATRIX4F_IDENTITY
+    });
 }
 
 struct GUIPElement_Group
@@ -180,7 +191,6 @@ struct GUIPStructure
 {
     int version; // the guip file version
     String path; // the path to the guip file
-    int num_elements; // the number of elements in the guip file
     ListOfElements elements; // the elements in the guip file
 }
 
@@ -190,7 +200,6 @@ struct GUIPStructure
 fn void GUIPStructure.register(&self, GUIPElement* elem) @inline
 {
     self.elements.push(elem);
-    self.num_elements++;
 }
 
 fn void GUIPStructure.freeElements(&self)

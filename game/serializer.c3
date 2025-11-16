@@ -299,7 +299,7 @@ fn void	writeTexture2D(SaveFile* savefile, Texture2D* tex) {
     writeInt(savefile, (*tex).width);
     writeInt(savefile, (*tex).height);
     writeInt(savefile, (*tex).mipmaps);
-    writeInt(savefile, (*tex).format.ordinal);
+    writeInt(savefile, (*tex).format);
 }
 
 <*

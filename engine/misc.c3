@@ -30,7 +30,7 @@ module engine::misc;
 // region C3 modules
 import libc;
 import std::io, std::io::file;
-import std::core::mem, std::core::ascii;
+import std::core::mem, std::core::ascii, std::core::cpudetect;
 import std::math;
 import std::collections;
 import engine::logging::log;
@@ -144,20 +144,45 @@ macro @forange($a, #b, arr; @body(x, y)) @builtin
 fn bool isLittleEndian() @inline @local { int n = 1; return (*(CChar *)&n == 1) ? true : false; }
 fn void printMachineInfo() @if(env::WIN32)
 {
+// CPU
     log::info(Where.FILE, "Machine Information:");
-    log::info(Where.FILE, "  - CPU Cores: %d", os::num_cpu());
-    /*Win32_PULONGLONG totalMemKB;
-    if(win32::getSystemRAM(totalMemKB)) {
-        log::info(Where.FILE, "  - System RAM: %.2f GB", (float)*totalMemKB / 1024.0f / 1024.0f);
-    } else {
-        log::info(Where.FILE, "  - System RAM: Unknown, got error! %s", win32::getLastError());
-    }*/
+$if (env::X86 || env::X86_64):
+    CpuId cpuid;
+    cpuid = cpudetect::x86_cpuid(0); // Get CPU vendor
+
+    String a,b,c,vendor;
+    a = string::tformat("%s", (String)((char*)&cpuid.ebx)[:4]);
+    b = string::tformat("%s", (String)((char*)&cpuid.edx)[:4]);
+    c = string::tformat("%s", (String)((char*)&cpuid.ecx)[:4]);
+    vendor = a.tconcat(b).tconcat(c);
+    log::info(Where.FILE, "\t- CPU %s", vendor);
+$endif
+    // Use the wProcessorArchitecture, wProcessorLevel, 
+    // and wProcessorRevision members to determine the type of processor
+    Win32_SYSTEM_INFO systemInfo;
+    win32::getSystemInfo(&systemInfo);
+    switch(systemInfo.wProcessorArchitecture) 
+    {
+        case 9: log::info(FILE, "\t- CPU architecture: X64");
+        case 0: log::info(FILE, "\t- CPU architecture: X86");
+        default: log::info(FILE, "\t- CPU architecture: <Unknown>");
+    }
+    log::info(FILE, "\t- CPU level: %s / revision: %s", systemInfo.wProcessorLevel, systemInfo.wProcessorRevision);
+    log::info(Where.FILE, "\t- CPU Cores: %d", systemInfo.dwNumberOfProcessors);
+    if(!isLittleEndian()) log::info(Where.FILE, "\t- Endianness: %s", "Big Endian");
+
+// RAM
     int ram_amount = win32::getSystemRAM();
-    log::info(Where.FILE, "  - System RAM: %s %s", ram_amount, (ram_amount < 1000) ? "MB" : "GB");
+    if(ram_amount >= 1000) {
+        log::info(Where.FILE, "\t- System RAM: %s GB", ram_amount / 1000);
+    } else {
+        log::info(Where.FILE, "\t- System RAM: %s MB", ram_amount);
+    }
+
+// Operating System
     OSversionInfo osvi;
     win32::getVersion(&osvi);
-    log::info(Where.FILE, "  - Windows: %s.%s build: %s", osvi.dwMajorVersion, osvi.dwMinorVersion, osvi.dwBuildNumber);//getOSInfo());
-    log::info(Where.FILE, "  - Endianness: %s", isLittleEndian() ? "Little Endian" : "Big Endian");
+    log::info(Where.FILE, "\t- Windows: %s.%s build: %s", osvi.dwMajorVersion, osvi.dwMinorVersion, osvi.dwBuildNumber);//getOSInfo());
     log::info(FILE, "---------------------------------------------\n");
 }
 
@@ -629,7 +654,7 @@ fn bool rl::Texture2D.isInvalid(&self) @inline {
        self.width   == 0 &&  // Texture base width
        self.height  == 0 &&  // Texture base height
        self.mipmaps == 0 &&  // Mipmap levels, 1 by default
-       self.format.ordinal  == 0 )   // Data format (PixelFormat type)
+       self.format  == 0 )   // Data format (PixelFormat type)
       {
         return true;
       }

@@ -473,7 +473,7 @@ fn Texture2D* HMaterial.getTexture(&self, MatStageIndex index, bool isPBR = fals
             return &self.getStage(STAGE_DIFFUSE).tex;
     }
 
-    return null;
+    //return null;
 }
 
 
