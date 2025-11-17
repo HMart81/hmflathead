@@ -32,6 +32,7 @@ module game::material::mat @private;
 // region imports
 import game::main; // for file logging or console logging
 import engine::misc;
+import engine::sys::framework::glsl;
 import std::io, std::math;
 import game::material::mtr;
 import game::serialize::svs;
@@ -1161,7 +1162,7 @@ fn void HMaterial.parse_shader(&self, XmlNode* node) @public
     {
         // load the shader from the file system
         shader_path = shader_path.stripExtension();
-        shader = misc::loadShader(shader_path.tconcat(".vs"), shader_path.tconcat(".fs"));
+        shader = glsl::loadShader(shader_path.tconcat(".vs"), shader_path.tconcat(".fs"));
     }
 
     if(!shader.isValid()) {

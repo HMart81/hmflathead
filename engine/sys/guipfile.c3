@@ -243,7 +243,7 @@ fn bool? GUIPStructure.load(&self, String path)
     }
     self.path = path;
 
-    String file_data = misc::readEntireFileX(self.path)!;
+    String file_data = fs::readEntireFileX(self.path)!;
     if(file_data == "") {
         log::error(Where.FILE, "Failed to read data from guip file '%s'", self.path);
         return GUIP_READ_ERROR?;

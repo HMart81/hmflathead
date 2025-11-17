@@ -76,6 +76,7 @@ import thirdparty::raylib5::rl;
 // end_region
 
 // region alias
+alias gpGame @local = main::gpGame;
 // end_region
 
 // region constants
@@ -402,7 +403,8 @@ fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
     offset += misc::VEC_RIGHT * screen_half_width;
     offset -= {button_width / 2.0f, 0.0f};
     offset += misc::VEC_DOWN * (screenHeight / button_height) * 10;
-    desk_main.create_menu_button(offset, "START", &btn_def);
+    String btn_string = gpGame.langdict.getStringFromID("0");
+    desk_main.create_menu_button(offset, btn_string/*"START"*/, &btn_def);
 
     //************
     // QUIT
@@ -412,7 +414,8 @@ fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
     
     offset += misc::VEC_DOWN * button_height;
     offset.y += 0.5f * button_height;
-    desk_main.create_menu_button(offset, "QUIT", &btn_def);
+    btn_string = gpGame.langdict.getStringFromID("1");
+    desk_main.create_menu_button(offset, btn_string/*"QUIT"*/, &btn_def);
     
     //************
     // OPTIONS
@@ -422,7 +425,8 @@ fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
     
     offset += misc::VEC_DOWN * button_height;
     offset.y += 0.5f * button_height;
-    desk_main.create_menu_button(offset, "OPTIONS", &btn_def);
+    btn_string = gpGame.langdict.getStringFromID("3");
+    desk_main.create_menu_button(offset, btn_string/*"OPTIONS"*/, &btn_def);
     // end_region BUTTONS
 
     // region widgets options
@@ -448,7 +452,8 @@ fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
     offset += misc::VEC_RIGHT * (0.10f * (desk_options.getSize().x / 2));
     offset += misc::VEC_DOWN * desk_options.getSize().y;
     offset.y -= button_height + (0.5f * button_height);
-    desk_options.create_menu_button(offset, "BACK", &btn_def);
+    btn_string = gpGame.langdict.getStringFromID("4");
+    desk_options.create_menu_button(offset, btn_string/*"BACK"*/, &btn_def);
 // end_region widgets
     
     return desk_main;

@@ -39,6 +39,7 @@ import std::collections::list, std::collections::pair;
 import game::main;
 import thirdparty::raylib5::rl;
 import engine::misc;
+import engine::filesystem::fs;
 import engine::sys::cvar;
 import engine::logging::log;
 // end_region
@@ -621,7 +622,7 @@ fn String[]? openConfigfileAndCutDataByLines(String filepath, bool isrelative) @
         // return IniFault.FAILED_OPEN_FILE?;
     // }
     
-    String? entire_file = misc::readEntireFileX(filepath);
+    String? entire_file = fs::readEntireFileX(filepath);
     if(catch excuse = entire_file) {
         log::warning(Where.FILE,  "Unable to read data from file: %s with excuse: %s", filepath, excuse);
         return FAILED_READ_FILE?;

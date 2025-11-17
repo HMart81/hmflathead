@@ -48,9 +48,11 @@ import engine::assets_api::asset; // for the asset system
 import engine::assets_api::astmng; // asset manager
 import engine::sys::reader::svg;
 import game::material::manager::mtrmng; // material database
+import engine::sys::framework::language::lang;
 //
 import thirdparty::wren;
 import engine::sys::script_engine::scpt; // Script Engine (based on Wren language)
+import engine::sys::framework::glsl;
 import thirdparty::angel; // AngelScript engine
 //
 import game::assets::sprt; // sprites
@@ -316,6 +318,8 @@ struct Game (SaveSystemInterface) @local
     IntroAnimation intro;
     bool intro_playing;
     
+    LANGData langdict;
+
     // menus
     gui::Desktop* guiActive; // to handle all guis
     gui::Desktop* main_menu;
@@ -801,7 +805,7 @@ fn void? Game.loadDefaultAssets(&self)
         self.app_base_folder.tconcat("shaders//default.vs").zstr_tcopy(),
         self.app_base_folder.tconcat("shaders//default.fs").zstr_tcopy()
     );*/
-    self.default_shader = misc::loadShader(
+    self.default_shader = glsl::loadShader(
         self.app_base_folder.tconcat("shaders//default.vs"),
         self.app_base_folder.tconcat("shaders//default.fs")
     );
@@ -2239,6 +2243,18 @@ $endif
     log::info(FILE, "---------------------------------------------\n");
 // #endregion Ini file handling
 
+    // set game language
+    if(settings_file.hasSection("game")) {
+        local_game.langdict.type = settings_file.getString("language");
+        assert(local_game.langdict.type != "");
+        if(local_game.langdict.load(local_game.app_base_folder.tconcat("langs\\local.lang"))!) {
+            log::info(FILE, "language file loaded sucessfully.");
+            log::info(FILE, "---------------------------------------------\n");
+        }
+    } else {
+        unreachable("invalid ini file no required [game] section found!!");
+    }
+
     // change raylib log level
     // NOTE(HM) this will override the default log level set before in pre_InitFunc()
     if(settings_file.getBool("log")! == true)
@@ -3067,6 +3083,9 @@ $endif
     }
 
     rl::closeAudioDevice();
+
+    // clear language dictionair
+    local_game.langdict.destroy();
 
     //
     if(local_game.settings_file.isModified())

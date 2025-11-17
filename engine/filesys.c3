@@ -110,6 +110,45 @@ fn String ModList.getMod(&self, uint index ) => self.mods[index];
 fn String ModList.getDescription(&self, uint index ) => self.descriptions[index];
 
 // region Files management functions
+struct EntireFile @local {
+    usz contents_size;
+    void* contents;
+}
+
+<*
+    Performance?
+
+    @param [in] filepath : "The path of the file to load."
+*>
+fn String? readEntireFileX(String filepath) 
+{
+    EntireFile _file;
+    
+    File data = openFile(filepath, FileMode.READ_BINARY)!;
+    defer (void)data.close();
+    
+    if(data.file != null)
+    {
+        _file.contents_size = data.seek(0, Seek.END)!;
+        data.seek(0, SET)!; // return to the start
+        _file.contents = mem::calloc(char.sizeof * _file.contents_size);
+        char[] buffer = ((char*)_file.contents)[:_file.contents_size];
+        data.read(buffer[:_file.contents_size])!;
+        return ((String)buffer).tcopy();
+    } else{
+        log::error(FILE, "Cannot open file: %s", filepath);
+    }
+    
+    return (String)"";
+}
+
+fn String? readEntireFile(String filepath) @inline {
+    char[] buffer;
+    fault excuse = @catch(file::load_buffer(filepath, buffer));
+    
+    return string::format(mem, "%s", buffer);
+}
+
 <*
     Returns file data as char slice (pointer and len) not a array! (read)
     Needs to be unloaded with fileUnloadEntireBytes() after use.

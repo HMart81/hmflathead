@@ -32,6 +32,7 @@ module engine::assets_api::asset{Type};
 import std::io;
 import thirdparty::raylib5::rl;
 import engine::misc;
+import engine::sys::framework::glsl;
 import engine::filesystem::fs;
 
 struct Asset
@@ -58,6 +59,7 @@ import engine::assets_api::asset;
 import engine::logging::log;
 import engine::filesystem::fs;
 import engine::misc;
+import engine::sys::framework::glsl;
 
 faultdef INVALID_ASSETS_PATH_STRING,
 	     MALFORMED_PATHS_FILE,
@@ -578,14 +580,14 @@ fn void loadAsset(String path)
                 String vertex_shader_path = path.trim_right(".fs").tconcat(".vs");
                 if(fs::fileExists(vertex_shader_path))
                 {
-                    new_asset.data = misc::loadShader(vertex_shader_path, path);
+                    new_asset.data = glsl::loadShader(vertex_shader_path, path);
                 } 
                 else 
                 {
                     // if no vertex shader is found, try to use the default vertex shader
                     // WARNING(HM) 20/07/2025
                     // if inputs and outputs don't match, the shader will not work currently!
-                    new_asset.data = misc::loadShader("", path);
+                    new_asset.data = glsl::loadShader("", path);
                 }
             } 
             else if(path.ends_with(".vs")) 
@@ -595,11 +597,11 @@ fn void loadAsset(String path)
                 String pixel_shader_path = path.trim_right(".vs").tconcat(".fs");
                 if(fs::fileExists(pixel_shader_path))
                 {
-                    new_asset.data = misc::loadShader(path, pixel_shader_path);
+                    new_asset.data = glsl::loadShader(path, pixel_shader_path);
                 } 
                 else 
                 {
-                    new_asset.data = misc::loadShader(path, "");
+                    new_asset.data = glsl::loadShader(path, "");
                 }
             } 
             else
