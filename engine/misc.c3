@@ -57,6 +57,16 @@ const Vec2f VEC_DOWN  = {0.0f,  1.0f};
 const Vec2f VEC_LEFT  = {-1.0f, 0.0f};
 const Vec2f VEC_RIGHT = {1.0f,  0.0f};
 
+const ON  @builtin = 1;
+const OFF @builtin = 2;
+macro @debug_break($x /*enable*/) @builtin {
+    $if $x == ON:
+    //asm("int3"); // x86/64 only
+    breakpoint();
+    $else
+    io::printfn("[CLEAN] Disabled BREAKPOINT in %s at line: %s", $$FILE, $$LINE);
+    $endif
+}
 
 macro @makeVec2f(#x, #y) => (Vec2f){#x, #y};
 macro @makeVec2fExt(#x) => (Vec2f){#x, #x};
@@ -924,9 +934,9 @@ fn bool ZString.has_spaces(self, int* out_count) @inline {
 <*
   @require rl::isWindowReady() == true : "right now window most be initialized for Profiling to work"
 *>
-macro void @profile_zone(String name, bool on = true; @body()) @builtin {
+macro @profile_zone(String name, $x = ON; @body()) @builtin {
 $if $feature(_PROFILE):
-    if(on) {
+    $if $x == ON:
         var start_time = rl::getTime(); // in seconds
         defer
         {
@@ -942,7 +952,7 @@ $if $feature(_PROFILE):
                 io::printfn("Profile Zone -> [%s]\n{\n Func: %s\n Time: %s %s\n}", name, $$FUNC, value, time_type);
             };*/
         }
-    }
+    $endif
 $endif
     @body();
 }
@@ -984,15 +994,17 @@ $endif
 // end_region PROFILING //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region MISC
-fn Vec2f dir_mul(plyr::Move_Dir d, float a) @inline {
+fn Vec2f dir_mul(plyr::Move_Dir d, float a) @inline @nodiscard {
     return (Vec2f) { d.vec.x * a, d.vec.y * a };
 }
 
+<*
+    @param [&inout] mat : "Matrix to scale"
+    @param vec : "vector to scale by"
+*>
 fn void axis_scale(Matrix2f* mat, Vec2f vec) @inline {
-    if(mat) {
-        mat.m00 *= vec.x;
-        mat.m11 *= vec.y;
-    }
+    mat.m00 *= vec.x;
+    mat.m11 *= vec.y;
 }
 
 

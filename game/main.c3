@@ -1564,66 +1564,62 @@ fn void drawGameOnScreenDebugInfo(int screen_w, int screen_h) @local
 }
 
 // local Game functions NOTE(HM) local cannot be overriden when importing modules
-
 fn void gameDraw(int screenWidth, int screenHeight) @local 
 {
     //float gameDraw_start = @start_profile_zone();
     //defer @end_profile_zone(gameDraw_start);
-    misc::@profile_zone("Game Draw", false)
+    misc::@profile_zone("Game Draw", OFF)
     {
+        // 1) render to "offline" frame buffer objects/images in the background
         local_game.view.renderToFBO();
         
         // Main Basic rendering
-        rl::beginDrawing();
-        
-        rl::clearBackground({0x18, 0x18, 0x18, 0xFF});
-        //rl::clearBackground(*(Color*)&&((uint[1]){ 0x181818FF }));
-        
-$if $feature(MICROUI_ENABLE):
-        mu::process_frames(local_game.mu_ctx, rl::getFrameTime());
-
-        if(local_game.show_microui_test_frames && mu::open_frames.len() == 0) {
-            local_game.show_microui_test_frames = false; // disable microui focus if no frames are open
-        }
-$endif
-        // draw the view FBO's
-        if(rl::isShaderValid(*local_game.current_global_shader)) 
+        //rl::beginDrawing();
+        rl::@drawing() 
         {
-            rl::@shaderMode(*local_game.current_global_shader) 
+            rl::clearBackground({0x18, 0x18, 0x18, 0xFF});
+            //rl::clearBackground(*(Color*)&&((uint[1]){ 0x181818FF }));
+
+            // 2) render the view FBO's rendered above into the back buffer
+            if(rl::isShaderValid(*local_game.current_global_shader)) 
+            {
+                rl::@shaderMode(*local_game.current_global_shader) 
+                {
+                    local_game.view.draw();
+                };
+            } 
+            else // render using raylib default shader
             {
                 local_game.view.draw();
-            };
-        } 
-        else 
-        {
-            // render using raylib default shader
-            local_game.view.draw();
-        }
-        
-        // NOTE(HM) 
-        // drawing after the scene is draw but before the GUI
-        gameOnPostSceneDraw(screenWidth, screenHeight);
-        //
-        //gameOnGuiDraw(screenWidth, screenHeight);
-        // NOTE(HM) 
-        // drawing after the GUI is draw
-        //gameOnPostGUIDraw(screenWidth, screenHeight);
-
-        // draw message box's
-        if(messageBoxs.len()) {
-            foreach(box : messageBoxs ) {
-                box.draw();
             }
-        }
-        
-        // this is where input pooling and swapping buffers happens
-        rl::endDrawing();
+            
+            // NOTE(HM) 
+            // drawing after the scene is draw but before the GUI
+            gameOnPostSceneDraw(screenWidth, screenHeight);
+            //
+            //gameOnGuiDraw(screenWidth, screenHeight);
+            // NOTE(HM) 
+            // drawing after the GUI is draw
+            //gameOnPostGUIDraw(screenWidth, screenHeight);
+
+            // draw message box's
+            if(messageBoxs.len()) {
+                foreach(box : messageBoxs ) {
+                    box.draw();
+                }
+            }
+            
+            // this is where input pooling and swapping buffers happens
+            //rl::endDrawing();
+        };
         tracy::frameMark();
         
         // NOTE(HM) 1)
-        // drawing after the frame buffer is swapped/updated
+        // drawing after the frame buffer are swapped/updated
         // NOTE(HM) 2)
-        // Not sure for what this is usefull, but I saw this when studing the Penumbra engine
+        // Not sure this is usefull for, I saw this function when studing 
+        // the HPL1 engine from where I got some of the ideas, 
+        // so just here for the time I understand and have use for this.
         gameOnPostBufferSwap();
     }; // profile_zone
 }
@@ -1632,8 +1628,15 @@ $endif
 fn void gameOnPostSceneDraw(int screenWidth, int screenHeight) @local 
 {
 $if $feature(MICROUI_ENABLE) :
-    // NOTE(HM) microui context end, should be called before calling this microui commands
-    // that is done in gameDraw() function inside mu::process_frames()::@render() function.
+    // process microui panels/frames
+    mu::process_frames(local_game.mu_ctx, rl::getFrameTime());
+
+    if(local_game.show_microui_test_frames && mu::open_frames.len() == 0) {
+        local_game.show_microui_test_frames = false; // disable microui focus if no frames are open
+    }
+    // NOTE(HM) microui context end, should be called 
+    // before calling the followiong microui commands
+    // that is done inside mu::process_frames()::@render() function.
 
     MU_Command * cmd = null;
     while (local_game.mu_ctx.next_command(&cmd))
@@ -3318,7 +3321,7 @@ fn void gameDoOneFrame() @local
                 tracy::@messageL( "Tick" );
                 tracy::@zoneN("Game loop", 1)
                 {
-                    @profile_zone("gameDoOneFrame", false)
+                    @profile_zone("gameDoOneFrame", OFF)
                     {
 
                         if(local_game.should_quit) break;

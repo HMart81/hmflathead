@@ -43,11 +43,11 @@ faultdef MALFORMED_LANG_FILE,
 	     LANG_LOAD_ERROR,
 	     LANG_READ_ERROR,
          LANG_VALUE_ERROR,
-	     MISSING_LANG;
+	     LANG_FILE_MISSING;
 
 typedef LANGFile = inline XmlDoc;
-typedef LANGNode = inline XmlNode;
-typedef LANGAttribute = inline XmlAttribute;
+//typedef LANGNode = inline XmlNode;
+//typedef LANGAttribute = inline XmlAttribute;
 
 alias StringsList = List{StringPair*};
 alias LanguageList = List{Language*};
@@ -65,7 +65,7 @@ struct LANGData
     LanguageList languages;
 }
 
-fn String LANGData.getStringFromID(&self, String id) 
+fn String LANGData.getString(&self, String id) 
 {
     foreach(lang : self.languages) 
     {
@@ -104,25 +104,30 @@ fn bool? LANGData.load(&self, String _path)
     self.path = _path.tcopy();
 
     // check if the file exists
-    File file = fs::openFile(self.path)!;
-    defer file.close()!!;
-    if(file.file == null) {
-        log::error(FILE, "Failed to open language file '%s'", self.path);
-        return LANG_LOAD_ERROR?;
-    }
+    if(fs::fileExists(self.path)) 
+    {
+        File file = fs::openFile(self.path)!;
+        defer file.close()!!;
+        if(file.file == null) {
+            log::error(FILE, "Failed to open language file '%s'", self.path);
+            return LANG_LOAD_ERROR?;
+        }
 
-    LANGFile* lang_file = (LANGFile*)xml::read_file(file)!;
-    defer lang_file.free();
-    if(lang_file == null) {
-        log::error(FILE, "Failed to read language file '%s'", self.path);
-        return LANG_LOAD_ERROR?;
-    }
+        LANGFile* lang_file = (LANGFile*)xml::read_file(file)!;
+        defer lang_file.free();
+        if(lang_file == null) {
+            log::error(FILE, "Failed to read language file '%s'", self.path);
+            return LANG_READ_ERROR?;
+        }
 
-    if(self.parse(lang_file) == false) {
-        return LANG_PARSING_ERROR?;
+        if(self.parse(lang_file)) {
+            return true;
+        } else {
+            return LANG_PARSING_ERROR?;
+        }
+    } else {
+        return LANG_FILE_MISSING?;
     }
-    
-    return true;
 }
 
 
@@ -131,39 +136,40 @@ fn bool? LANGData.load(&self, String _path)
 *>
 fn bool LANGData.parse(&self, LANGFile* doc) @local
 {
-    bool invalid = (doc.rootNode.name == "" && doc.rootNode.name != "LANG");
-    if(invalid)
+    if(doc.rootNode.name != "LANG")
     {
        log::error(FILE, " Invalid language file '%s', root element should be 'LANG' but is '%s' instead.", self.path, doc.rootNode.name);
        return false;
     }
 
     if(doc.rootNode.children.len() == 0) {
-        log::error(FILE, " Cannot parse empty language file '%s', root <%s> has no children!", self.path, doc.rootNode.name);
+        log::error(FILE, " Required strings in language file '%s' not found!", self.path);
         return false;
     }
 
     foreach (node : doc.rootNode.children)
     {
-        if(node.name == "language") 
+        if(node.name == "language")
         {
-            assert(node.hasAttributes());
-            String _type = node.attributes[0].value;
-            Language* new_lang = mem::new(Language);
-            new_lang.type = _type.tcopy();
             assert(node.children.len() > 0);
-            foreach(str_node : node.children) {
-                if(str_node.name != "string") unreachable();
+            assert(node.hasAttributes());
+            Language* new_lang = mem::new(Language);
+            new_lang.type = node.attributes[0].value.tcopy();
+            foreach(str_node : node.children) 
+            {
+                if(str_node.name != "string" && !str_node.hasAttributes()) {
+                    unreachable("invalid string node found in language file");
+                }
                 new_lang.strings.push(
                     mem::new(StringPair, {
-                        .first = str_node.attributes[0].value.tcopy(), 
+                        .first  = str_node.attributes[0].value.tcopy(), 
                         .second = str_node.attributes[1].value.tcopy()
                     })
                 );
             }
             self.languages.push(new_lang);
         } else {
-            log::error(FILE, " Invalid language file '%s', child node of root 'LANG' node should be 'language' but is '%s' instead.", self.path, node.name);
+            log::error(FILE, " Invalid language file '%s', expected 'language' node found '%s' instead.", self.path, node.name);
             return false;
         }
     }

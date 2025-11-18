@@ -707,10 +707,12 @@ $endif
 *>
 fn void renderPostGuiFBO(RenderView* view, RenderLayer* layer) @local 
 {
-     rl::@textureMode(*layer) {
+     rl::@textureMode(*layer) 
+     {
         rl::clearBackground(rl::fade(rl::WHITE, 0.0f));
 $if $defined(ENABLE_CAMERA_VIEW):
-        rl::@mode2D(view.camera) {
+        rl::@mode2D(view.camera) 
+        {
             main::gameOnPostGUIDraw(view.w, view.h);
         };
 $endif

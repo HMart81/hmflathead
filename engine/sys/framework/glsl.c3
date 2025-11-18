@@ -77,7 +77,7 @@ const String GLOBAL_SHADER_INCLUDE = `
 const INCLUDE_DIRECTIVE @local = "#include";
 const SHADER_HOME_PATH  @local = "shaders/";
 
-fn void handleShaderIncludes(String* shdcode) @local @inline
+fn void handleShaderIncludes(String* shdcode) @local
 {
     if((*shdcode) == "")  return;
 
@@ -87,6 +87,8 @@ fn void handleShaderIncludes(String* shdcode) @local @inline
         String[] lines = (*shdcode).tsplit("\r\n");
         foreach(String line : lines)
         {
+            if(include_count == 0 ) break;
+
             if(line.is_empty()) continue; // skip empty lines
             if(line.starts_with("//")) continue; // skip comments
             if(line.starts_with("#"))
@@ -140,6 +142,7 @@ fn void handleShaderIncludes(String* shdcode) @local @inline
 
                 // NOTE(HM) else replace the full include directive with the code to include
                 (*shdcode) = (*shdcode).treplace(replace_directive, code_to_included.tconcat("\n"));
+                include_count -= 1;
             }
         }
     }
