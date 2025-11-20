@@ -843,7 +843,7 @@ $endif
             editor.setVisible();
             main::gpGame.mode = GameMode.EDITOR;
             con_printfn("GUI Editor opened.");*/
-            (gui::editor_is_opened()) ?  gui::editor_close() : gui::editor_open();
+            (guieditor::is_opened()) ?  guieditor::close() : guieditor::open();
             nextcase "quit";
         default:
             con_printfn("Unknown command: %s", input_text);

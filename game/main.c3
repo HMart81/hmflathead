@@ -41,9 +41,9 @@ import std::collections::list, std::collections::map, std::collections::pair;
 import engine::input;
 import engine::tokanizer::tok; // tokanizer
 import engine::filesystem::fs;
-import engine::gui;
-import game::intro;
+import engine::gui, engine::gui::desktop::desk;
 import game::gui::menu;
+import game::intro;
 import engine::assets_api::asset; // for the asset system
 import engine::assets_api::astmng; // asset manager
 import engine::sys::reader::svg;
@@ -112,6 +112,19 @@ const MIN_DISPLAY_HZ_FACTOR @Hardcode = 0.13f; // if the display hz is bellow th
 const MIN_DISPLAY_HZ  @Hardcode = 15;   // minimum display hz
 const MAX_DISPLAY_HZ  @Hardcode = 500;  // maximum display hz
 
+
+/**************** DOC ********************************************
+    - You can also do resolutions values like this:
+        int w = 16*120;
+        int w = 9*120;
+        16 and 9 are the image ratio and 120 is the scaling factor
+        in this case this will produce 1920x1080 res.
+    - You can also do it like this:
+        float ratio = 160.0f / 900.0f;
+        int vertPixels = 1080;
+        int w = (int)(vertPixels*ratio)
+        int h = vertPixels;
+******************************************************************/
 struct ScreenRes
 {
     String str;
@@ -158,14 +171,15 @@ const ScreenRes[*] SCREEN_RES = {
 const usz DEFAULT_SCREEN_INDEX     = 9;
 const ScreenRes DEFAULT_SCREEN_REZ = SCREEN_RES[DEFAULT_SCREEN_INDEX];
 
-fn bool resValuesSafe(int w_value, int h_value) @inline {
+fn bool resValuesSafe(int w_value, int h_value) @inline @nodiscard 
+{
     if(w_value < SCREEN_RES[0].w || w_value > SCREEN_RES[SCREEN_RES.len - 1].w) return false;
     if(h_value < SCREEN_RES[0].h || h_value > SCREEN_RES[SCREEN_RES.len - 1].h) return false;
     
     return true;
 }
 
-fn int getResolutionIndexFromValues(int w, int h) @local @inline
+fn int getResolutionIndexFromValues(int w, int h) @local @inline @nodiscard
 {
     if(resValuesSafe(w, h))
     {
@@ -180,9 +194,9 @@ fn int getResolutionIndexFromValues(int w, int h) @local @inline
 
 
 <*
- @param #index : "the index of a resolution on the resolution array"
- @require #index >= 0 && #index < ScreenRes.len
- @ensure return != null
+    @param #index : "the index of a resolution on the resolution array"
+    @require #index >= 0 && #index < ScreenRes.len
+    @ensure return != null
 *>
 macro ScreenRes* @getResolutionFromIndex(#index) => &ScreenRes[#index];
 
@@ -313,7 +327,7 @@ struct Game (SaveSystemInterface) @local
     bool msgbox_showing;
     bool is_modded_game; // is the game running a mod?
     
-    ini::Config settings_file; // game settings file, used to get or save the game settings
+    ConfigFile settings_file; // game settings file, used to get or save the game settings
     
     IntroAnimation intro;
     bool intro_playing;
@@ -321,8 +335,8 @@ struct Game (SaveSystemInterface) @local
     LANGData langdict;
 
     // menus
-    gui::Desktop* guiActive; // to handle all guis
-    gui::Desktop* main_menu;
+    Desktop* guiActive; // to handle all guis
+    Desktop* main_menu;
     //
 
     // video player
@@ -1262,7 +1276,7 @@ $if $defined(SCRIPT_ENGINE):
 $endif
         
         // updates all fullscreen menus state like the main menu
-        gui::gpDeskManager.update();
+        desk::gpManager.update();
         
         // if(rl::isCursorOnScreen()) {
             // io::printfn("on screen id: %s", rl::getCurrentMonitor());
@@ -1464,7 +1478,7 @@ fn void drawWorkInProgressMessage(int screen_w, int screen_h) @local
 
 fn void drawGameOnScreenDebugInfo(int screen_w, int screen_h) @local
 {
-    if(gui::editor_enabled()) return;
+    if(guieditor::enabled()) return;
     
     ZString slot1;
     ZString slot2;
@@ -1710,7 +1724,7 @@ fn void gameOnPostGUIDraw(int screenWidth, int screenHeight) @public
 
 fn void gameOnGuiDraw(int screenWidth, int screenHeight) @public @inline {
     
-    gui::gpDeskManager.draw(screenWidth, screenHeight);
+    desk::gpManager.draw(screenWidth, screenHeight);
     
     if(local_game.intro_playing) {
         intro::drawIntroAnimation(&local_game.intro, screenWidth, screenHeight);
@@ -2232,9 +2246,9 @@ $endif
     }
     
     // load the settings file
-    ini::Config* settings_file = &local_game.settings_file;
+    ConfigFile* settings_file = &local_game.settings_file;
     bool? settings_load_sucess = settings_file.load(ini_file_path, false);
-    //ini::Config*? settings_file = ini::load(ini_file_path, false); //ini::load(SETTINGS_FILE_NAME);
+    //ConfigFile*? settings_file = ini::load(ini_file_path, false); //ini::load(SETTINGS_FILE_NAME);
     if( catch excuse = settings_load_sucess) {
         log::warning(FILE, "Failed to load %s file with excuse: %s", ini_file_path, excuse);
         settings_file = null;
@@ -2255,6 +2269,8 @@ $endif
             log::info(FILE, "---------------------------------------------\n");
         }
     } else {
+        //settings_file.addSection(settings_file.createSection("game"));
+        //settings_file.addToSection("game", mem::new(IniCMD, {"language", "pt"}));
         unreachable("invalid ini file no required [game] section found!!");
     }
 
@@ -3141,9 +3157,9 @@ fn void clear_game_singletons() @inline {
     input::gpManager.free();
     input::gpManager = null;
     //
-    gui::gpDeskManager.free();
-    gui::gpDeskManager = null;
-     log::info(FILE,  "**done**");
+    desk::gpManager.free();
+    desk::gpManager = null;
+    log::info(FILE,  "**done**");
 }
 
 fn void saveGame()
@@ -3268,7 +3284,7 @@ fn void loadGame()
  @param [in] settings_file : "the ini file to read the game input actions from."
  @require settings_file != null
 *>
-fn void createGameInputActions(ini::Config* settings_file) @inline @local
+fn void createGameInputActions(ConfigFile* settings_file) @inline @local
 {
     defer input::listActions();
 
@@ -3701,7 +3717,7 @@ fn int playIntro(void*)
 }
 
 // TODO rename to set_user_settings?
-fn void parse_user_settings(Config* settings, int* window_flags)
+fn void parse_user_settings(ConfigFile* settings, int* window_flags)
 {
     if(settings == null) return;
     

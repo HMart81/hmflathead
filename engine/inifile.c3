@@ -82,7 +82,7 @@ quicksave  = "KEY_F5"
 quickload  = "KEY_F9"
 `;
 
-typedef INIFile   = inline io::File;
+alias INIFile = io::File;
 
 alias SectionListPtr = List{IniSection}*;
 
@@ -92,7 +92,7 @@ alias SectionListPtr = List{IniSection}*;
  @require key != ""
  @deprecated
 *>
-fn String getIniKey(String key, Config* inifile) {
+fn String getIniKey(String key, ConfigFile* inifile) {
     foreach(section : inifile.sections) {
         foreach(inicmd : section.cmds) {
             if(inicmd.cmd.first == key) {
@@ -151,7 +151,7 @@ struct Config_Flags @local  // flags used to store config file state
 <*
 * DOC Final parsed config data used by the engine
 *>
-struct Config {
+struct ConfigFile {
     String path; // the path to the config file
     ListIniSectionPrts sections;
     Config_Flags flags; // if the config file has been modified since it was loaded
@@ -160,14 +160,18 @@ struct Config {
 <*
   @param [&in] section : "a new section adress to save into the section adresses list"
 *>
-fn void Config.register(&self, IniSection* section) @local @inline {
+fn void ConfigFile.register(&self, IniSection* section) @local @inline {
     self.sections.push(section);
 }
 
-fn IniSection* Config.createSection(&self, String name) @local
+<*
+  @param [in] name : " name of the new section to create"
+  @ensure return != null
+*>
+fn IniSection* ConfigFile.createSection(&self, String name) @local @nodiscard
 {
     if(self.hasSection(name)) {
-        log::warning(Where.FILE, "Trying to create in the config file a Section %s that already exists.", name);
+        log::warning(FILE, "Section %s already exists in config file %s.", name, self.path);
         return self.getSection(name);
     }
 
@@ -177,7 +181,47 @@ fn IniSection* Config.createSection(&self, String name) @local
     return section;
 }
 
-fn IniSection* Config.getSection(&self, String name) @local {
+<*
+    @untested
+    @param [&in] section : "the new section to save into the file"
+*>
+fn void ConfigFile.addSection(&self, IniSection* section) @local @inline 
+{
+    if(self.hasSection(section.name)) {
+        log::warning(FILE, "Cant add section %s already exists in config file %s.", section.name, self.path);
+        return;
+    }
+
+    INIFile? cfg = fs::openFile(self.path, fs::FileMode.READ_WRITE);
+    defer (void)cfg.close();
+    if(catch excuse = cfg) {
+        log::warning(FILE, "failed to open config file %s to add section %s.", self.path, section.name);
+        return;
+    }
+
+    usz len = fs::getFileSize(self.path);
+    assert(len > 0);
+    char* buffer = (char*)mem::malloc( len * char.sizeof);
+    defer mem::free(buffer);
+    file::load_buffer(self.path, buffer[:len])!!;
+    String result = string::tformat("%s", buffer);
+    // if the section is linked, we need to use the write the child name
+    if(section.isLinked()) {
+        result = result.tconcat(string::tformat("\n[%s.%s]", section.name, section.next.name));
+    } else {
+        result = result.tconcat(string::tformat("\n[%s]", section.name));
+    }
+    cfg.write(result[:result.len])!!;
+    //usz read_count = cfg.read(buffer[:len]);
+    /*if(read_count) {
+
+    }*/
+}
+
+<*
+  @param [in] name : " name of the new section to get"
+*>
+fn IniSection* ConfigFile.getSection(&self, String name) @local {
     foreach(section : self.sections) {
         if(section.name == name) {
             return section;
@@ -191,7 +235,10 @@ fn IniSection* Config.getSection(&self, String name) @local {
     return null;
 }
 
-fn bool Config.hasSection(&self, String name) @local {
+<*
+  @param [in] name : " name of the new section to look for"
+*>
+fn bool ConfigFile.hasSection(&self, String name) @local {
     foreach(section : self.sections) {
         if(section.name == name) {
             return true;
@@ -205,11 +252,11 @@ fn bool Config.hasSection(&self, String name) @local {
 }
 
 <*
-    @param name : `The section name to add the cmd to`
+    @param [in] name : `The section name to add the cmd to`
     @param [&in] cmd : `The cmd to add to the section`
     @require name != ""
 *>
-fn void Config.addToSection(&self, String name, IniCMD* cmd)
+fn void ConfigFile.addToSection(&self, String name, IniCMD* cmd)
 {
     if(self.hasSection(name))
     {
@@ -224,7 +271,7 @@ fn void Config.addToSection(&self, String name, IniCMD* cmd)
     }
 }
 
-fn void Config.freeChildSections(&self) @local
+fn void ConfigFile.freeChildSections(&self) @local
 {
     foreach(section : self.sections) {
         if(section.isLinked()) {
@@ -233,14 +280,15 @@ fn void Config.freeChildSections(&self) @local
     }
 }
 
-fn void Config.markModified(&self) @local => self.flags.is_modified = true;
-fn bool Config.isModified(&self) => self.flags.is_modified;
+fn void ConfigFile.markModified(&self) @local => self.flags.is_modified = true;
+fn bool ConfigFile.isModified(&self) => self.flags.is_modified;
 
 <*
- @param key : `The cmd name`
+ @param [in] key : `The cmd name`
+ @param [in] default_value : `The fallback value`
  @require key != ""
 *>
-fn String Config.getValue(&self, String key, String default_value = "") @local
+fn String ConfigFile.getValue(&self, String key, String default_value = "") @local
 {
    ListIniCMDPrts* cmds;
 
@@ -267,7 +315,7 @@ fn String Config.getValue(&self, String key, String default_value = "") @local
  @param [in] key : `The cmd name`
  @require key != ""
 *>
-fn float? Config.getFloat(&self, String key, float default_value = 0.0f) {
+fn float? ConfigFile.getFloat(&self, String key, float default_value = 0.0f) {
     ListIniCMDPrts* child_cmds;
 
     foreach(section : self.sections) 
@@ -307,7 +355,7 @@ fn float? Config.getFloat(&self, String key, float default_value = 0.0f) {
  @param [in] key : `The cmd name`
  @require key != ""
 *>
-fn int? Config.getInt(&self, String key, int default_value = -1) {
+fn int? ConfigFile.getInt(&self, String key, int default_value = -1) {
     ListIniCMDPrts* child_cmds;
 
     foreach(section : self.sections) 
@@ -347,7 +395,7 @@ fn int? Config.getInt(&self, String key, int default_value = -1) {
  @param [in] key : `The cmd name`
  @require key != ""
 *>
-fn bool? Config.getBool(&self, String key, bool default_value = false) 
+fn bool? ConfigFile.getBool(&self, String key, bool default_value = false) 
 {
     ListIniCMDPrts* child_cmds;
 
@@ -390,7 +438,7 @@ fn bool? Config.getBool(&self, String key, bool default_value = false)
  @param [in] key : `The cmd name`
  @require key != ""
 *>
-fn String Config.getString(&self, String key, String default_value = "")
+fn String ConfigFile.getString(&self, String key, String default_value = "")
 {
     ListIniCMDPrts* child_cmds;
 
@@ -427,7 +475,7 @@ fn String Config.getString(&self, String key, String default_value = "")
     return default_value;
 }
 
-fn bool Config.hasValue(&self, String key)
+fn bool ConfigFile.hasValue(&self, String key)
 {
     ListIniCMDPrts* cmds;
 
@@ -452,7 +500,7 @@ fn bool Config.hasValue(&self, String key)
     return false;
 }
 
-fn bool Config.sectionHasValue(&self, String section_name, String key)
+fn bool ConfigFile.sectionHasValue(&self, String section_name, String key)
 {
     IniSection* section = self.getSection(section_name);
     if(section == null) return false; // section not found
@@ -480,7 +528,7 @@ fn bool Config.sectionHasValue(&self, String section_name, String key)
  @param key : `The cmd name`
  @require key != ""
 *>
-fn void Config.setValue(&self, String key, String value) @local
+fn void ConfigFile.setValue(&self, String key, String value) @local
 {
    ListIniCMDPrts* cmds;
 
@@ -504,24 +552,24 @@ fn void Config.setValue(&self, String key, String value) @local
     }
 }
 
-fn void Config.setBool(&self, String key, bool value)
+fn void ConfigFile.setBool(&self, String key, bool value)
 {
 	self.setValue(key, (value) ? "1" : "0");
 }
 
-fn void Config.setInteger(&self, String key, int value)
+fn void ConfigFile.setInteger(&self, String key, int value)
 {
 	String val = string::tformat("%s", value);
 	self.setValue(key, val);
 }
 
-fn void Config.setFloat(&self, String key, float value)
+fn void ConfigFile.setFloat(&self, String key, float value)
 {
 	String val = string::tformat("%s", value);
     self.setValue(key, val);
 }
 
-fn void Config.setString(&self, String key, String value)
+fn void ConfigFile.setString(&self, String key, String value)
 {
     if(value == "") {
         self.setValue(key, EMPTY_STR);
@@ -591,7 +639,9 @@ struct IniCMD {
 }
 
 <*
-* DOC where_index is the index in the string where the comment starts
+    DOC where_index is the index in the string where the comment starts
+    @param [in] str : "line to detect the comment symbol"
+    @param [inout] where_index : "the index in the line where the comment char is"
 *>
 fn bool detect_comment_char_in_line(String str, usz* where_index = null) @local @inline {
     if(string::char_in_set(';', str)) {
@@ -602,12 +652,14 @@ fn bool detect_comment_char_in_line(String str, usz* where_index = null) @local 
     return false;
 }
 
-/*
-* DOC String is a "slice" and as such is just a struct with a pointer and a len.
-* Slices and Array's ARE NOT exactly the same
-* String[] is a slice (a pointer and a len) 
-* String[*] is a C like array (a pointer to the first data in the array, with no len). 
-*/
+<*
+    DOC String is a "slice" and as such is just a struct with a pointer and a len.
+    Slices and Array's ARE NOT exactly the same
+    String[] is a slice (a pointer and a len) 
+    String[*] is a C like array (a pointer to the first data in the array, with no len).
+    @param [in] filepath : "path to the config file"
+    @param isrelative : "marks if the path is a full one or one relative to the game base folder"
+*>
 fn String[]? openConfigfileAndCutDataByLines(String filepath, bool isrelative) @local {
     if(filepath == "") {
         return MISSING_FILE_PATH?;
@@ -624,7 +676,7 @@ fn String[]? openConfigfileAndCutDataByLines(String filepath, bool isrelative) @
     
     String? entire_file = fs::readEntireFileX(filepath);
     if(catch excuse = entire_file) {
-        log::warning(Where.FILE,  "Unable to read data from file: %s with excuse: %s", filepath, excuse);
+        log::warning(FILE,  "Unable to read data from file: %s with excuse: %s", filepath, excuse);
         return FAILED_READ_FILE?;
     }
     
@@ -642,9 +694,9 @@ fn String[]? openConfigfileAndCutDataByLines(String filepath, bool isrelative) @
     }
 }
 
-fn Config*? parse_file(String[] lines) @local 
+fn ConfigFile*? parse_file(String[] lines) @local 
 {
-    Config* file_data = mem::new(Config);
+    ConfigFile* file_data = mem::new(ConfigFile);
     
     foreach(line : lines) {
         if(line == "") continue;
@@ -678,7 +730,7 @@ fn Config*? parse_file(String[] lines) @local
   @param [inout] file : "the file data structure to register the section into"
   @require file != null && line.len > 0
 *>
-fn void parse_section_name(String line, Config* file) @local 
+fn void parse_section_name(String line, ConfigFile* file) @local 
 {
     String section_name = line.trim("[]");
     if(section_name.contains("."))
@@ -721,10 +773,10 @@ fn void parse_section_name(String line, Config* file) @local
 }
 
 <*
-  @param [inout] file
-  @require file != null
- *>
-fn void parse_section_cmd(String line, Config* file) @local
+  @param [in] line : "the line to parse"
+  @param [&inout] file : "pointer to the config file data"
+*>
+fn void parse_section_cmd(String line, ConfigFile* file) @local
 {
     String[] tokens = line.tsplit(ASSIGNMENT_CHAR);
 
@@ -803,10 +855,10 @@ fn int get_cmd_type_from_value(String value) @inline @local
 <*
  * DOC Create a init file data structure for easy parsing
  *
-  @param [in] filepath
+  @param [in] filepath : "path to the config file (.ini file)"
   @require filepath.len >= 3 : "The file path must be at least 3 characters long"
  *>
-fn Config*? load(String filepath, bool isrelative = true) 
+fn ConfigFile*? load(String filepath, bool isrelative = true) 
 {
     if(filepath == "") {
         return MISSING_FILE_PATH?;
@@ -814,14 +866,14 @@ fn Config*? load(String filepath, bool isrelative = true)
     
     String[]? data = openConfigfileAndCutDataByLines(filepath, isrelative);
     if(catch excuse = data) {
-        log::warning(Where.FILE,  "Unable to open file %s to cut with excuse: %s", filepath, excuse);
+        log::warning(FILE,  "Unable to open file %s to cut with excuse: %s", filepath, excuse);
         return INI_FILE_LOAD_FAILED?;
     }
     
     //data is valid from here
-    Config*? file_data = parse_file(data);
+    ConfigFile*? file_data = parse_file(data);
     if(catch excuse = file_data) {
-        log::warning(Where.FILE, "Failed to parse config file: %s with excuse: %s", filepath, excuse);
+        log::warning(FILE, "Failed to parse config file: %s with excuse: %s", filepath, excuse);
         return MALFORMED_INI_FILE?;
     }
     file_data.path = filepath.tcopy();
@@ -835,7 +887,7 @@ fn Config*? load(String filepath, bool isrelative = true)
   @param [in] filepath
   @require filepath.len >= 3 : "The file path must be at least 3 characters long"
  *>
-fn bool? Config.load(&self, String filepath, bool isrelative = true) 
+fn bool? ConfigFile.load(&self, String filepath, bool isrelative = true) 
 {
     String[]? lines = openConfigfileAndCutDataByLines(filepath, isrelative);
     if(catch excuse = lines) {
@@ -872,7 +924,7 @@ fn bool? Config.load(&self, String filepath, bool isrelative = true)
     return true; 
 }
 
-fn bool Config.save(&self, String filename = SETTINGS_FILE_NAME)
+fn bool ConfigFile.save(&self, String filename = SETTINGS_FILE_NAME)
 {
     if(self.isModified() == false) return true; // nothing to save, the file is not modified
 
@@ -931,10 +983,10 @@ fn bool Config.save(&self, String filename = SETTINGS_FILE_NAME)
 	return true;
 }
 
-fn void Config.reload(&self)
+fn void ConfigFile.reload(&self)
 {
     // reload the config file
-    Config*? new_data = load(SETTINGS_FILE_NAME, true);
+    ConfigFile*? new_data = load(SETTINGS_FILE_NAME, true);
     if(catch excuse = new_data) {
         log::warning(Where.FILE, "Failed to reload config file with excuse: %s", excuse);
         return;
@@ -944,7 +996,7 @@ fn void Config.reload(&self)
     unload(self);
     
     // assign the new data to the current config
-    mem::copy(self, new_data, Config.sizeof);
+    mem::copy(self, new_data, ConfigFile.sizeof);
     //*self = *new_data;
     
     // free the new data
@@ -972,7 +1024,7 @@ fn void testCmdValueStringValidity(String value, String id)
 <*
   @param [&inout] inifile : "is not really a file but a adress of a data structure in memory"
 *>
-fn void unload(Config* inifile) 
+fn void unload(ConfigFile* inifile) 
 {
     if(inifile == null) {
         return; // nothing to unload
@@ -1006,9 +1058,15 @@ fn void unload(Config* inifile)
     }
 }
 
-
+<*
+    Creates a init file with default data 
+    @param [in] filepath : "path to save the file in"
+    @require filepath.len >= 2 : "The path must be at least 2 characters long"
+ *>
 fn void create_default_settings_file(String filepath) @inline
 {
+    if(fs::fileExists(filepath)) return;
+
     File? data = file::open(filepath, "w");
     if(catch excuse = data) {
         log::warning(Where.FILE, "Failed to open config file: %s to write with excuse: %s", filepath, excuse);
@@ -1026,7 +1084,7 @@ fn void create_default_settings_file(String filepath) @inline
   @param [in] path
   @require path.len > 0 : "The path must be at least 1 character long"
  *>
-fn bool? populate(Config* file_data, String path) @deprecated {
+fn bool? populate(ConfigFile* file_data, String path) @deprecated {
     if(file_data == null) {
         return MISSING_DATA_BUFFER?;
     }
@@ -1164,10 +1222,10 @@ fn bool? populate(Config* file_data, String path) @deprecated {
     return false;
 }
 
-fn bool Config.is_valid(&self) @inline {
+fn bool ConfigFile.is_valid(&self) @inline {
     return self.sections.is_empty() == false;
 }
 
-fn void Config.free(&self) {
+fn void ConfigFile.free(&self) {
     unload(self);
 }

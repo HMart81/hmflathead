@@ -331,7 +331,7 @@ fn bool Panel.active_visible_infocus(&self) @inline => (self.active() && !self.h
 //    If so it will require conversion from world space coordinates to camera space.
 fn bool Panel.isMouseOver(&self)
 {
-    if (!self.active() || self.hidden() || editor_as_focus() || main::gpGame.showMessageBox) return false;
+    if (!self.active() || self.hidden() || guieditor::as_focus() || main::gpGame.showMessageBox) return false;
 
     // gets windows mouse position...
     Vec2f mouseWorldPos = rl::getMousePosition();
@@ -348,7 +348,7 @@ fn bool Panel.asFocus(&self)  @inline => self.flags.inFocus;
 
 fn void Panel.update(&self) 
 {
-    if((editor_enabled() && editor_as_focus()) || main::gpGame.show_microui_test_frames)
+    if((guieditor::enabled() && guieditor::as_focus()) || main::gpGame.show_microui_test_frames)
     {
        return; // do not update panels when in editor mode
     }
@@ -531,16 +531,18 @@ macro void Frame.@create(&self, $name; @body(Frame* frame))
 
 // NOTE(HM) Widget is a general data structure representing anything inside a gui, like buttons and such.
 
-const KIND_TEXT      = 1;
-const KIND_BUTTON    = 2;
-const KIND_CONTAINER = 3;
-const KIND_CHECKBOX  = 4;
+const KIND_NONE      = 0;
+const KIND_WIDGET    = 1;
+const KIND_TEXT      = 2;
+const KIND_BUTTON    = 3;
+const KIND_CONTAINER = 4;
+const KIND_CHECKBOX  = 5;
 
 alias WidgetCallback = fn void(Widget*);
 
 interface WidgetInterface
 {
-    fn void init();
+    fn void init(int kind);
     fn void initExt() @optional;
     fn void deinit();
     fn void update();
@@ -589,8 +591,13 @@ struct Widget (WidgetInterface)
     WidgetCallback onLoad;
 }
 
-fn void Widget.init(&self) @dynamic {
+fn void Widget.init(&self, int kind = KIND_NONE) @dynamic {
     self.super.init();
+    if(kind != KIND_NONE) {
+        self.kind = kind;
+    } else {
+        self.kind = KIND_WIDGET;
+    }
 }
 
 fn void Widget.deinit(&self) @dynamic{
@@ -617,12 +624,13 @@ fn void Widget.editor_interactions(&self) @local
 fn void Widget.update(&self) @dynamic 
 {
     // if we are bound to a parent widget, we need to update our position each frame
-    // to always be relative to the parent origin.
+    // to be always relative to the parent origin.
     // NOTE(HM) This is done even if we are hidden or deactivated.
     if(self.bound())
     {
         Vec2f parent_origin = self.parent.other.getPosition();
-        // WTF? We add the parent pos and then remove it again?!
+        // WTF? Why do we need to add the parent pos and then 
+        // remove it again for this to work?!
         Vec2f new_offset    = (self.getPosition() + parent_origin) - parent_origin;
         //
         self.setPositionV(new_offset);
@@ -630,10 +638,10 @@ fn void Widget.update(&self) @dynamic
 
     self.super.update(); // mouse over is done in super update
 
-    if((editor_enabled() && editor_as_focus()) || main::gpGame.show_microui_test_frames) { return; }
+    if((guieditor::enabled() && guieditor::as_focus()) || main::gpGame.show_microui_test_frames) { return; }
     else if (!self.active() || self.hidden()) { return; }
 
-    if(editor_enabled())
+    if(guieditor::enabled())
     {
         // run editor keyboard interactions
         self.editor_interactions();
@@ -929,11 +937,10 @@ struct WidgetText
 
 fn void WidgetText.init(&self) //@inline 
 {
-    self.super.init();
+    self.super.init(KIND_TEXT);
     self.super.hide(); // don't show the button shape
     self.super.name = "TextLabel";
     self.setColor({0, 0, 0, 0});
-    self.kind       = KIND_TEXT;
     self.spacing    = 2.0f; //@hardcode, todo make this int a cvar
     self.font_size  = 20; //@hardcode
     self.setDefaultColor(rl::WHITE); //@hardcode
@@ -1073,10 +1080,9 @@ struct WidgetButton
     int press_count;
 }
 
-fn void WidgetButton.init(&self) //@inline 
+fn void WidgetButton.init(&self, int kind = KIND_BUTTON) //@inline 
 {
-    self.super.init();
-    self.kind = KIND_BUTTON;
+    self.super.init(kind);
     self.super.name = "Button";
     self.setDefaultColor(rl::WHITE); //@hardcode
     self.setSound(&main::gpGame.default_sound); //@hardcode, todo give this a better sound
@@ -1201,12 +1207,11 @@ struct WidgetCheckBox
     String label; // label for the checkbox
 }
 
-fn void WidgetCheckBox.init(&self) @inline 
+fn void WidgetCheckBox.init(&self, int kind = KIND_CHECKBOX) @inline 
 {
-    self.super.init();
+    self.super.init(kind);
     self.super.name = "CheckBox";
     self.setColor(rl::WHITE);
-    self.kind = KIND_CHECKBOX;
 }
 
 fn void WidgetCheckBox.deinit(&self) @inline 
@@ -1247,7 +1252,14 @@ fn WidgetCheckBox* createCheckBox(String label) @inline
     checkbox.setLabel(label);
     return checkbox;
 }
+
 //////////////////////////////////// CONTAINER //////////////////////////////////////
+module engine::gui::container::cont;
+
+import thirdparty::raylib5::rl;
+import engine::gui::desktop::desk;
+import engine::misc;
+import std::collections::list;
 
 alias ContainerQueue = List{any};
 
@@ -1312,7 +1324,7 @@ fn void WidgetContainer.init(&self, ContainerParams params) @inline
         self.setSize(params.minSize.w, params.minSize.h);
     }
 
-    self.kind = KIND_CONTAINER;
+    self.kind = gui::KIND_CONTAINER;
 }
 
 fn void WidgetContainer.deinit(&self) @inline {
@@ -1403,8 +1415,19 @@ fn void WidgetContainer.register(&self, any child) @inline {
     @catch(anycast(child, Widget).bindTo((Widget*)self));
 }
 
-
 //////////////////////////////////// DESKTOP //////////////////////////////////////
+module engine::gui::desktop::desk;
+
+import thirdparty::raylib5::rl;
+import engine::misc;
+import game::main;
+import game::serialize::svs;
+import std::collections::list;
+import engine::logging::log;
+import engine::sys::render2d::r2d;
+import engine::gui::container::cont;
+//import engine::tools::editor;
+import engine::gui::guieditor;
 
 /*
     NOTE(HM) 
@@ -1671,9 +1694,9 @@ fn void Desktop.clear(&self) @inline
         {
             switch (child.kind) 
             {
-                case KIND_BUTTON:
+                case gui::KIND_BUTTON:
                     ((WidgetButton*)child).deinit(); 
-                case KIND_TEXT:
+                case gui::KIND_TEXT:
                     ((WidgetText*)child).deinit(); 
                 default:
                     child.deinit();
@@ -1724,9 +1747,9 @@ fn void Desktop.hide(&self)
         {
            switch (child.kind) 
            {
-                case KIND_BUTTON:
+                case gui::KIND_BUTTON:
                     ((WidgetButton*)child).hide(); 
-                case KIND_TEXT:
+                case gui::KIND_TEXT:
                     ((WidgetText*)child).hide(); 
                 default:
                    ((Widget*)child).hide(); 
@@ -1749,9 +1772,9 @@ fn void Desktop.show(&self) {
     if (self.children.len()) {
         foreach(child: self.children) {
             switch (child.kind) {
-                case KIND_BUTTON:
+                case gui::KIND_BUTTON:
                     ((WidgetButton*)child).show(); 
-                case KIND_TEXT:
+                case gui::KIND_TEXT:
                     ((WidgetText*)child).show(); 
                 default:
                    ((Widget*)child).show(); 
@@ -1785,13 +1808,13 @@ fn void Desktop.update(&self)
         {
             switch (child.kind)
             {
-                case KIND_BUTTON:
+                case gui::KIND_BUTTON:
                     ((WidgetButton*)child).update(); 
-                case KIND_TEXT:
+                case gui::KIND_TEXT:
                     ((WidgetText*)child).update();
-                case KIND_CHECKBOX:
+                case gui::KIND_CHECKBOX:
                     ((WidgetCheckBox*)child).update();
-                case KIND_CONTAINER:
+                case gui::KIND_CONTAINER:
                     ((WidgetContainer*)child).update();
                 default:
                     child.update(); 
@@ -1845,11 +1868,11 @@ fn void Desktop.redraw(&self, int _time)
         {
            switch (child.kind) 
            {
-                case KIND_BUTTON:
+                case gui::KIND_BUTTON:
                     ((WidgetButton*)child).draw();
-                case KIND_TEXT:
+                case gui::KIND_TEXT:
                     ((WidgetText*)child).draw();
-                case KIND_CONTAINER:
+                case gui::KIND_CONTAINER:
                     ((WidgetContainer*)child).draw();
                 default:
                    child.draw();
@@ -1902,7 +1925,7 @@ macro Desktop.getChild(&self, int id) {
 
 fn void Desktop.debug(&self) 
 {
-    if(ui_debugDraw.getBool()) 
+    if(gui::ui_debugDraw.getBool()) 
     {
         int scr_w, scr_h;
         float lineThick  = 1.0f;
@@ -1986,7 +2009,7 @@ struct DesktopManager {
 }
 
 DesktopManager local_manager @local;
-DesktopManager* gpDeskManager = &local_manager;
+DesktopManager* gpManager = &local_manager;
 
 <*
  @param [&in] _desk : "the desktop to register"
@@ -2024,7 +2047,7 @@ fn void DesktopManager.update(&self) {
         // disable edit mode
        if(self.mode == EDITOR) self.editor(false);
     }*/
-    self.editor(ui_editGui.getBool());
+    self.editor(gui::ui_editGui.getBool());
 
     usz desktop_count = self.desktops.len();
     if(desktop_count >= 1) {
@@ -2035,8 +2058,8 @@ fn void DesktopManager.update(&self) {
                     // put something here
                 }
 
-                if(ui_editGui.getBool()) {
-                    updateGuiEditor(desk);
+                if(gui::ui_editGui.getBool()) {
+                    guieditor::update(desk);
                 }
             }
         }
@@ -2054,9 +2077,9 @@ fn void DesktopManager.draw(&self, int screenWidth, int screenHeight) @inline {
                 //drawGuiEditor(desk); TODO(HM) draw this through the new editor
             }
 
-            if(ui_editGui.getBool()) {
+            if(gui::ui_editGui.getBool()) {
                 // draw the gui editor
-                drawGuiEditor(desk);
+                guieditor::draw(desk);
             }
         }
     }
@@ -2077,43 +2100,55 @@ fn void DesktopManager.editor(&self, bool choice = false) {
 // NOTE(HM) TODO(HM) move this to a better place, like a gui editor file
 // this should be renamed to something like gui_editor because we already have a editor in the game
 // #region ***************************** GUI EDITOR ****************************
+module engine::gui::guieditor;
+
+import thirdparty::raylib5::rl;
+import engine::gui::desktop::desk;
+import thirdparty::raygui5::rgui;
+import engine::logging::log;
+import game::main;
+import engine::misc;
+//import game::serialize::svs;
+//import std::collections::list;
+
+alias game = main::gpGame;
 
 const GUIE_MAJOR    = 0;
 const GUIE_MINOR    = 1;
 const GUIE_REVISION = 0;
 
-macro bool drawEditorButton(String text, Vector2 pos) @local
+macro bool drawButton(String text, Vector2 pos) @local
 {
     return rgui::button({pos.x, pos.y, 120, 30}, string::tformat("#191#%s", text).zstr_tcopy());
 }
 
-fn void editor_open() @inline {
-    if(main::gpGame.guiActive == null) {
+fn void open() @inline {
+    if(game.guiActive == null) {
         log::error(Where.CONSOLE, "Cannot open gui editor because no gui is active.");
         return;
     }
-    ui_editGui.set("1");
+    gui::ui_editGui.set("1");
 }
 
-fn void editor_close() @inline {
-    ui_editGui.set("0");
-    if(editor_is_widget_debug_on()) editor_disable_widget_debug();
+fn void close() @inline {
+    gui::ui_editGui.set("0");
+    if(is_widget_debug_on()) disable_widget_debug();
 }
 
-fn bool editor_is_opened() @inline {
-    return ui_editGui.getBool();
+fn bool is_opened() @inline {
+    return gui::ui_editGui.getBool();
 }
 
-fn void editor_enable_widget_debug()  @local @inline => ui_debugDraw.set("1");
-fn void editor_disable_widget_debug() @local @inline => ui_debugDraw.set("0");
-fn bool editor_is_widget_debug_on()   @local @inline => ui_debugDraw.getBool();
+fn void enable_widget_debug()  @local @inline => gui::ui_debugDraw.set("1");
+fn void disable_widget_debug() @local @inline => gui::ui_debugDraw.set("0");
+fn bool is_widget_debug_on()   @local @inline => gui::ui_debugDraw.getBool();
 
-fn bool editor_enabled() @inline => local_manager.mode == EDITOR;
-fn bool editor_as_focus() @inline {
-    return (editor_enabled() && main::gpGame.editor.focused());
+fn bool enabled() @inline => desk::gpManager.mode == EDITOR;
+fn bool as_focus() @inline {
+    return (enabled() && game.editor.focused());
 }
 
-fn void editor_move_selected(Widget* wgt)
+fn void move_selected(Widget* wgt)
 {
     if(!wgt) return;
     
@@ -2132,9 +2167,9 @@ fn void editor_move_selected(Widget* wgt)
     }
 }
 
-fn void updateGuiEditor(Desktop* mng) 
+fn void update(Desktop* mng) 
 {
-    if(!mng || editor_enabled() == false) return;
+    if(!mng || enabled() == false) return;
     
     foreach(wgt : mng.children) 
     {
@@ -2142,19 +2177,19 @@ fn void updateGuiEditor(Desktop* mng)
             if(rl::isKeyPressed(rl::KEY_ESCAPE)) {
                 wgt.deselect();
             } else {
-                editor_move_selected(wgt);
+                move_selected(wgt);
             }
         }
     }
 }
 
-fn void drawGuiEditor(Desktop* mng) 
+fn void draw(Desktop* mng) 
 {
-    if(!mng || editor_enabled() == false) return;
+    if(!mng || enabled() == false) return;
     
     int scr_w, scr_h;
-    scr_w = main::gpGame.screen.w;
-    scr_h = main::gpGame.screen.h;
+    scr_w = game.screen.w;
+    scr_h = game.screen.h;
     
     float left_marging = 0.025f * scr_w;
     float top_margin   = 0.05f  * scr_h;
@@ -2163,22 +2198,22 @@ fn void drawGuiEditor(Desktop* mng)
     rgui::label({left_marging, top_margin, 120, 30}, editor_version.zstr_tcopy());
     
     // gui debug on off
-    if(drawEditorButton("Gui Debug", {left_marging, top_margin * 2})) {
-        if(editor_is_widget_debug_on()) {
-            editor_disable_widget_debug();
+    if(drawButton("Gui Debug", {left_marging, top_margin * 2})) {
+        if(is_widget_debug_on()) {
+            disable_widget_debug();
         } else {
-            editor_enable_widget_debug();
+            enable_widget_debug();
         }
     }
     
      // gui saving 
-    if(drawEditorButton("Gui SAVE", {left_marging, top_margin * 3})) {
-        log::info(Where.CONSOLE, "Trying to save gui \"%s\" but that is still not possible.", mng.name);
+    if(drawButton("Gui SAVE", {left_marging, top_margin * 3})) {
+        log::info(CONSOLE, "Trying to save gui \"%s\" but that is still not possible.", mng.name);
     }
     
     // close editor
-    if(drawEditorButton("Gui CLOSE", {left_marging, top_margin * 4})) {
-        editor_close();
+    if(drawButton("Gui CLOSE", {left_marging, top_margin * 4})) {
+        close();
     }
 }
 

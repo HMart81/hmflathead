@@ -75,6 +75,17 @@ MUJS := mujs\mujslib.lib
 LUA := lua\LuaLib.lib
 UMKA := umka\libumka.lib
 PLMPEG := plmpeg\plmpeg_d.lib
+## Library Dependencies ##
+LIBS=\
+	-l $(RAYLIB)\
+	-l $(BOX2D)\
+	-z $(RAYGUI)\
+	-l $(MICROUI)\
+	-l $(TSOD_FLAG)\
+	-l $(TRACY)\
+	-l $(PLMPEG)
+#-l kernel32.lib
+###############
 # Define scripting language to use
 SCRIPT_LANG ?= umka
 ##
@@ -82,15 +93,16 @@ LIBRARY_ROOT_PATH := .\thirdparty\include\libs\\
 LINKER_SEARCH_PATHS := -L $(LIBRARY_ROOT_PATH)
 
 ifeq ($(filter umka,$(SCRIPT_LANG)),umka)
-LINKED_LIBRARIES := -l $(RAYLIB) -l $(BOX2D) -l kernel32.lib -z $(RAYGUI) -l $(MICROUI) -l $(UMKA) -l $(TSOD_FLAG) -l $(TRACY) -l $(PLMPEG)
+#LINKED_LIBRARIES := -l $(RAYLIB) -l $(BOX2D) -l kernel32.lib -z $(RAYGUI) -l $(MICROUI) -l $(UMKA) -l $(TSOD_FLAG) -l $(TRACY) -l $(PLMPEG)
+LINKED_LIBRARIES := $(LIBS) -l $(UMKA)
 else
 ifeq ($(filter wren,$(SCRIPT_LANG)),wren)
-LINKED_LIBRARIES := -l $(RAYLIB) -l $(BOX2D) -l kernel32.lib -z $(RAYGUI) -l $(MICROUI) -l $(WREN) -l $(TSOD_FLAG) -l $(TRACY) -l $(PLMPEG)
+LINKED_LIBRARIES := $(LIBS) -l $(WREN)
 else
 ifeq ($(filter mujs,$(SCRIPT_LANG)),mujs)
-LINKED_LIBRARIES := -l $(RAYLIB) -l $(BOX2D) -l kernel32.lib -z $(RAYGUI) -l $(MICROUI) -l $(MUJS) -l $(TSOD_FLAG) -l $(TRACY) -l $(PLMPEG)
+LINKED_LIBRARIES := $(LIBS) -l $(MUJS)
 else
-LINKED_LIBRARIES := -l $(RAYLIB) -l $(BOX2D) -l kernel32.lib -z $(RAYGUI) -l $(MICROUI) -l $(LUA) -l $(TSOD_FLAG) -l $(TRACY) -l $(PLMPEG)
+LINKED_LIBRARIES := $(LIBS) -l $(LUA)
 endif
 endif
 endif
