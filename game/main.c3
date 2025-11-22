@@ -69,7 +69,7 @@ import game::files::ini @public;
 import game::effects::boid;
 import game::lowlevel::bounds;
 // third party libraries
-import thirdparty::raylib5::rl;
+import thirdparty::raylib5::rl, thirdparty::raylib5::rl::rlgl;
 import thirdparty::raygui5::rgui, thirdparty::raygui5::rgui::style::dark;
 import thirdparty::library::xml;
 import thirdparty::microui::mu;  // micro ui
@@ -402,6 +402,7 @@ struct Game (SaveSystemInterface) @local
         int  h;
         float width_in_meters;
         float height_in_meters;
+        Vec2f center;
 
         struct state {
             bool window;
@@ -2475,6 +2476,10 @@ $endif
 
     local_game.screen.width_in_meters = misc::pixelsToMeters(screenWidth);
     local_game.screen.height_in_meters = misc::pixelsToMeters(screenHeight);
+    local_game.screen.center = {screenWidth/2.0f,screenHeight/2.0f};
+
+    // rlgl init
+    //rlgl::init(screenWidth, screenHeight);
 
 $if env::WIN32:
     Win32_HWND window_handle = (Win32_HWND)rl::getWindowHandle();
@@ -3124,6 +3129,7 @@ $endif
     {
         misc::freeDebugLines();
     }
+    //rlgl::close();
     rl::closeWindow();
 
     // DELETE THIS

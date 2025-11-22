@@ -39,6 +39,10 @@
 *   (but don't try storing the structs by value after that...)
 ****************************************************************/
 
+// This is the LUA include/lib file
+// all needed fn's implementions need to be done in lua.c3 
+// a '.c3i' is "similar" to a C '.h' and a '.c3' is akin to a '.c' file.
+// macros can be fully defined here thou
 module thirdparty::scripting::lua @if($feature(LUA_ENABLE));
 
 import std::io;

@@ -49,6 +49,10 @@ struct Buffer @if($feature(MUJS_ENABLE))
 }
 */
 
+// This is the MUJS include/lib file
+// all needed fn's implementions need to be done in mujs.c3 
+// a '.c3i' is "similar" to a C '.h' and a '.c3' is akin to a '.c' file.
+// macros can be fully defined here thou
 module thirdparty::mujs @if($feature(MUJS_ENABLE));
 
 import std::io;

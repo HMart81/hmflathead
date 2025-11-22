@@ -26,8 +26,8 @@
 # 
 *********************************************************************************************************************************************/
 
-
-module thirdparty::scripting::lua @if($feature(LUA_ENABLE));
+// LUA implementation file
+module thirdparty::scripting::lua @if($feature(LUA_ENABLE)) @export;
 
 
 // lua embedding tutorials:

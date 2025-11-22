@@ -29,10 +29,10 @@
 // WARNING: This file is a work in progress and may not be fully functional yet.
 
 /***************************************************************
-* This is C3 implementation code for the micro java script language (mujs). 
+* This is implementation code for the micro java script language (mujs) lib. 
 ****************************************************************/
 
-module thirdparty::mujs @if($feature(MUJS_ENABLE));
+module thirdparty::mujs @if($feature(MUJS_ENABLE)) @export;
 
 import std::io;
 import engine::logging::log;

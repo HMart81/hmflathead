@@ -8,7 +8,7 @@ const float DEG2RAD = PI / 180.0f;
 const float RAD2DEG = 180.0f / PI;
 const ZString VERSION = "5.5";
 
-macro int glsl_version() {
+macro CInt glsl_version() {
 $if env::WIN32 || env::LINUX: //$defined(PLATFORM_DESKTOP):
     return 330;
 $else   // PLATFORM_ANDROID, PLATFORM_WEB
@@ -19,10 +19,10 @@ $endif
 alias GLFWwindow = void*;
 fn GLFWwindow getOpenGLContext() @cname("glfwGetCurrentContext");
 //----------------------------------------------------------------------------------
-const uint GL_VENDOR = 0x1F00;
+const CUInt GL_VENDOR = 0x1F00;
 // Returns the company responsible for this GL implementation. 
 // This name does not change from release to release.
-const uint GL_RENDERER = 0x1F01;
+const CUInt GL_RENDERER = 0x1F01;
 // Returns the name of the renderer. 
 // This name is typically specific to a particular configuration of a hardware platform. 
 // It does not change from release to release.
@@ -32,7 +32,7 @@ const uint GL_RENDERER = 0x1F01;
     @param name : "GL_VENDOR or GL_RENDERER"
     @require name == GL_VENDOR || name == GL_RENDERER
 *>
-fn ZString glGetString(uint name) @cname("glGetString");
+fn ZString glGetString(CUInt name) @cname("glGetString");
 macro ZString getGLVendor() => glGetString(GL_VENDOR); // gets GPU vendor name
 macro ZString getGLRenderer() => glGetString(GL_RENDERER); // gets GPU model name
 //----------------------------------------------------------------------------------
@@ -78,28 +78,11 @@ macro @hexToColor($hexValue) @builtin
   return rgbColor;
 }
 
-macro Vector2.toVec2i(&self) => (Vec2i) {(int)self.x, (int)self.y};
+macro Vector2.toVec2i(&self) => (Vec2i) {(CInt)self.x, (CInt)self.y};
 
 alias Vector2 = Vec2f;
 alias Vector3 = Vec3f;
 alias Vector4 = Vec4f;
-
-// Vector3, 3 components
-/*struct Vector3 @compact
-{
-    float x;                // Vector x component
-    float y;                // Vector y component
-    float z;                // Vector z component
-}
-
-// Vector4, 4 components
-struct Vector4 @compact
-{
-    float x;                // Vector x component
-    float y;                // Vector y component
-    float z;                // Vector z component
-    float w;                // Vector w component
-}*/
 
 // Quaternion, 4 components (Vector4 alias)
 alias Quaternion = Vector4;
@@ -139,51 +122,54 @@ macro bool Color.neql(&self, Color other) @operator(!=)
 }
 
 // Rectangle, 4 components
-struct Rectangle
+union Rectangle
 {
-    float x;                // Rectangle top-left corner position x
-    float y;                // Rectangle top-left corner position y
-    float width;            // Rectangle width
-    float height;           // Rectangle height
+    struct {
+        float x;                // Rectangle top-left corner position x
+        float y;                // Rectangle top-left corner position y
+        float width;            // Rectangle width
+        float height;           // Rectangle height
+    }
+    struct {
+        Vector2 pos;
+        Vector2 size;
+    }
 }
 
 macro bool Rectangle.eql(&self, Rectangle other) @operator(==)
 {
-    return ( misc::fgetDiff(self.x, other.x) <= 0.01f &&
-             misc::fgetDiff(self.y, other.y) <= 0.01f &&
-             misc::fgetDiff(self.width, other.width) <= 0.01f &&
-             misc::fgetDiff(self.height, other.height) <= 0.01f );
+    return (self.pos == other.pos && self.size == other.size);
 }
 
 macro bool Rectangle.neql(&self, Rectangle other) @operator(!=)
 {
-    return ( misc::fgetDiff(self.x, other.x) > 0.01f ||
-             misc::fgetDiff(self.y, other.y) > 0.01f ||
-             misc::fgetDiff(self.width, other.width) > 0.01f ||
-             misc::fgetDiff(self.height, other.height) > 0.01f );
+    return (self.pos != other.pos || self.size != other.size);
 }
 
-macro Vector2 Rectangle.getPosition(&self)  => { self.x, self.y }; // in world coords
-macro Vector2 Rectangle.getSize(&self) => { self.width, self.height }; // in pixel coords
+//macro Vector2 Rectangle.getPosition(&self)  => { self.x, self.y }; // in world coords
+//macro Vector2 Rectangle.getSize(&self) => { self.width, self.height }; // in pixel coords
+
+macro Vector2 Rectangle.getPosition(&self)  => self.pos; // in world coords
+macro Vector2 Rectangle.getSize(&self) => self.size; // in pixel coords
 
 
 // Image, pixel data stored in CPU memory (RAM)
 struct Image
 {
     void* data;             // Image raw data
-    int width;              // Image base width
-    int height;             // Image base height
-    int mipmaps;            // Mipmap levels, 1 by default
+    CInt width;             // Image base width
+    CInt height;            // Image base height
+    CInt mipmaps;           // Mipmap levels, 1 by default
     PixelFormat format;     // Data format (PixelFormat type)
 }
 
 // Texture, tex data stored in GPU memory (VRAM)
 struct Texture @packed
 {
-    uint id;                // OpenGL texture id
-    int width;              // Texture base width
-    int height;             // Texture base height
-    int mipmaps;            // Mipmap levels, 1 by default
+    CUInt id;                // OpenGL texture id
+    CInt width;              // Texture base width
+    CInt height;             // Texture base height
+    CInt mipmaps;            // Mipmap levels, 1 by default
     PixelFormat format;     // Data format (PixelFormat type)
 }
 
@@ -217,7 +203,7 @@ alias TextureCubemap = Texture;
 // RenderTexture, fbo for texture rendering
 struct RenderTexture
 {
-    uint id;                // OpenGL framebuffer object id
+    CUInt id;                // OpenGL framebuffer object id
     Texture texture;        // Color buffer attachment texture
     Texture depth;          // Depth buffer attachment texture
 }
@@ -229,29 +215,29 @@ alias RenderTexture2D = RenderTexture;
 struct NPatchInfo
 {
     Rectangle source;       // Texture source rectangle
-    int left;               // Left border offset
-    int top;                // Top border offset
-    int right;              // Right border offset
-    int bottom;             // Bottom border offset
+    CInt left;               // Left border offset
+    CInt top;                // Top border offset
+    CInt right;              // Right border offset
+    CInt bottom;             // Bottom border offset
     NPatchLayout layout;    // Layout of the n-patch: 3x3, 1x3 or 3x1
 }
 
 // GlyphInfo, font characters glyphs info
 struct GlyphInfo
 {
-    int value;              // Character value (Unicode)
-    int offsetX;            // Character offset X when drawing
-    int offsetY;            // Character offset Y when drawing
-    int advanceX;           // Character advance position X
+    CInt value;              // Character value (Unicode)
+    CInt offsetX;            // Character offset X when drawing
+    CInt offsetY;            // Character offset Y when drawing
+    CInt advanceX;           // Character advance position X
     Image image;            // Character CPU/RAM image data
 }
 
 // Font, font texture and GlyphInfo array data
 struct Font
 {
-    int baseSize;           // Base size (default chars height)
-    int glyphCount;         // Number of glyph characters
-    int glyphPadding;       // Padding around the glyph characters
+    CInt baseSize;           // Base size (default chars height)
+    CInt glyphCount;         // Number of glyph characters
+    CInt glyphPadding;       // Padding around the glyph characters
     Texture2D texture;      // Texture atlas containing the glyphs
     Rectangle* recs;        // Rectangles in texture for the glyphs
     GlyphInfo* glyphs;      // Glyphs info data
@@ -281,8 +267,8 @@ struct Camera2D
 // Mesh, vertex data and vao/vbo
 struct Mesh
 {
-    int vertexCount;        // Number of vertices stored in arrays
-    int triangleCount;      // Number of triangles stored (indexed or not)
+    CInt vertexCount;        // Number of vertices stored in arrays
+    CInt triangleCount;      // Number of triangles stored (indexed or not)
 
     // Vertex attributes data
     float* vertices;        // Vertex position (XYZ - 3 components per vertex) (shader-location = 0)
@@ -299,17 +285,17 @@ struct Mesh
     char* boneIds;          // Vertex bone ids, max 255 bone ids, up to 4 bones influence by vertex (skinning)
     float* boneWeights;     // Vertex bone weight, up to 4 bones influence by vertex (skinning)
     Matrix *boneMatrices;   // Bones animated transformation matrices
-    int boneCount;          // Number of bones
+    CInt boneCount;          // Number of bones
 
     // OpenGL identifiers
-    uint vaoId;             // OpenGL Vertex Array Object id
-    uint* vboId;            // OpenGL Vertex Buffer Objects id (default vertex data)
+    CUInt vaoId;             // OpenGL Vertex Array Object id
+    CUInt* vboId;            // OpenGL Vertex Buffer Objects id (default vertex data)
 }
 
 struct Shader
 {
-    uint id;                // Shader program id
-    int* locs;              // Shader locations array (RL_MAX_SHADER_LOCATIONS)
+    CUInt id;                // Shader program id
+    CInt* locs;              // Shader locations array (RL_MAX_SHADER_LOCATIONS)
 }
 
 macro bool Shader.equal(&self, Shader other) @operator(==)
@@ -366,8 +352,8 @@ struct Transform
 // Bone, skeletal animation bone
 struct BoneInfo
 {
-    char[32] name;          // Bone name
-    int parent;             // Bone parent
+    CChar[32] name;          // Bone name
+    CInt parent;             // Bone parent
 }
 
 // Model, meshes, materials and animation data
@@ -375,14 +361,14 @@ struct Model
 {
     Matrix transform;       // Local transform matrix
 
-    int meshCount;          // Number of meshes
-    int materialCount;      // Number of materials
+    CInt meshCount;          // Number of meshes
+    CInt materialCount;      // Number of materials
     Mesh* meshes;           // Meshes array
     Material* materials;    // Materials array
-    int* meshMaterial;      // Mesh material number
+    CInt* meshMaterial;      // Mesh material number
 
     // Animation data
-    int boneCount;          // Number of bones
+    CInt boneCount;          // Number of bones
     BoneInfo* bones;        // Bones information (skeleton)
     Transform* bindPose;    // Bones base transformation (pose)
 }
@@ -390,8 +376,8 @@ struct Model
 // ModelAnimation
 struct ModelAnimation
 {
-    int boneCount;          // Number of bones
-    int frameCount;         // Number of animation frames
+    CInt boneCount;          // Number of bones
+    CInt frameCount;         // Number of animation frames
     BoneInfo* bones;        // Bones information (skeleton)
     Transform** framePoses; // Poses array by frame
 }
@@ -422,10 +408,10 @@ struct BoundingBox @compact
 // Wave, audio wave data
 struct Wave
 {
-    uint frameCount;            // Total number of frames (considering channels)
-    uint sampleRate;            // Frequency (samples per second)
-    uint sampleSize;            // Bit depth (bits per sample): 8, 16, 32 (24 not supported)
-    uint channels;              // Number of channels (1-mono, 2-stereo, ...)
+    CUInt frameCount;            // Total number of frames (considering channels)
+    CUInt sampleRate;            // Frequency (samples per second)
+    CUInt sampleSize;            // Bit depth (bits per sample): 8, 16, 32 (24 not supported)
+    CUInt channels;              // Number of channels (1-mono, 2-stereo, ...)
     void* data;                 // Buffer data pointer
 }
 
@@ -438,9 +424,9 @@ struct AudioStream
     AudioBufferRef buffer;       // Pointer to internal data used by the audio system
 	AudioProcessorRef processor; // Pointer to internal data processor, useful for audio effects
 
-    uint sampleRate;             // Frequency (samples per second)
-    uint sampleSize;             // Bit depth (bits per sample): 8, 16, 32 (24 not supported)
-    uint channels;               // Number of channels (1-mono, 2-stereo, ...)
+    CUInt sampleRate;             // Frequency (samples per second)
+    CUInt sampleSize;             // Bit depth (bits per sample): 8, 16, 32 (24 not supported)
+    CUInt channels;               // Number of channels (1-mono, 2-stereo, ...)
 }
 
 
@@ -448,25 +434,25 @@ struct AudioStream
 struct Sound
 {
     AudioStream stream;         // Audio stream
-    uint frameCount;            // Total number of frames (considering channels)
+    CUInt frameCount;            // Total number of frames (considering channels)
 }
 
 // Music, audio stream, anything longer than ~10 seconds should be streamed
 struct Music
 {
     AudioStream stream;         // Audio stream
-    uint frameCount;            // Total number of frames (considering channels)
+    CUInt frameCount;            // Total number of frames (considering channels)
     bool looping;               // Music looping enable
 
-    int ctxType;                // Type of music context (audio filetype)
+    CInt ctxType;                // Type of music context (audio filetype)
     void* ctxData;              // Audio context data, depends on type
 }
 
 // VrDeviceInfo, Head-Mounted-Display device parameters
 struct VrDeviceInfo
 {
-    int hResolution;                // Horizontal resolution in pixels
-    int vResolution;                // Vertical resolution in pixels
+    CInt hResolution;                // Horizontal resolution in pixels
+    CInt vResolution;                // Vertical resolution in pixels
     float hScreenSize;              // Horizontal size in meters
     float vScreenSize;              // Vertical size in meters
     float vScreenCenter;            // Screen center in meters
@@ -492,31 +478,30 @@ struct VrStereoConfig
 
 struct FilePathList
 {
-    uint capacity;                  // Filepaths max entries
-    uint count;                     // Filepaths entries count
-    //char** paths;                  // Filepaths entries
+    CUInt capacity;                  // Filepaths max entries
+    CUInt count;                     // Filepaths entries count
     ZString* paths;                 // Filepaths entries
 }
 
 // Automation event
 struct AutomationEvent
 {
-    uint frame;                     // Event frame
-    uint type;                      // Event type (AutomationEventType)
-    int[4] params;                  // Event parameters (if required)
+    CUInt frame;                     // Event frame
+    CUInt type;                      // Event type (AutomationEventType)
+    CInt[4] params;                  // Event parameters (if required)
 }
 
 // Automation event list
 struct AutomationEventList
 {
-    uint capacity;                  // Events max entries (MAX_AUTOMATION_EVENTS)
-    uint count;                     // Events entries count
+    CUInt capacity;                  // Events max entries (MAX_AUTOMATION_EVENTS)
+    CUInt count;                     // Events entries count
     AutomationEvent* events;        // Events entries
 }
 
 // Trace log level
 // NOTE: Organized by priority level
-enum TraceLogLevel : const inline int
+enum TraceLogLevel : const inline CInt
 {
     ALL,            // Display all logs (0)
     TRACE,          // Trace logging, intended for internal use only
@@ -529,7 +514,7 @@ enum TraceLogLevel : const inline int
 }
 
 // Mouse buttons
-enum MouseButton : inline int
+enum MouseButton : inline CInt
 {
     LEFT,       // Mouse button left
     RIGHT,      // Mouse button right
@@ -541,7 +526,7 @@ enum MouseButton : inline int
 }
 
 // Mouse cursor
-enum MouseCursor : int
+enum MouseCursor : CInt
 {
     DEFAULT,       // Default pointer shape
     ARROW,         // Arrow shape
@@ -559,7 +544,7 @@ enum MouseCursor : int
 $assert(MouseCursor.DEFAULT.ordinal == 0);
 
 // Gamepad buttons
-enum GamepadButton : int
+enum GamepadButton : CInt
 {
     UNKNOWN,             // Unknown button, just for error checking
     LEFT_FACE_UP,        // Gamepad left DPAD up button
@@ -583,7 +568,7 @@ enum GamepadButton : int
 
 $assert(GamepadButton.UNKNOWN.ordinal == 0);
 
-enum GamepadAxis : int
+enum GamepadAxis : CInt
 {
     LEFT_X,           // Gamepad left stick X axis
     LEFT_Y,           // Gamepad left stick Y axis
@@ -596,7 +581,7 @@ enum GamepadAxis : int
 $assert(GamepadAxis.LEFT_X.ordinal == 0);
 
 // Material map index
-enum MtlMapIndex : inline int
+enum MtlMapIndex : inline CInt
 {
     ALBEDO,            // Albedo material (same as: MATERIAL_MAP_DIFFUSE)
     METALNESS,         // Metalness material (same as: MATERIAL_MAP_SPECULAR)
@@ -623,7 +608,7 @@ $assert(MtlMapIndex.ALBEDO.ordinal == 0);
 // Shader location index
 // NOTE: str is the identifier you should write in your glsl shader code!
 // this is so is easy to parse the shader code and find the location
-enum ShdLocInd : inline int (String str)
+enum ShdLocInd : inline CInt (String str)
 {
     VERTEX_POSITION   = "vertexPosition",  // Shader location: vertex attribute: position
     VERTEX_TEXCOORD01 = "vertexTexCoord1",  // Shader location: vertex attribute: texcoord01
@@ -689,16 +674,16 @@ They are defined inside raylib/src/config.h
 //#define SHADER_LOC_MAP_SPECULAR     SHADER_LOC_MAP_METALNESS
 
 // Shader uniform data type
-enum ShdUniTyp : inline int
+enum ShdUniTyp : inline CInt
 {
     FLOAT,           // Shader uniform type: float
     VEC2,            // Shader uniform type: vec2 (2 float)
     VEC3,            // Shader uniform type: vec3 (3 float)
     VEC4,            // Shader uniform type: vec4 (4 float)
-    INT,             // Shader uniform type: int
-    IVEC2,           // Shader uniform type: ivec2 (2 int)
-    IVEC3,           // Shader uniform type: ivec3 (3 int)
-    IVEC4,           // Shader uniform type: ivec4 (4 int)
+    INT,             // Shader uniform type: CInt
+    IVEC2,           // Shader uniform type: ivec2 (2 CInt)
+    IVEC3,           // Shader uniform type: ivec3 (3 CInt)
+    IVEC4,           // Shader uniform type: ivec4 (4 CInt)
     SAMPLER2D        // Shader uniform type: sampler2d
 }
 
@@ -717,7 +702,7 @@ $assert(ShaderAttributeDataType.FLOAT.ordinal == 0);
 
 // Pixel formats
 // NOTE: Support depends on OpenGL version and platform
-enum PixelFormat : const inline int
+enum PixelFormat : const inline CInt
 {
 	NONE,
     UNCOMPRESSED_GRAYSCALE,     // 8 bit per pixel (no alpha)
@@ -748,7 +733,7 @@ $assert(PixelFormat.UNCOMPRESSED_GRAYSCALE == 1);
 // Texture parameters: filter mode
 // NOTE 1: Filtering considers mipmaps if available in the texture
 // NOTE 2: Filter is accordingly set for minification and magnification
-enum TextureFilter : int
+enum TextureFilter : CInt
 {
     POINT,                   // No filter, just pixel approximation
     BILINEAR,                // Linear filtering
@@ -795,7 +780,7 @@ enum FontType
 $assert(FontType.DEFAULT.ordinal == 0);
 
 // Color blending modes (pre-defined)
-enum BlendMode : inline int
+enum BlendMode : inline CInt
 {
     ALPHA,                    // Blend textures considering alpha (default)
     ADDITIVE,                 // Blend textures adding colors
@@ -875,14 +860,14 @@ $assert(NPatchLayout.NINE_PATCH.ordinal == 0);
 
 // Callbacks to hook some internal functions
 // WARNING: This callbacks are intended for advance users
-alias LoadFileDataCallback = fn char* (char* fileName, uint* bytesRead);                     // FileIO: Load binary data
-alias SaveFileDataCallback = fn bool(char* fileName, void* data, uint bytesToWrite);         // FileIO: Save binary data
-alias LoadFileTextCallback = fn char*(char* fileName);                                       // FileIO: Load text data
-alias SaveFileTextCallback = fn bool(char* fileName, char* text);                            // FileIO: Save text data
+alias LoadFileDataCallback = fn char* (ZString fileName, CUInt* bytesRead); // FileIO: Load binary data
+alias SaveFileDataCallback = fn bool(ZString fileName, void* data, CUInt bytesToWrite); // FileIO: Save binary data
+alias LoadFileTextCallback = fn char*(ZString fileName); // FileIO: Load text data
+alias SaveFileTextCallback = fn bool(ZString fileName, ZString text); // FileIO: Save text data
 
 // Window-related functions
-alias MonitorIndex @local = int;
-fn void initWindow(int width, int height, char* title) @cname("InitWindow");              // Initialize window and OpenGL context
+alias MonitorIndex @local = CInt;
+fn void initWindow(CInt width, CInt height, ZString title) @cname("InitWindow");              // Initialize window and OpenGL context
 fn void closeWindow() @cname("CloseWindow");                                              // Close window and unload OpenGL context
 fn bool windowShouldClose() @cname("WindowShouldClose");                                  // Check if KEY_ESCAPE pressed or Close icon pressed
 fn bool isWindowReady() @cname("IsWindowReady");                                          // Check if window has been initialized successfully
@@ -901,27 +886,27 @@ fn void maximizeWindow() @cname("MaximizeWindow");                              
 fn void minimizeWindow() @cname("MinimizeWindow");                                        // Set window state: minimized, if resizable (only PLATFORM_DESKTOP)
 fn void restoreWindow() @cname("RestoreWindow");                                          // Set window state: not minimized/maximized (only PLATFORM_DESKTOP)
 fn void setWindowIcon(Image image) @cname("SetWindowIcon");                               // Set icon for window (only PLATFORM_DESKTOP)
-fn void setWindowIcons(Image* images, int count) @cname("SetWindowIcons");                // Set icon for window (multiple images, RGBA 32bit, only PLATFORM_DESKTOP)
+fn void setWindowIcons(Image* images, CInt count) @cname("SetWindowIcons");                // Set icon for window (multiple images, RGBA 32bit, only PLATFORM_DESKTOP)
 fn void setWindowTitle(ZString title) @cname("SetWindowTitle");                             // Set title for window (only PLATFORM_DESKTOP)
-fn void setWindowPosition(int x, int y) @cname("SetWindowPosition");                      // Set window position on screen (only PLATFORM_DESKTOP)
-fn void setWindowMonitor(int monitor) @cname("SetWindowMonitor");             // Set monitor for the current window (fullscreen mode)
-fn void setWindowMinSize(int width, int height) @cname("SetWindowMinSize");               // Set window minimum dimensions (for FLAG_WINDOW_RESIZABLE)
-fn void setWindowMaxSize(int width, int height) @cname("SetWindowMaxSize");               // Set window maximum dimensions (for FLAG_WINDOW_RESIZABLE)
-fn void setWindowSize(int width, int height) @cname("SetWindowSize");                     // Set window dimensions
+fn void setWindowPosition(CInt x, CInt y) @cname("SetWindowPosition");                      // Set window position on screen (only PLATFORM_DESKTOP)
+fn void setWindowMonitor(CInt monitor) @cname("SetWindowMonitor");             // Set monitor for the current window (fullscreen mode)
+fn void setWindowMinSize(CInt width, CInt height) @cname("SetWindowMinSize");               // Set window minimum dimensions (for FLAG_WINDOW_RESIZABLE)
+fn void setWindowMaxSize(CInt width, CInt height) @cname("SetWindowMaxSize");               // Set window maximum dimensions (for FLAG_WINDOW_RESIZABLE)
+fn void setWindowSize(CInt width, CInt height) @cname("SetWindowSize");                     // Set window dimensions
 fn void setWindowOpacity(float opacity) @cname("SetWindowOpacity");                       // Set window opacity [0.0f..1.0f] (only PLATFORM_DESKTOP)
 fn void* getWindowHandle() @cname("GetWindowHandle");                                     // Get native window handle
-fn int getScreenWidth() @cname("GetScreenWidth");                                         // Get current screen width
-fn int getScreenHeight() @cname("GetScreenHeight");                                       // Get current screen height
-fn int getRenderWidth() @cname("GetRenderWidth");                                         // Get current render width (it considers HiDPI)
-fn int getRenderHeight() @cname("GetRenderHeight");                                       // Get current render height (it considers HiDPI)
-fn int getMonitorCount() @cname("GetMonitorCount");                                       // Get number of connected monitors
+fn CInt getScreenWidth() @cname("GetScreenWidth");                                         // Get current screen width
+fn CInt getScreenHeight() @cname("GetScreenHeight");                                       // Get current screen height
+fn CInt getRenderWidth() @cname("GetRenderWidth");                                         // Get current render width (it considers HiDPI)
+fn CInt getRenderHeight() @cname("GetRenderHeight");                                       // Get current render height (it considers HiDPI)
+fn CInt getMonitorCount() @cname("GetMonitorCount");                                       // Get number of connected monitors
 fn MonitorIndex getCurrentMonitor() @cname("GetCurrentMonitor");                                   // Get current connected monitor
 fn Vector2 getMonitorPosition(MonitorIndex monitor) @cname("GetMonitorPosition");                  // Get specified monitor position
-fn int getMonitorWidth(MonitorIndex monitor) @cname("GetMonitorWidth");                            // Get specified monitor width (max available by monitor)
-fn int getMonitorHeight(MonitorIndex monitor) @cname("GetMonitorHeight");                          // Get specified monitor height (max available by monitor)
-fn int getMonitorPhysicalWidth(MonitorIndex monitor) @cname("GetMonitorPhysicalWidth");            // Get specified monitor physical width in millimetres
-fn int getMonitorPhysicalHeight(MonitorIndex monitor) @cname("GetMonitorPhysicalHeight");          // Get specified monitor physical height in millimetres
-fn int getMonitorRefreshRate(MonitorIndex monitor) @cname("GetMonitorRefreshRate");                // Get specified monitor refresh rate
+fn CInt getMonitorWidth(MonitorIndex monitor) @cname("GetMonitorWidth");                            // Get specified monitor width (max available by monitor)
+fn CInt getMonitorHeight(MonitorIndex monitor) @cname("GetMonitorHeight");                          // Get specified monitor height (max available by monitor)
+fn CInt getMonitorPhysicalWidth(MonitorIndex monitor) @cname("GetMonitorPhysicalWidth");            // Get specified monitor physical width in millimetres
+fn CInt getMonitorPhysicalHeight(MonitorIndex monitor) @cname("GetMonitorPhysicalHeight");          // Get specified monitor physical height in millimetres
+fn CInt getMonitorRefreshRate(MonitorIndex monitor) @cname("GetMonitorRefreshRate");                // Get specified monitor refresh rate
 fn Vector2 getWindowPosition() @cname("GetWindowPosition");                               // Get window position XY on monitor
 //
 fn Vector2 getWindowScaleDPI() @cname("GetWindowScaleDPI");                               // Get window scale DPI factor ex: (1.0f, 1.0f) for 100% scale, (2.0f, 2.0f) for 200% scale, etc.
@@ -958,12 +943,12 @@ fn void beginTextureMode(RenderTexture2D target) @cname("BeginTextureMode");    
 fn void endTextureMode() @cname("EndTextureMode");                                        // Ends drawing to render texture
 fn void beginShaderMode(Shader shader) @cname("BeginShaderMode");                         // Begin custom shader drawing
 fn void endShaderMode() @cname("EndShaderMode");                                          // End custom shader drawing (use default shader)
-fn void beginBlendMode(int mode) @cname("BeginBlendMode");                                // Begin blending mode (alpha, additive, multiplied, subtract, custom)
+fn void beginBlendMode(CInt mode) @cname("BeginBlendMode");                                // Begin blending mode (alpha, additive, multiplied, subtract, custom)
 fn void endBlendMode() @cname("EndBlendMode");                                            // End blending mode (reset to default: alpha blending)
-fn void setBlendFactors(int glSrcFactor, int glDstFactor, int glEquation) @cname("rlSetBlendFactors"); // Set blending mode factor and equation (using OpenGL factors)
-fn void setBlendFactorsSeparate(int glSrcRGB, int glDstRGB, int glSrcAlpha, int glDstAlpha, int glEqRGB, int glEqAlpha) @cname("rlSetBlendFactorsSeparate"); // Set blending mode factors and equations separately (using OpenGL factors)
-fn void setBlendMode(int mode) @cname("rlSetBlendMode");                                  // Needs to be called AFTER rlSetBlendFactors() or rlSetBlendFactorsSeparate()
-fn void beginScissorMode(int x, int y, int w, int h) @cname("BeginScissorMode");          // Begin scissor mode (define screen area for following drawing)
+fn void setBlendFactors(CInt glSrcFactor, CInt glDstFactor, CInt glEquation) @cname("rlSetBlendFactors"); // Set blending mode factor and equation (using OpenGL factors)
+fn void setBlendFactorsSeparate(CInt glSrcRGB, CInt glDstRGB, CInt glSrcAlpha, CInt glDstAlpha, CInt glEqRGB, CInt glEqAlpha) @cname("rlSetBlendFactorsSeparate"); // Set blending mode factors and equations separately (using OpenGL factors)
+fn void setBlendMode(CInt mode) @cname("rlSetBlendMode");                                  // Needs to be called AFTER rlSetBlendFactors() or rlSetBlendFactorsSeparate()
+fn void beginScissorMode(CInt x, CInt y, CInt w, CInt h) @cname("BeginScissorMode");          // Begin scissor mode (define screen area for following drawing)
 fn void endScissorMode() @cname("EndScissorMode");                                        // End scissor mode
 fn void beginVrStereoMode(VrStereoConfig config) @cname("BeginVrStereoMode");            // Begin stereo rendering (requires VR simulator)
 fn void endVrStereoMode() @cname("EndVrStereoMode");                                     // End stereo rendering (requires VR simulator)
@@ -978,37 +963,37 @@ fn Shader loadShader(ZString vsFileName, ZString fsFileName) @cname("LoadShader"
 fn Shader loadShaderFromMemory(ZString vs, ZString fs) @cname("LoadShaderFromMemory");      // Load shader from code strings and bind default locations
 fn bool isShaderValid(Shader shader) @cname("IsShaderValid");                               // Check if a shader is ready
 //fn bool Shader.isValid(self) @cname("IsShaderValid");                              // Check if a shader is ready
-fn int getShaderLocation(Shader shader, ZString uniformName) @cname("GetShaderLocation");   // Get shader uniform location
-fn int Shader.getUniformLocation(self, ZString uniformName) @cname("GetShaderLocation");   // Get shader uniform location
-fn int getShaderLocationAttrib(Shader shader, ZString attr) @cname("GetShaderLocationAttrib");  // Get shader attribute location
-fn int Shader.getAttributeLocation(self, ZString attr) @cname("GetShaderLocationAttrib");  // Get shader attribute location
-fn void setShaderValue(Shader shader, int locIndex, void* value, int uniformType) @cname("SetShaderValue"); // Set shader uniform value
-fn void setShaderValueV(Shader shader, int locIndex, void* value, int uniformType, int count) @cname("SetShaderValueV");   // Set shader uniform value vector
-fn void setShaderValueMatrix(Shader shader, int locIndex, Matrix mat) @cname("SetShaderValueMatrix"); // Set shader uniform value (matrix 4x4)
-fn void setShaderValueTexture(Shader shader, int locIndex, Texture2D texture) @cname("SetShaderValueTexture"); // Set shader uniform value for texture (sampler2d)
+fn CInt getShaderLocation(Shader shader, ZString uniformName) @cname("GetShaderLocation");   // Get shader uniform location
+fn CInt Shader.getUniformLocation(self, ZString uniformName) @cname("GetShaderLocation");   // Get shader uniform location
+fn CInt getShaderLocationAttrib(Shader shader, ZString attr) @cname("GetShaderLocationAttrib");  // Get shader attribute location
+fn CInt Shader.getAttributeLocation(self, ZString attr) @cname("GetShaderLocationAttrib");  // Get shader attribute location
+fn void setShaderValue(Shader shader, CInt locIndex, void* value, CInt uniformType) @cname("SetShaderValue"); // Set shader uniform value
+fn void setShaderValueV(Shader shader, CInt locIndex, void* value, CInt uniformType, CInt count) @cname("SetShaderValueV");   // Set shader uniform value vector
+fn void setShaderValueMatrix(Shader shader, CInt locIndex, Matrix mat) @cname("SetShaderValueMatrix"); // Set shader uniform value (matrix 4x4)
+fn void setShaderValueTexture(Shader shader, CInt locIndex, Texture2D texture) @cname("SetShaderValueTexture"); // Set shader uniform value for texture (sampler2d)
 fn void unloadShader(Shader shader) @cname("UnloadShader");                                // Unload shader from GPU memory (VRAM)
 
 //
-fn void Shader.setValue(self, int locIndex, void* value, int uniformType) @cname("SetShaderValue"); // Set shader uniform value
-fn void Shader.setValueV(self, int locIndex, void* value, int uniformType, int count) @cname("SetShaderValueV");   // Set shader uniform value vector
-fn void Shader.setValueMatrix(self, int locIndex, Matrix mat) @cname("SetShaderValueMatrix"); // Set shader uniform value (matrix 4x4)
-fn void Shader.setValueTexture(self, int locIndex, Texture2D texture) @cname("SetShaderValueTexture"); // Set shader uniform value for texture (sampler2d)
+fn void Shader.setValue(self, CInt locIndex, void* value, CInt uniformType) @cname("SetShaderValue"); // Set shader uniform value
+fn void Shader.setValueV(self, CInt locIndex, void* value, CInt uniformType, CInt count) @cname("SetShaderValueV");   // Set shader uniform value vector
+fn void Shader.setValueMatrix(self, CInt locIndex, Matrix mat) @cname("SetShaderValueMatrix"); // Set shader uniform value (matrix 4x4)
+fn void Shader.setValueTexture(self, CInt locIndex, Texture2D texture) @cname("SetShaderValueTexture"); // Set shader uniform value for texture (sampler2d)
 fn void Shader.unload(self) @cname("UnloadShader");                                // Unload shader from GPU memory (VRAM)
 
 // Screen-space-related functions
 //#define GetMouseRay GetScreenToWorldRay     // Compatibility hack for previous raylib versions
 fn Ray getScreenToWorldRay(Vector2 mousePosition, Camera camera) @cname("GetScreenToWorldRay"); // Get a ray trace from mouse position
-fn Ray getScreenToWorldRayEx(Vector2 position, Camera camera, int width, int height) @cname("GetScreenToWorldRayEx"); // Get a ray trace from screen position (i.e mouse) in a viewport
+fn Ray getScreenToWorldRayEx(Vector2 position, Camera camera, CInt width, CInt height) @cname("GetScreenToWorldRayEx"); // Get a ray trace from screen position (i.e mouse) in a viewport
 fn Vector2 getWorldToScreen(Vector3 position, Camera camera) @cname("GetWorldToScreen"); // Get the screen space position for a 3d world space position
-fn Vector2 getWorldToScreenEx(Vector3 position, Camera camera, int width, int height) @cname("GetWorldToScreenEx"); // Get size position for a 3d world space position
+fn Vector2 getWorldToScreenEx(Vector3 position, Camera camera, CInt width, CInt height) @cname("GetWorldToScreenEx"); // Get size position for a 3d world space position
 fn Vector2 getWorldToScreen2D(Vector2 position, Camera2D camera) @cname("GetWorldToScreen2D"); // Get the screen space position for a 2d camera world space position
 fn Vector2 getScreenToWorld2D(Vector2 position, Camera2D camera) @cname("GetScreenToWorld2D"); // Get the world space position for a 2d camera screen space position
 fn Matrix getCameraMatrix(Camera camera) @cname("GetCameraMatrix");                            // Get camera transform matrix (view matrix)
 fn Matrix getCameraMatrix2D(Camera2D camera) @cname("GetCameraMatrix2D");                 // Get camera 2d transform matrix
 
 // Timing-related functions
-fn void setTargetFPS(int fps) @cname("SetTargetFPS");                                     // Set target FPS (maximum)
-fn int getFPS() @cname("GetFPS");                                                          // Get current FPS
+fn void setTargetFPS(CInt fps) @cname("SetTargetFPS");                                     // Set target FPS (maximum)
+fn CInt getFPS() @cname("GetFPS");                                                          // Get current FPS
 fn float getFrameTime() @cname("GetFrameTime");                                           // Get time in seconds for last frame drawn (delta time)
 fn double getTime() @cname("GetTime");                                                     // Get elapsed time in seconds since InitWindow()
 
@@ -1021,10 +1006,10 @@ fn void pollInputEvents() @cname("PollInputEvents");                            
 fn void waitTime(float ms) @cname("WaitTime");                                             // Wait for some milliseconds (halt program execution)
 
 // Random values generation functions
-fn int getRandomValue(int min, int max) @cname("GetRandomValue");                          // Get a random value between min and max (both included)
-fn void setRandomSeed(uint seed) @cname("SetRandomSeed");                                  // Set the seed for the random number generator
-fn int* loadRandomSequence(uint count, int min, int max) @cname("LoadRandomSequence");     // Load random values sequence, no values repeated
-fn void unloadRandomSequence(int *sequence) @cname("UnloadRandomSequence");                // Unload random values sequence
+fn CInt getRandomValue(CInt min, CInt max) @cname("GetRandomValue");                          // Get a random value between min and max (both included)
+fn void setRandomSeed(CUInt seed) @cname("SetRandomSeed");                                  // Set the seed for the random number generator
+fn CInt* loadRandomSequence(CUInt count, CInt min, CInt max) @cname("LoadRandomSequence");     // Load random values sequence, no values repeated
+fn void unloadRandomSequence(CInt *sequence) @cname("UnloadRandomSequence");                // Unload random values sequence
 
 // Misc. functions
 // NOTE(HM) note the parameter for takeScreenshot(..) is fileName with extension, not filePath!!!
@@ -1034,8 +1019,8 @@ fn void openURL(ZString url) @cname("OpenURL");                                 
 
 fn void traceLog(TraceLogLevel logLevel, char* text, ...) @cname("TraceLog");              // Show trace log messages (LOG_DEBUG, LOG_INFO, LOG_WARNING, LOG_ERROR...)
 fn void setTraceLogLevel(TraceLogLevel logLevel) @cname("SetTraceLogLevel");               // Set the current threshold (minimum) log level
-fn void* memAlloc(int size) @cname("MemAlloc");                                            // Internal memory allocator
-fn void* memRealloc(void* ptr, int size) @cname("MemRealloc");                             // Internal memory reallocator
+fn void* memAlloc(CInt size) @cname("MemAlloc");                                            // Internal memory allocator
+fn void* memRealloc(void* ptr, CInt size) @cname("MemRealloc");                             // Internal memory reallocator
 fn void memFree(void* ptr) @cname("MemFree");                								// Internal memory free
 
 // Set custom callbacks
@@ -1047,13 +1032,13 @@ fn void setSaveFileTextCallback(SaveFileTextCallback callback) @cname("SetSaveFi
 
 // Files management functions
 // Load file data as byte array (read)
-fn char* loadFileData(ZString fileName, int* bytesRead) @cname("LoadFileData");
+fn char* loadFileData(ZString fileName, CInt* bytesRead) @cname("LoadFileData");
 // Unload file data allocated by loadFileData()
 fn void unloadFileData(char* data) @cname("UnloadFileData");
 // Save data to file from byte array (write), returns true on success
-fn bool saveFileData(ZString fileName, void* data,  int dataSize) @cname("SaveFileData");
+fn bool saveFileData(ZString fileName, void* data,  CInt dataSize) @cname("SaveFileData");
 // Export data to code (.h), returns true on success
-fn bool exportDataAsCode(char *data, int dataSize, ZString fileName) @cname("ExportDataAsCode");
+fn bool exportDataAsCode(char *data, CInt dataSize, ZString fileName) @cname("ExportDataAsCode");
 // Load text data from file (read), returns a '\0' terminated string
 fn ZString loadFileText(ZString fileName) @cname("LoadFileText");
 // Unload file text data allocated by LoadFileText()
@@ -1069,7 +1054,7 @@ fn bool directoryExists(ZString dirPath) @cname("DirectoryExists");
 // Check file extension (including point: .png, .wav)
 fn bool isFileExtension(ZString fileName, ZString ext) @cname("IsFileExtension");
 // Get file length in bytes (NOTE: GetFileSize() conflicts with windows.h)
-fn int getFileLength(ZString fileName) @cname("GetFileLength");
+fn CInt getFileLength(ZString fileName) @cname("GetFileLength");
 // Get pointer to extension for a filename string (includes dot: '.png')
 fn ZString getFileExtension(ZString fileName) @cname("GetFileExtension");
 // Get pointer to filename for a path string
@@ -1085,7 +1070,7 @@ fn ZString getWorkingDirectory() @cname("GetWorkingDirectory");
 // Get the directory if the running application (uses static string)
 fn ZString getApplicationDirectory() @cname("GetApplicationDirectory");
 // Create directories (including full path requested), returns 0 on success
-fn int makeDirectory(ZString dirPath) @cname("MakeDirectory");
+fn CInt makeDirectory(ZString dirPath) @cname("MakeDirectory");
 // Change working directory, return true on success
 fn bool changeDirectory(ZString dir) @cname("ChangeDirectory");
 // Check if a given path is a file or a directory
@@ -1109,19 +1094,19 @@ fn CLong getFileModTime(ZString fileName) @cname("GetFileModTime");
 
 // Compression/Encoding functionality
 // Compress data (DEFLATE algorithm)
-fn char* compressData(char* data, int dataLength, int* compDataLength) @cname("CompressData");
+fn char* compressData(char* data, CInt dataLength, CInt* compDataLength) @cname("CompressData");
 // Decompress data (DEFLATE algorithm)
-fn char* decompressData(char* compData, int compDataLength, int* dataLength) @cname("DecompressData");
+fn char* decompressData(char* compData, CInt compDataLength, CInt* dataLength) @cname("DecompressData");
 // Encode data to Base64 string
-fn char* encodeDataBase64(char* data, int dataLength, int* outputLength) @cname("EncodeDataBase64");
+fn char* encodeDataBase64(char* data, CInt dataLength, CInt* outputLength) @cname("EncodeDataBase64");
 // Decode Base64 string data
-fn char* decodeDataBase64(char* data, int* outputLength) @cname("DecodeDataBase64");
+fn char* decodeDataBase64(char* data, CInt* outputLength) @cname("DecodeDataBase64");
 // Compute CRC32 hash code
-fn uint computeCRC32(char *data, int dataSize) @cname("ComputeCRC32");
-// Compute MD5 hash code, returns static int[4] (16 bytes)
-fn uint* computeMD5(char *data, int dataSize) @cname("ComputeMD5");
-// Compute SHA1 hash code, returns static int[5] (20 bytes)
-fn uint* computeSHA1(char *data, int dataSize) @cname("ComputeSHA1");
+fn CUInt computeCRC32(char *data, CInt dataSize) @cname("ComputeCRC32");
+// Compute MD5 hash code, returns static CInt[4] (16 bytes)
+fn CUInt* computeMD5(char *data, CInt dataSize) @cname("ComputeMD5");
+// Compute SHA1 hash code, returns static CInt[5] (20 bytes)
+fn CUInt* computeSHA1(char *data, CInt dataSize) @cname("ComputeSHA1");
 // Automation events functionality
 // Load automation events list from file, NULL for empty list, capacity = MAX_AUTOMATION_EVENTS
 fn AutomationEventList loadAutomationEventList(ZString fileName) @cname("LoadAutomationEventList");
@@ -1132,7 +1117,7 @@ fn bool exportAutomationEventList(AutomationEventList list, ZString fileName) @c
 // Set automation event list to record to
 fn void setAutomationEventList(AutomationEventList *list) @cname("SetAutomationEventList");
 // Set automation event internal base frame to start recording
-fn void setAutomationEventBaseFrame(int frame) @cname("SetAutomationEventBaseFrame");
+fn void setAutomationEventBaseFrame(CInt frame) @cname("SetAutomationEventBaseFrame");
 // Start recording automation events (AutomationEventList must be set)
 fn void startAutomationEventRecording() @cname("StartAutomationEventRecording");
 // Stop recording automation events
@@ -1158,35 +1143,35 @@ fn bool isKeyReleased(KeyboardKey key) @cname("IsKeyReleased");
 // Check if a key is NOT being pressed
 fn bool isKeyUp(KeyboardKey key) @cname("IsKeyUp");
 // Get key pressed (keycode), call it multiple times for keys queued, returns 0 when the queue is empty
-fn int getKeyPressed() @cname("GetKeyPressed");
+fn CInt getKeyPressed() @cname("GetKeyPressed");
 // Get char pressed (unicode), call it multiple times for chars queued, returns 0 when the queue is empty
-fn int getCharPressed() @cname("GetCharPressed");
+fn CInt getCharPressed() @cname("GetCharPressed");
 // Set a custom key to exit program (default is ESC)
 fn void setExitKey(KeyboardKey key) @cname("SetExitKey");
 
 // Input-related functions: gamepads
 // Check if a gamepad is available
-fn bool isGamepadAvailable(int gamepad) @cname("IsGamepadAvailable");
+fn bool isGamepadAvailable(CInt gamepad) @cname("IsGamepadAvailable");
 // Get gamepad internal name id
-fn ZString getGamepadName(int gamepad) @cname("GetGamepadName");
+fn ZString getGamepadName(CInt gamepad) @cname("GetGamepadName");
 // Check if a gamepad button has been pressed once
-fn bool isGamepadButtonPressed(int gamepad, int button) @cname("IsGamepadButtonPressed");
+fn bool isGamepadButtonPressed(CInt gamepad, CInt button) @cname("IsGamepadButtonPressed");
 // Check if a gamepad button is being pressed
-fn bool isGamepadButtonDown(int gamepad, int button) @cname("IsGamepadButtonDown");
+fn bool isGamepadButtonDown(CInt gamepad, CInt button) @cname("IsGamepadButtonDown");
 // Check if a gamepad button has been released once
-fn bool isGamepadButtonReleased(int gamepad, int button) @cname("IsGamepadButtonReleased");
+fn bool isGamepadButtonReleased(CInt gamepad, CInt button) @cname("IsGamepadButtonReleased");
 // Check if a gamepad button is NOT being pressed
-fn bool isGamepadButtonUp(int gamepad, int button) @cname("IsGamepadButtonUp");
+fn bool isGamepadButtonUp(CInt gamepad, CInt button) @cname("IsGamepadButtonUp");
 // Get the last gamepad button pressed
-fn int getGamepadButtonPressed() @cname("GetGamepadButtonPressed");
+fn CInt getGamepadButtonPressed() @cname("GetGamepadButtonPressed");
 // Get gamepad axis count for a gamepad
-fn int getGamepadAxisCount(int gamepad) @cname("GetGamepadAxisCount");
+fn CInt getGamepadAxisCount(CInt gamepad) @cname("GetGamepadAxisCount");
 // Get axis movement value for a gamepad axis
-fn float getGamepadAxisMovement(int gamepad, int axis) @cname("GetGamepadAxisMovement");
+fn float getGamepadAxisMovement(CInt gamepad, CInt axis) @cname("GetGamepadAxisMovement");
 // Set internal gamepad mappings (SDL_GameControllerDB)
-fn int setGamepadMappings(ZString mappings) @cname("SetGamepadMappings");
+fn CInt setGamepadMappings(ZString mappings) @cname("SetGamepadMappings");
 // Set gamepad vibration for both motors (duration in seconds)
-fn void setGamepadVibration(int gamepad, float leftMotor, float rightMotor, float duration) @cname("SetGamepadVibration");
+fn void setGamepadVibration(CInt gamepad, float leftMotor, float rightMotor, float duration) @cname("SetGamepadVibration");
 // Input-related functions: mouse
 // Check if a mouse button has been pressed once
 fn bool isMouseButtonPressed(MouseButton button) @cname("IsMouseButtonPressed");
@@ -1197,17 +1182,17 @@ fn bool isMouseButtonReleased(MouseButton button) @cname("IsMouseButtonReleased"
 // Check if a mouse button is NOT being pressed
 fn bool isMouseButtonUp(MouseButton button) @cname("IsMouseButtonUp");
 // Get mouse position X
-fn int getMouseX() @cname("GetMouseX");
+fn CInt getMouseX() @cname("GetMouseX");
 // Get mouse position Y
-fn int getMouseY() @cname("GetMouseY");
+fn CInt getMouseY() @cname("GetMouseY");
 // Get mouse position XY
 fn Vector2 getMousePosition() @cname("GetMousePosition");
 // Get mouse delta between frames
 fn Vector2 getMouseDelta() @cname("GetMouseDelta");
 // Set mouse position XY
-fn void setMousePosition(int x, int y) @cname("SetMousePosition");
+fn void setMousePosition(CInt x, CInt y) @cname("SetMousePosition");
 // Set mouse offset
-fn void setMouseOffset(int offsetX, int offsetY) @cname("SetMouseOffset");
+fn void setMouseOffset(CInt offsetX, CInt offsetY) @cname("SetMouseOffset");
 // Set mouse scaling
 fn void setMouseScale(float scaleX, float scaleY) @cname("SetMouseScale");
 // Get mouse wheel movement Y
@@ -1215,19 +1200,19 @@ fn float getMouseWheelMove() @cname("GetMouseWheelMove");
 // Get mouse wheel movement for both X and Y
 fn Vector2 getMouseWheelMoveV() @cname("GetMouseWheelMoveV");
 // Set mouse cursor
-fn void setMouseCursor(int cursor) @cname("SetMouseCursor");
+fn void setMouseCursor(CInt cursor) @cname("SetMouseCursor");
 
 // Input-related functions: touch
 // Get touch position X for touch point 0 (relative to screen size)
-fn int getTouchX() @cname("GetTouchX");
+fn CInt getTouchX() @cname("GetTouchX");
 // Get touch position Y for touch point 0 (relative to screen size)
-fn int getTouchY() @cname("GetTouchY");
+fn CInt getTouchY() @cname("GetTouchY");
 // Get touch position XY for a touch point index (relative to screen size)
-fn Vector2 getTouchPosition(int index) @cname("GetTouchPosition");
+fn Vector2 getTouchPosition(CInt index) @cname("GetTouchPosition");
 // Get touch point identifier for given index
-fn int getTouchPointId(int index) @cname("GetTouchPointId");
+fn CInt getTouchPointId(CInt index) @cname("GetTouchPointId");
 // Get number of touch points
-fn int getTouchPointCount() @cname("GetTouchPointCount");
+fn CInt getTouchPointCount() @cname("GetTouchPointCount");
 
 //------------------------------------------------------------------------------------
 // Gestures and Touch Handling Functions (Module: rgestures)
@@ -1272,43 +1257,43 @@ fn Texture2D getShapesTexture() @cname("GetShapesTexture");
 fn Rectangle getShapesTextureRectangle() @cname("GetShapesTextureRectangle");
 // Basic shapes drawing functions
 // Draw a pixel
-fn void drawPixel(int posX, int posY, Color color) @cname("DrawPixel");
+fn void drawPixel(CInt posX, CInt posY, Color color) @cname("DrawPixel");
 // Draw a pixel (Vector version)
 fn void drawPixelV(Vector2 position, Color color) @cname("DrawPixelV");
 // Draw a line
-fn void drawLine(int startPosX, int startPosY, int endPosX, int endPosY, Color color) @cname("DrawLine");
+fn void drawLine(CInt startPosX, CInt startPosY, CInt endPosX, CInt endPosY, Color color) @cname("DrawLine");
 // Draw a line (Vector version)
 fn void drawLineV(Vector2 startPos, Vector2 endPos, Color color) @cname("DrawLineV");
 // Draw a line defining thickness
 fn void drawLineEx(Vector2 startPos, Vector2 endPos, float thick, Color color) @cname("DrawLineEx");
 // Draw lines sequence (using gl lines)
-fn void drawLineStrip(Vector2* points, int pointCount, Color color) @cname("DrawLineStrip");
+fn void drawLineStrip(Vector2* points, CInt pointCount, Color color) @cname("DrawLineStrip");
 // Draw a line using cubic-bezier curves in-out
 fn void drawLineBezier(Vector2 startPos, Vector2 endPos, float thick, Color color) @cname("DrawLineBezier");
 // Draw lines sequence
-fn void drawCircle(int centerX, int centerY, float radius, Color color) @cname("DrawCircle");
+fn void drawCircle(CInt centerX, CInt centerY, float radius, Color color) @cname("DrawCircle");
 // Draw a piece of a circle
-fn void drawCircleSector(Vector2 center, float radius, float startAngle, float endAngle, int segments, Color color) @cname("DrawCircleSector");
+fn void drawCircleSector(Vector2 center, float radius, float startAngle, float endAngle, CInt segments, Color color) @cname("DrawCircleSector");
 // Draw circle sector outline
-fn void drawCircleSectorLines(Vector2 center, float radius, float startAngle, float endAngle, int segments, Color color) @cname("DrawCircleSectorLines");
+fn void drawCircleSectorLines(Vector2 center, float radius, float startAngle, float endAngle, CInt segments, Color color) @cname("DrawCircleSectorLines");
 // Draw a gradient-filled circle
-fn void drawCircleGradient(int centerX, int centerY, float radius, Color inner, Color outer) @cname("DrawCircleGradient");
+fn void drawCircleGradient(CInt centerX, CInt centerY, float radius, Color inner, Color outer) @cname("DrawCircleGradient");
 // Draw a color-filled circle (Vector version)
 fn void drawCircleV(Vector2 center, float radius, Color color) @cname("DrawCircleV");
 // Draw circle outline
-fn void drawCircleLines(int centerX, int centerY, float radius, Color color) @cname("DrawCircleLines");
+fn void drawCircleLines(CInt centerX, CInt centerY, float radius, Color color) @cname("DrawCircleLines");
 // Draw circle outline (Vector version)
 fn void drawCircleLinesV(Vector2 center, float radius, Color color) @cname("DrawCircleLinesV");
 // Draw ellipse
-fn void drawEllipse(int centerX, int centerY, float radiusH, float radiusV, Color color) @cname("DrawEllipse");
+fn void drawEllipse(CInt centerX, CInt centerY, float radiusH, float radiusV, Color color) @cname("DrawEllipse");
 // Draw ellipse outline
-fn void drawEllipseLines(int centerX, int centerY, float radiusH, float radiusV, Color color) @cname("DrawEllipseLines");
+fn void drawEllipseLines(CInt centerX, CInt centerY, float radiusH, float radiusV, Color color) @cname("DrawEllipseLines");
 // Draw ring
-fn void drawRing(Vector2 center, float innerRadius, float outerRadius, float startAngle, float endAngle, int segments, Color color) @cname("DrawRing");
+fn void drawRing(Vector2 center, float innerRadius, float outerRadius, float startAngle, float endAngle, CInt segments, Color color) @cname("DrawRing");
 // Draw ring outline
-fn void drawRingLines(Vector2 center, float innerRadius, float outerRadius, float startAngle, float endAngle, int segments, Color color) @cname("DrawRingLines");
+fn void drawRingLines(Vector2 center, float innerRadius, float outerRadius, float startAngle, float endAngle, CInt segments, Color color) @cname("DrawRingLines");
 // Draw a color-filled rectangle
-fn void drawRectangle(int posX, int posY, int width, int height, Color color) @cname("DrawRectangle");
+fn void drawRectangle(CInt posX, CInt posY, CInt width, CInt height, Color color) @cname("DrawRectangle");
 // Draw a color-filled rectangle (Vector version)
 fn void drawRectangleV(Vector2 position, Vector2 size, Color color) @cname("DrawRectangleV");
 // Draw a color-filled rectangle
@@ -1316,47 +1301,47 @@ fn void drawRectangleRec(Rectangle rec, Color color) @cname("DrawRectangleRec");
 // Draw a color-filled rectangle with pro parameters
 fn void drawRectanglePro(Rectangle rec, Vector2 origin, float rotation, Color color) @cname("DrawRectanglePro");
 // Draw a vertical-gradient-filled rectangle
-fn void drawRectangleGradientV(int posX, int posY, int width, int height, Color top, Color bottom) @cname("DrawRectangleGradientV");
+fn void drawRectangleGradientV(CInt posX, CInt posY, CInt width, CInt height, Color top, Color bottom) @cname("DrawRectangleGradientV");
 // Draw a horizontal-gradient-filled rectangle
-fn void drawRectangleGradientH(int posX, int posY, int width, int height, Color left, Color right) @cname("DrawRectangleGradientH");
+fn void drawRectangleGradientH(CInt posX, CInt posY, CInt width, CInt height, Color left, Color right) @cname("DrawRectangleGradientH");
 // Draw a gradient-filled rectangle with custom vertex colors
 fn void drawRectangleGradientEx(Rectangle rec, Color topLeft, Color bottomLeft, Color topRight, Color bottomRight) @cname("DrawRectangleGradientEx");
 // Draw rectangle outline
-fn void drawRectangleLines(int posX, int posY, int width, int height, Color color) @cname("DrawRectangleLines");
+fn void drawRectangleLines(CInt posX, CInt posY, CInt width, CInt height, Color color) @cname("DrawRectangleLines");
 // Draw rectangle outline with extended parameters
 fn void drawRectangleLinesEx(Rectangle rec, float lineThick, Color color) @cname("DrawRectangleLinesEx");
 // Draw rectangle with rounded edges
-fn void drawRectangleRounded(Rectangle rec, float roundness, int segments, Color color) @cname("DrawRectangleRounded");
+fn void drawRectangleRounded(Rectangle rec, float roundness, CInt segments, Color color) @cname("DrawRectangleRounded");
 // Draw rectangle lines with rounded edges
-fn void drawRectangleRoundedLines(Rectangle rec, float roundness, int segments, float lineThick, Color color) @cname("DrawRectangleRoundedLines");
+fn void drawRectangleRoundedLines(Rectangle rec, float roundness, CInt segments, float lineThick, Color color) @cname("DrawRectangleRoundedLines");
 // Draw rectangle with rounded edges outline
-fn void drawRectangleRoundedLinesEx(Rectangle rec, float roundness, int segments, float lineThick, Color color) @cname("DrawRectangleRoundedLinesEx");
+fn void drawRectangleRoundedLinesEx(Rectangle rec, float roundness, CInt segments, float lineThick, Color color) @cname("DrawRectangleRoundedLinesEx");
 // Draw a color-filled triangle (vertex in counter-clockwise order!)
 fn void drawTriangle(Vector2 v1, Vector2 v2, Vector2 v3, Color color) @cname("DrawTriangle");
 // Draw triangle outline (vertex in counter-clockwise order!)
 fn void drawTriangleLines(Vector2 v1, Vector2 v2, Vector2 v3, Color color) @cname("DrawTriangleLines");
 // Draw a triangle fan defined by points (first vertex is the center)
-fn void drawTriangleFan(Vector2 *points, int pointCount, Color color) @cname("DrawTriangleFan");
+fn void drawTriangleFan(Vector2 *points, CInt pointCount, Color color) @cname("DrawTriangleFan");
 // Draw a triangle strip defined by points
-fn void drawTriangleStrip(Vector2 *points, int pointCount, Color color) @cname("DrawTriangleStrip");
+fn void drawTriangleStrip(Vector2 *points, CInt pointCount, Color color) @cname("DrawTriangleStrip");
 // Draw a regular polygon (Vector version)
-fn void drawPoly(Vector2 center, int sides, float radius, float rotation, Color color) @cname("DrawPoly");
+fn void drawPoly(Vector2 center, CInt sides, float radius, float rotation, Color color) @cname("DrawPoly");
 // Draw a polygon outline of n sides
-fn void drawPolyLines(Vector2 center, int sides, float radius, float rotation, Color color) @cname("DrawPolyLines");
+fn void drawPolyLines(Vector2 center, CInt sides, float radius, float rotation, Color color) @cname("DrawPolyLines");
 // Draw a polygon outline of n sides with extended parameters
-fn void drawPolyLinesEx(Vector2 center, int sides, float radius, float rotation, float lineThick, Color color) @cname("DrawPolyLinesEx");
+fn void drawPolyLinesEx(Vector2 center, CInt sides, float radius, float rotation, float lineThick, Color color) @cname("DrawPolyLinesEx");
 
 // Splines drawing functions
 // Draw spline: Linear, minimum 2 points
-fn void drawSplineLinear(Vector2 *points, int pointCount, float thick, Color color) @cname("DrawSplineLinear");
+fn void drawSplineLinear(Vector2 *points, CInt pointCount, float thick, Color color) @cname("DrawSplineLinear");
 // Draw spline: B-Spline, minimum 4 points
-fn void drawSplineBasis(Vector2 *points, int pointCount, float thick, Color color);
+fn void drawSplineBasis(Vector2 *points, CInt pointCount, float thick, Color color);
 // Draw spline: Catmull-Rom, minimum 4 points
-fn void drawSplineCatmullRom(Vector2 *points, int pointCount, float thick, Color color);
+fn void drawSplineCatmullRom(Vector2 *points, CInt pointCount, float thick, Color color);
 // Draw spline: Quadratic Bezier, minimum 3 points (1 control point): [p1, c2, p3, c4...]
-fn void drawSplineBezierQuadratic(Vector2 *points, int pointCount, float thick, Color color);
+fn void drawSplineBezierQuadratic(Vector2 *points, CInt pointCount, float thick, Color color);
 // Draw spline: Cubic Bezier, minimum 4 points (2 control points): [p1, c2, c3, p4, c5, c6...]
-fn void drawSplineBezierCubic(Vector2 *points, int pointCount, float thick, Color color);
+fn void drawSplineBezierCubic(Vector2 *points, CInt pointCount, float thick, Color color);
 // Draw spline segment: Linear, 2 points
 fn void drawSplineSegmentLinear(Vector2 p1, Vector2 p2, float thick, Color color);
 // Draw spline segment: B-Spline, 4 points
@@ -1396,9 +1381,9 @@ fn bool checkCollisionPointCircle(Vector2 point, Vector2 center, float radius) @
 // Check if point is inside a triangle
 fn bool checkCollisionPointTriangle(Vector2 point, Vector2 p1, Vector2 p2, Vector2 p3) @cname("CheckCollisionPointTriangle");
 // Check if point belongs to line created between two points [p1] and [p2] with defined margin in pixels [threshold]
-fn bool checkCollisionPointLine(Vector2 point, Vector2 p1, Vector2 p2, int threshold) @cname("CheckCollisionPointLine");
+fn bool checkCollisionPointLine(Vector2 point, Vector2 p1, Vector2 p2, CInt threshold) @cname("CheckCollisionPointLine");
 // Check if point is within a polygon described by array of vertices
-fn bool checkCollisionPointPoly(Vector2 point, Vector2 *points, int pointCount) @cname("CheckCollisionPointPoly");
+fn bool checkCollisionPointPoly(Vector2 point, Vector2 *points, CInt pointCount) @cname("CheckCollisionPointPoly");
 // Check the collision between two lines defined by two points each, returns collision point by reference
 fn bool checkCollisionLines(Vector2 startPos1, Vector2 endPos1, Vector2 startPos2, Vector2 endPos2, Vector2 *collisionPoint) @cname("CheckCollisionLines");
 // Get collision rectangle for two rectangles collision
@@ -1413,15 +1398,15 @@ fn Rectangle getCollisionRec(Rectangle rec1, Rectangle rec2) @cname("GetCollisio
 // Load image from file into CPU memory (RAM)
 fn Image loadImage(ZString fileName) @cname("LoadImage");
 // Load image from RAW file data
-fn Image loadImageRaw(ZString fileName, int width, int height, int format, int headerSize) @cname("LoadImageRaw");
+fn Image loadImageRaw(ZString fileName, CInt width, CInt height, CInt format, CInt headerSize) @cname("LoadImageRaw");
 // Load image from SVG file data or string with specified size
-fn Image loadImageSvg(ZString fileNameOrString, int width, int height) @cname("LoadImageSvg");
+fn Image loadImageSvg(ZString fileNameOrString, CInt width, CInt height) @cname("LoadImageSvg");
 // Load image sequence from file (frames appended to image.data)
-fn Image loadImageAnim(ZString fileName, int* frames) @cname("LoadImageAnim");
+fn Image loadImageAnim(ZString fileName, CInt* frames) @cname("LoadImageAnim");
 // Load image sequence from memory buffer
-fn Image loadImageAnimFromMemory(ZString fileType, ZString fileData, int dataSize, int* frames) @cname("LoadImageAnimFromMemory");
+fn Image loadImageAnimFromMemory(ZString fileType, ZString fileData, CInt dataSize, CInt* frames) @cname("LoadImageAnimFromMemory");
 // Load image from memory buffer, fileType refers to extension: i.e. '.png'
-fn Image loadImageFromMemory(ZString fileType, char* fileData, int dataSize) @cname("LoadImageFromMemory");
+fn Image loadImageFromMemory(ZString fileType, char* fileData, CInt dataSize) @cname("LoadImageFromMemory");
 // Load image from GPU texture data
 fn Image loadImageFromTexture(Texture2D texture) @cname("LoadImageFromTexture");
 // Load image from screen buffer and (screenshot)
@@ -1433,29 +1418,29 @@ fn void unloadImage(Image image) @cname("UnloadImage");
 // Export image data to file, returns true on success
 fn bool exportImage(Image image, ZString fileName) @cname("ExportImage");
 // Export image to memory buffer
-fn char* exportImageToMemory(Image image, ZString fileType, int* fileSize) @cname("ExportImageToMemory");
+fn char* exportImageToMemory(Image image, ZString fileType, CInt* fileSize) @cname("ExportImageToMemory");
 // Export image as code file defining an array of bytes, returns true on success
 fn bool exportImageAsCode(Image image, ZString fileName) @cname("ExportImageAsCode");
 
 // Image generation functions
 // Generate image: plain color
-fn Image genImageColor(int width, int height, Color color) @cname("GenImageColor");
+fn Image genImageColor(CInt width, CInt height, Color color) @cname("GenImageColor");
 // Generate image: vertical gradient
-fn Image genImageGradientLinear(int width, int height, int direction, Color start, Color end) @cname("GenImageGradientLinear");
+fn Image genImageGradientLinear(CInt width, CInt height, CInt direction, Color start, Color end) @cname("GenImageGradientLinear");
 // Generate image: horizontal gradient
-fn Image genImageGradientSquare(int width, int height, float density, Color inner, Color outer) @cname("GenImageGradientSquare");
+fn Image genImageGradientSquare(CInt width, CInt height, float density, Color inner, Color outer) @cname("GenImageGradientSquare");
 // Generate image: radial gradient
-fn Image genImageGradientRadial(int width, int height, float density, Color inner, Color outer) @cname("GenImageGradientRadial");
+fn Image genImageGradientRadial(CInt width, CInt height, float density, Color inner, Color outer) @cname("GenImageGradientRadial");
 // Generate image: checked
-fn Image genImageChecked(int width, int height, int checksX, int checksY, Color col1, Color col2) @cname("GenImageChecked");
+fn Image genImageChecked(CInt width, CInt height, CInt checksX, CInt checksY, Color col1, Color col2) @cname("GenImageChecked");
 // Generate image: white noise
-fn Image genImageWhiteNoise(int width, int height, float factor) @cname("GenImageWhiteNoise");
+fn Image genImageWhiteNoise(CInt width, CInt height, float factor) @cname("GenImageWhiteNoise");
 // Generate image: perlin noise
-fn Image genImagePerlinNoise(int width, int height, int offsetX, int offsetY, float scale) @cname("GenImagePerlinNoise");
+fn Image genImagePerlinNoise(CInt width, CInt height, CInt offsetX, CInt offsetY, float scale) @cname("GenImagePerlinNoise");
 // Generate image: cellular algorithm, bigger tileSize means bigger cells
-fn Image genImageCellular(int width, int height, int tileSize) @cname("GenImageCellular");
+fn Image genImageCellular(CInt width, CInt height, CInt tileSize) @cname("GenImageCellular");
 // Generate image: grayscale image from text data
-fn Image genImageText(int width, int height, ZString text) @cname("GenImageText");
+fn Image genImageText(CInt width, CInt height, ZString text) @cname("GenImageText");
 
 // Image manipulation functions
 // Create an image duplicate (useful for transformations)
@@ -1463,9 +1448,9 @@ fn Image imageCopy(Image image) @cname("ImageCopy");
 // Create an image from another image piece
 fn Image imageFromImage(Image image, Rectangle rec) @cname("ImageFromImage");
 // Create an image from a selected channel of another image (GRAYSCALE)
-fn Image imageFromChannel(Image image, int selectedChannel) @cname("ImageFromChannel");
+fn Image imageFromChannel(Image image, CInt selectedChannel) @cname("ImageFromChannel");
 // Create an image from text (default font)
-fn Image imageText(ZString text, int fontSize, Color color) @cname("ImageText");
+fn Image imageText(ZString text, CInt fontSize, Color color) @cname("ImageText");
 // Create an image from text (custom sprite font)
 fn Image imageTextEx(Font font, ZString text, float fontSize, float spacing, Color tint) @cname("ImageTextEx");
 // Convert image data to desired format
@@ -1483,25 +1468,25 @@ fn void imageAlphaMask(Image* image, Image alphaMask) @cname("ImageAlphaMask");
 // Premultiply alpha channel
 fn void imageAlphaPremultiply(Image* image) @cname("ImageAlphaPremultiply");
 // Apply Gaussian blur using a box blur approximation
-fn void imageBlurGaussian(Image* image, int blurSize) @cname("ImageBlurGaussian");
+fn void imageBlurGaussian(Image* image, CInt blurSize) @cname("ImageBlurGaussian");
 // Apply custom square convolution kernel to image
-fn void imageKernelConvolution(Image *image, float *kernel, int kernelSize) @cname("ImageKernelConvolution");
+fn void imageKernelConvolution(Image *image, float *kernel, CInt kernelSize) @cname("ImageKernelConvolution");
 // Resize image (Bicubic scaling algorithm)
-fn void imageResize(Image* image, int newWidth, int newHeight) @cname("ImageResize");
+fn void imageResize(Image* image, CInt newWidth, CInt newHeight) @cname("ImageResize");
 // Resize image (Nearest-Neighbor scaling algorithm)
-fn void imageResizeNN(Image* image, int newWidth,int newHeight) @cname("ImageResizeNN");
+fn void imageResizeNN(Image* image, CInt newWidth,CInt newHeight) @cname("ImageResizeNN");
 // Resize canvas and fill with color
-fn void imageResizeCanvas(Image* image, int newWidth, int newHeight, int offsetX, int offsetY, Color fill) @cname("ImageResizeCanvas");
+fn void imageResizeCanvas(Image* image, CInt newWidth, CInt newHeight, CInt offsetX, CInt offsetY, Color fill) @cname("ImageResizeCanvas");
 // Compute all mipmap levels for a provided image
 fn void imageMipmaps(Image* image) @cname("ImageMipmaps");
 // Dither image data to 16bpp or lower (Floyd-Steinberg dithering)
-fn void imageDither(Image* image, int rBpp, int gBpp, int bBpp, int aBpp) @cname("ImageDither");
+fn void imageDither(Image* image, CInt rBpp, CInt gBpp, CInt bBpp, CInt aBpp) @cname("ImageDither");
 // Flip image vertically
 fn void imageFlipVertical(Image* image) @cname("ImageFlipVertical");
 // Flip image horizontally
 fn void imageFlipHorizontal(Image* image) @cname("ImageFlipHorizontal");
 // Rotate image by input angle in degrees (-359 to 359)
-fn void imageRotate(Image* image, int degrees) @cname("ImageRotate");
+fn void imageRotate(Image* image, CInt degrees) @cname("ImageRotate");
 // Rotate image clockwise 90deg
 fn void imageRotateCW(Image* image) @cname("ImageRotateCW");
 // Rotate image counter-clockwise 90deg
@@ -1515,13 +1500,13 @@ fn void imageColorGrayscale(Image* image) @cname("ImageColorGrayscale");
 // Modify image color: contrast (-100 to 100)
 fn void imageColorContrast(Image* image, float contrast) @cname("ImageColorContrast");
 // Modify image color: brightness (-255 to 255)
-fn void imageColorBrightness(Image* image, int brightness) @cname("ImageColorBrightness");
+fn void imageColorBrightness(Image* image, CInt brightness) @cname("ImageColorBrightness");
 // Modify image color: replace color
 fn void imageColorReplace(Image* image, Color color, Color replace) @cname("ImageColorReplace");
 // Load color data from image as a Color array (RGBA - 32bit)
 fn Color *loadImageColors(Image image) @cname("LoadImageColors");
 // Load colors palette from image as a Color array (RGBA - 32bit)
-fn Color *loadImagePalette(Image image, int maxPaletteSize, int *colorCount) @cname("LoadImagePalette");
+fn Color *loadImagePalette(Image image, CInt maxPaletteSize, CInt *colorCount) @cname("LoadImagePalette");
 // Unload color data loaded with LoadImageColors()
 fn void unloadImageColors(Color* colors) @cname("UnloadImageColors");
 // Unload colors palette loaded with LoadImagePalette()
@@ -1529,38 +1514,38 @@ fn void unloadImagePalette(Color* colors) @cname("UnloadImagePalette");
 // Get image alpha border rectangle
 fn Rectangle getImageAlphaBorder(Image image, float threshold) @cname("GetImageAlphaBorder");
 // Get image pixel color at (x, y) position
-fn Color getImageColor(Image image, int x, int y) @cname("GetImageColor");
+fn Color getImageColor(Image image, CInt x, CInt y) @cname("GetImageColor");
 
 // Image drawing functions
 // NOTE: Image software-rendering functions (CPU)
 // Clear image background with given color
 fn void imageClearBackground(Image* dst, Color color) @cname("ImageClearBackground");
 // Draw pixel within an image
-fn void imageDrawPixel(Image* dst, int posX, int posY, Color color) @cname("ImageDrawPixel");
+fn void imageDrawPixel(Image* dst, CInt posX, CInt posY, Color color) @cname("ImageDrawPixel");
 // Draw pixel within an image (Vector version)
 fn void imageDrawPixelV(Image* dst, Vector2 position, Color color) @cname("ImageDrawPixelV");
 // Draw line within an image
-fn void imageDrawLine(Image* dst, int startPosX, int startPosY, int endPosX, int endPosY, Color color) @cname("ImageDrawLine");
+fn void imageDrawLine(Image* dst, CInt startPosX, CInt startPosY, CInt endPosX, CInt endPosY, Color color) @cname("ImageDrawLine");
 // Draw line within an image (Vector version)
 fn void imageDrawLineV(Image* dst, Vector2 start, Vector2 end, Color color) @cname("ImageDrawLineV");
 // Draw a line defining thickness within an image
-fn void imageDrawLineEx(Image *dst, Vector2 start, Vector2 end, int thick, Color color) @cname("ImageDrawLineEx");
+fn void imageDrawLineEx(Image *dst, Vector2 start, Vector2 end, CInt thick, Color color) @cname("ImageDrawLineEx");
 // Draw circle within an image
-fn void imageDrawCircle(Image* dst, int centerX, int centerY, int radius, Color color) @cname("ImageDrawCircle");
+fn void imageDrawCircle(Image* dst, CInt centerX, CInt centerY, CInt radius, Color color) @cname("ImageDrawCircle");
 // Draw circle within an image (Vector version)
-fn void imageDrawCircleV(Image* dst, Vector2 center, int radius, Color color) @cname("ImageDrawCircleV");
+fn void imageDrawCircleV(Image* dst, Vector2 center, CInt radius, Color color) @cname("ImageDrawCircleV");
 // Draw circle outline within an image
-fn void imageDrawCircleLines(Image* dst, int centerX, int centerY, int radius, Color color) @cname("ImageDrawCircleLines");
+fn void imageDrawCircleLines(Image* dst, CInt centerX, CInt centerY, CInt radius, Color color) @cname("ImageDrawCircleLines");
 // Draw circle outline within an image (Vector version)
-fn void imageDrawCircleLinesV(Image* dst, Vector2 center, int radius, Color color) @cname("ImageDrawCircleLinesV");
+fn void imageDrawCircleLinesV(Image* dst, Vector2 center, CInt radius, Color color) @cname("ImageDrawCircleLinesV");
 // Draw rectangle within an image
-fn void imageDrawRectangle(Image* dst, int posX, int posY, int width, int height, Color color) @cname("ImageDrawRectangle");
+fn void imageDrawRectangle(Image* dst, CInt posX, CInt posY, CInt width, CInt height, Color color) @cname("ImageDrawRectangle");
 // Draw rectangle within an image (Vector version)
 fn void imageDrawRectangleV(Image* dst, Vector2 position, Vector2 size, Color color) @cname("ImageDrawRectangleV");
 // Draw rectangle within an image
 fn void imageDrawRectangleRec(Image* dst, Rectangle rec, Color color) @cname("ImageDrawRectangleRec");
 // Draw rectangle lines within an image
-fn void imageDrawRectangleLines(Image* dst, Rectangle rec, int thick, Color color) @cname("ImageDrawRectangleLines");
+fn void imageDrawRectangleLines(Image* dst, Rectangle rec, CInt thick, Color color) @cname("ImageDrawRectangleLines");
 // Draw triangle within an image
 fn void imageDrawTriangle(Image *dst, Vector2 v1, Vector2 v2, Vector2 v3, Color color) @cname("ImageDrawTriangle");
 // Draw triangle with interpolated colors within an image
@@ -1568,13 +1553,13 @@ fn void imageDrawTriangleEx(Image *dst, Vector2 v1, Vector2 v2, Vector2 v3, Colo
 // Draw triangle outline within an image
 fn void imageDrawTriangleLines(Image *dst, Vector2 v1, Vector2 v2, Vector2 v3, Color color) @cname("ImageDrawTriangleLines");
 // Draw a triangle fan defined by points within an image (first vertex is the center)
-fn void imageDrawTriangleFan(Image *dst, Vector2 *points, int pointCount, Color color) @cname("ImageDrawTriangleFan");
+fn void imageDrawTriangleFan(Image *dst, Vector2 *points, CInt pointCount, Color color) @cname("ImageDrawTriangleFan");
 // Draw a triangle strip defined by points within an image
-fn void imageDrawTriangleStrip(Image *dst, Vector2 *points, int pointCount, Color color);
+fn void imageDrawTriangleStrip(Image *dst, Vector2 *points, CInt pointCount, Color color);
 // Draw a source image within a destination image (tint applied to source)
 fn void imageDraw(Image* dst, Image src, Rectangle srcRec, Rectangle dstRec, Color tint) @cname("ImageDraw");
 // Draw text (using default font) within an image (destination)
-fn void imageDrawText(Image* dst, ZString text, int posX, int posY, int fontSize, Color color) @cname("ImageDrawText");
+fn void imageDrawText(Image* dst, ZString text, CInt posX, CInt posY, CInt fontSize, Color color) @cname("ImageDrawText");
 // Draw text (custom sprite font) within an image (destination)
 fn void imageDrawTextEx(Image* dst, Font font, ZString text, Vector2 position, float fontSize, float spacing, Color tint) @cname("ImageDrawTextEx");
 
@@ -1585,9 +1570,9 @@ fn Texture2D loadTexture(ZString fileName) @cname("LoadTexture");
 // Load texture from image data
 fn Texture2D loadTextureFromImage(Image image) @cname("LoadTextureFromImage");
 // Load cubemap from image, multiple image cubemap layouts supported
-fn TextureCubemap loadTextureCubemap(Image image, int layout) @cname("LoadTextureCubemap");
+fn TextureCubemap loadTextureCubemap(Image image, CInt layout) @cname("LoadTextureCubemap");
 // Load texture for rendering (framebuffer)
-fn RenderTexture2D loadRenderTexture(int width, int height) @cname("LoadRenderTexture");
+fn RenderTexture2D loadRenderTexture(CInt width, CInt height) @cname("LoadRenderTexture");
 // Check if a texture is valid (loaded in GPU)
 fn bool isTextureValid(Texture2D texture) @cname("IsTextureValid");
 // Unload texture from GPU memory (VRAM)
@@ -1607,11 +1592,11 @@ fn void genTextureMipmaps(Texture2D* texture) @cname("GenTextureMipmaps");
 // Set texture scaling filter mode
 fn void setTextureFilter(Texture2D texture, TextureFilter filter) @cname("SetTextureFilter");
 // Set texture wrapping mode
-fn void setTextureWrap(Texture2D texture, int wrap) @cname("SetTextureWrap");
+fn void setTextureWrap(Texture2D texture, CInt wrap) @cname("SetTextureWrap");
 
 // Texture drawing functions
 // Draw a Texture2D
-fn void drawTexture(Texture2D texture, int posX, int posY, Color tint) @cname("DrawTexture");
+fn void drawTexture(Texture2D texture, CInt posX, CInt posY, Color tint) @cname("DrawTexture");
 // Draw a Texture2D with position defined as Vector2
 fn void drawTextureV(Texture2D texture, Vector2 position, Color tint) @cname("DrawTextureV");
 // Draw a Texture2D with extended parameters
@@ -1629,7 +1614,7 @@ fn bool colorIsEqual(Color col1, Color col2) @cname("ColorIsEqual");
 // Get color with alpha applied, alpha goes from 0.0f to 1.0f
 fn Color fade(Color color, float alpha) @cname("Fade");
 //  Get hexadecimal value for a Color (0xRRGGBBAA)
-fn int colorToInt(Color color) @cname("ColorToInt");
+fn CInt colorToInt(Color color) @cname("ColorToInt");
 // Get Color normalized as float [0..1]
 fn Vector4 colorNormalize(Color color) @cname("ColorNormalize");
 // Get Color from normalized values [0..1]
@@ -1651,13 +1636,13 @@ fn Color colorAlphaBlend(Color dst, Color src, Color tint) @cname("ColorAlphaBle
 // Get color lerp interpolation between two colors, factor [0.0f..1.0f]
 fn  Color colorLerp(Color color1, Color color2, float factor) @cname("ColorLerp");
 // Get Color structure from hexadecimal value
-fn Color getColor(uint hexValue) @cname("GetColor");
+fn Color getColor(CUInt hexValue) @cname("GetColor");
 // Get Color from a source pixel pointer of certain format
-fn Color getPixelColor(void* srcPtr, int format) @cname("GetPixelColor");
+fn Color getPixelColor(void* srcPtr, CInt format) @cname("GetPixelColor");
 // Set color formatted into destination pixel pointer
 fn void setPixelColor(void* dstPtr, Color color, PixelFormat format) @cname("SetPixelColor");
 // Get pixel data size in bytes for certain format
-fn int getPixelDataSize(int width, int height, PixelFormat format) @cname("GetPixelDataSize");
+fn CInt getPixelDataSize(CInt width, CInt height, PixelFormat format) @cname("GetPixelDataSize");
 
 //------------------------------------------------------------------------------------
 // Font Loading and Text Drawing Functions (Module: text)
@@ -1669,19 +1654,19 @@ fn Font getFontDefault() @cname("GetFontDefault");
 // Load font from file into GPU memory (VRAM)
 fn Font loadFont(ZString fileName) @cname("LoadFont");
 // Load font from file with extended parameters, use NULL for fontChars and 0 for glyphCount to load the default character set
-fn Font loadFontEx(ZString fileName, int fontSize, int* fontChars, int glyphCount) @cname("LoadFontEx");
+fn Font loadFontEx(ZString fileName, CInt fontSize, CInt* fontChars, CInt glyphCount) @cname("LoadFontEx");
 // Load font from Image (XNA style)
-fn Font loadFontFromImage(Image image, Color key, int firstChar) @cname("LoadFontFromImage");
+fn Font loadFontFromImage(Image image, Color key, CInt firstChar) @cname("LoadFontFromImage");
 // Load font from memory buffer, fileType refers to extension: i.e. '.ttf'
-fn Font loadFontFromMemory(ZString fileType, char* fileData, int dataSize, int fontSize, int* fontChars, int glyphCount) @cname("LoadFontFromMemory");
+fn Font loadFontFromMemory(ZString fileType, char* fileData, CInt dataSize, CInt fontSize, CInt* fontChars, CInt glyphCount) @cname("LoadFontFromMemory");
 // Check if a font is valid (font data loaded, WARNING: GPU texture not checked)
 fn bool isFontValid(Font font) @cname("IsFontValid");
 // Load font data for further use
-fn GlyphInfo* loadFontData(char* fileData, int dataSize, int fontSize, int *fontChars, int glyphCount, int type) @cname("LoadFontData");
+fn GlyphInfo* loadFontData(char* fileData, CInt dataSize, CInt fontSize, CInt *fontChars, CInt glyphCount, CInt type) @cname("LoadFontData");
 // Generate image font atlas using chars info
-fn Image genImageFontAtlas(GlyphInfo* chars, Rectangle **recs, int glyphCount, int fontSize, int padding, int packMethod) @cname("GenImageFontAtlas");
+fn Image genImageFontAtlas(GlyphInfo* chars, Rectangle **recs, CInt glyphCount, CInt fontSize, CInt padding, CInt packMethod) @cname("GenImageFontAtlas");
 // Unload font chars info data (RAM)
-fn void unloadFontData(GlyphInfo* chars, int glyphCount) @cname("UnloadFontData");
+fn void unloadFontData(GlyphInfo* chars, CInt glyphCount) @cname("UnloadFontData");
 // Unload font from GPU memory (VRAM)
 fn void unloadFont(Font font) @cname("UnloadFont");
 // Export font as code file, returns true on success
@@ -1690,77 +1675,77 @@ fn bool exportFontAsCode(Font font, ZString fileName) @cname("ExportFontAsCode")
 
 // Text drawing functions
 // Draw current FPS
-fn void drawFPS(int posX, int posY) @cname("DrawFPS");
+fn void drawFPS(CInt posX, CInt posY) @cname("DrawFPS");
 // Draw text (using default font)
-fn void drawText(ZString text, int posX, int posY, int fontSize, Color color) @cname("DrawText");
+fn void drawText(ZString text, CInt posX, CInt posY, CInt fontSize, Color color) @cname("DrawText");
 // Draw text using font and additional parameters
 fn void drawTextEx(Font font, ZString text, Vector2 position, float fontSize, float spacing, Color tint) @cname("DrawTextEx");
 // Draw text using Font and pro parameters (rotation)
 fn void drawTextPro(Font font, ZString text, Vector2 position, Vector2 origin, float rotation, float fontSize, float spacing, Color tint) @cname("DrawTextPro");
 // Draw one character (codepoint)
-fn void drawTextCodepoint(Font font, int codepoint, Vector2 position, float fontSize, Color tint) @cname("DrawTextCodepoint");
+fn void drawTextCodepoint(Font font, CInt codepoint, Vector2 position, float fontSize, Color tint) @cname("DrawTextCodepoint");
 // Draw multiple character (codepoint)
-fn void drawTextCodepoints(Font font, int* codepoints, int count, Vector2 position, float fontSize, float spacing, Color tint) @cname("DrawTextCodepoints");
+fn void drawTextCodepoints(Font font, CInt* codepoints, CInt count, Vector2 position, float fontSize, float spacing, Color tint) @cname("DrawTextCodepoints");
 
 // Text font info functions
 // Set vertical line spacing when drawing with line-breaks
-fn void setTextLineSpacing(int spacing) @cname("SetTextLineSpacing");
+fn void setTextLineSpacing(CInt spacing) @cname("SetTextLineSpacing");
 // Measure string width for default font
-fn int measureText(ZString text, int fontSize) @cname("MeasureText");
+fn CInt measureText(ZString text, CInt fontSize) @cname("MeasureText");
 // Measure string size for Font
 fn Vector2 measureTextEx(Font font, ZString text, float fontSize, float spacing) @cname("MeasureTextEx");
 // Get glyph index position in font for a codepoint (unicode character), fallback to '?' if not found
-fn int getGlyphIndex(Font font, int codepoint) @cname("GetGlyphIndex");
+fn CInt getGlyphIndex(Font font, CInt codepoint) @cname("GetGlyphIndex");
 // Get glyph font info data for a codepoint (unicode character), fallback to '?' if not found
-fn GlyphInfo getGlyphInfo(Font font, int codepoint) @cname("GetGlyphInfo");
+fn GlyphInfo getGlyphInfo(Font font, CInt codepoint) @cname("GetGlyphInfo");
 // Get glyph rectangle in font atlas for a codepoint (unicode character), fallback to '?' if not found
-fn Rectangle getGlyphAtlasRec(Font font, int codepoint) @cname("GetGlyphAtlasRec");
+fn Rectangle getGlyphAtlasRec(Font font, CInt codepoint) @cname("GetGlyphAtlasRec");
 
 // Text codepoints management functions (unicode characters)
 // Load UTF-8 text encoded from codepoints array
-fn ZString loadUTF8(int *codepoints, int length) @cname("LoadUTF8");
+fn ZString loadUTF8(CInt *codepoints, CInt length) @cname("LoadUTF8");
 // Unload UTF-8 text encoded from codepoints array
 fn void unloadUTF8(ZString text) @cname("UnloadUTF8");
 // Load all codepoints from a UTF-8 text string, codepoints count returned by parameter
-fn int* loadCodepoints(ZString text, int* count) @cname("LoadCodepoints");
+fn CInt* loadCodepoints(ZString text, CInt* count) @cname("LoadCodepoints");
 // Unload codepoints data from memory
-fn void unloadCodepoints(int* codepoints) @cname("UnloadCodepoints");
+fn void unloadCodepoints(CInt* codepoints) @cname("UnloadCodepoints");
 // Get total number of codepoints in a UTF-8 encoded string
-fn int getCodepointCount(ZString text) @cname("GetCodepointCount");
+fn CInt getCodepointCount(ZString text) @cname("GetCodepointCount");
 // Get next codepoint in a UTF-8 encoded string, 0x3f('?') is returned on failure
-fn int getCodepoint(ZString text, int *bytesProcessed) @cname("GetCodepoint");
+fn CInt getCodepoint(ZString text, CInt *bytesProcessed) @cname("GetCodepoint");
 // Get next codepoint in a UTF-8 encoded string, 0x3f('?') is returned on failure
-fn int getCodepointNext(ZString text, int *codepointSize) @cname("GetCodepointNext");
+fn CInt getCodepointNext(ZString text, CInt *codepointSize) @cname("GetCodepointNext");
 // Get previous codepoint in a UTF-8 encoded string, 0x3f('?') is returned on failure
-fn int getCodepointPrevious(ZString text, int *codepointSize) @cname("GetCodepointPrevious");
+fn CInt getCodepointPrevious(ZString text, CInt *codepointSize) @cname("GetCodepointPrevious");
 // Encode one codepoint into UTF-8 byte array (array length returned as parameter)
-fn ZString codepointToUTF8(int codepoint, int* byteSize) @cname("CodepointToUTF8");
+fn ZString codepointToUTF8(CInt codepoint, CInt* byteSize) @cname("CodepointToUTF8");
 
 
 // Text strings management functions (no UTF-8 strings, only byte chars)
 // NOTE: Some strings allocate memory internally for returned strings, just be careful!
 // Copy one string to another, returns bytes copied
-fn int textCopy(char* dst, char* src) @cname("TextCopy");
+fn CInt textCopy(char* dst, char* src) @cname("TextCopy");
 // Check if two text string are equal
 fn bool textIsEqual(ZString text1, ZString text2) @cname("TextIsEqual");
 // Get text length, checks for '\0' ending
-fn uint textLength(ZString text) @cname("TextLength");
+fn CUInt textLength(ZString text) @cname("TextLength");
 // Text formatting with variables (sprintf() style)
 fn ZString textFormat(ZString text, ...) @cname("TextFormat");
 // Get a piece of a text string
-fn ZString textSubtext(ZString text, int position, int length) @cname("TextSubtext");
+fn ZString textSubtext(ZString text, CInt position, CInt length) @cname("TextSubtext");
 // Replace text string (WARNING: memory must be freed!)
 fn ZString textReplace(ZString text, ZString replace, ZString by) @cname("TextReplace");
 // Insert text in a position (WARNING: memory must be freed!)
-fn ZString textInsert(ZString text, ZString insert, int position) @cname("TextInsert");
+fn ZString textInsert(ZString text, ZString insert, CInt position) @cname("TextInsert");
 // Join text strings with delimiter
-fn ZString textJoin(ZString* textList, int count, ZString delimiter) @cname("TextJoin");
+fn ZString textJoin(ZString* textList, CInt count, ZString delimiter) @cname("TextJoin");
 // Split text into multiple strings
-fn ZString* textSplit(ZString text, char delimiter, int *count) @cname("TextSplit");
+fn ZString* textSplit(ZString text, char delimiter, CInt *count) @cname("TextSplit");
 // Append text at specific position and move cursor!
-fn void textAppend(ZString text, ZString append, int* position) @cname("TextAppend");
+fn void textAppend(ZString text, ZString append, CInt* position) @cname("TextAppend");
 // Find first text occurrence within a string
-fn int textFindIndex(ZString text, ZString find) @cname("TextFindIndex");
+fn CInt textFindIndex(ZString text, ZString find) @cname("TextFindIndex");
 // Get upper case version of provided string
 fn ZString textToUpper(ZString text) @cname("TextToUpper");
 // Get lower case version of provided string
@@ -1772,7 +1757,7 @@ fn ZString textToSnake(ZString text) @cname("TextToSnake");
 // Get Camel case notation version of provided string
 fn ZString textToCamel(ZString text) @cname("TextToCamel");
 // Get integer value from text (negative values not supported)
-fn int textToInteger(ZString text) @cname("TextToInteger");
+fn CInt textToInteger(ZString text) @cname("TextToInteger");
 // Get float value from text (negative values not supported)
 fn float textToFloat(ZString text) @cname("TextToFloat");
 //------------------------------------------------------------------------------------
@@ -1789,7 +1774,7 @@ fn void drawCircle3D(Vector3 center, float radius, Vector3 rotationAxis, float r
 // Draw a color-filled triangle (vertex in counter-clockwise order!)
 fn void drawTriangle3D(Vector3 v1, Vector3 v2, Vector3 v3, Color color) @cname("DrawTriangle3D");
 // Draw a triangle strip defined by points
-fn void drawTriangleStrip3D(Vector3 *points, int pointCount, Color color) @cname("DrawTriangleStrip3D");
+fn void drawTriangleStrip3D(Vector3 *points, CInt pointCount, Color color) @cname("DrawTriangleStrip3D");
 // Draw cube
 fn void drawCube(Vector3 position, float width, float height, float length, Color color) @cname("DrawCube");
 // Draw cube (Vector version)
@@ -1801,27 +1786,27 @@ fn void drawCubeWiresV(Vector3 position, Vector3 size, Color color) @cname("Draw
 // Draw sphere
 fn void drawSphere(Vector3 centerPos, float radius, Color color) @cname("DrawSphere");
 // Draw sphere with extended parameters
-fn void drawSphereEx(Vector3 centerPos, float radius, int rings, int slices, Color color) @cname("DrawSphereEx");
+fn void drawSphereEx(Vector3 centerPos, float radius, CInt rings, CInt slices, Color color) @cname("DrawSphereEx");
 // Draw sphere wires
-fn void drawSphereWires(Vector3 centerPos, float radius, int rings, int slices, Color color) @cname("DrawSphereWires");
+fn void drawSphereWires(Vector3 centerPos, float radius, CInt rings, CInt slices, Color color) @cname("DrawSphereWires");
 // Draw a cylinder/cone
-fn void drawCylinder(Vector3 position, float radiusTop, float radiusBottom, float height, int slices, Color color) @cname("DrawCylinder");
+fn void drawCylinder(Vector3 position, float radiusTop, float radiusBottom, float height, CInt slices, Color color) @cname("DrawCylinder");
 // Draw a cylinder with base at startPos and top at endPos
-fn void drawCylinderEx(Vector3 startPos, Vector3 endPos, float startRadius, float endRadius, int sides, Color color) @cname("DrawCylinderEx");
+fn void drawCylinderEx(Vector3 startPos, Vector3 endPos, float startRadius, float endRadius, CInt sides, Color color) @cname("DrawCylinderEx");
 // Draw a cylinder/cone wires
-fn void drawCylinderWires(Vector3 position, float radiusTop, float radiusBottom, float height, int slices, Color color) @cname("DrawCylinderWires");
+fn void drawCylinderWires(Vector3 position, float radiusTop, float radiusBottom, float height, CInt slices, Color color) @cname("DrawCylinderWires");
 // Draw a cylinder wires with base at startPos and top at endPos
-fn void drawCylinderWiresEx(Vector3 startPos, Vector3 endPos, float startRadius, float endRadius, int sides, Color color) @cname("DrawCylinderWiresEx");
+fn void drawCylinderWiresEx(Vector3 startPos, Vector3 endPos, float startRadius, float endRadius, CInt sides, Color color) @cname("DrawCylinderWiresEx");
 // Draw a capsule with the center of its sphere caps at startPos and endPos
-fn void drawCapsule(Vector3 startPos, Vector3 endPos, float radius, int slices, int rings, Color color) @cname("DrawCapsule");
+fn void drawCapsule(Vector3 startPos, Vector3 endPos, float radius, CInt slices, CInt rings, Color color) @cname("DrawCapsule");
 //Draw capsule wireframe with the center of its sphere caps at startPos and endPos
-fn void drawCapsuleWires(Vector3 startPos, Vector3 endPos, float radius, int slices, int rings, Color color) @cname("DrawCapsuleWires");
+fn void drawCapsuleWires(Vector3 startPos, Vector3 endPos, float radius, CInt slices, CInt rings, Color color) @cname("DrawCapsuleWires");
 // Draw a plane XZ
 fn void drawPlane(Vector3 centerPos, Vector2 size, Color color) @cname("DrawPlane");
 // Draw a ray line
 fn void drawRay(Ray ray, Color color) @cname("DrawRay");
 // Draw a grid (centered at (0, 0, 0))
-fn void drawGrid(int slices, float spacing) @cname("DrawGrid");
+fn void drawGrid(CInt slices, float spacing) @cname("DrawGrid");
 
 //------------------------------------------------------------------------------------
 // Model 3d Loading and Drawing Functions (Module: models)
@@ -1865,13 +1850,13 @@ fn void drawBillboardPro(Camera camera, Texture2D texture, Rectangle source, Vec
 // Upload mesh vertex data in GPU and provide VAO/VBO ids
 fn void uploadMesh(Mesh* mesh, bool dynamic) @cname("UploadMesh");
 // Update mesh vertex data in GPU for a specific buffer index
-fn void updateMeshBuffer(Mesh mesh, int index, void* data, int dataSize, int offset) @cname("UpdateMeshBuffer");
+fn void updateMeshBuffer(Mesh mesh, CInt index, void* data, CInt dataSize, CInt offset) @cname("UpdateMeshBuffer");
 // Unload mesh data from CPU and GPU
 fn void unloadMesh(Mesh mesh) @cname("UnloadMesh");
 // Draw a 3d mesh with material and transform
 fn void drawMesh(Mesh mesh, Material material, Matrix transform) @cname("DrawMesh");
 // Draw multiple mesh instances with material and different transforms
-fn void drawMeshInstanced(Mesh mesh, Material material, Matrix* transforms, int instances) @cname("DrawMeshInstanced");
+fn void drawMeshInstanced(Mesh mesh, Material material, Matrix* transforms, CInt instances) @cname("DrawMeshInstanced");
 // Compute mesh bounding box limits
 fn BoundingBox getMeshBoundingBox(Mesh mesh) @cname("GetMeshBoundingBox");
 // Compute mesh tangents
@@ -1883,23 +1868,23 @@ fn bool exportMeshAsCode(Mesh mesh, ZString fileName) @cname("ExportMeshAsCode")
 
 // Mesh generation functions
 // Generate polygonal mesh
-fn Mesh genMeshPoly(int sides, float radius) @cname("GenMeshPoly");
+fn Mesh genMeshPoly(CInt sides, float radius) @cname("GenMeshPoly");
 // Generate plane mesh (with subdivisions)
-fn Mesh genMeshPlane(float width, float length, int resX, int resZ) @cname("GenMeshPlane");
+fn Mesh genMeshPlane(float width, float length, CInt resX, CInt resZ) @cname("GenMeshPlane");
 // Generate cuboid mesh
 fn Mesh genMeshCube(float width, float height, float length) @cname("GenMeshCube");
 // Generate sphere mesh (standard sphere)
-fn Mesh genMeshSphere(float radius, int rings, int slices) @cname("GenMeshSphere");
+fn Mesh genMeshSphere(float radius, CInt rings, CInt slices) @cname("GenMeshSphere");
 // Generate half-sphere mesh (no bottom cap)
-fn Mesh genMeshHemiSphere(float radius, int rings, int slices) @cname("GenMeshHemiSphere");
+fn Mesh genMeshHemiSphere(float radius, CInt rings, CInt slices) @cname("GenMeshHemiSphere");
 // Generate cylinder mesh
-fn Mesh genMeshCylinder(float radius, float height, int slices) @cname("GenMeshCylinder");
+fn Mesh genMeshCylinder(float radius, float height, CInt slices) @cname("GenMeshCylinder");
 // Generate cone/pyramid mesh
-fn Mesh genMeshCone(float radius, float height, int slices) @cname("GenMeshCone");
+fn Mesh genMeshCone(float radius, float height, CInt slices) @cname("GenMeshCone");
 // Generate torus mesh
-fn Mesh genMeshTorus(float radius, float size, int radSeg, int sides) @cname("GenMeshTorus");
+fn Mesh genMeshTorus(float radius, float size, CInt radSeg, CInt sides) @cname("GenMeshTorus");
 // Generate trefoil knot mesh
-fn Mesh genMeshKnot(float radius, float size, int radSeg, int sides) @cname("GenMeshKnot");
+fn Mesh genMeshKnot(float radius, float size, CInt radSeg, CInt sides) @cname("GenMeshKnot");
 // Generate heightmap mesh from image data
 fn Mesh genMeshHeightmap(Image heightmap, Vector3 size) @cname("GenMeshHeightmap");
 // Generate cubes-based map mesh from image data
@@ -1907,7 +1892,7 @@ fn Mesh genMeshCubicmap(Image cubicmap, Vector3 cubeSize) @cname("GenMeshCubicma
 
 // Material loading/unloading functions
 // Load materials from model file
-fn Material* loadMaterials(ZString fileName, int* materialCount) @cname("LoadMaterials");
+fn Material* loadMaterials(ZString fileName, CInt* materialCount) @cname("LoadMaterials");
 // Load default material (Supports: DIFFUSE, SPECULAR, NORMAL maps)
 fn Material loadMaterialDefault() @cname("LoadMaterialDefault");
 // Check if a material is ready
@@ -1915,21 +1900,21 @@ fn bool isMaterialValid(Material material) @cname("IsMaterialValid");
 // Unload material from GPU memory (VRAM)
 fn void unloadMaterial(Material material) @cname("UnloadMaterial");
 // Set texture for a material map type (MATERIAL_MAP_DIFFUSE, MATERIAL_MAP_SPECULAR...)
-fn void setMaterialTexture(Material* material, int mapType, Texture2D texture) @cname("SetMaterialTexture");
+fn void setMaterialTexture(Material* material, CInt mapType, Texture2D texture) @cname("SetMaterialTexture");
 // Set material for a mesh
-fn void setModelMeshMaterial(Model* model, int meshId, int materialId) @cname("SetModelMeshMaterial");
+fn void setModelMeshMaterial(Model* model, CInt meshId, CInt materialId) @cname("SetModelMeshMaterial");
 
 // Model animations loading/unloading functions
 // Load model animations from file
-fn ModelAnimation* loadModelAnimations(ZString fileName, int* animCount) @cname("LoadModelAnimations");
+fn ModelAnimation* loadModelAnimations(ZString fileName, CInt* animCount) @cname("LoadModelAnimations");
 // Update model animation pose
-fn void updateModelAnimation(Model model, ModelAnimation anim, int frame) @cname("UpdateModelAnimation");
+fn void updateModelAnimation(Model model, ModelAnimation anim, CInt frame) @cname("UpdateModelAnimation");
 // Update model animation mesh bone matrices (GPU skinning)
-fn void updateModelAnimationBones(Model model, ModelAnimation anim, int frame) @cname("UpdateModelAnimationBones");
+fn void updateModelAnimationBones(Model model, ModelAnimation anim, CInt frame) @cname("UpdateModelAnimationBones");
 // Unload animation data
 fn void unloadModelAnimation(ModelAnimation anim) @cname("UnloadModelAnimation");
 // Unload animation array data
-fn void unloadModelAnimations(ModelAnimation* animations, uint count) @cname("UnloadModelAnimations");
+fn void unloadModelAnimations(ModelAnimation* animations, CUInt count) @cname("UnloadModelAnimations");
 // Check model animation skeleton match
 fn bool isModelAnimationValid(Model model, ModelAnimation anim) @cname("IsModelAnimationValid");
 
@@ -1955,7 +1940,7 @@ fn RayCollision getRayCollisionQuad(Ray ray, Vector3 p1, Vector3 p2, Vector3 p3,
 // Audio Loading and Playing Functions (Module: audio)
 //------------------------------------------------------------------------------------
 
-alias AudioCallback = fn void(void* bufferdata, uint frames);
+alias AudioCallback = fn void(void* bufferdata, CUInt frames);
 
 // Audio device management functions
 // Initialize audio device and context
@@ -1973,7 +1958,7 @@ fn float getMasterVolume() @cname("GetMasterVolume");
 // Load wave data from file
 fn Wave loadWave(ZString fileName) @cname("LoadWave");
 // Load wave from memory buffer, fileType refers to extension: i.e. '.wav'
-fn Wave loadWaveFromMemory(ZString fileType, char* fileData, int dataSize) @cname("LoadWaveFromMemory");
+fn Wave loadWaveFromMemory(ZString fileType, char* fileData, CInt dataSize) @cname("LoadWaveFromMemory");
 // Checks if wave data is valid (data loaded and parameters)
 fn bool isWaveValid(Wave wave) @cname("IsWaveValid");
 // Load sound from file
@@ -1985,7 +1970,7 @@ fn Sound loadSoundAlias(Sound source) @cname("LoadSoundAlias");
 //Checks if a sound is valid (data loaded and buffers initialized)
 fn bool isSoundValid(Sound sound) @cname("IsSoundValid");
 // Update sound buffer with new data
-fn void updateSound(Sound sound, void* data, int sampleCount) @cname("UpdateSound");
+fn void updateSound(Sound sound, void* data, CInt sampleCount) @cname("UpdateSound");
 // Unload wave data
 fn void unloadWave(Wave wave) @cname("UnloadWave");
 // Unload sound
@@ -2005,7 +1990,7 @@ fn void pauseSound(Sound sound) @cname("PauseSound");
 // Resume a paused sound
 fn void resumeSound(Sound sound) @cname("ResumeSound");
 // Get number of sounds playing in the multichannel
-fn int getSoundsPlaying() @cname("GetSoundsPlaying");
+fn CInt getSoundsPlaying() @cname("GetSoundsPlaying");
 // Check if a sound is currently playing
 fn bool isSoundPlaying(Sound sound) @cname("IsSoundPlaying");
 // Set volume for a sound (1.0 is max level)
@@ -2017,9 +2002,9 @@ fn void setSoundPan(Sound sound, float pan) @cname("SetSoundPan");
 // Copy a wave to a new wave
 fn Wave waveCopy(Wave wave) @cname("WaveCopy");
 // Crop a wave to defined samples range
-fn void waveCrop(Wave* wave, int initFrame, int finalFrame) @cname("WaveCrop");
+fn void waveCrop(Wave* wave, CInt initFrame, CInt finalFrame) @cname("WaveCrop");
 // Convert wave data to desired format
-fn void waveFormat(Wave* wave, int sampleRate, int sampleSize, int channels) @cname("WaveFormat");
+fn void waveFormat(Wave* wave, CInt sampleRate, CInt sampleSize, CInt channels) @cname("WaveFormat");
 // Load samples data from wave as a 32bit float data array
 fn float* loadWaveSamples(Wave wave) @cname("LoadWaveSamples");
 // Unload samples data loaded with LoadWaveSamples()
@@ -2031,7 +2016,7 @@ fn bool isMusicValid(Music music) @cname("IsMusicValid");
 // Load music stream from file
 fn Music loadMusicStream(ZString fileName) @cname("LoadMusicStream");
 // Load music stream from data
-fn Music loadMusicStreamFromMemory(ZString fileType, char* data, int dataSize) @cname("LoadMusicStreamFromMemory");
+fn Music loadMusicStreamFromMemory(ZString fileType, char* data, CInt dataSize) @cname("LoadMusicStreamFromMemory");
 // Unload music stream
 fn void unloadMusicStream(Music music) @cname("UnloadMusicStream");
 // Start music playing
@@ -2061,13 +2046,13 @@ fn float getMusicTimePlayed(Music music) @cname("GetMusicTimePlayed");
 
 // AudioStream management functions
 // Load audio stream (to stream raw audio pcm data)
-fn AudioStream loadAudioStream(uint sampleRate, uint sampleSize, uint channels) @cname("LoadAudioStream");
+fn AudioStream loadAudioStream(CUInt sampleRate, CUInt sampleSize, CUInt channels) @cname("LoadAudioStream");
 // Checks if an audio stream is valid (buffers initialized)
 fn bool isAudioStreamValid(AudioStream stream) @cname("IsAudioStreamValid");
 // Unload audio stream and free memory
 fn void unloadAudioStream(AudioStream stream) @cname("UnloadAudioStream");
 // Update audio stream buffers with data
-fn void updateAudioStream(AudioStream stream, void* data, int frameCount) @cname("UpdateAudioStream");
+fn void updateAudioStream(AudioStream stream, void* data, CInt frameCount) @cname("UpdateAudioStream");
 // Check if any audio stream buffers requires refill
 fn bool isAudioStreamProcessed(AudioStream stream) @cname("IsAudioStreamProcessed");
 // Play audio stream
@@ -2087,7 +2072,7 @@ fn void setAudioStreamPitch(AudioStream stream, float pitch) @cname("SetAudioStr
 // Set pan for audio stream (0.5 is centered)
 fn void setAudioStreamPan(AudioStream stream, float pan) @cname("SetAudioStreamPan");
 // Default size for new audio streams
-fn void setAudioStreamBufferSizeDefault(int size) @cname("SetAudioStreamBufferSizeDefault");
+fn void setAudioStreamBufferSizeDefault(CInt size) @cname("SetAudioStreamBufferSizeDefault");
 // Audio thread callback to request new data
 fn void setAudioStreamCallback(AudioStream stream, AudioCallback processor) @cname("SetAudioStreamCallback");
 
@@ -2178,7 +2163,7 @@ macro void @blendMode(BlendMode mode ;@body)
  * Setup scissor mode then calls [block].
  * scissor mode will end after [block] has finished.
  */
-macro void @scissorMode(int x, int y, int width, int height ;@body)
+macro void @scissorMode(CInt x, CInt y, CInt width, CInt height ;@body)
 {
   beginScissorMode(x, y, width, height);
   defer endScissorMode();
@@ -2203,7 +2188,7 @@ macro void @vrMode(VrStereoConfig config ;@body)
 // NOTE: Every bit registers one state (use it with bit masks)
 // By default all flags are set to 0
 
-typedef ConfigFlag = inline uint;
+typedef ConfigFlag = inline CUInt;
 
 const ConfigFlag FLAG_VSYNC_HINT         = 0x00000040;   // Set to try enabling V-Sync on GPU
 const ConfigFlag FLAG_FULLSCREEN_MODE    = 0x00000002;   // Set to run program in fullscreen
@@ -2226,7 +2211,7 @@ const ConfigFlag FLAG_INTERLACED_HINT    = 0x00010000;   // Set to try enabling 
 // NOTE: Use GetKeyPressed() to allow redefining
 // required keys for alternative layouts
 
-typedef KeyboardKey = int;
+typedef KeyboardKey = CInt;
 
 const KeyboardKey KEY_NULL            = 0;        // Key: NULL; used for no key pressed
 // Alphanumeric keys
@@ -2343,7 +2328,7 @@ const KeyboardKey KEY_MENU            = 82;       // Key: Android menu button
 const KeyboardKey KEY_VOLUME_UP       = 24;       // Key: Android volume up button
 const KeyboardKey KEY_VOLUME_DOWN     = 25;       // Key: Android volume down button
 
-typedef Gesture = int;
+typedef Gesture = CInt;
 // Gesture
 // NOTE: It could be used as flags to enable only some gestures
 const Gesture GESTURE_NONE        = 0;      // No gesture
@@ -2357,3 +2342,236 @@ const Gesture GESTURE_SWIPE_UP    = 64;       // Swipe up gesture
 const Gesture GESTURE_SWIPE_DOWN  = 128;      // Swipe down gesture
 const Gesture GESTURE_PINCH_IN    = 256;      // Pinch in gesture
 const Gesture GESTURE_PINCH_OUT   = 512;      // Pinch out gesture
+
+// NOTE(HM) right now, rlgl module is somewhat broken 
+// some funcs don't seem to work and others crash the application, 
+// so when using this care most be taken, not sure if should be used at all... 
+module thirdparty::raylib5::rl::rlgl; // rlgl.h
+
+import thirdparty::raylib5::rl;
+
+typedef FramebufferAttachType = int;
+
+const FramebufferAttachType RL_ATTACHMENT_COLOR_CHANNEL0 = 0;       // Framebuffer attachment type: color 0
+const FramebufferAttachType RL_ATTACHMENT_COLOR_CHANNEL1 = 1;       // Framebuffer attachment type: color 1
+const FramebufferAttachType RL_ATTACHMENT_COLOR_CHANNEL2 = 2;       // Framebuffer attachment type: color 2
+const FramebufferAttachType RL_ATTACHMENT_COLOR_CHANNEL3 = 3;       // Framebuffer attachment type: color 3
+const FramebufferAttachType RL_ATTACHMENT_COLOR_CHANNEL4 = 4;       // Framebuffer attachment type: color 4
+const FramebufferAttachType RL_ATTACHMENT_COLOR_CHANNEL5 = 5;       // Framebuffer attachment type: color 5
+const FramebufferAttachType RL_ATTACHMENT_COLOR_CHANNEL6 = 6;       // Framebuffer attachment type: color 6
+const FramebufferAttachType RL_ATTACHMENT_COLOR_CHANNEL7 = 7;       // Framebuffer attachment type: color 7
+const FramebufferAttachType RL_ATTACHMENT_DEPTH = 100;              // Framebuffer attachment type: depth
+const FramebufferAttachType RL_ATTACHMENT_STENCIL = 200;            // Framebuffer attachment type: stencil
+
+typedef FramebufferAttachTextureType = int;
+
+const FramebufferAttachTextureType RL_ATTACHMENT_CUBEMAP_POSITIVE_X = 0;   // Framebuffer texture attachment type: cubemap, +X side
+const FramebufferAttachTextureType RL_ATTACHMENT_CUBEMAP_NEGATIVE_X = 1;   // Framebuffer texture attachment type: cubemap, -X side
+const FramebufferAttachTextureType RL_ATTACHMENT_CUBEMAP_POSITIVE_Y = 2;   // Framebuffer texture attachment type: cubemap, +Y side
+const FramebufferAttachTextureType RL_ATTACHMENT_CUBEMAP_NEGATIVE_Y = 3;   // Framebuffer texture attachment type: cubemap, -Y side
+const FramebufferAttachTextureType RL_ATTACHMENT_CUBEMAP_POSITIVE_Z = 4;   // Framebuffer texture attachment type: cubemap, +Z side
+const FramebufferAttachTextureType RL_ATTACHMENT_CUBEMAP_NEGATIVE_Z = 5;   // Framebuffer texture attachment type: cubemap, -Z side
+const FramebufferAttachTextureType RL_ATTACHMENT_TEXTURE2D = 100;          // Framebuffer texture attachment type: texture2d
+const FramebufferAttachTextureType RL_ATTACHMENT_RENDERBUFFER = 200;       // Framebuffer texture attachment type: renderbuffer
+
+const RL_LINES     = 0x0001;    // GL_LINES
+const RL_TRIANGLES = 0x0004;    // GL_TRIANGLES
+const RL_QUADS     = 0x0007;    // GL_QUADS
+
+
+//------------------------------------------------------------------------------------
+// Functions Declaration - Matrix operations
+//------------------------------------------------------------------------------------
+fn void matrixMode(CInt mode) @cname("rlMatrixMode");       // Choose the current matrix to be transformed
+fn void pushMatrix() @cname("rlPushMatrix");                // Push the current matrix to stack
+fn void popMatrix() @cname("rlPopMatrix");                  // Pop latest inserted matrix from stack
+fn void loadIdentity() @cname("rlLoadIdentity");                        // Reset current matrix to identity matrix
+fn void translatef(float x, float y, float z) @cname("rlTranslatef");     // Multiply the current matrix by a translation matrix
+fn void rotatef(float angle, float x, float y, float z) @cname("rlRotatef"); // Multiply the current matrix by a rotation matrix
+fn void scalef(float x, float y, float z) @cname("rlScalef");         // Multiply the current matrix by a scaling matrix
+fn void multMatrixf(float *matf) @cname("rlMultMatrixf");            // Multiply the current matrix by another matrix
+fn void frustum(double left, double right, double bottom, double top, double znear, double zfar) @cname("rlFrustum"); // set frustum area
+fn void ortho(double left, double right, double bottom, double top, double znear, double zfar) @cname("rlOrtho");    // set to ortographic projection
+fn void viewport(CInt x, CInt y, CInt width, CInt height) @cname("rlViewport"); // Set the viewport area
+fn void setClipPlanes(double nearPlane, double farPlane) @cname("rlSetClipPlanes");
+fn double getCullDistanceNear() @cname("rlGetCullDistanceNear"); // Get cull plane distance near
+fn double getCullDistanceFar()  @cname("rlGetCullDistanceFar"); // Get cull plane distance far
+
+//------------------------------------------------------------------------------------
+// Functions Declaration - Vertex level operations
+//------------------------------------------------------------------------------------
+fn void begin(CInt mode) @cname("rlBegin");     // Initialize drawing mode (how to organize vertex)
+fn void end() @cname("rlEnd");                 // Finish vertex providing
+fn void vertex2i(CInt x, CInt y) @cname("rlVertex2i");                    // Define one vertex (position) - 2 CInt
+fn void vertex2f(float x, float y) @cname("rlVertex2f");                // Define one vertex (position) - 2 float
+fn void vertex3f(float x, float y, float z) @cname("rlVertex3f");       // Define one vertex (position) - 3 float
+fn void texCoord2f(float x, float y) @cname("rlTexCoord2f");              // Define one vertex (texture coordinate) - 2 float
+fn void normal3f(float x, float y, float z) @cname("rlNormal3f");       // Define one vertex (normal) - 3 float
+fn void color4ub(char r, char g, char b, char a) @cname("rlColor4ub"); // Define one vertex (color) - 4 byte
+fn void color3f(float x, float y, float z) @cname("rlColor3f");        // Define one vertex (color) - 3 float
+fn void color4f(float x, float y, float z, float w) @cname("rlColor4f"); // Define one vertex (color) - 4 float
+
+macro @primitive($type;@body) {
+    begin($type);
+    defer end();
+    @body();
+}
+
+macro @lines(;@body) {
+    begin(RL_LINES);
+    defer end();
+    @body();
+}
+
+macro @tris(;@body) {
+    begin(RL_TRIANGLES);
+    defer end();
+    @body();
+}
+
+macro @quads(;@body) {
+    begin(RL_QUADS);
+    defer end();
+    @body();
+}
+
+// example
+/*
+rlgl::@quads() 
+{
+    rlgl::color4ub(0, 255, 0, 255);
+    rlgl::vertex2f(1, 0);
+    rlgl::color4ub(0, 255, 0, 255);
+    rlgl::vertex2f(0, 0);
+    rlgl::color4ub(0, 255, 0, 255);
+    rlgl::vertex2f(0, 1);
+    rlgl::color4ub(0, 255, 0, 255);
+    rlgl::vertex2f(1, 1);
+};
+*/
+
+//------------------------------------------------------------------------------------
+// Functions Declaration - OpenGL style functions (common to 1.1, 3.3+, ES2)
+// NOTE: This functions are used to completely abstract raylib code from OpenGL layer,
+// some of them are direct wrappers over OpenGL calls, some others are custom
+//------------------------------------------------------------------------------------
+
+// Vertex buffers state
+fn bool enableVertexArray(CUInt vaoId) @cname("rlEnableVertexArray");     // Enable vertex array (VAO, if supported)
+fn void disableVertexArray() @cname("rlDisableVertexArray");                  // Disable vertex array (VAO, if supported)
+fn void enableVertexBuffer(CUInt id) @cname("rlEnableVertexBuffer");       // Enable vertex buffer (VBO)
+fn void disableVertexBuffer() @cname("rlDisableVertexBuffer");                 // Disable vertex buffer (VBO)
+fn void enableVertexBufferElement(CUInt id) @cname("rlEnableVertexBufferElement"); // Enable vertex buffer element (VBO element)
+fn void disableVertexBufferElement() @cname("rlDisableVertexBufferElement");          // Disable vertex buffer element (VBO element)
+fn void enableVertexAttribute(CUInt index) @cname("rlEnableVertexAttribute"); // Enable vertex attribute index
+fn void disableVertexAttribute(CUInt index) @cname("rlDisableVertexAttribute"); // Disable vertex attribute index
+fn void enableStatePointer(ShaderAttributeDataType vertexAttribType, void *buffer) @cname("rlEnableStatePointer"); // Enable attribute state pointer
+fn void disableStatePointer(ShaderAttributeDataType vertexAttribType) @cname("rlDisableStatePointer"); // Disable attribute state pointer
+
+// Textures state
+fn void activeTextureSlot(CInt slot) @cname("rlActiveTextureSlot");  // Select and active a texture slot
+fn void enableTexture(CUInt id) @cname("rlEnableTexture");      // Enable texture
+fn void disableTexture() @cname("rlDisableTexture");               // Disable texture
+fn void enableTextureCubemap(CUInt id) @cname("rlEnableTextureCubemap");     // Enable texture cubemap
+fn void disableTextureCubemap() @cname("rlDisableTextureCubemap");           // Disable texture cubemap
+fn void textureParameters(CUInt id, CInt param, CInt value) @cname("rlTextureParameters"); // Set texture parameters (filter, wrap)
+fn void cubemapParameters(CUInt id, CInt param, CInt value) @cname("rlCubemapParameters"); // Set cubemap parameters (filter, wrap)
+
+// Shader state
+fn void enableShader(CUInt id) @cname("rlEnableShader"); // Enable shader program
+fn void disableShader() @cname("rlDisableShader"); // Disable shader program
+
+// Framebuffer state
+fn void enableFramebuffer(CUInt id) @cname("rlEnableFramebuffer");        // Enable render texture (fbo)
+fn void disableFramebuffer() @cname("rlDisableFramebuffer");                  // Disable render texture (fbo), return to default framebuffer
+fn CUInt getActiveFramebuffer() @cname("rlGetActiveFramebuffer");        // Get the currently active render texture (fbo), 0 for default framebuffer
+fn void activeDrawBuffers(CInt count) @cname("rlActiveDrawBuffers");              // Activate multiple draw color buffers
+fn void blitFramebuffer(CInt srcX, CInt srcY, CInt srcWidth, CInt srcHeight, CInt dstX, CInt dstY, CInt dstWidth, CInt dstHeight, CInt bufferMask) @cname("rlBlitFramebuffer"); // Blit active framebuffer to main framebuffer
+fn void bindFramebuffer(CUInt target, CUInt framebuffer) @cname("rlBindFramebuffer"); // Bind framebuffer (FBO)
+
+// General render state
+fn void enableColorBlend() @cname("rlEnableColorBlend");                    // Enable color blending
+fn void disableColorBlend() @cname("rlDisableColorBlend");                   // Disable color blending
+fn void enableDepthTest() @cname("rlEnableDepthTest");                     // Enable depth test
+fn void disableDepthTest() @cname("rlDisableDepthTest");                    // Disable depth test
+fn void enableDepthMask() @cname("rlEnableDepthMask");                     // Enable depth write
+fn void disableDepthMask() @cname("rlDisableDepthMask");                    // Disable depth write
+fn void enableBackfaceCulling() @cname("rlEnableBackfaceCulling");               // Enable backface culling
+fn void disableBackfaceCulling() @cname("rlDisableBackfaceCulling");              // Disable backface culling
+fn void colorMask(bool r, bool g, bool b, bool a) @cname("rlColorMask"); // Color mask control
+fn void setCullFace(CInt mode) @cname("rlSetCullFace");                     // Set face culling mode
+fn void enableScissorTest() @cname("rlEnableScissorTest");                   // Enable scissor test
+fn void disableScissorTest() @cname("rlDisableScissorTest");                  // Disable scissor test
+fn void scissor(CInt x, CInt y, CInt width, CInt height) @cname("rlScissor"); // Scissor test
+fn void enablePointMode() @cname("rlEnablePointMode");                     // Enable point mode
+fn void disablePointMode() @cname("rlDisablePointMode");                    // Disable point mode
+fn void setPointSize(float size) @cname("rlSetPointSize");                  // Set the point drawing size
+fn float getPointSize() @cname("rlGetPointSize");                       // Get the point drawing size
+fn void enableWireMode() @cname("rlEnableWireMode");                      // Enable wire mode
+fn void disableWireMode() @cname("rlDisableWireMode");                     // Disable wire mode
+fn void setLineWidth(float width) @cname("rlSetLineWidth");                 // Set the line drawing width
+fn float getLineWidth() @cname("rlGetLineWidth");                       // Get the line drawing width
+fn void enableSmoothLines() @cname("rlEnableSmoothLines");                   // Enable line aliasing
+fn void disableSmoothLines() @cname("rlDisableSmoothLines");                  // Disable line aliasing
+fn void enableStereoRender() @cname("rlEnableStereoRender");                  // Enable stereo rendering
+fn void disableStereoRender() @cname("rlDisableStereoRender");                 // Disable stereo rendering
+fn bool isStereoRenderEnabled() @cname("rlIsStereoRenderEnabled");               // Check if stereo render is enabled
+
+fn void clearColor(char r, char g, char b, char a) @cname("rlClearColor"); // Clear color buffer with color
+fn void clearScreenBuffers() @cname("rlClearScreenBuffers");                  // Clear used screen buffers (color and depth)
+fn void checkErrors() @cname("rlCheckErrors");                         // Check and log OpenGL error codes
+fn void setBlendMode(BlendMode mode) @cname("rlSetBlendMode");                    // Set blending mode
+fn void setBlendFactors(CInt glSrcFactor, CInt glDstFactor, CInt glEquation) @cname("rlSetBlendFactors"); // Set blending mode factor and equation (using OpenGL factors)
+fn void setBlendFactorsSeparate(CInt glSrcRGB, CInt glDstRGB, CInt glSrcAlpha, CInt glDstAlpha, CInt glEqRGB, CInt glEqAlpha) @cname("rlSetBlendFactorsSeparate"); // Set blending mode factors and equations separately (using OpenGL factors)
+
+
+//------------------------------------------------------------------------------------
+// Functions Declaration - rlgl functionality
+//------------------------------------------------------------------------------------
+// rlgl initialization functions
+fn void init(CInt width, CInt height) @cname("rlglInit");             // Initialize rlgl (buffers, shaders, textures, states)
+fn void close() @cname("rlglClose");                             // De-initialize rlgl (buffers, shaders, textures)
+fn void loadExtensions(void *loader) @cname("rlLoadExtensions");              // Load OpenGL extensions (loader function required)
+fn void *getProcAddress(ZString procName) @cname("rlGetProcAddress");     // Get OpenGL procedure address
+fn CInt getVersion() @cname("rlGetVersion");                           // Get current OpenGL version
+fn void setFramebufferWidth(CInt width) @cname("rlSetFramebufferWidth");            // Set current framebuffer width
+fn CInt getFramebufferWidth() @cname("rlGetFramebufferWidth");                  // Get default framebuffer width
+fn void setFramebufferHeight(CInt height) @cname("rlSetFramebufferHeight");          // Set current framebuffer height
+fn CInt getFramebufferHeight() @cname("rlGetFramebufferHeight");                 // Get default framebuffer height
+
+fn CUInt getTextureIdDefault() @cname("rlGetTextureIdDefault");         // Get default texture id
+fn CUInt getShaderIdDefault() @cname("rlGetShaderIdDefault");          // Get default shader id
+fn CInt *getShaderLocsDefault() @cname("");                // Get default shader locations
+
+// Render batch management
+// NOTE: rlgl provides a default render batch to behave like OpenGL 1.1 immediate mode
+// but this render batch API is exposed in case of custom batches are required
+fn void setTexture(CUInt id) @cname("rlSetTexture");               // Set current texture for render batch and check buffers limits
+
+module thirdparty::raylib5::rl::rlcam;
+
+import thirdparty::raylib5::rl;
+// rcamera.h
+// Moves the camera in its forward direction
+fn void moveForward(Camera *camera, float distance, bool moveInWorldPlane) @cname("CameraMoveForward");
+// Moves the camera target in its current right direction
+fn void moveRight(Camera *camera, float distance, bool moveInWorldPlane) @cname("CameraMoveRight");
+// Moves the camera position closer/farther to/from the camera target
+fn void moveToTarget(Camera *camera, float delta) @cname("CameraMoveToTarget");
+// Moves the camera in its up direction
+fn void moveUp(Camera *camera, float distance) @cname("CameraMoveUp");
+// Rotates the camera around its right vector, pitch is "looking up and down"
+//  - lockView prevents camera overrotation (aka "somersaults")
+//  - rotateAroundTarget defines if rotation is around target or around its position
+//  - rotateUp rotates the up direction as well (typically only usefull in CAMERA_FREE)
+// NOTE: angle must be provided in radians
+fn void pitch(Camera *camera, float angle, bool lockView, bool rotateAroundTarget, bool rotateUp) @cname("CameraPitch");
+// Rotates the camera around its forward vector
+// Roll is "turning your head sideways to the left or right"
+// Note: angle must be provided in radians
+fn void roll(Camera *camera, float angle) @cname("CameraRoll");
+// Rotates the camera around its up vector
+// Yaw is "looking left and right"
+// If rotateAroundTarget is false, the camera rotates around its position
+// Note: angle must be provided in radians
+fn void yaw(Camera *camera, float angle, bool rotateAroundTarget) @cname("CameraYaw");
