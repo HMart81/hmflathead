@@ -103,6 +103,8 @@ struct Entity (SaveSystemInterface)
     // physics
     B2BodyId physics;
     //
+	Move_Dir move_dir; // mostly used for the player entity
+	//
 	int thinkFlags;
 	//LinkList{Entity} activeNode;	// for being linked into activeEntities list
 	EntityFlags flags; // Todo read about C3 bitstruct?
@@ -121,51 +123,60 @@ fn void Entity.register(&self) @inline
 	main::gpGame.entityList.push(self);
 }
 
-fn bool Entity.shouldSkip(&self, String name) @inline @local {
-    if(main::gpGame.entityList.len() > main::MAX_ENTITY_COUNT) {
-		if(name != "") {
-			log::warning(Where.FILE, "Skipping entity: '%s' creation, max count of '%s' reached!", 
-				name, main::MAX_ENTITY_COUNT);
-		} else {
-            Vec2f origin = self.getPosition();
-			log::warning(Where.FILE, "Skipping entity to create at {%s, %s}, because max count '%s' was reached!", 
-				origin.x, origin.y, main::MAX_ENTITY_COUNT);
-		}
+<*
+	Testes if the entity has a slot to be created/spawn to
+	if not gets ignored.
+	@param [in] name : "name of the entity to test"
+	@require name != "" : "entities should all have a name!"
+*>
+fn bool Entity.shouldSkip(&self, String name) @inline @local 
+{
+    if(main::gpGame.entityList.len() == main::MAX_ENTITY_COUNT) {
+		log::warning(FILE, "Skipping entity: '%s' creation, max count of '%s' was reached!", 
+			name, main::MAX_ENTITY_COUNT);
 		return true;
 	}
     
     return false;
 }
 
+<*
+	Init basic entity data
+	@param [in] aname : "name to give the entity"
+	@param origin : "where to put the entity in the world (world coords)"
+	@param color : "base color of the entity"
+	@require aname != "" : "entities should all be given a name!"
+	@require rl::isWindowReady() == true : "Cannot create entity before the window is ready!"
+*>
 fn void Entity.init(&self, String aname, Vec2f origin, Color color = rl::WHITE)
 {
 	if(self.shouldSkip(aname)) return;
 	
 	self.type = Entity.typeid;
+	self.move_dir = DIR_NONE;
 	
-	int entity_count = (int)main::gpGame.entityList.len();
-	if( entity_count <= 0 ) {
-		unreachable("invalid entity count, missing player1 entity?");
-	}
-	self.id = entity_count + 1;
-    
-	if(aname == "")
+	usz entity_count = main::gpGame.entityList.len();
+	/*if( entity_count == 0 ) {
+		unreachable("invalid entity count at this time, that should only happen if player1 entity is missing!");
+	}*/
+	self.id = (int)entity_count + 1;
+
+	/*if(aname == "")
     {
 		if(self.id < 10) {
 			self.name = string::tformat("entity0%s", self.id);
 		} else {
 			self.name = string::tformat("entity%s", self.id);
 		}
-	} else {
+	} else*/ {
 		self.name = aname.tcopy();
 	}
     
 $if $feature(_DEBUG):
-	log::info(Where.FILE, "Created entity-> id: %s with name: %s.", self.id, self.name);
+	log::info(FILE, "Created entity-> id: %s with name: %s.", self.id, self.name);
 $endif
     
 	//
-	assert(rl::isWindowReady(), "Cannot create entity before the window is ready!");
 	float x_meters = main::gpGame.screen.width_in_meters;
 	float y_meters = main::gpGame.screen.height_in_meters;
     self.vs.initV(
@@ -187,7 +198,7 @@ $endif
     // physics
     // define the body
     B2BodyDef bodyDef   = box2d::defaultBodyDef();
-    bodyDef.type        = box2d::KINEMATIC;
+    bodyDef.type        = box2d::STATIC;
     /*
         WARNING(HM) 
         Do not create a body at the world origin and then move it to the final place. 
@@ -281,7 +292,7 @@ fn void Entity.scaleV(&self, Vec2f scaler) @inline {
 *>
 fn void Entity.bindTo(&self, Entity* other, bool release_from_other = false) {
     if(self.bound() && !release_from_other) {
-        log::warning(Where.CONSOLE, "Cannot Bind %s to %s because is already bound to %s.", self.name, other.name, self.parent.name);
+        log::warning(CONSOLE, "Cannot Bind %s to %s because is already bound to %s.", self.name, other.name, self.parent.name);
         return;
     }
     
@@ -369,12 +380,12 @@ fn void Entity.setname(&self, String* aname) @inline
 fn void Entity.setTarget(&self, Entity* other) @inline
 {
 	if(other == null) {
-		log::error(Where.FILE, "Cannot set target to null entity.");
+		log::error(FILE, "Cannot set target to null entity.");
 		return;
 	}
 	
 	if(self.targets.contains(other)) {
-		log::warning(Where.FILE, "Entity '%s' already has '%s' as a target.", self.name, other.name);
+		log::warning(FILE, "Entity '%s' already has '%s' as a target.", self.name, other.name);
 		return;
 	}
 	
@@ -384,7 +395,7 @@ fn void Entity.setTarget(&self, Entity* other) @inline
 fn bool Entity.hasTarget(&self, Entity* other) @inline
 {
 	if(other == null) {
-		log::error(Where.FILE, "Cannot check target for null entity.");
+		log::error(FILE, "Cannot check target for null entity.");
 		return false;
 	}
 	
@@ -392,14 +403,14 @@ fn bool Entity.hasTarget(&self, Entity* other) @inline
 		return true;
 	}
 	
-	log::warning(Where.FILE, "Entity '%s' does not have '%s' as a target.", self.name, other.name);
+	log::warning(FILE, "Entity '%s' does not have '%s' as a target.", self.name, other.name);
 	return false;
 }
 
 fn Entity* Entity.getTarget(&self, int index) @inline
 {
 	if(index < 0 || index >= self.targets.len()) {
-		log::error(Where.FILE, "Index out of bounds when getting target from entity '%s'.", self.name);
+		log::error(FILE, "Index out of bounds when getting target from entity '%s'.", self.name);
 		return null;
 	}
 	
@@ -409,12 +420,12 @@ fn Entity* Entity.getTarget(&self, int index) @inline
 fn void Entity.removeTarget(&self, Entity* other) @inline
 {
 	if(other == null) {
-		log::error(Where.FILE, "Cannot remove target from null entity.");
+		log::error(FILE, "Cannot remove target from null entity.");
 		return;
 	}
 	
 	if(!self.targets.contains(other)) {
-		log::warning(Where.FILE, "Entity '%s' does not have '%s' as a target.", self.name, other.name);
+		log::warning(FILE, "Entity '%s' does not have '%s' as a target.", self.name, other.name);
 		return;
 	}
 	
@@ -704,7 +715,7 @@ fn void Entity.draw(&self)
 		case main::UNITS_PIXEL:
 			rect;  // do nothing already in pixels
 		default:
-			log::error(Where.FILE, "Unsupported units set for Entity rendering.");
+			log::error(FILE, "Unsupported units set for Entity rendering.");
 			unreachable();
 	}
 
@@ -745,7 +756,7 @@ fn void Entity.draw(&self)
 			case *self == mat::COVERAGE_TRANSLUCENT && *self == mat::COVERAGE_PERFORATED:
 				blending = BlendMode.CUSTOM_SEPARATE; // use the custom blending mode					
             case *self == mat::COVERAGE_BAD:
-                log::error(Where.FILE, "Entity material %s has a bad material coverage type.", self.vs.mat.name);
+                log::error(FILE, "Entity material %s has a bad material coverage type.", self.vs.mat.name);
                 unreachable();
         }
 

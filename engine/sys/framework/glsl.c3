@@ -77,10 +77,12 @@ const String GLOBAL_SHADER_INCLUDE = `
 const INCLUDE_DIRECTIVE @local = "#include";
 const SHADER_HOME_PATH  @local = "shaders/";
 
+<*
+    This function replaces a special include directive in shader code for costum global code
+    @param [&inout] shdcode : "the shader code to replace the directive on"
+*>
 fn void handleShaderIncludes(String* shdcode) @local
 {
-    if((*shdcode) == "")  return;
-
     uint include_count = (uint)(*shdcode).count(INCLUDE_DIRECTIVE);
     if(include_count > 0)
     {
@@ -148,13 +150,19 @@ fn void handleShaderIncludes(String* shdcode) @local
     }
 }
 
-fn Shader loadShader(String vs_path, String fs_path) 
+<*
+    loads a shader file code to memory
+
+    @param [in] vs_path : "path to the vertex shader, can be empty string"
+    @param [in] fs_path : "path to frag/pixel shader, can be empty string"
+*>
+fn Shader loadShader(String vs_path, String fs_path) @nodiscard
 {
     // NOTE(HM) this is used to load a shader from a vertex and fragment shader file
     // if the paths are empty it will return the default shader
     if(vs_path.is_empty() && fs_path.is_empty()) {
-        log::warning(Where.FILE, "Both vertex and fragment shader paths are empty, returning default shaders: %s::%s:%s", $$MODULE, $$FUNC, $$LINE);
-        return {}; // return empty shader will use raylib default shaders
+        log::warning(Where.FILE, "Both vertex and fragment shader paths are empty, returning empty shader. -> %s::%s:%s", $$MODULE, $$FUNC, $$LINE);
+        return {}; // return empty shader, afaik will use raylib default shaders
     }
 
     //String include_marker = "#include \"global.inc\"";
@@ -165,33 +173,44 @@ fn Shader loadShader(String vs_path, String fs_path)
 
     if(vs_path.is_empty()) 
     {
-        // NOTE(HM) if the vertex shader path is empty, we will try to load the custom fragment shader only
-        fs_shader_code = fs::readEntireFileX(fs_path)!!;
+        // NOTE(HM) use default vertex shader instead and try to load the custom fragment shader only
+        String? code = fs::readEntireFileX(fs_path);
+        if(catch excuse = code) {
+            log::error(FILE, "Failed to read shader code from path: %s with excuse: %s", fs_path, excuse);
+            return {};
+        }
+        fs_shader_code = code;
         if(fs_shader_code.is_empty()) {
-            log::error(Where.FILE, "Failed to load fragment shader from path: %s", fs_path);
+            log::error(FILE, "Frag/pixel shader code from path: %s returned empty!", fs_path);
             return {}; // return empty shader will use raylib default shaders
         }
 
-        handleShaderIncludes(&fs_shader_code);
+        // else
+       if(fs_shader_code) handleShaderIncludes(&fs_shader_code);
         //if(fs_shader_code.contains(include_marker)) fs_shader_code = fs_shader_code.treplace(include_marker, SHADER_INCLUDE);
 
         return rl::loadShaderFromMemory("", fs_shader_code.zstr_tcopy());
     }
 
-    // NOTE(HM) if the vertex shader path is not empty, we will try to read the custom vertex shader
-    vs_shader_code = fs::readEntireFileX(vs_path)!!;
+    // NOTE(HM) if the vertex shader path is not empty, we will try to read the custom vertex shader as well
+    String? code = fs::readEntireFileX(vs_path);
+    if(catch excuse = code) {
+        log::error(FILE, "Failed to read shader code from path: %s with excuse: %s", fs_path, excuse);
+        return {};
+    }
+    vs_shader_code = code;
     if(vs_shader_code.is_empty()) {
-        log::error(Where.FILE, "Failed to load vertex shader from path: %s", vs_path);
-        vs_shader_code = ""; // if for some reason we fail to read our vertex shader, use the raylib default vertex shader
+        log::warning(FILE, "Vertex shader code from path: %s returned empty!", vs_path);
+        // if for some reason we fail to read our vertex shader, this will froce raylib default vertex shader
     }
 
     if(vs_shader_code.is_empty() && fs_path.is_empty()) {
-        log::warning(Where.FILE, "Both vertex and fragment shader paths are empty, returning default shaders: %s::%s:%s", $$MODULE, $$FUNC, $$LINE);
-        return {}; // return empty shader will use raylib default shaders
+        log::warning(FILE, "Both vertex and fragment shader paths are empty, returning empty shader. -> %s::%s:%s", $$MODULE, $$FUNC, $$LINE);
+        return {}; // empty shader will force raylib default shaders
     }
 
     //if(vs_shader_code.contains(include_marker)) vs_shader_code = vs_shader_code.treplace(include_marker, SHADER_INCLUDE);
-    handleShaderIncludes(&vs_shader_code);
+    if(vs_shader_code) handleShaderIncludes(&vs_shader_code);
 
     if(fs_path.is_empty()) 
     {
@@ -200,7 +219,12 @@ fn Shader loadShader(String vs_path, String fs_path)
     } 
     else
     {
-        fs_shader_code = fs::readEntireFileX(fs_path)!!;
+        String? code2 = fs::readEntireFileX(fs_path);
+        if(catch excuse = code2) {
+            log::error(FILE, "Failed to read shader code from path: %s with excuse: %s", fs_path, excuse);
+            return {};
+        }
+        fs_shader_code = code2; //fs::readEntireFileX(fs_path)!!;
         if(fs_shader_code.is_empty()) {
             log::error(Where.FILE, "Failed to load fragment shader from path: %s", fs_path);
             // NOTE(HM) we will use the default raylib fragment shader then
@@ -208,13 +232,23 @@ fn Shader loadShader(String vs_path, String fs_path)
         }
     }
 
-    handleShaderIncludes(&fs_shader_code);
+    if(fs_shader_code) handleShaderIncludes(&fs_shader_code);
     
     // else both shaders are not empty, so we can load them
     return rl::loadShaderFromMemory(vs_shader_code.zstr_tcopy(), fs_shader_code.zstr_tcopy());
 }
 
-fn void Shader.setUniformFloatValue(self, String uniform_name, float value) @inline {
+<*
+    frees the memory of a given shader
+    @param [&inout] shader : "shader to unload"
+    @require shader != null
+*>
+fn void unloadShader(Shader* shader) {
+    rl::unloadShader(*shader);
+}
+
+fn void Shader.setUniformFloatValue(self, String uniform_name, float value) //@inline 
+{
     int locIndex = self.getUniformLocation(uniform_name.zstr_tcopy());
     assert(locIndex >= 0, "Shader uniform location not found: %s", uniform_name);
 
@@ -227,7 +261,8 @@ fn void Shader.setUniformFloatValue(self, String uniform_name, float value) @inl
     }
 }
 
-fn void Shader.setAttributeFloatValue(self, String attribute_name, float value) @inline {
+fn void Shader.setAttributeFloatValue(self, String attribute_name, float value) //@inline 
+{
     int locIndex = self.getAttributeLocation(attribute_name.zstr_tcopy());
     assert(locIndex >= 0, "Shader attribute location not found: %s", attribute_name);
 
@@ -240,7 +275,8 @@ fn void Shader.setAttributeFloatValue(self, String attribute_name, float value) 
     }
 }
 
-fn void Shader.setAttributelocFloatValue(self, int locIndex, float value) @inline {
+fn void Shader.setAttributelocFloatValue(self, int locIndex, float value) //@inline 
+{
     // NOTE(HM) this is used to set a shader attribute value vector2
     // if the shader is invalid it will do nothing
     if(rl::isShaderValid(self)) {
@@ -250,7 +286,8 @@ fn void Shader.setAttributelocFloatValue(self, int locIndex, float value) @inlin
     }
 }
 
-fn void Shader.setUniformFloatSliceValues(self, String uniform_name, float[] values) @inline {
+fn void Shader.setUniformFloatSliceValues(self, String uniform_name, float[] values) //@inline 
+{
     int locIndex = self.getUniformLocation(uniform_name.zstr_tcopy());
     assert(locIndex >= 0, "Shader uniform location not found: %s", uniform_name);
 
@@ -263,7 +300,8 @@ fn void Shader.setUniformFloatSliceValues(self, String uniform_name, float[] val
     }
 }
 
-fn void Shader.setAttributeFloatSliceValues(self, String attribute_name, float[] values) @inline {
+fn void Shader.setAttributeFloatSliceValues(self, String attribute_name, float[] values) //@inline 
+{
     int locIndex = self.getAttributeLocation(attribute_name.zstr_tcopy());
     assert(locIndex >= 0, "Shader attribute location not found: %s", attribute_name);
 
@@ -276,7 +314,8 @@ fn void Shader.setAttributeFloatSliceValues(self, String attribute_name, float[]
     }
 }
 
-fn void Shader.setUniformIntValue(self, String uniform_name, int value) @inline {
+fn void Shader.setUniformIntValue(self, String uniform_name, int value) //@inline 
+{
     int locIndex = self.getUniformLocation(uniform_name.zstr_tcopy());
     assert(locIndex >= 0, "Shader uniform location not found: %s", uniform_name);
 
@@ -289,7 +328,8 @@ fn void Shader.setUniformIntValue(self, String uniform_name, int value) @inline 
     }
 }
 
-fn void Shader.setAttributeIntValue(self, String attribute_name, int value) @inline {
+fn void Shader.setAttributeIntValue(self, String attribute_name, int value) //@inline 
+{
     int locIndex = self.getAttributeLocation(attribute_name.zstr_tcopy());
     assert(locIndex >= 0, "Shader attribute location not found: %s", attribute_name);
 
@@ -302,7 +342,8 @@ fn void Shader.setAttributeIntValue(self, String attribute_name, int value) @inl
     }
 }
 
-fn void Shader.setUniformIntSliceValues(self, String uniform_name, int[] values) @inline {
+fn void Shader.setUniformIntSliceValues(self, String uniform_name, int[] values) //@inline 
+{
     int locIndex = self.getUniformLocation(uniform_name.zstr_tcopy());
     assert(locIndex >= 0, "Shader uniform location not found: %s", uniform_name);
 
@@ -315,7 +356,8 @@ fn void Shader.setUniformIntSliceValues(self, String uniform_name, int[] values)
     }
 }
 
-fn void Shader.setAttributeIntSliceValues(self, String attribute_name, int[] values) @inline {
+fn void Shader.setAttributeIntSliceValues(self, String attribute_name, int[] values) //@inline 
+{
     int locIndex = self.getAttributeLocation(attribute_name.zstr_tcopy());
     assert(locIndex >= 0, "Shader attribute location not found: %s", attribute_name);
 
@@ -328,7 +370,8 @@ fn void Shader.setAttributeIntSliceValues(self, String attribute_name, int[] val
     }
 }
 
-fn void Shader.setUniformVector2Value(self, String uniform_name, Vector2 vec) @inline {
+fn void Shader.setUniformVector2Value(self, String uniform_name, Vector2 vec) //@inline 
+{
     int locIndex = self.getUniformLocation(uniform_name.zstr_tcopy());
     assert(locIndex >= 0, "Shader uniform location not found: %s", uniform_name);
 
@@ -341,7 +384,8 @@ fn void Shader.setUniformVector2Value(self, String uniform_name, Vector2 vec) @i
     }
 }
 
-fn void Shader.setAttributeVector2Value(self, String attribute_name, Vector2 vec) @inline {
+fn void Shader.setAttributeVector2Value(self, String attribute_name, Vector2 vec) //@inline 
+{
     int locIndex = self.getAttributeLocation(attribute_name.zstr_tcopy());
     assert(locIndex >= 0, "Shader attribute location not found: %s", attribute_name);
 
@@ -354,7 +398,8 @@ fn void Shader.setAttributeVector2Value(self, String attribute_name, Vector2 vec
     }
 }
 
-fn void Shader.setAttributeLocValueV(self, int locIndex, float[] vec) @inline {
+fn void Shader.setAttributeLocValueV(self, int locIndex, float[] vec) //@inline 
+{
     // NOTE(HM) this is used to set a shader attribute value vector2
     // if the shader is invalid it will do nothing
     if(rl::isShaderValid(self)) {
@@ -373,7 +418,8 @@ fn void Shader.setAttributeLocValueV(self, int locIndex, float[] vec) @inline {
     }
 }
 
-fn void Shader.setUniformMatrixValue(self, String uniform_name, Matrix mat) @inline {
+fn void Shader.setUniformMatrixValue(self, String uniform_name, Matrix mat) //@inline 
+{
     int locIndex = self.getUniformLocation(uniform_name.zstr_tcopy());
     assert(locIndex >= 0, "Shader uniform location not found: %s", uniform_name);
 
@@ -386,7 +432,8 @@ fn void Shader.setUniformMatrixValue(self, String uniform_name, Matrix mat) @inl
     }
 }
 
-fn void Shader.setUniformTexture(self, String uniform_name, Texture2D tex) @inline {
+fn void Shader.setUniformTexture(self, String uniform_name, Texture2D tex) //@inline 
+{
     int locIndex = self.getUniformLocation(uniform_name.zstr_tcopy());
     assert(locIndex >= 0, "Shader uniform location not found: %s", uniform_name);
 

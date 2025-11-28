@@ -137,7 +137,7 @@ fn void dbgDrawPolygonLocal(B2Vec2* vertices, int vertexCount, Color tint) @loca
     for ( int i = 0; i < vertexCount; ++i )
     {
         B2Vec2 p2 = vertices[i];
-        r2d::drawLineV(p1.toVector2fast(), p2.toVector2fast(), tint);
+        r2d::drawLineV(p1, p2, tint);
         p1 = p2;
     }
 }
@@ -148,10 +148,10 @@ fn void dbgDrawTransformLocal(B2Transform transform) @local
 	B2Vec2 p1 = transform.p;
 
 	B2Vec2 p2 = misc::mulAdd(p1, k_axisScale, misc::rot_GetXAxis(transform.q));
-   r2d::drawLineV(p1.toVector2fast(), p2.toVector2fast(), rl::RED);
+   r2d::drawLineV(p1, p2, rl::RED);
 
 	p2 = misc::mulAdd(p1, k_axisScale, misc::rot_GetYAxis(transform.q));
-   r2d::drawLineV(p1.toVector2fast(), p2.toVector2fast(), rl::GREEN);
+   r2d::drawLineV(p1, p2, rl::GREEN);
 }
 
 <*
@@ -174,15 +174,15 @@ fn void dbgDrawSolidPolygon(B2Transform transform, B2Vec2* vertices, int vertexC
    r2d::drawTriangleStrip((rl::Vector2*)vertices, vertexCount, hexToColor(color));
 }
 fn void dbgDrawCircle(B2Vec2 center, float radius, B2HexColor color, void* context ) {
-   r2d::drawCircleLinesV(center.toVector2fast(), radius, hexToColor(color));
+   r2d::drawCircleLinesV(center, radius, hexToColor(color));
 }
 fn void dbgDrawSolidCircle(B2Transform transform, float radius, B2HexColor color, void* context ) {
-   r2d::drawCircleV(transform.p.toVector2fast(), radius, hexToColor(color));
+   r2d::drawCircleV(transform.p, radius, hexToColor(color));
 }
 	//void ( *DrawCapsule )( b2Vec2 p1, b2Vec2 p2, float radius, b2HexColor color, void* context );
 	//void ( *DrawSolidCapsule )( b2Vec2 p1, b2Vec2 p2, float radius, b2HexColor color, void* context );
 fn void dbgDrawLineSegment(B2Vec2 p1, B2Vec2 p2, B2HexColor color, void* context ) {
-   r2d::drawLineV(p1.toVector2fast(), p2.toVector2fast(), hexToColor(color));
+   r2d::drawLineV(p1, p2, hexToColor(color));
 }
 
 /// Draw a transform. Choose your own length scale.
@@ -194,5 +194,5 @@ fn void dbgDrawPoint(B2Vec2 p, float size, B2HexColor color, void* context ) {
     dbgDrawCircle(p, size, color, context);
 }
 fn void dbgDrawString(B2Vec2 p, ZString s, void* context ) {
-   rl::drawTextEx(rl::getFontDefault(), s, p.toVector2fast(), 1.0f, 1.0f, rl::WHITE);
+   rl::drawTextEx(rl::getFontDefault(), s, p, 1.0f, 1.0f, rl::WHITE);
 }

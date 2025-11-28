@@ -33,6 +33,7 @@ import std::io;
 import std::core::mem; // for malloc/new
 import std::math;
 import std::collections::list;
+import game::lowlevel::bounds;
 //import game::projectiles::ammo;
 import game::serialize::svs; // save system
 import game::main;
@@ -82,12 +83,12 @@ fn bool PersistentInfo.clear(&self) @inline {
    return false;
 }
 
+//typedef Player = inline Entity;
+
 struct Player (SaveSystemInterface)
 {
     // WARNING(HM) When using subtypes, OVERLAPPING FUNCTION NAMES WILL BE SHADOWED...
     inline Entity super;
-    
-    Move_Dir move_dir; // todo put this on the main entity seems logical to be there as well...
     //ammo::ProjectilePtrList projectiles;
 }
 
@@ -104,13 +105,10 @@ fn void Player.reload(&self, SaveFile* file) @dynamic {
 // WARNING(HM) Player.init() will shadow (aka override) Entity.init()
 fn void Player.init(&self, Vec2f origin, Color color, int id)
 {
-    self.type = Player.typeid;
-    self.id   = id;
-    
-    char[64] buffer;
-    String _name    = (String)io::bprintf(&buffer, "player%d", id)!!;
-    self.name       = _name.tcopy();
-    self.move_dir   = DIR_NONE;
+    self.type     = Player.typeid;
+    self.id       = id;
+    self.name     = string::tformat("player%d", id).tcopy();
+    self.move_dir = DIR_NONE;
     
     // TODO(HM) makes this position editable...
     if(origin == {0, 0}) {
@@ -121,12 +119,18 @@ fn void Player.init(&self, Vec2f origin, Color color, int id)
     
     self.setSize(PLAYER_DEFAULT_SIZE_X_METER, PLAYER_DEFAULT_SIZE_Y_METER);
     self.vs.color = color;
+
+    // set entity Bounds
+    Bounds bb;
+    bb.maxc = origin;
+    bb.minc = bb.maxc + misc::VEC_RIGHT * self.vs.rect.width + misc::VEC_DOWN * self.vs.rect.height;
+    self.setBounds(bb);
     
     // physics
     // define the body
     B2BodyDef bodyDef   = box2d::defaultBodyDef();
     bodyDef.type        = box2d::KINEMATIC;
-    bodyDef.position    = origin; //box2d::vec2fToVec2(origin);
+    bodyDef.position    = origin;
     // create the body
     self.physics        = box2d::createBody(main::gpGame.physWorldId, &bodyDef);
     //

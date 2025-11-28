@@ -192,7 +192,7 @@ fn void ConfigFile.addSection(&self, IniSection* section) @local @inline
         return;
     }
 
-    INIFile? cfg = fs::openFile(self.path, fs::FileMode.READ_WRITE);
+    INIFile? cfg = fs::openFile(self.path, fs::FILE_READ_WRITE);
     defer (void)cfg.close();
     if(catch excuse = cfg) {
         log::warning(FILE, "failed to open config file %s to add section %s.", self.path, section.name);

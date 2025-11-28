@@ -91,7 +91,7 @@ fn bool VideoPlayer.play(&self, String vid_name, bool loop = false)
     {
         if(movie.name == vid_name) 
         {
-            VideoFile? video = fs::openFile(movie.path, fs::FileMode.READ_BINARY);
+            VideoFile? video = fs::openFile(movie.path, fs::FILE_READ_BINARY);
             if(catch excuse = video ) {
                 log::warning(FILE, "failed to open video %s to play with error: %s", movie.name, excuse);
             } else {

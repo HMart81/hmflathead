@@ -54,6 +54,7 @@ import game::lowlevel::bounds;
 import game::material::mat;
 import engine::logging::log;
 import engine::physics::box2d;
+import game::camview::postprocess::pp;
 // end_region
 
 /*
@@ -167,6 +168,9 @@ struct RenderView (SaveSystemInterface)
     //
     RenderLayer* currentRender; // current render target/layer displayed
     bool taking_screenshot;
+    HMPostProcess grayscale;
+    bool enable_grayscale;
+    //
     
     // render view size
     union {
@@ -208,10 +212,12 @@ fn void RenderView.init(&self, int screenWidth, int screenHeight) @inline
     self.guiFrameBufferCallback     = &renderGuiFBO;
     self.postGuiFrameBufferCallback = &renderPostGuiFBO;
     //self.shadowFrameBufferCallback  = &renderShadowFBO; // not used yet
-    self.debugFrameBufferCallback  = &renderDebugFBO; // not used yet
+    self.debugFrameBufferCallback   = &renderDebugFBO; // not used yet
     //
     // NOTE(HM) used to point to the main render layer to be used for shaders and such if necessary
     self.currentRender              = &self.gameFrameBuffer;
+
+    self.grayscale.load("grayscale");
     
     self.w = screenWidth;
     self.h = screenHeight;
@@ -271,9 +277,11 @@ $endif
     input::makeKeyboardAction("cam_move_right", rl::KEY_D);
     input::makeKeyboardAction("cam_zoom",       rl::KEY_Z);
     input::makeKeyboardAction("cam_reset",      rl::KEY_R);
+    input::makeKeyboardAction("pp_graysacle",   rl::KEY_G);
 }
 
-fn void RenderView.deinit(&self) {
+fn void RenderView.deinit(&self) 
+{
      // Unload render texture (FBO)
     rl::unloadRenderTexture(self.gameFrameBuffer);
     rl::unloadRenderTexture(self.guiFrameBuffer);
@@ -281,6 +289,7 @@ fn void RenderView.deinit(&self) {
     self.guiFrameBufferCallback     = null;
     self.postGuiFrameBufferCallback = null;
     self.currentRender              = null;
+    self.grayscale.unload();
 }
 
 fn void RenderView.debug(&self) 
@@ -446,7 +455,8 @@ fn Vec2f RenderView.getTarget(&self) @inline @if ($defined(ENABLE_CAMERA_VIEW))
     return (Vec2f)self.camera.target;
 }
 
-fn void RenderView.setOrigin(&self, Vec2f new_pos) {
+fn void RenderView.setOrigin(&self, Vec2f new_pos) 
+{
     //self.axis.m02 = new_pos.x;
     //self.axis.m12 = new_pos.y;
     self.origin = new_pos;
@@ -455,7 +465,8 @@ $if $defined(ENABLE_CAMERA_VIEW):
 $endif
 }
 
-fn Vec2f RenderView.getOrigin(&self) @inline {
+fn Vec2f RenderView.getOrigin(&self) @inline 
+{
     //return self.axis.getTranslation();
     return self.origin;
 }
@@ -545,6 +556,10 @@ $if $defined(ENABLE_CAMERA_VIEW):
         self.cameraControls();
 $endif
         self.updateBounds();
+    }
+
+    if (input::getAction("pp_graysacle").fnBecameTriggered()) {
+        self.enable_grayscale = !self.enable_grayscale;
     }
 }
 
@@ -743,7 +758,13 @@ $endif
 fn void RenderView.renderToFBO(&self) @inline
 {
     // render to the game layer
-    self.gameFrameBufferCallback(self, &self.gameFrameBuffer);
+    if(self.enable_grayscale) {
+        self.grayscale.@apply(self.currentRender) {
+            self.gameFrameBufferCallback(self, &self.gameFrameBuffer);
+        };
+    } else {
+        self.gameFrameBufferCallback(self, &self.gameFrameBuffer);
+    }
     // render to the gui layer
     self.guiFrameBufferCallback(self, &self.guiFrameBuffer);
     // render to the post gui layer
@@ -860,4 +881,82 @@ fn void RenderView.drawCameraSpaceCoords(&self) @if($defined(ENABLE_CAMERA_VIEW)
     rl::drawLine(-self.w*10, (int)self.camera.target.y, self.w*10, (int)self.camera.target.y, r);
     rl::drawText("+X", (int)(self.camera.target.x + (0.95f*(self.w/2.0f))), (int)self.camera.target.y + 10, 10, r);
     rl::drawCircleV(self.camera.target, 10.0f, rl::GREEN);
+}
+
+
+module game::camview::postprocess::pp;
+
+import std::io;
+import game::main;
+import std::collections::list;
+import thirdparty::raylib5::rl;
+import engine::filesystem::fs;
+import engine::sys::framework::glsl;
+import engine::misc; // for @todo
+
+const SHADERS_FOLDER = "shaders/";
+alias PostProcessList = List{HMPostProcess*};
+
+PostProcessList pplist;
+
+struct HMPostProcess
+{
+    String name;
+    int id;
+    Shader shader;
+}
+
+<*
+    Load a PostProcess shader
+    shaders should be put inside the main shader folder no sub folder
+    and only the name is passed to the function, no need for the path or extension.
+    @param [in] _name : "name of the post process shader to load"
+    @require _name != ""
+*>
+fn void HMPostProcess.load(&self, String _name) 
+{
+    String shader_path = main::gpGame.app_base_folder.tconcat(SHADERS_FOLDER).tconcat(_name);
+    self.shader = glsl::loadShader("", shader_path.tconcat(".fs"));
+    if(rl::isShaderValid(self.shader)) {
+        self.name = _name;
+        self.id = (int)pplist.len(); // we use the past list lenght as the index. Because is 1 minus the current lenght like what indices are... 
+        pplist.push(self);
+    } else {
+        unreachable("failed to load post process shader %s!", _name);
+    }
+}
+
+fn void HMPostProcess.unload(&self) 
+{
+    pplist[self.id] = null;
+    if(rl::isShaderValid(self.shader))  glsl::unloadShader(&self.shader);
+}
+
+fn int getPostProcessIdxFromName(String _name) @inline {
+   foreach(it : pplist) {
+        if(it.name == _name) return it.id;
+   }
+
+    io::printf("failed to find post process shader %s returning the one at index 0.", _name);
+    return 0;
+}
+
+fn HMPostProcess* getPostProcessFromID(int idx) @inline {
+    return pplist[idx];
+}
+
+fn HMPostProcess* getPostProcessFromName(String _name) @inline {
+    return getPostProcessFromID(getPostProcessIdxFromName(_name));
+}
+
+fn void HMPostProcess.update(&self) {
+  @todo();
+}
+
+macro HMPostProcess.@apply(&self, RenderLayer* layer; @body) {
+    self.shader.setUniformTexture("texture0", layer.texture);
+    rl::@shaderMode(self.shader)
+    {
+        @body();
+    };
 }

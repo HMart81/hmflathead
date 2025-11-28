@@ -238,12 +238,9 @@ struct B2WorldDef
 fn B2WorldDef defaultWorldDef() @cname("b2DefaultWorldDef");
  
 alias B2BodyType = int;
-/// zero mass, zero velocity, may be manually moved
-const B2BodyType STATIC    = 0;
-/// zero mass, velocity set by user, moved by solver
-const B2BodyType KINEMATIC = 1;
-/// positive mass, velocity determined by forces, moved by solver
-const B2BodyType DYNAMIC   = 2;
+const B2BodyType STATIC    = 0; // zero mass, zero velocity, may be manually moved
+const B2BodyType KINEMATIC = 1; // zero mass, velocity set by user, moved by solver
+const B2BodyType DYNAMIC   = 2; // positive mass, velocity determined by forces, moved by solver
  
 /// A body definition holds all the data needed to construct a rigid body.
 /// You can safely re-use body definitions. Shapes are added to a body after construction.
@@ -1410,10 +1407,7 @@ fn int dynamicTree_GetByteCount( B2DynamicTree* tree ) @cname("b2DynamicTree_Get
 // for now try to use Raylib or C3 math functions
 // region MATH
 
-alias B2Vec2 = float[2];
-
-macro Vector2 B2Vec2.toVector2(self) { Vector2 vec; vec.arr = self; return vec; }
-macro Vector2 B2Vec2.toVector2fast(self) => *(Vector2*)&self;
+alias B2Vec2 = float[<2>];
 
 struct B2CosSin //@packed @align(4)
 {
@@ -1509,7 +1503,7 @@ B2Vec2 	b2Max (B2Vec2 a, B2Vec2 b) @cname("b2MinInt");
 // Component-wise clamp vector v into the range [a, b].
 fn B2Vec2 B2Vec2.clamp (B2Vec2 v, B2Vec2 a, B2Vec2 b) @cname("b2Clamp");
 // Get the length of this vector (the norm)
-fn float B2Vec2.length(B2Vec2 v) @cname("b2Length");
+//fn float B2Vec2.length(B2Vec2 v) @cname("b2Length");
 // Get the distance between two points.
 fn float distance(B2Vec2 a, B2Vec2 b) @cname("b2Distance");
 // Convert a vector into a unit vector if possible, otherwise returns the zero vector.

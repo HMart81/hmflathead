@@ -1598,6 +1598,7 @@ fn void gameDraw(int screenWidth, int screenHeight) @local
             // 2) render the view FBO's rendered above into the back buffer
             if(rl::isShaderValid(*local_game.current_global_shader)) 
             {
+                //(*local_game.current_global_shader).setUniformTexture("_currentRender", local_game.view.currentRender.texture);
                 rl::@shaderMode(*local_game.current_global_shader) 
                 {
                     local_game.view.draw();
@@ -2653,7 +2654,7 @@ $endif
     }
 
 // #region physics engine
-    log::info(FILE, "Starting Box2D physics engine:");
+    log::info(FILE, "Starting Physics Engine:");
     log::info(FILE, "---------------------------------------------");
     // TODO(HM) refactor this into a physics engine module that wraps box2d?
     B2Version version = box2d::getVersion();
@@ -3008,7 +3009,7 @@ $endif
         $endif
         origin.translateV(misc::VEC_UP * 100 * i);
         
-        Entity* test_ent = ent::create_ex("", origin, rl::WHITE);
+        Entity* test_ent = ent::create_ex(string::tformat("Entity%s", i), origin, rl::WHITE);
         test_ent.setMaterial("figure");
     }
     

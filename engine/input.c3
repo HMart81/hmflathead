@@ -152,7 +152,7 @@ fn bool Action.fnIsTriggered(&self) @dynamic
     switch (self.kind) 
     {
         case KEYBOARD:
-            bool hasExtKey = self.keyboard.key2 != rl::KEY_NULL;
+            /*bool hasExtKey = self.keyboard.key2 != rl::KEY_NULL;
             if (rl::isKeyDown(self.keyboard.key1)) 
             {
                 if(hasExtKey) {
@@ -160,6 +160,15 @@ fn bool Action.fnIsTriggered(&self) @dynamic
                 }
                 
                 return true;
+            }*/
+            bool hasExtKey = self.keyboard.key2 != rl::KEY_NULL;
+            if (!hasExtKey && rl::isKeyDown(self.keyboard.key1)) 
+            {
+                return true;
+            }
+            else if(hasExtKey)
+            {
+                return (rl::isKeyPressed(self.keyboard.key1) && rl::isKeyDown(self.keyboard.key2)) ? true : false; 
             }
         case MOUSE:
             if (rl::isMouseButtonDown(self.mouse.btn))
@@ -182,11 +191,13 @@ fn bool Action.fnIsTriggered(&self) @dynamic
 
 /**
  *
- * returns true if the action just was triggered, else false
+ * returns true if the action was just triggered, else false
  */
-fn bool Action.wasTriggered(&self) @inline
+fn bool Action.wasTriggered(&self)
 {
-    if(self.becameTriggered && !self.fnIsTriggered()){
+    bool previously_triggered    = self.becameTriggered;
+    bool not_currently_triggered = !self.fnIsTriggered();
+    if(previously_triggered && not_currently_triggered) {
         self.becameTriggered = false;
         return true;
     }
@@ -201,10 +212,6 @@ fn bool Action.wasTriggered(&self) @inline
 fn bool Action.fnBecameTriggered(&self)
 {
     if(!self.isTriggered && self.fnIsTriggered()) {
-        // if(self.name == "Single Press") {
-            // int stop = 0;
-        // }
-        
         self.isTriggered = true;
         return true;
     }
@@ -256,7 +263,7 @@ fn void Action.update(&self, float timeStep)
 }
 
 fn void Action.handleInput(&self) {
-    if (self.wasTriggered()) {
+    if (self.isTriggered /*self.wasTriggered()*/) {
         if(self.callback != null) self.callback();
     }
 
@@ -319,6 +326,7 @@ fn void makeKeyboardAction(String name, KeyboardKey key1, KeyboardKey key2 = rl:
     action.callback      = func;
     action.keyboard.key1 = key1;
     action.keyboard.key2 = key2;
+    action.timeCount     = -1.0;
     local_manager.actions.push(action);
 }
 
@@ -331,6 +339,7 @@ fn void makeMouseAction(String name, MouseButton btn, KeyboardKey key = rl::KEY_
     action.mouse.btn     = btn;
     action.keyboard.key2 = key;
     action.callback      = func;
+    action.timeCount     = -1.0;
     local_manager.actions.push(action);
 }
 
@@ -343,6 +352,7 @@ fn void makeGamepadAction(String name, GamepadButton btn, GamepadAxis axis, Acti
     action.gamepad.btn  = btn;
     action.gamepad.axis = axis;
     action.callback     = func;
+    action.timeCount     = -1.0;
     local_manager.actions.push(action);
 }
 
@@ -537,7 +547,8 @@ ActionManager* gpManager = &local_manager;
  @param [&in] action : "the action to register"
 *>
 fn void ActionManager.register(&self, Action* action) @inline {
-    foreach(act : self.actions) {
+    foreach(act : self.actions) 
+    {
         if(act.name == action.name) {
             log::warning(Where.CONSOLE, "Cannot register \"%s\" because is already registered.", action.name);
             return;
@@ -594,15 +605,16 @@ fn void ActionManager.remove(&self, Action* action) @inline {
     self.unregister(action);
 }
 
-fn void ActionManager.update(&self) @inline {
-    usz count = self.actions.len();
-    if(count >= 1) {
+fn void ActionManager.update(&self) 
+{
+    if(self.actions.len())
+    {
         foreach(act: self.actions) {
             act.update(main::gpGame.dt);
         }
     }
     
-    // detect actions with the same keys
+    // todo detect actions with the same keys
 }
 
 fn void ActionManager.free(&self) {

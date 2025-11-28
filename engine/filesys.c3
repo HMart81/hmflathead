@@ -43,16 +43,14 @@ faultdef FS_FAILED_SAVE_DATA,
          FS_FAILED_CHANGE_DIR;
 
 // modes for OpenFileByMode. used as bit mask internally
-enum FileMode: const inline String
-{
-    READ              = "r",
-    WRITE             = "w",
-    READ_WRITE        = "r+",
-    APPEND            = "a",
-    READ_BINARY       = "rb",
-    WRITE_BINARY      = "wb",
-    READ_WRITE_BINARY = "r+b",
-}
+alias FileMode @local = String;
+const FileMode FILE_READ              = "r";
+const FileMode FILE_WRITE             = "w";
+const FileMode FILE_READ_WRITE        = "r+";
+const FileMode FILE_APPEND            = "a";
+const FileMode FILE_READ_BINARY       = "rb";
+const FileMode FILE_WRITE_BINARY      = "wb";
+const FileMode FILE_READ_WRITE_BINARY = "r+b";
 
 alias StringList @local = List{String};
 
@@ -124,7 +122,7 @@ fn String? readEntireFileX(String filepath)
 {
     EntireFile _file;
     
-    File data = openFile(filepath, FileMode.READ_BINARY)!;
+    File data = openFile(filepath, FILE_READ_BINARY)!;
     defer (void)data.close();
     
     if(data.file != null)
@@ -191,7 +189,7 @@ fn bool? fileSaveEntireText(String fileName, String text) {
 }
 
 
-fn File? openFile(String path, String mode = FileMode.READ) @inline
+fn File? openFile(String path, String mode = FILE_READ) @inline
 {
     return io::file::open(path, mode)!;
 }

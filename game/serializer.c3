@@ -130,7 +130,7 @@ fn SaveFile? open(String filepath, int file_version = SAVE_FILE_VERSION)
 
     file_data.version = file_version;
     file_data.path    = filepath;
-    io::File? file    = fs::openFile(filepath, fs::FileMode.READ_BINARY);
+    io::File? file    = fs::openFile(filepath, fs::FILE_READ_BINARY);
     if(catch excuse = file) {
         return FAILED_OPEN_FILE?;
     } else {
@@ -145,7 +145,7 @@ fn SaveFile? make_new(String filepath, int file_version = SAVE_FILE_VERSION) {
     }
     
 	// create the file by trying to open it for writing
-    io::File? file  = fs::openFile(filepath, fs::FileMode.WRITE_BINARY);
+    io::File? file  = fs::openFile(filepath, fs::FILE_WRITE_BINARY);
     if(catch excuse = file) {
         return FAILED_OPEN_FILE?;
     } else {
