@@ -147,7 +147,7 @@ alias gameptr = main::gpGame;
 
 const int ENABLE_CAMERA_VIEW = 1;
 
-typedef RenderLayer = inline RenderTexture2D;
+typedef RenderLayer = inline RLRenderTexture2D;
 
 alias RenderFunctionCallback = fn void(RenderView* view, RenderLayer* layer);
 
@@ -187,8 +187,8 @@ struct RenderView (SaveSystemInterface)
 
     Matrix3f axis; // world to view axis transform matrix
 
-    Camera2D camera  @if ($defined(ENABLE_CAMERA_VIEW));
-    Camera3D camera3D @if ($defined(ENABLE_CAMERA3D_VIEW)); // not used for now...
+    RLCamera2D camera  @if ($defined(ENABLE_CAMERA_VIEW));
+    RLCamera3D camera3D @if ($defined(ENABLE_CAMERA3D_VIEW)); // not used for now...
 }
 
 fn void RenderView.save(&self, SaveFile* file) @dynamic {
@@ -253,12 +253,12 @@ $if ($defined(ENABLE_CAMERA3D_VIEW)):
     float fov_y = 45.0f;
     float camera_distance = 10.0f;
     // 3D camera view (not used for now...)
-    self.camera.position = { self.w / 2.0f, self.h / 2.0f , 0.0f} + {0, 0, -1} * camera_distance; // Camera position
-    self.camera.target = (Vector3){ self.w / 2.0f, self.h / 2.0f , 0.0f};      // Camera looking at point
-    self.camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };          // Camera up vector (rotation over its axis)
+    self.camera.position = { self.w / 2.0f, self.h / 2.0f , 0.0f} + {0, 0, -1} * camera_distance; // RLCamera position
+    self.camera.target = (RLVector3){ self.w / 2.0f, self.h / 2.0f , 0.0f};      // RLCamera looking at point
+    self.camera.up = (RLVector3){ 0.0f, 1.0f, 0.0f };          // RLCamera up vector (rotation over its axis)
     /*
-    float fovy;                     // Camera field-of-view apperture in Y (degrees) in perspective, used as near plane width in orthographic
-    CameraProjection projection;    // Camera projection: CAMERA_PERSPECTIVE or CAMERA_ORTHOGRAPHIC
+    float fovy;                     // RLCamera field-of-view apperture in Y (degrees) in perspective, used as near plane width in orthographic
+    RLCameraProjection projection;    // RLCamera projection: CAMERA_PERSPECTIVE or CAMERA_ORTHOGRAPHIC
     */
     self.camera.fovy = fov_y;    
     self.camera.projection = rl::CAMERA_ORTHOGRAPHIC;
@@ -267,7 +267,7 @@ $endif
 
     // view bounds
     Vec2f bb_maxc = self.origin + misc::VEC_UP * (float)(self.h / 2) + misc::VEC_LEFT * (float)(self.w / 2);  
-    Rectangle bb_def = misc::makeRect(bb_maxc, {self.w, self.h});
+    RLRectangle bb_def = misc::makeRect(bb_maxc, {self.w, self.h});
     self.bounds.setRect(bb_def);
     
     // key actions
@@ -295,13 +295,13 @@ fn void RenderView.deinit(&self)
 fn void RenderView.debug(&self) 
 {
     /*
-    // Rectangle rec = {
+    // RLRectangle rec = {
         // .x = 0,
         // .y = 0,
         // .width  = self.currentRender.texture.width,
         // .height = self.currentRender.texture.height
     // };
-    Rectangle rec = {
+    RLRectangle rec = {
         .x = self.origin.x,
         .y = self.origin.y,
         .width  = self.w,
@@ -345,7 +345,7 @@ fn void takeScreenShot()
     
     // count how many shots are in the screenshot folder
     uint file_count;
-    FilePathList files = fs::loadDirectoryFilesEx(shots_dir, ".png", scanSubdirs: false);
+    RLFilePathList files = fs::loadDirectoryFilesEx(shots_dir, ".png", scanSubdirs: false);
     
     defer {
         // at the end return everything to defaults
@@ -398,7 +398,7 @@ fn void moveScreenShots()
     }
     
     // count how many shots are in the w folder then
-    FilePathList files = fs::loadDirectoryFilesEx(main::gpGame.app_work_dir, ".png", scanSubdirs: false);
+    RLFilePathList files = fs::loadDirectoryFilesEx(main::gpGame.app_work_dir, ".png", scanSubdirs: false);
     for(int i = 0; i < files.count; i++) {
         // move the images to the screenshot folder
         String file_shot_path = ((ZString)files.paths[i]).str_view();
@@ -417,15 +417,15 @@ fn void moveScreenShots()
 fn void RenderView.showModelViewAxis(&self) 
 {
     /*
-    // Matrix, 4x4 components, column major, OpenGL style, right handed
-    {                            identity Matrix     X   Y   Z
+    // RLMatrix, 4x4 components, column major, OpenGL style, right handed
+    {                            identity RLMatrix     X   Y   Z
         float m0, m4, m8, m12;     1  0  0  0       sx   x   x  tx
         float m1, m5, m9, m13;     0  1  0  0   =    y  sy   y  ty
         float m2, m6, m10, m14;    0  0  1  0        z   z  sz  tz
         float m3, m7, m11, m15;    0  0  0  1        0   0   0   1
     }
     */
-    Matrix axis = rl::getCameraMatrix2D(self.camera);
+    RLMatrix axis = rl::getCameraMatrix2D(self.camera);
     
     // draw axis coords in camera space
     Vec2f axis_org, start, end, pox, poy;
@@ -486,7 +486,7 @@ fn void RenderView.resetCamera(&self) @if ($defined(ENABLE_CAMERA_VIEW))
 fn void RenderView.cameraControls(&self) @if ($defined(ENABLE_CAMERA_VIEW))
 {
 $if $feature(_DEBUG):
-    // Camera translation controls
+    // RLCamera translation controls
     if (input::getAction("cam_move_up").fnIsTriggered()) {
         self.origin.y++;
     }
@@ -501,9 +501,9 @@ $if $feature(_DEBUG):
     }
 $endif
 
-    // if (rl::isMouseButtonDown(MouseButton.RIGHT))
+    // if (rl::isMouseButtonDown(RLMouseButton.RIGHT))
     // {
-        // Vector2 delta = rl::getMouseDelta();
+        // RLVector2 delta = rl::getMouseDelta();
         // delta = rmath::vector2Scale(delta, -1.0f/self.camera.zoom);
         // self.camera.target = rmath::vector2Add(self.camera.target, delta);
     // }
@@ -514,8 +514,8 @@ $endif
         if (wheel_movement != 0)
         {
             // Get the world point that is under the mouse
-            Vector2 mousePos = rl::getMousePosition();
-            Vector2 mouseWorldPos = rl::getScreenToWorld2D(mousePos, self.camera);
+            RLVector2 mousePos = rl::getMousePosition();
+            RLVector2 mouseWorldPos = rl::getScreenToWorld2D(mousePos, self.camera);
             
             // Set the offset to where the mouse is in world space
             self.camera.offset = mousePos;
@@ -524,7 +524,7 @@ $endif
             // under the cursor to the screen space point under the cursor at any zoom
             self.camera.target = mouseWorldPos;
             
-            // Camera zoom controls
+            // RLCamera zoom controls
             // Uses log scaling to provide consistent zoom speed
             self.camera.zoom = math::exp(math::ln(self.camera.zoom) + ((float)rl::getMouseWheelMove() * 0.1f));
 
@@ -534,7 +534,7 @@ $endif
         }
     }
     
-    // Camera reset (zoom && origin)
+    // RLCamera reset (zoom && origin)
     if (input::getAction("cam_reset").fnIsTriggered()) {
         self.resetCamera();
     }
@@ -622,34 +622,18 @@ $endif
                             // draw opaque sprites first
                             if(sprite.mat.flags.has_AlphaTest == false && *sprite != mat::COVERAGE_TRANSLUCENT) 
                             {
-                                if(sprite.mat.shader.isValid()) 
-                                {
-                                    rl::@shaderMode(sprite.mat.shader) // draw using the sprite shader
-                                    {
-                                        sprite.draw();
-                                    };
-                                } else { // draw using the default shader
-                                    sprite.draw();
-                                }
+                                sprite.draw();
                             } 
                             else // draw translucent sprites
                             {
-                                if(sprite.mat.shader.isValid()) 
-                                {
-                                    rl::@shaderMode(sprite.mat.shader) // draw using the sprite shader
-                                    {
-                                        sprite.draw();
-                                    };
-                                } else { // draw using the default shader
-                                    sprite.draw();
-                                }
+                                sprite.draw();
                             }
                         }
                         old_sort = sort;
                     }
-                    else
+                    else // draw with no material using the default shader
                     {
-                        sprite.draw(); // draw using the default shader
+                        sprite.draw(); 
                     }
                 }
             }
@@ -828,7 +812,7 @@ fn Vec2f RenderView.toCanonicalViewSpace(&self, Vec2i vec)
 
 fn void RenderView.drawWorldSpaceCoords(&self) @if($feature(_DEBUG)) 
 {
-    Rectangle rec = {
+    RLRectangle rec = {
         .x = 0,
         .y = 0,
         .width  = self.w,
@@ -859,7 +843,7 @@ fn void RenderView.drawWorldSpaceCoords(&self) @if($feature(_DEBUG))
     String x_coord, y_coord;
     x_coord = string::tformat("[%s]", rec.width);
     y_coord = string::tformat("[%s]", rec.height);
-    // drawText(ZString text, int posX, int posY, int fontSize, Color color)
+    // drawText(ZString text, int posX, int posY, int fontSize, RLColor color)
     rl::drawText(x_coord.zstr_tcopy(), (int)pox.x, (int)pox.y, 10, rl::RED);
     rl::drawText(y_coord.zstr_tcopy(), (int)poy.x, (int)poy.y, 10, rl::RED);
 }
@@ -868,8 +852,8 @@ fn void RenderView.drawCameraSpaceCoords(&self) @if($defined(ENABLE_CAMERA_VIEW)
 {
     self.showModelViewAxis();
     
-    Color g = {0, 255, 0, 100};
-    Color r = {255, 0, 0, 100};
+    RLColor g = {0, 255, 0, 100};
+    RLColor r = {255, 0, 0, 100};
     //rl::drawRectangleLinesEx(misc::makeRect(self.origin, {self.w, (float)-self.h}), 2.5f, rl::RED);
     if(bounds::db_showBounds.getBool()) {
         self.bounds.debugDraw();
@@ -897,13 +881,13 @@ import engine::misc; // for @todo
 const SHADERS_FOLDER = "shaders/";
 alias PostProcessList = List{HMPostProcess*};
 
-PostProcessList pplist;
+PostProcessList pplist @local;
 
 struct HMPostProcess
 {
     String name;
     int id;
-    Shader shader;
+    RLShader shader;
 }
 
 <*
@@ -918,11 +902,11 @@ fn void HMPostProcess.load(&self, String _name)
     String shader_path = main::gpGame.app_base_folder.tconcat(SHADERS_FOLDER).tconcat(_name);
     self.shader = glsl::loadShader("", shader_path.tconcat(".fs"));
     if(rl::isShaderValid(self.shader)) {
-        self.name = _name;
+        self.name = _name.tcopy();
         self.id = (int)pplist.len(); // we use the past list lenght as the index. Because is 1 minus the current lenght like what indices are... 
         pplist.push(self);
     } else {
-        unreachable("failed to load post process shader %s!", _name);
+        unreachable("failed to load required post process shader %s!", _name);
     }
 }
 
@@ -932,21 +916,27 @@ fn void HMPostProcess.unload(&self)
     if(rl::isShaderValid(self.shader))  glsl::unloadShader(&self.shader);
 }
 
-fn int getPostProcessIdxFromName(String _name) @inline {
-   foreach(it : pplist) {
+fn int getPostProcessIdxFromName(String _name) @inline 
+{
+    foreach(it : pplist) {
         if(it.name == _name) return it.id;
-   }
-
-    io::printf("failed to find post process shader %s returning the one at index 0.", _name);
-    return 0;
+    }
+    return -1;
 }
 
-fn HMPostProcess* getPostProcessFromID(int idx) @inline {
+fn HMPostProcess* getPostProcessFromID(int idx) @inline 
+{
     return pplist[idx];
 }
 
-fn HMPostProcess* getPostProcessFromName(String _name) @inline {
-    return getPostProcessFromID(getPostProcessIdxFromName(_name));
+fn HMPostProcess* getPostProcessFromName(String _name) @inline 
+{
+    int indice = getPostProcessIdxFromName(_name);
+    if(indice < 0) {
+        io::printf("failed to find post process shader %s.", _name);
+        return null;
+    }
+    return getPostProcessFromID(indice);
 }
 
 fn void HMPostProcess.update(&self) {

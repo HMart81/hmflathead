@@ -286,7 +286,7 @@ fn void	writeAsset(SaveFile* savefile, any* asset) {
  @param [in] tex : "the texture data to save"
  @require savefile != null && tex != null
 *>
-fn void	writeTexture2D(SaveFile* savefile, Texture2D* tex) {
+fn void	writeTexture2D(SaveFile* savefile, RLTexture2D* tex) {
 // TODO(HM) I need to rethink the textures stuff
 // right now i'm using the raylib texture data directly 
 // I should really wrap it in my own texture data structure...   
@@ -307,7 +307,7 @@ fn void	writeTexture2D(SaveFile* savefile, Texture2D* tex) {
  @param rect : "the data to save"
  @require savefile != null
 *>
-fn void	writeRect(SaveFile* savefile, Rectangle rect) {
+fn void	writeRect(SaveFile* savefile, RLRectangle rect) {
     writeFloat(savefile, rect.x);
     writeFloat(savefile, rect.y);
     writeFloat(savefile, rect.width);
@@ -319,7 +319,7 @@ fn void	writeRect(SaveFile* savefile, Rectangle rect) {
  @param color :  "the color to save"
  @require savefile != null
 *>
-fn void	writeColor(SaveFile* savefile, Color color) {
+fn void	writeColor(SaveFile* savefile, RLColor color) {
     writeChar(savefile, color.r);
     writeChar(savefile, color.g);
     writeChar(savefile, color.b);
@@ -331,20 +331,20 @@ fn void	writeColor(SaveFile* savefile, Color color) {
  @param [in] shd : "the data to save"
  @require savefile != null && shd != null
 *>
-fn void	writeShader(SaveFile* savefile, Shader* shd) {
+fn void	writeShader(SaveFile* savefile, RLShader* shd) {
     if(shd == null) {
         writeNull(savefile);
         return;
     }
     
     writeInt(savefile, shd.id);
-    for(int i = 0; i < ShdLocInd.values.len; i++) {
+    for(int i = 0; i < RLShdLocInd.values.len; i++) {
         writeInt(savefile, shd.locs[i]);
     }
 }
-fn void	writeSound(SaveFile* savefile, Sound* snd) { @todo(); }
-fn void	writeMusic(SaveFile* savefile, Music* music) { @todo();}
-fn void	writeFont(SaveFile* savefile, Font* font) { @todo();}
+fn void	writeSound(SaveFile* savefile, RLSound* snd) { @todo(); }
+fn void	writeMusic(SaveFile* savefile, RLMusic* music) { @todo();}
+fn void	writeFont(SaveFile* savefile, RLFont* font) { @todo();}
 //
 //fn void	writeVec2(rl::Vec2* vec ) {}
 //fn void	writeVec3(rl::Vec3* vec ) {}
@@ -470,14 +470,14 @@ fn void readAsset(SaveFile* savefile, any* asset) {
 }
 
 
-fn void readTexture2D(SaveFile* file, Texture2D* tex ) { @todo(); }
+fn void readTexture2D(SaveFile* file, RLTexture2D* tex ) { @todo(); }
 
 <*
  @param [inout] savefile :  "the file to read the data from"
  @param [inout] rect : "the adress to place the data into"
  @require savefile != null && rect != null
 *>
-fn void	readRect(SaveFile* savefile, Rectangle* rect) {
+fn void	readRect(SaveFile* savefile, RLRectangle* rect) {
     readFloat(savefile, &rect.x);
     readFloat(savefile, &rect.y);
     readFloat(savefile, &rect.width);
@@ -489,7 +489,7 @@ fn void	readRect(SaveFile* savefile, Rectangle* rect) {
  @param [inout] clr : "the adress to place the data into"
  @require savefile != null && clr != null
 *>
-fn void	readColor(SaveFile* savefile, Color* clr) {
+fn void	readColor(SaveFile* savefile, RLColor* clr) {
     readChar(savefile, &clr.r);
     readChar(savefile, &clr.g);
     readChar(savefile, &clr.b);
@@ -655,7 +655,7 @@ fn String Action.getName(&self) => self.name;
  @param [in] func "pointer to function to call"
  @require func != null "A action requires a function to do anything"
 *>
-fn void makeKeyboardAction(String name, ActionCallBack func, KeyboardKey key1, KeyboardKey key2 = rl::KEY_NULL)  @inline
+fn void makeKeyboardAction(String name, ActionCallBack func, RLKeyboardKey key1, RLKeyboardKey key2 = rl::KEY_NULL)  @inline
 {
     Action* action       = mem::new(Action) {}
     action.type          = Action.typeid;
@@ -671,7 +671,7 @@ fn void makeKeyboardAction(String name, ActionCallBack func, KeyboardKey key1, K
  @param [in] func "pointer to function to call"
  @require func != null "A action requires a function to do anything"
 *>
-fn void makeMouseAction(String name, ActionCallBack func, MouseButton btn, KeyboardKey key = rl::KEY_NULL)  @inline
+fn void makeMouseAction(String name, ActionCallBack func, RLMouseButton btn, RLKeyboardKey key = rl::KEY_NULL)  @inline
 {
     Action* action       = mem::new(Action) {}
     action.type          = Action.typeid;
@@ -687,7 +687,7 @@ fn void makeMouseAction(String name, ActionCallBack func, MouseButton btn, Keybo
  @param [in] func "pointer to function to call"
  @require func != null "A action requires a function to do anything"
 *>
-fn void makeGamepadAction(String name, ActionCallBack func, GamepadButton btn, GamepadAxis axis)  @inline
+fn void makeGamepadAction(String name, ActionCallBack func, RLGamepadButton btn, RLGamepadAxis axis)  @inline
 {
     Action* action      = mem::new(Action) {}
     action.type         = Action.typeid;
@@ -786,7 +786,7 @@ interface SaveGameInterface {
 	//fn void					writeVec6( Vec6f* vec ) {}
 	fn void					writeMat3( Matrix3f* mat ) {}
 	//fn void					writeAngles( const idAngles &angles ) {}
-	fn void					writeMaterial( Material* material ) {}
+	fn void					writeMaterial( RLMaterial* material ) {}
     fn void					writeEntity( ent::Entity* model ) {}
 	//fn void					writeParticle( const idDeclParticle *particle ) {}
 	//fn void					writeSoundShader( const idSoundShader *shader ) {}

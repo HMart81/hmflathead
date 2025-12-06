@@ -12,7 +12,7 @@ import game::serialize::svs; // save system
 // end_region
 
 // region defines
-alias MaterialMapQueue  = List{rl::MaterialMap};
+alias MaterialMapQueue  = List{rl::RLMaterialMap};
 // end_region
 
 // region constants
@@ -162,11 +162,11 @@ enum MatMapKind : int {
     CUBEMAP
 }
 
-// Model model = LoadModel("resources/models/obj/castle.obj");                 // Load model
-// Texture2D texture = LoadTexture("resources/models/obj/castle_diffuse.png"); // Load model texture
+// RLModel model = LoadModel("resources/models/obj/castle.obj");                 // Load model
+// RLTexture2D texture = LoadTexture("resources/models/obj/castle_diffuse.png"); // Load model texture
 // model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;            // Set map diffuse texture
 
-struct Material {
+struct RLMaterial {
     String name;
     String comment;
     MaterialMapQueue maps;

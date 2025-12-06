@@ -8,7 +8,7 @@
 
 [![Discord Members](https://img.shields.io/discord/829003376532258816.svg?label=Discord&logo=discord)](https://discord.gg/pXVNgVVbvh) 
 
-matrix: [![Matrix](https://img.shields.io/matrix/rsgl-is-sili%3Amatrix.org)](https://matrix.to/#/#rsgl-is-sili:matrix.org)
+matrix: [![RLMatrix](https://img.shields.io/matrix/rsgl-is-sili%3Amatrix.org)](https://matrix.to/#/#rsgl-is-sili:matrix.org)
 
 A cross-platform lightweight single-header very simple-to-use window abstraction library for creating graphics Libraries or simple graphical programs. Written in pure C99.
 

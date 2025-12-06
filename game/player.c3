@@ -103,7 +103,7 @@ fn void Player.reload(&self, SaveFile* file) @dynamic {
 }
 
 // WARNING(HM) Player.init() will shadow (aka override) Entity.init()
-fn void Player.init(&self, Vec2f origin, Color color, int id)
+fn void Player.init(&self, Vec2f origin, RLColor color, int id)
 {
     self.type     = Player.typeid;
     self.id       = id;
@@ -144,6 +144,7 @@ fn void Player.init(&self, Vec2f origin, Color color, int id)
     //
     
     self.born();
+    self.updateVisuals();
     // NOTE(HM) for now the player as to be manually registered and 
     // be the first Entity in the entity list.
     //
@@ -207,6 +208,7 @@ fn void Player.move(&self, float speed) @inline
 {
     Vec2f new_origin = self.getPosition() + misc::dir_mul(self.move_dir, speed);
     self.setPositionV(new_origin);
+    self.updateVisuals();
 }
 
 fn void Player.think(&self, float dt /*delta_time*/) 
@@ -214,7 +216,7 @@ fn void Player.think(&self, float dt /*delta_time*/)
         // NOTE(HM) to run parent entity think code that may be necessary by the player
         self.super.think(dt); // parent
         
-        if(self.thinkFlags & ent::TH_THINK)
+        if(self.thinkflags & ent::TH_THINK)
         {
             tracy::@zoneN("Playerthink", 1)
             {
@@ -231,13 +233,13 @@ fn void Player.think(&self, float dt /*delta_time*/)
             };
         } 
         
-        if(self.thinkFlags & ent::TH_PHYSICS) {
+        if(self.thinkflags & ent::TH_PHYSICS) {
             // update player physics code here
         }
         
 }
 
-fn Player* makePlayer(int id = 0, Vec2f position = {0, 0}, Color color = rl::WHITE) @inline
+fn Player* makePlayer(int id = 0, Vec2f position = {0, 0}, RLColor color = rl::WHITE) @inline
 {
     Player* player = mem::new(Player);
     player.init(position, color, id);
@@ -254,9 +256,9 @@ alias ActionsList         = List{InputAction*};
 struct InputAction 
 {
     String name;
-    KeyboardKey key;
-    KeyboardKey key_modifier; // alt, ctrl, shift, etc
-    MouseButton mBtn;
+    RLKeyboardKey key;
+    RLKeyboardKey key_modifier; // alt, ctrl, shift, etc
+    RLMouseButton mBtn;
     InputActionCallback callback;
 }
 
@@ -282,7 +284,7 @@ fn void clearActions() @inline {
  @param fn_call : "funtion to call has the action"
  @require fn_call != null
 *>
-fn InputAction* create(String _name, KeyboardKey key, MouseButton mbtn = MouseButton.LEFT, KeyboardKey modifier = rl::KEY_NULL, InputActionCallback fn_call) {
+fn InputAction* create(String _name, RLKeyboardKey key, RLMouseButton mbtn = RLMouseButton.LEFT, RLKeyboardKey modifier = rl::KEY_NULL, InputActionCallback fn_call) {
     InputAction* action  = mem::new(InputAction);
     action.name = _name;
     if(key == rl::KEY_NULL) {
@@ -333,7 +335,7 @@ enum AmmoKind : int {
 
 struct Projectile
 {
-    Rectangle rec;
+    RLRectangle rec;
     typeid _typeid;
     AmmoKind kind;
     int lifetime;

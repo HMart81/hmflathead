@@ -35,7 +35,7 @@ static const GuiStyleProp bluishStyleProps[BLUISH_STYLE_PROPS_COUNT] = {
 
 #define BLUISH_STYLE_FONT_ATLAS_COMP_SIZE 2914
 
-// Font atlas image pixels data: DEFLATE compressed
+// RLFont atlas image pixels data: DEFLATE compressed
 static unsigned char bluishFontData[BLUISH_STYLE_FONT_ATLAS_COMP_SIZE] = { 0xed,
     0x9d, 0xb1, 0x8e, 0x24, 0x49, 0x11, 0x86, 0x2b, 0xf3, 0x00, 0x09, 0x13, 0x01, 0x12, 0xe0, 0x20, 0x81, 0x90, 0xf0, 0x10,
     0x12, 0x2e, 0x16, 0x3c, 0x02, 0x2f, 0x02, 0x0e, 0xef, 0x81, 0x07, 0x12, 0x06, 0x12, 0xce, 0x99, 0x38, 0x48, 0x20, 0xe1,
@@ -184,8 +184,8 @@ static unsigned char bluishFontData[BLUISH_STYLE_FONT_ATLAS_COMP_SIZE] = { 0xed,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0xe6, 0xb9, 0xfd, 0x61, 0x1e, 0x88, 0x3f, 0xbc, 0xda, 0xf8, 0xff, 0x17 };
 
-// Font glyphs rectangles data (on atlas)
-static const Rectangle bluishFontRecs[189] = {
+// RLFont glyphs rectangles data (on atlas)
+static const RLRectangle bluishFontRecs[189] = {
     { 4, 4, 5 , 10 },
     { 17, 4, 2 , 8 },
     { 27, 4, 4 , 3 },
@@ -377,7 +377,7 @@ static const Rectangle bluishFontRecs[189] = {
     { 222, 166, 5 , 9 },
 };
 
-// Font glyphs info data
+// RLFont glyphs info data
 // NOTE: No glyphs.image data provided
 static const GlyphInfo bluishFontGlyphs[189] = {
     { 32, 0, 9, 5, { 0 }},
@@ -585,9 +585,9 @@ static void GuiLoadStyleBluish(void)
     // NOTE: Compressed font image data (DEFLATE), it requires DecompressData() function
     int bluishFontDataSize = 0;
     unsigned char *data = DecompressData(bluishFontData, BLUISH_STYLE_FONT_ATLAS_COMP_SIZE, &bluishFontDataSize);
-    Image imFont = { data, 256, 256, 1, 2 };
+    RLImage imFont = { data, 256, 256, 1, 2 };
 
-    Font font = { 0 };
+    RLFont font = { 0 };
     font.baseSize = 10;
     font.glyphCount = 189;
 
@@ -597,8 +597,8 @@ static void GuiLoadStyleBluish(void)
 
     // Copy char recs data from global fontRecs
     // NOTE: Required to avoid issues if trying to free font
-    font.recs = (Rectangle *)RAYGUI_MALLOC(font.glyphCount*sizeof(Rectangle));
-    memcpy(font.recs, bluishFontRecs, font.glyphCount*sizeof(Rectangle));
+    font.recs = (RLRectangle *)RAYGUI_MALLOC(font.glyphCount*sizeof(RLRectangle));
+    memcpy(font.recs, bluishFontRecs, font.glyphCount*sizeof(RLRectangle));
 
     // Copy font char info data from global fontChars
     // NOTE: Required to avoid issues if trying to free font
@@ -609,7 +609,7 @@ static void GuiLoadStyleBluish(void)
 
     // Setup a white rectangle on the font to be used on shapes drawing,
     // it makes possible to draw shapes and text (full UI) in a single draw call
-    Rectangle fontWhiteRec = { 254, 254, 1, 1 };
+    RLRectangle fontWhiteRec = { 254, 254, 1, 1 };
     SetShapesTexture(font.texture, fontWhiteRec);
 
     //-----------------------------------------------------------------

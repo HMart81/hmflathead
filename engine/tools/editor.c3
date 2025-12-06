@@ -37,7 +37,7 @@
     // example from raygui c code:
     if (IsFileDropped())
         {
-            FilePathList droppedFiles = LoadDroppedFiles();
+            RLFilePathList droppedFiles = LoadDroppedFiles();
 
             if ((droppedFiles.count > 0) && IsFileExtension(droppedFiles.paths[0], ".rgs")) GuiLoadStyle(droppedFiles.paths[0]);
 
@@ -169,7 +169,7 @@ enum EditorKind @local
 
 // Editor border colors for the editor window.
 // This is used to set the screen box border color of the current open editor window.
-const Color[*] EDITOR_BORDER_COLORS = {
+const RLColor[*] EDITOR_BORDER_COLORS = {
     {0xFF, 0xFF, 0xFF, 0xFF}, // 0 white
     {0x00, 0x00, 0x00, 0xFF}, // 1 black
     {0xFF, 0x00, 0x00, 0xFF}, // 2 red
@@ -200,14 +200,14 @@ struct EditorFlags @local
 struct Editor {
     EditorFlags flags;
 
-    Color background_color;
-    Rectangle main_window;
+    RLColor background_color;
+    RLRectangle main_window;
 
     GuiState gui_state;
 
     EditorKind kind; // the kind of editor currently opened
     EditorKind prev_kind; // the editor type that was previously opened
-    Color* border_color; // the color of the screen box border of the current open editor window
+    RLColor* border_color; // the color of the screen box border of the current open editor window
     int input_dialog_open_count; // the number of input dialogs opened
 
     // shows or hides the console input window
@@ -451,7 +451,7 @@ fn bool Editor.isMouseOver(&self) @local
     Vec2f mouseWorldPos = rl::getMousePosition();
 
     Vec2f mouse_rect_size = main::getGameCursorSize() * 0.5f; // half the size of the game cursor
-    Rectangle mouseRect = misc::@recFromVecs(mouseWorldPos, mouse_rect_size);
+    RLRectangle mouseRect = misc::@recFromVecs(mouseWorldPos, mouse_rect_size);
 
     if (rl::checkCollisionRecs(mouseRect, self.main_window)) return true;
 
@@ -588,7 +588,7 @@ fn void drawScriptEditor(Editor* editor) @inline
 *>
 fn void drawEditorMainToolBar(Editor* editor)
 {
-    Rectangle area = editor.main_window;
+    RLRectangle area = editor.main_window;
 
     Vec2f anchor = {area.x, area.y};
     float tb_y_anchor = 0.0075f * area.height;
@@ -630,7 +630,7 @@ $endif
 *>
 fn void drawEditorConsole(Editor* editor)
 {
-    Rectangle area = editor.main_window;
+    RLRectangle area = editor.main_window;
 
     // top left corner of the editor window
     Vec2f anchor = {area.x, area.y};
@@ -675,10 +675,10 @@ fn void drawEditorConsole(Editor* editor)
         console_hist_text = "";
     }
 
-    Rectangle bounds = misc::makeRect(console_pos, console_size);
-    // Rectangle content = {rect.x, rect.y, rect.width, rect.height - input_area.y};
-    // Rectangle view = {};
-    // Vector2 scroll = {0.0f, 0.0f};
+    RLRectangle bounds = misc::makeRect(console_pos, console_size);
+    // RLRectangle content = {rect.x, rect.y, rect.width, rect.height - input_area.y};
+    // RLRectangle view = {};
+    // RLVector2 scroll = {0.0f, 0.0f};
     // rgui::scrollPanel(rect, console_hist_text, content, &scroll, &view);
 
     List{ZString} console_hist_text_lines;
@@ -921,7 +921,7 @@ alias ButtonfuncCallback = fn void(void*);
 
 macro @button(Vec2f pos, Vec2f size, ZString text, ButtonfuncCallback callback = null; @body) @local
 {
-    var rec = (Rectangle){pos.x, pos.y, size.x, size.y};
+    var rec = (RLRectangle){pos.x, pos.y, size.x, size.y};
     if(rgui::button(rec, text)) {
         if (callback != null) {
             callback(null);

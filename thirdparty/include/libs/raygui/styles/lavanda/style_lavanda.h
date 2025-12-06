@@ -37,7 +37,7 @@ static const GuiStyleProp lavandaStyleProps[LAVANDA_STYLE_PROPS_COUNT] = {
 
 #define LAVANDA_STYLE_FONT_ATLAS_COMP_SIZE 2636
 
-// Font atlas image pixels data: DEFLATE compressed
+// RLFont atlas image pixels data: DEFLATE compressed
 static unsigned char lavandaFontData[LAVANDA_STYLE_FONT_ATLAS_COMP_SIZE] = { 0xed,
     0xdd, 0xdb, 0xd2, 0xa4, 0xba, 0x0d, 0x06, 0x50, 0xde, 0xff, 0xa5, 0xbf, 0x5c, 0xa4, 0x52, 0x49, 0xaa, 0x66, 0x63, 0x24,
     0x0b, 0x9a, 0xee, 0x59, 0xb3, 0xee, 0x7e, 0xa6, 0x4f, 0x06, 0xf9, 0x04, 0x96, 0x73, 0x00, 0x00, 0x00, 0x00, 0x24, 0x7f,
@@ -172,8 +172,8 @@ static unsigned char lavandaFontData[LAVANDA_STYLE_FONT_ATLAS_COMP_SIZE] = { 0xe
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0xa6, 0xfd, 0xfb, 0x9f, 0x72, 0x00, 0xf1, 0x0f, 0xfc, 0x75, 0xf1, 0xff, 0x2f };
 
-// Font glyphs rectangles data (on atlas)
-static const Rectangle lavandaFontRecs[189] = {
+// RLFont glyphs rectangles data (on atlas)
+static const RLRectangle lavandaFontRecs[189] = {
     { 4, 4, 5 , 16 },
     { 17, 4, 1 , 9 },
     { 26, 4, 3 , 3 },
@@ -365,7 +365,7 @@ static const Rectangle lavandaFontRecs[189] = {
     { 451, 100, 6 , 11 },
 };
 
-// Font glyphs info data
+// RLFont glyphs info data
 // NOTE: No glyphs.image data provided
 static const GlyphInfo lavandaFontGlyphs[189] = {
     { 32, 0, 12, 5, { 0 }},
@@ -573,9 +573,9 @@ static void GuiLoadStyleLavanda(void)
     // NOTE: Compressed font image data (DEFLATE), it requires DecompressData() function
     int lavandaFontDataSize = 0;
     unsigned char *data = DecompressData(lavandaFontData, LAVANDA_STYLE_FONT_ATLAS_COMP_SIZE, &lavandaFontDataSize);
-    Image imFont = { data, 512, 256, 1, 2 };
+    RLImage imFont = { data, 512, 256, 1, 2 };
 
-    Font font = { 0 };
+    RLFont font = { 0 };
     font.baseSize = 16;
     font.glyphCount = 189;
 
@@ -585,8 +585,8 @@ static void GuiLoadStyleLavanda(void)
 
     // Copy char recs data from global fontRecs
     // NOTE: Required to avoid issues if trying to free font
-    font.recs = (Rectangle *)RAYGUI_MALLOC(font.glyphCount*sizeof(Rectangle));
-    memcpy(font.recs, lavandaFontRecs, font.glyphCount*sizeof(Rectangle));
+    font.recs = (RLRectangle *)RAYGUI_MALLOC(font.glyphCount*sizeof(RLRectangle));
+    memcpy(font.recs, lavandaFontRecs, font.glyphCount*sizeof(RLRectangle));
 
     // Copy font char info data from global fontChars
     // NOTE: Required to avoid issues if trying to free font
@@ -597,7 +597,7 @@ static void GuiLoadStyleLavanda(void)
 
     // Setup a white rectangle on the font to be used on shapes drawing,
     // it makes possible to draw shapes and text (full UI) in a single draw call
-    Rectangle fontWhiteRec = { 510, 254, 1, 1 };
+    RLRectangle fontWhiteRec = { 510, 254, 1, 1 };
     SetShapesTexture(font.texture, fontWhiteRec);
 
     //-----------------------------------------------------------------

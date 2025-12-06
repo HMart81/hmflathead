@@ -74,15 +74,15 @@ enum SpriteKind : const int
     @param value : "the inderlying ordinal value from the kind enum"
     @require value >= 0 && value < SpriteKind.values.len
 *>
-fn SpriteKind kindFrom(int value) @inline 
+fn SpriteKind kindFrom(int value) @inline @local
 {
-  return (SpriteKind)value; //SpriteKind.from_ordinal(value);
+  return (SpriteKind)value;
 }
 // end_region defines
 
 struct SpriteFlags
 {
-     union {
+     union { // does this really should be a union?
         bool isHidden;
         bool should_hide;
     }
@@ -99,9 +99,9 @@ struct Sprite (SaveSystemInterface)
     SpriteFlags flags;
 
     //
-    Rectangle rect; // position and size of the sprite, screen pixel coordinates and meters scale respectively.
+    RLRectangle rect; // position and size of the sprite, screen pixel coordinates and meters scale respectively.
     Bounds bounds; // will be equal to the rectangle
-    Color color;  // only really used when a material is not defined.
+    RLColor color;  // only really used when a material is not defined.
 
     // Todo(HM) rethink this, should the material be a pointer to a data base loaded in memory
     // or each entity, should copy the material data from the data base
@@ -134,7 +134,7 @@ fn void Sprite.register(&self) @inline {
     main::gpGame.sprites.push(self);
 }
 
-fn void Sprite.init(&self, float x, float y, float width, float height, Color color = rl::WHITE, SpriteKind kind = GENERIC, String material_name = "")
+fn void Sprite.init(&self, float x, float y, float width, float height, RLColor color = rl::WHITE, SpriteKind kind = GENERIC, String material_name = "")
 {
     self.type  = Sprite.typeid;
     //
@@ -149,11 +149,11 @@ fn void Sprite.init(&self, float x, float y, float width, float height, Color co
     self.register();
 }
 
-fn void Sprite.initRect(&self, Rectangle rect, Color color = rl::WHITE, SpriteKind kind = GENERIC, String material_name = "") @inline {
+fn void Sprite.initRect(&self, RLRectangle rect, RLColor color = rl::WHITE, SpriteKind kind = GENERIC, String material_name = "") @inline {
     self.init(rect.x, rect.y, rect.width, rect.height, color, kind, material_name);
 }
 
-fn void Sprite.initV(&self, Vec2f pos, Vec2f size, Color color = rl::WHITE, SpriteKind kind = GENERIC, String material_name = "") @inline {
+fn void Sprite.initV(&self, Vec2f pos, Vec2f size, RLColor color = rl::WHITE, SpriteKind kind = GENERIC, String material_name = "") @inline {
     self.initRect({ pos.x, pos.y, size.x, size.y }, color, kind, material_name);
 }
 
@@ -353,7 +353,7 @@ fn bool Sprite.hasMaterial(&self) @inline {
    return self.mat != null && rl::isTextureValid(*self.mat.getTexture(mat::STAGE_DIFFUSE));
 }
 
-fn Texture2D* Sprite.getTexture(&self) @inline {
+fn RLTexture2D* Sprite.getTexture(&self) @inline {
     if(self.hasMaterial()) { return self.mat.getTexture(mat::STAGE_DIFFUSE); }
     
     return null;
@@ -429,6 +429,22 @@ fn void Sprite.update(&self) @inline
     }
 }
 
+macro @drawSprite(#s, #b, #t, #ra, #rb, #c) @local 
+{
+    rl::@blendMode(#b)
+    {
+        if(#s.mat.shader.isValid())
+        {
+            rl::@shaderMode(#s.mat.shader) // draw using the sprite shader
+            {
+                rl::drawTexturePro(#t, #ra, #rb, {0, 0}, 0.0f, #c);
+            };
+        } else { // draw using the default shader
+            rl::drawTexturePro(#t, #ra, #rb, {0, 0}, 0.0f, #c);
+        }
+    };
+}
+
 fn void Sprite.draw(&self)  @inline 
 {
     misc::@profile_zone("Sprite Draw")
@@ -437,7 +453,7 @@ fn void Sprite.draw(&self)  @inline
     {
         if(self.flags.should_hide) return;
 
-        Rectangle rect = self.rect;
+        RLRectangle rect = self.rect;
         switch (main::CURRENT_UNITS)
         {
             case main::UNITS_METER:
@@ -458,29 +474,29 @@ fn void Sprite.draw(&self)  @inline
         
         if(self.hasMaterial())
         {
-            Texture2D* texture = self.mat.getTexture(mat::STAGE_DIFFUSE);
+            RLTexture2D* texture = self.mat.getTexture(mat::STAGE_DIFFUSE);
             Vec2f texture_size = { texture.width, texture.height };
-            Rectangle source = { 0, 0, texture_size.x, texture_size.y };
-            Rectangle* dist = &rect;
+            RLRectangle source = { 0, 0, texture_size.x, texture_size.y };
+            RLRectangle* dist = &rect;
 
             MaterialStage* diffuse_stage = self.mat.getStage(mat::STAGE_DIFFUSE);
-            assert(diffuse_stage != null, "Material diffuse stage is null for material '%s'.", self.mat.name);
-            Color color = diffuse_stage.color;
+            assert(diffuse_stage != null, "RLMaterial diffuse stage is null for material '%s'.", self.mat.name);
+            RLColor color = diffuse_stage.color;
 
             // Todo(HM) Right now, we only do blending per material but we could do it per stage
             // so for example we could have a material with multiple diffuse stages and each stage 
             // could have its own blending mode. This would allow us to have more complex materials.
-            BlendMode blending;
+            RLBlendMode blending;
             switch
             {
                 case *self == mat::COVERAGE_OPAQUE:
                 //case diffuse_stage.drawStateBits & mat::BLEND_NONE:
                     break; // do nothing here
                 case *self == mat::COVERAGE_PERFORATED && *self != mat::COVERAGE_TRANSLUCENT:
-                    blending = BlendMode.ALPHA;
+                    blending = RLBlendMode.ALPHA;
                 case *self == mat::COVERAGE_TRANSLUCENT && *self != mat::COVERAGE_PERFORATED:
                 //case diffuse_stage.drawStateBits & mat::BLEND_BLEND:
-                    blending = BlendMode.ALPHA_PREMUL;
+                    blending = RLBlendMode.ALPHA_PREMUL;
                     if(color.a == 255) // if the color is not transparent
                     {
                         color.a = 128; // half transparent
@@ -494,7 +510,7 @@ fn void Sprite.draw(&self)  @inline
                         color.b = (char)math::floor((b * a) * 255);
                     }
                 case *self == mat::COVERAGE_TRANSLUCENT && *self == mat::COVERAGE_PERFORATED:
-                    blending = BlendMode.CUSTOM_SEPARATE; // use the custom blending mode
+                    blending = RLBlendMode.CUSTOM_SEPARATE; // use the custom blending mode
                 case *self == mat::COVERAGE_BAD:
                     log::error(Where.FILE, "Panel with material %s has a bad material coverage type.", self.mat.name);
                     unreachable();
@@ -502,30 +518,41 @@ fn void Sprite.draw(&self)  @inline
 
             switch (blending)
             {
-                case BlendMode.ALPHA:
-                case BlendMode.ALPHA_PREMUL:
-                    rl::@blendMode(blending)
+                case RLBlendMode.ALPHA:
+                case RLBlendMode.ALPHA_PREMUL:
+                    @drawSprite(self, blending, *texture, source, *dist, color);
+                    /*rl::@blendMode(blending)
                     {
-                        rl::drawTexturePro(*texture, source, *dist, {0, 0}, 0.0f, color);
-                    };
-                case BlendMode.CUSTOM:
+                        if(self.mat.shader.isValid()) 
+                        {
+                            rl::@shaderMode(self.mat.shader) // draw using the sprite shader
+                            {
+                                rl::drawTexturePro(*texture, source, *dist, {0, 0}, 0.0f, color);
+                            };
+                        } else { // draw using the default shader
+                            rl::drawTexturePro(*texture, source, *dist, {0, 0}, 0.0f, color);
+                        }
+                    };*/
+                case RLBlendMode.CUSTOM:
                     rl::setBlendFactors(rl::RL_SRC_ALPHA, rl::RL_ONE_MINUS_SRC_ALPHA, rl::RL_FUNC_ADD);
-                    rl::setBlendMode(rl::BlendMode.CUSTOM);
-                    rl::@blendMode(blending)
+                    rl::setBlendMode(rl::RLBlendMode.CUSTOM);
+                    @drawSprite(self, blending, *texture, source, *dist, color);
+                    /*rl::@blendMode(blending)
                     {
                         // NOTE(HM) center of the texture (rotation/scale point), 
                         // it's relative to destination rectangle dimentions, not the screen dimentions.
                         rl::drawTexturePro(*texture, source, *dist, {0, 0}, 0.0f, color);
-                    };
-                case BlendMode.CUSTOM_SEPARATE:
+                    };*/
+                case RLBlendMode.CUSTOM_SEPARATE:
                     rl::setBlendFactorsSeparate(rl::RL_SRC_ALPHA, rl::RL_ONE_MINUS_SRC_ALPHA, rl::RL_ONE, rl::RL_ONE, rl::RL_FUNC_ADD, rl::RL_MAX);
-                    rl::setBlendMode(rl::BlendMode.CUSTOM_SEPARATE);
-                    rl::@blendMode(blending)
+                    rl::setBlendMode(rl::RLBlendMode.CUSTOM_SEPARATE);
+                    @drawSprite(self, blending, *texture, source, *dist, color);
+                    /*rl::@blendMode(blending)
                     {
                         // NOTE(HM) center of the texture (rotation/scale point), 
                         // it's relative to destination rectangle dimentions, not the screen dimentions.
                         rl::drawTexturePro(*texture, source, *dist, {0, 0}, 0.0f, color);
-                    };
+                    };*/
                 default: // opaque unless the image has real invisible pixels...
                     // NOTE(HM) center of the texture (rotation/scale point), 
                     // it's relative to destination rectangle dimentions, not the screen dimentions.
@@ -542,7 +569,7 @@ fn void Sprite.draw(&self)  @inline
 
 // draws a immediate sprite (per frame) with the given position, size and color
 // NOTE(HM) this is a generic sprite, not a sprite entity, so it does not have a name or any other data
-fn void drawImmediate(float posX, float posY, float width, float height, Color color = rl::WHITE, String material_name = "") @inline 
+fn void drawImmediate(float posX, float posY, float width, float height, RLColor color = rl::WHITE, String material_name = "") @inline 
 {
     @pool() {
         Sprite sptr;
@@ -588,10 +615,10 @@ struct Particle
     float acceleration;
 }
 
-fn void Particle.create(&self, Vec2f pos, Vec2f size, Color color = rl::WHITE, int lifetime_ms = DEFAULT_PARTICLE_LIFETIME, String tex_name = "") {
+fn void Particle.create(&self, Vec2f pos, Vec2f size, RLColor color = rl::WHITE, int lifetime_ms = DEFAULT_PARTICLE_LIFETIME, String tex_name = "") {
     // init the inline sprite data
     self.initV(pos, size, color);
-    //self.tex          = assetManager.getAssetExt(tex_name, Texture2D.typeid);
+    //self.tex          = assetManager.getAssetExt(tex_name, RLTexture2D.typeid);
     self.lifetime     = main::gpGame.time_ms + lifetime_ms;
     self.dir          = misc::VEC_UP;
     self.velocity     = self.dir;
@@ -637,7 +664,7 @@ struct ParticleSpawner
 
 fn void ParticleSpawner.init(&self, Vec2f pos, int delay = 0) {
     String name = string::tformat("%s%s", "ParticleSpawner_", main::gpGame.time_ms);
-    Color color = misc::INVISIBLE_COLOR;
+    RLColor color = misc::INVISIBLE_COLOR;
 $if $feature(_DEBUG):
     color = rl::RED;
 $endif

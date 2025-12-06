@@ -30,7 +30,7 @@
 // NOTE(HM) This doesn't handle mouse wheel detection, is only for keyboard and mouse button keys,
 //          mouse wheel data retrievel is done using either raylib functions:
 //              fn float getMouseWheelMove()
-//              fn Vector2 getMouseWheelMoveV()
+//              fn RLVector2 getMouseWheelMoveV()
 
 module engine::input;
 
@@ -116,14 +116,14 @@ struct Action (ActionInterface)
     ActionKind kind;
     
     struct keyboard {
-        KeyboardKey key1;
-        KeyboardKey key2;  // for alternative keys like alt, shift, ctrl, etc...
+        RLKeyboardKey key1;
+        RLKeyboardKey key2;  // for alternative keys like alt, shift, ctrl, etc...
     }
     struct mouse {
-        MouseButton btn;
+        RLMouseButton btn;
     }
     struct gamepad {
-        GamepadButton btn;
+        RLGamepadButton btn;
         /*
         LEFT_X,           // Gamepad left stick X axis
         LEFT_Y,           // Gamepad left stick Y axis
@@ -132,10 +132,10 @@ struct Action (ActionInterface)
         LEFT_TRIGGER,     // Gamepad back trigger left, pressure level: [1..-1]
         RIGHT_TRIGGER     // Gamepad back trigger right, pressure level: [1..-1]
         */
-        GamepadAxis   axis;
+        RLGamepadAxis   axis;
     }
     //
-    Gesture gesture;  // for mobile phones
+    RLGesture gesture;  // for mobile phones
     
     // pointer to the function this action should trigger
     ActionCallBack callback;
@@ -295,7 +295,7 @@ fn String Action.getName(&self) => self.name;
  @require name != ""
  @require key1 != rl::KEY_NULL && key2 != key1
 *>
-fn void makeKeyboardAction(String name, KeyboardKey key1, KeyboardKey key2 = rl::KEY_NULL, ActionCallBack func = null)  @inline
+fn void makeKeyboardAction(String name, RLKeyboardKey key1, RLKeyboardKey key2 = rl::KEY_NULL, ActionCallBack func = null)  @inline
 {
     if(name == "" || key1 == rl::KEY_NULL) {
         log::warning(Where.CONSOLE, "Cannot create keyboard action with empty name or KEY_NULL key.");
@@ -330,7 +330,7 @@ fn void makeKeyboardAction(String name, KeyboardKey key1, KeyboardKey key2 = rl:
     local_manager.actions.push(action);
 }
 
-fn void makeMouseAction(String name, MouseButton btn, KeyboardKey key = rl::KEY_NULL, ActionCallBack func = null)  @inline
+fn void makeMouseAction(String name, RLMouseButton btn, RLKeyboardKey key = rl::KEY_NULL, ActionCallBack func = null)  @inline
 {
     Action* action       = mem::new(Action);
     action.type          = Action.typeid;
@@ -343,7 +343,7 @@ fn void makeMouseAction(String name, MouseButton btn, KeyboardKey key = rl::KEY_
     local_manager.actions.push(action);
 }
 
-fn void makeGamepadAction(String name, GamepadButton btn, GamepadAxis axis, ActionCallBack func = null)  @inline
+fn void makeGamepadAction(String name, RLGamepadButton btn, RLGamepadAxis axis, ActionCallBack func = null)  @inline
 {
     Action* action      = mem::new(Action);
     action.type         = Action.typeid;
@@ -375,7 +375,7 @@ fn void removeAction(String name) @inline {
     }
 }
 
-fn String getKeyboardKeyName(KeyboardKey k) {
+fn String getKeyboardKeyName(RLKeyboardKey k) {
     switch (k)
     {
         case rl::KEY_NULL         : return "KEY_NULL";
@@ -492,16 +492,16 @@ fn void listActions() @inline {
     local_manager.listActions();
 }
 
-fn String getMouseBtnName(MouseButton btn) @inline @local {
+fn String getMouseBtnName(RLMouseButton btn) @inline @local {
     switch (btn)
     {
-        case rl::MouseButton.LEFT  : return "MOUSE_BUTTON_LEFT";
-        case rl::MouseButton.RIGHT : return "MOUSE_BUTTON_RIGHT";
-        case rl::MouseButton.MIDDLE: return "MOUSE_BUTTON_MIDDLE";
-        case rl::MouseButton.SIDE  : return "MOUSE_BUTTON_SIDE";
-        case rl::MouseButton.EXTRA : return "MOUSE_BUTTON_EXTRA";
-        case rl::MouseButton.FORWARD: return "MOUSE_BUTTON_FORWARD";
-        case rl::MouseButton.BACK  : return "MOUSE_BUTTON_BACK";
+        case rl::RLMouseButton.LEFT  : return "MOUSE_BUTTON_LEFT";
+        case rl::RLMouseButton.RIGHT : return "MOUSE_BUTTON_RIGHT";
+        case rl::RLMouseButton.MIDDLE: return "MOUSE_BUTTON_MIDDLE";
+        case rl::RLMouseButton.SIDE  : return "MOUSE_BUTTON_SIDE";
+        case rl::RLMouseButton.EXTRA : return "MOUSE_BUTTON_EXTRA";
+        case rl::RLMouseButton.FORWARD: return "MOUSE_BUTTON_FORWARD";
+        case rl::RLMouseButton.BACK  : return "MOUSE_BUTTON_BACK";
         default: return "UNKNOWN";
     }
 }

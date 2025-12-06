@@ -61,7 +61,8 @@ fn void register_cvars() @inline
 
 const int   TH_NONE          = 0;
 const int   TH_THINK         = 1;
-const int   TH_PHYSICS       = 2; // for the future...
+const int 	TH_UPDATEVISUALS = 2;
+const int   TH_PHYSICS       = 3; // for the future...
 
 const MIN_VISUAL_SIZE_VALUE         @Hardcode = 1;     // pixel
 const MIN_PHYSICS_SIZE_VALUE        @Hardcode = 0.10f; // 10 cm;
@@ -105,7 +106,7 @@ struct Entity (SaveSystemInterface)
     //
 	Move_Dir move_dir; // mostly used for the player entity
 	//
-	int thinkFlags;
+	int thinkflags;
 	//LinkList{Entity} activeNode;	// for being linked into activeEntities list
 	EntityFlags flags; // Todo read about C3 bitstruct?
 }
@@ -148,7 +149,7 @@ fn bool Entity.shouldSkip(&self, String name) @inline @local
 	@require aname != "" : "entities should all be given a name!"
 	@require rl::isWindowReady() == true : "Cannot create entity before the window is ready!"
 *>
-fn void Entity.init(&self, String aname, Vec2f origin, Color color = rl::WHITE)
+fn void Entity.init(&self, String aname, Vec2f origin, RLColor color = rl::WHITE)
 {
 	if(self.shouldSkip(aname)) return;
 	
@@ -241,22 +242,24 @@ $endif
     //
     
 	self.born(); // set the entity as alive, so it can be used
+	self.updateVisuals();
 }
 
 fn void Entity.setTexture(&self, String texture_name_with_ext) @inline {
 	unreachable();
-	//self.vs.tex = main::asstManager.getAssetExt(texture_name_with_ext, Texture2D.typeid);
+	//self.vs.tex = main::asstManager.getAssetExt(texture_name_with_ext, RLTexture2D.typeid);
 }
 
 fn void Entity.setMaterial(&self, String material_name) @inline {
 	self.vs.setMaterial(material_name);
+	self.updateVisuals();
 }
 
 <*
 	TODO(HM) handle more material/texture stages than diffuse
  @ensure return != null
 *>
-fn Texture2D* Entity.getTexture(&self) @inline {
+fn RLTexture2D* Entity.getTexture(&self) @inline {
 	return self.vs.mat.getTexture(mat::STAGE_DIFFUSE);
 }
 
@@ -527,7 +530,7 @@ fn void Entity.setAlive(&self, bool live) @inline {
 		if (!self.isActive()) {
 			self.setActive(true); // activate the entity
 		}
-		if (!(self.thinkFlags & TH_THINK)) {
+		if (!(self.thinkflags & TH_THINK)) {
 			self.startThinking(); // start thinking if it was not thinking
 		}
 	} 
@@ -538,7 +541,7 @@ fn void Entity.setAlive(&self, bool live) @inline {
 			if (self.isActive()) {
 				self.setActive(false); // deactivate the entity
 			}
-			if (self.thinkFlags & TH_THINK) {
+			if (self.thinkflags & TH_THINK) {
 				self.stopThinking(); // stop thinking if it was thinking
 			}
 			if(!main::gpGame.entitiesToRemove.contains(self)) main::gpGame.entitiesToRemove.push(self);
@@ -617,24 +620,26 @@ fn bool Entity.notOnThinkingList(&self) @local @inline {
 	return !self.onThinkingList();
 }
 
-fn void Entity.startThinking(&self) @inline {
-	if (self.thinkFlags & TH_THINK) return; // already thinking
+fn void Entity.startThinking(&self) @inline 
+{
+	if (self.thinkflags & TH_THINK) return; // already thinking
 
-	self.thinkFlags = 0;
-	self.thinkFlags |= TH_THINK;
+	self.thinkflags = 0;
+	self.thinkflags |= TH_THINK;
 	if(self.notOnThinkingList()) main::gpGame.thinkingEntities.push(self);
 }
 
-fn void Entity.stopThinking(&self) @inline {
-	if (!(self.thinkFlags & TH_THINK)) return; // not thinking
+fn void Entity.stopThinking(&self) @inline 
+{
+	if (!(self.thinkflags & TH_THINK)) return; // not thinking
 
-	if (self.thinkFlags) {
-		self.thinkFlags &= ~ent::TH_THINK; // remove the thinking flag
+	if (self.thinkflags) {
+		self.thinkflags &= ~ent::TH_THINK; // remove the thinking flag
 
 		if(self.onThinkingList()) main::gpGame.thinkingEntities.remove_at(main::gpGame.thinkingEntities.index_of(self)!!);
 
 		// if all thinking flags are removed, then we can deactivate the entity
-		if (!self.thinkFlags && self.isActive()) {
+		if (!self.thinkflags && self.isActive()) {
 			self.setActive(false); // deactivate the entity
 		}
 	}
@@ -666,6 +671,71 @@ fn bool Entity.isActive(&self) @inline {
 	return self.flags.active;
 }
 
+fn void Entity.becomeInactive(&self, int flags) 
+{
+	if ((flags & TH_PHYSICS)) {
+		flags &= ~TH_PHYSICS;
+		return;
+		// may only disable physics on a team master if no team members are running physics or bound to a joints
+		/*if (teamMaster == this) {
+			for (Entity *ent = teamMaster.teamChain; ent; ent = ent.teamChain) {
+				if ((ent->thinkflags & TH_PHYSICS) || ((ent->bindMaster == this) && (ent->bindJoint != INVALID_JOINT))) {
+					flags &= ~TH_PHYSICS;
+					break;
+				}
+			}
+		}*/
+	}
+
+	if (self.thinkflags) {
+		self.thinkflags &= ~flags;
+		if (!self.thinkflags && self.isActive()) {
+			//gameLocal.numEntitiesToDeactivate++;
+			self.setActive(false);
+		}
+	}
+
+	/*if ((flags & TH_PHYSICS)) {
+		// if this entity has a team master
+		if (teamMaster && teamMaster != this) {
+			// if the team master is at rest
+			if (teamMaster->IsAtRest()) {
+				teamMaster->BecomeInactive(TH_PHYSICS);
+			}
+		}
+	}*/
+}
+
+fn void Entity.becomeActive(&self, int flags) 
+{
+	if ((flags & TH_PHYSICS)) {
+		// enable the team master if this entity is part of a physics team
+		/*if (teamMaster && teamMaster != this) {
+			teamMaster->BecomeActive(TH_PHYSICS);
+		}
+		else if (!(thinkflags & TH_PHYSICS)) {
+			// if this is a pusher
+			if (physics->IsType(idPhysics_Parametric::Type) || physics->IsType(idPhysics_Actor::Type)) {
+				gameLocal.sortPushers = true;
+			}
+		}*/
+	}
+
+	int oldFlags = self.thinkflags;
+	self.thinkflags |= flags;
+	if (self.thinkflags) {
+		if (!self.isActive()) {
+			self.setActive(true);
+		}
+		else if (!oldFlags) {
+			// we became inactive this frame, so we have to decrease the count of entities to deactivate
+			//gameLocal.numEntitiesToDeactivate--;
+			self.setActive(false);
+		}
+	}
+}
+
+
 fn void Entity.move(&self) {
     // update visuals based on physics movement
     // && box2d::body_GetType(self.physics) == box2d::DYNAMIC
@@ -673,12 +743,13 @@ fn void Entity.move(&self) {
         Vec2f new_pos = self.physics.getPosition();
         self.setPositionV(new_pos);
         self.updateBoundsPos(new_pos);
+		self.updateVisuals();
     }
 }
 
 fn void Entity.think(&self, float dt) // update in other engines
 {
-    if(self.thinkFlags & TH_THINK)
+    if(self.thinkflags & TH_THINK)
     {
 		$if $feature(TRACY_ENABLE):
 			tracy::@zoneN("Entity.think", 1)
@@ -699,11 +770,21 @@ fn void Entity.think(&self, float dt) // update in other engines
     }
 }
 
+fn void Entity.updateVisuals(&self) 
+{
+	self.becomeActive(TH_UPDATEVISUALS);
+}
+
 fn void Entity.draw(&self) 
 {
 	if(self.hidden() || self.isDead()) return;
+
+	if(!(self.thinkflags & TH_UPDATEVISUALS)) {
+		return;
+	}
+	self.becomeInactive(TH_UPDATEVISUALS);
 	
-	Rectangle rect = self.vs.rect;
+	RLRectangle rect = self.vs.rect;
 	switch (main::CURRENT_UNITS)
 	{
 		case main::UNITS_METER:
@@ -724,23 +805,23 @@ fn void Entity.draw(&self)
     {
         // TODO(HM) find how to draw a image on a rounded rectangle!?
 
-        Texture2D* texture = self.vs.mat.getTexture(mat::STAGE_DIFFUSE);
+        RLTexture2D* texture = self.vs.mat.getTexture(mat::STAGE_DIFFUSE);
         Vec2f texture_size = { texture.width, texture.height };
-        Rectangle source = { 0, 0, texture_size.x, texture_size.y };
+        RLRectangle source = { 0, 0, texture_size.x, texture_size.y };
 
 		// todo selection
-        //Color color = (selected) ? self.selected_color : self.mat.getStage(mat::STAGE_DIFFUSE).color;
-		Color color = self.vs.mat.getStage(mat::STAGE_DIFFUSE).color;
+        //RLColor color = (selected) ? self.selected_color : self.mat.getStage(mat::STAGE_DIFFUSE).color;
+		RLColor color = self.vs.mat.getStage(mat::STAGE_DIFFUSE).color;
 
-        BlendMode blending;
+        RLBlendMode blending;
         switch //(self.vs.mat.coverage)
         {
             case *self == mat::COVERAGE_OPAQUE:
 				break; // do nothing here
             case *self == mat::COVERAGE_PERFORATED && *self != mat::COVERAGE_TRANSLUCENT:
-                blending = BlendMode.ALPHA;
+                blending = RLBlendMode.ALPHA;
             case *self == mat::COVERAGE_TRANSLUCENT && *self != mat::COVERAGE_PERFORATED:
-                blending = BlendMode.ALPHA_PREMUL;
+                blending = RLBlendMode.ALPHA_PREMUL;
                 if(color.a == 255) // if the color is not transparent
 				{
 					color.a = 128; // half transparent
@@ -754,7 +835,7 @@ fn void Entity.draw(&self)
 					color.b = (char)math::floor((b * a) * 255);
 				}
 			case *self == mat::COVERAGE_TRANSLUCENT && *self == mat::COVERAGE_PERFORATED:
-				blending = BlendMode.CUSTOM_SEPARATE; // use the custom blending mode					
+				blending = RLBlendMode.CUSTOM_SEPARATE; // use the custom blending mode					
             case *self == mat::COVERAGE_BAD:
                 log::error(FILE, "Entity material %s has a bad material coverage type.", self.vs.mat.name);
                 unreachable();
@@ -762,24 +843,24 @@ fn void Entity.draw(&self)
 
 		switch (blending)
         {
-            case BlendMode.ALPHA:
-            case BlendMode.ALPHA_PREMUL:
+            case RLBlendMode.ALPHA:
+            case RLBlendMode.ALPHA_PREMUL:
                 rl::@blendMode(blending)
                 {
                     rl::drawTexturePro(*texture, source, rect, {0, 0}, 0.0f, color);
                 };
-			case BlendMode.CUSTOM:
+			case RLBlendMode.CUSTOM:
 				rl::setBlendFactors(rl::RL_SRC_ALPHA, rl::RL_ONE_MINUS_SRC_ALPHA, rl::RL_FUNC_ADD);
-				rl::setBlendMode(rl::BlendMode.CUSTOM);
+				rl::setBlendMode(rl::RLBlendMode.CUSTOM);
 				rl::@blendMode(blending)
 				{
 					// NOTE(HM) center of the texture (rotation/scale point), 
 					// it's relative to destination rectangle dimentions, not the screen dimentions.
 					rl::drawTexturePro(*texture, source, rect, {0, 0}, 0.0f, color);
 				};
-			case BlendMode.CUSTOM_SEPARATE:
+			case RLBlendMode.CUSTOM_SEPARATE:
 				rl::setBlendFactorsSeparate(rl::RL_SRC_ALPHA, rl::RL_ONE_MINUS_SRC_ALPHA, rl::RL_ONE, rl::RL_ONE, rl::RL_FUNC_ADD, rl::RL_MAX);
-				rl::setBlendMode(rl::BlendMode.CUSTOM_SEPARATE);
+				rl::setBlendMode(rl::RLBlendMode.CUSTOM_SEPARATE);
 				rl::@blendMode(blending)
 				{
 				// NOTE(HM) center of the texture (rotation/scale point),
@@ -805,7 +886,7 @@ fn void Entity.draw(&self)
 		rl::drawCircle((int)self.bounds.maxc.x, (int)self.bounds.maxc.y, 2.0f, rl::SKYBLUE);
 		rl::drawCircle((int)self.bounds.minc.x, (int)self.bounds.minc.y, 2.0f, rl::SKYBLUE);
 		Vec2f size = self.bounds.minc - self.bounds.maxc;
-		Rectangle r = {rect.x, rect.y, size.x, size.y};
+		RLRectangle r = {rect.x, rect.y, size.x, size.y};
 		rl::drawRectangleLinesEx(r, 1.0f, rl::YELLOW);
 	}
 }
@@ -846,7 +927,7 @@ fn bool Entity.isValid(&self)
 	return false;
 }
 
-fn void create(String aname, int x, int y, int w, int h, Color color) @public 
+fn void create(String aname, int x, int y, int w, int h, RLColor color) @public 
 {
 	Entity* ent = mem::new(Entity);
 	ent.init(aname, {x, y}, color);
@@ -856,7 +937,7 @@ fn void create(String aname, int x, int y, int w, int h, Color color) @public
 <*
  @ensure return != null
 *>
-fn Entity* create_ex(String aname, Vec2f origin, Color color) @public 
+fn Entity* create_ex(String aname, Vec2f origin, RLColor color) @public 
 {
 	Entity* ent = mem::new(Entity);
 	ent.init(aname, origin, color);

@@ -52,7 +52,7 @@ struct Bounds {
  @param [in] rect : "rectangle to get data from"
  @require rect != null
 *>
-fn Bounds Bounds.fromRect(&self, Rectangle* rect) @inline {
+fn Bounds Bounds.fromRect(&self, RLRectangle* rect) @inline {
     Vec2f size = rect.getSize();
     self.maxc  = rect.getPosition();
     self.minc  = self.maxc + misc::VEC_RIGHT * size.x + misc::VEC_DOWN * size.y;
@@ -206,7 +206,7 @@ fn void Bounds.pequals(&self, Bounds* other) @operator(+=)
     // self.minc = self.maxc - other.minc;
 // }
 
-fn void Bounds.setRect(&self, Rectangle rect) @inline {
+fn void Bounds.setRect(&self, RLRectangle rect) @inline {
     Vec2f origin = rect.getPosition();
     float w, h;
     w = rect.getSize().x;

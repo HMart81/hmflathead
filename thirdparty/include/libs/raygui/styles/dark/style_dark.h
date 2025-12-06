@@ -44,7 +44,7 @@ static const GuiStyleProp darkStyleProps[DARK_STYLE_PROPS_COUNT] = {
 
 #define DARK_STYLE_FONT_ATLAS_COMP_SIZE 2126
 
-// Font atlas image pixels data: DEFLATE compressed
+// RLFont atlas image pixels data: DEFLATE compressed
 static unsigned char darkFontData[DARK_STYLE_FONT_ATLAS_COMP_SIZE] = { 0xed,
     0xdd, 0xdb, 0x72, 0xa4, 0x3a, 0x12, 0x05, 0x50, 0xfd, 0xff, 0x4f, 0xe7, 0x3c, 0x4c, 0x4c, 0x4c, 0x74, 0x9c, 0xd3, 0x20,
     0xa5, 0x52, 0x17, 0xec, 0xd5, 0xeb, 0xcd, 0xe5, 0x76, 0x51, 0xa0, 0x94, 0x84, 0x28, 0x36, 0xd1, 0x00, 0x00, 0x00, 0x80,
@@ -154,8 +154,8 @@ static unsigned char darkFontData[DARK_STYLE_FONT_ATLAS_COMP_SIZE] = { 0xed,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x56, 0xf9, 0xef, 0x3f, 0xfb, 0x01, 0xd4, 0x3f,
     0xf0, 0xeb, 0xea, 0xff, 0x3f };
 
-// Font glyphs rectangles data (on atlas)
-static const Rectangle darkFontRecs[189] = {
+// RLFont glyphs rectangles data (on atlas)
+static const RLRectangle darkFontRecs[189] = {
     { 4, 4, 4 , 16 },
     { 16, 4, 1 , 9 },
     { 25, 4, 3 , 3 },
@@ -347,7 +347,7 @@ static const Rectangle darkFontRecs[189] = {
     { 394, 100, 5 , 11 },
 };
 
-// Font glyphs info data
+// RLFont glyphs info data
 // NOTE: No glyphs.image data provided
 static const GlyphInfo darkFontGlyphs[189] = {
     { 32, 0, 13, 4, { 0 }},
@@ -555,9 +555,9 @@ static void GuiLoadStyleDark(void)
     // NOTE: Compressed font image data (DEFLATE), it requires DecompressData() function
     int darkFontDataSize = 0;
     unsigned char *data = DecompressData(darkFontData, DARK_STYLE_FONT_ATLAS_COMP_SIZE, &darkFontDataSize);
-    Image imFont = { data, 512, 256, 1, 2 };
+    RLImage imFont = { data, 512, 256, 1, 2 };
 
-    Font font = { 0 };
+    RLFont font = { 0 };
     font.baseSize = 16;
     font.glyphCount = 189;
 
@@ -567,8 +567,8 @@ static void GuiLoadStyleDark(void)
 
     // Copy char recs data from global fontRecs
     // NOTE: Required to avoid issues if trying to free font
-    font.recs = (Rectangle *)RAYGUI_MALLOC(font.glyphCount*sizeof(Rectangle));
-    memcpy(font.recs, darkFontRecs, font.glyphCount*sizeof(Rectangle));
+    font.recs = (RLRectangle *)RAYGUI_MALLOC(font.glyphCount*sizeof(RLRectangle));
+    memcpy(font.recs, darkFontRecs, font.glyphCount*sizeof(RLRectangle));
 
     // Copy font char info data from global fontChars
     // NOTE: Required to avoid issues if trying to free font
@@ -579,7 +579,7 @@ static void GuiLoadStyleDark(void)
 
     // Setup a white rectangle on the font to be used on shapes drawing,
     // it makes possible to draw shapes and text (full UI) in a single draw call
-    Rectangle fontWhiteRec = { 510, 254, 1, 1 };
+    RLRectangle fontWhiteRec = { 510, 254, 1, 1 };
     SetShapesTexture(font.texture, fontWhiteRec);
 
     //-----------------------------------------------------------------

@@ -258,11 +258,11 @@ struct MU_Vec2 @compact
 	int x, y;
 }
 
-fn MU_Vec2 MU_Vec2.fromRaylibVector2(self, Vector2 v) {
+fn MU_Vec2 MU_Vec2.fromRaylibVector2(self, RLVector2 v) {
   return { (int)v.x, (int)v.y };
 }
 
-fn Vector2 MU_Vec2.toRaylibVector2(self) {
+fn RLVector2 MU_Vec2.toRaylibVector2(self) {
   return { (float)self.x, (float)self.y };
 }
 
@@ -271,15 +271,15 @@ struct MU_Rect @compact
 	int x, y, w, h;
 }
 
-fn MU_Rect MU_Rect.fromRaylibRectangle(self, Rectangle r) {
+fn MU_Rect MU_Rect.fromRaylibRectangle(self, RLRectangle r) {
   return { (int)r.x, (int)r.y, (int)r.width, (int)r.height };
 }
 
-fn Rectangle MU_Rect.toRaylibRectangle(self) {
+fn RLRectangle MU_Rect.toRaylibRectangle(self) {
   return { (float)self.x, (float)self.y, (float)self.w, (float)self.h };
 }
 
-alias MU_Color = Color;
+alias MU_Color = RLColor;
 
 struct MU_PoolItem @compact
 { 
@@ -730,7 +730,7 @@ fn void test_window(MU_Context* ctx)
     } // end of tree
 
     /* background color sliders */
-    if (ctx.header_ex("Background Color", MU_Opt.EXPANDED.v)) 
+    if (ctx.header_ex("Background RLColor", MU_Opt.EXPANDED.v)) 
 	  {
 		  ctx.layout_row(2, &&(int[*]) { -78, -1 }, 74);
       /* sliders */
@@ -766,7 +766,7 @@ fn void debug_window(MU_Context* ctx) @inline
 		ctx.text("Put here any debug stuff you need.");
     ctx.@make_rows(1, &&(int[*]) { 100 }) 
     {
-      ctx.checkbox("Pause Music:", &main::gpGame.pause_all_music);
+      ctx.checkbox("Pause RLMusic:", &main::gpGame.pause_all_music);
     };
 	};
 
@@ -973,14 +973,14 @@ $if $defined(ENABLE_OLD_STRING):
 /*
 struct MouseButtonMapping @local @compact
 {
-    MouseButton rl; // Raylib mouse button enum
+    RLMouseButton rl; // Raylib mouse button enum
     MU_Mouse mu;// MicroUI mouse button enum;
 }*/
 
 fn void MU_Context.forward_mouse_input(MU_Context* ctx) 
 {
     // Get the current mouse position/scroll from raylib
-    Vector2 mouse_position = {rl::getMouseX(), rl::getMouseY()};
+    RLVector2 mouse_position = {rl::getMouseX(), rl::getMouseY()};
     float mouse_scroll = rl::getMouseWheelMove() * -30.0f; // Invert the scroll direction to match mui's expectations
 
     // Send the mouse position/scroll to mui
@@ -990,13 +990,13 @@ fn void MU_Context.forward_mouse_input(MU_Context* ctx)
     // We'll create an array of mappings using the struct above
  /*
     MouseButtonMapping[*] mouseButtonMappings = {
-        {MouseButton.LEFT, MU_Mouse.LEFT},
-        {MouseButton.RIGHT, MU_Mouse.RIGHT},
-        {MouseButton.MIDDLE, MU_Mouse.MIDDLE},
-        {MouseButton.SIDE, MU_Mouse.SIDE},
-        {MouseButton.EXTRA, MU_Mouse.EXTRA},
-        {MouseButton.FORWARD, MU_Mouse.FORWARD},
-        {MouseButton.BACK, MU_Mouse.BACK}
+        {RLMouseButton.LEFT, MU_Mouse.LEFT},
+        {RLMouseButton.RIGHT, MU_Mouse.RIGHT},
+        {RLMouseButton.MIDDLE, MU_Mouse.MIDDLE},
+        {RLMouseButton.SIDE, MU_Mouse.SIDE},
+        {RLMouseButton.EXTRA, MU_Mouse.EXTRA},
+        {RLMouseButton.FORWARD, MU_Mouse.FORWARD},
+        {RLMouseButton.BACK, MU_Mouse.BACK}
     };*/
 
     // Check each if each mouse button is down or released with Raylib and forward the event to mui if so
@@ -1021,12 +1021,12 @@ fn void MU_Context.forward_mouse_input(MU_Context* ctx)
       mu_input_mouseup(&ctx, x, y, buttons); 
       [\quote]
     */
-    for(int button = MouseButton.LEFT; button <= (int)MouseButton.MIDDLE; ++button)
+    for(int button = RLMouseButton.LEFT; button <= (int)RLMouseButton.MIDDLE; ++button)
     {
-        if (rl::isMouseButtonPressed(MouseButton.from_ordinal(button))) {
+        if (rl::isMouseButtonPressed(RLMouseButton.from_ordinal(button))) {
             ctx.input_mousedown((int)mouse_position.x, (int)mouse_position.y, 1 << button);
         }
-        if (rl::isMouseButtonReleased(MouseButton.from_ordinal(button))) {
+        if (rl::isMouseButtonReleased(RLMouseButton.from_ordinal(button))) {
             ctx.input_mouseup((int)mouse_position.x, (int)mouse_position.y, 1 << button);
         }
     }
@@ -1036,7 +1036,7 @@ fn void MU_Context.forward_mouse_input(MU_Context* ctx)
 // This struct stores a mapping from a raylib key enum to the equivalent mui enum
 struct KeyMapping @local @compact
 {
-    KeyboardKey rl;
+    RLKeyboardKey rl;
     MU_Key mu;
 }
 
@@ -1090,12 +1090,12 @@ fn void r_draw_icon(int id, MU_Rect _rect, MU_Color color) @local
   // For simplicity, we can use a placeholder drawing function
   //draw_rect(rect(x, y, src.w, src.h), color); // Placeholder for actual icon drawing logic
   rl::setBlendFactors(rl::RL_ONE, rl::RL_ONE, rl::RL_FUNC_ADD);
-  rl::@blendMode(BlendMode.CUSTOM) 
+  rl::@blendMode(RLBlendMode.CUSTOM) 
   {
     rl::drawTexturePro(main::gpGame.mu_font_atlas,
-      (Rectangle){src.x, src.y, src.w, src.h},
-      (Rectangle){x, y, src.w, src.h},
-      (Vector2){0, 0}, 0.0f, color);
+      (RLRectangle){src.x, src.y, src.w, src.h},
+      (RLRectangle){x, y, src.w, src.h},
+      (RLVector2){0, 0}, 0.0f, color);
   };
 }
 

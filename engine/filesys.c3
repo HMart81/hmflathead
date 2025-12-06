@@ -315,23 +315,23 @@ fn bool isFileNameValid(String fileName) @inline {
     return rl::isFileNameValid(fileName.zstr_tcopy());
 }
 // Load directory filepaths
-fn FilePathList loadDirectoryFiles(String dirPath) @inline {
+fn RLFilePathList loadDirectoryFiles(String dirPath) @inline {
     return rl::loadDirectoryFiles(dirPath.zstr_tcopy());
 }
 // Load directory filepaths with extension filtering and recursive directory scan
-fn FilePathList loadDirectoryFilesEx(String basePath, String filter, bool scanSubdirs) @inline {
+fn RLFilePathList loadDirectoryFilesEx(String basePath, String filter, bool scanSubdirs) @inline {
     return rl::loadDirectoryFilesEx(basePath.zstr_tcopy(), filter.zstr_tcopy(), scanSubdirs);
 }
 // Clear directory files paths buffers (free memory)
-fn void unloadDirectoryFiles(FilePathList files) @inline {
+fn void unloadDirectoryFiles(RLFilePathList files) @inline {
     rl::unloadDirectoryFiles(files);
 }
 // Check if a file has been dropped into window
 fn bool isFileDropped() => rl::isFileDropped();
 // Load dropped filepaths
-fn FilePathList loadDroppedFiles() => rl::loadDroppedFiles();
+fn RLFilePathList loadDroppedFiles() => rl::loadDroppedFiles();
 // Unload dropped filepaths
-fn void unloadDroppedFiles(FilePathList files) @inline {
+fn void unloadDroppedFiles(RLFilePathList files) @inline {
     rl::unloadDroppedFiles(files);
 }
 // Get file modification time (last write time)
@@ -352,7 +352,7 @@ fn void do_move(String from, String dest, String fileExtensions) @inline @local
         foreach(fileext : extensions)
         {
             // load all files with the given extension in the main directory
-            FilePathList files = fs::loadDirectoryFilesEx(from, fileext, scanSubdirs: false);
+            RLFilePathList files = fs::loadDirectoryFilesEx(from, fileext, scanSubdirs: false);
             for(int i = 0; i < files.count; i++) 
             {
                 // now move the files to the subdirectory
@@ -370,7 +370,7 @@ fn void do_move(String from, String dest, String fileExtensions) @inline @local
         }
     } else {
         // load all files in the original directory
-        FilePathList files = fs::loadDirectoryFiles(from);
+        RLFilePathList files = fs::loadDirectoryFiles(from);
         for(int i = 0; i < files.count; i++) 
         {
             // now move the files to the subdirectory

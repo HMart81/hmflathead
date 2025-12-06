@@ -148,7 +148,7 @@ fn void? VideoPlayer.registerVideos(&self)
 
     if(fs::makeDirectory_IfNotExist(self.movies_folder)!!)
     {
-        FilePathList videos_files = fs::loadDirectoryFiles(self.movies_folder);
+        RLFilePathList videos_files = fs::loadDirectoryFiles(self.movies_folder);
         defer {
             if(videos_files.count) fs::unloadDirectoryFiles(videos_files);
         };
@@ -209,7 +209,7 @@ struct PLMframe copy pasted from lpmpeg.c3i for doc reasons only
 fn void on_video(PLM_t mpeg, PLMframe *frame, void *user) {
 	VidMovie *self = (VidMovie *)user;
 
-    Image image;
+    RLImage image;
     image.width     = self.plyr.get_width();
     image.height    = self.plyr.get_height();
     int pixel_count = image.width * image.height;
@@ -217,9 +217,9 @@ fn void on_video(PLM_t mpeg, PLMframe *frame, void *user) {
     //image.data = (Uint8_t)mem::malloc(pixel_count * COLOR_CHANNELS);
     frame.to_rgb((Uint8_t*)image.data, pixel_count * COLOR_CHANNELS);
     image.mipmaps = 1;
-    image.format = rl::PixelFormat.UNCOMPRESSED_R8G8B8A8;
+    image.format = rl::RLPixelFormat.UNCOMPRESSED_R8G8B8A8;
 
-    rl::Texture2D texture = rl::loadTextureFromImage(image);
+    rl::RLTexture2D texture = rl::loadTextureFromImage(image);
     //float duration = self.data.duration;
     rl::drawTexture(texture, texture.width, texture.height, rl::WHITE);
     //
@@ -237,7 +237,7 @@ fn void on_audio(PLM_t mpeg, PLMsamples *samples, void *user) {
     buffer.write((Uint8_t*)&samples.left[0], samples.left.len);
     buffer.write((Uint8_t*)&samples.right[0], samples.right.len);
     PLMaudio* audio = plm::audio::create_with_buffer(buffer, 1);
-    Wave raw = {
+    RLWave raw = {
         .frameCount = size,
         .sampleRate = audio.get_samplerate(),
         .sampleSize = 32,
@@ -245,7 +245,7 @@ fn void on_audio(PLM_t mpeg, PLMsamples *samples, void *user) {
         .data = audio.buffer.bytes
     };
     if(rl::isWaveValid(raw)) {
-        Sound snd = rl::loadSoundFromWave(raw);
+        RLSound snd = rl::loadSoundFromWave(raw);
         if(rl::isSoundValid(snd)) {
             rl::playSound(snd);
         }

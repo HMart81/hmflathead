@@ -54,7 +54,7 @@ static const GuiStyleProp sunnyStyleProps[SUNNY_STYLE_PROPS_COUNT] = {
 
 #define SUNNY_STYLE_FONT_ATLAS_COMP_SIZE 2462
 
-// Font atlas image pixels data: DEFLATE compressed
+// RLFont atlas image pixels data: DEFLATE compressed
 static unsigned char sunnyFontData[SUNNY_STYLE_FONT_ATLAS_COMP_SIZE] = { 0xed,
     0xdd, 0x59, 0xb2, 0xeb, 0x34, 0x10, 0x00, 0x50, 0x6d, 0x83, 0xfd, 0xef, 0x8d, 0x6d, 0x88, 0xa2, 0x28, 0x0a, 0xb8, 0x8f,
     0x58, 0x52, 0x77, 0xcb, 0x53, 0x0e, 0xa7, 0xf8, 0xb9, 0x7e, 0x49, 0x6c, 0xd9, 0x6d, 0x0d, 0xb6, 0x5a, 0xbd, 0x01, 0x00,
@@ -181,8 +181,8 @@ static unsigned char sunnyFontData[SUNNY_STYLE_FONT_ATLAS_COMP_SIZE] = { 0xed,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xd8, 0xe9, 0xaf, 0xff, 0x94, 0x03, 0x88, 0x7f, 0xe0, 0xeb, 0xe2, 0xff,
     0x0f };
 
-// Font glyphs rectangles data (on atlas)
-static const Rectangle sunnyFontRecs[189] = {
+// RLFont glyphs rectangles data (on atlas)
+static const RLRectangle sunnyFontRecs[189] = {
     { 4, 4, 4 , 16 },
     { 16, 4, 2 , 10 },
     { 26, 4, 5 , 3 },
@@ -374,7 +374,7 @@ static const Rectangle sunnyFontRecs[189] = {
     { 117, 124, 6 , 12 },
 };
 
-// Font glyphs info data
+// RLFont glyphs info data
 // NOTE: No glyphs.image data provided
 static const GlyphInfo sunnyFontGlyphs[189] = {
     { 32, 0, 12, 4, { 0 }},
@@ -582,9 +582,9 @@ static void GuiLoadStyleSunny(void)
     // NOTE: Compressed font image data (DEFLATE), it requires DecompressData() function
     int sunnyFontDataSize = 0;
     unsigned char *data = DecompressData(sunnyFontData, SUNNY_STYLE_FONT_ATLAS_COMP_SIZE, &sunnyFontDataSize);
-    Image imFont = { data, 512, 256, 1, 2 };
+    RLImage imFont = { data, 512, 256, 1, 2 };
 
-    Font font = { 0 };
+    RLFont font = { 0 };
     font.baseSize = 16;
     font.glyphCount = 189;
 
@@ -594,8 +594,8 @@ static void GuiLoadStyleSunny(void)
 
     // Copy char recs data from global fontRecs
     // NOTE: Required to avoid issues if trying to free font
-    font.recs = (Rectangle *)RAYGUI_MALLOC(font.glyphCount*sizeof(Rectangle));
-    memcpy(font.recs, sunnyFontRecs, font.glyphCount*sizeof(Rectangle));
+    font.recs = (RLRectangle *)RAYGUI_MALLOC(font.glyphCount*sizeof(RLRectangle));
+    memcpy(font.recs, sunnyFontRecs, font.glyphCount*sizeof(RLRectangle));
 
     // Copy font char info data from global fontChars
     // NOTE: Required to avoid issues if trying to free font
@@ -606,7 +606,7 @@ static void GuiLoadStyleSunny(void)
 
     // Setup a white rectangle on the font to be used on shapes drawing,
     // it makes possible to draw shapes and text (full UI) in a single draw call
-    Rectangle fontWhiteRec = { 510, 254, 1, 1 };
+    RLRectangle fontWhiteRec = { 510, 254, 1, 1 };
     SetShapesTexture(font.texture, fontWhiteRec);
 
     //-----------------------------------------------------------------

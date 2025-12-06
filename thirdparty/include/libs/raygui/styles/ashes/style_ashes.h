@@ -37,7 +37,7 @@ static const GuiStyleProp ashesStyleProps[ASHES_STYLE_PROPS_COUNT] = {
 
 #define ASHES_STYLE_FONT_ATLAS_COMP_SIZE 2042
 
-// Font atlas image pixels data: DEFLATE compressed
+// RLFont atlas image pixels data: DEFLATE compressed
 static unsigned char ashesFontData[ASHES_STYLE_FONT_ATLAS_COMP_SIZE] = { 0xed,
     0xdd, 0xd1, 0xb2, 0xab, 0x36, 0x0c, 0x05, 0x50, 0xff, 0xff, 0x4f, 0xab, 0x0f, 0x9d, 0x4e, 0xdb, 0x69, 0x13, 0x90, 0x2c,
     0x83, 0x21, 0xeb, 0xae, 0xb7, 0x9c, 0xdc, 0x40, 0x0c, 0x1b, 0x63, 0x88, 0x45, 0x0c, 0x00, 0x00, 0x00, 0xe0, 0xe7, 0xc5,
@@ -143,8 +143,8 @@ static unsigned char ashesFontData[ASHES_STYLE_FONT_ATLAS_COMP_SIZE] = { 0xed,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x30, 0xe3, 0xcf, 0x7f, 0xda, 0x01, 0xe4, 0x1f, 0xf8, 0xb9, 0xfc, 0xff,
     0x01 };
 
-// Font glyphs rectangles data (on atlas)
-static const Rectangle ashesFontRecs[189] = {
+// RLFont glyphs rectangles data (on atlas)
+static const RLRectangle ashesFontRecs[189] = {
     { 4, 4, 4 , 16 },
     { 16, 4, 1 , 10 },
     { 25, 4, 3 , 3 },
@@ -336,7 +336,7 @@ static const Rectangle ashesFontRecs[189] = {
     { 283, 100, 4 , 15 },
 };
 
-// Font glyphs info data
+// RLFont glyphs info data
 // NOTE: No glyphs.image data provided
 static const GlyphInfo ashesFontGlyphs[189] = {
     { 32, 0, 13, 4, { 0 }},
@@ -544,9 +544,9 @@ static void GuiLoadStyleAshes(void)
     // NOTE: Compressed font image data (DEFLATE), it requires DecompressData() function
     int ashesFontDataSize = 0;
     unsigned char *data = DecompressData(ashesFontData, ASHES_STYLE_FONT_ATLAS_COMP_SIZE, &ashesFontDataSize);
-    Image imFont = { data, 512, 256, 1, 2 };
+    RLImage imFont = { data, 512, 256, 1, 2 };
 
-    Font font = { 0 };
+    RLFont font = { 0 };
     font.baseSize = 16;
     font.glyphCount = 189;
 
@@ -556,8 +556,8 @@ static void GuiLoadStyleAshes(void)
 
     // Copy char recs data from global fontRecs
     // NOTE: Required to avoid issues if trying to free font
-    font.recs = (Rectangle *)RAYGUI_MALLOC(font.glyphCount*sizeof(Rectangle));
-    memcpy(font.recs, ashesFontRecs, font.glyphCount*sizeof(Rectangle));
+    font.recs = (RLRectangle *)RAYGUI_MALLOC(font.glyphCount*sizeof(RLRectangle));
+    memcpy(font.recs, ashesFontRecs, font.glyphCount*sizeof(RLRectangle));
 
     // Copy font char info data from global fontChars
     // NOTE: Required to avoid issues if trying to free font
@@ -568,7 +568,7 @@ static void GuiLoadStyleAshes(void)
 
     // Setup a white rectangle on the font to be used on shapes drawing,
     // it makes possible to draw shapes and text (full UI) in a single draw call
-    Rectangle fontWhiteRec = { 510, 254, 1, 1 };
+    RLRectangle fontWhiteRec = { 510, 254, 1, 1 };
     SetShapesTexture(font.texture, fontWhiteRec);
 
     //-----------------------------------------------------------------

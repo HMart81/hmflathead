@@ -38,7 +38,7 @@ static const GuiStyleProp terminalStyleProps[TERMINAL_STYLE_PROPS_COUNT] = {
 
 #define TERMINAL_STYLE_FONT_ATLAS_COMP_SIZE 1860
 
-// Font atlas image pixels data: DEFLATE compressed
+// RLFont atlas image pixels data: DEFLATE compressed
 static unsigned char terminalFontData[TERMINAL_STYLE_FONT_ATLAS_COMP_SIZE] = { 0xed,
     0xdd, 0x41, 0x92, 0xa4, 0x36, 0x10, 0x05, 0x50, 0xee, 0x7f, 0xe9, 0xf4, 0x62, 0x62, 0x16, 0x76, 0xb8, 0x1b, 0x94, 0x4a,
     0x89, 0x04, 0x9e, 0x5f, 0x78, 0xd3, 0xd5, 0x53, 0x4d, 0x01, 0xbf, 0x24, 0x84, 0x94, 0xc4, 0x01, 0x00, 0x00, 0x00, 0x7c,
@@ -134,8 +134,8 @@ static unsigned char terminalFontData[TERMINAL_STYLE_FONT_ATLAS_COMP_SIZE] = { 0
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xf6, 0xf9, 0xf3, 0x9f, 0xfd, 0x00, 0xf2, 0x0f, 0x7c, 0x2e, 0xff, 0xff, 0x00 };
 
-// Font glyphs rectangles data (on atlas)
-static const Rectangle terminalFontRecs[189] = {
+// RLFont glyphs rectangles data (on atlas)
+static const RLRectangle terminalFontRecs[189] = {
     { 4, 4, 4 , 16 },
     { 16, 4, 1 , 11 },
     { 25, 4, 3 , 3 },
@@ -327,7 +327,7 @@ static const Rectangle terminalFontRecs[189] = {
     { 292, 100, 5 , 12 },
 };
 
-// Font glyphs info data
+// RLFont glyphs info data
 // NOTE: No glyphs.image data provided
 static const GlyphInfo terminalFontGlyphs[189] = {
     { 32, 0, 14, 4, { 0 }},
@@ -535,9 +535,9 @@ static void GuiLoadStyleTerminal(void)
     // NOTE: Compressed font image data (DEFLATE), it requires DecompressData() function
     int terminalFontDataSize = 0;
     unsigned char *data = DecompressData(terminalFontData, TERMINAL_STYLE_FONT_ATLAS_COMP_SIZE, &terminalFontDataSize);
-    Image imFont = { data, 512, 256, 1, 2 };
+    RLImage imFont = { data, 512, 256, 1, 2 };
 
-    Font font = { 0 };
+    RLFont font = { 0 };
     font.baseSize = 16;
     font.glyphCount = 189;
 
@@ -547,8 +547,8 @@ static void GuiLoadStyleTerminal(void)
 
     // Copy char recs data from global fontRecs
     // NOTE: Required to avoid issues if trying to free font
-    font.recs = (Rectangle *)RAYGUI_MALLOC(font.glyphCount*sizeof(Rectangle));
-    memcpy(font.recs, terminalFontRecs, font.glyphCount*sizeof(Rectangle));
+    font.recs = (RLRectangle *)RAYGUI_MALLOC(font.glyphCount*sizeof(RLRectangle));
+    memcpy(font.recs, terminalFontRecs, font.glyphCount*sizeof(RLRectangle));
 
     // Copy font char info data from global fontChars
     // NOTE: Required to avoid issues if trying to free font
@@ -559,7 +559,7 @@ static void GuiLoadStyleTerminal(void)
 
     // Setup a white rectangle on the font to be used on shapes drawing,
     // it makes possible to draw shapes and text (full UI) in a single draw call
-    Rectangle fontWhiteRec = { 510, 254, 1, 1 };
+    RLRectangle fontWhiteRec = { 510, 254, 1, 1 };
     SetShapesTexture(font.texture, fontWhiteRec);
 
     //-----------------------------------------------------------------

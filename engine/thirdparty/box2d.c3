@@ -34,14 +34,14 @@ import engine::sys::render2d::r2d;
 import engine::misc;
 import game::camview;
 
-//fn Color hexToColor( int c, float alpha = 1.0f ) @local
+//fn RLColor hexToColor( int c, float alpha = 1.0f ) @local
 //{
 	//return { (char)(( c >> 16 ) & 0xFF), (char)( ( c >> 8 ) & 0xFF ), (char)( c & 0xFF ), (char)( 0xFF * alpha ) };
 //}
 
-fn Color hexToColor(B2HexColor hexValue)
+fn RLColor hexToColor(B2HexColor hexValue)
 {
-  Color rgbColor = { 0, 0, 0, 255 }; // Initialize with default values
+  RLColor rgbColor = { 0, 0, 0, 255 }; // Initialize with default values
   rgbColor.r = (char)((hexValue >> 16) & 0xFF);  // Extract the RR byte
   rgbColor.g = (char)((hexValue >> 8) & 0xFF);   // Extract the GG byte
   rgbColor.b = (char)((hexValue) & 0xFF);        // Extract the BB byte
@@ -131,7 +131,7 @@ fn void deinitDebugDraw(B2DebugDraw* dd) {
     if(dd.context         ) dd.context          = null;
 }
 
-fn void dbgDrawPolygonLocal(B2Vec2* vertices, int vertexCount, Color tint) @local
+fn void dbgDrawPolygonLocal(B2Vec2* vertices, int vertexCount, RLColor tint) @local
 {
     B2Vec2 p1 = vertices[vertexCount - 1];
     for ( int i = 0; i < vertexCount; ++i )
@@ -164,14 +164,14 @@ fn void dbgDrawTransformLocal(B2Transform transform) @local
     @require vertices != null
 *>
 fn void dbgDrawPolygon(B2Vec2* vertices, int vertexCount, B2HexColor color, void* context = null ) {
-    //rl::drawLineStrip((Vector2*)vertices, vertexCount,rl::BLUE);
-   r2d::drawTriangleStrip((Vector2*)vertices, vertexCount, /*rl::BLUE*/ hexToColor(color));
-    //Color c = hexToColor(color);
+    //rl::drawLineStrip((RLVector2*)vertices, vertexCount,rl::BLUE);
+   r2d::drawTriangleStrip((RLVector2*)vertices, vertexCount, /*rl::BLUE*/ hexToColor(color));
+    //RLColor c = hexToColor(color);
     //dbgDrawPolygonLocal(vertices, vertexCount,r2d::BLUE);
 }
 /// Draw a solid closed polygon provided in CCW order.
 fn void dbgDrawSolidPolygon(B2Transform transform, B2Vec2* vertices, int vertexCount, float radius, B2HexColor color, void* context ) {
-   r2d::drawTriangleStrip((rl::Vector2*)vertices, vertexCount, hexToColor(color));
+   r2d::drawTriangleStrip((rl::RLVector2*)vertices, vertexCount, hexToColor(color));
 }
 fn void dbgDrawCircle(B2Vec2 center, float radius, B2HexColor color, void* context ) {
    r2d::drawCircleLinesV(center, radius, hexToColor(color));

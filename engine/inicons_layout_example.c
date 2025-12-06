@@ -64,21 +64,21 @@ int main()
     char line12Text[128] = "SAMPLE TEXT";            // TextBox: line12
 
     // Define controls rectangles
-    Rectangle layoutRecs[14] = {
-        (Rectangle){ 0, 0, 360, 360 },    // WindowBox: consoleBody
-        (Rectangle){ 24, 48, 312, 24 },    // TextBox: line1
-        (Rectangle){ 24, 72, 312, 24 },    // TextBox: line2
-        (Rectangle){ 24, 96, 312, 24 },    // TextBox: line3
-        (Rectangle){ 24, 120, 312, 24 },    // TextBox: line4
-        (Rectangle){ 24, 144, 312, 24 },    // TextBox: line5
-        (Rectangle){ 24, 168, 312, 24 },    // TextBox: line6
-        (Rectangle){ 24, 192, 312, 24 },    // TextBox: line7
-        (Rectangle){ 24, 216, 312, 24 },    // TextBox: line8
-        (Rectangle){ 24, 240, 312, 24 },    // TextBox: line9
-        (Rectangle){ 24, 264, 312, 24 },    // TextBox: line10
-        (Rectangle){ 24, 288, 312, 24 },    // TextBox: line11
-        (Rectangle){ 24, 312, 312, 24 },    // TextBox: line12
-        (Rectangle){ 24, 48, 312, 288 },    // GroupBox: GroupBox015
+    RLRectangle layoutRecs[14] = {
+        (RLRectangle){ 0, 0, 360, 360 },    // WindowBox: consoleBody
+        (RLRectangle){ 24, 48, 312, 24 },    // TextBox: line1
+        (RLRectangle){ 24, 72, 312, 24 },    // TextBox: line2
+        (RLRectangle){ 24, 96, 312, 24 },    // TextBox: line3
+        (RLRectangle){ 24, 120, 312, 24 },    // TextBox: line4
+        (RLRectangle){ 24, 144, 312, 24 },    // TextBox: line5
+        (RLRectangle){ 24, 168, 312, 24 },    // TextBox: line6
+        (RLRectangle){ 24, 192, 312, 24 },    // TextBox: line7
+        (RLRectangle){ 24, 216, 312, 24 },    // TextBox: line8
+        (RLRectangle){ 24, 240, 312, 24 },    // TextBox: line9
+        (RLRectangle){ 24, 264, 312, 24 },    // TextBox: line10
+        (RLRectangle){ 24, 288, 312, 24 },    // TextBox: line11
+        (RLRectangle){ 24, 312, 312, 24 },    // TextBox: line12
+        (RLRectangle){ 24, 48, 312, 288 },    // GroupBox: GroupBox015
     };
     //----------------------------------------------------------------------------------
 

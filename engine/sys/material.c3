@@ -66,24 +66,24 @@ faultdef MAT_INVALID_PATH,
 
 
 /*
-Model model = LoadModel("resources/models/obj/castle.obj");                 // Load model
-Texture2D texture = LoadTexture("resources/models/obj/castle_diffuse.png"); // Load model texture
+RLModel model = LoadModel("resources/models/obj/castle.obj");                 // Load model
+RLTexture2D texture = LoadTexture("resources/models/obj/castle_diffuse.png"); // Load model texture
 model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;            // Set map diffuse texture
 
-// Material loading/unloading functions
-Material *LoadMaterials(const char *fileName, int *materialCount);                    // Load materials from model file
-Material LoadMaterialDefault(void);                                                   // Load default material (Supports: DIFFUSE, SPECULAR, NORMAL maps)
-bool IsMaterialValid(Material material);                                              // Check if a material is valid (shader assigned, map textures loaded in GPU)
-void UnloadMaterial(Material material);                                               // Unload material from GPU memory (VRAM)
-void SetMaterialTexture(Material *material, int mapType, Texture2D texture);          // Set texture for a material map type (MATERIAL_MAP_DIFFUSE, MATERIAL_MAP_SPECULAR...)
-void SetModelMeshMaterial(Model *model, int meshId, int materialId);                  // Set material for a mesh
+// RLMaterial loading/unloading functions
+RLMaterial *LoadMaterials(const char *fileName, int *materialCount);                    // Load materials from model file
+RLMaterial LoadMaterialDefault(void);                                                   // Load default material (Supports: DIFFUSE, SPECULAR, NORMAL maps)
+bool IsMaterialValid(RLMaterial material);                                              // Check if a material is valid (shader assigned, map textures loaded in GPU)
+void UnloadMaterial(RLMaterial material);                                               // Unload material from GPU memory (VRAM)
+void SetMaterialTexture(RLMaterial *material, int mapType, RLTexture2D texture);          // Set texture for a material map type (MATERIAL_MAP_DIFFUSE, MATERIAL_MAP_SPECULAR...)
+void SetModelMeshMaterial(RLModel *model, int meshId, int materialId);                  // Set material for a mesh
 */
 
 const NEW_MATERAL_SYSTEM = true; // enable the new material system, still WIP
 
 // TODO(HM) Support more than one stage type per material, 
 // for example more than one diffuse map, etc.
-// Material stage index
+// RLMaterial stage index
 alias MatStageIndex                 = int;
 const MatStageIndex STAGE_DIFFUSE   @public = 0;    // only one supported (for now...)
 const MatStageIndex STAGE_SPECULAR  @public = 1;
@@ -115,7 +115,7 @@ const int BLEND_MODULATE @public = rl::RL_DST_COLOR | rl::RL_ZERO;              
 
 
 /* 
-TODO(HM) potencial new material and stage system in XML format:
+TODO(HM) potencial new future material file and stage system in XML format:
 
 <MTR version="1.0" generator="hmflathead mtrgen v0.1">
     <library_materials>
@@ -126,15 +126,14 @@ TODO(HM) potencial new material and stage system in XML format:
             <-- fallback material used when this main material is unsupported -->
             <fallback_material name="images/textures/brick" />
             <-- global parameters, affect the entire material -->
-            <parms 
+            <globals 
                 sort="10" 
                 coverage="translucent" 
                 contents="solid, terrain" 
                 flags="alpha_test, no_shadows"
             />
             <library_stages>
-                <stage type="diffuse">
-                    <blend mode="blend" />
+                <stage type="diffuse" blend_mode="blend">
                     <map path="images/textures/figure.png" />
                     <-- local parameters, affect only this stage -->
                     <parms alpha="0.5" wrap_s="repeat" wrap_t="repeat" />
@@ -150,15 +149,15 @@ TODO(HM) potencial new material and stage system in XML format:
     </library_materials>
 </MTR>
 */
-// NOTE(HM) raylib has the MaterialMap already that is almost equivalent, should we use that?
-// Material stage represents each texture type in a material
+// NOTE(HM) raylib has the RLMaterialMap already that is almost equivalent, should we use that?
+// RLMaterial stage represents each texture type in a material
 struct MaterialStage @public
 {
     //int kind; // kind of stage, used to identify the stage type, for example diffuse, specular, normal, etc.
 
-    //NOTE(HM) width and Height are encoded on the Texture2D data
-    Texture2D tex;
-    Color color;
+    //NOTE(HM) width and Height are encoded on the RLTexture2D data
+    RLTexture2D tex;
+    RLColor color;
     int drawStateBits @if(!$defined(NEW_MATERAL_SYSTEM)); // draw state bits for this stage, used for blending and who knows other effects
     union @if($defined(NEW_MATERAL_SYSTEM))
     {
@@ -217,7 +216,7 @@ struct MaterialVideoStage
     inline MaterialStage super;
 }
 
-alias Coverage @public = int; //Material Coverage
+alias Coverage @public = int; //RLMaterial Coverage
 const Coverage COVERAGE_BAD         @public = 0; // invalid coverage type
 const Coverage COVERAGE_OPAQUE      @public = 1; // completely fills the triangle
 const Coverage COVERAGE_PERFORATED  @public = 2; // may have alpha tested holes
@@ -230,11 +229,11 @@ attrdef @NewMatSystem(value) = @tag("version", value), @if($defined(NEW_MATERAL_
 const int MAX_STAGE_ARGS @if($defined(NEW_MATERAL_SYSTEM)) = 16; // max number of arguments per stage
 struct NewStage @if($defined(NEW_MATERAL_SYSTEM)) @public
 {
-    Texture2D tex; // GPU texture id
+    RLTexture2D tex; // GPU texture id
     MatStageIndex type; // is also a index
     int blendMode;
     StageLighting lighting;
-    Color color;
+    RLColor color;
     StageArgument[MAX_STAGE_ARGS] args; // array of arguments for this stage
 }
 
@@ -323,7 +322,7 @@ struct HMaterial  (SaveSystemInterface) @public
     int contentes;
     Flags flags;
 
-    Shader shader; // shader used by this material, if any
+    RLShader shader; // shader used by this material, if any
     
     // TODO(HM) support more than one diffuse map stage, etc.
     // for more complex materials.
@@ -393,8 +392,8 @@ fn void HMaterial.free(&self) @public
 // TODO(HM) make this print a more detailed material info
 fn void HMaterial.print(self) @public //@local
 {
-    Color color = self.getStage(mat::STAGE_DIFFUSE).color;
-    Texture2D* tex = &self.getStage(mat::STAGE_DIFFUSE).tex;
+    RLColor color = self.getStage(mat::STAGE_DIFFUSE).color;
+    RLTexture2D* tex = &self.getStage(mat::STAGE_DIFFUSE).tex;
     io::printfn("[material : '%s']", self.name);
     if(self.comment.len && self.comment != "<no comment>") {
         io::printfn(" comment = \"%s\"", self.comment);
@@ -407,22 +406,26 @@ fn void HMaterial.print(self) @public //@local
     }
 }
 
-fn void HMaterial.setShader(&self, Shader shader) @inline @public
+fn void HMaterial.setShader(&self, RLShader shader) @inline @public
 {
     self.shader = shader;
 }
 
 // @untested
+<*
+    Deep copy of a shader data
+    @param [&in] other : "the other material to copy data from"
+*>
 fn void HMaterial.copy(&self, HMaterial* other)
 {
-    if(other == null) {
+    /*if(other == null) {
         log::error(Where.FILE, "Cannot copy material from null pointer!");
         return;
-    }
+    }*/
     
     // NOTE(HM) Perhaps this should be a string with the mtr path in it, 
     // not a pointer to some data in memory, that could be freed anytime...
-    MTRFile* mtrfile;  // pointer to mtr data in memory where this material is defined
+    //MTRFile* mtrfile;  // pointer to mtr data in memory where this material is defined
     self.name = other.name.tcopy();
     self.comment = other.comment.tcopy();
     self.coverage = other.coverage;
@@ -456,25 +459,23 @@ fn MaterialStage* HMaterial.getStage(&self, MatStageIndex index) @inline @public
     return &self.maps[index];
 }
 
-fn Texture2D* HMaterial.getTexture(&self, MatStageIndex index, bool isPBR = false) @public
+fn RLTexture2D* HMaterial.getTexture(&self, MatStageIndex index, bool isPBR = false) @public
 {
     switch(index)
     {
-        case STAGE_NORMAL:
-        case STAGE_SPECULAR:
-        case STAGE_HEIGHT:
-        case STAGE_EMISSION:
-        case STAGE_OCCLUSION:
-        case STAGE_CUBEMAP:
-        case STAGE_VIDEO:
-        case STAGE_SOUND: 
+        case STAGE_NORMAL:    return &self.getStage(STAGE_NORMAL).tex;
+        case STAGE_SPECULAR:  return &self.getStage(STAGE_SPECULAR).tex;
+        case STAGE_HEIGHT:    return &self.getStage(STAGE_HEIGHT).tex;
+        case STAGE_EMISSION:  return &self.getStage(STAGE_EMISSION).tex;
+        case STAGE_OCCLUSION: return &self.getStage(STAGE_OCCLUSION).tex;
+        case STAGE_CUBEMAP:   return &self.getStage(STAGE_CUBEMAP).tex;
+        case STAGE_VIDEO:     //return &self.getStage(STAGE_VIDEO).tex;
+        case STAGE_SOUND:     //return &self.getStage(STAGE_SOUND).tex;
             @todo();
         case STAGE_DIFFUSE:
         default:
             return &self.getStage(STAGE_DIFFUSE).tex;
     }
-
-    //return null;
 }
 
 
@@ -527,12 +528,12 @@ fn void HMaterial.parse_stage(&self, XmlNode* stage_node) @public
 {
     String stage_type = stage_node.getAttribute(NodeAttrib.TYPE).value;
     if(stage_type.is_empty()) {
-        log::error(Where.FILE, "Material '%s' in file '%s' has a stage node without a type attribute!", self.name, self.mtrfile.path);
+        log::error(Where.FILE, "RLMaterial '%s' in file '%s' has a stage node without a type attribute!", self.name, self.mtrfile.path);
         return;
     }
     // NOTE(HM) we only support diffuse stage for now, so we will just ignore the rest
     if(stage_type != Node.STAGE_DIFFUSE.str) {
-        log::warning(Where.FILE, "Material '%s' in file '%s' has a stage node of type '%s', which is not supported yet! Skipping it.", self.name, self.mtrfile.path, stage_type);
+        log::warning(Where.FILE, "RLMaterial '%s' in file '%s' has a stage node of type '%s', which is not supported yet! Skipping it.", self.name, self.mtrfile.path, stage_type);
         return;
     }
 
@@ -589,11 +590,11 @@ fn void HMaterial.parse_stage(&self, XmlNode* stage_node) @public
                 // create the full path by concatenating the relative material path to the game base folder
                 String texture_path = main::gpGame.app_base_folder.tconcat(child.getAttribute(NodeAttrib.URL).value);
                 if(texture_path.is_empty()) {
-                    unreachable("Material '%s' in file '%s' has a stage node with a map node without a url attribute!", self.name, self.mtrfile.path);
+                    unreachable("RLMaterial '%s' in file '%s' has a stage node with a map node without a url attribute!", self.name, self.mtrfile.path);
                 }
                 // check if the texture path is valid, if not, use the default texture
                 if(texture_path.ends_with("/") || texture_path.ends_with("\\")) {
-                    unreachable("Material '%s' in file '%s' has a stage node with a map node with an invalid url attribute '%s'!", self.name, self.mtrfile.path, texture_path);
+                    unreachable("RLMaterial '%s' in file '%s' has a stage node with a map node with an invalid url attribute '%s'!", self.name, self.mtrfile.path, texture_path);
                 }
                 // now check the texture type by priority file extension
                 texture_path = texture_path.tconcat(".dds");
@@ -732,7 +733,7 @@ fn void HMaterial.parse_keyword(&self, XmlNode* node) @public
 {
     String keyword = node.getText();
     if(keyword.is_empty()) {
-        log::warning(Where.FILE, "Material '%s' in file '%s' has a empty keyword node!", self.name, self.mtrfile.path);
+        log::warning(Where.FILE, "RLMaterial '%s' in file '%s' has a empty keyword node!", self.name, self.mtrfile.path);
         return;
     }
 
@@ -933,20 +934,20 @@ enum ShaderLayoutLocation : inline int
 struct ShaderVertexAttribute @local
 {
     ShaderLayoutLocation loc; // layout location of the attribute set in the material
-    ShaderAttributeDataType type; // type of the attribute
+    RLShdrAttrbDatTyp type; // type of the attribute
 }
 
 struct ShaderUniform @local
 {
     String id; // name of the uniform
-    ShdUniTyp type; // type of the uniform
+    RLShdUniTyp type; // type of the uniform
 }
 
 <*
     @param [&in] child : "node to get data from"
     @param [&inout] shader : "shader to set the vertex attribute for"
 *>
-fn void HMaterial.parse_vertex_attribute(&self, XmlNode* child, Shader* shader)
+fn void HMaterial.parse_vertex_attribute(&self, XmlNode* child, RLShader* shader)
 {
     // NOTE(HM) this is a node that defines a vertex attribute for the shader
     // it should have attributes like type, location and value
@@ -961,13 +962,13 @@ fn void HMaterial.parse_vertex_attribute(&self, XmlNode* child, Shader* shader)
                     switch(atrb.value)
                     {
                         case "float":
-                            attrb.type = ShaderAttributeDataType.FLOAT;
+                            attrb.type = RLShdrAttrbDatTyp.FLOAT;
                         case "vec2":
-                            attrb.type = ShaderAttributeDataType.VEC2;
+                            attrb.type = RLShdrAttrbDatTyp.VEC2;
                         case "vec3":
-                            attrb.type = ShaderAttributeDataType.VEC3;
+                            attrb.type = RLShdrAttrbDatTyp.VEC3;
                         case "vec4":
-                            attrb.type = ShaderAttributeDataType.VEC4;
+                            attrb.type = RLShdrAttrbDatTyp.VEC4;
                         default:
                             log::error(Where.FILE, "Invalid type '%s' for attribute '%s' in node '%s' of material '%s' in file '%s'!", 
                                 atrb.value, atrb.name, child.name, self.name, self.mtrfile.path);
@@ -989,12 +990,12 @@ fn void HMaterial.parse_vertex_attribute(&self, XmlNode* child, Shader* shader)
                     String attrb_id;
                     switch(attrb.loc)
                     {
-                        case VERTEX_POSITION:   attrb_id = ShdLocInd.VERTEX_POSITION.str;
-                        case VERTEX_TEXCOORD01: attrb_id = ShdLocInd.VERTEX_TEXCOORD01.str;
-                        case VERTEX_NORMAL:     attrb_id = ShdLocInd.VERTEX_NORMAL.str;
-                        case VERTEX_COLOR:      attrb_id = ShdLocInd.VERTEX_COLOR.str;
-                        case VERTEX_TANGENT:    attrb_id = ShdLocInd.VERTEX_TANGENT.str;
-                        case VERTEX_TEXCOORD02: attrb_id = ShdLocInd.VERTEX_TEXCOORD02.str;
+                        case VERTEX_POSITION:   attrb_id = RLShdLocInd.VERTEX_POSITION.str;
+                        case VERTEX_TEXCOORD01: attrb_id = RLShdLocInd.VERTEX_TEXCOORD01.str;
+                        case VERTEX_NORMAL:     attrb_id = RLShdLocInd.VERTEX_NORMAL.str;
+                        case VERTEX_COLOR:      attrb_id = RLShdLocInd.VERTEX_COLOR.str;
+                        case VERTEX_TANGENT:    attrb_id = RLShdLocInd.VERTEX_TANGENT.str;
+                        case VERTEX_TEXCOORD02: attrb_id = RLShdLocInd.VERTEX_TEXCOORD02.str;
                         default:
                             log::error(Where.FILE, "Invalid stage index '%d' for attribute '%s' in node '%s' of material '%s' in file '%s'!", 
                                 loc, atrb.name, node.name, self.name, self.mtrfile.path);
@@ -1007,15 +1008,15 @@ fn void HMaterial.parse_vertex_attribute(&self, XmlNode* child, Shader* shader)
                     int loc = attrb.loc.ordinal;
                     switch(attrb.type)
                     {
-                        case ShaderAttributeDataType.FLOAT:
+                        case RLShdrAttrbDatTyp.FLOAT:
                             float f = atrb.value.to_float()!!;
                             if(f == 0.0f) {
                                 log::error(Where.FILE, "Invalid value '%s' for attribute '%s' in node '%s' of material '%s' in file '%s'!", 
                                     atrb.value, atrb.name, child.name, self.name, self.mtrfile.path);
                                 break NODE; // continue to the next node
                             }
-                            shader.setValue(loc, (void*)&f, ShaderAttributeDataType.FLOAT.ordinal);
-                        case ShaderAttributeDataType.VEC2:
+                            shader.setValue(loc, (void*)&f, RLShdrAttrbDatTyp.FLOAT.ordinal);
+                        case RLShdrAttrbDatTyp.VEC2:
                             Vec2f vec2 = getVector2FromString(atrb.value);
                             if(vec2.x == 0.0f && vec2.y == 0.0f) {
                                 log::error(Where.FILE, "Invalid value '%s' for attribute '%s' in node '%s' of material '%s' in file '%s'!", 
@@ -1023,8 +1024,8 @@ fn void HMaterial.parse_vertex_attribute(&self, XmlNode* child, Shader* shader)
                                 break NODE; // continue to the next node
                             }
                             float[*] arr = {vec2.x, vec2.y};
-                            shader.setValueV(loc, (void*)&arr, ShaderAttributeDataType.VEC2.ordinal, 1);
-                        case ShaderAttributeDataType.VEC3:
+                            shader.setValueV(loc, (void*)&arr, RLShdrAttrbDatTyp.VEC2.ordinal, 1);
+                        case RLShdrAttrbDatTyp.VEC3:
                             Vec3f vec3 = getVector3FromString(atrb.value);
                             if(vec3.x == 0.0f && vec3.y == 0.0f && vec3.z == 0.0f) {
                                 log::error(Where.FILE, "Invalid value '%s' for attribute '%s' in node '%s' of material '%s' in file '%s'!", 
@@ -1032,8 +1033,8 @@ fn void HMaterial.parse_vertex_attribute(&self, XmlNode* child, Shader* shader)
                                 break NODE; // continue to the next node
                             }
                             float[*] arr = {vec3.x, vec3.y, vec3.z};
-                            shader.setValueV(loc, (void*)&arr, ShaderAttributeDataType.VEC3.ordinal, 1);
-                        case ShaderAttributeDataType.VEC4:
+                            shader.setValueV(loc, (void*)&arr, RLShdrAttrbDatTyp.VEC3.ordinal, 1);
+                        case RLShdrAttrbDatTyp.VEC4:
                             Vec4f vec4 = getVector4FromString(atrb.value);
                             if(vec4.x == 0.0f && vec4.y == 0.0f && vec4.z == 0.0f && vec4.w == 0.0f) {
                                 log::error(Where.FILE, "Invalid value '%s' for attribute '%s' in node '%s' of material '%s' in file '%s'!", 
@@ -1041,7 +1042,7 @@ fn void HMaterial.parse_vertex_attribute(&self, XmlNode* child, Shader* shader)
                                 break NODE; // continue to the next node
                             }
                             float[*] arr = {vec4.x, vec4.y, vec4.z, vec4.w};
-                            shader.setValueV(loc, (void*)&arr, ShaderAttributeDataType.VEC4.ordinal, 1);
+                            shader.setValueV(loc, (void*)&arr, RLShdrAttrbDatTyp.VEC4.ordinal, 1);
                         default:
                             log::error(Where.FILE, "Invalid type '%s' for attribute '%s' in node '%s' of material '%s' in file '%s'!", 
                                 atrb.value, atrb.name, child.name, self.name, self.mtrfile.path);
@@ -1062,7 +1063,7 @@ fn void HMaterial.parse_vertex_attribute(&self, XmlNode* child, Shader* shader)
     @param [&in] child : "node to get data from"
     @param [&inout] shader : "shader to set the uniform for"
 *>
-fn void HMaterial.parse_uniform(&self, XmlNode* child, Shader* shader)
+fn void HMaterial.parse_uniform(&self, XmlNode* child, RLShader* shader)
 {
     if(child.hasAttributes())
     {
@@ -1077,15 +1078,15 @@ fn void HMaterial.parse_uniform(&self, XmlNode* child, Shader* shader)
                     switch(atrb.value)
                     {
                         case "float": break; // NOTE(HM) this zero so is set to float by default
-                            //uniform.type = ShdUniTyp.FLOAT;
+                            //uniform.type = RLShdUniTyp.FLOAT;
                         case "vec2":
-                            uniform.type = ShdUniTyp.VEC2;
+                            uniform.type = RLShdUniTyp.VEC2;
                         case "vec3":
-                            uniform.type = ShdUniTyp.VEC3;
+                            uniform.type = RLShdUniTyp.VEC3;
                         case "vec4":
-                            uniform.type = ShdUniTyp.VEC4;
+                            uniform.type = RLShdUniTyp.VEC4;
                         case "sampler2D":
-                            uniform.type = ShdUniTyp.SAMPLER2D;
+                            uniform.type = RLShdUniTyp.SAMPLER2D;
                         default:
                             log::error(Where.FILE, "Invalid type '%s' for uniform '%s' in node '%s' of material '%s' in file '%s'!", 
                                 atrb.value, atrb.name, child.name, self.name, self.mtrfile.path);
@@ -1097,20 +1098,20 @@ fn void HMaterial.parse_uniform(&self, XmlNode* child, Shader* shader)
                     int loc = shader.getUniformLocation(uniform.id.zstr_tcopy());
                     switch(uniform.type)
                     {
-                        case ShdUniTyp.FLOAT:
+                        case RLShdUniTyp.FLOAT:
                             float f = atrb.value.to_float()!!;
-                            shader.setValue(loc, (void*)&f, ShdUniTyp.FLOAT.ordinal);
-                        case ShdUniTyp.VEC2:
+                            shader.setValue(loc, (void*)&f, RLShdUniTyp.FLOAT.ordinal);
+                        case RLShdUniTyp.VEC2:
                             Vec2f vec2 = getVector2FromString(atrb.value);
-                            shader.setValueV(loc, (void*)&&((float[2]){vec2.x, vec2.y}), ShdUniTyp.VEC2.ordinal, 1);
-                        case ShdUniTyp.VEC3:
+                            shader.setValueV(loc, (void*)&&((float[2]){vec2.x, vec2.y}), RLShdUniTyp.VEC2.ordinal, 1);
+                        case RLShdUniTyp.VEC3:
                             Vec3f vec3 = getVector3FromString(atrb.value);
-                            shader.setValueV(loc, (void*)&&((float[3]){vec3.x, vec3.y, vec3.z}), ShdUniTyp.VEC3.ordinal, 1);
-                        case ShdUniTyp.VEC4:
+                            shader.setValueV(loc, (void*)&&((float[3]){vec3.x, vec3.y, vec3.z}), RLShdUniTyp.VEC3.ordinal, 1);
+                        case RLShdUniTyp.VEC4:
                             Vec4f vec4 = getVector4FromString(atrb.value);
-                            shader.setValueV(loc, (void*)&&((float[4]){vec4.x, vec4.y, vec4.z, vec4.w}), ShdUniTyp.VEC4.ordinal, 1);
-                        case ShdUniTyp.SAMPLER2D:
-                            Texture2D tex = *astmng::assetManager.getTexture(atrb.value);
+                            shader.setValueV(loc, (void*)&&((float[4]){vec4.x, vec4.y, vec4.z, vec4.w}), RLShdUniTyp.VEC4.ordinal, 1);
+                        case RLShdUniTyp.SAMPLER2D:
+                            RLTexture2D tex = *astmng::assetManager.getTexture(atrb.value);
                             if(!rl::isTextureValid(tex)) {
                                 log::error(Where.FILE, "Failed to load texture '%s' for sampler2D uniform '%s' in node '%s' of material '%s' in file '%s'!", 
                                     atrb.value, uniform.id, child.name,
@@ -1143,15 +1144,15 @@ fn void HMaterial.parse_shader(&self, XmlNode* node) @public
 {
     String shader_path = (String)node.getAttribute(NodeAttrib.PATH).value;
     if(shader_path.is_empty()) {
-        log::warning(Where.FILE, "Material '%s' in file '%s' has a shader node but no path for it defined!", self.name, self.mtrfile.path);
+        log::warning(Where.FILE, "RLMaterial '%s' in file '%s' has a shader node but no path for it defined!", self.name, self.mtrfile.path);
         return;
     }
 
     // NOTE(HM) I'm appending the extension here just as a placeholder, to make it easy to get the shader name.
-    Shader shader;
+    RLShader shader;
     shader_path = shader_path.tconcat(".tp");
     String shader_name = fs::getFileNameWithoutExt(shader_path);
-    if(Shader* shader_found = astmng::assetManager.getShader(shader_name))
+    if(RLShader* shader_found = astmng::assetManager.getShader(shader_name))
     {
         shader = *shader_found; // use the shader from the asset manager
         $if $feature(_DEBUG):
@@ -1248,7 +1249,7 @@ fn Vec4f getVector4FromString(String str) @inline @local
     return {};
 }
 
-fn Color getColorFromString(String str) @inline @local
+fn RLColor getColorFromString(String str) @inline @local
 {
     String[] slice = str.tsplit(", ");
     if(slice.len == 0) {
@@ -1269,7 +1270,7 @@ fn Color getColorFromString(String str) @inline @local
 
 ////////////////////////////////////////////////////////////////////////////////
 //
-//              MTRFile - Material file data structure
+//              MTRFile - RLMaterial file data structure
 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -1639,12 +1640,12 @@ fn HMaterial* MTRFile.parse_material(&self, XmlNode* in_node)
 // #region private
 //////////////////
 
-fn Color xmlStrColorToColor(String _value) @public
+fn RLColor xmlStrColorToColor(String _value) @public
 {
     String[] chars = _value.tsplit(" ");
     assert(chars.len == 4);
     
-    Color result;
+    RLColor result;
     
     char? value;
 
@@ -1679,7 +1680,7 @@ fn Color xmlStrColorToColor(String _value) @public
 // #endregion private
 
 //////////////////////////
-// Material Manager
+// RLMaterial Manager
 //////////////////////////
 
 module game::material::manager::mtrmng @private;

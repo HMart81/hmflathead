@@ -38,7 +38,7 @@ static const GuiStyleProp jungleStyleProps[JUNGLE_STYLE_PROPS_COUNT] = {
 
 #define JUNGLE_STYLE_FONT_ATLAS_COMP_SIZE 2030
 
-// Font atlas image pixels data: DEFLATE compressed
+// RLFont atlas image pixels data: DEFLATE compressed
 static unsigned char jungleFontData[JUNGLE_STYLE_FONT_ATLAS_COMP_SIZE] = { 0xed,
     0x9d, 0x3d, 0x8e, 0x25, 0x35, 0x14, 0x85, 0x8d, 0xe9, 0x8c, 0x10, 0x11, 0x80, 0x84, 0x20, 0x41, 0x22, 0x21, 0x61, 0x34,
     0x12, 0x64, 0xb3, 0x00, 0x62, 0x84, 0x08, 0x10, 0x11, 0x09, 0xb0, 0x07, 0x66, 0x65, 0x93, 0x90, 0xb3, 0x01, 0x76, 0xc1,
@@ -143,8 +143,8 @@ static unsigned char jungleFontData[JUNGLE_STYLE_FONT_ATLAS_COMP_SIZE] = { 0xed,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x15, 0xb2,
     0x0c, 0xa2, 0x3f, 0xfa, 0xdf, 0xb8, 0xfe, 0xff, 0x03 };
 
-// Font glyphs rectangles data (on atlas)
-static const Rectangle jungleFontRecs[189] = {
+// RLFont glyphs rectangles data (on atlas)
+static const RLRectangle jungleFontRecs[189] = {
     { 4, 4, 5 , 12 },
     { 17, 4, 2 , 7 },
     { 27, 4, 5 , 3 },
@@ -336,7 +336,7 @@ static const Rectangle jungleFontRecs[189] = {
     { 199, 204, 6 , 10 },
 };
 
-// Font glyphs info data
+// RLFont glyphs info data
 // NOTE: No glyphs.image data provided
 static const GlyphInfo jungleFontGlyphs[189] = {
     { 32, 0, 9, 5, { 0 }},
@@ -544,9 +544,9 @@ static void GuiLoadStyleJungle(void)
     // NOTE: Compressed font image data (DEFLATE), it requires DecompressData() function
     int jungleFontDataSize = 0;
     unsigned char *data = DecompressData(jungleFontData, JUNGLE_STYLE_FONT_ATLAS_COMP_SIZE, &jungleFontDataSize);
-    Image imFont = { data, 256, 256, 1, 2 };
+    RLImage imFont = { data, 256, 256, 1, 2 };
 
-    Font font = { 0 };
+    RLFont font = { 0 };
     font.baseSize = 12;
     font.glyphCount = 189;
 
@@ -556,8 +556,8 @@ static void GuiLoadStyleJungle(void)
 
     // Copy char recs data from global fontRecs
     // NOTE: Required to avoid issues if trying to free font
-    font.recs = (Rectangle *)RAYGUI_MALLOC(font.glyphCount*sizeof(Rectangle));
-    memcpy(font.recs, jungleFontRecs, font.glyphCount*sizeof(Rectangle));
+    font.recs = (RLRectangle *)RAYGUI_MALLOC(font.glyphCount*sizeof(RLRectangle));
+    memcpy(font.recs, jungleFontRecs, font.glyphCount*sizeof(RLRectangle));
 
     // Copy font char info data from global fontChars
     // NOTE: Required to avoid issues if trying to free font
@@ -568,7 +568,7 @@ static void GuiLoadStyleJungle(void)
 
     // Setup a white rectangle on the font to be used on shapes drawing,
     // it makes possible to draw shapes and text (full UI) in a single draw call
-    Rectangle fontWhiteRec = { 254, 254, 1, 1 };
+    RLRectangle fontWhiteRec = { 254, 254, 1, 1 };
     SetShapesTexture(font.texture, fontWhiteRec);
 
     //-----------------------------------------------------------------

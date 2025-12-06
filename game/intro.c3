@@ -156,14 +156,14 @@ fn bool updateIntroAnimation(IntroAnimation* anim) {
 fn void drawIntroAnimation(IntroAnimation* anim, int w, int h) {
     if(anim == null) return;
     
-    //misc::@drawRect({0, 0, w, h}, (Color){0x18, 0x18, 0x18, 0xFF});
+    //misc::@drawRect({0, 0, w, h}, (RLColor){0x18, 0x18, 0x18, 0xFF});
     r2d::@drawRect({0, 0, w, h}, rl::BLACK);
     
     if(main::gpGame.time_ms <= anim.next_frame_time - FADE_IN_TIME) {
         anim.frames[anim.current_frame_index].image.fadeIn(0.1f);
     }
     
-    //io::printfn("Color = %s", misc::printColor(anim.frames[anim.current_frame_index].image.color));
+    //io::printfn("RLColor = %s", misc::printColor(anim.frames[anim.current_frame_index].image.color));
     anim.frames[anim.current_frame_index].image.draw();
     
     if(main::gpGame.time_ms >= anim.next_frame_time - FADE_OUT_TIME) {

@@ -25,7 +25,7 @@ REM 	title -  edit cmd window title
 REM 	COLOR bf - You can change the color of the output where b is the background and f is the foreground 
 REM 			   color, both a hexadecimal number. Following colors are possible:
 REM 							-------------------------------------------------
-REM 							* Number *      Color      * Number *   Color   *
+REM 							* Number *      RLColor      * Number *   RLColor   *
 REM 							-------------------------------------------------
 REM 							*   0	*    black         *    8   * dark grey *
 REM 							*   1	*   dark blue      *    9   *   blue    *

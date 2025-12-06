@@ -32,9 +32,9 @@ import thirdparty::raylib5::rl;
 
 
 // region vector 2 math
-fn Vector2 vector2Scale(Vector2 v, float scaler) @extern("Vector2Scale");
-fn Vector2 vector2Add(Vector2 v1, Vector2 v2) @extern("Vector2Add");
-fn Vector2 vector2MoveTowards(Vector2 v, Vector2 target, float maxDistance) @extern("Vector2MoveTowards");
+fn RLVector2 vector2Scale(RLVector2 v, float scaler) @extern("Vector2Scale");
+fn RLVector2 vector2Add(RLVector2 v1, RLVector2 v2) @extern("Vector2Add");
+fn RLVector2 vector2MoveTowards(RLVector2 v, RLVector2 target, float maxDistance) @extern("Vector2MoveTowards");
 // Calculate linear interpolation between two vectors
-fn Vector2 vector2Lerp(Vector2 v1, Vector2 v2, float amount) @extern("Vector2Lerp");
+fn RLVector2 vector2Lerp(RLVector2 v1, RLVector2 v2, float amount) @extern("Vector2Lerp");
 // end_region vector 2 math

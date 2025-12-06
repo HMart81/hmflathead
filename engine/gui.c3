@@ -112,9 +112,9 @@ struct Panel (SaveSystemInterface)
     String name;
     PanelFlags flags;
     PanelShape shape;
-    Rectangle  rect;
-    Color      color; // material color overrides this color
-    Color      selected_color; // for gui editor functionality
+    RLRectangle  rect;
+    RLColor      color; // material color overrides this color
+    RLColor      selected_color; // for gui editor functionality
     HMaterial* mat;
 }
 
@@ -141,13 +141,13 @@ fn void Panel.reload(&self, SaveFile* file) @dynamic
     self.mat = mtrmng::getMaterial(mat_name);
 }
 
-fn void Panel.initRec(&self, Rectangle rect, Color color) @inline
+fn void Panel.initRec(&self, RLRectangle rect, RLColor color) @inline
 {
     self.rect  = rect;
     self.color = color;
 }
 
-fn void Panel.initV(&self, Vec2f pos, Vec2f size, Color color) @inline
+fn void Panel.initV(&self, Vec2f pos, Vec2f size, RLColor color) @inline
 {
     self.initRec({pos.x, pos.y, size.x, size.y}, color);
 }
@@ -337,7 +337,7 @@ fn bool Panel.isMouseOver(&self)
     Vec2f mouseWorldPos = rl::getMousePosition();
 
     Vec2f mouse_size = main::getGameCursorSize() * 0.5f; // half size of the cursor
-    Rectangle mouseRect = misc::@recFromVecs(mouseWorldPos, mouse_size);
+    RLRectangle mouseRect = misc::@recFromVecs(mouseWorldPos, mouse_size);
 
     if (rl::checkCollisionRecs(mouseRect, self.rect)) return true;
 
@@ -366,22 +366,22 @@ fn void Panel.draw(&self, bool selected = false)
     {
         // TODO(HM) find how to draw a image on a rounded rectangle!?
 
-        Texture2D* texture = self.mat.getTexture(mat::STAGE_DIFFUSE);
+        RLTexture2D* texture = self.mat.getTexture(mat::STAGE_DIFFUSE);
         Vec2f texture_size = { texture.width, texture.height };
-        Rectangle source = { 0, 0, texture_size.x, texture_size.y };
-        Rectangle* dist = &self.rect;
+        RLRectangle source = { 0, 0, texture_size.x, texture_size.y };
+        RLRectangle* dist = &self.rect;
 
-        Color color = (selected) ? self.selected_color : self.mat.getStage(mat::STAGE_DIFFUSE).color;
+        RLColor color = (selected) ? self.selected_color : self.mat.getStage(mat::STAGE_DIFFUSE).color;
 
-        BlendMode blending;
+        RLBlendMode blending;
         switch //
         {
             case (bool)(self.mat.coverage & mat::COVERAGE_OPAQUE): 
                 break; // do nothing here
             case (bool)(self.mat.coverage & mat::COVERAGE_PERFORATED & ~mat::COVERAGE_TRANSLUCENT):
-                blending = BlendMode.ALPHA;
+                blending = RLBlendMode.ALPHA;
             case (bool)(self.mat.coverage & mat::COVERAGE_TRANSLUCENT & ~mat::COVERAGE_PERFORATED):
-                blending = BlendMode.ALPHA_PREMUL;
+                blending = RLBlendMode.ALPHA_PREMUL;
                 if(color.a == 255) // if the color is opaque
 				{
 					color.a = 128; // half transparent
@@ -395,9 +395,9 @@ fn void Panel.draw(&self, bool selected = false)
 					color.b = (char)math::floor((b * a) * 255);
 				}
             case (bool)(self.mat.coverage & (mat::COVERAGE_PERFORATED | mat::COVERAGE_TRANSLUCENT)):
-                    blending = BlendMode.CUSTOM_SEPARATE; // use the custom blending mode
+                    blending = RLBlendMode.CUSTOM_SEPARATE; // use the custom blending mode
             /*case (bool)(self.mat.coverage & (mat::COVERAGE_PERFORATED | mat::COVERAGE_TRANSLUCENT)):
-                blending = BlendMode.CUSTOM; // custom blending mode*/
+                blending = RLBlendMode.CUSTOM; // custom blending mode*/
             case (bool)(self.mat.coverage & mat::COVERAGE_BAD):
                 log::error(Where.FILE, "Panel with material %s has a bad material coverage type.", self.mat.name);
                 unreachable();
@@ -405,22 +405,22 @@ fn void Panel.draw(&self, bool selected = false)
 
         switch (blending)
         {
-            case BlendMode.ALPHA:
-            case BlendMode.ALPHA_PREMUL:
+            case RLBlendMode.ALPHA:
+            case RLBlendMode.ALPHA_PREMUL:
                 rl::@blendMode(blending)
                 {
                     rl::drawTexturePro(*texture, source, *dist, {0, 0}, 0.0f, color);
                 };
-            case BlendMode.CUSTOM:
+            case RLBlendMode.CUSTOM:
                 rl::setBlendFactors(rl::RL_ONE, rl::RL_ONE_MINUS_SRC_ALPHA, rl::RL_FUNC_ADD);
-                rl::setBlendMode(rl::BlendMode.CUSTOM);
+                rl::setBlendMode(rl::RLBlendMode.CUSTOM);
                 rl::@blendMode(blending)
                 {
                     rl::drawTexturePro(*texture, source, *dist, {0, 0}, 0.0f, color);
                 };
-            case BlendMode.CUSTOM_SEPARATE:
+            case RLBlendMode.CUSTOM_SEPARATE:
                 rl::setBlendFactorsSeparate(rl::RL_SRC_ALPHA, rl::RL_ONE_MINUS_SRC_ALPHA, rl::RL_ONE, rl::RL_ONE, rl::RL_FUNC_ADD, rl::RL_MAX);
-                rl::setBlendMode(rl::BlendMode.CUSTOM_SEPARATE);
+                rl::setBlendMode(rl::RLBlendMode.CUSTOM_SEPARATE);
                 rl::@blendMode(blending)
                 {
                     // NOTE(HM) center of the texture (rotation/scale point), 
@@ -558,7 +558,7 @@ interface WidgetInterface
     fn void link(Widget* other);
     fn bool isLinked();
     fn void unlink();
-    fn void setColor(rl::Color);
+    fn void setColor(rl::RLColor);
 }
 
 struct Widget (WidgetInterface) 
@@ -649,7 +649,7 @@ fn void Widget.update(&self) @dynamic
 }
 
 // Function to calculate the color based on time
-fn Color selected_color_anim(Widget* wgt) @inline @local
+fn RLColor selected_color_anim(Widget* wgt) @inline @local
 {
     if(!wgt) return {0, 0, 0, 1};
     
@@ -657,7 +657,7 @@ fn Color selected_color_anim(Widget* wgt) @inline @local
     int time = wgt.parent.desktop.time;
     int flicker_milliseconds = 200;
     
-    Color color;
+    RLColor color;
     int r,g,b,a;
     //r = (int) (math::sin(time / 100) + 1) * 128 + 127;
     //g = (int) (math::cos(time / 50) + 1) * 128 + 127;
@@ -799,7 +799,7 @@ fn bool Widget.isWithinScreenBounds(&self) @dynamic
 {
     //if (self.hidden()) return false;
 
-    Rectangle screen_bounds = {
+    RLRectangle screen_bounds = {
     .x      = 0,
     .y      = 0,
     .width  = main::gpGame.screen.w,
@@ -898,11 +898,11 @@ fn void Widget.unlink(&self) @inline @dynamic {
     if (self.isLinked()) self.next = null;
 }
 
-fn void Widget.setColor(&self, Color color) @dynamic {
+fn void Widget.setColor(&self, RLColor color) @dynamic {
     self.super.color = color;
 }
 
-fn void Widget.setSelectedColor(&self, Color color) @dynamic {
+fn void Widget.setSelectedColor(&self, RLColor color) @dynamic {
     self.super.selected_color = color;
 }
 
@@ -928,7 +928,7 @@ struct WidgetText
 
     String text;
     int text_len;
-    Font* font;
+    RLFont* font;
     float spacing; // spacing between characters, used for text rendering
     int font_size;
     WidgetTextAlign align;
@@ -964,7 +964,7 @@ fn void WidgetText.deinit(&self) @inline {
 fn void WidgetText.updateBounds(&self) @local 
 {
     if(self.font != null) {
-        Vector2 bounds = rl::measureTextEx(*self.font, self.text.zstr_tcopy(), (float)self.font_size, self.spacing);
+        RLVector2 bounds = rl::measureTextEx(*self.font, self.text.zstr_tcopy(), (float)self.font_size, self.spacing);
         /*int txt_len = rl::measureText(self.text.zstr_tcopy(), self.font_size);
         if(txt_len > bounds.x) {
             bounds.x = (float)txt_len; // make sure the bounds are at least as wide as the text
@@ -982,7 +982,7 @@ fn Vec2f WidgetText.getBounds(&self) @inline {
     return { (float)self.text_len, (float)self.font_size };
 }
 
-fn void WidgetText.setFont(&self, Font* font) @inline {
+fn void WidgetText.setFont(&self, RLFont* font) @inline {
     if (font == null) {
         log::error(Where.CONSOLE, "WidgetText: Cannot set font to null.");
         return;
@@ -1005,7 +1005,7 @@ fn float WidgetText.textlenf(&self) @inline {
     return (float)rl::measureText(self.text.zstr_tcopy(), self.font_size);
 }
 
-fn void WidgetText.setTextColor(&self, Color color) @inline {
+fn void WidgetText.setTextColor(&self, RLColor color) @inline {
     self.color = color;
 }
 
@@ -1041,7 +1041,7 @@ fn void WidgetText.draw(&self) //@inline
     @param font_size : "font size to use for the label, must be greater than 0 to be applied"
     @param text_color : "color of the text"
 *>
-fn WidgetText* createLabel(String name, String text, Font* font, int font_size, Color text_color) 
+fn WidgetText* createLabel(String name, String text, RLFont* font, int font_size, RLColor text_color) 
 {
     WidgetText* label = mem::new(WidgetText);
     label.init();
@@ -1071,10 +1071,10 @@ struct WidgetButton
     // panel already has a color variable
     // but this is the default color, used when the button color changes and we want to reset it
     // to the default color.
-    Color default_color;
+    RLColor default_color;
     bool pressed;
     bool activated;
-    Sound* interaction_sound;
+    RLSound* interaction_sound;
     //bool sound_played;
     bool reset;
     int press_count;
@@ -1093,16 +1093,16 @@ fn void WidgetButton.deinit(&self) @inline {
     if (self.interaction_sound) self.interaction_sound = null;
 }
 
-fn void WidgetButton.setColor(&self, Color color) @dynamic {
+fn void WidgetButton.setColor(&self, RLColor color) @dynamic {
     self.super.setColor(color);
 }
 
-fn void WidgetButton.setDefaultColor(&self, Color color) @inline {
+fn void WidgetButton.setDefaultColor(&self, RLColor color) @inline {
     self.default_color = color;
     self.setColor(color);
 }
 
-fn void WidgetButton.setSound(&self, Sound* sound) @inline {
+fn void WidgetButton.setSound(&self, RLSound* sound) @inline {
     self.interaction_sound = sound;
 }
 
@@ -1126,7 +1126,7 @@ fn void WidgetButton.manage_interactions(&self) @local
         // like using tab or arrow keys to navigate between buttons and enter to press them
         if(!ui_editGui.getBool()) 
         {
-            if (rl::isMouseButtonDown(MouseButton.LEFT) && self.press_count >= 1) {
+            if (rl::isMouseButtonDown(RLMouseButton.LEFT) && self.press_count >= 1) {
                 //main::log::info(Where.CONSOLE, "Gui: I'm pressing button: %s", self.super.name);
                 if (self.onPress) { 
                     self.onPress(self);
@@ -1150,7 +1150,7 @@ fn void WidgetButton.manage_interactions(&self) @local
                 // }
             }
 
-            if (rl::isMouseButtonReleased(MouseButton.LEFT)) {
+            if (rl::isMouseButtonReleased(RLMouseButton.LEFT)) {
                 if (self.onRelease) { 
                     self.onRelease(self); 
                 }
@@ -1271,7 +1271,7 @@ const uint RIGHT_TO_LEFT = 4;
 struct ContainerParams @packed
 {
     uint direction;
-    Color background;
+    RLColor background;
     Vec4f padding;
     uint itemGap;
     struct minSize
@@ -1282,7 +1282,7 @@ struct ContainerParams @packed
     struct border_between
     {
         uint lineThick;
-        Color color;
+        RLColor color;
     }
 }
 
@@ -1463,10 +1463,10 @@ struct Desktop (SaveSystemInterface)
     int number; // used to uniquily identify each desktop
     
     // visuals
-    Rectangle rect;
-    Color color;
+    RLRectangle rect;
+    RLColor color;
     // todo support more complex backgrounds
-    Texture2D* tex;
+    RLTexture2D* tex;
     //
     
     // flags
@@ -1478,7 +1478,7 @@ struct Desktop (SaveSystemInterface)
     // to handle timing while the desktop is open/active
     int time; // milliseconds
 
-    Music music_stream; // any music stream that we may want to attach to a desktop
+    RLMusic music_stream; // any music stream that we may want to attach to a desktop
     List{Desktop*} shared_music_stream_desktops; // list of desktops that share the same music stream
     
     // Lists
@@ -1683,7 +1683,7 @@ fn void Desktop.stateChanged(&self, int _time, bool redraw ) {
 
 fn String Desktop.getName(&self) @inline => self.name;
 
-fn void Desktop.setColor(&self, Color color) @inline => self.color = color;
+fn void Desktop.setColor(&self, RLColor color) @inline => self.color = color;
 
 // delete all down to the basic desktop
 fn void Desktop.clear(&self) @inline
@@ -2117,7 +2117,7 @@ const GUIE_MAJOR    = 0;
 const GUIE_MINOR    = 1;
 const GUIE_REVISION = 0;
 
-macro bool drawButton(String text, Vector2 pos) @local
+macro bool drawButton(String text, RLVector2 pos) @local
 {
     return rgui::button({pos.x, pos.y, 120, 30}, string::tformat("#191#%s", text).zstr_tcopy());
 }

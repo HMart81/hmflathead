@@ -38,7 +38,7 @@ static const GuiStyleProp cherryStyleProps[CHERRY_STYLE_PROPS_COUNT] = {
 
 #define CHERRY_STYLE_FONT_ATLAS_COMP_SIZE 2821
 
-// Font atlas image pixels data: DEFLATE compressed
+// RLFont atlas image pixels data: DEFLATE compressed
 static unsigned char cherryFontData[CHERRY_STYLE_FONT_ATLAS_COMP_SIZE] = { 0xed,
     0xdd, 0x59, 0x92, 0xdc, 0xba, 0x11, 0x05, 0x50, 0xee, 0x7f, 0xd3, 0xd7, 0xe1, 0x70, 0x84, 0xed, 0x27, 0xa9, 0x09, 0x20,
     0x91, 0x20, 0xab, 0x5b, 0x47, 0xe7, 0xaf, 0xa1, 0x1a, 0x38, 0x24, 0x26, 0x16, 0x12, 0xb9, 0x00, 0x00, 0x00, 0x00, 0xf2,
@@ -182,8 +182,8 @@ static unsigned char cherryFontData[CHERRY_STYLE_FONT_ATLAS_COMP_SIZE] = { 0xed,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xe0, 0x79, 0xff, 0xf9, 0xe7, 0x3c, 0x80, 0xf8, 0x07, 0xfe, 0xba, 0xf8, 0xff, 0x17 };
 
-// Font glyphs rectangles data (on atlas)
-static const Rectangle cherryFontRecs[189] = {
+// RLFont glyphs rectangles data (on atlas)
+static const RLRectangle cherryFontRecs[189] = {
     { 4, 4, 5 , 15 },
     { 17, 4, 3 , 10 },
     { 28, 4, 5 , 2 },
@@ -375,7 +375,7 @@ static const Rectangle cherryFontRecs[189] = {
     { 108, 119, 7 , 10 },
 };
 
-// Font glyphs info data
+// RLFont glyphs info data
 // NOTE: No glyphs.image data provided
 static const GlyphInfo cherryFontGlyphs[189] = {
     { 32, 0, 12, 5, { 0 }},
@@ -583,9 +583,9 @@ static void GuiLoadStyleCherry(void)
     // NOTE: Compressed font image data (DEFLATE), it requires DecompressData() function
     int cherryFontDataSize = 0;
     unsigned char *data = DecompressData(cherryFontData, CHERRY_STYLE_FONT_ATLAS_COMP_SIZE, &cherryFontDataSize);
-    Image imFont = { data, 512, 256, 1, 2 };
+    RLImage imFont = { data, 512, 256, 1, 2 };
 
-    Font font = { 0 };
+    RLFont font = { 0 };
     font.baseSize = 15;
     font.glyphCount = 189;
 
@@ -595,8 +595,8 @@ static void GuiLoadStyleCherry(void)
 
     // Copy char recs data from global fontRecs
     // NOTE: Required to avoid issues if trying to free font
-    font.recs = (Rectangle *)RAYGUI_MALLOC(font.glyphCount*sizeof(Rectangle));
-    memcpy(font.recs, cherryFontRecs, font.glyphCount*sizeof(Rectangle));
+    font.recs = (RLRectangle *)RAYGUI_MALLOC(font.glyphCount*sizeof(RLRectangle));
+    memcpy(font.recs, cherryFontRecs, font.glyphCount*sizeof(RLRectangle));
 
     // Copy font char info data from global fontChars
     // NOTE: Required to avoid issues if trying to free font
@@ -607,7 +607,7 @@ static void GuiLoadStyleCherry(void)
 
     // Setup a white rectangle on the font to be used on shapes drawing,
     // it makes possible to draw shapes and text (full UI) in a single draw call
-    Rectangle fontWhiteRec = { 510, 254, 1, 1 };
+    RLRectangle fontWhiteRec = { 510, 254, 1, 1 };
     SetShapesTexture(font.texture, fontWhiteRec);
 
     //-----------------------------------------------------------------

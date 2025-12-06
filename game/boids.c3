@@ -274,7 +274,7 @@ fn void BoidManager.draw(&self) {
     if(self.fade_lines) self.draw_fade_lines(lines);
     
     foreach (boid : self.boids) {
-        rl::Color color;
+        rl::RLColor color;
         switch {
         case boid.overcrowded:
             color = rl::RED;

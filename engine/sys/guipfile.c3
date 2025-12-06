@@ -76,7 +76,7 @@ const TransformKind TRANSFORM_TRANSLATE = "translate";
 const TransformKind TRANSFORM_SCALE     = "scale";
 const TransformKind TRANSFORM_MATRIX    = "matrix";
 
-struct Transform
+struct RLTransform
 {
     TransformKind kind; // the kind of transform, like translate, rotate, scale, etc.
     union {
@@ -91,8 +91,8 @@ struct GUIPElement
 {
     typeid type; // the type of element
     String name; // the node id, this is used to identify the element in the guip file
-    Color color; // the color of the element
-    Transform transform; // the transform of the element, like translate, rotate, scale, etc.
+    RLColor color; // the color of the element
+    RLTransform transform; // the transform of the element, like translate, rotate, scale, etc.
 }
 
 fn void GUIPElement.init(&self)
@@ -135,7 +135,7 @@ struct GUIPElement_Rect
 {
     inline GUIPElement super;
 
-    Rectangle rect; // the rectangle of the element
+    RLRectangle rect; // the rectangle of the element
 }
 
 fn void GUIPElement_Rect.init(&self)
@@ -173,7 +173,7 @@ struct GUIPElement_Image
     inline GUIPElement super;
 
     String path; // the path to the image file
-    Rectangle rect; // the rectangle of the image
+    RLRectangle rect; // the rectangle of the image
 }
 
 fn void GUIPElement_Image.init(&self)

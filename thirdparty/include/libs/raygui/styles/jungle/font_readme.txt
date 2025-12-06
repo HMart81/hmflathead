@@ -1,4 +1,4 @@
-Shareware/ Font License
+Shareware/ RLFont License
 
 Pixel Sagas Freeware Fonts EULA (End User License Agreement) and Software Inclusion Agreement
 
@@ -16,7 +16,7 @@ Payment is not required for the use of Pixel Saga's Shareware Fonts. Commercial 
 
 Support
 
-Font installation help is available at http://www.pixelsagas.com. If you experience problems with any Pixel Saga's Freeware font (such as spacing issues or missing characters), please verify that you have the correct and current version of the fonts. In the case of Freeware fonts, downloading the font directly from the Pixel Sagas site will ensure that the font files have not been altered.
+RLFont installation help is available at http://www.pixelsagas.com. If you experience problems with any Pixel Saga's Freeware font (such as spacing issues or missing characters), please verify that you have the correct and current version of the fonts. In the case of Freeware fonts, downloading the font directly from the Pixel Sagas site will ensure that the font files have not been altered.
 
 Software Inclusion Agreement
 

@@ -71,14 +71,14 @@ struct SVGUI_Group
 
 struct SVGUI_Rectangle 
 {
-    Color color;
+    RLColor color;
     SVGUI_Id id;
-    Rectangle rect;
+    RLRectangle rect;
 }
 
 struct SVGUI_Ellipse 
 {
-    Color color;
+    RLColor color;
     SVGUI_Id id;
     Vec2f center;
     Vec2f radius;
@@ -86,7 +86,7 @@ struct SVGUI_Ellipse
 
 struct SVGUI_Path 
 {
-    Color color;
+    RLColor color;
     SVGUI_Id id;
     List{Vec2f} points; // list of points that make up the path
     // TODO(HM) add more properties like stroke width, fill color, etc.
@@ -300,7 +300,7 @@ fn void parse_rect_attributes(XmlNode* svg_elem, Widget* widget, String path) @i
     XmlAttribute* width_attr  = svg_elem.getAttribute("width");
     XmlAttribute* height_attr = svg_elem.getAttribute("height");
     if(width_attr == null || height_attr == null) {
-        unreachable("Rectangle element in SVG file '%s' has no width or height attributes.", path);
+        unreachable("RLRectangle element in SVG file '%s' has no width or height attributes.", path);
     }
     widget.rect.width  = width_attr.value.to_float()!!;
     widget.rect.height = height_attr.value.to_float()!!;
@@ -322,7 +322,7 @@ fn void parse_rect_attributes(XmlNode* svg_elem, Widget* widget, String path) @i
     }
 }
 
-fn Color getColorFromStyle(String[] styles) @inline
+fn RLColor getColorFromStyle(String[] styles) @inline
 {
     foreach (style : styles)
     {
@@ -334,13 +334,13 @@ fn Color getColorFromStyle(String[] styles) @inline
     return rl::WHITE; // default color if no fill style is found
 }
 
-fn Color getColorFromSVGHex(String hex) @inline
+fn RLColor getColorFromSVGHex(String hex) @inline
 {
     if(hex.length() != 6) {
         unreachable("Invalid color string '%s', expected format is '#RRGGBB'.", color_str);
     }
 
-    // Convert a hex color string to a Color object
+    // Convert a hex color string to a RLColor object
     String color_str = color_str.trim_left("#");
     uint hex_color = ("0x".concat(color_str)).toUInt()!!;
     return rl::getColor(hex_color);
@@ -376,7 +376,7 @@ macro UserInterface.createButton(&self, XmlNode* node, String id, String path) @
         }
     }
     String label_name   = id.concat(string::tformat("_label%s", label_count));
-    Color label_color   = rl::DARKGRAY; // default label color
+    RLColor label_color   = rl::DARKGRAY; // default label color
     WidgetText* label   = gui::createLabel(label_name, button.name, label_color, self.desktop);
     Vec2f label_offset  = button.rect.getPosition();
     label_offset += misc::VEC_RIGHT * self.desktop.rect.width * 0.5f;

@@ -89,11 +89,11 @@ const String[*] VALID_ASSET_EXTENSIONS = {
 
 
 // TODO(HM) Support more asset types, like the new HMaterial, etc.
-alias AssetTextureListPtr = List{Asset{Texture2D}*};
-alias AssetSoundListPtr   = List{Asset{Sound}*};
-alias AssetMusicListPtr   = List{Asset{Music}*};
-alias AssetFontListPtr    = List{Asset{Font}*};
-alias AssetShaderListPtr  = List{Asset{Shader}*};
+alias AssetTextureListPtr = List{Asset{RLTexture2D}*};
+alias AssetSoundListPtr   = List{Asset{RLSound}*};
+alias AssetMusicListPtr   = List{Asset{RLMusic}*};
+alias AssetFontListPtr    = List{Asset{RLFont}*};
+alias AssetShaderListPtr  = List{Asset{RLShader}*};
 
 struct Manager {
 	AssetTextureListPtr textures; // list of texture assets 
@@ -115,16 +115,16 @@ fn void Manager.register(&self, any asset) @local
 
     switch(asset.type)
     {
-        case Texture2D.typeid:
-            self.textures.push((Asset{Texture2D}*)asset.ptr);
-        case Sound.typeid:
-            self.sounds.push((Asset{Sound}*)asset.ptr);
-        case Music.typeid:
-            self.musics.push((Asset{Music}*)asset.ptr);
-        case Font.typeid:
-            self.fonts.push((Asset{Font}*)asset.ptr);
-        case Shader.typeid:
-            self.shaders.push((Asset{Shader}*)asset.ptr);
+        case RLTexture2D.typeid:
+            self.textures.push((Asset{RLTexture2D}*)asset.ptr);
+        case RLSound.typeid:
+            self.sounds.push((Asset{RLSound}*)asset.ptr);
+        case RLMusic.typeid:
+            self.musics.push((Asset{RLMusic}*)asset.ptr);
+        case RLFont.typeid:
+            self.fonts.push((Asset{RLFont}*)asset.ptr);
+        case RLShader.typeid:
+            self.shaders.push((Asset{RLShader}*)asset.ptr);
         default:
             log::error(FILE, "Trying to register an asset of unknown type!");
     }
@@ -146,15 +146,15 @@ fn void Manager.listAssets(&self) @if($feature(_DEBUG))
 				//String path;
 				//any    data;
 				switch {
-					case asset.data.type == Texture2D.typeid:
+					case asset.data.type == RLTexture2D.typeid:
 						texture_assets.push(asset);
-					case asset.data.type == Shader.typeid:
+					case asset.data.type == RLShader.typeid:
 						shader_assets.push(asset);
-					case asset.data.type == Sound.typeid:
+					case asset.data.type == RLSound.typeid:
 						sound_assets.push(asset);
-					case asset.data.type == Music.typeid:
+					case asset.data.type == RLMusic.typeid:
 						music_assets.push(asset);
-					case asset.data.type == Font.typeid:
+					case asset.data.type == RLFont.typeid:
 						font_assets.push(asset);
 					default:
 						unreachable("Can't push asset \"%s\" at \"%s\", for listing, is unknown type.", asset.name, asset.path);
@@ -296,15 +296,15 @@ fn any Manager.getAsset(&self, String name, typeid type)
     
 	switch(type)
     {
-        case Texture2D.typeid:
+        case RLTexture2D.typeid:
             return any_make(&(*self.textures[i]).data, type);
-        case Sound.typeid:
+        case RLSound.typeid:
             return any_make(&(*self.sounds[i]).data, type);
-        case Music.typeid:
+        case RLMusic.typeid:
             return any_make(&(*self.musics[i]).data, type);
-        case Font.typeid:
+        case RLFont.typeid:
             return any_make(&(*self.fonts[i]).data, type);
-        case Shader.typeid:
+        case RLShader.typeid:
             return any_make(&(*self.shaders[i]).data, type);
         default:
             unreachable();
@@ -328,31 +328,31 @@ fn any Manager.getAsset(&self, String name, typeid type)
     
 	switch(type)
     {
-        case Texture2D.typeid:
+        case RLTexture2D.typeid:
             foreach(texture: self.textures) {
                 if(texture.name == name) {
                     return any_make(&texture.data, texture.type);
                 }
             }
-        case Sound.typeid:
+        case RLSound.typeid:
             foreach(sound: self.sounds) {
                 if(sound.name == name) {
                     return any_make(&sound.data, sound.type);
                 }
             }
-        case Music.typeid:
+        case RLMusic.typeid:
             foreach(music: self.musics) {
                 if(music.name == name) {
                     return any_make(&music.data, music.type);
                 }
             }
-        case Font.typeid:
+        case RLFont.typeid:
             foreach(font: self.fonts) {
                 if(font.name == name) {
                     return any_make(&font.data, font.type);
                 }
             }
-        case Shader.typeid:
+        case RLShader.typeid:
             foreach(shader: self.shaders) {
                 if(shader.name == name) {
                     return any_make(&shader.data, shader.type);
@@ -371,31 +371,31 @@ fn bool Manager.hasAsset(&self, String name, typeid type) @inline
 
     switch(type)
     {
-        case Texture2D.typeid:
+        case RLTexture2D.typeid:
             foreach(texture: self.textures) {
                 if(texture.name == name) {
                     return true;
                 }
             }
-        case Sound.typeid:
+        case RLSound.typeid:
            foreach(sound: self.sounds) {
                 if(sound.name == name) {
                     return true;
                 }
             }
-        case Music.typeid:
+        case RLMusic.typeid:
            foreach(music: self.musics) {
                 if(music.name == name) {
                     return true;
                 }
             }
-        case Font.typeid:
+        case RLFont.typeid:
            foreach(font: self.fonts) {
                 if(font.name == name) {
                     return true;
                 }
             }
-        case Shader.typeid:
+        case RLShader.typeid:
            foreach(shader: self.shaders) {
                 if(shader.name == name) {
                     return true;
@@ -413,23 +413,23 @@ fn int Manager.hasAsset(&self, String name, typeid type) @inline
 
     switch(type)
     {
-        case Texture2D.typeid:
+        case RLTexture2D.typeid:
             foreach(i, texture: self.textures) {
                 if(texture.name == name) return (int)i;
             }
-        case Sound.typeid:
+        case RLSound.typeid:
            foreach(i, sound: self.sounds) {
                 if(sound.name == name) return (int)i;
             }
-        case Music.typeid:
+        case RLMusic.typeid:
            foreach(i, music: self.musics) {
                 if(music.name == name) return (int)i;
             }
-        case Font.typeid:
+        case RLFont.typeid:
            foreach(i, font: self.fonts) {
                 if(font.name == name) return (int)i;
             }
-        case Shader.typeid:
+        case RLShader.typeid:
            foreach(i, shader: self.shaders) {
                 if(shader.name == name) return (int)i;
             }
@@ -441,12 +441,12 @@ fn int Manager.hasAsset(&self, String name, typeid type) @inline
 <*
 @ensure return != null
 *>
-fn Texture2D* Manager.getTexture(&self, String name) @inline {
+fn RLTexture2D* Manager.getTexture(&self, String name) @inline {
     if(name != "") 
     {
-        any asset = local_manager.getAsset(name, Texture2D.typeid);
+        any asset = local_manager.getAsset(name, RLTexture2D.typeid);
         if(asset.ptr != null) {
-            return (Texture2D*)&((Asset{Texture2D}*)asset.ptr).data;
+            return (RLTexture2D*)&((Asset{RLTexture2D}*)asset.ptr).data;
         }
     }
     
@@ -459,11 +459,11 @@ fn Texture2D* Manager.getTexture(&self, String name) @inline {
     @require name != ""
     @ensure return != null
 *>
-fn Shader* Manager.getShader(&self, String name) //@inline 
+fn RLShader* Manager.getShader(&self, String name) //@inline 
 {
-    any asset = local_manager.getAsset(name, Shader.typeid);
+    any asset = local_manager.getAsset(name, RLShader.typeid);
     if(asset.ptr != null) {
-        return (Shader*)&((Asset{Shader}*)asset.ptr).data;
+        return (RLShader*)&((Asset{RLShader}*)asset.ptr).data;
     }
 
     log::warning(Where.FILE,  "[Asset Manager]: Requesting shader asset but returning default shader, because no asset name was provided.");
@@ -473,12 +473,12 @@ fn Shader* Manager.getShader(&self, String name) //@inline
 <*
 @ensure return != null
 *>
-fn Sound* Manager.getSound(&self, String name) @inline {
+fn RLSound* Manager.getSound(&self, String name) @inline {
     if(name != "") 
     {
-        any asset = local_manager.getAsset(name, Sound.typeid);
+        any asset = local_manager.getAsset(name, RLSound.typeid);
         if(asset.ptr != null) {
-            return (Sound*)&((Asset{Sound}*)asset.ptr).data;
+            return (RLSound*)&((Asset{RLSound}*)asset.ptr).data;
         }
     }
 
@@ -489,12 +489,12 @@ fn Sound* Manager.getSound(&self, String name) @inline {
 <*
 @ensure return != null
 *>
-fn Music* Manager.getMusic(&self, String name) @inline {
+fn RLMusic* Manager.getMusic(&self, String name) @inline {
     if(name != "") 
     {
-        any asset = local_manager.getAsset(name, Music.typeid);
+        any asset = local_manager.getAsset(name, RLMusic.typeid);
         if(asset.ptr != null) {
-            return (Music*)&((Asset{Music}*)asset.ptr).data;
+            return (RLMusic*)&((Asset{RLMusic}*)asset.ptr).data;
         }
     }
 
@@ -505,12 +505,12 @@ fn Music* Manager.getMusic(&self, String name) @inline {
 <*
 @ensure return != null
 *>
-fn Font* Manager.getFont(&self, String name) @inline {
+fn RLFont* Manager.getFont(&self, String name) @inline {
 	if(name != "") 
     {
-        any asset = local_manager.getAsset(name, Font.typeid);
+        any asset = local_manager.getAsset(name, RLFont.typeid);
         if(asset.ptr != null) {
-            return (Font*)&((Asset{Font}*)asset.ptr).data;
+            return (RLFont*)&((Asset{RLFont}*)asset.ptr).data;
         }
     }
 
@@ -549,28 +549,28 @@ fn void loadAsset(String path)
 	case ".png":
 	case ".jpg":
 	case ".tga":
-        should_load = local_manager.hasAsset(asset_name, Texture2D.typeid) == -1;
+        should_load = local_manager.hasAsset(asset_name, RLTexture2D.typeid) == -1;
         if(should_load) 
         {
             //path = path.trim_right(extension);
-            Asset{Texture2D}* new_asset = mem::new(Asset{Texture2D}, { 
+            Asset{RLTexture2D}* new_asset = mem::new(Asset{RLTexture2D}, { 
                 .name = asset_name, 
                 .path = path, 
-                .type = Texture2D.typeid,
+                .type = RLTexture2D.typeid,
                 .data = rl::loadTexture(path.zstr_tcopy())
             });
             local_manager.register(any_make(new_asset, new_asset.type));
         }
 	case ".vs":
 	case ".fs":
-        should_load = local_manager.hasAsset(asset_name, Shader.typeid) == -1;
+        should_load = local_manager.hasAsset(asset_name, RLShader.typeid) == -1;
         if(should_load) 
         {
             //path = path.trim_right(extension);
-            Asset{Shader}* new_asset = mem::new(Asset{Shader}, { 
+            Asset{RLShader}* new_asset = mem::new(Asset{RLShader}, { 
                 .name = asset_name, 
                 .path = path, 
-                .type = Shader.typeid,
+                .type = RLShader.typeid,
             });
 
             if(path.ends_with(".fs"))
@@ -606,46 +606,46 @@ fn void loadAsset(String path)
             } 
             else
             {
-                unreachable("Shader path must end with either \".fs\" or \".vs\", got: %s", path);
+                unreachable("RLShader path must end with either \".fs\" or \".vs\", got: %s", path);
             }
             local_manager.register(any_make(new_asset, new_asset.type));
         }
 	case ".mp3": nextcase;
 	case ".ogg":
-		should_load = local_manager.hasAsset(asset_name, Music.typeid) == -1;
+		should_load = local_manager.hasAsset(asset_name, RLMusic.typeid) == -1;
         if(should_load) 
         {
             //path = path.trim_right(extension);
-            Asset{Music}* new_asset = mem::new(Asset{Music}, { 
+            Asset{RLMusic}* new_asset = mem::new(Asset{RLMusic}, { 
                 .name = asset_name, 
                 .path = path, 
-                .type = Music.typeid,
+                .type = RLMusic.typeid,
                 .data = rl::loadMusicStream(path.zstr_tcopy())
             });
             local_manager.register(any_make(new_asset, new_asset.type));
         }
 	case ".wav":
-		should_load = local_manager.hasAsset(asset_name, Sound.typeid) == -1;
+		should_load = local_manager.hasAsset(asset_name, RLSound.typeid) == -1;
         if(should_load) 
         {
             //path = path.trim_right(extension);
-            Asset{Sound}* new_asset = mem::new(Asset{Sound}, { 
+            Asset{RLSound}* new_asset = mem::new(Asset{RLSound}, { 
                 .name = asset_name, 
                 .path = path, 
-                .type = Sound.typeid,
+                .type = RLSound.typeid,
                 .data = rl::loadSound(path.zstr_tcopy())
             });
             local_manager.register(any_make(new_asset, new_asset.type));
         }
 	case ".fnt":
-		should_load = local_manager.hasAsset(asset_name, Font.typeid) == -1;
+		should_load = local_manager.hasAsset(asset_name, RLFont.typeid) == -1;
         if(should_load) 
         {
             //path = path.trim_right(extension);
-            Asset{Font}* new_asset = mem::new(Asset{Font}, { 
+            Asset{RLFont}* new_asset = mem::new(Asset{RLFont}, { 
                 .name = asset_name, 
                 .path = path, 
-                .type = Font.typeid,
+                .type = RLFont.typeid,
                 .data = rl::loadFontEx(path.zstr_tcopy(), 
                                        main::DEFAULT_FONT_SIZE, 
                                        null, 
@@ -774,36 +774,36 @@ interface MaterialInterface
     fn void free();
     fn void load(String);
     fn void parse(String);
-    fn void copy(Material*) @optional;
-    fn Texture2D* getTexture(rl::MaterialMapIndex, bool);
+    fn void copy(RLMaterial*) @optional;
+    fn RLTexture2D* getTexture(rl::MaterialMapIndex, bool);
 }
 
-struct Material (Printable, MaterialInterface)
+struct RLMaterial (Printable, MaterialInterface)
 {
     String name;
     String path;
     
     struct maps {
-        Texture2D* diffuse; // for now is the only supported
+        RLTexture2D* diffuse; // for now is the only supported
         //
-        Texture2D* normal;
-        Texture2D* bump;
-        Texture2D* spec;
-        Texture2D* rough;
-        Texture2D* metal;
-        Texture2D* ao;
-        Texture2D* cube;
+        RLTexture2D* normal;
+        RLTexture2D* bump;
+        RLTexture2D* spec;
+        RLTexture2D* rough;
+        RLTexture2D* metal;
+        RLTexture2D* ao;
+        RLTexture2D* cube;
     }
     
-    //shdshd::Sound* sound;
+    //shdshd::RLSound* sound;
 }
 
-fn String Material.to_string(&self, Allocator allocator) @dynamic
+fn String RLMaterial.to_string(&self, Allocator allocator) @dynamic
 {
 	return string::format("%s", *self, allocator: allocator);
 }
 
-fn void Material.free(&self) @dynamic
+fn void RLMaterial.free(&self) @dynamic
 {
 	if(self.maps.diffuse) self.maps.diffuse = null;
     if(self.maps.normal)  self.maps.normal  = null;
@@ -816,7 +816,7 @@ fn void Material.free(&self) @dynamic
     //if(self.sound)        self.sound        = null;
 }
 
-fn void Material.copy(&self, Material* other) @dynamic
+fn void RLMaterial.copy(&self, RLMaterial* other) @dynamic
 {
 	self.maps.diffuse = other.maps.diffuse;
     self.maps.normal  = other.maps.normal;
@@ -829,7 +829,7 @@ fn void Material.copy(&self, Material* other) @dynamic
     //self.sound        = other.sound;
 }
 
-fn Texture2D* Material.getTexture(&self, rl::MaterialMapIndex index, bool isPBR = false) @dynamic
+fn RLTexture2D* RLMaterial.getTexture(&self, rl::MaterialMapIndex index, bool isPBR = false) @dynamic
 {
     /*
     ALBEDO,            // Albedo material (same as: MATERIAL_MAP_DIFFUSE)
@@ -868,7 +868,7 @@ fn Texture2D* Material.getTexture(&self, rl::MaterialMapIndex index, bool isPBR 
     }
 }
 
-fn void Material.load(&self, String file_path) @dynamic @inline
+fn void RLMaterial.load(&self, String file_path) @dynamic @inline
 {
     self.parse(file_path);
 }
@@ -902,7 +902,7 @@ fn void Material.load(&self, String file_path) @dynamic @inline
     }
 */
 
-fn void Material.parse(&self, String file_path) @dynamic
+fn void RLMaterial.parse(&self, String file_path) @dynamic
 {
 /*
     // load test xml file
@@ -917,7 +917,7 @@ fn void Material.parse(&self, String file_path) @dynamic
         XmlDoc* doc = xml::read_file(xmlfile)!!;
         defer doc.free();
         
-        XmlNode material_node = doc.get_node("Material");
+        XmlNode material_node = doc.get_node("RLMaterial");
         
         io::printfn("%s", material_node.name);
         io::printfn("{");
@@ -953,7 +953,7 @@ fn void Material.parse(&self, String file_path) @dynamic
     
     String! id = (String)main_node.get_attrib_value("name");
     if (catch excuse = id) {
-        log::error(Where.FILE, "Failed getting Material name from %s with excuse: %s\n", file_path, excuse);
+        log::error(Where.FILE, "Failed getting RLMaterial name from %s with excuse: %s\n", file_path, excuse);
         main_node = null;
         return;
     } 
@@ -989,7 +989,7 @@ fn void Material.parse(&self, String file_path) @dynamic
             String attribute_name = "impact";
             String! sound_shader_name = (String)node.get_attrib_value(attribute_name);
             if (catch excuse = sound_shader_name) {
-                io::printf("Material %s attribute %s not found: %s\n", node.name, attribute_name, excuse);
+                io::printf("RLMaterial %s attribute %s not found: %s\n", node.name, attribute_name, excuse);
                 continue;
             }
             
@@ -999,9 +999,9 @@ fn void Material.parse(&self, String file_path) @dynamic
     }
     /*
     
-    mlNode node = doc.get_node("Material");
+    mlNode node = doc.get_node("RLMaterial");
     
-    ssert(node.name == "Material");
+    ssert(node.name == "RLMaterial");
     
     elf.name = node.node.get_attrib_value("Name");
     elf.path = file_path;
@@ -1019,7 +1019,7 @@ fn void Material.parse(&self, String file_path) @dynamic
 
 /***************************************************************
 *
-*                       Sound Shader
+*                       RLSound RLShader
 *
 ****************************************************************/
 module game::assets::sndshd @private;
@@ -1040,7 +1040,7 @@ import std::collections::list, std::collections::map;
 alias Spawnarg             = main::StringTuple;
 // global file sound list
 alias SoundShaderList      = List{SoundShader*};
-alias SoundShaderSoundList = List{sndshd::Sound*};
+alias SoundShaderSoundList = List{sndshd::RLSound*};
 // individual sound, sound list and spawnargs
 alias SoundDefList         = List{SoundDef*};
 alias SpawnargList         = List{Spawnarg*};
@@ -1093,7 +1093,7 @@ fn void SoundShader.free(&self)
 }
 
 // this is the sound data/node inside each sound shader
-struct Sound (Printable) @public
+struct RLSound (Printable) @public
 {
     String name;
     String comment;
@@ -1107,23 +1107,23 @@ struct Sound (Printable) @public
     // global spawnargs
     SpawnargList global_args;
     
-    // list of real sounds defined for the Sound
+    // list of real sounds defined for the RLSound
     SoundDefList sounds;
 }
 
-fn void Sound.free_spawnargs(&self) @inline {
+fn void RLSound.free_spawnargs(&self) @inline {
     foreach(it : self.global_args) {
         if(it) { mem::free(it); it = null; }
     }
 }
 
-fn void Sound.free_sounds(&self) @inline {
+fn void RLSound.free_sounds(&self) @inline {
     foreach(it : self.sounds) {
         if(it) { it.free(); it = null; }
     }
 }
 
-fn void Sound.free(&self) {
+fn void RLSound.free(&self) {
     if(self.altSound) self.altSound = null;
     if(self.global_args.len()) {
         self.free_spawnargs();
@@ -1136,7 +1136,7 @@ fn void Sound.free(&self) {
 struct SoundDef {
     String path;
     SpawnargList args;
-    rl::Sound* sound;
+    rl::RLSound* sound;
 }
 
 fn void SoundDef.free_spawnargs(&self) {
@@ -1152,7 +1152,7 @@ fn void SoundDef.free(&self) {
     if(self.sound) self.sound = null;
 }
 
-fn String Sound.to_string(&self, Allocator allocator) @dynamic
+fn String RLSound.to_string(&self, Allocator allocator) @dynamic
 {
 	return string::format("%s", *self, allocator: allocator);
 }
@@ -1160,7 +1160,7 @@ fn String Sound.to_string(&self, Allocator allocator) @dynamic
 
 // TODO handle global args and each sound alias args seperatly
 // This function should be only for global sound args 
-fn void Sound.setupFlags(&self) @inline
+fn void RLSound.setupFlags(&self) @inline
 {
    foreach(spwarg : self.global_args) {
         switch(spwarg.first) {
@@ -1291,7 +1291,7 @@ fn void Sound.setupFlags(&self) @inline
    }
 }
 
-fn void SoundShader.copy(&self, Material* other)
+fn void SoundShader.copy(&self, RLMaterial* other)
 {
 
 }
@@ -1312,7 +1312,7 @@ fn void SoundShader.update(&self)
                     }
                 }
             } else {
-                shdshd::Sound* snd = &self.sounds[0];
+                shdshd::RLSound* snd = &self.sounds[0];
                 if(snd.sound == null) log::warning(Where.FILE, "Trying to play SoundShader %s but has no sounds to play!\n", self.name);
             }
             
@@ -1396,7 +1396,7 @@ fn void? loadSoundShaderRecursively(String basepath, String parent_folder = "") 
  @require node != null
 *>
 fn void parse(XmlNode* node, SoundShader* shader) {
-    shdshd::Sound* sound = mem::new(shdshd::Sound);
+    shdshd::RLSound* sound = mem::new(shdshd::RLSound);
     defer shader.sounds.push(sound);
     
     sound.name = node.get_attrib_value("name");
@@ -1495,7 +1495,7 @@ fn void SoundShader.load(&self)
     
     String! id = (String)main_node.get_attrib_value("name");
     if (catch excuse = id) {
-        log::error(Where.FILE, "Failed getting Material name from %s with excuse: %s\n", self.path, excuse);
+        log::error(Where.FILE, "Failed getting RLMaterial name from %s with excuse: %s\n", self.path, excuse);
         main_node = null;
         return;
     } 
@@ -1531,7 +1531,7 @@ fn void SoundShader.load(&self)
             String attribute_name = "impact";
             String! sound_shader_name = (String)node.get_attrib_value(attribute_name);
             if (catch excuse = sound_shader_name) {
-                io::printf("Material %s attribute %s not found: %s\n", node.name, attribute_name, excuse);
+                io::printf("RLMaterial %s attribute %s not found: %s\n", node.name, attribute_name, excuse);
                 continue;
             }
             

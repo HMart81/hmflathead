@@ -217,7 +217,7 @@ fn void ScriptEngine.closeVirtualMachine(&self) @dynamic
 
 fn void ScriptEngine.registerScripts(&self, String script_folder) @dynamic
 {
-    FilePathList scriptlist = fs::loadDirectoryFiles(script_folder);
+    RLFilePathList scriptlist = fs::loadDirectoryFiles(script_folder);
     defer if(scriptlist.count) fs::unloadDirectoryFiles(scriptlist);
 
     if(scriptlist.count >= 1) 
@@ -245,7 +245,7 @@ fn void ScriptEngine.registerScripts(&self, String script_folder) @dynamic
 
 fn void ScriptEngine.reloadScripts(&self, String script_folder) @dynamic
 {
-    FilePathList scriptlist = fs::loadDirectoryFiles(script_folder);
+    RLFilePathList scriptlist = fs::loadDirectoryFiles(script_folder);
     defer if(scriptlist.count) fs::unloadDirectoryFiles(scriptlist);
 
     if(scriptlist.count >= 1) 
@@ -413,7 +413,7 @@ fn WrenLoadModuleResult loadModule(WrenVM* vm, ZString name) @local
 fn WrenLoadModuleResult myLoadModule(String name, String path) @local
 {
     WrenLoadModuleResult result;
-    FilePathList scriptlist = fs::loadDirectoryFiles(path);
+    RLFilePathList scriptlist = fs::loadDirectoryFiles(path);
     defer if(scriptlist.count) fs::unloadDirectoryFiles(scriptlist);
 
     if(scriptlist.count >= 1) 
@@ -832,7 +832,7 @@ fn void ScriptEngine.update(&self) @dynamic
 
 fn void ScriptEngine.registerScripts(&self, String script_folder) @dynamic
 {
-    FilePathList scriptlist = fs::loadDirectoryFiles(script_folder);
+    RLFilePathList scriptlist = fs::loadDirectoryFiles(script_folder);
     defer if(scriptlist.count) fs::unloadDirectoryFiles(scriptlist);
 
     if(scriptlist.count >= 1) 
@@ -860,7 +860,7 @@ fn void ScriptEngine.registerScripts(&self, String script_folder) @dynamic
 
 fn void ScriptEngine.reloadScripts(&self, String script_folder) @dynamic
 {
-    FilePathList scriptlist = fs::loadDirectoryFiles(script_folder);
+    RLFilePathList scriptlist = fs::loadDirectoryFiles(script_folder);
     defer if(scriptlist.count) fs::unloadDirectoryFiles(scriptlist);
 
     if(scriptlist.count >= 1) 
@@ -1134,7 +1134,7 @@ fn void ScriptEngine.update(&self) @dynamic
 
 fn void ScriptEngine.registerScripts(&self, String script_folder) @dynamic
 {
-    FilePathList scriptlist = fs::loadDirectoryFiles(script_folder);
+    RLFilePathList scriptlist = fs::loadDirectoryFiles(script_folder);
     defer if(scriptlist.count) fs::unloadDirectoryFiles(scriptlist);
 
     if(scriptlist.count >= 1) 
@@ -1162,7 +1162,7 @@ fn void ScriptEngine.registerScripts(&self, String script_folder) @dynamic
 
 fn void ScriptEngine.reloadScripts(&self, String script_folder) @dynamic
 {
-    FilePathList scriptlist = fs::loadDirectoryFiles(script_folder);
+    RLFilePathList scriptlist = fs::loadDirectoryFiles(script_folder);
     defer if(scriptlist.count) fs::unloadDirectoryFiles(scriptlist);
 
     if(scriptlist.count >= 1) 
@@ -1260,7 +1260,7 @@ import std::io;
 import std::collections::list;
 import engine::filesystem::fs;
 import engine::logging::log;
-import thirdparty::raylib5::rl; // for FilePathList
+import thirdparty::raylib5::rl; // for RLFilePathList
 import thirdparty::scripting::umka;
 import engine::misc; // misc code
 import game::main;
@@ -1460,7 +1460,7 @@ fn void ScriptEngine.update(&self) @dynamic
 
 fn void ScriptEngine.registerScripts(&self, String script_folder) @dynamic
 {
-    FilePathList scriptlist = fs::loadDirectoryFiles(script_folder);
+    RLFilePathList scriptlist = fs::loadDirectoryFiles(script_folder);
     defer if(scriptlist.count) fs::unloadDirectoryFiles(scriptlist);
 
     if(scriptlist.count >= 1) 
@@ -1488,7 +1488,7 @@ fn void ScriptEngine.registerScripts(&self, String script_folder) @dynamic
 
 fn void ScriptEngine.reloadScripts(&self, String script_folder) @dynamic
 {
-    FilePathList scriptlist = fs::loadDirectoryFiles(script_folder);
+    RLFilePathList scriptlist = fs::loadDirectoryFiles(script_folder);
     defer if(scriptlist.count) fs::unloadDirectoryFiles(scriptlist);
 
     if(scriptlist.count >= 1) 

@@ -63,7 +63,7 @@ const Where CONSOLE @export = Where.CONSOLE;
 /*
 // Trace log level, taken from raylib55
 // NOTE: Organized by priority level
-TraceLogLevel
+RLTraceLogLevel
 {
     ALL,            // Display all logs (0)
     TRACE,          // Trace logging, intended for internal use only
@@ -83,7 +83,7 @@ TraceLogLevel
     File gfile    @local;    // the file handle itself
 // end_region
 
-fn void setLogLevel(TraceLogLevel level) @inline 
+fn void setLogLevel(RLTraceLogLevel level) @inline 
 {
 	glevel = level;
 }
@@ -95,7 +95,7 @@ fn void initGlobalLoggingDir() @inline
     gpath = rl::getWorkingDirectory().str_view().tconcat("\\debug.log").zstr_tcopy();
 }
 
-fn void init(TraceLogLevel level) @inline
+fn void init(RLTraceLogLevel level) @inline
 {
 	initGlobalLoggingDir();
 	setLogLevel(level);
@@ -114,7 +114,7 @@ fn void closeLogFile()
 fn String getfilepath() @inline => gpath.str_view();
 
 
-/*fn void log(Where where, TraceLogLevel level, String fmt, args...) @public {
+/*fn void log(Where where, RLTraceLogLevel level, String fmt, args...) @public {
     switch (where) {
         case FILE:
             logTofile(level, fmt, ...args);
@@ -127,9 +127,9 @@ fn void info(Where where, String fmt, args...) @public
 {
 	switch (where) {
         case FILE:
-            logTofile(TraceLogLevel.INFO, fmt, ...args);
+            logTofile(RLTraceLogLevel.INFO, fmt, ...args);
         case CONSOLE:
-            logToConsole(TraceLogLevel.INFO, fmt, ...args);
+            logToConsole(RLTraceLogLevel.INFO, fmt, ...args);
     }
 }
 
@@ -137,9 +137,9 @@ fn void warning(Where where, String fmt, args...) @public
 {
 	switch (where) {
         case FILE:
-            logTofile(TraceLogLevel.WARNING, fmt, ...args);
+            logTofile(RLTraceLogLevel.WARNING, fmt, ...args);
         case CONSOLE:
-            logToConsole(TraceLogLevel.WARNING, fmt, ...args);
+            logToConsole(RLTraceLogLevel.WARNING, fmt, ...args);
     }
 }
 
@@ -147,23 +147,23 @@ fn void error(Where where, String fmt, args...) @public
 {
 	switch (where) {
         case FILE:
-            logTofile(TraceLogLevel.ERROR, fmt, ...args);
+            logTofile(RLTraceLogLevel.ERROR, fmt, ...args);
         case CONSOLE:
-            logToConsole(TraceLogLevel.ERROR, fmt, ...args);
+            logToConsole(RLTraceLogLevel.ERROR, fmt, ...args);
     }
 }
 
 fn void fatal(Where where, String fmt, args...) @public {
 	switch (where) {
         case FILE:
-            logTofile(TraceLogLevel.FATAL, fmt, ...args);
+            logTofile(RLTraceLogLevel.FATAL, fmt, ...args);
         case CONSOLE:
-            logToConsole(TraceLogLevel.FATAL, fmt, ...args);
+            logToConsole(RLTraceLogLevel.FATAL, fmt, ...args);
     }
     unreachable();
 }
 
-fn void logTofile(TraceLogLevel level, String fmt, args...) @local @format(1)
+fn void logTofile(RLTraceLogLevel level, String fmt, args...) @local @format(1)
 {
 	// if logging disabled do nothing
 	if(g_log.getBool() == false) return; // turn off logging
@@ -212,13 +212,13 @@ $if $feature(_DEBUG):
 		
 		switch(level)
 		{
-			case TraceLogLevel.INFO:
+			case RLTraceLogLevel.INFO:
 				nextcase default;
-			case TraceLogLevel.WARNING:
+			case RLTraceLogLevel.WARNING:
 				level_str = "[WARNING]";
-			case TraceLogLevel.ERROR:
+			case RLTraceLogLevel.ERROR:
 				level_str = "[ERROR]";
-			case TraceLogLevel.FATAL:
+			case RLTraceLogLevel.FATAL:
 				level_str = "[FATAL]";
 			default:
 				level_str = "[INFO]";
@@ -233,7 +233,7 @@ $if $feature(_DEBUG):
 $endif
 }
 
-fn void logToConsole(TraceLogLevel level, String fmt, args...) @format(1) @local {
+fn void logToConsole(RLTraceLogLevel level, String fmt, args...) @format(1) @local {
 	// if logging disabled do nothing
 	if(g_log.getBool() == false) return; // turn off logging
 	// if nothing to write also do nothing
@@ -247,16 +247,16 @@ fn void logToConsole(TraceLogLevel level, String fmt, args...) @format(1) @local
 
 	switch(level)
 	{
-		case TraceLogLevel.WARNING:
+		case RLTraceLogLevel.WARNING:
 			color = ANSI_COLOR_BR_YELLOW;
 			level_str = "[WARNING]";
-		case TraceLogLevel.ERROR:
+		case RLTraceLogLevel.ERROR:
 			color = ANSI_COLOR_RED;
 			level_str = "[ERROR]";
-		case TraceLogLevel.FATAL:
+		case RLTraceLogLevel.FATAL:
 			color = ANSI_COLOR_BR_RED;
 			level_str = "[FATAL]";
-		case TraceLogLevel.INFO:
+		case RLTraceLogLevel.INFO:
 		default:
 			color = ANSI_COLOR_YELLOW;
 			level_str = "[INFO]";

@@ -225,7 +225,7 @@ fn WidgetCheckBox* Desktop.create_menu_checkbox(&self, String text, MenuButtonDe
     return checkbox;
 }
 
-fn WidgetText* Desktop.create_menu_label(&self, String text, Font* font, int font_size, Color color) @local @inline {
+fn WidgetText* Desktop.create_menu_label(&self, String text, RLFont* font, int font_size, RLColor color) @local @inline {
     WidgetText* label = gui::createLabel("", text, font, font_size, color);
     label.addTo(self);
     return label;
@@ -235,9 +235,9 @@ const MAX_CALLBACK_PTRS @local = 10;
 struct MenuButtonDef 
 {
     Vec2f size;
-    Color default_color;
-    Color over_color;
-    Color label_color;
+    RLColor default_color;
+    RLColor over_color;
+    RLColor label_color;
     WidgetTextAlign label_align;
     WidgetCallback[MAX_CALLBACK_PTRS] callbacks;
 }
@@ -360,7 +360,7 @@ fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
     //*************
     const TITLE           = "FlatHead";
     const TITLE_FONT_SIZE = 50;
-    Font* title_font = main::gpGame.trojan_pro_font;
+    RLFont* title_font = main::gpGame.trojan_pro_font;
     WidgetText* title_label = desk_main.create_menu_label(TITLE, title_font, TITLE_FONT_SIZE, rl::GRAY);
     Vec2f title_offset = misc::VEC_RIGHT * screen_top_center.x;
     title_offset -= {title_label.text_len / 2.0f, 0.0f};
@@ -372,7 +372,7 @@ fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
     //*************
     const SUBTITLE           = "engine";
     const SUBTITLE_FONT_SIZE = 16;
-    Font* subtitle_font = main::gpGame.lucida_font;
+    RLFont* subtitle_font = main::gpGame.lucida_font;
     WidgetText* subtitle_label = desk_main.create_menu_label(SUBTITLE, subtitle_font, SUBTITLE_FONT_SIZE, rl::RAYWHITE);
     Vec2f subtitle_offset = misc::VEC_RIGHT * screen_top_center.x;
     subtitle_offset -= {subtitle_label.text_len / 2.0f, 0.0f};

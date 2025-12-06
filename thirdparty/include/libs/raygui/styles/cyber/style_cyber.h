@@ -38,7 +38,7 @@ static const GuiStyleProp cyberStyleProps[CYBER_STYLE_PROPS_COUNT] = {
 
 #define CYBER_STYLE_FONT_ATLAS_COMP_SIZE 2286
 
-// Font atlas image pixels data: DEFLATE compressed
+// RLFont atlas image pixels data: DEFLATE compressed
 static unsigned char cyberFontData[CYBER_STYLE_FONT_ATLAS_COMP_SIZE] = { 0xed,
     0xdd, 0x81, 0x6e, 0xdb, 0x36, 0x10, 0x06, 0x60, 0x21, 0xef, 0xff, 0xc6, 0x99, 0xf6, 0x0f, 0xe8, 0xd0, 0x2d, 0x45, 0x6b,
     0x89, 0x3c, 0x92, 0xb2, 0xec, 0x7c, 0xfd, 0x80, 0x61, 0x88, 0x62, 0x5b, 0xa2, 0x78, 0xe4, 0x49, 0x0a, 0xcf, 0xd9, 0x00,
@@ -156,8 +156,8 @@ static unsigned char cyberFontData[CYBER_STYLE_FONT_ATLAS_COMP_SIZE] = { 0xed,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xd0, 0xe2, 0xdf, 0x7f, 0xda, 0x01, 0xc4, 0x3f,
     0xf0, 0xed, 0xe2, 0xff, 0x1f };
 
-// Font glyphs rectangles data (on atlas)
-static const Rectangle cyberFontRecs[189] = {
+// RLFont glyphs rectangles data (on atlas)
+static const RLRectangle cyberFontRecs[189] = {
     { 4, 4, 4 , 14 },
     { 16, 4, 1 , 8 },
     { 25, 4, 4 , 3 },
@@ -349,7 +349,7 @@ static const Rectangle cyberFontRecs[189] = {
     { 228, 114, 7 , 10 },
 };
 
-// Font glyphs info data
+// RLFont glyphs info data
 // NOTE: No glyphs.image data provided
 static const GlyphInfo cyberFontGlyphs[189] = {
     { 32, 0, 11, 4, { 0 }},
@@ -557,9 +557,9 @@ static void GuiLoadStyleCyber(void)
     // NOTE: Compressed font image data (DEFLATE), it requires DecompressData() function
     int cyberFontDataSize = 0;
     unsigned char *data = DecompressData(cyberFontData, CYBER_STYLE_FONT_ATLAS_COMP_SIZE, &cyberFontDataSize);
-    Image imFont = { data, 512, 256, 1, 2 };
+    RLImage imFont = { data, 512, 256, 1, 2 };
 
-    Font font = { 0 };
+    RLFont font = { 0 };
     font.baseSize = 14;
     font.glyphCount = 189;
 
@@ -569,8 +569,8 @@ static void GuiLoadStyleCyber(void)
 
     // Copy char recs data from global fontRecs
     // NOTE: Required to avoid issues if trying to free font
-    font.recs = (Rectangle *)RAYGUI_MALLOC(font.glyphCount*sizeof(Rectangle));
-    memcpy(font.recs, cyberFontRecs, font.glyphCount*sizeof(Rectangle));
+    font.recs = (RLRectangle *)RAYGUI_MALLOC(font.glyphCount*sizeof(RLRectangle));
+    memcpy(font.recs, cyberFontRecs, font.glyphCount*sizeof(RLRectangle));
 
     // Copy font char info data from global fontChars
     // NOTE: Required to avoid issues if trying to free font
@@ -581,7 +581,7 @@ static void GuiLoadStyleCyber(void)
 
     // Setup a white rectangle on the font to be used on shapes drawing,
     // it makes possible to draw shapes and text (full UI) in a single draw call
-    Rectangle fontWhiteRec = { 510, 254, 1, 1 };
+    RLRectangle fontWhiteRec = { 510, 254, 1, 1 };
     SetShapesTexture(font.texture, fontWhiteRec);
 
     //-----------------------------------------------------------------

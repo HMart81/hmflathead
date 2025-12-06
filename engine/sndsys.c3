@@ -149,7 +149,7 @@ fn void update() {
 }
 
 struct SSMusic {
-    Music stream;
+    RLMusic stream;
     float timePlayed;  // Time played normalized [0.0f..1.0f]
     bool pause;
 }

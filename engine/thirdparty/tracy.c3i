@@ -39,7 +39,7 @@ enum PlotFormat
     WATT
 }
 
-fn void set_thread_name( ZString name ) @extern("___tracy_set_thread_name");
+fn void set_thread_name( ZString name ) @cname("___tracy_set_thread_name");
 
 alias UInt8_t @private = char;
 
@@ -65,25 +65,29 @@ struct GPU_TimeData
     UInt8_t context;
 }
 
-struct GPU_ZoneBeginData {
+struct GPU_ZoneBeginData 
+{
     ulong srcloc;
     ushort queryId;
     UInt8_t context;
 }
 
-struct GPU_Zone_begin_callstack_data {
+struct GPU_Zone_begin_callstack_data 
+{
     ulong srcloc;
     int depth;
     ushort queryId;
     UInt8_t context;
 }
 
-struct GPU_zone_end_data {
+struct GPU_zone_end_data 
+{
     ushort queryId;
     UInt8_t context;
 }
 
-struct GPU_new_context_data {
+struct GPU_new_context_data 
+{
     long gpuTime;
     float period;
     UInt8_t context;
@@ -91,24 +95,28 @@ struct GPU_new_context_data {
     UInt8_t type;
 }
 
-struct GPU_context_name_data {
+struct GPU_context_name_data 
+{
     UInt8_t context;
     ZString name;
     ushort len;
 }
 
-struct GPU_calibration_data {
+struct GPU_calibration_data 
+{
     long gpuTime;
     long cpuDelta;
     UInt8_t context;
 }
 
-struct GPU_time_sync_data {
+struct GPU_time_sync_data
+{
     long gpuTime;
     UInt8_t context;
 }
 
-struct Lockable_context_data {
+struct Lockable_context_data
+{
     uint m_id;
     Atomic{uint} m_lockCount @if($feature(TRACY_ON_DEMAND));
     Atomic{bool} m_active @if($feature(TRACY_ON_DEMAND));
@@ -119,64 +127,64 @@ struct Lockable_context_data {
 alias LockCtxPtr = Lockable_context_data*;
 
 // region ============== PROFILER MANAGMENT ===============================
-fn void startup_profiler() @extern("___tracy_startup_profiler")     @if($feature(TRACY_MANUAL_LIFETIME));  
-fn void shutdown_profiler() @extern("___tracy_shutdown_profiler")   @if($feature(TRACY_MANUAL_LIFETIME));
-fn int profiler_started() @extern("___tracy_profiler_started")      @if($feature(TRACY_MANUAL_LIFETIME));
+fn void startup_profiler() @cname("___tracy_startup_profiler")     @if($feature(TRACY_MANUAL_LIFETIME));  
+fn void shutdown_profiler() @cname("___tracy_shutdown_profiler")   @if($feature(TRACY_MANUAL_LIFETIME));
+fn int profiler_started() @cname("___tracy_profiler_started")      @if($feature(TRACY_MANUAL_LIFETIME));
 alias isStarted  @if($feature(TRACY_MANUAL_LIFETIME)) = profiler_started;                          
 int isStarted @if(!$feature(TRACY_MANUAL_LIFETIME)) = 1;
 // end_region ============== PROFILER MANAGMENT END ===============================
 
-fn ulong alloc_srcloc( uint line, ZString source, usz sourceSz, ZString function, usz functionSz, uint color ) @extern("___tracy_alloc_srcloc");
-fn ulong alloc_srcloc_name( uint line, ZString source, usz sourceSz, ZString function, usz functionSz, ZString name, usz nameSz, uint color ) @extern("___tracy_alloc_srcloc_name");
+fn ulong alloc_srcloc( uint line, ZString source, usz sourceSz, ZString function, usz functionSz, uint color ) @cname("___tracy_alloc_srcloc");
+fn ulong alloc_srcloc_name( uint line, ZString source, usz sourceSz, ZString function, usz functionSz, ZString name, usz nameSz, uint color ) @cname("___tracy_alloc_srcloc_name");
 
 module thirdparty::tracy::zn @if($feature(TRACY_ENABLE));
 
-fn ZoneContext begin( SourceLocationData* srcloc, int active ) @extern("___tracy_emit_zone_begin");
-fn ZoneContext begin_callstack( SourceLocationData* srcloc, int depth, int active ) @extern("___tracy_emit_zone_begin_callstack");
-fn ZoneContext begin_alloc( ulong srcloc, int active ) @extern("___tracy_emit_zone_begin_alloc");
-fn ZoneContext begin_alloc_callstack( ulong srcloc, int depth, int active ) @extern("___tracy_emit_zone_begin_alloc_callstack");
-fn void ZoneContext.end( ZoneContext ctx ) @extern("___tracy_emit_zone_end");
-fn void ZoneContext.text( ZoneContext ctx, ZString txt, usz size ) @extern("___tracy_emit_zone_text");
-fn void ZoneContext.name( ZoneContext ctx, ZString txt, usz size ) @extern("___tracy_emit_zone_name");
-fn void ZoneContext.color( ZoneContext ctx, uint color ) @extern("___tracy_emit_zone_color");
-fn void ZoneContext.value( ZoneContext ctx, ulong value ) @extern("___tracy_emit_zone_value");
+fn ZoneContext begin( SourceLocationData* srcloc, int active ) @cname("___tracy_emit_zone_begin");
+fn ZoneContext begin_callstack( SourceLocationData* srcloc, int depth, int active ) @cname("___tracy_emit_zone_begin_callstack");
+fn ZoneContext begin_alloc( ulong srcloc, int active ) @cname("___tracy_emit_zone_begin_alloc");
+fn ZoneContext begin_alloc_callstack( ulong srcloc, int depth, int active ) @cname("___tracy_emit_zone_begin_alloc_callstack");
+fn void ZoneContext.end( ZoneContext ctx ) @cname("___tracy_emit_zone_end");
+fn void ZoneContext.text( ZoneContext ctx, ZString txt, usz size ) @cname("___tracy_emit_zone_text");
+fn void ZoneContext.name( ZoneContext ctx, ZString txt, usz size ) @cname("___tracy_emit_zone_name");
+fn void ZoneContext.color( ZoneContext ctx, uint color ) @cname("___tracy_emit_zone_color");
+fn void ZoneContext.value( ZoneContext ctx, ulong value ) @cname("___tracy_emit_zone_value");
 
 module thirdparty::tracy::gpuzn @if($feature(TRACY_ENABLE));
 
-fn void begin( GPU_ZoneBeginData ) @extern("___tracy_emit_GPU_zone_begin");
-fn void begin_callstack( GPU_Zone_begin_callstack_data ) @extern("___tracy_emit_GPU_zone_begin_callstack");
-fn void begin_alloc( GPU_ZoneBeginData ) @extern("___tracy_emit_GPU_zone_begin_alloc");
-fn void begin_alloc_callstack( GPU_Zone_begin_callstack_data ) @extern("___tracy_emit_GPU_zone_begin_alloc_callstack");
-fn void end( GPU_zone_end_data data ) @extern("___tracy_emit_GPU_zone_end");
+fn void begin( GPU_ZoneBeginData ) @cname("___tracy_emit_GPU_zone_begin");
+fn void begin_callstack( GPU_Zone_begin_callstack_data ) @cname("___tracy_emit_GPU_zone_begin_callstack");
+fn void begin_alloc( GPU_ZoneBeginData ) @cname("___tracy_emit_GPU_zone_begin_alloc");
+fn void begin_alloc_callstack( GPU_Zone_begin_callstack_data ) @cname("___tracy_emit_GPU_zone_begin_alloc_callstack");
+fn void end( GPU_zone_end_data data ) @cname("___tracy_emit_GPU_zone_end");
 
 module thirdparty::tracy::gpu @if($feature(TRACY_ENABLE));
 
-fn void time( GPU_TimeData ) @extern("___tracy_emit_GPU_time");
-fn void new_context( GPU_new_context_data ) @extern("___tracy_emit_GPU_new_context");
-fn void context_name( GPU_context_name_data ) @extern("___tracy_emit_GPU_context_name");
-fn void calibration( GPU_calibration_data ) @extern("___tracy_emit_GPU_calibration");
-fn void time_sync( GPU_time_sync_data ) @extern("___tracy_emit_GPU_time_sync");
+fn void time( GPU_TimeData ) @cname("___tracy_emit_GPU_time");
+fn void new_context( GPU_new_context_data ) @cname("___tracy_emit_GPU_new_context");
+fn void context_name( GPU_context_name_data ) @cname("___tracy_emit_GPU_context_name");
+fn void calibration( GPU_calibration_data ) @cname("___tracy_emit_GPU_calibration");
+fn void time_sync( GPU_time_sync_data ) @cname("___tracy_emit_GPU_time_sync");
 
 module thirdparty::tracy::gpuzn @if($feature(TRACY_ENABLE)); // (B)
 
-fn void begin_serial( GPU_ZoneBeginData ) @extern("___tracy_emit_gpu_zone_begin_serial");
-fn void begin_callstack_serial( GPU_Zone_begin_callstack_data ) @extern("___tracy_emit_gpu_zone_begin_callstack_serial");
-fn void begin_alloc_serial( GPU_ZoneBeginData ) @extern("___tracy_emit_gpu_zone_begin_alloc_serial");
-fn void begin_alloc_callstack_serial( GPU_Zone_begin_callstack_data ) @extern("___tracy_emit_gpu_zone_begin_alloc_callstack_serial");
-fn void end_serial( GPU_zone_end_data data ) @extern("___tracy_emit_gpu_zone_end_serial");
+fn void begin_serial( GPU_ZoneBeginData ) @cname("___tracy_emit_gpu_zone_begin_serial");
+fn void begin_callstack_serial( GPU_Zone_begin_callstack_data ) @cname("___tracy_emit_gpu_zone_begin_callstack_serial");
+fn void begin_alloc_serial( GPU_ZoneBeginData ) @cname("___tracy_emit_gpu_zone_begin_alloc_serial");
+fn void begin_alloc_callstack_serial( GPU_Zone_begin_callstack_data ) @cname("___tracy_emit_gpu_zone_begin_alloc_callstack_serial");
+fn void end_serial( GPU_zone_end_data data ) @cname("___tracy_emit_gpu_zone_end_serial");
 
 module thirdparty::tracy::gpu @if($feature(TRACY_ENABLE)); // (B)
 
-fn void time_serial( GPU_TimeData ) @extern("___tracy_emit_gpu_time_serial");
-fn void new_context_serial( GPU_new_context_data ) @extern("___tracy_emit_gpu_new_context_serial");
-fn void context_name_serial( GPU_context_name_data ) @extern("___tracy_emit_gpu_context_name_serial");
-fn void calibration_serial( GPU_calibration_data ) @extern("___tracy_emit_gpu_calibration_serial");
-fn void time_sync_serial( GPU_time_sync_data ) @extern("___tracy_emit_gpu_time_sync_serial");
+fn void time_serial( GPU_TimeData ) @cname("___tracy_emit_gpu_time_serial");
+fn void new_context_serial( GPU_new_context_data ) @cname("___tracy_emit_gpu_new_context_serial");
+fn void context_name_serial( GPU_context_name_data ) @cname("___tracy_emit_gpu_context_name_serial");
+fn void calibration_serial( GPU_calibration_data ) @cname("___tracy_emit_gpu_calibration_serial");
+fn void time_sync_serial( GPU_time_sync_data ) @cname("___tracy_emit_gpu_time_sync_serial");
 
 module thirdparty::tracy @if($feature(TRACY_ENABLE)); // (B)
 import std::io;
 
-fn int local_connected() @local @extern("___tracy_connected");
+fn int local_connected() @local @cname("___tracy_connected");
 macro bool connected() => (local_connected() == 0) ? false : true;
 
 
@@ -453,14 +461,14 @@ macro @zoneNCS( ctx, $name, $color, $depth, $active ) @if(!$feature(TRACY_HAS_CA
 
 module thirdparty::tracy::mem @if($feature(TRACY_ENABLE));
 
-fn void alloc( void* ptr, usz size, int secure ) @extern("___tracy_emit_memory_alloc");
-fn void alloc_callstack( void* ptr, usz size, int depth, int secure ) @extern("___tracy_emit_memory_alloc_callstack");
-fn void free( void* ptr, int secure ) @extern("___tracy_emit_memory_free");
-fn void free_callstack( void* ptr, int depth, int secure ) @extern("___tracy_emit_memory_free_callstack");
-fn void alloc_named( void* ptr, usz size, int secure, ZString name ) @extern("___tracy_emit_memory_alloc_named");
-fn void alloc_callstack_named( void* ptr, usz size, int depth, int secure, ZString name ) @extern("___tracy_emit_memory_alloc_callstack_named");
-fn void free_named( void* ptr, int secure, ZString name ) @extern("___tracy_emit_memory_free_named");
-fn void free_callstack_named( void* ptr, int depth, int secure, ZString name ) @extern("___tracy_emit_memory_free_callstack_named");
+fn void alloc( void* ptr, usz size, int secure ) @cname("___tracy_emit_memory_alloc");
+fn void alloc_callstack( void* ptr, usz size, int depth, int secure ) @cname("___tracy_emit_memory_alloc_callstack");
+fn void free( void* ptr, int secure ) @cname("___tracy_emit_memory_free");
+fn void free_callstack( void* ptr, int depth, int secure ) @cname("___tracy_emit_memory_free_callstack");
+fn void alloc_named( void* ptr, usz size, int secure, ZString name ) @cname("___tracy_emit_memory_alloc_named");
+fn void alloc_callstack_named( void* ptr, usz size, int depth, int secure, ZString name ) @cname("___tracy_emit_memory_alloc_callstack_named");
+fn void free_named( void* ptr, int secure, ZString name ) @cname("___tracy_emit_memory_free_named");
+fn void free_callstack_named( void* ptr, int depth, int secure, ZString name ) @cname("___tracy_emit_memory_free_callstack_named");
 
 // region TRACY_HAS_CALLSTACK && TRACY_CALLSTACK
 macro @alloc( #ptr, $size ) @if($feature(TRACY_HAS_CALLSTACK) &&& $feature(TRACY_CALLSTACK))
@@ -604,10 +612,10 @@ macro @secureFreeNS( ptr, depth, name ) @if(!$feature(TRACY_HAS_CALLSTACK))
 
 module thirdparty::tracy @if($feature(TRACY_ENABLE)); // (C)
 
-fn void message( ZString txt, usz size, int callstack ) @extern("___tracy_emit_message");
-fn void messageL( ZString txt, int callstack ) @extern("___tracy_emit_messageL");
-fn void messageC( ZString txt, usz size, uint color, int callstack ) @extern("___tracy_emit_messageC");
-fn void messageLC( ZString txt, uint color, int callstack ) @extern("___tracy_emit_messageLC");
+fn void message( ZString txt, usz size, int callstack ) @cname("___tracy_emit_message");
+fn void messageL( ZString txt, int callstack ) @cname("___tracy_emit_messageL");
+fn void messageC( ZString txt, usz size, uint color, int callstack ) @cname("___tracy_emit_messageC");
+fn void messageLC( ZString txt, uint color, int callstack ) @cname("___tracy_emit_messageLC");
 
 // region TRACY_HAS_CALLSTACK && TRACY_CALLSTACK
 macro @message( #txt, $size ) @if($feature(TRACY_HAS_CALLSTACK) &&& $feature(TRACY_CALLSTACK))
@@ -686,31 +694,31 @@ macro @messageLCS( txt, color, depth ) @if(!$feature(TRACY_HAS_CALLSTACK))
 // end_region
 
 
-fn void frameMark( ZString name = "" ) @extern("___tracy_emit_frame_mark");
-fn void frameMarkStart( ZString name ) @extern("___tracy_emit_frame_mark_start");
-fn void frameMarkEnd( ZString name) @extern("___tracy_emit_frame_mark_end");
-fn void frameImage( void* image, ushort w, ushort h, UInt8_t offset, int flip) @extern("___tracy_emit_frame_image");
+fn void frameMark( ZString name = "" ) @cname("___tracy_emit_frame_mark");
+fn void frameMarkStart( ZString name ) @cname("___tracy_emit_frame_mark_start");
+fn void frameMarkEnd( ZString name) @cname("___tracy_emit_frame_mark_end");
+fn void frameImage( void* image, ushort w, ushort h, UInt8_t offset, int flip) @cname("___tracy_emit_frame_image");
 
 
-fn void plot( ZString name, double val) @extern("___tracy_emit_plot");
-fn void plot_float( ZString name, float val) @extern("___tracy_emit_plot_float");
-fn void plot_int( ZString name, long val) @extern("___tracy_emit_plot_int");
-fn void plot_config( ZString name, int type, int step, int fill, uint color) @extern("___tracy_emit_plot_config");
-fn void message_appinfo( ZString txt, usz size) @extern("___tracy_emit_message_appinfo");
+fn void plot( ZString name, double val) @cname("___tracy_emit_plot");
+fn void plot_float( ZString name, float val) @cname("___tracy_emit_plot_float");
+fn void plot_int( ZString name, long val) @cname("___tracy_emit_plot_int");
+fn void plot_config( ZString name, int type, int step, int fill, uint color) @cname("___tracy_emit_plot_config");
+fn void message_appinfo( ZString txt, usz size) @cname("___tracy_emit_message_appinfo");
 
 macro plotF( name, val ) => plot_float( name, val );
 macro plotI( name, val ) => plot_int( name, val );
 macro plotConfig( name, type, step, fill, color ) => plot_config( name, type, step, fill, color );
 macro appInfo( txt, size ) => message_appinfo( txt, size );
 
-fn Lockable_context_data* announce_lockable_ctx( SourceLocationData* srcloc )  @extern("___tracy_announce_lockable_ctx");
-fn void Lockable_context_data.terminate( Lockable_context_data* lockdata )  @extern("___tracy_terminate_lockable_ctx");
-fn int Lockable_context_data.before_lock( Lockable_context_data* lockdata )  @extern("___tracy_before_lock_lockable_ctx");
-fn void Lockable_context_data.after_lock( Lockable_context_data* lockdata )  @extern("___tracy_after_lock_lockable_ctx");
-fn void Lockable_context_data.after_unlock( Lockable_context_data* lockdata )  @extern("___tracy_after_unlock_lockable_ctx");
-fn void Lockable_context_data.after_try_lock( Lockable_context_data* lockdata, int acquired )  @extern("___tracy_after_try_lock_lockable_ctx");
-fn void Lockable_context_data.mark( Lockable_context_data* lockdata, SourceLocationData* srcloc )  @extern("___tracy_mark_lockable_ctx");
-fn void Lockable_context_data.custom_name( Lockable_context_data* lockdata, ZString name, usz nameSz )  @extern("___tracy_custom_name_lockable_ctx");
+fn Lockable_context_data* announce_lockable_ctx( SourceLocationData* srcloc )  @cname("___tracy_announce_lockable_ctx");
+fn void Lockable_context_data.terminate( Lockable_context_data* lockdata )  @cname("___tracy_terminate_lockable_ctx");
+fn int Lockable_context_data.before_lock( Lockable_context_data* lockdata )  @cname("___tracy_before_lock_lockable_ctx");
+fn void Lockable_context_data.after_lock( Lockable_context_data* lockdata )  @cname("___tracy_after_lock_lockable_ctx");
+fn void Lockable_context_data.after_unlock( Lockable_context_data* lockdata )  @cname("___tracy_after_unlock_lockable_ctx");
+fn void Lockable_context_data.after_try_lock( Lockable_context_data* lockdata, int acquired )  @cname("___tracy_after_try_lock_lockable_ctx");
+fn void Lockable_context_data.mark( Lockable_context_data* lockdata, SourceLocationData* srcloc )  @cname("___tracy_mark_lockable_ctx");
+fn void Lockable_context_data.custom_name( Lockable_context_data* lockdata, ZString name, usz nameSz )  @cname("___tracy_custom_name_lockable_ctx");
 
 macro @lockAnnounce( #lock ) 
 {
@@ -747,5 +755,5 @@ macro @lockCustomName( #lock, $name, $nameSz )
     custom_name_lockable_ctx( #lock, $name, $nameSz );
 }
 
-fn void fiber_enter( ZString fiber ) @if($feature(TRACY_FIBERS)) @extern("___tracy_fiber_enter");
-fn void fiber_leave() @if($feature(TRACY_FIBERS)) @extern("___tracy_fiber_leave");
+fn void fiber_enter( ZString fiber ) @if($feature(TRACY_FIBERS)) @cname("___tracy_fiber_enter");
+fn void fiber_leave() @if($feature(TRACY_FIBERS)) @cname("___tracy_fiber_leave");

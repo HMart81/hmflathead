@@ -43,7 +43,7 @@ interface IBackend {
     fn void	createWindow(String title, int width, int height);
     fn void setMainMonitor(uint monitor) @optional;
     fn void setTargetFPS(uint fps) @optional;
-    fn void setBackGroundColor(Color color) @optional;
+    fn void setBackGroundColor(RLColor color) @optional;
     fn void setWindowIcon(Sprite icon) @optional;
     fn void setWindowFlag(uint flag) @optional;
     fn void clearWindowFlag(uint flag) @optional;
@@ -61,7 +61,7 @@ struct Render (IBackend)
 {
     WindowHandle window;
     uint windowFlags;
-    Color bgColor; // background color
+    RLColor bgColor; // background color
 }
 
 <*
@@ -97,7 +97,7 @@ fn void Render.setMainMonitor(&self, uint monitor_index) @dynamic
     rl::setWindowMonitor((int)monitor_index);
 }
 
-fn void Render.setBackGroundColor(&self, Color color) @dynamic @inline
+fn void Render.setBackGroundColor(&self, RLColor color) @dynamic @inline
 {
     self.bgColor = color;
 }

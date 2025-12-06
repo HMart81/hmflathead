@@ -236,7 +236,7 @@ alias lic = module engine::sys::licensee;
 // If alising a type the alias name, should start uppercase, if alising a function, it should start lowercase, 
 // if alising a Constant the alias also needs to be all caps, etc.
 
-alias RShader        @public = rl::Shader;
+alias RShader        @public = rl::RLShader;
 alias StringPair     @public = Pair{String, String};
 alias IniFileCMDList = List{StringPair*};
 alias asstManager    @public= astmng::assetManager;
@@ -346,7 +346,7 @@ struct Game (SaveSystemInterface) @local
     mu::MU_Context* mu_ctx @if($feature(MICROUI_ENABLE)); // microui context, used for the micro ui system
     bool show_microui_test_frames @if($feature(MICROUI_ENABLE));
     bool show_statistics @if($feature(MICROUI_ENABLE)); // show statistics window
-    Texture2D mu_font_atlas @if($feature(MICROUI_ENABLE)); // microui font texture
+    RLTexture2D mu_font_atlas @if($feature(MICROUI_ENABLE)); // microui font texture
 
     // script engine
     ScriptEngine script_eng;
@@ -366,24 +366,24 @@ struct Game (SaveSystemInterface) @local
     
     // defaults
     // required default assets
-    Texture2D default_texture;
-    Texture2D tex_white;
-    Texture2D tex_black;
-    Texture2D tex_gray;
+    RLTexture2D default_texture;
+    RLTexture2D tex_white;
+    RLTexture2D tex_black;
+    RLTexture2D tex_gray;
     
-    Shader    default_shader;
-    Shader*   current_global_shader;
-    Sound     default_sound;
-    Music     default_music;
+    RLShader    default_shader;
+    RLShader*   current_global_shader;
+    RLSound     default_sound;
+    RLMusic     default_music;
     int      pause_all_music; // to pause all music on demand
-    Font      default_font;
+    RLFont      default_font;
     //
     
     // game fonts TODO(HM) We should chose only 2 for the final game...
-    Font* candara_font;
-    Font* candara_light_font;
-    Font* lucida_font;
-    Font* trojan_pro_font;
+    RLFont* candara_font;
+    RLFont* candara_light_font;
+    RLFont* lucida_font;
+    RLFont* trojan_pro_font;
     //
     
     String[] cursors; // list of game cursors, used to load the game cursors from the assets folder
@@ -502,17 +502,17 @@ fn void Game.save(&self, SaveFile* file) @dynamic {
     svs::writeTexture2D(file, &self.default_texture);
     svs::writeShader(file, &self.default_shader);
     // should I save pointers!?
-    //Shader*   current_global_shader;
+    //RLShader*   current_global_shader;
     svs::writeSound(file, &self.default_sound);
     svs::writeMusic(file, &self.default_music);
     svs::writeFont(file,  &self.default_font);
     //
     
     // game fonts TODO(HM) We should chose only 2 for the final game...
-    //Font*  candara_font;
-    //Font*  candara_light_font;
-    //Font*  lucida_font;
-    //Font*  trojan_pro_font;
+    //RLFont*  candara_font;
+    //RLFont*  candara_light_font;
+    //RLFont*  lucida_font;
+    //RLFont*  trojan_pro_font;
     //
     
     svs::write(file, &self.cursors, self.cursors.len);
@@ -556,17 +556,17 @@ fn void Game.reload(&self, SaveFile* file) @dynamic {
     /*
     svs::readShader(file, &self.default_shader);
     // how to read pointers!?
-    //Shader*   current_global_shader;
+    //RLShader*   current_global_shader;
     svs::readSound(file, &self.default_sound);
     svs::readMusic(file, &self.default_music);
     svs::readFont(file,  &self.default_font);
     //
     
     // game fonts TODO(HM) We should chose only 2 for the final game...
-    //Font*  candara_font;
-    //Font*  candara_light_font;
-    //Font*  lucida_font;
-    //Font*  trojan_pro_font;
+    //RLFont*  candara_font;
+    //RLFont*  candara_light_font;
+    //RLFont*  lucida_font;
+    //RLFont*  trojan_pro_font;
     //
     
     svs::readSlice(file, &self.cursors);
@@ -603,15 +603,15 @@ fn Player* Game.getLocalPlayer(&self) @public @inline {
     return (Player*)self.entityList[0];
 }
 
-fn Shader getDefaultShaderCopy() @inline @public {
+fn RLShader getDefaultShaderCopy() @inline @public {
     return local_game.default_shader;
 }
 
-fn Shader* getDefaultShader() @inline @public {
+fn RLShader* getDefaultShader() @inline @public {
     return &local_game.default_shader;
 }
 
-fn Shader* getCurrentGlobalShader() @inline @public {
+fn RLShader* getCurrentGlobalShader() @inline @public {
     return local_game.current_global_shader;
 }
 
@@ -634,12 +634,12 @@ fn Entity* Game.getEntityByName(&self, String name) {
     return null;
 }
 
-fn bool Game.isPointInsideScreenView(&self, Vector2 point) {
+fn bool Game.isPointInsideScreenView(&self, RLVector2 point) {
     int w, h;
     w = self.screen.w;
     h = self.screen.h;
     
-    Rectangle rec = {
+    RLRectangle rec = {
     .x = 0,
     .y = 0,
     .width  = w,
@@ -674,7 +674,7 @@ struct MessageBox
     int type;
     String message;
     float text_len;
-    Rectangle box;
+    RLRectangle box;
     bool initted;
     bool isVisible;
     bool show;
@@ -737,7 +737,7 @@ fn void MessageBox.draw(&self)
             default:
                 msg_title = string::tformat_zstr("%s%s","#191#", "Info");
         }
-        int result = rgui::messageBox((Rectangle) {x, y, self.box.width, self.box.height},
+        int result = rgui::messageBox((RLRectangle) {x, y, self.box.width, self.box.height},
             title: msg_title, 
             message: local_game.msgBoxText.zstr_tcopy(), 
             buttons: "close");
@@ -759,7 +759,7 @@ fn void drawMsgBox(int w, int h) @public
         w -= (int)box_width / 2;
         h /= 2;
         h -= (int)box_h / 2;
-        int result = rgui::messageBox((Rectangle) {w, h, box_width, box_h},
+        int result = rgui::messageBox((RLRectangle) {w, h, box_width, box_h},
             string::tformat_zstr("%s%s","#191#", local_game.titleMsgBox), local_game.msgBoxText.zstr_tcopy(), "close");
 
         if (result >= 0) local_game.showMessageBox = false;
@@ -803,15 +803,15 @@ fn void? Game.loadDefaultAssets(&self)
         return MISSING_REQUIRED_ASSET?;
     }
     
-    Image white = rl::genImageColor(32, 32, rl::WHITE);
+    RLImage white = rl::genImageColor(32, 32, rl::WHITE);
     self.tex_white = rl::loadTextureFromImage(white);
     rl::unloadImage(white);
     
-    Image black = rl::genImageColor(32, 32, rl::BLACK);
+    RLImage black = rl::genImageColor(32, 32, rl::BLACK);
     self.tex_black = rl::loadTextureFromImage(black);
     rl::unloadImage(black);
     
-    Image gray = rl::genImageColor(32, 32, rl::GRAY);
+    RLImage gray = rl::genImageColor(32, 32, rl::GRAY);
     self.tex_gray = rl::loadTextureFromImage(gray);
     rl::unloadImage(gray);
     
@@ -834,9 +834,9 @@ fn void? Game.loadDefaultAssets(&self)
         local_game.default_shader, 
         test_tex_loc, 
         &local_game.default_texture,
-        ShdUniTyp.SAMPLER2D);*/
+        RLShdUniTyp.SAMPLER2D);*/
     self.current_global_shader = &self.default_shader;
-    //self.current_global_shader.locs[ShdLocInd.MAP_ALBEDO] = test_tex_loc;
+    //self.current_global_shader.locs[RLShdLocInd.MAP_ALBEDO] = test_tex_loc;
     //
         
     // load required default sound
@@ -1302,11 +1302,11 @@ $endif
             //io::printfn("Timer time = %s!!!", local_game.testTimer.lifetime);
         } else { 
             //io::printfn("Timer run out press F2 to start again!!!");
-            if (rgui::button((Rectangle) { 24, 24, 120, 30 }, "#191#Show Message")) local_game.showMessageBox = true;
+            if (rgui::button((RLRectangle) { 24, 24, 120, 30 }, "#191#Show Message")) local_game.showMessageBox = true;
 
             if (local_game.showMessageBox)
             {
-                int result = rgui::messageBox((Rectangle) { 85, 70, 250, 100 },
+                int result = rgui::messageBox((RLRectangle) { 85, 70, 250, 100 },
                     "#191#Message Box", "Hi! This is a message!", "Nice;Cool");
 
                 if (result >= 0) local_game.showMessageBox = false;
@@ -1440,7 +1440,7 @@ fn void gameReset() @local {
 fn void drawGameVersion(Vec2i at_pos) @inline @local
 {
     // draw game version
-    const Color COLOR @Hardcode = {127, 127, 255, 255};
+    const RLColor COLOR @Hardcode = {127, 127, 255, 255};
     const VERSION_FONT_SCALE = 12;
     //ZString game_version     = string::tformat_zstr("version: (%s, %s, %s)", lic::MAX_VERSION, lic::MIN_VERSION, lic::BABY_VERSION);
     //int version_text_len     = rl::measureText(game_version, VERSION_FONT_SCALE);
@@ -1457,8 +1457,8 @@ fn void drawGameVersion(Vec2i at_pos) @inline @local
 
 fn void drawWorkInProgressMessage(int screen_w, int screen_h) @local 
 {
-    const Color COLOR @Hardcode = {223, 196, 125, 127};
-    Font* font = local_game.candara_font;
+    const RLColor COLOR @Hardcode = {223, 196, 125, 127};
+    RLFont* font = local_game.candara_font;
     if(!font) unreachable("Required font for WIP message is missing!");
     if(!rl::isFontValid(*font))  font = &local_game.default_font;
     if(!font) unreachable("Trying to use default font for WIP message but it is missing!");
@@ -1544,7 +1544,7 @@ fn void drawGameOnScreenDebugInfo(int screen_w, int screen_h) @local
     // }
     
     RenderView* view = &local_game.view;
-    const rl::Color* COLOR = &rl::YELLOW;
+    const rl::RLColor* COLOR = &rl::YELLOW;
     int x = (int)math::floor(0.01f*view.w);
     int y = view.h;
     
@@ -1593,7 +1593,7 @@ fn void gameDraw(int screenWidth, int screenHeight) @local
         rl::@drawing() 
         {
             rl::clearBackground({0x18, 0x18, 0x18, 0xFF});
-            //rl::clearBackground(*(Color*)&&((uint[1]){ 0x181818FF }));
+            //rl::clearBackground(*(RLColor*)&&((uint[1]){ 0x181818FF }));
 
             // 2) render the view FBO's rendered above into the back buffer
             if(rl::isShaderValid(*local_game.current_global_shader)) 
@@ -1687,13 +1687,13 @@ fn void gameOnPostGUIDraw(int screenWidth, int screenHeight) @public
         rl::drawTextEx(
             *local_game.candara_font,
             string::tformat_zstr("OpenGL v%s, FPS: %d", rl::glsl_version(), rl::getFPS()), 
-            (Vector2){(float)x, (float)y}, 18.0f, 1.0f, 
+            (RLVector2){(float)x, (float)y}, 18.0f, 1.0f, 
             rl::LIME
         );
         rl::drawTextEx(
             *local_game.candara_font,
             string::tformat_zstr("frametime: %.2f ms", rl::getFrameTime()*1000), 
-            (Vector2){(float)x, (float)y + 18}, 16.0f, 1.0f, 
+            (RLVector2){(float)x, (float)y + 18}, 16.0f, 1.0f, 
             rl::LIME
         );
         //rl::drawFPS((int)(0.93f * screenWidth), (int)(0.02f * screenHeight));
@@ -1737,7 +1737,7 @@ fn void gameOnGuiDraw(int screenWidth, int screenHeight) @public @inline {
        local_game.mode != INTRO &&
        local_game.time_ms <= local_game.saveMessageTime) 
     {
-        //rgui::drawNotification((Rectangle){(float)(screenWidth - 220), 20.0f, 200.0f, 30.0f}, "#191#Game Saved!", 2.0f);
+        //rgui::drawNotification((RLRectangle){(float)(screenWidth - 220), 20.0f, 200.0f, 30.0f}, "#191#Game Saved!", 2.0f);
         String message = "Game Saved!";
         int text_size = rl::measureText(message.zstr_tcopy(), 20);
         int x = screenWidth / 2 - (text_size / 2);
@@ -1745,7 +1745,7 @@ fn void gameOnGuiDraw(int screenWidth, int screenHeight) @public @inline {
         rl::drawTextEx(
             *local_game.candara_font,
             string::tformat_zstr("%s", message), 
-            (Vector2){(float)x, (float)y}, 20.0f, 1.0f, 
+            (RLVector2){(float)x, (float)y}, 20.0f, 1.0f, 
             rl::LIME
         );
     } else {
@@ -2283,20 +2283,20 @@ $endif
         String log_mode = settings_file.getString("log_level");
         switch(log_mode)
         {
-            case "info": log::setLogLevel(TraceLogLevel.INFO);
-            case "warn": log::setLogLevel(TraceLogLevel.WARNING);
-            case "error": log::setLogLevel(TraceLogLevel.ERROR);
-            case "fatal": log::setLogLevel(TraceLogLevel.FATAL);
+            case "info": log::setLogLevel(RLTraceLogLevel.INFO);
+            case "warn": log::setLogLevel(RLTraceLogLevel.WARNING);
+            case "error": log::setLogLevel(RLTraceLogLevel.ERROR);
+            case "fatal": log::setLogLevel(RLTraceLogLevel.FATAL);
             default:
                 // NOTE(HM) default is set to INFO
-                log::setLogLevel(TraceLogLevel.WARNING);
+                log::setLogLevel(RLTraceLogLevel.WARNING);
                 log::warning(FILE, "Unknown logging option '%s' setting to default WARNING level.", log_mode);
         }
     }
     else if(settings_file.getBool("log")! == false)
     {
         // NOTE(HM) disable raylib logging
-        log::setLogLevel(TraceLogLevel.NONE);
+        log::setLogLevel(RLTraceLogLevel.NONE);
         log::info(FILE, "Logging disabled.");
     }
 
@@ -2438,7 +2438,7 @@ $endif
     log::info(FILE, "Initializing window:");
     log::info(FILE, "---------------------------------------------");
     // set/apply the final window flags
-    rl::setConfigFlags((ConfigFlag)window_flags);
+    rl::setConfigFlags((RLConfigFlag)window_flags);
     
     int screenWidth     = local_game.screen.w;
     int screenHeight    = local_game.screen.h;
@@ -2546,7 +2546,7 @@ $endif
                 int w = rl::getMonitorPhysicalWidth(i);
                 int h = rl::getMonitorPhysicalHeight(i);
                 Vec2f mpos = rl::getMonitorPosition(i);
-                rl::Rectangle rect = {mpos.x, mpos.y, w, h};
+                rl::RLRectangle rect = {mpos.x, mpos.y, w, h};
                 if ( x >= rect.x && x < rect.x + rect.width
                     && y >= rect.y && y < rect.y + rect.height )
                 {
@@ -2743,7 +2743,7 @@ $endif
     mtrmng::loadMaterialFilesTo(&local_game.mtrDB)!!;
     local_game.mtrDB.listMTRs();
     local_game.mtrDB.data[0].printMaterials();
-    //mtr::Material default_mat;
+    //mtr::RLMaterial default_mat;
     //default_mat.load(local_game.app_base_folder.tconcat("images/default.mtr"));
     //defer default_mat.free();
     
@@ -3134,15 +3134,15 @@ $endif
     rl::closeWindow();
 
     // DELETE THIS
-    /*Image img = {
+    /*RLImage img = {
         .data = &mu::atlas_texture,
         .width = 128,
         .height = 128,
-        .format = PixelFormat.UNCOMPRESSED_GRAYSCALE,
+        .format = RLPixelFormat.UNCOMPRESSED_GRAYSCALE,
         .mipmaps = 1
     };
 
-    //Texture2D texture = LoadTextureFromImage(img);
+    //RLTexture2D texture = LoadTextureFromImage(img);
     if(rl::isImageValid(img)) {
         log::warning(FILE, "Exporting mu atlas texture to file: %s", local_game.app_base_folder.tconcat("images/").tconcat("mu_atlas.png"));
         rl::exportImage(img, local_game.app_base_folder.tconcat("images/").tconcat("mu_atlas.png").zstr_tcopy());
@@ -3203,7 +3203,7 @@ fn void loadGame()
 {
     usz file_index;
     
-    FilePathList files = fs::loadDirectoryFiles(local_game.app_save_folder);
+    RLFilePathList files = fs::loadDirectoryFiles(local_game.app_save_folder);
     if(files.count == 0) {
         log::warning(CONSOLE, "Failed to get save files from: %s.", local_game.app_save_folder);
         return;
@@ -3314,10 +3314,10 @@ $endif
     input::makeKeyboardAction("toggle_editor", rl::KEY_F1, rl::KEY_LEFT_SHIFT);
 
     // mouse actions
-    input::makeMouseAction("Single Press", MouseButton.LEFT);
-    input::makeMouseAction("Double Press", MouseButton.LEFT);
+    input::makeMouseAction("Single Press", RLMouseButton.LEFT);
+    input::makeMouseAction("Double Press", RLMouseButton.LEFT);
     // for the WIP game editor
-    input::makeMouseAction("editor_select", MouseButton.LEFT, rl::KEY_LEFT_SHIFT);
+    input::makeMouseAction("editor_select", RLMouseButton.LEFT, rl::KEY_LEFT_SHIFT);
 }
 
 ////////////////////////////////// GAME LOOP ////////////////////////////////////////////////////////////////
@@ -3398,16 +3398,20 @@ fn void pre_InitFunc() @init {
     // Controls raylib console logging
     // NOTE(HM) Raylib library/context gets initialized here!!
     // This is because is the first call from raylib we make.
-    // NOTE(HM) This means the MINIMUM log level not the only level to log
+    // NOTE(HM) This means the MINIMUM level not the only level that will log
     // anything bellow this level will not log
     // WARNING(HM) MAY BE OVERRIDEN LATER BY THE INI FILE SETTING!!!
-    rl::setTraceLogLevel(TraceLogLevel.ERROR);
+$if $defined(_DEBUG):
+    rl::setTraceLogLevel(RLTraceLogLevel.ALL);
+$else
+    rl::setTraceLogLevel(RLTraceLogLevel.ERROR);
+$endif
     
     // ************* My own logging system ****************
-    // TraceLogLevel means the MINIMUM log level, 
+    // RLTraceLogLevel means the MINIMUM log level, 
     // not the only level to log, anything bellow this level will not log.
     // WARNING(HM) MAY BE OVERRIDEN LATER BY THE INI FILE SETTING!!!
-    log::init(TraceLogLevel.INFO);
+    log::init(RLTraceLogLevel.INFO);
     // *********************************************************
 
     local_game.warningBox.init(MessageBoxType.WARN);
@@ -3437,20 +3441,22 @@ fn void usage() @local @if($feature(TSODING_FLAG))
 }
 
 
-
+//********** ENTRY FUNCTION ******************************
 fn int main(String[] args) @public @if($feature(_DEBUG))
-{
+{ // with console
     return mainEntryFunc(args);
 }
 
 fn int main(String[] args) @public @winmain @if($feature(_RELEASE)) 
-{
+{ // without console
     return mainEntryFunc(args);
 }
 
 fn int mainEntryFunc(String[] args)
 {
-    tracy::set_thread_name("main_thread");
+$if $feature(TRACY_ENABLE):
+    tracy::set_thread_name("main_thread"); 
+$endif
 
 $if $feature(TSODING_FLAG):
     ZString* version = flg::flag_bool("version", false, "Print engine version");
@@ -3478,16 +3484,19 @@ $endif
         introThread.create(&playIntro, null)!!; // create and run intro thread
         introThread.detach()!!; // detach it so it runs independently and cleans up itself on exit
 
-        // using join hangs the game, very probably because intro thread 
-        // blocks the main game thread and intro needs the main thread 
-        // to display itself and update the window.
+        // NOTE(HM) 
+        // using .join hangs the game, I think this is because 
+        // intro thread will block the main game thread and 
+        // intro needs the main thread to run to display itself and update the window.
         //assert(introThread.join()!! == 0);
         //introMutex.destroy()!!;
         
         // run the game loop
         gameDoOneFrame();
-        // NOTE(HM) For clean program exit, do not put any code here between this two calls!!!
-        // any per frame code should be inside gameDoOneFrame and exit code should be put inside gameOnExit.    
+        // NOTE(HM) For clean program exit, do not put any code here! 
+        // Between this two calls!!!
+        // Any per frame code should be put inside gameDoOneFrame 
+        // and exit code should be put inside gameOnExit.    
         gameOnExit();
     }
     
@@ -3535,18 +3544,18 @@ fn void showSplashScreenImage()
     String splash_path = local_game.app_base_folder.tconcat("images/splash.bmp");
     if(fs::fileExists(splash_path)) 
     {
-        rl::Image splash_img = rl::loadImage(splash_path.zstr_tcopy());
+        rl::RLImage splash_img = rl::loadImage(splash_path.zstr_tcopy());
         if(splash_img.data != null) 
         {
             assert(splash_img.width == 600 && splash_img.height == 200, "Splash image must be 600x200 pixels!");
             int flags;
             flags |= (int)rl::FLAG_WINDOW_UNDECORATED;
             // set/apply the final window flags
-            rl::setConfigFlags((ConfigFlag)flags);
+            rl::setConfigFlags((RLConfigFlag)flags);
             rl::initWindow(600, 200, "");
             rl::setWindowMonitor(0); // set to first monitor
             rl::setTargetFPS(24); // set to 24 fps
-            rl::Texture2D texture = rl::loadTextureFromImage(splash_img);
+            rl::RLTexture2D texture = rl::loadTextureFromImage(splash_img);
             float time_start = (float)rl::getTime();
             // show the image for X seconds
             while(!rl::windowShouldClose()) 
@@ -3655,12 +3664,12 @@ $if $feature(MICROUI_ENABLE):
     mu_ctx.text_height = &mu::text_height;
 
     ZString font_path = rl::getApplicationDirectory().str_view().tconcat("base/images/mu_atlas.png").zstr_tcopy();
-    Texture2D mu_font_atlas = rl::loadTexture(font_path);
+    RLTexture2D mu_font_atlas = rl::loadTexture(font_path);
 
     int flags;
     flags |= (int)rl::FLAG_WINDOW_UNDECORATED;
     // set/apply the final window flags
-    rl::setConfigFlags((ConfigFlag)flags);
+    rl::setConfigFlags((RLConfigFlag)flags);
     rl::initWindow(SETTINGS_WINDOW_WIDTH, SETTINGS_WINDOW_HEIGHT, "");
     rl::setWindowMonitor(0); // set to first monitor
     rl::setTargetFPS(24); // set to 24 fps

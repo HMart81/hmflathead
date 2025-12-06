@@ -198,7 +198,7 @@ $endif
 
 
 // TODO(HM) put this in a better place
-fn KeyboardKey getKeyValueFromName(String name) @inline
+fn RLKeyboardKey getKeyValueFromName(String name) @inline
 {
     // NOTE(HM) this is used to get the key enum value from a string
     // like "KEY_A" or "KEY_LEFT" etc.
@@ -398,12 +398,12 @@ fn float unitsToMeters(int units, float minimum_size = MINIMUM_SIZE_IN_METERS) @
     return (v <= minimum_size) ? minimum_size : v;
 }
 
-const Color INVISIBLE_COLOR = {0xFF, 0xFF, 0xFF, 0x00};
-fn String printColor(Color color) @inline {
+const RLColor INVISIBLE_COLOR = {0xFF, 0xFF, 0xFF, 0x00};
+fn String printColor(RLColor color) @inline {
     return string::tformat("{%s,%s,%s,%s}", color.r, color.g, color.b, color.a);
 } 
 
-//fn Vector2 Vec2f.toVector2(&self) => (Vector2) {self.x, self.y};
+//fn RLVector2 Vec2f.toVector2(&self) => (RLVector2) {self.x, self.y};
 
 // NOTE(HM) empty user attributes (Need to start with a uppercase...)
 attrdef @Hardcode; // used to mark hardcoded values for easy search
@@ -451,7 +451,7 @@ struct DebugLine
 {
     Vec2f startPos;
     Vec2f endPos;
-    Color color;
+    RLColor color;
     bool nodraw;
     int lifetime; // ms
 }
@@ -471,7 +471,7 @@ fn void DebugLine.draw(&self) @inline {
     draw_arrow(self.startPos, self.endPos, self.color);
 }
 
-fn void makeDbgLine(Vec2f start, Vec2f end, Color color = rl::RED, int lifetime_ms = DEBUG_LINE_DEFAULT_LIFETIME) @inline 
+fn void makeDbgLine(Vec2f start, Vec2f end, RLColor color = rl::RED, int lifetime_ms = DEBUG_LINE_DEFAULT_LIFETIME) @inline 
 {
     DebugLine* line = mem::new(DebugLine);
     line.startPos   = start;
@@ -636,16 +636,16 @@ fn B2Vec2 rot_GetYAxis( B2Rot q ) => (B2Vec2) { -q.s, q.c };
 // end_region
 
 
-// region raylib Rectangle extensions
-macro Rectangle makeRect(Vec2f v1, Vec2f v2) => (Rectangle){v1.x, v1.y, v2.x, v2.y};
+// region raylib RLRectangle extensions
+macro RLRectangle makeRect(Vec2f v1, Vec2f v2) => (RLRectangle){v1.x, v1.y, v2.x, v2.y};
 
-macro Vec2f Rectangle.getScreenPos(self) => worldToScreen(self.getPosition());
+macro Vec2f RLRectangle.getScreenPos(self) => worldToScreen(self.getPosition());
 
 // NOTE(HM) This may return the exact same coords as put in if
 // the camera is never moved around, as world coords and camera coords
 // are very similar only the center/origin changes.
 // UNTESTED!!!!!!!!!!!!!!!!!!!!!
-fn Vec2f Rectangle.getPosCameraCoords(&self) @if ($defined(ENABLE_CAMERA_VIEW))
+fn Vec2f RLRectangle.getPosCameraCoords(&self) @if ($defined(ENABLE_CAMERA_VIEW))
 {
     Vec2f world_origin   = {0, 0};
     Vec2f cam_org        = main::gpGame.view.camera.target;
@@ -654,17 +654,17 @@ fn Vec2f Rectangle.getPosCameraCoords(&self) @if ($defined(ENABLE_CAMERA_VIEW))
     
     return self.getPosition() * offset_vec_dir.normalize() * offset_len; 
 }
-// end_region raylib Rectangle extensions
+// end_region raylib RLRectangle extensions
 
-// region Texture stuff
+// region RLTexture stuff
 // WARNING(HM) Raylib doesn't support .tga's with RLE compression...
 
-fn bool rl::Texture2D.isInvalid(&self) @inline {
+fn bool rl::RLTexture2D.isInvalid(&self) @inline {
     if(self.id      == 0 &&  // OpenGL texture id
-       self.width   == 0 &&  // Texture base width
-       self.height  == 0 &&  // Texture base height
+       self.width   == 0 &&  // RLTexture base width
+       self.height  == 0 &&  // RLTexture base height
        self.mipmaps == 0 &&  // Mipmap levels, 1 by default
-       self.format  == 0 )   // Data format (PixelFormat type)
+       self.format  == 0 )   // Data format (RLPixelFormat type)
       {
         return true;
       }
@@ -673,10 +673,10 @@ fn bool rl::Texture2D.isInvalid(&self) @inline {
 }
 // end_region
 
-// region Sound stuff
-fn Sound loadSound(String asset_path) @inline {
+// region RLSound stuff
+fn RLSound loadSound(String asset_path) @inline {
     if(rl::isAudioDeviceReady()) {
-        Sound sd = rl::loadSound(stringTotempzstring(asset_path));
+        RLSound sd = rl::loadSound(stringTotempzstring(asset_path));
         assert(rl::isSoundValid(sd));
         return sd;
     }
@@ -691,7 +691,7 @@ macro mili_since_init() => main::gpGame.time_ms;
 
 macro bool recIsValid(rec) => ((getRecSize(rec).length() + getRecPos(rec).length()) > 0) ? true : false;
 
-macro Rectangle @recFromVecs(#vec1, #vec2) => (Rectangle) {#vec1.x, #vec1.y, #vec2.x, #vec2.y};
+macro RLRectangle @recFromVecs(#vec1, #vec2) => (RLRectangle) {#vec1.x, #vec1.y, #vec2.x, #vec2.y};
 
 
 //////////////////////////////////////////////////////////////////////////
@@ -999,7 +999,7 @@ fn Vec2f dir_mul(plyr::Move_Dir d, float a) @inline @nodiscard {
 }
 
 <*
-    @param [&inout] mat : "Matrix to scale"
+    @param [&inout] mat : "RLMatrix to scale"
     @param vec : "vector to scale by"
 *>
 fn void axis_scale(Matrix2f* mat, Vec2f vec) @inline {
@@ -1029,7 +1029,7 @@ macro @printstruct(value)
     $endif
 }
 
-fn void draw_arrow(Vec2f start, Vec2f end, Color color, Vec2f arrow_size = {16.0f, 8.0f})
+fn void draw_arrow(Vec2f start, Vec2f end, RLColor color, Vec2f arrow_size = {16.0f, 8.0f})
 {
     /*
     //Draw a color-filled triangle (vertex in counter-clockwise order!)

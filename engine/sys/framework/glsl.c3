@@ -40,38 +40,38 @@ const String GLOBAL_SHADER_INCLUDE = `
 #extension GL_ARB_shading_language_420pack: enable
 
 // default vertex layout locations
-#define VERTEX_POSITION   0    // Shader location: vertex attribute: position
-#define VERTEX_TEXCOORD01 1    // Shader location: vertex attribute: texcoord01
-#define VERTEX_NORMAL     2    // Shader location: vertex attribute: normal
-#define VERTEX_COLOR      3    // Shader location: vertex attribute: color
-#define VERTEX_TANGENT    4    // Shader location: vertex attribute: tangent
-#define VERTEX_TEXCOORD02 5    // Shader location: vertex attribute: texcoord02
+#define VERTEX_POSITION   0    // RLShader location: vertex attribute: position
+#define VERTEX_TEXCOORD01 1    // RLShader location: vertex attribute: texcoord01
+#define VERTEX_NORMAL     2    // RLShader location: vertex attribute: normal
+#define VERTEX_COLOR      3    // RLShader location: vertex attribute: color
+#define VERTEX_TANGENT    4    // RLShader location: vertex attribute: tangent
+#define VERTEX_TEXCOORD02 5    // RLShader location: vertex attribute: texcoord02
 // matrix locations
-#define MATRIX_MVP        6    // Shader location: matrix uniform: model-view-projection
-#define MATRIX_VIEW       7    // Shader location: matrix uniform: view (camera transform)
-#define MATRIX_PROJECTION 8    // Shader location: matrix uniform: projection
-#define MATRIX_MODEL      9    // Shader location: matrix uniform: model (transform)
-#define MATRIX_NORMAL     10   // Shader location: matrix uniform: normal
-#define VECTOR_VIEW       11   // Shader location: vector uniform: view
-#define COLOR_DIFFUSE     12   // Shader location: vector uniform: diffuse color
-#define COLOR_SPECULAR    13   // Shader location: vector uniform: specular color
-#define COLOR_AMBIENT     14   // Shader location: vector uniform: ambient color
+#define MATRIX_MVP        6    // RLShader location: matrix uniform: model-view-projection
+#define MATRIX_VIEW       7    // RLShader location: matrix uniform: view (camera transform)
+#define MATRIX_PROJECTION 8    // RLShader location: matrix uniform: projection
+#define MATRIX_MODEL      9    // RLShader location: matrix uniform: model (transform)
+#define MATRIX_NORMAL     10   // RLShader location: matrix uniform: normal
+#define VECTOR_VIEW       11   // RLShader location: vector uniform: view
+#define COLOR_DIFFUSE     12   // RLShader location: vector uniform: diffuse color
+#define COLOR_SPECULAR    13   // RLShader location: vector uniform: specular color
+#define COLOR_AMBIENT     14   // RLShader location: vector uniform: ambient color
 // texture samplers
-#define MAP_ALBEDO        15   // Shader location: sampler2d texture: albedo (same as: SHADER_LOC_MAP_DIFFUSE)
-#define MAP_METALNESS     16   // Shader location: sampler2d texture: metalness (same as: SHADER_LOC_MAP_SPECULAR)
-#define MAP_NORMAL        17   // Shader location: sampler2d texture: normal
-#define MAP_ROUGHNESS     18   // Shader location: sampler2d texture: roughness
-#define MAP_OCCLUSION     19   // Shader location: sampler2d texture: occlusion
-#define MAP_EMISSION      20   // Shader location: sampler2d texture: emission
-#define MAP_HEIGHT        21   // Shader location: sampler2d texture: height
-#define MAP_CUBEMAP       22   // Shader location: samplerCube texture: cubemap
-#define MAP_IRRADIANCE    23   // Shader location: samplerCube texture: irradiance
-#define MAP_PREFILTER     24   // Shader location: samplerCube texture: prefilter
-#define MAP_BRDF          25   // Shader location: sampler2d texture: brdf
-#define DEPTH0            26   // Shader location: sampler2d texture: depth map 0
-#define DEPTH1            27   // Shader location: sampler2d texture: depth map 1
-#define DEPTH2            28   // Shader location: sampler2d texture: depth map 2
-#define DEPTH3            29   // Shader location: sampler2d texture: depth map 3
+#define MAP_ALBEDO        15   // RLShader location: sampler2d texture: albedo (same as: SHADER_LOC_MAP_DIFFUSE)
+#define MAP_METALNESS     16   // RLShader location: sampler2d texture: metalness (same as: SHADER_LOC_MAP_SPECULAR)
+#define MAP_NORMAL        17   // RLShader location: sampler2d texture: normal
+#define MAP_ROUGHNESS     18   // RLShader location: sampler2d texture: roughness
+#define MAP_OCCLUSION     19   // RLShader location: sampler2d texture: occlusion
+#define MAP_EMISSION      20   // RLShader location: sampler2d texture: emission
+#define MAP_HEIGHT        21   // RLShader location: sampler2d texture: height
+#define MAP_CUBEMAP       22   // RLShader location: samplerCube texture: cubemap
+#define MAP_IRRADIANCE    23   // RLShader location: samplerCube texture: irradiance
+#define MAP_PREFILTER     24   // RLShader location: samplerCube texture: prefilter
+#define MAP_BRDF          25   // RLShader location: sampler2d texture: brdf
+#define DEPTH0            26   // RLShader location: sampler2d texture: depth map 0
+#define DEPTH1            27   // RLShader location: sampler2d texture: depth map 1
+#define DEPTH2            28   // RLShader location: sampler2d texture: depth map 2
+#define DEPTH3            29   // RLShader location: sampler2d texture: depth map 3
 `;
 
 const INCLUDE_DIRECTIVE @local = "#include";
@@ -156,7 +156,7 @@ fn void handleShaderIncludes(String* shdcode) @local
     @param [in] vs_path : "path to the vertex shader, can be empty string"
     @param [in] fs_path : "path to frag/pixel shader, can be empty string"
 *>
-fn Shader loadShader(String vs_path, String fs_path) @nodiscard
+fn RLShader loadShader(String vs_path, String fs_path) @nodiscard
 {
     // NOTE(HM) this is used to load a shader from a vertex and fragment shader file
     // if the paths are empty it will return the default shader
@@ -243,205 +243,205 @@ fn Shader loadShader(String vs_path, String fs_path) @nodiscard
     @param [&inout] shader : "shader to unload"
     @require shader != null
 *>
-fn void unloadShader(Shader* shader) {
+fn void unloadShader(RLShader* shader) {
     rl::unloadShader(*shader);
 }
 
-fn void Shader.setUniformFloatValue(self, String uniform_name, float value) //@inline 
+fn void RLShader.setUniformFloatValue(self, String uniform_name, float value) //@inline 
 {
     int locIndex = self.getUniformLocation(uniform_name.zstr_tcopy());
-    assert(locIndex >= 0, "Shader uniform location not found: %s", uniform_name);
+    assert(locIndex >= 0, "RLShader uniform location not found: %s", uniform_name);
 
     // NOTE(HM) this is used to set a shader uniform value
     // if the shader is invalid it will do nothing
     if(rl::isShaderValid(self)) {
-        rl::setShaderValue(self, locIndex, (void*)&value, rl::ShdUniTyp.FLOAT);
+        rl::setShaderValue(self, locIndex, (void*)&value, rl::RLShdUniTyp.FLOAT);
     } else {
-        log::warning(Where.FILE, "Shader is invalid, unable to set value.");
+        log::warning(Where.FILE, "RLShader is invalid, unable to set value.");
     }
 }
 
-fn void Shader.setAttributeFloatValue(self, String attribute_name, float value) //@inline 
+fn void RLShader.setAttributeFloatValue(self, String attribute_name, float value) //@inline 
 {
     int locIndex = self.getAttributeLocation(attribute_name.zstr_tcopy());
-    assert(locIndex >= 0, "Shader attribute location not found: %s", attribute_name);
+    assert(locIndex >= 0, "RLShader attribute location not found: %s", attribute_name);
 
     // NOTE(HM) this is used to set a shader attribute value
     // if the shader is invalid it will do nothing
     if(rl::isShaderValid(self)) {
-        rl::setShaderValue(self, locIndex, (void*)&value, rl::ShdUniTyp.FLOAT);
+        rl::setShaderValue(self, locIndex, (void*)&value, rl::RLShdUniTyp.FLOAT);
     } else {
-        log::warning(Where.FILE, "Shader is invalid, unable to set value.");
+        log::warning(Where.FILE, "RLShader is invalid, unable to set value.");
     }
 }
 
-fn void Shader.setAttributelocFloatValue(self, int locIndex, float value) //@inline 
+fn void RLShader.setAttributelocFloatValue(self, int locIndex, float value) //@inline 
 {
     // NOTE(HM) this is used to set a shader attribute value vector2
     // if the shader is invalid it will do nothing
     if(rl::isShaderValid(self)) {
-        rl::setShaderValue(self, self.locs[locIndex], (void*)&value, rl::ShdUniTyp.FLOAT);
+        rl::setShaderValue(self, self.locs[locIndex], (void*)&value, rl::RLShdUniTyp.FLOAT);
     } else {
-        log::warning(Where.FILE, "Shader is invalid, unable to set value.");
+        log::warning(Where.FILE, "RLShader is invalid, unable to set value.");
     }
 }
 
-fn void Shader.setUniformFloatSliceValues(self, String uniform_name, float[] values) //@inline 
+fn void RLShader.setUniformFloatSliceValues(self, String uniform_name, float[] values) //@inline 
 {
     int locIndex = self.getUniformLocation(uniform_name.zstr_tcopy());
-    assert(locIndex >= 0, "Shader uniform location not found: %s", uniform_name);
+    assert(locIndex >= 0, "RLShader uniform location not found: %s", uniform_name);
 
     // NOTE(HM) this is used to set a shader uniform value array
     // if the shader is invalid it will do nothing
     if(rl::isShaderValid(self)) {
-        rl::setShaderValueV(self, locIndex, (void*)values.ptr, rl::ShdUniTyp.FLOAT, values.len);
+        rl::setShaderValueV(self, locIndex, (void*)values.ptr, rl::RLShdUniTyp.FLOAT, values.len);
     } else {
-        log::warning(Where.FILE, "Shader is invalid, unable to set value.");
+        log::warning(Where.FILE, "RLShader is invalid, unable to set value.");
     }
 }
 
-fn void Shader.setAttributeFloatSliceValues(self, String attribute_name, float[] values) //@inline 
+fn void RLShader.setAttributeFloatSliceValues(self, String attribute_name, float[] values) //@inline 
 {
     int locIndex = self.getAttributeLocation(attribute_name.zstr_tcopy());
-    assert(locIndex >= 0, "Shader attribute location not found: %s", attribute_name);
+    assert(locIndex >= 0, "RLShader attribute location not found: %s", attribute_name);
 
     // NOTE(HM) this is used to set a shader attribute value array
     // if the shader is invalid it will do nothing
     if(rl::isShaderValid(self)) {
-        rl::setShaderValueV(self, locIndex, (void*)values.ptr, rl::ShdUniTyp.FLOAT, values.len);
+        rl::setShaderValueV(self, locIndex, (void*)values.ptr, rl::RLShdUniTyp.FLOAT, values.len);
     } else {
-        log::warning(Where.FILE, "Shader is invalid, unable to set value.");
+        log::warning(Where.FILE, "RLShader is invalid, unable to set value.");
     }
 }
 
-fn void Shader.setUniformIntValue(self, String uniform_name, int value) //@inline 
+fn void RLShader.setUniformIntValue(self, String uniform_name, int value) //@inline 
 {
     int locIndex = self.getUniformLocation(uniform_name.zstr_tcopy());
-    assert(locIndex >= 0, "Shader uniform location not found: %s", uniform_name);
+    assert(locIndex >= 0, "RLShader uniform location not found: %s", uniform_name);
 
     // NOTE(HM) this is used to set a shader uniform value
     // if the shader is invalid it will do nothing
     if(rl::isShaderValid(self)) {
-        rl::setShaderValue(self, locIndex, (void*)&value, rl::ShdUniTyp.INT);
+        rl::setShaderValue(self, locIndex, (void*)&value, rl::RLShdUniTyp.INT);
     } else {
-        log::warning(Where.FILE, "Shader is invalid, unable to set value.");
+        log::warning(Where.FILE, "RLShader is invalid, unable to set value.");
     }
 }
 
-fn void Shader.setAttributeIntValue(self, String attribute_name, int value) //@inline 
+fn void RLShader.setAttributeIntValue(self, String attribute_name, int value) //@inline 
 {
     int locIndex = self.getAttributeLocation(attribute_name.zstr_tcopy());
-    assert(locIndex >= 0, "Shader attribute location not found: %s", attribute_name);
+    assert(locIndex >= 0, "RLShader attribute location not found: %s", attribute_name);
 
     // NOTE(HM) this is used to set a shader attribute value
     // if the shader is invalid it will do nothing
     if(rl::isShaderValid(self)) {
-        rl::setShaderValue(self, locIndex, (void*)&value, rl::ShdUniTyp.INT);
+        rl::setShaderValue(self, locIndex, (void*)&value, rl::RLShdUniTyp.INT);
     } else {
-        log::warning(Where.FILE, "Shader is invalid, unable to set value.");
+        log::warning(Where.FILE, "RLShader is invalid, unable to set value.");
     }
 }
 
-fn void Shader.setUniformIntSliceValues(self, String uniform_name, int[] values) //@inline 
+fn void RLShader.setUniformIntSliceValues(self, String uniform_name, int[] values) //@inline 
 {
     int locIndex = self.getUniformLocation(uniform_name.zstr_tcopy());
-    assert(locIndex >= 0, "Shader uniform location not found: %s", uniform_name);
+    assert(locIndex >= 0, "RLShader uniform location not found: %s", uniform_name);
 
     // NOTE(HM) this is used to set a shader uniform value array
     // if the shader is invalid it will do nothing
     if(rl::isShaderValid(self)) {
-        rl::setShaderValueV(self, locIndex, (void*)values.ptr, rl::ShdUniTyp.INT, values.len);
+        rl::setShaderValueV(self, locIndex, (void*)values.ptr, rl::RLShdUniTyp.INT, values.len);
     } else {
-        log::warning(Where.FILE, "Shader is invalid, unable to set value.");
+        log::warning(Where.FILE, "RLShader is invalid, unable to set value.");
     }
 }
 
-fn void Shader.setAttributeIntSliceValues(self, String attribute_name, int[] values) //@inline 
+fn void RLShader.setAttributeIntSliceValues(self, String attribute_name, int[] values) //@inline 
 {
     int locIndex = self.getAttributeLocation(attribute_name.zstr_tcopy());
-    assert(locIndex >= 0, "Shader attribute location not found: %s", attribute_name);
+    assert(locIndex >= 0, "RLShader attribute location not found: %s", attribute_name);
 
     // NOTE(HM) this is used to set a shader attribute value array
     // if the shader is invalid it will do nothing
     if(rl::isShaderValid(self)) {
-        rl::setShaderValueV(self, locIndex, (void*)values.ptr, rl::ShdUniTyp.INT, values.len);
+        rl::setShaderValueV(self, locIndex, (void*)values.ptr, rl::RLShdUniTyp.INT, values.len);
     } else {
-        log::warning(Where.FILE, "Shader is invalid, unable to set value.");
+        log::warning(Where.FILE, "RLShader is invalid, unable to set value.");
     }
 }
 
-fn void Shader.setUniformVector2Value(self, String uniform_name, Vector2 vec) //@inline 
+fn void RLShader.setUniformVector2Value(self, String uniform_name, RLVector2 vec) //@inline 
 {
     int locIndex = self.getUniformLocation(uniform_name.zstr_tcopy());
-    assert(locIndex >= 0, "Shader uniform location not found: %s", uniform_name);
+    assert(locIndex >= 0, "RLShader uniform location not found: %s", uniform_name);
 
     // NOTE(HM) this is used to set a shader uniform value vector2
     // if the shader is invalid it will do nothing
     if(rl::isShaderValid(self)) {
-        rl::setShaderValueV(self, locIndex, (void*)&vec, rl::ShdUniTyp.VEC2, 1);
+        rl::setShaderValueV(self, locIndex, (void*)&vec, rl::RLShdUniTyp.VEC2, 1);
     } else {
-        log::warning(Where.FILE, "Shader is invalid, unable to set value.");
+        log::warning(Where.FILE, "RLShader is invalid, unable to set value.");
     }
 }
 
-fn void Shader.setAttributeVector2Value(self, String attribute_name, Vector2 vec) //@inline 
+fn void RLShader.setAttributeVector2Value(self, String attribute_name, RLVector2 vec) //@inline 
 {
     int locIndex = self.getAttributeLocation(attribute_name.zstr_tcopy());
-    assert(locIndex >= 0, "Shader attribute location not found: %s", attribute_name);
+    assert(locIndex >= 0, "RLShader attribute location not found: %s", attribute_name);
 
     // NOTE(HM) this is used to set a shader attribute value vector2
     // if the shader is invalid it will do nothing
     if(rl::isShaderValid(self)) {
-        rl::setShaderValueV(self, locIndex, (void*)&vec, rl::ShdUniTyp.VEC2, 1);
+        rl::setShaderValueV(self, locIndex, (void*)&vec, rl::RLShdUniTyp.VEC2, 1);
     } else {
-        log::warning(Where.FILE, "Shader is invalid, unable to set value.");
+        log::warning(Where.FILE, "RLShader is invalid, unable to set value.");
     }
 }
 
-fn void Shader.setAttributeLocValueV(self, int locIndex, float[] vec) //@inline 
+fn void RLShader.setAttributeLocValueV(self, int locIndex, float[] vec) //@inline 
 {
     // NOTE(HM) this is used to set a shader attribute value vector2
     // if the shader is invalid it will do nothing
     if(rl::isShaderValid(self)) {
         if(vec.len == 2) 
         {
-            rl::setShaderValueV(self, self.locs[locIndex], (void*)vec.ptr, rl::ShdUniTyp.VEC2, 1);
+            rl::setShaderValueV(self, self.locs[locIndex], (void*)vec.ptr, rl::RLShdUniTyp.VEC2, 1);
         } else if(vec.len == 3) {
-            rl::setShaderValueV(self, self.locs[locIndex], (void*)vec.ptr, rl::ShdUniTyp.VEC3, 1);
+            rl::setShaderValueV(self, self.locs[locIndex], (void*)vec.ptr, rl::RLShdUniTyp.VEC3, 1);
         } else if(vec.len == 4) {   
-            rl::setShaderValueV(self, self.locs[locIndex], (void*)vec.ptr, rl::ShdUniTyp.VEC4, 1);
+            rl::setShaderValueV(self, self.locs[locIndex], (void*)vec.ptr, rl::RLShdUniTyp.VEC4, 1);
         } else {
-            log::warning(Where.FILE, "Shader attribute value vector must be of size 2, 3 or 4.");
+            log::warning(Where.FILE, "RLShader attribute value vector must be of size 2, 3 or 4.");
         }
     } else {
-        log::warning(Where.FILE, "Shader is invalid, unable to set value.");
+        log::warning(Where.FILE, "RLShader is invalid, unable to set value.");
     }
 }
 
-fn void Shader.setUniformMatrixValue(self, String uniform_name, Matrix mat) //@inline 
+fn void RLShader.setUniformMatrixValue(self, String uniform_name, RLMatrix mat) //@inline 
 {
     int locIndex = self.getUniformLocation(uniform_name.zstr_tcopy());
-    assert(locIndex >= 0, "Shader uniform location not found: %s", uniform_name);
+    assert(locIndex >= 0, "RLShader uniform location not found: %s", uniform_name);
 
     // NOTE(HM) this is used to set a shader uniform value matrix
     // if the shader is invalid it will do nothing
     if(rl::isShaderValid(self)) {
         rl::setShaderValueMatrix(self, locIndex, mat);
     } else {
-        log::warning(Where.FILE, "Shader is invalid, unable to set value.");
+        log::warning(Where.FILE, "RLShader is invalid, unable to set value.");
     }
 }
 
-fn void Shader.setUniformTexture(self, String uniform_name, Texture2D tex) //@inline 
+fn void RLShader.setUniformTexture(self, String uniform_name, RLTexture2D tex) //@inline 
 {
     int locIndex = self.getUniformLocation(uniform_name.zstr_tcopy());
-    assert(locIndex >= 0, "Shader uniform location not found: %s", uniform_name);
+    assert(locIndex >= 0, "RLShader uniform location not found: %s", uniform_name);
 
     // NOTE(HM) this is used to set a shader uniform value texture
     // if the shader is invalid it will do nothing
     if(rl::isShaderValid(self)) {
         rl::setShaderValueTexture(self, locIndex, tex);
     } else {
-        log::warning(Where.FILE, "Shader is invalid, unable to set value.");
+        log::warning(Where.FILE, "RLShader is invalid, unable to set value.");
     }
 }

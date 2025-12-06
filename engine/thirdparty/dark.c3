@@ -50,7 +50,7 @@ const GuiStyleProp[DARK_STYLE_PROPS_COUNT] DARK_SIZE_PROPS = {
 
 const DARK_STYLE_FONT_ATLAS_COMP_SIZE = 2126;
 
-// Font atlas image pixels data: DEFLATE compressed
+// RLFont atlas image pixels data: DEFLATE compressed
 const char[DARK_STYLE_FONT_ATLAS_COMP_SIZE] DARK_FONT_DATA = { 0xed,
     0xdd, 0xdb, 0x72, 0xa4, 0x3a, 0x12, 0x05, 0x50, 0xfd, 0xff, 0x4f, 0xe7, 0x3c, 0x4c, 0x4c, 0x4c, 0x74, 0x9c, 0xd3, 0x20,
     0xa5, 0x52, 0x17, 0xec, 0xd5, 0xeb, 0xcd, 0xe5, 0x76, 0x51, 0xa0, 0x94, 0x84, 0x28, 0x36, 0xd1, 0x00, 0x00, 0x00, 0x80,
@@ -160,8 +160,8 @@ const char[DARK_STYLE_FONT_ATLAS_COMP_SIZE] DARK_FONT_DATA = { 0xed,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x56, 0xf9, 0xef, 0x3f, 0xfb, 0x01, 0xd4, 0x3f,
     0xf0, 0xeb, 0xea, 0xff, 0x3f };
 
-// Font glyphs rectangles data (on atlas)
-const Rectangle[*] DARK_FONT_RECS = {
+// RLFont glyphs rectangles data (on atlas)
+const RLRectangle[*] DARK_FONT_RECS = {
     { 4, 4, 4 , 16 },
     { 16, 4, 1 , 9 },
     { 25, 4, 3 , 3 },
@@ -353,7 +353,7 @@ const Rectangle[*] DARK_FONT_RECS = {
     { 394, 100, 5 , 11 },
 };
 
-// Font glyphs info data
+// RLFont glyphs info data
 // NOTE: No glyphs.image data provided
 const GlyphInfo[DARK_FONT_RECS.len] DARK_FONT_GLYPHS = {
     { 32, 0, 13, 4, {}},
@@ -567,9 +567,9 @@ fn void load()
     // NOTE: Compressed font image data (DEFLATE), it requires DecompressData() function
     int darkFontDataSize = 0;
     char *data = rl::decompressData(&DARK_FONT_DATA, DARK_STYLE_FONT_ATLAS_COMP_SIZE, &darkFontDataSize);
-    Image imFont = { data, 512, 256, 1, UNCOMPRESSED_GRAY_ALPHA };
+    RLImage imFont = { data, 512, 256, 1, UNCOMPRESSED_GRAY_ALPHA };
 
-    Font font = {.baseSize = 16, .glyphCount = DARK_FONT_GLYPHS.len};
+    RLFont font = {.baseSize = 16, .glyphCount = DARK_FONT_GLYPHS.len};
 
     // Load texture from image
     font.texture = rl::loadTextureFromImage(imFont);
@@ -577,7 +577,7 @@ fn void load()
 
     // Copy char recs data from global fontRecs
     // NOTE: Required to avoid issues if trying to free font
-    font.recs = mem::new_array(Rectangle, font.glyphCount);
+    font.recs = mem::new_array(RLRectangle, font.glyphCount);
     font.recs[:font.glyphCount] = DARK_FONT_RECS[..];
 
     // Copy font char info data from global fontChars
@@ -589,7 +589,7 @@ fn void load()
 
     // Setup a white rectangle on the font to be used on shapes drawing,
     // it makes possible to draw shapes and text (full UI) in a single draw call
-    Rectangle fontWhiteRec = { 510, 254, 1, 1 };
+    RLRectangle fontWhiteRec = { 510, 254, 1, 1 };
     rl::setShapesTexture(font.texture, fontWhiteRec);
 
     //-----------------------------------------------------------------
