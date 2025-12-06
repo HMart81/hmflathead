@@ -182,7 +182,7 @@ fn IniSection* ConfigFile.createSection(&self, String name) @local @nodiscard
 }
 
 <*
-    @untested
+    @UNTESTED
     @param [&in] section : "the new section to save into the file"
 *>
 fn void ConfigFile.addSection(&self, IniSection* section) @local @inline 
@@ -199,23 +199,26 @@ fn void ConfigFile.addSection(&self, IniSection* section) @local @inline
         return;
     }
 
-    usz len = fs::getFileSize(self.path);
-    assert(len > 0);
-    char* buffer = (char*)mem::malloc( len * char.sizeof);
-    defer mem::free(buffer);
-    file::load_buffer(self.path, buffer[:len])!!;
-    String result = string::tformat("%s", buffer);
-    // if the section is linked, we need to use the write the child name
-    if(section.isLinked()) {
-        result = result.tconcat(string::tformat("\n[%s.%s]", section.name, section.next.name));
+    usz len = (usz)fs::getFileSize(self.path);
+    if(len) 
+    {
+        char* buffer = (char*)mem::malloc( len * char.sizeof);
+        defer mem::free(buffer);
+        
+        file::load_buffer(self.path, buffer[:len])!!;
+        String result = string::tformat("%s", buffer);
+        // if the section is linked, we need to use the write the child name
+        if(section.isLinked()) {
+            result = result.tconcat(string::tformat("\n[%s.%s]", section.name, section.next.name));
+        } else {
+            result = result.tconcat(string::tformat("\n[%s]", section.name));
+        }
+        cfg.write(result[:result.len])!!;
     } else {
-        result = result.tconcat(string::tformat("\n[%s]", section.name));
+        $if $defined(_DEBUG):
+        unreachable("zero file size found!");
+        $endif
     }
-    cfg.write(result[:result.len])!!;
-    //usz read_count = cfg.read(buffer[:len]);
-    /*if(read_count) {
-
-    }*/
 }
 
 <*

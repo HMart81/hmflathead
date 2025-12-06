@@ -104,47 +104,21 @@ macro min(a, b) @private => ((a) < (b) ? (a) : (b));
 macro max(a, b) @private => ((a) > (b) ? (a) : (b));
 macro clamp(x, a, b) @private => min(b, max(a, x));
 
-// todo make this use the new C like C3 enums
-/*
-enum MU_Clip : const int
-{
-	PART = 1,
-	ALL  = 2,
-}
-*/
 enum MU_Clip : const inline int 
 {
 	PART = 1,
 	ALL  = 2,
 }
 
-// todo make this use the new C like C3 enums
-/*enum MU_Icon : const int
-{
-  CLOSE = 1,
-  CHECK = 2,
-  COLLAPSED = 3,
-  EXPANDED = 4,
-  MAX = 5
-}
-*/
 enum MU_Icon : const inline int
 {
-	CLOSE = 1,
-	CHECK = 2,
+	CLOSE     = 1,
+	CHECK     = 2,
 	COLLAPSED = 3,
-	EXPANDED = 4,
-	MAX = 5
+	EXPANDED  = 4,
+	MAX       = 5
 }
 
-// todo make this use the new C like C3 enums
-/*enum MU_Res : const int
-{
-  ACTIVE = (1 << 0),
-  SUBMIT = (1 << 1),
-  CHANGE = (1 << 2)
-}
-*/
 enum MU_Res : const inline int 
 {
 	ACTIVE = (1 << 0),
@@ -152,25 +126,7 @@ enum MU_Res : const inline int
 	CHANGE = (1 << 2)
 }
 
-// todo make this use the new C like C3 enums
-/*enum MU_Opt : const int
-{
-  ALIGNCENTER  = (1 << 0),
-  ALIGNRIGHT   = (1 << 1),
-  NOINTERACT   = (1 << 2),
-  NOFRAME      = (1 << 3),
-  NORESIZE     = (1 << 4),
-  NOSCROLL     = (1 << 5),
-  NOCLOSE      = (1 << 6),
-  NOTITLE      = (1 << 7),
-  HOLDFOCUS    = (1 << 8),
-  AUTOSIZE     = (1 << 9),
-  POPUP        = (1 << 10),
-  CLOSED       = (1 << 11),
-  EXPANDED     = (1 << 12)
-}
-*/
-enum MU_Opt : int (inline int v)
+enum MU_Opt : const inline int
 {
 	ALIGNCENTER  = (1 << 0),
 	ALIGNRIGHT   = (1 << 1),
@@ -187,19 +143,7 @@ enum MU_Opt : int (inline int v)
 	EXPANDED     = (1 << 12)
 }
 
-// todo make this use the new C like C3 enums
-/*enum MU_Mouse : const int
-{
-  LEFT    = (1 << 0),
-  RIGHT   = (1 << 1),
-  MIDDLE  = (1 << 2),
-  SIDE    = (1 << 3),   // Mouse button side (advanced mouse device)
-  EXTRA   = (1 << 4),   // Mouse button extra (advanced mouse device)
-  FORWARD = (1 << 5),   // Mouse button fordward (advanced mouse device)
-  BACK    = (1 << 6)    // Mouse button back (advanced mouse device)
-}
-*/
-enum MU_Mouse : int (inline int v)
+enum MU_Mouse : const inline int
 {
   LEFT    = (1 << 0),
   RIGHT   = (1 << 1),
@@ -210,26 +154,7 @@ enum MU_Mouse : int (inline int v)
   BACK    = (1 << 6),   // Mouse button back (advanced mouse device)
 }
 
-// todo make this use the new C like C3 enums
-/*enum MU_Key : const int
-{
-  SHIFT     = (1 << 0),
-  CTRL      = (1 << 1),
-  ALT       = (1 << 2),
-  BACKSPACE = (1 << 3),
-  RETURN    = (1 << 4),
-  DELETE    = (1 << 5),
-  END       = (1 << 6),
-  HOME      = (1 << 7),
-  LEFT      = (1 << 8),
-  RIGHT     = (1 << 9),
-  KEY_A     = (1 << 10),
-  KEY_C     = (1 << 11),
-  KEY_V     = (1 << 12),
-  KEY_X     = (1 << 13)
-}
-*/
-enum MU_Key : int (inline int v)
+enum MU_Key : const inline int
 {
   SHIFT     = (1 << 0),
   CTRL      = (1 << 1),
@@ -252,44 +177,84 @@ alias MU_Id   = uint;
 alias MU_Real = float;
 alias MU_Font = void*;
 
-// TODO(HM) make use of operator overloading for MU_Vec2 and MU_Rect to simplify math operations
-struct MU_Vec2 @compact
-{ 
-	int x, y;
-}
+alias MU_Vec2 = int[<2>];
 
-fn MU_Vec2 MU_Vec2.fromRaylibVector2(self, RLVector2 v) {
-  return { (int)v.x, (int)v.y };
-}
-
-fn RLVector2 MU_Vec2.toRaylibVector2(self) {
-  return { (float)self.x, (float)self.y };
-}
-
-struct MU_Rect @compact
+struct MU_Rect
 { 
 	int x, y, w, h;
 }
 
-fn MU_Rect MU_Rect.fromRaylibRectangle(self, RLRectangle r) {
+fn bool MU_Rect.equal(&self, MU_Rect other) @operator(==)
+{
+  return ( 
+    self.x == other.x &&
+    self.y == other.y &&
+    self.w == other.w &&
+    self.h == other.h
+  );
+}
+
+fn bool MU_Rect.nequal(&self, MU_Rect other) @operator(!=)
+{
+  return (
+      self.x != other.x &&
+      self.y != other.y &&
+      self.w != other.w &&
+      self.h != other.h
+    );
+}
+
+fn MU_Rect MU_Rect.fromRLRectangle(self, RLRectangle r) {
   return { (int)r.x, (int)r.y, (int)r.width, (int)r.height };
 }
 
-fn RLRectangle MU_Rect.toRaylibRectangle(self) {
+fn RLRectangle MU_Rect.toRLRectangle(self) {
   return { (float)self.x, (float)self.y, (float)self.w, (float)self.h };
 }
 
 alias MU_Color = RLColor;
 
-struct MU_PoolItem @compact
+struct MU_PoolItem
 { 
 	MU_Id id; 
 	int last_update; 
 }
 
-struct MU_BaseCommand @compact
+fn bool MU_PoolItem.equal(&self, MU_PoolItem other) @operator(==)
+{
+  return ( 
+    self.id          == other.id &&
+    self.last_update == other.last_update
+  );
+}
+
+fn bool MU_PoolItem.nequal(&self, MU_PoolItem other) @operator(!=)
+{
+  return ( 
+    self.id          != other.id &&
+    self.last_update != other.last_update
+  );
+}
+
+struct MU_BaseCommand
 { 
 	int type, size; 
+}
+
+fn bool MU_BaseCommand.equal(&self, MU_BaseCommand other) @operator(==)
+{
+  return ( 
+    self.type == other.type &&
+    self.size == other.size
+  );
+}
+
+fn bool MU_BaseCommand.nequal(&self, MU_BaseCommand other) @operator(!=)
+{
+  return ( 
+    self.type != other.type &&
+    self.size != other.size
+  );
 }
 
 struct MU_JumpCommand { MU_BaseCommand base; void *dst; }
@@ -457,10 +422,10 @@ extern fn void MU_Context.draw_control_text(&self, ZString str, MU_Rect rect, in
 extern fn int MU_Context.mouse_over(&self, MU_Rect rect) @cname("mu_mouse_over");
 extern fn void MU_Context.update_control(&self, MU_Id id, MU_Rect rect, int opt) @cname("mu_update_control");
 
-macro MU_Context.button(&self, label)             => self.button_ex(label.zstr_tcopy(), 0, MU_Opt.ALIGNCENTER.v);
+macro MU_Context.button(&self, label)             => self.button_ex(label.zstr_tcopy(), 0, MU_Opt.ALIGNCENTER);
 macro MU_Context.textbox(&self, buf, bufsz)       => self.textbox_ex(buf, bufsz, 0);
-macro MU_Context.slider(&self, value, lo, hi)     => self.slider_ex(value, lo, hi, 0, MU_SLIDER_FMT, MU_Opt.ALIGNCENTER.v);
-macro MU_Context.number(&self, value, step)       => self.number_ex(value, step, MU_SLIDER_FMT, MU_Opt.ALIGNCENTER.v);
+macro MU_Context.slider(&self, value, lo, hi)     => self.slider_ex(value, lo, hi, 0, MU_SLIDER_FMT, MU_Opt.ALIGNCENTER);
+macro MU_Context.number(&self, value, step)       => self.number_ex(value, step, MU_SLIDER_FMT, MU_Opt.ALIGNCENTER);
 macro MU_Context.header(&self, label)             => self.header_ex(label.zstr_tcopy(), 0);
 macro MU_Context.begin_treenode(&self, label)     => self.begin_treenode_ex(label.zstr_tcopy(), 0);
 macro MU_Context.begin_window(&self, title, rect) => self.begin_window_ex(title.zstr_tcopy(), rect, 0);
@@ -668,7 +633,7 @@ fn void test_window(MU_Context* ctx)
     }
 
     /* labels + buttons */
-    if (ctx.header_ex("Test Buttons", MU_Opt.EXPANDED.v)) 
+    if (ctx.header_ex("Test Buttons", MU_Opt.EXPANDED)) 
 	  {
       ctx.layout_row(3, &&(int[*]) { 86, -110, -1 }, 0);
       ctx.label("Test buttons 1:");
@@ -685,7 +650,7 @@ fn void test_window(MU_Context* ctx)
     }
 
     /* tree */
-    if (ctx.header_ex("Tree and Text", MU_Opt.EXPANDED.v)) 
+    if (ctx.header_ex("Tree and Text", MU_Opt.EXPANDED)) 
 	  {
       ctx.layout_row(2, &&(int[*]) { 140, -1 }, 0);
       ctx.@layout_make_column() 
@@ -730,7 +695,7 @@ fn void test_window(MU_Context* ctx)
     } // end of tree
 
     /* background color sliders */
-    if (ctx.header_ex("Background RLColor", MU_Opt.EXPANDED.v)) 
+    if (ctx.header_ex("Background RLColor", MU_Opt.EXPANDED)) 
 	  {
 		  ctx.layout_row(2, &&(int[*]) { -78, -1 }, 74);
       /* sliders */
@@ -745,7 +710,7 @@ fn void test_window(MU_Context* ctx)
       MU_Rect r = ctx.layout_next();
       ctx.draw_rect(r, mu::color(bg[0], bg[1], bg[2], 255));
       String buf = string::tformat("#%02X%02X%02X", bg[0], bg[1], bg[2]);
-      ctx.draw_control_text(buf.zstr_tcopy(), r, MU_COLOR_TEXT, MU_Opt.ALIGNCENTER.v);
+      ctx.draw_control_text(buf.zstr_tcopy(), r, MU_COLOR_TEXT, MU_Opt.ALIGNCENTER);
     }
   }; // end of window
 
@@ -1023,10 +988,10 @@ fn void MU_Context.forward_mouse_input(MU_Context* ctx)
     */
     for(int button = RLMouseButton.LEFT; button <= (int)RLMouseButton.MIDDLE; ++button)
     {
-        if (rl::isMouseButtonPressed(RLMouseButton.from_ordinal(button))) {
+        if (rl::isMouseButtonPressed((RLMouseButton)button)) {
             ctx.input_mousedown((int)mouse_position.x, (int)mouse_position.y, 1 << button);
         }
-        if (rl::isMouseButtonReleased(RLMouseButton.from_ordinal(button))) {
+        if (rl::isMouseButtonReleased((RLMouseButton)button)) {
             ctx.input_mouseup((int)mouse_position.x, (int)mouse_position.y, 1 << button);
         }
     }

@@ -239,8 +239,9 @@ fn bool isFileExtension(String fileName, ZString ext) @inline {
     return rl::isFileExtension(fileName.zstr_tcopy(), ext);
 }
 // Get file size in bytes
-fn usz getFileSize(String fileName) @inline {
-    return (usz)rl::getFileLength(fileName.zstr_tcopy());
+fn uint getFileSize(String fileName) @inline {
+    CInt result = rl::getFileLength(fileName.zstr_tcopy());
+    return (result) ? result : 0u;
 }
 // Get string view of extension for a filename (includes dot: '.png')
 fn String getFileExtension(String fileName) @inline {
@@ -251,7 +252,7 @@ fn String getFileName(String filePath) {
     return rl::getFileName(filePath.zstr_tcopy()).str_view();
 }
 // Get zero terminated string (pointer) for a filename for a path string
-fn ZString getFileNamePtr(String filePath) @inline {
+fn ZString getFileNameZstr(String filePath) @inline {
     return rl::getFileName(filePath.zstr_tcopy());
 }
 // Get filename string view without extension (uses static string)
@@ -260,26 +261,40 @@ fn String getFileNameWithoutExt(String filePath) @inline {
 }
 // Get full path for a given fileName with path (uses static string)
 fn ZString getDirectoryPath(ZString filePath) @inline {
-    return rl::getDirectoryPath(filePath);
+    String result = string::tformat("%s", rl::getDirectoryPath(filePath));
+    if(!(result.ends_with("/") || result.ends_with("\\"))) {
+        result = result.tconcat("\\");
+    }
+    return result.zstr_tcopy();
 }
 // Get previous directory path for a given path (uses static string)
 fn ZString getPrevDirectoryPath(ZString dirPath) @inline {
-    return rl::getPrevDirectoryPath(dirPath);
+    String result = string::tformat("%s", rl::getPrevDirectoryPath(dirPath));
+    if(!(result.ends_with("/") || result.ends_with("\\"))) {
+        result = result.tconcat("\\");
+    }
+   return result.zstr_tcopy();
 }
-
 // Get current working directory (uses static string)
 // This is the directory where the application is running FROM.
 // It is not the same as the application directory, which is where the executable is located.
 // This is because the working directory can change during runtime, for example, 
 // if the user changes it in the settings or runs the application from a shortcut in a different directory.
 fn String getWorkingDirectory() @inline {
-    return rl::getWorkingDirectory().str_view();
+    String result = rl::getWorkingDirectory().str_view();
+    if(!(result.ends_with("/") || result.ends_with("\\"))) {
+        result = result.tconcat("\\");
+    }
+    return result.tcopy();
 }
-
 // Get the directory of the running application (uses static string)
 // This is the directory where the executable is really located.
 fn ZString getApplicationDirectory() @inline {
-    return rl::getApplicationDirectory();
+    String result = rl::getApplicationDirectory().str_view();
+    if(!(result.ends_with("/") || result.ends_with("\\"))) {
+        result = result.tconcat("\\");
+    }
+    return result.zstr_tcopy();
 }
 // Create directories (including full path requested), returns true on success
 fn bool? makeDirectory_IfNotExist(String dirPath) {
@@ -326,6 +341,7 @@ fn RLFilePathList loadDirectoryFilesEx(String basePath, String filter, bool scan
 fn void unloadDirectoryFiles(RLFilePathList files) @inline {
     rl::unloadDirectoryFiles(files);
 }
+
 // Check if a file has been dropped into window
 fn bool isFileDropped() => rl::isFileDropped();
 // Load dropped filepaths
@@ -338,35 +354,52 @@ fn void unloadDroppedFiles(RLFilePathList files) @inline {
 fn CLong getFileModTime(String fileName) => rl::getFileModTime(fileName.zstr_tcopy());
 
 
-fn void do_move(String from, String dest, String fileExtensions) @inline @local
+fn void do_move(String from, String dest, String fileExtensions = "") @local
 {
-   if(fileExtensions.len)
+    if(fileExtensions.len)
     {
         String[] extensions = fileExtensions.tsplit(",");
+        assert(extensions.len > 0, "No file extensions provided for moving files.");
         // remove any leading or trailing whitespace from the extensions
         for(int i = 0; i < extensions.len; i++) {
             extensions[i] = extensions[i].trim();
         }
-        assert(extensions.len > 0, "No file extensions provided for moving files.");
         // iterate over each file extension
         foreach(fileext : extensions)
         {
             // load all files with the given extension in the main directory
-            RLFilePathList files = fs::loadDirectoryFilesEx(from, fileext, scanSubdirs: false);
-            for(int i = 0; i < files.count; i++) 
+            int i, file_count;
+            RLFilePathList files = loadDirectoryFilesEx(from, fileext, scanSubdirs: false);
+            file_count = files.count;
+            assert(file_count >= 1);
+            do { // move the files to the subdirectory
+                String file_path = ((ZString)files.paths[i]).str_view();
+                char[] file_data = file::load_temp(file_path)!!;
+                if(file_data.len)
+                {
+                    String file_final_path = dest.tconcat(getFileName(file_path));
+                    @catch(file::save(file_final_path, file_data));
+                    // delete old file
+                    @catch(file::delete(file_path));
+                }
+                file_count--;
+                i++;
+            } while(file_count >= 1);
+
+            /*for(int i = 0; i < files.count; i++)
             {
                 // now move the files to the subdirectory
                 String file_path = ((ZString)files.paths[i]).str_view();
                 char[] file_data = file::load_temp(file_path)!!;
                 if(file_data.len)
                 {
-                    String file_final_path = dest.tconcat(fs::getFileName(file_path));
+                    String file_final_path = dest.tconcat(getFileName(file_path));
                     @catch(file::save(file_final_path, file_data));
                     // delete old file
                     @catch(file::delete(file_path));
                 }
-            }
-            fs::unloadDirectoryFiles(files);
+            }*/
+            unloadDirectoryFiles(files);
         }
     } else {
         // load all files in the original directory

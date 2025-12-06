@@ -503,7 +503,7 @@ struct RLAutomationEventList
 // NOTE: Organized by priority level
 enum RLTraceLogLevel : const inline CInt
 {
-    ALL,            // Display all logs (0)
+    ALL = 0,        // Display all logs (0)
     TRACE,          // Trace logging, intended for internal use only
     DEBUG,          // Debug logging, used for internal debugging, it should be disabled on release builds
     INFO,           // Info logging, used for program execution info
@@ -514,9 +514,9 @@ enum RLTraceLogLevel : const inline CInt
 }
 
 // Mouse buttons
-enum RLMouseButton : inline CInt
+enum RLMouseButton : const inline CInt
 {
-    LEFT,       // Mouse button left
+    LEFT = 0,       // Mouse button left
     RIGHT,      // Mouse button right
     MIDDLE,     // Mouse button middle (pressed wheel)
     SIDE,       // Mouse button side (advanced mouse device)
@@ -526,9 +526,9 @@ enum RLMouseButton : inline CInt
 }
 
 // Mouse cursor
-enum RLMouseCursor : CInt
+enum RLMouseCursor : const CInt
 {
-    DEFAULT,       // Default pointer shape
+    DEFAULT = 0,       // Default pointer shape
     ARROW,         // Arrow shape
     IBEAM,         // Text writing cursor shape
     CROSSHAIR,     // Cross shape
@@ -541,12 +541,10 @@ enum RLMouseCursor : CInt
     NOT_ALLOWED    // The operation-not-allowed shape
 }
 
-$assert(RLMouseCursor.DEFAULT.ordinal == 0);
-
 // Gamepad buttons
-enum RLGamepadButton : CInt
+enum RLGamepadButton : const CInt
 {
-    UNKNOWN,             // Unknown button, just for error checking
+    UNKNOWN = 0,             // Unknown button, just for error checking
     LEFT_FACE_UP,        // Gamepad left DPAD up button
     LEFT_FACE_RIGHT,     // Gamepad left DPAD right button
     LEFT_FACE_DOWN,      // Gamepad left DPAD down button
@@ -566,11 +564,9 @@ enum RLGamepadButton : CInt
     RIGHT_THUMB          // Gamepad joystick pressed button right
 }
 
-$assert(RLGamepadButton.UNKNOWN.ordinal == 0);
-
-enum RLGamepadAxis : CInt
+enum RLGamepadAxis : const CInt
 {
-    LEFT_X,           // Gamepad left stick X axis
+    LEFT_X = 0,           // Gamepad left stick X axis
     LEFT_Y,           // Gamepad left stick Y axis
     RIGHT_X,          // Gamepad right stick X axis
     RIGHT_Y,          // Gamepad right stick Y axis
@@ -578,12 +574,10 @@ enum RLGamepadAxis : CInt
     RIGHT_TRIGGER     // Gamepad back trigger right, pressure level: [1..-1]
 }
 
-$assert(RLGamepadAxis.LEFT_X.ordinal == 0);
-
 // RLMaterial map index
-enum RLMtlMapIndex : inline CInt
+enum RLMtlMapIndex : const inline CInt
 {
-    ALBEDO,            // Albedo material (same as: MATERIAL_MAP_DIFFUSE)
+    ALBEDO = 0,            // Albedo material (same as: MATERIAL_MAP_DIFFUSE)
     METALNESS,         // Metalness material (same as: MATERIAL_MAP_SPECULAR)
     NORMAL,            // Normal material
     ROUGHNESS,         // Roughness material
@@ -602,8 +596,6 @@ enum RLMtlMapIndex : inline CInt
 
 const MATERIAL_MAP_DIFFUSE  = RLMtlMapIndex.ALBEDO;
 const MATERIAL_MAP_SPECULAR = RLMtlMapIndex.METALNESS;
-
-$assert(RLMtlMapIndex.ALBEDO.ordinal == 0);
 
 // RLShader location index
 // NOTE: str is the identifier you should write in your glsl shader code!
@@ -687,10 +679,8 @@ enum RLShdUniTyp : inline CInt
     SAMPLER2D        // RLShader uniform type: sampler2d
 }
 
-$assert(RLShdUniTyp.FLOAT.ordinal == 0);
-
 // RLShader attribute data types
-enum RLShdrAttrbDatTyp
+enum RLShdrAttrbDatTyp : CInt
 {
     FLOAT,            // RLShader attribute type: float
     VEC2,             // RLShader attribute type: vec2 (2 float)
@@ -698,13 +688,11 @@ enum RLShdrAttrbDatTyp
     VEC4              // RLShader attribute type: vec4 (4 float)
 }
 
-$assert(RLShdrAttrbDatTyp.FLOAT.ordinal == 0);
-
 // Pixel formats
 // NOTE: Support depends on OpenGL version and platform
 enum RLPixelFormat : const inline CInt
 {
-	NONE,
+	NONE = 0,
     UNCOMPRESSED_GRAYSCALE,     // 8 bit per pixel (no alpha)
     UNCOMPRESSED_GRAY_ALPHA,    // 8*2 bpp (2 channels)
     UNCOMPRESSED_R5G6B5,        // 16 bpp
@@ -728,22 +716,18 @@ enum RLPixelFormat : const inline CInt
     COMPRESSED_ASTC_8X8_RGBA    // 2 bpp
 }
 
-$assert(RLPixelFormat.UNCOMPRESSED_GRAYSCALE == 1);
-
 // RLTexture parameters: filter mode
 // NOTE 1: Filtering considers mipmaps if available in the texture
 // NOTE 2: Filter is accordingly set for minification and magnification
-enum RLTextureFilter : CInt
+enum RLTextureFilter : const CInt
 {
-    POINT,                   // No filter, just pixel approximation
+    POINT = 0,                   // No filter, just pixel approximation
     BILINEAR,                // Linear filtering
     TRILINEAR,               // Trilinear filtering (linear with mipmaps)
     ANISOTROPIC_4X,          // Anisotropic filtering 4x
     ANISOTROPIC_8X,          // Anisotropic filtering 8x
     ANISOTROPIC_16X,         // Anisotropic filtering 16x
 }
-
-$assert(RLTextureFilter.POINT.ordinal == 0);
 
 // RLTexture parameters: wrap mode
 enum RLTextureWrap : const int

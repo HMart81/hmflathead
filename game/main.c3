@@ -65,7 +65,11 @@ import game::actors::ent::plyr;  // player module
 import engine::misc; // misc code
 import game::camview;
 import engine::sys::cvar;
+// config file types
 import game::files::ini @public;
+import std::collections::object;
+import std::encoding::json;
+//
 import game::effects::boid;
 import game::lowlevel::bounds;
 // third party libraries
@@ -1816,13 +1820,13 @@ NOTE(HM)
 The first argument in a cmdline, is just the path to the executable, 
 so if there's only one argument, there's no need to run handle_cmdline().
 Also cmdline arguments require a full game restart, this may change, 
-if and when I create a ingame developer console...
+if I ever create a developer console...
 */
 fn void handle_cmdline(String[] args)
 {
-    if(args.len == 0 || args.len == 1) return;
+    if(args.len <= 1) return;
     
-    log::info(FILE, "Handling cmd line args: %s\n", args);
+    log::info(FILE, "Handling cmd line args: %s\n", args[1..]);
 
     String cmd_arg;
 
@@ -2076,8 +2080,8 @@ $endif
     // NOTE(HM) app_exe_path has the working dir encoded on it, but also includes the exe name, 
     //          rl::getWorkingDirectory() removes the name and gets the required path.
     // This also saves original work dir, in case a mod is being used.
-    local_game.app_default_workdir = fs::getWorkingDirectory().tconcat("\\");
-    if(fs::directoryExists(local_game.app_default_workdir)) 
+    local_game.app_default_workdir = fs::getWorkingDirectory();
+    if(fs::directoryExists(local_game.app_default_workdir))
     {
         log::info(FILE, "\tWorking from default Dir: %s", local_game.app_default_workdir);
     } else { 
@@ -2258,22 +2262,47 @@ $endif
     }
     //defer if(settings_load_sucess) ini::unload(&settings_file);
 
+    @off() 
+    {
+        // Test json file reading
+        File? file = fs::openFile(fs::getWorkingDirectory().tconcat("prefs.data"));
+        if( catch excuse = file) {
+            log::warning(FILE, "Failed to load json file with excuse: %s", excuse);
+            return excuse?;
+        }
+        //String jstext = fs::fileLoadEntireText(fs::getWorkingDirectory().tconcat("prefs.data"));
+        Object*? config = json::tparse(&file);
+        //Object*? config = json::tparse_string(jstext)!;
+        if(catch excuse = config) {
+            log::warning(FILE, "Failed to parse json file with excuse: %s", excuse);
+            return excuse?;
+        }
+        config.map.@each(; String key, value) {
+            io::printfn("%s -> %s", key, value);
+        };
+        // !json
+    };
+
     log::info(FILE, "Settings file loaded: %s", ini_file_path);
     log::info(FILE, "---------------------------------------------\n");
 // #endregion Ini file handling
 
     // set game language
-    if(settings_file.hasSection("game")) {
+    if(settings_file.hasSection("game")) 
+    {
         local_game.langdict.type = settings_file.getString("language");
         assert(local_game.langdict.type != "");
-        if(local_game.langdict.load(local_game.app_base_folder.tconcat("langs\\local.lang"))!) {
-            log::info(FILE, "language file loaded sucessfully.");
+        Path? langs_path = path::temp(local_game.app_base_folder.tconcat("langs\\local.lang"))!;
+        if(try local_game.langdict.load(langs_path.str_view())) {
+            log::info(FILE, "languages data file loaded sucessfully.\n\t-> %s", langs_path!);
             log::info(FILE, "---------------------------------------------\n");
+        } else {
+            unreachable("failed to load languages data file: %s!!", langs_path!);
         }
     } else {
         //settings_file.addSection(settings_file.createSection("game"));
         //settings_file.addToSection("game", mem::new(IniCMD, {"language", "pt"}));
-        unreachable("invalid ini file no required [game] section found!!");
+        unreachable("invalid ini file, required [game] section was not found!!");
     }
 
     // change raylib log level
@@ -3465,7 +3494,7 @@ $endif
 
     fault excuse = @catch(gameOnStart(&args));
     if (excuse) {
-        log::error(CONSOLE, "Game initialization failed with excuse: %s", excuse);
+        log::error(FILE, "Game initialization failed with excuse: %s", excuse);
         return -1;
     } else {
         //assetsLoadingMutex.init()!!;
