@@ -217,10 +217,10 @@ struct MaterialVideoStage
 }
 
 alias Coverage @public = int; //RLMaterial Coverage
-const Coverage COVERAGE_BAD         @public = 0; // invalid coverage type
-const Coverage COVERAGE_OPAQUE      @public = 1; // completely fills the triangle
-const Coverage COVERAGE_PERFORATED  @public = 2; // may have alpha tested holes
-const Coverage COVERAGE_TRANSLUCENT	@public = 4; // blended with background
+const Coverage COVERAGE_BAD         @public = -1; // invalid coverage type
+const Coverage COVERAGE_OPAQUE      @public =  0; // completely fills the triangle
+const Coverage COVERAGE_PERFORATED  @public =  1; // may have alpha tested holes
+const Coverage COVERAGE_TRANSLUCENT	@public =  2; // blended with background
 //
 //
 // TODO(HM) implement this new stage system
@@ -343,7 +343,7 @@ fn void HMaterial.reload(&self, SaveFile* file) @dynamic @public {
 
 fn void HMaterial.init(&self) @public
 {
-	self.coverage |= COVERAGE_OPAQUE;
+	//self.coverage |= COVERAGE_OPAQUE;
     // TODO(HM) solve this stuff with c3 enums not being able to be used as flags
     // use constants instead of enums for this?
     self.contentes |= (Contents.SOLID.flag | Contents.OPAQUE.flag);
@@ -409,6 +409,32 @@ fn void HMaterial.print(self) @public //@local
 fn void HMaterial.setShader(&self, RLShader shader) @inline @public
 {
     self.shader = shader;
+}
+
+fn void HMaterial.setCoverage(&self, Coverage cv) @public
+{
+    if(self.coverage & cv) return;
+
+    switch(cv)
+    {
+        case COVERAGE_OPAQUE:
+            self.coverage |= COVERAGE_OPAQUE;
+            if(self.coverage & COVERAGE_TRANSLUCENT) {
+                self.coverage &= ~COVERAGE_TRANSLUCENT;
+            }
+        case COVERAGE_TRANSLUCENT:
+            self.coverage |= COVERAGE_TRANSLUCENT;
+            if(self.coverage & COVERAGE_OPAQUE) {
+                self.coverage &= ~COVERAGE_OPAQUE;
+            }
+        case COVERAGE_PERFORATED:
+            self.coverage |= COVERAGE_PERFORATED;
+            if(self.coverage & COVERAGE_OPAQUE) {
+                self.coverage &= ~COVERAGE_OPAQUE;
+            }
+        default:
+            unreachable();
+    }
 }
 
 // @untested
@@ -766,20 +792,18 @@ fn void HMaterial.parse_keyword(&self, XmlNode* node) @public
     switch (arg.first)
     {
         case NodeKeyword.TRANSLUCENT.str:
-            if(self.coverage & COVERAGE_OPAQUE) self.coverage &= ~COVERAGE_OPAQUE; // remove opaque coverage
-            self.coverage |= COVERAGE_TRANSLUCENT;
+            self.setCoverage(COVERAGE_TRANSLUCENT);
         case NodeKeyword.ALPHA.str:
-            self.flags.has_AlphaTest = true;
-            if (self.coverage & COVERAGE_OPAQUE) self.coverage &= ~COVERAGE_OPAQUE; // remove opaque coverage
-            self.coverage |= COVERAGE_PERFORATED;
+            self.setCoverage(COVERAGE_PERFORATED);
             float alpha = misc::clamp01f(arg.second.to_float()!!);
              // multiply previous alpha values by our new value
             if(alpha > 0.0f && alpha < 1.0f) {
                 // set the material coverage to match
-                if ((bool)(self.coverage & COVERAGE_TRANSLUCENT) == false) self.coverage |= COVERAGE_TRANSLUCENT;
+                if ((bool)(self.coverage & COVERAGE_TRANSLUCENT) == false) self.setCoverage(COVERAGE_TRANSLUCENT);
             }
             MaterialStage* stage = self.getStage(STAGE_DIFFUSE);
             stage.color.a = (char)misc::@mapValueRangeToOther(alpha, 0.0f, 1.0f, 0, 255);
+            self.flags.has_AlphaTest = true;
         case NodeKeyword.SORT.str:
             self.sort = arg.second.to_uint()!!;
         case NodeKeyword.CLAMP.str:

@@ -354,6 +354,7 @@ fn void Entity.updateBoundsPos(&self, Vec2f pos) @inline
 	// self.axis.m01 = st;
 // }
 
+/*
 fn bool Entity.equalcoverage(&self, Coverage coverage) @operator(==)
 {
     return self.vs == coverage;
@@ -363,6 +364,13 @@ fn bool Entity.nequalcoverage(&self, Coverage coverage) @operator(!=)
 {
     return self.vs != coverage;
 }
+*/
+
+<*
+	@require self.vs.mat != null
+	@ensure return >= 1
+*>
+fn Coverage Entity.getCoverage(&self) => self.vs.mat.coverage;
 
 fn void Entity.hide(&self) @inline => self.vs.hide();
 
@@ -814,13 +822,14 @@ fn void Entity.draw(&self)
 		RLColor color = self.vs.mat.getStage(mat::STAGE_DIFFUSE).color;
 
         RLBlendMode blending;
-        switch //(self.vs.mat.coverage)
+		Coverage coverage = self.getCoverage();
+        switch //(coverage)
         {
-            case *self == mat::COVERAGE_OPAQUE:
+            case (bool)(coverage & mat::COVERAGE_OPAQUE):
 				break; // do nothing here
-            case *self == mat::COVERAGE_PERFORATED && *self != mat::COVERAGE_TRANSLUCENT:
+            case (bool)(coverage & mat::COVERAGE_PERFORATED) && !(bool)(coverage & mat::COVERAGE_TRANSLUCENT):
                 blending = RLBlendMode.ALPHA;
-            case *self == mat::COVERAGE_TRANSLUCENT && *self != mat::COVERAGE_PERFORATED:
+            case (bool)(coverage & mat::COVERAGE_TRANSLUCENT) && !(bool)(coverage & mat::COVERAGE_PERFORATED):
                 blending = RLBlendMode.ALPHA_PREMUL;
                 if(color.a == 255) // if the color is not transparent
 				{
@@ -834,9 +843,9 @@ fn void Entity.draw(&self)
 					color.g = (char)math::floor((g * a) * 255);
 					color.b = (char)math::floor((b * a) * 255);
 				}
-			case *self == mat::COVERAGE_TRANSLUCENT && *self == mat::COVERAGE_PERFORATED:
+			case (bool)(coverage & mat::COVERAGE_TRANSLUCENT) && (bool)(coverage & mat::COVERAGE_PERFORATED):
 				blending = RLBlendMode.CUSTOM_SEPARATE; // use the custom blending mode					
-            case *self == mat::COVERAGE_BAD:
+            case (bool)(coverage & mat::COVERAGE_BAD):
                 log::error(FILE, "Entity material %s has a bad material coverage type.", self.vs.mat.name);
                 unreachable();
         }

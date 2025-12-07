@@ -66,7 +66,7 @@ const Vec2f MIN_SIZE @local = {MIN_SPRIT_SIZE, MIN_SPRIT_SIZE};
 // Used for very special sprites only
 enum SpriteKind : const int 
 {
-    GENERIC,
+    GENERIC = 0,
     CURSOR,
 }
 
@@ -100,7 +100,7 @@ struct Sprite (SaveSystemInterface)
 
     //
     RLRectangle rect; // position and size of the sprite, screen pixel coordinates and meters scale respectively.
-    Bounds bounds; // will be equal to the rectangle
+    Bounds bounds; // should be equal to the rectangle size
     RLColor color;  // only really used when a material is not defined.
 
     // Todo(HM) rethink this, should the material be a pointer to a data base loaded in memory
@@ -163,27 +163,15 @@ fn void Sprite.resetPosSize(&self) @inline {
 }
 
 fn void Sprite.deinit(&self) @inline {
-//
+    if(self.mat) self.mat = null;
 }
 
-fn bool Sprite.sameKindAs(&self, Sprite* other)
-{
-    if(other == null) return false;
-    return self.kind == other.kind;
-}
-
-fn bool Sprite.equal(&self, Sprite* other) //@operator(==) 
-{
-    return (self.kind  == other.kind  &&
-            self.rect  == other.rect  &&
-            self.color == other.color);
-}
-
+/*
 <*
  @param coverage : "the coverage to compare with"
  @require self.mat != null
 *>
-fn bool Sprite.equalcoverage(&self, Coverage coverage) @operator(==)
+fn bool Sprite.equalcoverage(&self, Coverage coverage) //@operator(==)
 {
     return (bool)(self.mat.coverage & coverage);
 }
@@ -192,10 +180,11 @@ fn bool Sprite.equalcoverage(&self, Coverage coverage) @operator(==)
  @param coverage : "the coverage to compare with"
  @require self.mat != null
 *>
-fn bool Sprite.nequalcoverage(&self, Coverage coverage) @operator(!=)
+fn bool Sprite.nequalcoverage(&self, Coverage coverage) //@operator(!=)
 {
     return (bool)((bool)(self.mat.coverage & coverage) == false);
 }
+*/
 
 // WARNING(HM) setSize and scale are diferent things!!!
 <*
@@ -487,14 +476,15 @@ fn void Sprite.draw(&self)  @inline
             // so for example we could have a material with multiple diffuse stages and each stage 
             // could have its own blending mode. This would allow us to have more complex materials.
             RLBlendMode blending;
+            Coverage coverage = self.mat.coverage;
             switch
             {
-                case *self == mat::COVERAGE_OPAQUE:
+                case (bool)(coverage & mat::COVERAGE_OPAQUE):
                 //case diffuse_stage.drawStateBits & mat::BLEND_NONE:
                     break; // do nothing here
-                case *self == mat::COVERAGE_PERFORATED && *self != mat::COVERAGE_TRANSLUCENT:
+                case (bool)(coverage & mat::COVERAGE_PERFORATED) && !(bool)(coverage & mat::COVERAGE_TRANSLUCENT):
                     blending = RLBlendMode.ALPHA;
-                case *self == mat::COVERAGE_TRANSLUCENT && *self != mat::COVERAGE_PERFORATED:
+                case (bool)(coverage & mat::COVERAGE_TRANSLUCENT) && !(bool)(coverage & mat::COVERAGE_PERFORATED):
                 //case diffuse_stage.drawStateBits & mat::BLEND_BLEND:
                     blending = RLBlendMode.ALPHA_PREMUL;
                     if(color.a == 255) // if the color is not transparent
@@ -509,9 +499,9 @@ fn void Sprite.draw(&self)  @inline
                         color.g = (char)math::floor((g * a) * 255);
                         color.b = (char)math::floor((b * a) * 255);
                     }
-                case *self == mat::COVERAGE_TRANSLUCENT && *self == mat::COVERAGE_PERFORATED:
+                case (bool)(coverage & mat::COVERAGE_TRANSLUCENT) && (bool)(coverage & mat::COVERAGE_PERFORATED):
                     blending = RLBlendMode.CUSTOM_SEPARATE; // use the custom blending mode
-                case *self == mat::COVERAGE_BAD:
+                case (bool)(coverage & mat::COVERAGE_BAD):
                     log::error(Where.FILE, "Panel with material %s has a bad material coverage type.", self.mat.name);
                     unreachable();
             }

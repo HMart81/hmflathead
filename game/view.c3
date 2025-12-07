@@ -620,7 +620,7 @@ $endif
                         if(sort <= old_sort) 
                         {
                             // draw opaque sprites first
-                            if(sprite.mat.flags.has_AlphaTest == false && *sprite != mat::COVERAGE_TRANSLUCENT) 
+                            if(sprite.mat.flags.has_AlphaTest == false && !(sprite.mat.coverage & mat::COVERAGE_TRANSLUCENT)) 
                             {
                                 sprite.draw();
                             } 
