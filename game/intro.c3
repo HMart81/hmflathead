@@ -72,14 +72,14 @@ macro makeFrame(String material_name, IntroAnimation* anim) @local {
     anim.frames.push(frame);
 }
 
-fn void initIntroAnimation(IntroAnimation* anim) {
+fn void initAnimation(IntroAnimation* anim) {
     makeFrame("gui/raylib_intro", anim);
     makeFrame("gui/logo", anim);
     //
-    input::makeKeyboardAction("noIntro", rl::KEY_ESCAPE);
+    input::makeKeyboardAction("skipIntro", rl::KEY_ESCAPE);
 }
 
-fn void deinitIntroAnimation(IntroAnimation* anim) {
+fn void deinitAnimation(IntroAnimation* anim) {
     foreach(frame : anim.frames) {
         if(frame) {
             frame.image.deinit();
@@ -88,72 +88,99 @@ fn void deinitIntroAnimation(IntroAnimation* anim) {
         }
     }
     
-    input::removeAction("noIntro");
+    input::removeAction("skipIntro");
 }
 
-fn void play(IntroAnimation* anim) @inline {
-    if(skip_intro.getBool()) return;
-    
-    anim.should_play = true;
-    main::gpGame.mode = GameMode.INTRO;
-
+fn void hide_cursors() @local @inline
+{
     if(main::game_cursor_visible()) main::hide_game_cursor();
     if(main::gpGame.screen.state.fullscreen || main::gpGame.screen.state.borderless) 
     {
         if(main::system_cursor_enabled()) main::disable_system_cursor();
     }
-    
+}
+
+<*
+    @param [&inout] anim : "animation to handle"
+*>
+fn void init_anim_timing(IntroAnimation* anim) @local @inline
+{
     if(!anim.timing_initialized) {
         // each frame duration
         anim.next_frame_time    = main::gpGame.time_ms + FRAME_TIME;
         // full anim duration
-        anim.duration           = main::gpGame.time_ms + (int)anim.frames.len() * anim.next_frame_time;
+        int frames_amout = (int)anim.frames.len();
+        anim.duration           = main::gpGame.time_ms + (frames_amout * FRAME_TIME);
         anim.timing_initialized = true;
     }
 }
 
-fn void stop(IntroAnimation* anim) @inline {
-    anim.should_play = false;
+<*
+    @param [&inout] anim : "animation to handle"
+*>
+fn bool play(IntroAnimation* anim) @inline {
+    if(skip_intro.getBool()) return false;
+    setup(anim);
+    return true;
+}
+
+<*
+    @param [&inout] anim : "animation to handle"
+*>
+fn void setup(IntroAnimation* anim) @inline @local {
+    main::gpGame.mode = GameMode.INTRO;
+    hide_cursors();
+    init_anim_timing(anim);
+    anim.should_play = true;
+}
+
+fn void IntroAnimation.stop(&self) @inline {
     main::gpGame.mode = GameMode.NONE;
+    self.should_play = false;
 }
 
-fn void loop(IntroAnimation* anim) @inline {
-    anim.current_frame_index = 0;
+fn void IntroAnimation.loop(&self) @inline {
+    if(self.current_frame_index) self.current_frame_index = 0;
 }
 
-fn bool updateIntroAnimation(IntroAnimation* anim) {
-    while(true) 
+fn void IntroAnimation.loop_frame(&self, uint idx) @inline {
+    if(self.current_frame_index != idx) self.current_frame_index = idx;
+}
+
+<*
+    @param [&inout] anim : "animation to update"
+*>
+fn void update(IntroAnimation* anim)
+{
+    //  if animation played to the end or we skipped the intro
+    if(main::gpGame.time_ms >= anim.duration || input::getAction("skipIntro").fnBecameTriggered()) {
+        anim.stop();
+        return;
+    }
+    
+    // if a single frame
+    if(anim.frames.len() == 1) {
+        // go on displaying the same frame for the duration of the animation
+        anim.loop_frame(0);
+    }
+    else // change frame after a time
     {
-        if(anim.should_play == false) {
-            deinitIntroAnimation(anim);
-            return false;
+        //if(anim.current_frame_index > anim.frames.len()) loop(anim);
+        // no more frames to play get out
+        if(anim.current_frame_index >= anim.frames.len()) {
+            anim.stop();
+            return;
         }
-        
-        bool stop_anim = input::getAction("noIntro").fnBecameTriggered();
-        
-        if(main::gpGame.time_ms >= anim.duration || stop_anim ) {
-            stop(anim);
-            return false;
-        }
-        
-        if(anim.frames.len() > 1) 
-        {
-            //if(anim.current_frame_index > anim.frames.len()) loop(anim);
-            if(anim.current_frame_index >= anim.frames.len()) {
-                stop(anim);
-                continue;
-            }
-            
-            // set next frame
-            if(main::gpGame.time_ms >= anim.next_frame_time) {
-                anim.current_frame_index++;
-                anim.next_frame_time = main::gpGame.time_ms + FRAME_TIME;
-            }
+
+        // else set next frame index to play after the required time
+        if(main::gpGame.time_ms >= anim.next_frame_time) {
+            anim.current_frame_index++;
+            anim.next_frame_time = main::gpGame.time_ms + FRAME_TIME;
         }
     }
 }
 
-fn void drawIntroAnimation(IntroAnimation* anim, int w, int h) {
+fn void drawAnimation(IntroAnimation* anim, int w, int h) {
     if(anim == null) return;
     
     //misc::@drawRect({0, 0, w, h}, (RLColor){0x18, 0x18, 0x18, 0xFF});

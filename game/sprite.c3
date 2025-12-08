@@ -100,7 +100,7 @@ struct Sprite (SaveSystemInterface)
 
     //
     RLRectangle rect; // position and size of the sprite, screen pixel coordinates and meters scale respectively.
-    Bounds bounds; // should be equal to the rectangle size
+    Bounds bounds; // should be equivalent to the rectangle size
     RLColor color;  // only really used when a material is not defined.
 
     // Todo(HM) rethink this, should the material be a pointer to a data base loaded in memory

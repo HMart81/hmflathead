@@ -147,24 +147,22 @@ alias gameptr = main::gpGame;
 
 const int ENABLE_CAMERA_VIEW = 1;
 
-typedef RenderLayer = inline RLRenderTexture2D;
-
+typedef RenderLayer @private = inline RLRenderTexture2D;
 alias RenderFunctionCallback = fn void(RenderView* view, RenderLayer* layer);
+
+struct ViewLayer @private
+{
+    RenderLayer buffer;
+    RenderFunctionCallback callback;
+}
 
 struct RenderView (SaveSystemInterface)
 {
-    RenderLayer gameFrameBuffer;
-    RenderLayer guiFrameBuffer;
-    RenderLayer postGuiFrameBuffer;
+    ViewLayer gameFrame;
+    ViewLayer guiFrame;
+    ViewLayer postGuiFrame;
     //RenderLayer shadowFrameBuffer; // not used yet
-    RenderLayer debugFrameBuffer; // not used yet
-
-    // function pointers callbacks for functions rendering into the render targets
-    RenderFunctionCallback gameFrameBufferCallback;
-    RenderFunctionCallback guiFrameBufferCallback;
-    RenderFunctionCallback postGuiFrameBufferCallback;
-    //RenderFunctionCallback shadowFrameBufferCallback; // not used yet
-    RenderFunctionCallback debugFrameBufferCallback; // not used yet
+    ViewLayer debugFrame; // not used yet
     //
     RenderLayer* currentRender; // current render target/layer displayed
     bool taking_screenshot;
@@ -202,20 +200,19 @@ fn void RenderView.reload(&self, SaveFile* file) @dynamic {
 fn void RenderView.init(&self, int screenWidth, int screenHeight) @inline 
 {
     // @testing...
-    self.gameFrameBuffer    = (RenderLayer)rl::loadRenderTexture(screenWidth, screenHeight);
-    self.guiFrameBuffer     = (RenderLayer)rl::loadRenderTexture(screenWidth, screenHeight);
-    self.postGuiFrameBuffer = (RenderLayer)rl::loadRenderTexture(screenWidth, screenHeight);
-    //self.shadowFrameBuffer  = (RenderLayer)rl::loadRenderTexture(screenWidth, screenHeight); // not used yet
-    self.debugFrameBuffer  = (RenderLayer)rl::loadRenderTexture(screenWidth, screenHeight);
-    //
-    self.gameFrameBufferCallback    = &renderGameFBO;
-    self.guiFrameBufferCallback     = &renderGuiFBO;
-    self.postGuiFrameBufferCallback = &renderPostGuiFBO;
-    //self.shadowFrameBufferCallback  = &renderShadowFBO; // not used yet
-    self.debugFrameBufferCallback   = &renderDebugFBO; // not used yet
+    self.gameFrame.buffer      = (RenderLayer)rl::loadRenderTexture(screenWidth, screenHeight);
+    self.guiFrame.buffer       = (RenderLayer)rl::loadRenderTexture(screenWidth, screenHeight);
+    self.postGuiFrame.buffer   = (RenderLayer)rl::loadRenderTexture(screenWidth, screenHeight);
+    //self.shadowFrame.buffer  = (RenderLayer)rl::loadRenderTexture(screenWidth, screenHeight); // not used yet
+    self.debugFrame.buffer     = (RenderLayer)rl::loadRenderTexture(screenWidth, screenHeight);
+    self.gameFrame.callback    = &renderGameFBO;
+    self.guiFrame.callback     = &renderGuiFBO;
+    self.postGuiFrame.callback = &renderPostGuiFBO;
+    //self.shadowFrame.callback  = &renderShadowFBO; // not used yet
+    self.debugFrame.callback   = &renderDebugFBO; // not used yet
     //
     // NOTE(HM) used to point to the main render layer to be used for shaders and such if necessary
-    self.currentRender              = &self.gameFrameBuffer;
+    self.currentRender              = &self.gameFrame.buffer;
 
     self.grayscale.load("grayscale");
     
@@ -283,11 +280,11 @@ $endif
 fn void RenderView.deinit(&self) 
 {
      // Unload render texture (FBO)
-    rl::unloadRenderTexture(self.gameFrameBuffer);
-    rl::unloadRenderTexture(self.guiFrameBuffer);
-    rl::unloadRenderTexture(self.postGuiFrameBuffer);
-    self.guiFrameBufferCallback     = null;
-    self.postGuiFrameBufferCallback = null;
+    rl::unloadRenderTexture(self.gameFrame.buffer);
+    rl::unloadRenderTexture(self.guiFrame.buffer);
+    rl::unloadRenderTexture(self.postGuiFrame.buffer);
+    self.guiFrame.callback     = null;
+    self.postGuiFrame.callback = null;
     self.currentRender              = null;
     self.grayscale.unload();
 }
@@ -744,17 +741,17 @@ fn void RenderView.renderToFBO(&self) @inline
     // render to the game layer
     if(self.enable_grayscale) {
         self.grayscale.@apply(self.currentRender) {
-            self.gameFrameBufferCallback(self, &self.gameFrameBuffer);
+            self.gameFrame.callback(self, &self.gameFrame.buffer);
         };
     } else {
-        self.gameFrameBufferCallback(self, &self.gameFrameBuffer);
+        self.gameFrame.callback(self, &self.gameFrame.buffer);
     }
     // render to the gui layer
-    self.guiFrameBufferCallback(self, &self.guiFrameBuffer);
+    self.guiFrame.callback(self, &self.guiFrame.buffer);
     // render to the post gui layer
-    self.postGuiFrameBufferCallback(self, &self.postGuiFrameBuffer);
+    self.postGuiFrame.callback(self, &self.postGuiFrame.buffer);
     // render to the debug layer
-    self.debugFrameBufferCallback(self, &self.debugFrameBuffer);
+    self.debugFrame.callback(self, &self.debugFrame.buffer);
 }
 
 fn void RenderView.draw(&self) @inline 
@@ -762,13 +759,13 @@ fn void RenderView.draw(&self) @inline
     // NOTE: Render texture must be y-flipped due to default OpenGL coordinates (left-bottom)
 
     // draw the game framebuffer
-    rl::drawTextureRec(self.gameFrameBuffer.texture, { 0, 0, (float)self.w, (float)-self.h }, { 0, 0 }, rl::WHITE);
+    rl::drawTextureRec(self.gameFrame.buffer.texture, { 0, 0, (float)self.w, (float)-self.h }, { 0, 0 }, rl::WHITE);
     // draw the gui framebuffer
-    rl::drawTextureRec(self.guiFrameBuffer.texture, { 0, 0, (float)self.w, (float)-self.h }, { 0, 0 }, rl::WHITE);
+    rl::drawTextureRec(self.guiFrame.buffer.texture, { 0, 0, (float)self.w, (float)-self.h }, { 0, 0 }, rl::WHITE);
     // draw the post gui framebuffer
-    rl::drawTextureRec(self.postGuiFrameBuffer.texture, { 0, 0, (float)self.w, (float)-self.h }, { 0, 0 }, rl::WHITE);
+    rl::drawTextureRec(self.postGuiFrame.buffer.texture, { 0, 0, (float)self.w, (float)-self.h }, { 0, 0 }, rl::WHITE);
     // draw the debug framebuffer
-    rl::drawTextureRec(self.debugFrameBuffer.texture, { 0, 0, (float)self.w, (float)-self.h }, { 0, 0 }, rl::WHITE);
+    rl::drawTextureRec(self.debugFrame.buffer.texture, { 0, 0, (float)self.w, (float)-self.h }, { 0, 0 }, rl::WHITE);
 }
 
 /*
@@ -877,6 +874,7 @@ import thirdparty::raylib5::rl;
 import engine::filesystem::fs;
 import engine::sys::framework::glsl;
 import engine::misc; // for @todo
+import game::camview @public;
 
 const SHADERS_FOLDER = "shaders/";
 alias PostProcessList = List{HMPostProcess*};

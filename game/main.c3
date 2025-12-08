@@ -334,7 +334,6 @@ struct Game (SaveSystemInterface) @local
     ConfigFile settings_file; // game settings file, used to get or save the game settings
     
     IntroAnimation intro;
-    bool intro_playing;
     
     LANGData langdict;
 
@@ -1732,8 +1731,8 @@ fn void gameOnGuiDraw(int screenWidth, int screenHeight) @public @inline {
     
     desk::gpManager.draw(screenWidth, screenHeight);
     
-    if(local_game.intro_playing) {
-        intro::drawIntroAnimation(&local_game.intro, screenWidth, screenHeight);
+    if(local_game.intro.should_play) {
+        intro::drawAnimation(&local_game.intro, screenWidth, screenHeight);
     }
 
     if(local_game.showSaveMessage && 
@@ -2959,7 +2958,7 @@ $endif
     //
     // Set the current program mode to the intro mode
     local_game.mode = INTRO;
-    intro::initIntroAnimation(&local_game.intro);
+    intro::initAnimation(&local_game.intro);
     
     // Load custom shader to be used on some parts drawing
     // NOTE 1: Using GLSL 330 shader version, on OpenGL ES 2.0 use GLSL 100 shader version
@@ -3745,14 +3744,19 @@ fn int playIntro(void*)
     defer introMutex.unlock()!!;
 
     menu::stop();
+
+    bool run = intro::play(&local_game.intro);
+    if(run) 
+    {
+        while(local_game.intro.should_play) {
+            intro::update(&local_game.intro);
+            thread::sleep_ms(16);
+        }
+    }
+
+     // cleanup
+    intro::deinitAnimation(&local_game.intro);
     
-    do {
-        intro::play(&local_game.intro);
-        local_game.intro_playing = true;
-        thread::sleep_ms(16);
-    } while(intro::updateIntroAnimation(&local_game.intro));
-    
-    local_game.intro_playing = false;
     //local_game.main_menu.show();
     // 
     // restarts from the main menu;
