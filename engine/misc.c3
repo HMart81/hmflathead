@@ -545,8 +545,8 @@ macro float cubed(float x) {
     return x * x * x;
 }
 
-macro int sec2ms(x)   => (int)math::floor(x * 1000.0f);
-macro float ms2sec(x) => ((float)x * 1000.0f);
+macro int @sec2ms(#x)   => (int)math::floor(#x * 1000.0f);
+macro float @ms2sec(#x) => ((float)#x * 1000.0f);
 macro float pixelsTometers(p) => (p / 10.0f);
 macro float metersTopixels(m) => (m * 10.0f);
 
@@ -1404,44 +1404,28 @@ fn int igetDiff(int s1, int s2)
         }
         return float(delta);
     }
-
-    fn void move_toward(float& a, float b, float amount_increasing, float amount_decreasing = -1.0) {
-        if (a > b) {
-            if (amount_decreasing == -1.0) amount_decreasing = amount_increasing;
-
-            a -= amount_decreasing;
-
-            if (a < b) a = b;
-        }
-        else {
-            a += amount_increasing;
-            if (a > b) a = b;
-        }
-    }
-
-    fn float move_toward_(float a, float b, float amount_increasing, float amount_decreasing = -1.0)
+*/
+    fn void move_toward_p(float* a, float b, float amount_increasing, float amount_decreasing = -1.0f) @inline
     {
-        if (a > b) {
-            if (amount_decreasing == -1.0) amount_decreasing = amount_increasing;
+        if ((*a) > b) {
+            if (amount_decreasing == -1.0f) amount_decreasing = amount_increasing;
 
-            a -= amount_decreasing;
+            (*a) -= amount_decreasing;
 
-            if (a < b) a = b;
+            if ((*a) < b) (*a) = b;
         }
         else {
-            a += amount_increasing;
-            if (a > b) a = b;
+            (*a) += amount_increasing;
+            if ((*a) > b) (*a) = b;
         }
-
-        return float(a);
     }
 
-    fn void move_toward(float* a_pointer, float b, float dt, float rate_up, float rate_down = -1.0)
+    fn void move_toward_p_ex(float* a_pointer, float b, float dt, float rate_up, float rate_down = -1.0f) @inline
     {
         float a = *a_pointer;
 
         if (a > b) {
-            if (rate_down == -1.0) rate_down = rate_up;
+            if (rate_down == -1.0f) rate_down = rate_up;
             a -= dt * rate_down;
             *a_pointer = a;
         }
@@ -1453,7 +1437,24 @@ fn int igetDiff(int s1, int s2)
         }
     }
 
-    fn Vec2f move_toward(Vec2f a, Vec2f b, float amount) 
+    fn float move_toward(float a, float b, float amount_increasing, float amount_decreasing = -1.0f) @inline
+    {
+        if (a > b) {
+            if (amount_decreasing == -1.0f) amount_decreasing = amount_increasing;
+
+            a -= amount_decreasing;
+
+            if (a < b) a = b;
+        }
+        else {
+            a += amount_increasing;
+            if (a > b) a = b;
+        }
+
+        return a;
+    }
+
+    /*fn Vec2f move_towardV(Vec2f a, Vec2f b, float amount) 
     {
         Vec2f result;
         result.x = Move_Toward_(a.x, b.x, amount);

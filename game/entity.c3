@@ -38,7 +38,7 @@ import engine::logging::log;
 import thirdparty::raylib5::rl;
 import thirdparty::tracy;  // profiling
 import engine::misc;
-import game::assets::sprt;
+import game::assets::sprite;
 import game::material::mat; // material system
 import game::serialize::svs; // save system
 import engine::sys::cvar;
@@ -97,7 +97,7 @@ struct Entity (SaveSystemInterface)
 	String name;
     //
     Bounds bounds;
-    Sprite vs;
+    HMSprite vs;
     //
     Entity* parent;
 	TargetList targets; // list of other entities that are targets for this entity, activated in certain situations
@@ -1170,8 +1170,8 @@ fn void ECSEntityManager.add_component(String name, typeid type, ECSEntity* enti
 			component.data.ptr = mem::new(Bounds, {Vec2f{0.0f, 0.0f}, Vec2f{0.0f, 0.0f}}); // default value for Bounds
 		case B2BodyId.typeid:
 			component.data.ptr = mem::new(B2BodyId, {0}); // default value for B2BodyId
-		case Sprite.typeid:	
-			component.data.ptr = mem::new(Sprite, {}); // default value for Sprite
+		case HMSprite.typeid:	
+			component.data.ptr = mem::new(HMSprite, {}); // default value for HMSprite
 		default:
 			unreachable("Unknown component type: %s", type.name);
 	}

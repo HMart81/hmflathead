@@ -112,11 +112,11 @@ enum MU_Clip : const inline int
 
 enum MU_Icon : const inline int
 {
-	CLOSE     = 1,
-	CHECK     = 2,
-	COLLAPSED = 3,
-	EXPANDED  = 4,
-	MAX       = 5
+	CLOSE = 1,
+	CHECK,
+	COLLAPSED,
+	EXPANDED,
+	MAX
 }
 
 enum MU_Res : const inline int 
@@ -455,21 +455,21 @@ OpenMicroUIFrames open_frames @public;
 
 fn void register_open_window(String _name) @local
 {
-  foreach(name : open_frames) 
+  foreach(&name : open_frames) 
   {
-    if (name == _name) {
+    if ((*name) == _name) {
       return; // already registered
     }
   }
-  open_frames.push(_name);
+  open_frames.push(_name.copy(mem));
 }
 
 fn void unregister_open_window(String _name) @local
 {
   bool found;
-  foreach(name : open_frames) 
+  foreach(&name : open_frames) 
   {
-    if (name == _name) 
+    if ((*name) == _name) 
     {
       found = true;
       break; // found the frame to unregister
@@ -478,14 +478,17 @@ fn void unregister_open_window(String _name) @local
   if(found) open_frames.remove_item(_name);
 }
 
-macro bool MU_Context.@make_window(&self, name, rect; @body) 
+macro bool MU_Context.@make_window(&self, $title, #rect; @body) 
 {
-  if (self.begin_window(name, rect)) {
-    register_open_window(name.copy(mem)); // Register the window as open
+  $assert($typeof($title).typeid == String.typeid);
+  $assert($typeof(#rect).typeid == MU_Rect.typeid);
+
+  if (self.begin_window($title, #rect)) {
+    register_open_window($title.tcopy()); // Register the window as open
 		defer self.end_window();
 		@body();
 	} else {
-    unregister_open_window(name.copy(mem));
+    unregister_open_window($title.tcopy()); // Unregister the window as it is closed
     return false; // The window should close.
   }
   return true; // The window is open.
@@ -535,9 +538,9 @@ macro void MU_Context.@layout_make_column(&self; @body)
 	@body();
 }
 
-macro void MU_Context.@make_panel(&self, name; @body)
+macro void MU_Context.@make_panel(&self, $name; @body)
 {
-	self.begin_panel(name);
+	self.begin_panel($name);
 	defer self.end_panel();
 	@body();
 }
@@ -806,10 +809,10 @@ fn void MU_Context.run(&self, MU_Frame frame) {
 fn void process_frames(MU_Context* ctx, float delta_time) 
 {
   @render(ctx)
- 	{
+  {
     // WARNING(HM) frames needs to be rendered within a @render() body, if not will cause a memory pool crash 
     run_microui_frames(ctx);
- 	};
+  };
 }
 
 /////////////////////////////////////
@@ -867,6 +870,10 @@ fn void set_clip_rect(MU_Rect rect) @inline
 // TODO(HM) Find why it crash's... 
 String input_text @local;
 
+<*
+  Forwards text input from raylib to the MicroUI context.
+  @param [&inout] ctx : "The current MicroUI context."
+*>
 fn void MU_Context.forward_text_input(MU_Context* ctx) //@local 
 {
 $if $defined(ENABLE_OLD_STRING):
@@ -942,11 +949,16 @@ struct MouseButtonMapping @local @compact
     MU_Mouse mu;// MicroUI mouse button enum;
 }*/
 
+<*
+  Forwards mouse input from raylib to the MicroUI context.
+  @param [&inout] ctx : "The current MicroUI context."
+*>
 fn void MU_Context.forward_mouse_input(MU_Context* ctx) 
 {
     // Get the current mouse position/scroll from raylib
+    float scroll_speed = -30.0f; // scroll speed for mouse wheel.
     RLVector2 mouse_position = {rl::getMouseX(), rl::getMouseY()};
-    float mouse_scroll = rl::getMouseWheelMove() * -30.0f; // Invert the scroll direction to match mui's expectations
+    float mouse_scroll = rl::getMouseWheelMove() * scroll_speed; // Invert the scroll direction to match mui's expectations
 
     // Send the mouse position/scroll to mui
     ctx.input_mousemove((int)mouse_position.x, (int)mouse_position.y);
@@ -1005,6 +1017,10 @@ struct KeyMapping @local @compact
     MU_Key mu;
 }
 
+<*
+  Forwards keyboard input from raylib to the MicroUI context.
+  @param [&inout] ctx : "The current MicroUI context."
+*>
 fn void MU_Context.forward_keyboard_input(MU_Context* ctx)
 {
     // We'll create an array of mappings using the struct above
@@ -1047,7 +1063,7 @@ fn void MU_Context.forward_keyboard_input(MU_Context* ctx)
 fn void r_draw_icon(int id, MU_Rect _rect, MU_Color color) @local 
 {
   assert(rl::isTextureValid(main::gpGame.mu_font_atlas), "MicroUI font texture is not initialized.");
-  MU_Rect src = atlas[id].rect;
+  MU_Rect src = mu::ICONS[id]; //atlas[id].rect;
   int x = _rect.x + (_rect.w - src.w) / 2;
   int y = _rect.y + (_rect.h - src.h) / 2;
    // Assuming cmd->icon.id corresponds to a valid icon in the MicroUI icon set
@@ -2448,6 +2464,112 @@ char[ATLAS_WIDTH * ATLAS_HEIGHT] atlas_texture = {
   0x00, 0x00, 0x00, 0x00,
 };
 
+const MU_Rect[*] ICONS =
+{
+  [MU_Icon.CLOSE] = { 88, 68, 16, 16 },   // MU_Icon.CLOSE
+  [MU_Icon.CHECK] = { 0, 0, 18, 18 },     // MU_Icon.CHECK
+  [MU_Icon.EXPANDED] = { 118, 68, 7, 5 }, // MU_Icon.EXPANDED
+  [MU_Icon.COLLAPSED] = { 113, 68, 5, 7 }, // MU_Icon.COLLAPSED
+  [ATLAS_WHITE] = { 125, 68, 3, 3 },      // ATLAS_WHITE
+  [ATLAS_FONT+32] = { 84, 68, 2, 17 },    // ' '
+  [ATLAS_FONT+33] = { 39, 68, 3, 17 },    // '!'
+  [ATLAS_FONT+34] = { 114, 51, 5, 17 },   // '"'
+  [ATLAS_FONT+35] = { 34, 17, 7, 17 },    // '#'
+  [ATLAS_FONT+36] = { 28, 34, 6, 17 },    // '$'
+  [ATLAS_FONT+37] = { 58, 0, 9, 17 },     // '%'
+  [ATLAS_FONT+38] = { 103, 0, 8, 17 },    // '&'
+  [ATLAS_FONT+39] = { 86, 68, 2, 17 },    // '''
+  [ATLAS_FONT+40] = { 42, 68, 3, 17 },    // '('
+  [ATLAS_FONT+41] = { 45, 68, 3, 17 },    // ')'
+  [ATLAS_FONT+42] = { 34, 34, 6, 17 },    // '*'
+  [ATLAS_FONT+43] = { 40, 34, 6, 17 },    // '+'
+  [ATLAS_FONT+44] = { 48, 68, 3, 17 },    // ','
+  [ATLAS_FONT+45] = { 51, 68, 3, 17 },    // '-'
+  [ATLAS_FONT+46] = { 54, 68, 3, 17 },    // '.'
+  [ATLAS_FONT+47] = { 124, 34, 4, 17 },   // '/'
+  [ATLAS_FONT+48] = { 46, 34, 6, 17 },    // '0'
+  [ATLAS_FONT+49] = { 52, 34, 6, 17 },    // '1'
+  [ATLAS_FONT+50] = { 58, 34, 6, 17 },    // '2'
+  [ATLAS_FONT+51] = { 64, 34, 6, 17 },    // '3'
+  [ATLAS_FONT+52] = { 70, 34, 6, 17 },    // '4'
+  [ATLAS_FONT+53] = { 76, 34, 6, 17 },    // '5'
+  [ATLAS_FONT+54] = { 82, 34, 6, 17 },    // '6'
+  [ATLAS_FONT+55] = { 88, 34, 6, 17 },    // '7'
+  [ATLAS_FONT+56] = { 94, 34, 6, 17 },    // '8'
+  [ATLAS_FONT+57] = { 100, 34, 6, 17 },   // '9'
+  [ATLAS_FONT+58] = { 57, 68, 3, 17 },    // ':'
+  [ATLAS_FONT+59] = { 60, 68, 3, 17 },    // ';'
+  [ATLAS_FONT+60] = { 106, 34, 6, 17 },   // '<'
+  [ATLAS_FONT+61] = { 112, 34, 6, 17 },   // '='
+  [ATLAS_FONT+62] = { 118, 34, 6, 17 },   // '>'
+  [ATLAS_FONT+63] = { 119, 51, 5, 17 },   // '?'
+  [ATLAS_FONT+64] = { 18, 0, 10, 17 },    // '@'
+  [ATLAS_FONT+65] = { 41, 17, 7, 17 },    // 'A'
+  [ATLAS_FONT+66] = { 48, 17, 7, 17 },    // 'B'
+  [ATLAS_FONT+67] = { 55, 17, 7, 17 },    // 'C'
+  [ATLAS_FONT+68] = { 111, 0, 8, 17 },    // 'D'
+  [ATLAS_FONT+69] = { 0, 35, 6, 17 },     // 'E'
+  [ATLAS_FONT+70] = { 6, 35, 6, 17 },     // 'F'
+  [ATLAS_FONT+71] = { 119, 0, 8, 17 },    // 'G'
+  [ATLAS_FONT+72] = { 18, 17, 8, 17 },    // 'H'
+  [ATLAS_FONT+73] = { 63, 68, 3, 17 },    // 'I'
+  [ATLAS_FONT+74] = { 66, 68, 3, 17 },    // 'J'
+  [ATLAS_FONT+75] = { 62, 17, 7, 17 },    // 'K'
+  [ATLAS_FONT+76] = { 12, 51, 6, 17 },    // 'L'
+  [ATLAS_FONT+77] = { 28, 0, 10, 17 },    // 'M'
+  [ATLAS_FONT+78] = { 67, 0, 9, 17 },     // 'N'
+  [ATLAS_FONT+79] = { 76, 0, 9, 17 },     // 'O'
+  [ATLAS_FONT+80] = { 69, 17, 7, 17 },    // 'P'
+  [ATLAS_FONT+81] = { 85, 0, 9, 17 },
+  [ATLAS_FONT+82] = { 76, 17, 7, 17 },
+  [ATLAS_FONT+83] = { 18, 51, 6, 17 },
+  [ATLAS_FONT+84] = { 24, 51, 6, 17 },
+  [ATLAS_FONT+85] = { 26, 17, 8, 17 },
+  [ATLAS_FONT+86] = { 83, 17, 7, 17 },
+  [ATLAS_FONT+87] = { 38, 0, 10, 17 },
+  [ATLAS_FONT+88] = { 90, 17, 7, 17 },
+  [ATLAS_FONT+89] = { 30, 51, 6, 17 },
+  [ATLAS_FONT+90] = { 36, 51, 6, 17 },
+  [ATLAS_FONT+91] = { 69, 68, 3, 17 },
+  [ATLAS_FONT+92] = { 124, 51, 4, 17 },
+  [ATLAS_FONT+93] = { 72, 68, 3, 17 },
+  [ATLAS_FONT+94] = { 42, 51, 6, 17 },
+  [ATLAS_FONT+95] = { 15, 68, 4, 17 },
+  [ATLAS_FONT+96] = { 48, 51, 6, 17 },
+  [ATLAS_FONT+97] = { 54, 51, 6, 17 },
+  [ATLAS_FONT+98] = { 97, 17, 7, 17 },
+  [ATLAS_FONT+99] = { 0, 52, 5, 17 },
+  [ATLAS_FONT+100] = { 104, 17, 7, 17 },
+  [ATLAS_FONT+101] = { 60, 51, 6, 17 },
+  [ATLAS_FONT+102] = { 19, 68, 4, 17 },
+  [ATLAS_FONT+103] = { 66, 51, 6, 17 },
+  [ATLAS_FONT+104] = { 111, 17, 7, 17 },
+  [ATLAS_FONT+105] = { 75, 68, 3, 17 },
+  [ATLAS_FONT+106] = { 78, 68, 3, 17 },
+  [ATLAS_FONT+107] = { 72, 51, 6, 17 },
+  [ATLAS_FONT+108] = { 81, 68, 3, 17 },
+  [ATLAS_FONT+109] = { 48, 0, 10, 17 },
+  [ATLAS_FONT+110] = { 118, 17, 7, 17},
+  [ATLAS_FONT+111] = { 0, 18, 7, 17 },
+  [ATLAS_FONT+112] = { 7, 18, 7, 17 },
+  [ATLAS_FONT+113] = { 14, 34, 7, 17 },
+  [ATLAS_FONT+114] = { 23, 68, 4, 17 },
+  [ATLAS_FONT+115] = { 5, 52, 5, 17 },
+  [ATLAS_FONT+116] = { 27, 68, 4, 17 },
+  [ATLAS_FONT+117] = { 21, 34, 7, 17 },
+  [ATLAS_FONT+118] = { 78, 51, 6, 17 },
+  [ATLAS_FONT+119] = { 94, 0, 9, 17 },
+  [ATLAS_FONT+120] = { 84, 51, 6, 17 },
+  [ATLAS_FONT+121] = { 90, 51, 6, 17 },
+  [ATLAS_FONT+122] = { 10, 68, 5, 17 },
+  [ATLAS_FONT+123] = { 31, 68, 4, 17 },
+  [ATLAS_FONT+124] = { 96, 51, 6, 17 },
+  [ATLAS_FONT+125] = { 35, 68, 4, 17 },
+  [ATLAS_FONT+126] = { 102, 51, 6, 17 },
+  [ATLAS_FONT+127] = { 108, 51, 6, 17 }
+};
+
+/*
 struct MU_Atlas @local
 {
   int[1] id;
@@ -2557,3 +2679,4 @@ MU_Atlas[*] atlas = {
   { { ATLAS_FONT+126 }, { 102, 51, 6, 17 }},
   { { ATLAS_FONT+127 }, { 108, 51, 6, 17 }}
 };
+*/

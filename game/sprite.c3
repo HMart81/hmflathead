@@ -26,7 +26,7 @@
 # 
 *********************************************************************************************************************************************/
 
-module game::assets::sprt;
+module game::assets::sprite;
 
 // region C3 modules
 import std::io;
@@ -89,7 +89,7 @@ struct SpriteFlags
     bool isActive; // if the sprite is active or not
 }
 
-struct Sprite (SaveSystemInterface)
+struct HMSprite (SaveSystemInterface)
 {
     typeid type; // class type
     SpriteKind kind; // object kind, used to differentiate between different sprite types
@@ -109,7 +109,7 @@ struct Sprite (SaveSystemInterface)
     HMaterial* mat;
 }
 
-fn void Sprite.save(&self, SaveFile* file) @dynamic {
+fn void HMSprite.save(&self, SaveFile* file) @dynamic {
     svs::writeTypeid(file, self.type);
     svs::writeInt(file, (int)self.kind);
     svs::writeRect(file, self.rect);
@@ -118,7 +118,7 @@ fn void Sprite.save(&self, SaveFile* file) @dynamic {
     svs::writeString(file, (self.mat != null) ? self.mat.name : "");
 }
 
-fn void Sprite.reload(&self, SaveFile* file) @dynamic {
+fn void HMSprite.reload(&self, SaveFile* file) @dynamic {
     svs::readTypeid(file, &self.type);
     int kind;
     svs::readInt(file, &kind);
@@ -130,13 +130,13 @@ fn void Sprite.reload(&self, SaveFile* file) @dynamic {
     self.mat = mtrmng::getMaterial(mat_name);
 }
 
-fn void Sprite.register(&self) @inline {
+fn void HMSprite.register(&self) @inline {
     main::gpGame.sprites.push(self);
 }
 
-fn void Sprite.init(&self, float x, float y, float width, float height, RLColor color = rl::WHITE, SpriteKind kind = GENERIC, String material_name = "")
+fn void HMSprite.init(&self, float x, float y, float width, float height, RLColor color = rl::WHITE, SpriteKind kind = GENERIC, String material_name = "")
 {
-    self.type  = Sprite.typeid;
+    self.type  = HMSprite.typeid;
     //
     self.kind  = kind;
     self.color = color;
@@ -149,20 +149,54 @@ fn void Sprite.init(&self, float x, float y, float width, float height, RLColor 
     self.register();
 }
 
-fn void Sprite.initRect(&self, RLRectangle rect, RLColor color = rl::WHITE, SpriteKind kind = GENERIC, String material_name = "") @inline {
+fn void HMSprite.initRect(&self, RLRectangle rect, RLColor color = rl::WHITE, SpriteKind kind = GENERIC, String material_name = "") @inline {
     self.init(rect.x, rect.y, rect.width, rect.height, color, kind, material_name);
 }
 
-fn void Sprite.initV(&self, Vec2f pos, Vec2f size, RLColor color = rl::WHITE, SpriteKind kind = GENERIC, String material_name = "") @inline {
+fn void HMSprite.initV(&self, Vec2f pos, Vec2f size, RLColor color = rl::WHITE, SpriteKind kind = GENERIC, String material_name = "") @inline {
     self.initRect({ pos.x, pos.y, size.x, size.y }, color, kind, material_name);
 }
 
-fn void Sprite.resetPosSize(&self) @inline {
+fn void HMSprite.resetPosSize(&self) @inline {
     self.setPositionV({0, 0});
     self.setSizeV(MIN_SIZE);
 }
 
-fn void Sprite.deinit(&self) @inline {
+<*
+    Creates a new sprite instance
+    @param x : "the x position in world coordinates"
+    @param y : "the y position in world coordinates"
+    @param width : "the width in world units (meters)"
+    @param height : "the height in world units (meters)"
+    @param color : "the color of the sprite"
+    @param kind : "the kind of sprite"
+    @param material_name : "the material name to use for the sprite"
+    @param allocator : "the allocator to use for the sprite allocation"
+    @require allocator != null
+    @ensure return != null
+*>
+fn HMSprite* create(float x, float y, float width, float height, RLColor color = rl::WHITE, SpriteKind kind = GENERIC, String material_name = "", Allocator allocator) @inline 
+{
+    HMSprite* sprite = allocator::new(allocator, HMSprite);
+    sprite.init(x, y, width, height, color, kind, material_name);
+    return sprite;
+}
+
+<*
+    Removes a sprite instance
+    @param [&in] sprite : "the sprite to remove"
+    @param allocator : "the allocator to use for the sprite deallocation"
+    @require allocator != null
+*>
+fn void remove(HMSprite* sprite, Allocator allocator) @inline {
+    if(sprite) allocator::free(allocator, sprite);
+}
+
+fn HMSprite* HMSprite.clone(&self) @inline {
+   return sprite::create(self.rect.x, self.rect.y, self.rect.width, self.rect.height, self.color, self.kind, (self.mat != null) ? self.mat.name : "", &main::gameArena);
+}
+
+fn void HMSprite.deinit(&self) @inline {
     if(self.mat) self.mat = null;
 }
 
@@ -171,7 +205,7 @@ fn void Sprite.deinit(&self) @inline {
  @param coverage : "the coverage to compare with"
  @require self.mat != null
 *>
-fn bool Sprite.equalcoverage(&self, Coverage coverage) //@operator(==)
+fn bool HMSprite.equalcoverage(&self, Coverage coverage) //@operator(==)
 {
     return (bool)(self.mat.coverage & coverage);
 }
@@ -180,7 +214,7 @@ fn bool Sprite.equalcoverage(&self, Coverage coverage) //@operator(==)
  @param coverage : "the coverage to compare with"
  @require self.mat != null
 *>
-fn bool Sprite.nequalcoverage(&self, Coverage coverage) //@operator(!=)
+fn bool HMSprite.nequalcoverage(&self, Coverage coverage) //@operator(!=)
 {
     return (bool)((bool)(self.mat.coverage & coverage) == false);
 }
@@ -193,10 +227,11 @@ fn bool Sprite.nequalcoverage(&self, Coverage coverage) //@operator(!=)
  @require w_scaler >= 0.0f
  @require h_scaler >= 0.0f
 *>
-fn void Sprite.scale(&self, float w_scaler, float h_scaler) @inline 
+fn HMSprite* HMSprite.scale(&self, float w_scaler, float h_scaler) @inline 
 {
     self.rect.width  *= w_scaler;
     self.rect.height *= h_scaler;
+    return self;
 }
 
 <*
@@ -204,13 +239,13 @@ fn void Sprite.scale(&self, float w_scaler, float h_scaler) @inline
  @require scaler.x >= 0.0f
  @require scaler.y >= 0.0f
 *>
-fn void Sprite.scaleV(&self, Vec2f scaler) @inline {
-    self.scale(scaler.x, scaler.y);
+fn HMSprite* HMSprite.scaleV(&self, Vec2f scaler) @inline {
+    return self.scale(scaler.x, scaler.y);
 }
 
 // WARNING(HM) setSize and scale are diferent things!!!
 // overrides the size of the sprite
-fn void Sprite.setSize(&self, float w, float h) @inline 
+fn HMSprite* HMSprite.setSize(&self, float w, float h) @inline 
 {
     if(misc::fgetDiff(w, 0.0f) <= 0.05f && misc::fgetDiff(h, 0.0f) <= 0.05f) {
         w = h = MIN_SPRIT_SIZE;
@@ -218,72 +253,79 @@ fn void Sprite.setSize(&self, float w, float h) @inline
     
     self.rect.width  = w;
     self.rect.height = h;
+    return self;
 }
 
 // overrides the size of the sprite
-fn void Sprite.setSizeV(&self, Vec2f size) @inline {
+fn HMSprite* HMSprite.setSizeV(&self, Vec2f size) @inline {
     if(misc::fgetDiff(size.x, 0.0f) <= 0.05f && misc::fgetDiff(size.y, 0.0f) <= 0.05f) {
         size.x = size.y = MIN_SPRIT_SIZE;
     }
     
     self.rect.width  = size.x;
     self.rect.height = size.y;
+    return self;
 }
 
 // overrides the size of the sprite
-fn void Sprite.setSizeX(&self, float w) @inline {
+fn HMSprite* HMSprite.setSizeX(&self, float w) @inline {
     self.rect.width = w;
+    return self;
 }
 
 // overrides the size of the sprite
-fn void Sprite.setSizeY(&self, float h) @inline {
+fn HMSprite* HMSprite.setSizeY(&self, float h) @inline {
     self.rect.height = h;
+    return self;
 }
 
-fn void Sprite.addToSize(&self, float w, float h) @inline {
+fn HMSprite* HMSprite.addToSize(&self, float w, float h) @inline {
     self.rect.width  += w;
     self.rect.height += h;
+    return self;
 }
 
 // overrides the size of the sprite
-fn void Sprite.addToSizeV(&self, Vec2f size) @inline {
+fn HMSprite* HMSprite.addToSizeV(&self, Vec2f size) @inline {
     self.rect.width  += size.x;
     self.rect.height += size.y;
+    return self;
 }
 
 // in meter coordinates
-fn Vec2f Sprite.getSize(&self) @inline {
+fn Vec2f HMSprite.getSize(&self) @inline {
     return self.rect.getSize();
 }
 
 // in meter coordinates
-fn float Sprite.getSizeX(&self) @inline {
+fn float HMSprite.getSizeX(&self) @inline {
     return self.rect.getSize().x;
 }
 
 // in meter coordinates
-fn float Sprite.getSizeY(&self) @inline {
+fn float HMSprite.getSizeY(&self) @inline {
     return self.rect.getSize().y;
 }
 
 // in screen pixel coordinates
-fn Vec2i Sprite.getSizePixels(&self) @inline {
+fn Vec2i HMSprite.getSizePixels(&self) @inline {
     int w = misc::metersToPixels(self.rect.width);
     int h = misc::metersToPixels(self.rect.height);
     return (Vec2i){ w, h };
 }
 
-fn void Sprite.setKind(&self, int kind) @inline => self.kind = kindFrom(kind);
+fn void HMSprite.setKind(&self, int kind) @inline => self.kind = kindFrom(kind);
 
 // this is a world position
 // overrides the original position of the sprite
-fn void Sprite.setPosition(&self, float x, float y) @inline {
+fn HMSprite* HMSprite.setPosition(&self, float x, float y) @inline {
     self.rect.x = x;
     self.rect.y = y;
+    return self;
 /*
 $if $feature(_DEBUG):   
     if(main::gpGame.isPointInsideScreenView({x,y}) == false) {
-        unreachable("Sprite origin is outside the view.");
+        unreachable("HMSprite origin is outside the view.");
     }
 $endif
 */
@@ -291,31 +333,31 @@ $endif
 
 // this is a world position
 // overrides the original position of the sprite
-fn void Sprite.setPositionV(&self, Vec2f pos) @inline {
-    self.setPosition(pos.x, pos.y);
+fn HMSprite* HMSprite.setPositionV(&self, Vec2f pos) @inline {
+    return self.setPosition(pos.x, pos.y);
 }
 
 // this is a world position
-fn void Sprite.addToPosition(&self, float x, float y) @inline {
+fn HMSprite* HMSprite.addToPosition(&self, float x, float y) @inline {
     self.rect.x += x;
     self.rect.y += y;
-    
+    return self;
 // $if $feature(_DEBUG):   
     // if(main::gpGame.isPointInsideScreenView({self.rect.x, self.rect.y}) == false) {
-        // unreachable("Sprite origin is outside the view.");
+        // unreachable("HMSprite origin is outside the view.");
     // }
 // $endif
 }
 
 // this is a world position
-fn void Sprite.addToPositionV(&self, Vec2f pos) @inline {
-    self.addToPosition(pos.x, pos.y);
+fn HMSprite* HMSprite.addToPositionV(&self, Vec2f pos) @inline {
+    return self.addToPosition(pos.x, pos.y);
 }
 
 // this is a world position
-fn Vec2f Sprite.getPos(&self) @inline => self.rect.getPosition();
+fn Vec2f HMSprite.getPos(&self) @inline => self.rect.getPosition();
 
-fn bool Sprite.isValid(&self) {
+fn bool HMSprite.isValid(&self) {
     if(self.rect.x >= 0 &&
        self.rect.y >= 0 &&
        self.rect.width  >= MIN_SPRIT_SIZE && 
@@ -324,32 +366,34 @@ fn bool Sprite.isValid(&self) {
     return false;
 }
 
-fn void Sprite.setMaterial(&self, String material_name) @inline {
+fn HMSprite* HMSprite.setMaterial(&self, String material_name) @inline {
 
     if(material_name) 
     {
         self.mat = mtrmng::getMaterial(material_name);
         if(self.mat == null || rl::isTextureValid(*self.mat.getTexture(mat::STAGE_DIFFUSE)) == false) {
-            log::error(Where.FILE, "Unnable to set Sprite material '%s'.\n", material_name);
-            unreachable("Unnable to set Sprite material.");
+            log::error(Where.FILE, "Unnable to set HMSprite material '%s'.\n", material_name);
+            unreachable("Unnable to set HMSprite material.");
         }
     } else {
         self.mat = mtrmng::getMaterial("default_material");
     }
+
+    return self;
 }
 
-fn bool Sprite.hasMaterial(&self) @inline {
+fn bool HMSprite.hasMaterial(&self) @inline {
    return self.mat != null && rl::isTextureValid(*self.mat.getTexture(mat::STAGE_DIFFUSE));
 }
 
-fn RLTexture2D* Sprite.getTexture(&self) @inline {
+fn RLTexture2D* HMSprite.getTexture(&self) @inline {
     if(self.hasMaterial()) { return self.mat.getTexture(mat::STAGE_DIFFUSE); }
     
     return null;
 }
 
 // in screen pixel coordinates
-fn Vec2i Sprite.getTextureSize(&self) @inline 
+fn Vec2i HMSprite.getTextureSize(&self) @inline 
 {
     if(self.hasMaterial() == false) return {0,0};
 
@@ -359,51 +403,56 @@ fn Vec2i Sprite.getTextureSize(&self) @inline
     return {w,h};
 }
 
-fn void Sprite.hide(&self) @inline {
-    if(self.flags.isHidden) return;
+fn HMSprite* HMSprite.hide(&self) @inline {
+    if(self.flags.isHidden) return self;
     self.flags.isHidden = true;
+    return self;
 }
 
-fn void Sprite.show(&self) @inline {
-    if(!self.flags.isHidden) return;
+fn HMSprite* HMSprite.show(&self) @inline {
+    if(!self.flags.isHidden) return self;
     self.flags.isHidden = false;
+    return self;
 }
 
-fn bool Sprite.hidden(&self) @inline => self.flags.isHidden;
+fn bool HMSprite.hidden(&self) @inline => self.flags.isHidden;
 
-fn Vec2f Sprite.getPosition(&self) @inline {
+fn Vec2f HMSprite.getPosition(&self) @inline {
     return {self.rect.x, self.rect.y};
 }
 
-fn void Sprite.activate(&self) @inline 
+fn HMSprite* HMSprite.activate(&self) @inline 
 {
-    if(self.flags.isActive) return; // already active
+    if(self.flags.isActive) return self; // already active
 
     self.flags.isActive = true;
     if(self.flags.isHidden) {
-        self.show(); // if the sprite is hidden, we need to show it
+        return self.show(); // if the sprite is hidden, we need to show it
     }
+    return self;
 }
 
-fn void Sprite.deactivate(&self, bool should_hide = false) @inline 
+fn HMSprite* HMSprite.deactivate(&self, bool should_hide = false) @inline 
 {
-    if(!self.flags.isActive) return; // already inactive
+    if(!self.flags.isActive) return self; // already inactive
 
     self.flags.isActive = false;
-    if(should_hide) self.hide();
+    if(should_hide) return self.hide();
+    
+    return self;
 }
 
-fn bool Sprite.isActive(&self) @inline 
+fn bool HMSprite.isActive(&self) @inline 
 {
     return self.flags.isActive;
 }
 
-fn bool Sprite.notActive(&self) @inline 
+fn bool HMSprite.notActive(&self) @inline 
 {
     return !self.flags.isActive;
 }
 
-fn void Sprite.update(&self) @inline 
+fn void HMSprite.update(&self) @inline 
 {
     if(self.flags.isHidden) return;
     
@@ -434,9 +483,9 @@ macro @drawSprite(#s, #b, #t, #ra, #rb, #c) @local
     };
 }
 
-fn void Sprite.draw(&self)  @inline 
+fn void HMSprite.draw(&self)  @inline 
 {
-    misc::@profile_zone("Sprite Draw")
+    misc::@profile_zone("HMSprite Draw")
     {
     tracy::@zoneN("sprite draw", 0)
     {
@@ -453,7 +502,7 @@ fn void Sprite.draw(&self)  @inline
             case main::UNITS_PIXEL:
                 rect;  // do nothing already in pixels
             default:
-                log::error(Where.FILE, "Unsupported units set for Sprite rendering.", self.kind);
+                log::error(Where.FILE, "Unsupported units set for HMSprite rendering.", self.kind);
                 unreachable();
         }
         
@@ -562,8 +611,8 @@ fn void Sprite.draw(&self)  @inline
 fn void drawImmediate(float posX, float posY, float width, float height, RLColor color = rl::WHITE, String material_name = "") @inline 
 {
     @pool() {
-        Sprite sptr;
-        sptr.type  = Sprite.typeid;
+        HMSprite sptr;
+        sptr.type  = HMSprite.typeid;
         sptr.kind  = SpriteKind.GENERIC;
         sptr.color = color;
         sptr.setPosition( posX, posY );
@@ -582,7 +631,7 @@ module game::assets::part;
 // region user module
 import thirdparty::raylib5::rl;
 import game::main;
-import game::assets::sprt;
+import game::assets::sprite;
 import std::math::vector;
 import game::actors::ent;
 import engine::assets::astmng;
@@ -598,7 +647,7 @@ alias assetManager @local = astmng::assetManager;
 
 struct Particle
 {
-    inline Sprite super;
+    inline HMSprite super;
     Vec2f velocity;
     Vec2f dir;
     int lifetime;

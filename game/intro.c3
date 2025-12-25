@@ -19,9 +19,9 @@ alias FrameQueue  = List{Frame*};
 // end_region
 
 // region constants
-const FADE_IN_TIME     = 1000; // ms
+const FADE_IN_TIME     = 2000; // ms
 const VISIBLE_DURATION = 3000;
-const FADE_OUT_TIME    = 1000; // ms
+const FADE_OUT_TIME    = 2000; // ms
 const FRAME_TIME       = FADE_IN_TIME + VISIBLE_DURATION + FADE_OUT_TIME; // ms
 // end_region
 
@@ -39,9 +39,11 @@ struct Frame @local
     gui::Panel* image;
     int fade_in_time;
     int fade_out_time;
+    bool fade_in_done;
+    bool fade_out_done;
 }
 
-struct IntroAnimation (SaveSystemInterface) 
+struct IntroAnimation 
 {
    FrameQueue frames;
    
@@ -53,14 +55,6 @@ struct IntroAnimation (SaveSystemInterface)
    bool timing_initialized;
 }
 
-fn void IntroAnimation.save(&self, SaveFile* file) @dynamic {
-// todo
-}
-
-fn void IntroAnimation.reload(&self, SaveFile* file) @dynamic {
-// todo
-}
-
 macro makeFrame(String material_name, IntroAnimation* anim) @local {
     int w, h;
     w = main::gpGame.screen.w;
@@ -69,6 +63,8 @@ macro makeFrame(String material_name, IntroAnimation* anim) @local {
     frame.image  = mem::new(Panel);
     frame.image.initV({0,0}, {w,h},  {0xFF,0xFF,0xFF,0} /*rl::WHITE*/);
     frame.image.setMaterial(material_name);
+    frame.fade_in_time  = FADE_IN_TIME;
+    frame.fade_out_time = FADE_IN_TIME;
     anim.frames.push(frame);
 }
 
@@ -112,6 +108,11 @@ fn void init_anim_timing(IntroAnimation* anim) @local @inline
         int frames_amout = (int)anim.frames.len();
         anim.duration           = main::gpGame.time_ms + (frames_amout * FRAME_TIME);
         anim.timing_initialized = true;
+        foreach(&frame : anim.frames)
+        {
+            (*frame).fade_in_time  += main::gpGame.time_ms;
+            (*frame).fade_out_time += main::gpGame.time_ms;
+        }
     }
 }
 
@@ -185,16 +186,28 @@ fn void drawAnimation(IntroAnimation* anim, int w, int h) {
     
     //misc::@drawRect({0, 0, w, h}, (RLColor){0x18, 0x18, 0x18, 0xFF});
     r2d::@drawRect({0, 0, w, h}, rl::BLACK);
-    
-    if(main::gpGame.time_ms <= anim.next_frame_time - FADE_IN_TIME) {
-        anim.frames[anim.current_frame_index].image.fadeIn(0.1f);
+
+    /*foreach(&frame : anim.frames)
+    {
+        (*frame).fade_in_time  += main::gpGame.time_ms;
+        (*frame).fade_out_time += main::gpGame.time_ms;
+    }*/
+
+    Frame* frame = anim.frames[anim.current_frame_index];
+    int current_time = main::gpGame.time_ms;
+    if(!frame.fade_in_done && current_time <= frame.fade_in_time) {
+        frame.image.fadeIn(0.5f);
+    } else {
+        if(!frame.fade_in_done) frame.fade_in_done = true;
     }
     
     //io::printfn("RLColor = %s", misc::printColor(anim.frames[anim.current_frame_index].image.color));
-    anim.frames[anim.current_frame_index].image.draw();
+    if(frame.fade_in_done) frame.image.draw();
     
-    if(main::gpGame.time_ms >= anim.next_frame_time - FADE_OUT_TIME) {
-        anim.frames[anim.current_frame_index].image.fadeOut(0.1f);
+    if(frame.fade_in_done && !frame.fade_out_done && main::gpGame.time_ms <= frame.fade_out_time) {
+        frame.image.fadeOut(0.5f);
+    } else {
+        if(!frame.fade_out_done) frame.fade_out_done = true;
     }
 }
 

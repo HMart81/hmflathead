@@ -43,7 +43,7 @@ import std::collections::list;
 import game::main;
 import engine::misc;
 import engine::input;
-import game::assets::sprt; // sprite
+import game::assets::sprite;
 import game::actors::ent::plyr; // player
 import engine::filesystem::fs;
 import thirdparty::raylib5::rl;

@@ -55,7 +55,7 @@ import engine::sys::script_engine::scpt; // Script Engine (based on Wren languag
 import engine::sys::framework::glsl;
 import thirdparty::angel; // AngelScript engine
 //
-import game::assets::sprt; // sprites
+import game::assets::sprite;
 //import game::assets::part; // particles
 import game::serialize::svs; // save system
 import game::logic::timer;
@@ -390,7 +390,7 @@ struct Game (SaveSystemInterface) @local
     //
     
     String[] cursors; // list of game cursors, used to load the game cursors from the assets folder
-    Sprite mouse_cursor;
+    HMSprite mouse_cursor;
     
     Player* main_player;
     PersistentInfo playerPersistentInfo; // to save any info that the player carries along for each level
@@ -424,7 +424,7 @@ struct Game (SaveSystemInterface) @local
     List{Entity*} activeEntities; // entities that are active this frame, used to avoid iterating all entities every frame
     List{Entity*} entitiesToDeactivate; // entities that are marked for deactivation this frame, used to avoid iterating all entities every frame
     List{Entity*} entitiesToRemove; // entities that are marked for removal this frame, used to avoid iterating all entities every frame
-    List{Sprite*} sprites;
+    List{HMSprite*} sprites;
 
     // BoidManager
     BoidManager boidManager1 @if($defined(BOIDS_ENABLE));
@@ -500,7 +500,6 @@ fn void Game.save(&self, SaveFile* file) @dynamic {
     svs::writeBool(file, self.should_quit);
     svs::writeBool(file, self.msgbox_showing);
     svs::writeBool(file, self.is_modded_game);
-    self.intro.save(file);
     svs::writeInt(file, self.mode.ordinal);
     svs::writeTexture2D(file, &self.default_texture);
     svs::writeShader(file, &self.default_shader);
@@ -553,7 +552,6 @@ fn void Game.reload(&self, SaveFile* file) @dynamic {
     svs::readBool(file, &self.should_quit);
     svs::readBool(file, &self.msgbox_showing);
     svs::readBool(file, &self.is_modded_game);
-    self.intro.reload(file);
     svs::readInt(file, &self.mode.ordinal);
     svs::readTexture2D(file, &self.default_texture);
     /*
@@ -1122,7 +1120,7 @@ $if $feature(MICROUI_ENABLE):
     // #region MicroUI initialization
     if(local_game.mu_ctx != null) 
     {
-        float scroll_speed = -30.0f; // scroll speed for mouse wheel.
+        //float scroll_speed = -30.0f; // scroll speed for mouse wheel.
         local_game.mu_ctx.forward_mouse_input();
         local_game.mu_ctx.forward_text_input();
         local_game.mu_ctx.forward_keyboard_input();
@@ -2533,7 +2531,7 @@ $endif
 
     // NOTE(HM) Gameplay timing, is always counted since initWindow above;
     local_game.time_sec = (float)rl::getTime();
-    local_game.time_ms  = misc::sec2ms(local_game.time_sec);
+    local_game.time_ms  = misc::@sec2ms(local_game.time_sec);
     log::info(FILE, "---------------------------------------------\n");
 
     // init raygui dark style (needs to be done after raylib window is initialized)
@@ -3380,7 +3378,7 @@ fn void gameDoOneFrame() @local
                         // update game timing
                         local_game.dt       = rl::getFrameTime(); // last frame time
                         local_game.time_sec = (float)rl::getTime();
-                        local_game.time_ms  = misc::sec2ms(local_game.time_sec);
+                        local_game.time_ms  = misc::@sec2ms(local_game.time_sec);
 
                         $if $feature(LUA_ENABLE):
                         lua::updateGameLuaGlobals();
@@ -3445,6 +3443,8 @@ $endif
     local_game.warningBox.init(MessageBoxType.WARN);
     local_game.errorBox.init(MessageBoxType.ERROR);
     local_game.infoBox.init(MessageBoxType.INFO);
+
+    showSettingsWindow();
 
     // Update(HM): can't be done here needs window/Opengl context to be initialize because of loading textures
     // rgui::style::dark::load();
@@ -3536,7 +3536,7 @@ $endif
 fn void pos_MainFunc() @finalizer
 {
     io::printfn("/*******************************************\n");
-    io::printfn("This should run AFTER main entry function!\n");
+    io::printfn("This should run AFTER main entry point function returns!\n");
     io::printfn("*******************************************\\\n");
 }
 
@@ -3566,6 +3566,7 @@ fn void disconnect()
 // Make sure your image is sized to 600 x 200 pixels
 fn void showSplashScreenImage()
 {
+    int flags @noinit;
     // NOTE(HM) this function is not used right now
     // because I want to show a video intro instead of a static image.
     // But you can use it if you want to show a static image.
@@ -3573,10 +3574,17 @@ fn void showSplashScreenImage()
     if(fs::fileExists(splash_path)) 
     {
         rl::RLImage splash_img = rl::loadImage(splash_path.zstr_tcopy());
-        if(splash_img.data != null) 
+        if(splash_img.data != null)
         {
-            assert(splash_img.width == 600 && splash_img.height == 200, "Splash image must be 600x200 pixels!");
-            int flags;
+            if(splash_img.width != 600 && splash_img.height != 200) 
+            {
+                $if $feature(_DEBUG):
+                    unreachable("Splash image size is not 600x200 pixels!");
+                $else
+                    log::warning(FILE, "Splash image size is not 600x200 pixels, got %dx%d", splash_img.width, splash_img.height);
+                $endif
+            }
+            flags = 0;
             flags |= (int)rl::FLAG_WINDOW_UNDECORATED;
             // set/apply the final window flags
             rl::setConfigFlags((RLConfigFlag)flags);
@@ -3614,8 +3622,10 @@ fn void showSplashScreenImage()
 
 
 // ============================================================================================
-const SETTINGS_WINDOW_WIDTH  = 400;
-const SETTINGS_WINDOW_HEIGHT = 300;
+const SETTINGS_WINDOW_WIDTH  @local = 400;
+const SETTINGS_WINDOW_HEIGHT @local = 300;
+const SETTINGS_WINDOW_X @local = 0;
+const SETTINGS_WINDOW_Y @local = 0;
 // global settings window state
 bool show_settings_window @public = true;
 <*
@@ -3623,62 +3633,94 @@ bool show_settings_window @public = true;
   Shown before game start for user to configure some options
   @param [&in] ctx : "The current MicroUI context."
  *> 
-fn void settings_window(MU_Context* ctx) @inline
+fn void settings_window(MU_Context* ctx) //@inline
 {
-  // todo show a image/logo at the top of the window
-  // see demoscene apps from cocoon for example of that
-  // TODO(HM) add more settings here
-  // like audio volume, key bindings, etc
-  // FINISH THIS LATER!!!
-  // TODO(HM) add apply button to apply changes
-	bool open = ctx.@make_window("Settings", mu::rect(0, 0, SETTINGS_WINDOW_WIDTH, SETTINGS_WINDOW_HEIGHT))
-	{
-    ctx.@make_rows(1, &&(int[*]) { -1 }, -25)
+    // TODO(HM) FINISH THIS LATER!!! 
+    // - show a image/logo at the top of the window
+    // see demoscene apps from cocoon for a example.
+    // - solve the bugs and add more settings here
+    // like audio volume, key bindings, 
+    // add apply button to apply changes, etc...
+    show_settings_window = ctx.@make_window("Settings", mu::rect(SETTINGS_WINDOW_X, SETTINGS_WINDOW_Y, SETTINGS_WINDOW_WIDTH, SETTINGS_WINDOW_HEIGHT))
     {
-      MU_Container *panel;
-      ctx.@make_panel("Video Options")
-      {
-        panel = ctx.get_current_container();
-        bool submitted = false;
-        ctx.@make_rows(10, &&(int[*]) { -1 }, -1)
-        {
-            ZString gpu_name = rl::getGLRenderer();
-            ctx.label("Adapter:"); 
-            ctx.label(gpu_name);
-            //
-            ctx.label("Screen Resolution:");
-            CChar[32] buffer_width;
-            CChar[32] buffer_height;
-            if(ctx.textbox(&buffer_width, 32) & MU_Res.SUBMIT)
-            {
-                ctx.set_focus(ctx.last_id);
-                submitted = false; // reset submitted flag
-            }
-            ctx.label("x");
-            ctx.textbox(&buffer_height, 32);
-            ctx.label("Display Hz:");
-            CChar[5] buffer_hz;
-            ctx.textbox(&buffer_hz, 5);
-            //
-            int choice = 0;
-            // todo support more fullscreen modes like borderless windowed
-            ctx.checkbox("Fullscreen:", &choice);
-            if(choice) {
-                r_fullscreen.set("1");
-            } else {
-                r_fullscreen.set("0");
-            }
-            choice = 0;
-            //ctx.checkbox("VSync:", &main::gpGame.vsync);
-        };
-      };
-    };
-	};
+        MU_Container *win = ctx.get_current_container();
+        win.rect.w = math::max(win.rect.w, 240);
+        win.rect.h = math::max(win.rect.h, 300);
 
-  if (!open) 
-  {
-    if(show_settings_window) show_settings_window = false;
-  }
+        if (ctx.header("Video Options")) 
+        {
+            win = ctx.get_current_container();
+            ZString buf;
+            ctx.layout_row(2, (int[]) { 54, -1 }, 0);
+            ctx.label("Position:");
+            buf = string::tformat_zstr("%d, %d", win.rect.x, win.rect.y); ctx.label(buf);
+            ctx.label("Size:");
+            buf = string::tformat_zstr("%d, %d", win.rect.w, win.rect.h); ctx.label(buf);
+        }
+
+        if (ctx.header("Sound Options"))
+        {
+            win = ctx.get_current_container();
+            ZString buf;
+            ctx.layout_row(2, (int[]) { 54, -1 }, 0);
+            ctx.label("Position:");
+            buf = string::tformat_zstr("%d, %d", win.rect.x, win.rect.y); ctx.label(buf);
+            ctx.label("Size:");
+            buf = string::tformat_zstr("%d, %d", win.rect.w, win.rect.h); ctx.label(buf);
+        }
+
+        if (ctx.header("Control Options"))
+        {
+            win = ctx.get_current_container();
+            ZString buf;
+            ctx.layout_row(2, (int[]) { 54, -1 }, 0);
+            ctx.label("Position:");
+            buf = string::tformat_zstr("%d, %d", win.rect.x, win.rect.y); ctx.label(buf);
+            ctx.label("Size:");
+            buf = string::tformat_zstr("%d, %d", win.rect.w, win.rect.h); ctx.label(buf);
+        }
+        
+        /*ctx.@make_rows(1, &&(int[*]) { -1 }, -25)
+        {
+            MU_Container *panel;
+            ctx.@make_panel("Video Options")
+            {
+                bool submitted = false;
+                panel = ctx.get_current_container();
+                ctx.@make_rows(10, &&(int[*]) { -1 }, -1)
+                {
+                    ZString gpu_name = string::tformat_zstr("%s", "AMD RX 9060 XT 16GB"); //rl::getGLRenderer();
+                    ctx.label("Adapter:"); 
+                    ctx.label(gpu_name);
+                    //
+                    ctx.label("Screen Resolution:");
+                    CChar[32] buffer_width;
+                    CChar[32] buffer_height;
+                    if(ctx.textbox(&buffer_width, 32) & MU_Res.SUBMIT)
+                    {
+                        ctx.set_focus(ctx.last_id);
+                        submitted = false; // reset submitted flag
+                    }
+                    ctx.label("x");
+                    ctx.textbox(&buffer_height, 32);
+                    ctx.label("Display Hz:");
+                    CChar[5] buffer_hz;
+                    ctx.textbox(&buffer_hz, 5);
+                    //
+                    int choice = 0;
+                    // todo support more fullscreen modes like borderless windowed
+                    ctx.checkbox("Fullscreen:", &choice);
+                    if(choice) {
+                        r_fullscreen.set("1");
+                    } else {
+                        if(r_fullscreen.getInt()) r_fullscreen.set("0");
+                    }
+                    choice = 0;
+                    //ctx.checkbox("VSync:", &main::gpGame.vsync);
+                };
+            };
+        };*/
+    };
 }
 // ============================================================================================
 
@@ -3686,25 +3728,31 @@ fn void settings_window(MU_Context* ctx) @inline
 fn void showSettingsWindow()
 {
 $if $feature(MICROUI_ENABLE):
+    ZString font_path = rl::getApplicationDirectory().str_view().tconcat("data\\images\\mu_atlas.png").zstr_tcopy();
+
     MU_Context* mu_ctx = mem::tnew(MU_Context);
     mu_ctx.init();
     mu_ctx.text_width  = &mu::text_width;
     mu_ctx.text_height = &mu::text_height;
-
-    ZString font_path = rl::getApplicationDirectory().str_view().tconcat("base/images/mu_atlas.png").zstr_tcopy();
-    RLTexture2D mu_font_atlas = rl::loadTexture(font_path);
 
     int flags;
     flags |= (int)rl::FLAG_WINDOW_UNDECORATED;
     // set/apply the final window flags
     rl::setConfigFlags((RLConfigFlag)flags);
     rl::initWindow(SETTINGS_WINDOW_WIDTH, SETTINGS_WINDOW_HEIGHT, "");
+    RLTexture2D mu_font_atlas = rl::loadTexture(font_path);
     rl::setWindowMonitor(0); // set to first monitor
     rl::setTargetFPS(24); // set to 24 fps
 
     while(!rl::windowShouldClose())
     {
         if(show_settings_window == false) break;
+
+        //mu::process_frames(mu_ctx, rl::getFrameTime());
+
+        mu_ctx.forward_mouse_input();
+        mu_ctx.forward_text_input();
+        mu_ctx.forward_keyboard_input();
 
         rl::@drawing()
         {
@@ -3724,8 +3772,37 @@ $if $feature(MICROUI_ENABLE):
                 {
                     case mu::MU_COMMAND_JUMP: io::printfn("MU_COMMAND_JUMP");
                     case mu::MU_COMMAND_TEXT: mu::draw_text((ZString)&cmd.text.str, cmd.text.pos, cmd.text.color);
-                    case mu::MU_COMMAND_RECT: mu::draw_rect(cmd.rect.rect, cmd.rect.color);
-                    case mu::MU_COMMAND_ICON: mu::draw_icon(cmd.icon.id, cmd.icon.rect, cmd.icon.color);
+                    case mu::MU_COMMAND_RECT: 
+                    {
+                        mu::draw_rect(cmd.rect.rect, cmd.rect.color);
+                    } 
+                    case mu::MU_COMMAND_ICON: 
+                    {
+                        //mu::draw_icon(cmd.icon.id, cmd.icon.rect, cmd.icon.color);
+                        int id = cmd.icon.id;
+                        MU_Rect _rect = cmd.icon.rect;
+                        RLColor color = cmd.icon.color;
+
+                        MU_Rect src = mu::ICONS[id];
+                        int x = _rect.x + (_rect.w - src.w) / 2;
+                        int y = _rect.y + (_rect.h - src.h) / 2;
+                        // Assuming cmd->icon.id corresponds to a valid icon in the MicroUI icon set
+                        // Here we would draw the icon based on its ID and rectangle
+                        // For simplicity, we can use a placeholder drawing function
+                        //draw_rect(rect(x, y, src.w, src.h), color); // Placeholder for actual icon drawing logic
+                        rl::setBlendFactors(rl::RL_ONE, rl::RL_ONE, rl::RL_FUNC_ADD);
+                        rl::@blendMode(RLBlendMode.CUSTOM) 
+                        //rl::@blendMode(RLBlendMode.ALPHA_PREMUL) 
+                        {
+                            rl::drawTexturePro(
+                             texture: mu_font_atlas,
+                             source: (RLRectangle){src.x, src.y, src.w, src.h},
+                             dest: (RLRectangle){x, y, src.w, src.h},
+                             origin: (RLVector2){0, 0}, 
+                             rotation: 0.0f, 
+                             tint: color);
+                        };
+                    }
                     case mu::MU_COMMAND_CLIP: mu::set_clip_rect(cmd.clip.rect);
                 }
             }

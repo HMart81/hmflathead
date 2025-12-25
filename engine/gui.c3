@@ -56,8 +56,8 @@ import engine::sys::render2d::r2d; // 2D rendering
 // end_region
 
 // region cvars
-Cvar ui_debugDraw @public = { "ui_debugDraw", CvarType.BOOLEAN, "0", "show debug visualization for gui development" };
-Cvar ui_editGui   @public = { "ui_editGui", CvarType.BOOLEAN, "0", "turn on gui editing functionality for gui development" };
+Cvar ui_debugDraw @public = { "ui_debugDraw", CvarType.BOOLEAN, "0", "show debug visualization for gui development, 0, 1, true, false" };
+Cvar ui_editGui   @public = { "ui_editGui", CvarType.BOOLEAN, "0", "turn on gui editing functionality for gui development, 0, 1, true, false" };
 
 
 fn void register_cvars() @public 
@@ -69,20 +69,22 @@ fn void register_cvars() @public
 
 
 ///////////////////////////////////////////////////////////////////////////
-//
-//                                  PANEL
-//
+/*                                PANEL
+
+    NOTE(HM) Panel is a simple data structure representing a big square or image, 
+    used for background images or single color rectangles.
+*/
 ///////////////////////////////////////////////////////////////////////////
 
 // #region constants
 //const bool PANEL_PROFILE = true;
 const bool DEBUG_PANELS   = true;
 const int  MIN_PANEL_SIZE = 32;
-// #endregion
 
 // mostly for the panel texture inversion ability
 const uint HORIZONTAL_DIR = 1;
 const uint VERTICAL_DIR   = 2;
+// #endregion
 
 enum PanelShape : const inline int
 {
@@ -90,7 +92,7 @@ enum PanelShape : const inline int
     ROUNDED_BOX
 }
 
-struct PanelFlags 
+struct PanelFlags
 {
     bool isHidden;
     bool isActive;
@@ -98,23 +100,20 @@ struct PanelFlags
     // but in the future we could have a system where they are seperate, 
     // you have a widget marked in focus but the mouse pointer not ontop of it.  
     bool inFocus;
+    bool capture; // used to know if the panel is capturing mouse input
     bool isDestroyed; // used to mark panels that are being destroyed
     bool showBounds; // used to debug the panel bounds
 }
 
-/* 
-    NOTE(HM) Panel is a simple data structure representing a big square or image, 
-    used for background images or single color rectangles.
-*/
-struct Panel (SaveSystemInterface)
+struct Panel (SaveSystemInterface, Printable)
 {
     int id;  // used to uniquily identify each panel
     String name;
     PanelFlags flags;
-    PanelShape shape;
-    RLRectangle  rect;
+    PanelShape shape; // default is BOX
+    RLRectangle  rect; // x, y, width, height
     RLColor      color; // material color overrides this color
-    RLColor      selected_color; // for gui editor functionality
+    RLColor      color_selected; // for gui editor functionality
     HMaterial* mat;
 }
 
@@ -123,7 +122,7 @@ fn void Panel.save(&self, SaveFile* file) @dynamic
     svs::writeInt(file, self.shape);
     svs::writeRect(file, self.rect);
     svs::writeColor(file, self.color);
-    svs::writeColor(file, self.selected_color);
+    svs::writeColor(file, self.color_selected);
     // cannot save pointers so just save the material name
     svs::writeString(file, (self.mat != null) ? self.mat.name : "");
 }
@@ -135,10 +134,17 @@ fn void Panel.reload(&self, SaveFile* file) @dynamic
     self.shape = (PanelShape)value;
     svs::readRect(file, &self.rect);
     svs::readColor(file, &self.color);
-    svs::readColor(file, &self.selected_color);
+    svs::readColor(file, &self.color_selected);
     String mat_name;
     svs::readString(file, &mat_name);
     self.mat = mtrmng::getMaterial(mat_name);
+}
+
+fn usz? Panel.to_format(&self, Formatter* f) @dynamic 
+{
+    return f.printf(`Panel { 
+    "id" = %s,\n"name" = %s,\n"shape" = %s,\n"rect" = { x: %s, y: %s, width: %s, height: %s  },\n"color" = { r: %s, g: %s, b: %s, a: %s  },\n"material" = %s 
+    }`, self.id, self.name, self.shape, self.rect.x, self.rect.y, self.rect.width, self.rect.height, self.color.r, self.color.g, self.color.b, self.color.a, (self.mat != null) ? self.mat.name : "null");
 }
 
 fn void Panel.initRec(&self, RLRectangle rect, RLColor color) @inline
@@ -203,8 +209,19 @@ fn void Panel.scale_equaly(&self, float amount) @inline => self.scale(amount, am
 *>
 fn void Panel.scaleNormalized(&self, float w_scaler, float h_scaler) @inline 
 {
-    self.rect.width  *= w_scaler;
-    self.rect.height *= h_scaler;
+    float x, y;
+    x = math::clamp(w_scaler, 0.05f, 1.0f);
+    y = math::clamp(h_scaler, 0.05f, 1.0f);
+    /*
+    if(w_scaler < 0.05f) { w_scaler = 0.05f; }
+    else if(w_scaler > 1.0f) { w_scaler = 1.0f; }
+
+    if(h_scaler < 0.05f) { h_scaler = 0.05f; }
+    else if(h_scaler > 1.0f) { h_scaler = 1.0f; }
+    */
+
+    self.rect.width  *= x;
+    self.rect.height *= y;
 }
 
 <*
@@ -266,7 +283,14 @@ fn void Panel.addToPositionV(&self, Vec2f pos) @inline => self.addToPosition(pos
     gets current position of the Panel, vector units is in pixels.
 *>
 fn Vec2f Panel.getPosition(&self) @inline => { self.rect.x, self.rect.y };
-
+<*
+    gets current X position of the Panel, units is in pixels.
+*>
+fn float Panel.getX(&self) => self.rect.x;
+<*
+    gets current Y position of the Panel, units is in pixels.
+*>
+fn float Panel.getY(&self) => self.rect.y;
 
 fn void Panel.setMaterial(&self, String material_name) @inline 
 {
@@ -276,11 +300,19 @@ fn void Panel.setMaterial(&self, String material_name) @inline
 fn bool Panel.hasMaterial(&self) @inline => self.mat != null;
 
 fn void Panel.fadeIn(&self, float factor) {
-    self.color = rl::colorLerp(self.color, rl::WHITE, factor);
+    /*if(self.hasMaterial())
+    {
+        self.mat.
+    } else {*/
+        //self.color = rl::colorLerp(self.color, rl::WHITE, factor);
+        self.color.a = (char)misc::move_toward(self.color.a, 255.0f, factor);
+    //}
 }
 
 fn void Panel.fadeOut(&self, float factor) {
-    self.color = rl::colorLerp(self.color, misc::INVISIBLE_COLOR, factor);
+    //self.color = rl::colorLerp(self.color, misc::INVISIBLE_COLOR, factor);
+    //self.color.a = math::lerp(self.color.a, 0, factor);
+    self.color.a = (char)misc::move_toward(self.color.a, 0, factor);
 }
 
 fn bool Panel.isValid(&self) @inline {
@@ -321,6 +353,7 @@ fn void Panel.deactivate(&self) @inline {
     if(!self.flags.isActive) return;
     self.flags.isActive = false;
 }
+
 fn bool Panel.active(&self)  @inline => self.flags.isActive;
 
 fn bool Panel.active_visible_infocus(&self) @inline => (self.active() && !self.hidden() && self.asFocus());
@@ -371,16 +404,17 @@ fn void Panel.draw(&self, bool selected = false)
         RLRectangle source = { 0, 0, texture_size.x, texture_size.y };
         RLRectangle* dist = &self.rect;
 
-        RLColor color = (selected) ? self.selected_color : self.mat.getStage(mat::STAGE_DIFFUSE).color;
+        RLColor color = (selected) ? self.color_selected : self.mat.getStage(mat::STAGE_DIFFUSE).color;
 
         RLBlendMode blending;
+        Coverage coverage = self.mat.coverage;
         switch //
         {
-            case (bool)(self.mat.coverage & mat::COVERAGE_OPAQUE): 
+            case (bool)(coverage & mat::COVERAGE_OPAQUE): 
                 break; // do nothing here
-            case (bool)(self.mat.coverage & mat::COVERAGE_PERFORATED & ~mat::COVERAGE_TRANSLUCENT):
+            case (bool)(coverage & mat::COVERAGE_PERFORATED) && (bool)(coverage & ~mat::COVERAGE_TRANSLUCENT):
                 blending = RLBlendMode.ALPHA;
-            case (bool)(self.mat.coverage & mat::COVERAGE_TRANSLUCENT & ~mat::COVERAGE_PERFORATED):
+            case (bool)(coverage & mat::COVERAGE_TRANSLUCENT) && (bool)(coverage & ~mat::COVERAGE_PERFORATED):
                 blending = RLBlendMode.ALPHA_PREMUL;
                 if(color.a == 255) // if the color is opaque
 				{
@@ -394,12 +428,12 @@ fn void Panel.draw(&self, bool selected = false)
 					color.g = (char)math::floor((g * a) * 255);
 					color.b = (char)math::floor((b * a) * 255);
 				}
-            case (bool)(self.mat.coverage & (mat::COVERAGE_PERFORATED | mat::COVERAGE_TRANSLUCENT)):
+            case (bool)(coverage & mat::COVERAGE_PERFORATED) && (bool)(coverage & mat::COVERAGE_TRANSLUCENT):
                     blending = RLBlendMode.CUSTOM_SEPARATE; // use the custom blending mode
             /*case (bool)(self.mat.coverage & (mat::COVERAGE_PERFORATED | mat::COVERAGE_TRANSLUCENT)):
                 blending = RLBlendMode.CUSTOM; // custom blending mode*/
-            case (bool)(self.mat.coverage & mat::COVERAGE_BAD):
-                log::error(Where.FILE, "Panel with material %s has a bad material coverage type.", self.mat.name);
+            case (bool)(coverage & mat::COVERAGE_BAD):
+                log::error(FILE, "Panel with material %s has a bad material coverage type.", self.mat.name);
                 unreachable();
         }
 
@@ -437,8 +471,8 @@ fn void Panel.draw(&self, bool selected = false)
     {
         switch(self.shape)
         {
-            case BOX:         r2d::@drawRect(self.rect, (selected) ? self.selected_color : self.color);
-            case ROUNDED_BOX: r2d::drawRectangleRounded(self.rect, 0.65f, 6, (selected) ? self.selected_color : self.color);
+            case BOX:         r2d::@drawRect(self.rect, (selected) ? self.color_selected : self.color);
+            case ROUNDED_BOX: r2d::drawRectangleRounded(self.rect, 0.65f, 6, (selected) ? self.color_selected : self.color);
             default: unreachable();
         }
     }
@@ -538,7 +572,7 @@ const KIND_BUTTON    = 3;
 const KIND_CONTAINER = 4;
 const KIND_CHECKBOX  = 5;
 
-alias WidgetCallback = fn void(Widget*);
+alias WidgetCallback = fn void(any);
 
 interface WidgetInterface
 {
@@ -548,6 +582,7 @@ interface WidgetInterface
     fn void update();
     fn void draw();
     fn bool isWithinScreenBounds() @optional;
+    fn bool isInWidget(int x, int y) @optional;
     fn void addTo(Desktop*);
     //fn void addToFrame(Frame*) @optional;
     fn Desktop* getDesktop();
@@ -559,6 +594,16 @@ interface WidgetInterface
     fn bool isLinked();
     fn void unlink();
     fn void setColor(rl::RLColor);
+//
+    fn bool onMouseOver(int x, int y) @optional;
+    fn bool onMouseStopOver() @optional;
+    fn bool onMouseButton(int x, int y, RLMouseButton button, bool pressed) @optional;
+    fn bool onMouseWheel(int x, int y, int scroll) @optional;
+	fn bool onKey(uint key, bool pressed) @optional;
+	fn bool onJoystickAxis(int axis, float value) @optional;
+	fn bool onJoystickButton(int button, bool pressed) @optional;
+	fn void onSize(int w, int h) @optional;
+	fn void onFocus(bool focus) @optional;
 }
 
 struct Widget (WidgetInterface) 
@@ -580,23 +625,22 @@ struct Widget (WidgetInterface)
     Widget* next; // for linked list of widgets
 
     // callbacks
-    WidgetCallback onOver;
+    WidgetCallback onOver; // called when the mouse is over the widget
     WidgetCallback onStopOver;
     WidgetCallback onPress;
     WidgetCallback onPressed;
     WidgetCallback onSinglePress;
     WidgetCallback onDoublePress;
     WidgetCallback onRelease;
-    WidgetCallback onEnterKey;
-    WidgetCallback onLoad;
+    WidgetCallback onEnterKey; // called when the enter key is pressed while the widget is focused
+    WidgetCallback onLoad;   // called when the widget is loaded
 }
 
 fn void Widget.init(&self, int kind = KIND_NONE) @dynamic {
     self.super.init();
+    self.kind = KIND_WIDGET;
     if(kind != KIND_NONE) {
         self.kind = kind;
-    } else {
-        self.kind = KIND_WIDGET;
     }
 }
 
@@ -809,6 +853,14 @@ fn bool Widget.isWithinScreenBounds(&self) @dynamic
     return rl::checkCollisionRecs(screen_bounds, self.rect) ? true : false;
 }
 
+fn bool Widget.isInWidget(&self, int x, int y) @dynamic
+{
+    if (self.hidden()) return false;
+
+    RLVector2 point = { (float)x, (float)y };
+    return rl::checkCollisionPointRec(point, self.rect) ? true : false;
+}
+
 <*
  @param [in] desktop : "parent desktop"
  @require desktop != null
@@ -898,12 +950,14 @@ fn void Widget.unlink(&self) @inline @dynamic {
     if (self.isLinked()) self.next = null;
 }
 
-fn void Widget.setColor(&self, RLColor color) @dynamic {
+fn void Widget.setColor(&self, RLColor color) @dynamic 
+{
     self.super.color = color;
 }
 
-fn void Widget.setSelectedColor(&self, RLColor color) @dynamic {
-    self.super.selected_color = color;
+fn void Widget.setSelectedColor(&self, RLColor color) @dynamic 
+{
+    self.super.color_selected = color;
 }
 
 // editor functions
@@ -1060,8 +1114,11 @@ fn WidgetText* createLabel(String name, String text, RLFont* font, int font_size
     return label;
 }
 
-/////////////////////////////////////// button //////////////////////////////////////////////////////
-// NOTE(HM) Button is a widget that can be pressed, it has a default color and a sound that plays when pressed.
+////////////////////////////////////////////////////////////////////////////////////////////////////
+//#################################### BUTTON ######################################################
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// NOTE(HM) Button is a widget that can be pressed, 
+// it has a default color and a sound that plays when pressed.
 
 struct WidgetButton 
 {
@@ -1120,7 +1177,7 @@ fn void WidgetButton.manage_interactions(&self) @local
     //main::log::info(Where.CONSOLE, "Gui: I'm over button: %s", self.super.name);
     if (self.asFocus() && self.selected == false)
     {
-        if(self.onOver) self.onOver(self);
+        if(self.onOver) self.onOver(any_make(self, WidgetButton.typeid));
 
         // Todo(HM) support keyboard/gamepad navigation to buttons
         // like using tab or arrow keys to navigate between buttons and enter to press them
@@ -1129,19 +1186,19 @@ fn void WidgetButton.manage_interactions(&self) @local
             if (rl::isMouseButtonDown(RLMouseButton.LEFT) && self.press_count >= 1) {
                 //main::log::info(Where.CONSOLE, "Gui: I'm pressing button: %s", self.super.name);
                 if (self.onPress) { 
-                    self.onPress(self);
+                    self.onPress(any_make(self, WidgetButton.typeid));
                 }
             }
             
             if (Action* action = input::getAction("Double Press")) {
                 if (action.fnDoubleTriggered(0.250f) && self.onDoublePress) { 
-                    self.onDoublePress(self);
+                    self.onDoublePress(any_make(self, WidgetButton.typeid));
                 }
             }
             
             if (Action* action = input::getAction("Single Press")) {
                 if (action.fnBecameTriggered() && self.onSinglePress) { 
-                    self.onSinglePress(self); 
+                    self.onSinglePress(any_make(self, WidgetButton.typeid)); 
                 }
                 // if(action.fnBecameTriggered()) {
                     // String[] array = {"apple", "banana", "apple", "orange", "banana"};
@@ -1152,19 +1209,19 @@ fn void WidgetButton.manage_interactions(&self) @local
 
             if (rl::isMouseButtonReleased(RLMouseButton.LEFT)) {
                 if (self.onRelease) { 
-                    self.onRelease(self); 
+                    self.onRelease(any_make(self, WidgetButton.typeid)); 
                 }
             }
 
             if (rl::isKeyPressed(rl::KEY_ENTER) && !rl::isKeyPressedRepeat(rl::KEY_ENTER)) {
                 if (self.onEnterKey) { 
-                    self.onEnterKey(self); 
+                    self.onEnterKey(any_make(self, WidgetButton.typeid)); 
                 }
             }
         }
     } else {
         if (self.onStopOver) { 
-            self.onStopOver(self);
+            self.onStopOver(any_make(self, WidgetButton.typeid));
         }
     }
 }
@@ -1198,6 +1255,7 @@ fn WidgetButton* createButton() @inline {
 
 ////////////////////////////////////////////////// Widget check box //////////////////////////////////////////////////////
 
+alias CheckBoxListenerCallback = fn void(WidgetCheckBox*);
 struct WidgetCheckBox 
 {
     // extends Widget (super/base class)
@@ -1205,18 +1263,24 @@ struct WidgetCheckBox
 
     bool checked; // is the checkbox checked or not
     String label; // label for the checkbox
+
+    CheckBoxListenerCallback onCheckBoxClicked;
 }
 
 fn void WidgetCheckBox.init(&self, int kind = KIND_CHECKBOX) @inline 
 {
     self.super.init(kind);
     self.super.name = "CheckBox";
-    self.setColor(rl::WHITE);
+    self.super.setColor(rl::WHITE);
+    self.onCheckBoxClicked = (CheckBoxListenerCallback)&WidgetCheckBox.onMouseButton;
 }
 
 fn void WidgetCheckBox.deinit(&self) @inline 
 {
     self.super.deinit();
+    if(self.label.len > 0) {
+        self.label = "";
+    }
 }
 
 fn void WidgetCheckBox.update(&self) @inline 
@@ -1227,6 +1291,18 @@ fn void WidgetCheckBox.update(&self) @inline
 fn void WidgetCheckBox.draw(&self) @inline 
 {
     self.super.draw();
+}
+
+fn bool WidgetCheckBox.onMouseButton(&self, int x, int y, RLMouseButton button, bool pressed) @dynamic
+{
+	if (button == RLMouseButton.LEFT && pressed)
+	{
+		self.checked = !self.checked;
+		if(self.onCheckBoxClicked) self.onCheckBoxClicked(self);
+	    return true;
+	}
+
+    return false;
 }
 
 fn void WidgetCheckBox.setChecked(&self, bool checked) @inline 

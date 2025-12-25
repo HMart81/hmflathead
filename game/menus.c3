@@ -205,7 +205,13 @@ fn void exit()
 
 
 // region MAIN MENU
+<*
+    Create a checkbox for the menu
 
+    @param [in] text : "checkbox label text"
+    @param [&in] bdef : "button callbacks definition struct pointer"
+    @ensure return != null : "pointer to the created checkbox"
+*>
 fn WidgetCheckBox* Desktop.create_menu_checkbox(&self, String text, MenuButtonDef* bdef) @local @inline {
     WidgetCheckBox* checkbox = gui::createCheckBox("Checkbox 1");
     checkbox.setColor(rl::DARKGRAY);
@@ -242,6 +248,14 @@ struct MenuButtonDef
     WidgetCallback[MAX_CALLBACK_PTRS] callbacks;
 }
 
+<*
+    Create a button for the menu
+
+    @param pos : "button position"
+    @param [in] text : "button label text"
+    @param [&in] bdef : "button callbacks definition struct pointer"
+    @ensure return != null : "pointer to the created button"
+*>
 macro WidgetButton* Desktop.create_menu_button(&self, Vec2f pos, String text, MenuButtonDef* bdef) @local {
     WidgetButton* button = gui::createButton();
     button.addTo(self);
@@ -468,19 +482,60 @@ fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
 // #region  ################ Button callbacks ##########################
 
 // generic button callbacks
-fn void button_onLoad(Widget* widget) {
-    assert(widget != null);
-    WidgetButton* self = (WidgetButton*)widget;
-    // if(self.active_visible_infocus() && self.asFocus()) {
-    //     self.setColor(self.over_color);
-    // }
-    log::info(Where.CONSOLE, "WidgetButton '%s' loaded.", self.name);
+fn void button_onLoad(any widget) {
+    assert(widget.ptr != null);
+    switch (widget.type)
+    {
+        case WidgetButton.typeid:
+        {
+            WidgetButton* self = (WidgetButton*)widget.ptr;
+            log::info(CONSOLE, "WidgetButton '%s' loaded.", self.name);
+        }
+        case WidgetCheckBox.typeid:
+        {
+            WidgetCheckBox* self = (WidgetCheckBox*)widget.ptr;
+            log::info(CONSOLE, "WidgetCheckBox '%s' loaded.", self.name);
+        }
+        default:
+        {
+            unreachable("widget type not handled in button_onLoad: %s", widget.type);
+        }
+    }
+    //log::info(Where.CONSOLE, "WidgetButton '%s' loaded.", self.name);
 }
 
 // generic button callbacks
-fn void button_onOver(Widget* widget) {
-    assert(widget != null);
-    WidgetButton* self = (WidgetButton*)widget;
+fn void button_onOver(any widget/*Widget* widget*/) {
+    assert(widget.ptr != null);
+    switch (widget.type)
+    {
+        case WidgetButton.typeid:
+        {
+            WidgetButton* self = (WidgetButton*)widget.ptr;
+            if(self.active_visible_infocus() && self.asFocus()) {
+                self.setColor(rl::RED);
+            }
+        }
+        case WidgetCheckBox.typeid:
+        {
+            WidgetCheckBox* self = (WidgetCheckBox*)widget.ptr;
+            if(self.active_visible_infocus() && self.asFocus()) {
+                self.setColor(rl::RED);
+            }
+        }
+        case WidgetText.typeid:
+        {
+            WidgetText* self = (WidgetText*)widget.ptr;
+            if(self.active_visible_infocus() && self.asFocus()) {
+                self.setColor(rl::RED);
+            }
+        }
+        default:
+        {
+            unreachable("widget type not handled in button_onOver: %s", widget.type);
+        }
+    }
+    /*WidgetButton* self = (WidgetButton*)widget;
     if(self.active_visible_infocus() && self.asFocus()) {
         switch (self.kind)
         {
@@ -491,25 +546,43 @@ fn void button_onOver(Widget* widget) {
             default:
                 self.setColor(rl::RED);
         }
+    }*/
+}
+
+// generic button callbacks
+fn void button_onStopOver(/*Widget* widget*/ any widget) {
+    assert(widget.ptr != null);
+    if(widget.type == WidgetButton.typeid) {
+        WidgetButton* self = (WidgetButton*)widget.ptr;
+        if(self.color != self.default_color) self.setColor(self.default_color);
+        return;
+    } else {
+        unreachable("widget type %s is not a button!", widget.type);
     }
+    //WidgetButton* self = (WidgetButton*)widget;
+    //if(self.color != self.default_color) self.setColor(self.default_color);
 }
 
 // generic button callbacks
-fn void button_onStopOver(Widget* widget) {
-    assert(widget != null);
-    WidgetButton* self = (WidgetButton*)widget;
-    if(self.color != self.default_color) self.setColor(self.default_color);
-}
-
-// generic button callbacks
-fn void button_onRelease(Widget* widget) {
-    assert(widget != null);
-    WidgetButton* self = (WidgetButton*)widget;
+fn void button_onRelease(/*Widget* widget*/ any widget) {
+    assert(widget.ptr != null);
+    if(widget.type == WidgetButton.typeid) {
+        WidgetButton* self = (WidgetButton*)widget.ptr;
+        if (self.active_visible_infocus() && self.asFocus()) {
+            self.setColor(self.default_color);
+            self.pressed = false;
+            self.press_count = 0;
+        }
+        return;
+    } else {
+        unreachable("widget type %s is not a button!", widget.type);
+    }
+    /*WidgetButton* self = (WidgetButton*)widget;
     if (self.active_visible_infocus() && self.asFocus()) {
         self.setColor(self.default_color);
         self.pressed = false;
         self.press_count = 0;
-    }
+    }*/
 }
 
 <*
@@ -518,8 +591,25 @@ fn void button_onRelease(Widget* widget) {
     @param [in] widget : "widget calling this function"
     @require widget != null
 *>
-fn void button_onPress(Widget* widget) {
-    WidgetButton* self = (WidgetButton*)widget;
+fn void button_onPress(/*Widget* widget*/ any widget) {
+    assert(widget.ptr != null);
+    if(widget.type == WidgetButton.typeid) {
+        WidgetButton* self = (WidgetButton*)widget.ptr;
+        if (self.active() == false || self.asFocus() == false) return;
+        if (self.pressed == false) {
+            self.setColor(rl::GREEN);
+
+            if (rl::isSoundValid(*self.interaction_sound)) {
+                if(!rl::isSoundPlaying(*self.interaction_sound)) rl::playSound(*self.interaction_sound);
+            }
+        }
+        self.pressed = true;
+        self.press_count++;
+        return;
+    } else {
+        unreachable("widget type %s is not a button!", widget.type);
+    }
+    /*WidgetButton* self = (WidgetButton*)widget;
     if (self.active() == false || self.asFocus() == false) return;
     if (self.pressed == false) {
         self.setColor(rl::GREEN);
@@ -529,49 +619,57 @@ fn void button_onPress(Widget* widget) {
         }
     }
     self.pressed = true;
-    self.press_count++;
+    self.press_count++;*/
 }
 
 <*
     generic button callback
     
     @param [in] widget : "widget calling this function"
-    @require widget != null
+    @require widget.ptr != null
 *>
-fn void button_onSinglePress(Widget* widget) {
-    WidgetButton* self = (WidgetButton*)widget;
-    if (self.active() == false || self.asFocus() == false) return;
+fn void button_onSinglePress(any widget) 
+{
+    if(widget.type == WidgetButton.typeid) 
+    {
+        WidgetButton* self = (WidgetButton*)widget.ptr;
+        if (self.active() == false || self.asFocus() == false) return;
 
-    if (rl::isSoundValid(*self.interaction_sound)) {
-       if(!rl::isSoundPlaying(*self.interaction_sound)) rl::playSound(*self.interaction_sound);
+        if (rl::isSoundValid(*self.interaction_sound)) {
+           if(!rl::isSoundPlaying(*self.interaction_sound)) rl::playSound(*self.interaction_sound);
+        }
+        self.setColor(rl::GREEN);
+        //return;
+    } else {
+        unreachable("widget %s is not a valid button!", ((Widget*)widget.ptr).name);
     }
-    self.setColor(rl::GREEN);
 }
 
 // while the button is kept pressed
-fn void start_button_onPress(Widget* widget) {
+fn void start_button_onPress(/*Widget* widget*/ any widget) {
     button_onPress(widget);
 }
 
-fn void start_button_onSinglePress(Widget* widget) {
+fn void start_button_onSinglePress(any widget) {
     button_onSinglePress(widget);
     menu::exit();
 }
 
-fn void quit_button_onPress(Widget* widget) {
+fn void quit_button_onPress(any widget) {
     button_onPress(widget);
 }
 
-fn void quit_button_onSinglePress(Widget* widget) {
+fn void quit_button_onSinglePress(any widget) {
     button_onSinglePress(widget);
     main::quitGame();
 }
 
-fn void options_button_onPress(Widget* widget) {
+fn void options_button_onPress(any widget) {
     button_onPress(widget);
 }
 
-fn void options_button_onSinglePress(Widget* widget) {
+fn void options_button_onSinglePress(any widget) 
+{
     button_onSinglePress(widget);
     Desktop* active_menu = getActiveMenu();
     if(active_menu) 
@@ -593,7 +691,7 @@ fn void options_button_onSinglePress(Widget* widget) {
     //gui::setGui();
 }
 
-fn void back_button_options_onPress(Widget* widget) {
+fn void back_button_options_onPress(any widget) {
     button_onPress(widget);
     Desktop* active_menu = getActiveMenu();
     if(active_menu && active_menu.previous != null) {
@@ -606,19 +704,29 @@ fn void back_button_options_onPress(Widget* widget) {
     }
 }
 
-fn void back_button_options_onSinglePress(Widget* widget) {
+fn void back_button_options_onSinglePress(any widget) 
+{
+    assert(widget.ptr != null);
     back_button_options_onPress(widget);
 }
 
-fn void checkbox1_onPress(Widget* widget) {
+fn void checkbox1_onPress(any widget) 
+{
+    //
 }
 
-fn void checkbox1_onSinglePress(Widget* widget) {
-    //button_onPress(widget);
-    WidgetCheckBox* self = (WidgetCheckBox*)widget;
-    (self.isChecked()) ? self.setChecked(false) : self.setChecked(true);
-    log::info(Where.CONSOLE, "Checkbox 1 is now %s.", self.isChecked() ? "checked" : "unchecked");
-    // TODO(HM) do something with checkbox state
+fn void checkbox1_onSinglePress(any widget) 
+{
+    assert(widget.ptr != null);
+    if(widget.type == WidgetButton.typeid)
+    {
+        WidgetCheckBox* this = (WidgetCheckBox*)widget.ptr;
+        this.setChecked(!this.checked);
+        log::info(CONSOLE, "Checkbox 1 is now %s.", this.isChecked() ? "checked" : "unchecked");
+        // TODO(HM) do something with checkbox state
+    } else {
+        unreachable("widget %s is not a valid button!", ((Widget*)widget.ptr).name);
+    }
 }
 // end_region Main Menu
 

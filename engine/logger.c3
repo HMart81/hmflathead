@@ -233,7 +233,8 @@ $if $feature(_DEBUG):
 $endif
 }
 
-fn void logToConsole(RLTraceLogLevel level, String fmt, args...) @format(1) @local {
+fn void logToConsole(RLTraceLogLevel level, String fmt, args...) @format(1) @local 
+{
 	// if logging disabled do nothing
 	if(g_log.getBool() == false) return; // turn off logging
 	// if nothing to write also do nothing
