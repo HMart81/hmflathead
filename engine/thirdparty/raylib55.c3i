@@ -173,6 +173,11 @@ struct RLTexture @packed
     RLPixelFormat format;     // Data format (RLPixelFormat type)
 }
 
+macro Vec2f RLTexture.getSize(&self) @nodiscard
+{
+    return (Vec2f){ (float)self.width, (float)self.height };
+}
+
 macro bool RLTexture.eql(&self, RLTexture other) @operator(==)
 {
     return (bool)(self.id == other.id &&
@@ -847,9 +852,11 @@ fn bool isWindowMinimized() @cname("IsWindowMinimized");                        
 fn bool isWindowMaximized() @cname("IsWindowMaximized");                                  // Check if window is currently maximized (only PLATFORM_DESKTOP)
 fn bool isWindowFocused() @cname("IsWindowFocused");                                      // Check if window is currently focused (only PLATFORM_DESKTOP)
 fn bool isWindowResized() @cname("IsWindowResized");                                      // Check if window has been resized last frame
+// NOTE(HM): this requires the window to be previously initialized
 fn bool isWindowState(RLConfigFlag flag) @cname("IsWindowState");                           // Check if one specific window flag is enabled
 fn void setWindowState(RLConfigFlag flag) @cname("SetWindowState");                         // Set window configuration state using flags (only PLATFORM_DESKTOP)
 fn void clearWindowState(RLConfigFlag flags) @cname("ClearWindowState");                    // Clear window configuration state flags
+// END NOTE(HM)
 fn void toggleFullscreen() @cname("ToggleFullscreen");                                    // Toggle window state: fullscreen/windowed (only PLATFORM_DESKTOP)
 fn void toggleBorderlessWindowed() @cname("ToggleBorderlessWindowed");			   // Toggle window state: borderless windowed (only PLATFORM_DESKTOP)
 fn void maximizeWindow() @cname("MaximizeWindow");                                        // Set window state: maximized, if resizable (only PLATFORM_DESKTOP)
@@ -1548,7 +1555,7 @@ fn bool isTextureValid(RLTexture2D texture) @cname("IsTextureValid");
 // Unload texture from GPU memory (VRAM)
 fn void unloadTexture(RLTexture2D texture) @cname("UnloadTexture");
 // Check if a render texture is valid (loaded in GPU)
-fn bool isRenderTextureValid(RLRenderTexture2D target) @cname("IsRenderTextureValide");
+fn bool isRenderTextureValid(RLRenderTexture2D target) @cname("IsRenderTextureValid");
 // Unload render texture from GPU memory (VRAM)
 fn void unloadRenderTexture(RLRenderTexture2D target) @cname("UnloadRenderTexture");
 // Update GPU texture with new data

@@ -120,12 +120,12 @@ fn void setGUI(Desktop* menu)
 		SetSaveGameGuiVars();
 	}*/
 
-	// NOTE(HM) i'm 99.9% sure this sets a event data struct to catch key presses
+	// NOTE(HM) i'm 99.9% sure this creates and inits a event data struct to catch key presses
 	//sysEvent_t  ev;
 	//memset( &ev, 0, sizeof( ev ) );
 	//ev.evType = SE_NONE;
 
-	//guiActive->HandleEvent( &ev, com_frameTime );
+	//guiActive.handleEvent( &ev, com_frameTime );
 	//guiActive.activate( true, main::gpGame.time_ms );
     guiActive.setFocus(true);
 }
@@ -152,20 +152,16 @@ fn void start(Desktop* gui) {
 	//console->Close();
 }
 
-fn void stop(Desktop* guiActive = null) 
+fn void stop(Desktop* guiActive = getActiveMenu()) 
 {
-    if(guiActive == null) guiActive = getActiveMenu();
 	//ClearWipe();
 
 	// clear mapSpawned and demo playing flags
 	//UnloadMap();
 
-	// disconnect async client
-	//idAsyncNetwork::client.DisconnectFromServer();
-
-	// kill async server
-	//idAsyncNetwork::server.Kill();
-
+	//if ( sw ) {
+		//sw->StopAllSounds();
+	//}
     // stop sound world
     if(guiActive)
     {
@@ -175,9 +171,6 @@ fn void stop(Desktop* guiActive = null)
             //rl::unloadMusicStream(guiActive.music_stream);
         }
     }
-	//if ( sw ) {
-		//sw->StopAllSounds();
-	//}
 
 	//insideUpdateScreen = false;
 	//insideExecuteMapChange = false;
@@ -188,10 +181,11 @@ fn void stop(Desktop* guiActive = null)
 
 fn void exit() 
 {
-	stop(); // menu
+	stop(); // any menu
 
     // TODO(HM) This should be set ONLY when we are sure we are ingame and not
-    // in some other menu, right is set when any menu exits
+    // in some other state, right now is set when all menus exit what is not 
+	// total guarantie that we are returning to the game world.
     main::gpGame.mode = GameMode.PLAYING;
 
 	// go back to the game sounds
@@ -233,7 +227,8 @@ fn WidgetCheckBox* Desktop.create_menu_checkbox(&self, String text, MenuButtonDe
 
 fn WidgetText* Desktop.create_menu_label(&self, String text, RLFont* font, int font_size, RLColor color) @local @inline {
     WidgetText* label = gui::createLabel("", text, font, font_size, color);
-    label.addTo(self);
+    Desktop* desktop = self;
+    label.addTo(desktop);
     return label;
 }
 
@@ -302,10 +297,10 @@ fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
     main::gpGame.mode = main::GameMode.MENU;
 
     // Menu creation
-    Vec2f screen_center       = (Vec2f) {(float)screenWidth/2.0f, (float)screenHeight / 2.0f};
-    Vec2f screen_top_center   = (Vec2f) {(float)screenWidth/2.0f, 0.0f};
+    Vec2f screen_center       = main::gpGame.view.origin; //(Vec2f) {(float)screenWidth/2.0f, (float)screenHeight / 2.0f};
     float screen_half_width   = screen_center.x;
     float screen_half_height  = screen_center.y;
+    Vec2f screen_top_center   = {screen_half_width, 0.0f};
 
     Desktop* desk_main = mem::new(Desktop);
     desk_main.init("MainMenu");

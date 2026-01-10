@@ -268,19 +268,24 @@ fn void logToConsole(RLTraceLogLevel level, String fmt, args...) @format(1) @loc
 }
 
 
+// Note(HM): I later discovered C3, already add support 
+// for ANSI color escape sequences in a enum defined inside 
+// module std::core::string::ansi;
+// so use that instead in the future, if needed.
+//
 // color escape string for ** console logging only **
 
-const String ANSI_COLOR_RED        = "\x1b[31m";
-const String ANSI_COLOR_BR_RED     = "\x1b[91m";
-const String ANSI_COLOR_GREEN      = "\x1b[32m";
-const String ANSI_COLOR_YELLOW     = "\x1b[33m";
-const String ANSI_COLOR_BR_YELLOW  = "\x1b[93m";
-const String ANSI_COLOR_BLUE       = "\x1b[34m";
-const String ANSI_COLOR_MAGENTA    = "\x1b[35m";
-const String ANSI_COLOR_BR_MAGENTA = "\x1b[95m";
-const String ANSI_COLOR_CYAN       = "\x1b[36m";
-const String ANSI_COLOR_RESET      = "\x1b[0m";
-const String ANSI_COLOR_WHITE      = "\x1b[107m";
+const String ANSI_COLOR_RED        @local = "\x1b[31m";
+const String ANSI_COLOR_BR_RED     @local = "\x1b[91m";
+const String ANSI_COLOR_GREEN      @local = "\x1b[32m";
+const String ANSI_COLOR_YELLOW     @local = "\x1b[33m";
+const String ANSI_COLOR_BR_YELLOW  @local = "\x1b[93m";
+const String ANSI_COLOR_BLUE       @local = "\x1b[34m";
+const String ANSI_COLOR_MAGENTA    @local = "\x1b[35m";
+const String ANSI_COLOR_BR_MAGENTA @local = "\x1b[95m";
+const String ANSI_COLOR_CYAN       @local = "\x1b[36m";
+const String ANSI_COLOR_RESET      @local = "\x1b[0m";
+const String ANSI_COLOR_WHITE      @local = "\x1b[107m";
 
 /*
 const String ANSI_COLOR_RED     = "[31m";

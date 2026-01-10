@@ -82,10 +82,8 @@ fn SpriteKind kindFrom(int value) @inline @local
 
 struct SpriteFlags
 {
-     union { // does this really should be a union?
-        bool isHidden;
-        bool should_hide;
-    }
+    bool isHidden;
+    //bool should_hide;
     bool isActive; // if the sprite is active or not
 }
 
@@ -157,8 +155,8 @@ fn void HMSprite.initV(&self, Vec2f pos, Vec2f size, RLColor color = rl::WHITE, 
     self.initRect({ pos.x, pos.y, size.x, size.y }, color, kind, material_name);
 }
 
-fn void HMSprite.resetPosSize(&self) @inline {
-    self.setPositionV({0, 0});
+fn void HMSprite.resetPosAndSize(&self) @inline {
+    self.setPositionV(main::gpGame.view.origin);
     self.setSizeV(MIN_SIZE);
 }
 
@@ -308,7 +306,7 @@ fn float HMSprite.getSizeY(&self) @inline {
 }
 
 // in screen pixel coordinates
-fn Vec2i HMSprite.getSizePixels(&self) @inline {
+fn Vec2i HMSprite.getSizeInPixels(&self) @inline {
     int w = misc::metersToPixels(self.rect.width);
     int h = misc::metersToPixels(self.rect.height);
     return (Vec2i){ w, h };
@@ -471,8 +469,7 @@ macro @drawSprite(#s, #b, #t, #ra, #rb, #c) @local
 {
     rl::@blendMode(#b)
     {
-        if(#s.mat.shader.isValid())
-        {
+        if(#s.mat.shader.isValid()) {
             rl::@shaderMode(#s.mat.shader) // draw using the sprite shader
             {
                 rl::drawTexturePro(#t, #ra, #rb, {0, 0}, 0.0f, #c);
@@ -489,7 +486,7 @@ fn void HMSprite.draw(&self)  @inline
     {
     tracy::@zoneN("sprite draw", 0)
     {
-        if(self.flags.should_hide) return;
+        if(self.flags.isHidden) return;
 
         RLRectangle rect = self.rect;
         switch (main::CURRENT_UNITS)
@@ -502,7 +499,7 @@ fn void HMSprite.draw(&self)  @inline
             case main::UNITS_PIXEL:
                 rect;  // do nothing already in pixels
             default:
-                log::error(Where.FILE, "Unsupported units set for HMSprite rendering.", self.kind);
+                log::error(FILE, "Unsupported size units set for HMSprite rendering.", self.kind);
                 unreachable();
         }
         
@@ -512,10 +509,11 @@ fn void HMSprite.draw(&self)  @inline
         
         if(self.hasMaterial())
         {
-            RLTexture2D* texture = self.mat.getTexture(mat::STAGE_DIFFUSE);
-            Vec2f texture_size = { texture.width, texture.height };
-            RLRectangle source = { 0, 0, texture_size.x, texture_size.y };
-            RLRectangle* dist = &rect;
+            RLTexture2D* texture = self.mat.getTexture(mat::TEXTURE_DIFFUSE);
+            assert(texture && *texture != rl::INVALID_TEXTURE, "HMSprite material '%s' has no diffuse texture.", self.mat.name);
+            Vec2f texture_size   = texture.getSize(); //{ texture.width, texture.height };
+            RLRectangle source   = { 0, 0, texture_size.x, texture_size.y };
+            RLRectangle* dist    = &rect;
 
             MaterialStage* diffuse_stage = self.mat.getStage(mat::STAGE_DIFFUSE);
             assert(diffuse_stage != null, "RLMaterial diffuse stage is null for material '%s'.", self.mat.name);

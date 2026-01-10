@@ -256,7 +256,7 @@ const RGFW_WindowFlags WINDOWED_FULLSCREEN       = WINDOW_NO_BORDER | WINDOW_MAX
     @param rect : "rectangle struct with x, y, width, height"
     @param flags : "window flags, (uint)0 assigned to flags means no flags used"
 *>
-fn RGFW_window* createWindow(ZString name, RGFW_rect rect, RGFW_WindowFlags flags ) @cname("RGFW_createWindow"); 
+fn RGFW_window* createWindow(ZString name, RGFW_rect rect, RGFW_WindowFlags flags ) @nodiscard @cname("RGFW_createWindow"); 
 
 <* 
     function to create a window (without allocating a window struct)

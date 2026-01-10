@@ -49,6 +49,7 @@ import engine::assets_api::astmng; // asset manager
 import engine::sys::reader::svg;
 import game::material::manager::mtrmng; // material database
 import engine::sys::framework::language::lang;
+import engine::sys::framework::backends::bkend; // graphics backend interface
 //
 import thirdparty::wren;
 import engine::sys::script_engine::scpt; // Script Engine (based on Wren language)
@@ -396,7 +397,7 @@ struct Game (SaveSystemInterface) @local
     PersistentInfo playerPersistentInfo; // to save any info that the player carries along for each level
     RenderView view;
 
-    
+    BackendRender render; // graphics backend interface
     struct screen 
     {
         int index; // monitor index
@@ -413,7 +414,6 @@ struct Game (SaveSystemInterface) @local
             bool borderless;
         }
 
-        Win32_HWND handle @if(env::WIN32); // window handle, used for win32 specific stuff
         bool vsync_hint;
         int  displayHz;
         int  multiSamples; // MSAA
@@ -1593,7 +1593,7 @@ fn void gameDraw(int screenWidth, int screenHeight) @local
         //rl::beginDrawing();
         rl::@drawing() 
         {
-            rl::clearBackground({0x18, 0x18, 0x18, 0xFF});
+            local_game.render.setBackGroundColor({0x18, 0x18, 0x18, 0xFF});
             //rl::clearBackground(*(RLColor*)&&((uint[1]){ 0x181818FF }));
 
             // 2) render the view FBO's rendered above into the back buffer
@@ -2227,10 +2227,11 @@ $endif
     rl::setRandomSeed(69);
     
     // window flags
-    int window_flags = 0; // special windows flags for the rl window handling
+    RLConfigFlag window_flags; // special windows flags for the rl window handling
     
     // support modern high dpi monitors (replaces the need for manual use of GetWindowScaleDPI() functionality)
-    window_flags |= (int)rl::FLAG_WINDOW_HIGHDPI;
+    //window_flags |= (int)rl::FLAG_WINDOW_HIGHDPI;
+    bkend::setWindowFlag(&window_flags, rl::FLAG_WINDOW_HIGHDPI);
     
     // TODO(HM)
     // Create a console here for error displaying...
@@ -2402,7 +2403,8 @@ $endif
     // Vertical sync (this is a hint so may or may not apply...)
     if(try settings_file.getBool("vsync")) 
     {
-        window_flags |= (int)rl::FLAG_VSYNC_HINT;
+        //window_flags |= (int)rl::FLAG_VSYNC_HINT;
+        bkend::setWindowFlag(&window_flags, rl::FLAG_VSYNC_HINT);
         local_game.screen.vsync_hint = true;
         log::info(FILE, "VSync hint enabled. (This is a hint, not a guarantee!)");
     }
@@ -2427,10 +2429,12 @@ $endif
     switch(fullscreen_choice)
     {
         case 1:
-            window_flags |= (int)rl::FLAG_FULLSCREEN_MODE;
+            //window_flags |= (int)rl::FLAG_FULLSCREEN_MODE;
+            bkend::setWindowFlag(&window_flags, rl::FLAG_FULLSCREEN_MODE);
             local_game.screen.state.fullscreen = true;
         case 2:
-            window_flags |= (int)rl::FLAG_WINDOW_UNDECORATED;
+            //window_flags |= (int)rl::FLAG_WINDOW_UNDECORATED;
+            bkend::setWindowFlag(&window_flags, rl::FLAG_WINDOW_UNDECORATED);
             local_game.screen.state.borderless = true;
         default: // fullscreen_choice -1 or 0
             local_game.screen.state.window = true;
@@ -2444,7 +2448,8 @@ $endif
         {
             if(msaa_samples > 0) 
             {
-                window_flags |= (int)rl::FLAG_MSAA_4X_HINT;
+                //window_flags |= (int)rl::FLAG_MSAA_4X_HINT;
+                bkend::setWindowFlag(&window_flags, rl::FLAG_MSAA_4X_HINT);
                 local_game.screen.multiSamples = msaa_samples;
                 log::info(FILE, "4x MSAA hint enabled (as a hint, may not apply).");
             }
@@ -2464,22 +2469,22 @@ $endif
     log::info(FILE, "Initializing window:");
     log::info(FILE, "---------------------------------------------");
     // set/apply the final window flags
-    rl::setConfigFlags((RLConfigFlag)window_flags);
+    //rl::setConfigFlags((RLConfigFlag)window_flags);
     
     int screenWidth     = local_game.screen.w;
     int screenHeight    = local_game.screen.h;
     ZString window_name = string::tformat_zstr("%s version: (%s, %s, %s)", local_game.app_name.zstr_tcopy(), lic::MAX_VERSION, lic::MIN_VERSION, lic::BABY_VERSION);
     
     //===============================//
-    //========= Init Window ======== // 
-    rl::initWindow(screenWidth, screenHeight, window_name);
-    //============================== //
-    
-    if(rl::isWindowReady() == false) 
-    {
-        log::fatal(FILE, "Failed to init rl window and OpenGL context!");
-        return WINDOW_INIT_FAILED?;
-    } else {
+    //========= Init Window ======== //
+    $if $feature(BACKEND_RAYLIB) || $feature(BACKEND_RGFW):
+        WindowHandle window = local_game.render.createWindow(
+            title: window_name.str_view(),
+            width: screenWidth,
+            height: screenHeight,
+            flags: window_flags
+        )!;
+
         log::info(FILE, "Window initialized successfully.");
 
         if(local_game.screen.state.fullscreen == true)
@@ -2499,7 +2504,36 @@ $endif
             unreachable("Game window is not set to any known state, this should never happen!");
             //return WINDOW_INIT_FAILED?;
         }
-    }
+    $else
+        rl::initWindow(screenWidth, screenHeight, window_name);
+        //============================== //
+        
+        if(rl::isWindowReady() == false) 
+        {
+            log::fatal(FILE, "Failed to init rl window and OpenGL context!");
+            return WINDOW_INIT_FAILED?;
+        } else {
+            log::info(FILE, "Window initialized successfully.");
+
+            if(local_game.screen.state.fullscreen == true)
+            {
+                log::info(FILE,  "Game window set to Real/Dedicated Fullscreen mode.");
+            }
+            else if(local_game.screen.state.borderless == true)
+            {
+                log::info(FILE,  "Game window set to Borderless fullscreen mode.");
+            }
+            else if(local_game.screen.state.window == true)
+            {
+                log::info(FILE,  "Game window set to Windowed mode.");
+            }
+            else
+            {
+                unreachable("Game window is not set to any known state, this should never happen!");
+                //return WINDOW_INIT_FAILED?;
+            }
+        }
+    $endif
 
     local_game.screen.width_in_meters = misc::pixelsToMeters(screenWidth);
     local_game.screen.height_in_meters = misc::pixelsToMeters(screenHeight);
@@ -2509,16 +2543,6 @@ $endif
     //rlgl::init(screenWidth, screenHeight);
 
 $if env::WIN32:
-    Win32_HWND window_handle = (Win32_HWND)rl::getWindowHandle();
-    if(window_handle == null) 
-    {
-        log::fatal(FILE, "Failed to get window handle!");
-        //return WINDOW_HANDLE_FAILED?;
-    } else {
-        log::info(FILE, "Window handle obtained successfully.");
-        local_game.screen.handle = window_handle;
-    }
-
     /*
 		Force the main thread to always run on CPU 0.
 		This is done because on some systems QueryPerformanceCounter returns a bit different counter values
@@ -2569,9 +2593,17 @@ $endif
 
             for (int i = 0; i < monitor_count; ++i) 
             {
-                int w = rl::getMonitorPhysicalWidth(i);
-                int h = rl::getMonitorPhysicalHeight(i);
-                Vec2f mpos = rl::getMonitorPosition(i);
+                int w,h;
+                Vec2f mpos;
+                $if $feature(BACKEND_RAYLIB) || $feature(BACKEND_RGFW):
+                    w = local_game.render.getMonitorPhysicalWidth(i);
+                    h = local_game.render.getMonitorPhysicalHeight(i);
+                    mpos = local_game.render.getMonitorPosition(i);
+                $else
+                    w = rl::getMonitorPhysicalWidth(i);
+                    h = rl::getMonitorPhysicalHeight(i);
+                    mpos = rl::getMonitorPosition(i);
+                $endif
                 rl::RLRectangle rect = {mpos.x, mpos.y, w, h};
                 if ( x >= rect.x && x < rect.x + rect.width
                     && y >= rect.y && y < rect.y + rect.height )
@@ -2589,15 +2621,23 @@ $endif
 
             local_game.screen.index = displayIndex;
             local_game.screen.id    = displayIndex + 1;
-            rl::setWindowMonitor(local_game.screen.index);
+            $if $feature(BACKEND_RAYLIB) || $feature(BACKEND_RGFW):
+                local_game.render.setMainMonitor(local_game.screen.index);
+            $else
+                rl::setWindowMonitor(local_game.screen.index);
+            $endif
         }
     }
     
-    log::info(FILE,  "\tWindow put on monitor id: '%d' name: '%s", local_game.screen.id, rl::getMonitorName(local_game.screen.index));
+    log::info(FILE, "\tWindow put on monitor id: '%d' name: '%s", local_game.screen.id, rl::getMonitorName(local_game.screen.index));
     
     // @Todo 
     // Support user setting frame rate on main menu?
-    local_game.screen.displayHz = rl::getMonitorRefreshRate(local_game.screen.index);
+    $if $feature(BACKEND_RAYLIB) || $feature(BACKEND_RGFW):
+        local_game.screen.displayHz = local_game.render.getMonitorRefreshRate(local_game.screen.index);
+    $else
+        local_game.screen.displayHz = rl::getMonitorRefreshRate(local_game.screen.index);
+    $endif
     local_game.fps_unlocked     = r_fps_unlocked.getBool();
     local_game.max_fps          = r_max_fps.getInt();
 
@@ -2666,7 +2706,7 @@ $if $feature(_DEBUG):
     //          it changes the default exit key (default was ESC key)
     //rl::setExitKey(rl::KEY_F10);
     String key_name = settings_file.getString("quit", "KEY_ESCAPE");
-    rl::setExitKey(misc::getKeyValueFromName(key_name));
+    rl::setExitKey(input::getKeyCodeFromStr(key_name));
     log::info(FILE, "Exit key set to: %s", key_name);
     log::info(FILE, "---------------------------------------------\n");
 $endif
@@ -2754,7 +2794,6 @@ $endif
     log::info(FILE, "---------------------------------------------\n");
 // #endregion AUDIO DEVICE initialization
 
-    
 // #region Asset manager
     log::info(FILE, "Loading game assets:");
     log::info(FILE, "---------------------------------------------");
@@ -3029,11 +3068,11 @@ $endif
     for(int i = 1; i <= 2; i++) 
     {
         $if $defined(ENABLE_CAMERA_VIEW):
-            Vec2f origin = local_game.view.camera.target;
+            Vec2f origin = local_game.view.origin;
         $else
             Vec2f origin;
         $endif
-        origin.translateV(misc::VEC_UP * 100 * i);
+        origin = origin + misc::VEC_UP * 100 * i;
         
         Entity* test_ent = ent::create_ex(string::tformat("Entity%s", i), origin, rl::WHITE);
         test_ent.setMaterial("figure");
@@ -3156,8 +3195,13 @@ $endif
     {
         misc::freeDebugLines();
     }
-    //rlgl::close();
-    rl::closeWindow();
+
+    $if $feature(BACKEND_RAYLIB) || $feature(BACKEND_RGFW):
+        local_game.render.shutdown();
+    $else
+        //rlgl::close();
+        rl::closeWindow();
+    $endif
 
     // DELETE THIS
     /*RLImage img = {
@@ -3328,11 +3372,14 @@ fn void createGameInputActions(ConfigFile* settings_file) @inline @local
 $endif
 
 $if !$feature(_DEBUG):
-    input::makeKeyboardAction("quit", misc::getKeyValueFromName(settings_file.getString("quit")), rl::KEY_NULL, (ActionCallBack)&input::quitGame);
+    //input::makeKeyboardAction("quit", input::getKeyCodeFromStr(settings_file.getString("quit")), rl::KEY_NULL, (ActionCallBack)&input::quitGame);
+	input::@makeInputAction({.name = "quit", .kind = ActionKind.KEYBOARD, 
+		.key1 = input::getKeyCodeFromStr(settings_file.getString("quit")), 
+		.func = &quitGame});
 $endif
 
-    input::makeKeyboardAction("quicksave", misc::getKeyValueFromName(settings_file.getString("quicksave")), rl::KEY_NULL, (ActionCallBack)&saveGame);
-    input::makeKeyboardAction("quickload", misc::getKeyValueFromName(settings_file.getString("quickload")), rl::KEY_NULL, (ActionCallBack)&loadGame);
+    input::makeKeyboardAction("quicksave", input::getKeyCodeFromStr(settings_file.getString("quicksave")), rl::KEY_NULL, (ActionCallBack)&saveGame);
+    input::makeKeyboardAction("quickload", input::getKeyCodeFromStr(settings_file.getString("quickload")), rl::KEY_NULL, (ActionCallBack)&loadGame);
     
     input::makeKeyboardAction("particles", rl::KEY_INSERT);
 
@@ -3363,6 +3410,7 @@ fn void gameDoOneFrame() @local
 {
     misc::@profile_zone("Game Loop")
     {
+        $if $feature(BACKEND_RAYLIB) || $feature(BACKEND_RGFW):
         while(rl::windowShouldClose() != true) 
         {
             //@pool()
@@ -3403,7 +3451,34 @@ fn void gameDoOneFrame() @local
                 }; // tracy scope end
            // };
         }
-        
+        $else
+            bkend::@renderLoop(local_game.render) 
+            {
+                tracy::@messageL( "Tick" );
+                tracy::@zoneN("Game loop", 1)
+                {
+                    @profile_zone("gameDoOneFrame", OFF)
+                    {
+                        if(local_game.should_quit) break;
+                        
+                        // update game timing
+                        local_game.dt       = rl::getFrameTime(); // last frame time
+                        local_game.time_sec = (float)rl::getTime();
+                        local_game.time_ms  = misc::@sec2ms(local_game.time_sec);
+
+                        $if $feature(LUA_ENABLE):
+                        lua::updateGameLuaGlobals();
+                        $endif
+
+                        int screen_w = rl::getScreenWidth();
+                        int screen_h = rl::getScreenHeight();
+                        
+                        gameUpdate();
+                        gameDraw(screen_w, screen_h);
+                    }; // end @profile_zone
+                }; // tracy scope end
+            };
+        $endif
     };
     
 }
@@ -3414,7 +3489,7 @@ fn void gameDoOneFrame() @local
 
 fn void pre_InitFunc() @init {
     io::printfn("/*******************************************\n");
-    io::printfn("This should run BEFORE main entry function!\n");
+    io::printfn("This should run %s%s%s main entry function!\n", ansi::color_rgb(171, 218, 217), "BEFORE", Ansi.RESET);
     io::printfn("*******************************************\\\n");
     
     //uint value = misc::megaBytes2Bytes(1024);
@@ -3536,8 +3611,9 @@ $endif
 fn void pos_MainFunc() @finalizer
 {
     io::printfn("/*******************************************\n");
-    io::printfn("This should run AFTER main entry point function returns!\n");
+    io::printfn("This should run %s%s%s main entry point function returns!\n", ansi::color_rgb(171, 218, 217), "AFTER", Ansi.RESET);
     io::printfn("*******************************************\\\n");
+    libc::system("pause");
 }
 
 

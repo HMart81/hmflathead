@@ -547,7 +547,6 @@ alias FOLDERID_SAVEDGAMES = HOME_FOLDER;
 // i'm letting this be because it works in a tad different way (using our own HResult enum type)
 extern fn HResult getKnownFolderPath(Win32_REFKNOWNFOLDERID rfid, Win32_DWORD dwFlags, Win32_HANDLE hToken /*null*/, Win32_PWSTR *ppszPath /*out*/) @cname("SHGetKnownFolderPath") @if(env::WIN32);
 
-
 //extern fn bool isWindowsVistaOrGreater() @cname("IsWindowsVistaOrGreater");
 extern fn int getVersion(OSversionInfoPrt lpVersionInformation) @cname("RtlGetVersion");
 extern fn int copyFileA( Win32_LPCSTR lpExistingFileName, Win32_LPCSTR lpNewFileName, Win32_BOOL bFailIfExists ) @cname("CopyFileA");

@@ -81,19 +81,28 @@ void SetModelMeshMaterial(RLModel *model, int meshId, int materialId);          
 
 const NEW_MATERAL_SYSTEM = true; // enable the new material system, still WIP
 
+const int TEXTURE_NONE      @public = 0;
+const int TEXTURE_DIFFUSE   @public = 1;
+const int TEXTURE_SPECULAR  @public = 2;
+const int TEXTURE_NORMAL    @public = 3;
+const int TEXTURE_OCCLUSION @public = 4;
+const int TEXTURE_EMISSION  @public = 5;
+const int TEXTURE_HEIGHT    @public = 6;
+const int TEXTURE_CUBEMAP   @public = 7;
+
 // TODO(HM) Support more than one stage type per material, 
 // for example more than one diffuse map, etc.
 // RLMaterial stage index
-alias MatStageIndex                 = int;
-const MatStageIndex STAGE_DIFFUSE   @public = 0;    // only one supported (for now...)
-const MatStageIndex STAGE_SPECULAR  @public = 1;
-const MatStageIndex STAGE_NORMAL    @public = 2;
-const MatStageIndex STAGE_OCCLUSION @public = 3;    // Ambient occlusion material
-const MatStageIndex STAGE_EMISSION  @public = 4;    // Emission material
-const MatStageIndex STAGE_HEIGHT    @public = 5;    // Heightmap material
-const MatStageIndex STAGE_CUBEMAP   @public = 6;    // Cubemap material (NOTE: Uses GL_TEXTURE_CUBE_MAP)
-const MatStageIndex STAGE_VIDEO     @public = 7;    // video map stage
-const MatStageIndex STAGE_SOUND     @public = 8;    // sound map stage
+alias MatStageIndex = int;
+const MatStageIndex STAGE_DIFFUSE   @public = TEXTURE_DIFFUSE;    // only one supported (for now...)
+const MatStageIndex STAGE_SPECULAR  @public = TEXTURE_SPECULAR;
+const MatStageIndex STAGE_NORMAL    @public = TEXTURE_NORMAL;
+const MatStageIndex STAGE_OCCLUSION @public = TEXTURE_OCCLUSION;    // Ambient occlusion material
+const MatStageIndex STAGE_EMISSION  @public = TEXTURE_EMISSION;    // Emission material
+const MatStageIndex STAGE_HEIGHT    @public = TEXTURE_HEIGHT;    // Heightmap material
+const MatStageIndex STAGE_CUBEMAP   @public = TEXTURE_CUBEMAP;    // Cubemap material (NOTE: Uses GL_TEXTURE_CUBE_MAP)
+const MatStageIndex STAGE_VIDEO     @public = 8;    // video map stage
+const MatStageIndex STAGE_SOUND     @public = 9;    // sound map stage
 // Don't forget to update this max value if adding more stages above!!!
 const MAX_STAGE_INDICES = (STAGE_SOUND);
 // just in case...
@@ -472,7 +481,7 @@ fn void HMaterial.copy(&self, HMaterial* other)
             if(arg != null) stage.args.push(mem::new(StageArgument, {arg.first.tcopy(), arg.second.tcopy()}));
         }
     }
-	//self.getStage(mat::STAGE_DIFFUSE).tex = *other.getTexture(mat::STAGE_DIFFUSE);
+	//self.getStage(mat::STAGE_DIFFUSE).tex = *other.getTexture(mat::TEXTURE_DIFFUSE);
     //self.getStage(mat::STAGE_DIFFUSE).args.add_all(&other.getStage(mat::STAGE_DIFFUSE).args);
 }
 
@@ -485,20 +494,28 @@ fn MaterialStage* HMaterial.getStage(&self, MatStageIndex index) @inline @public
     return &self.maps[index];
 }
 
+<*
+    Gets the texture for the given stage index
+    @param index : "stage index to get the necessary texture data." 
+    @require index >= 0 && index < MAX_STAGE_INDICES
+    @param isPBR : "if true, will get the PBR texture, otherwise will get the standard texture"
+*>
 fn RLTexture2D* HMaterial.getTexture(&self, MatStageIndex index, bool isPBR = false) @public
 {
     switch(index)
     {
-        case STAGE_NORMAL:    return &self.getStage(STAGE_NORMAL).tex;
-        case STAGE_SPECULAR:  return &self.getStage(STAGE_SPECULAR).tex;
-        case STAGE_HEIGHT:    return &self.getStage(STAGE_HEIGHT).tex;
-        case STAGE_EMISSION:  return &self.getStage(STAGE_EMISSION).tex;
-        case STAGE_OCCLUSION: return &self.getStage(STAGE_OCCLUSION).tex;
-        case STAGE_CUBEMAP:   return &self.getStage(STAGE_CUBEMAP).tex;
-        case STAGE_VIDEO:     //return &self.getStage(STAGE_VIDEO).tex;
-        case STAGE_SOUND:     //return &self.getStage(STAGE_SOUND).tex;
-            @todo();
-        case STAGE_DIFFUSE:
+        case TEXTURE_SPECULAR:  return &self.getStage(STAGE_SPECULAR).tex;
+        case TEXTURE_NORMAL:    return &self.getStage(STAGE_NORMAL).tex;
+        case TEXTURE_OCCLUSION: return &self.getStage(STAGE_OCCLUSION).tex;
+        case TEXTURE_EMISSION:  return &self.getStage(STAGE_EMISSION).tex;
+        case TEXTURE_HEIGHT:    return &self.getStage(STAGE_HEIGHT).tex;
+        case TEXTURE_CUBEMAP:   return &self.getStage(STAGE_CUBEMAP).tex;
+        //case STAGE_VIDEO:     //return &self.getStage(STAGE_VIDEO).tex;
+        //case STAGE_SOUND:     //return &self.getStage(STAGE_SOUND).tex;
+           //@todo();
+        case TEXTURE_NONE:
+            unreachable("Material '%s' in file '%s' has no texture for stage index %d!", self.name, self.mtrfile.path, index);
+        case TEXTURE_DIFFUSE:
         default:
             return &self.getStage(STAGE_DIFFUSE).tex;
     }
@@ -538,9 +555,9 @@ fn void HMaterial.parse_node_atributes(&self, XmlNode* node) @public
             if(node.name == "MATERIAL") break; // MATERIAL name atrribute is handled seperately
         case NodeAttrib.PATH:
         case NodeAttrib.KIND:
-           io::printfn("  %s = %s,", atrb.name, atrb.value);
+            log::info(CONSOLE, "  %s = %s,", atrb.name, atrb.value);
         default:
-           io::printfn("Unnused attribute '%s' found in node '%s' of material '%s' in file '%s'!", atrb.name, node.name, self.name, self.mtrfile.path);
+            log::warning(CONSOLE, "Unnused attribute '%s' found in node '%s' of material '%s' in file '%s'!", atrb.name, node.name, self.name, self.mtrfile.path);
        }
     }
 }
@@ -1035,7 +1052,7 @@ fn void HMaterial.parse_vertex_attribute(&self, XmlNode* child, RLShader* shader
                         case RLShdrAttrbDatTyp.FLOAT:
                             float f = atrb.value.to_float()!!;
                             if(f == 0.0f) {
-                                log::error(Where.FILE, "Invalid value '%s' for attribute '%s' in node '%s' of material '%s' in file '%s'!", 
+                                log::error(FILE, "Invalid value '%s' for attribute '%s' in node '%s' of material '%s' in file '%s'!", 
                                     atrb.value, atrb.name, child.name, self.name, self.mtrfile.path);
                                 break NODE; // continue to the next node
                             }
@@ -1043,7 +1060,7 @@ fn void HMaterial.parse_vertex_attribute(&self, XmlNode* child, RLShader* shader
                         case RLShdrAttrbDatTyp.VEC2:
                             Vec2f vec2 = getVector2FromString(atrb.value);
                             if(vec2.x == 0.0f && vec2.y == 0.0f) {
-                                log::error(Where.FILE, "Invalid value '%s' for attribute '%s' in node '%s' of material '%s' in file '%s'!", 
+                                log::error(FILE, "Invalid value '%s' for attribute '%s' in node '%s' of material '%s' in file '%s'!", 
                                     atrb.value, atrb.name, child.name, self.name, self.mtrfile.path);
                                 break NODE; // continue to the next node
                             }
@@ -1052,7 +1069,7 @@ fn void HMaterial.parse_vertex_attribute(&self, XmlNode* child, RLShader* shader
                         case RLShdrAttrbDatTyp.VEC3:
                             Vec3f vec3 = getVector3FromString(atrb.value);
                             if(vec3.x == 0.0f && vec3.y == 0.0f && vec3.z == 0.0f) {
-                                log::error(Where.FILE, "Invalid value '%s' for attribute '%s' in node '%s' of material '%s' in file '%s'!", 
+                                log::error(FILE, "Invalid value '%s' for attribute '%s' in node '%s' of material '%s' in file '%s'!", 
                                     atrb.value, atrb.name, child.name, self.name, self.mtrfile.path);
                                 break NODE; // continue to the next node
                             }
@@ -1061,25 +1078,25 @@ fn void HMaterial.parse_vertex_attribute(&self, XmlNode* child, RLShader* shader
                         case RLShdrAttrbDatTyp.VEC4:
                             Vec4f vec4 = getVector4FromString(atrb.value);
                             if(vec4.x == 0.0f && vec4.y == 0.0f && vec4.z == 0.0f && vec4.w == 0.0f) {
-                                log::error(Where.FILE, "Invalid value '%s' for attribute '%s' in node '%s' of material '%s' in file '%s'!", 
+                                log::error(FILE, "Invalid value '%s' for attribute '%s' in node '%s' of material '%s' in file '%s'!", 
                                     atrb.value, atrb.name, child.name, self.name, self.mtrfile.path);
                                 break NODE; // continue to the next node
                             }
                             float[*] arr = {vec4.x, vec4.y, vec4.z, vec4.w};
                             shader.setValueV(loc, (void*)&arr, RLShdrAttrbDatTyp.VEC4.ordinal, 1);
                         default:
-                            log::error(Where.FILE, "Invalid type '%s' for attribute '%s' in node '%s' of material '%s' in file '%s'!", 
+                            log::error(FILE, "Invalid type '%s' for attribute '%s' in node '%s' of material '%s' in file '%s'!", 
                                 atrb.value, atrb.name, child.name, self.name, self.mtrfile.path);
                             break NODE; // continue to the next node
                     }
                 default:
-                    io::printfn("Unnused attribute '%s' found in node '%s' of material '%s' in file '%s'!", atrb.name, child.name, self.name, self.mtrfile.path);
+                    log::warning(CONSOLE, "Unnused attribute '%s' found in node '%s' of material '%s' in file '%s'!", atrb.name, child.name, self.name, self.mtrfile.path);
             }
         }
     }
     else 
     {
-        log::warning(Where.FILE, "Vertex attribute node '%s' in material '%s' in file '%s' has no attributes!", child.name, self.name, self.mtrfile.path);
+        log::warning(FILE, "Vertex attribute node '%s' in material '%s' in file '%s' has no attributes!", child.name, self.name, self.mtrfile.path);
     }
 }
 
@@ -1874,7 +1891,7 @@ fn HMaterial* getMaterial(String material_name) @public
 
     // just for testing purposes
     if(mat != null) {
-	    assert(rl::isTextureValid(*mat.getTexture(mat::STAGE_DIFFUSE)));
+	    assert(rl::isTextureValid(*mat.getTexture(mat::TEXTURE_DIFFUSE)));
     }
     
 	return mat;
@@ -1893,9 +1910,10 @@ fn void MaterialDataBase.listMTRs(&self) @public
     $if $feature(_DEBUG):
         if(self.data.len())
         {
-            log::info(Where.CONSOLE, "[MATERIAL FILES]");
+            log::info(CONSOLE, "[MATERIAL FILES]");
             foreach(mtr: self.data) {
-                io::printfn("\t-> \"%s\"", mtr.path);
+                String trimmed_path = "...\\".tconcat(mtr.path.strip(main::gpGame.app_base_folder));
+                io::printfn("%s\t-> \"%s\"%s", ansi::color_rgb(171, 218, 217), trimmed_path, Ansi.RESET);
             }
         }
     $endif

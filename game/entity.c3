@@ -580,7 +580,8 @@ fn void Entity.born(&self) @inline
 fn void Entity.kill(&self) 
 {
 //self.mGame = null; // make sure we don't accidently kill the game singleton!!
-	io::printfn("Killing Entity '%s'!!!", self.name);
+	//io::printfn("Killing Entity '%s'!!!", self.name);
+    io::printfn("%s%s'%s'!!!%s", ansi::color_rgb(255, 0, 0), "Killing Entity ", self.name, Ansi.RESET);
     self.hide();
 
 	if(self.targets.len() > 0) 

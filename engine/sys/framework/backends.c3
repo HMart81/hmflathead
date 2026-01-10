@@ -27,27 +27,32 @@
 *********************************************************************************************************************************************/
 /* UNFINISHED BACKEND INTERFACE */
 
-module sys::framework::backends::bkend @if($feature(BACKEND_RAYLIB));
+module engine::sys::framework::backends::bkend @if($feature(BACKEND_RAYLIB));
 
-import std::io;
+import std::io, std::os::win32;
 import engine::misc;
 import engine::filesystem::fs;
 import engine::logging::log;
-import game::assets::sprt;
+import game::assets::sprite;
 import game::main;
 import thirdparty::raylib5::rl;
+
+faultdef WINDOW_CREATION_FAILED, 
+         FAILED_TO_GET_WINDOW_HANDLE;
 
 // Backend interface
 interface IBackend {
     fn void	initialize() @optional;
-    fn void	createWindow(String title, int width, int height);
+    fn WindowHandle? createWindow(String title, int width, int height, RLConfigFlag flags);
     fn void setMainMonitor(uint monitor) @optional;
+    fn int  getMonitorPhysicalWidth(uint monitor) @optional;
+    fn int  getMonitorPhysicalHeight(uint monitor) @optional;
+    fn Vec2f getMonitorPosition(uint monitor) @optional;
+    fn int getMonitorRefreshRate(uint monitor) @optional;
+    fn bool isWindowFocused() @optional;
     fn void setTargetFPS(uint fps) @optional;
     fn void setBackGroundColor(RLColor color) @optional;
-    fn void setWindowIcon(Sprite icon) @optional;
-    fn void setWindowFlag(uint flag) @optional;
-    fn void clearWindowFlag(uint flag) @optional;
-    fn void setWindowFlags(int flags) @optional;
+    fn void setWindowIcon(HMSprite icon) @optional;
     fn void	shutdown();
 }
 
@@ -55,74 +60,116 @@ interface IBackend {
 //const BACKEND_RAYLIB = 1;
 //const BACKEND_RGFW   = 2;
 
-alias WindowHandle = void*;
+alias WindowHandle @if(!env::WIN32) = void*; // on non-Windows
+alias WindowHandle @if(env::WIN32) = Win32_HWND; // on Windows
 
-struct Render (IBackend) 
+struct BackendRender (IBackend) 
 {
-    WindowHandle window;
-    uint windowFlags;
-    RLColor bgColor; // background color
+    WindowHandle window; // right now is just a place for a window handle
 }
 
+// Custom window flag manipulation this is done BEFORE window creation
+// to do flag changes AFTER window creation, 
+// use raylib functions setWindowState() and clearWindowState() directly
+fn void setWindowFlag(RLConfigFlag* windowFlags, RLConfigFlag flag) @inline
+{
+    (*windowFlags) |= flag;
+}
+
+fn void clearWindowFlag(RLConfigFlag* windowFlags, RLConfigFlag flag) @inline
+{
+    (*windowFlags) &= ~flag;
+}
+//
+
 <*
-    @param [&in] rd : "Render context"
+    @param [&in] rd : "BackendRender context"
 *>
-macro renderLoop(Render* rd; @body) {
+macro @renderLoop(BackendRender* rd; @body) {
     while (!rl::windowShouldClose()) {
-        rl::@drawing() {
+        //rl::@drawing() {
             // Clear screen
-            rl::clearBackground(rd.bgColor);
+            //rl::clearBackground(rd.bgColor);
             @body;
-        };
+        //};
     }
 }
 
-fn void Render.setWindowFlag(&self, uint flag) @dynamic @inline
-{
-    self.windowFlags |= flag;
-}
-
-fn void Render.clearWindowFlag(&self, uint flag) @dynamic @inline
-{
-    self.windowFlags &= ~flag;
-}
-
-fn void Render.setTargetFPS(&self, uint fps) @dynamic
+fn void BackendRender.setTargetFPS(&self, uint fps) @dynamic
 {
     rl::setTargetFPS((int)fps);
 }
 
-fn void Render.setMainMonitor(&self, uint monitor_index) @dynamic
+fn void BackendRender.setMainMonitor(&self, uint monitor_index) @dynamic
 {
     rl::setWindowMonitor((int)monitor_index);
 }
 
-fn void Render.setBackGroundColor(&self, RLColor color) @dynamic @inline
+fn int BackendRender.getMonitorPhysicalWidth(&self, uint monitor_index) @dynamic
 {
-    self.bgColor = color;
+    return rl::getMonitorPhysicalWidth((int)monitor_index);
 }
 
-fn void Render.initialize(&self) @dynamic
+fn int BackendRender.getMonitorPhysicalHeight(&self, uint monitor_index) @dynamic
 {
-    self.setWindowFlag(rl::FLAG_WINDOW_HIGHDPI);
-    self.setWindowFlag(rl::FLAG_VSYNC_HINT); // try enabling V-Sync
-    self.setWindowFlag(rl::FLAG_MSAA_4X_HINT); // try enabling MSAA 4X
-    // set/apply the final window flags
-    rl::setConfigFlags(self.windowFlags);
+    return rl::getMonitorPhysicalHeight((int)monitor_index);
 }
 
-fn void Render.createWindow(&self, String title, int width, int height) @dynamic
+fn Vec2f BackendRender.getMonitorPosition(&self, uint monitor_index) @dynamic
 {
+    return rl::getMonitorPosition((int)monitor_index);
+}
+
+fn int BackendRender.getMonitorRefreshRate(&self, uint monitor_index) @dynamic
+{
+    return rl::getMonitorRefreshRate((int)monitor_index);
+}
+
+fn bool BackendRender.isWindowFocused(&self) @dynamic
+{
+    return rl::isWindowFocused();
+}
+
+fn void BackendRender.setBackGroundColor(&self, RLColor color) @dynamic @inline
+{
+    rl::clearBackground(color);
+}
+
+fn void BackendRender.setWindowIcon(&self, HMSprite icon) @dynamic
+{
+    RLTexture2D* texture = icon.getTexture();
+    if(texture == null) return;
+
+    RLImage img = rl::loadImageFromTexture(*texture);
+    rl::setWindowIcon(img);
+    rl::unloadImage(img);
+}
+
+/*fn void BackendRender.initialize(&self) @dynamic
+{
+    setWindowFlag(rl::FLAG_WINDOW_HIGHDPI);
+    setWindowFlag(rl::FLAG_VSYNC_HINT); // try enabling V-Sync
+    setWindowFlag(rl::FLAG_MSAA_4X_HINT); // try enabling MSAA 4X
+}*/
+
+fn WindowHandle? BackendRender.createWindow(&self, String title, int width, int height, RLConfigFlag flags) @dynamic
+{
+    if(flags) rl::setConfigFlags(flags);
+
     rl::initWindow(width, height, title.zstr_tcopy());
-    self.windowFlags = 0; // reset flags after window creation
+    if(!rl::isWindowReady()) return WINDOW_CREATION_FAILED?;
+
+    self.window = rl::getWindowHandle();
+    if(self.window) { return self.window; } else { return FAILED_TO_GET_WINDOW_HANDLE?; }
 }
 
-fn void Render.shutdown() @dynamic
+fn void BackendRender.shutdown(&self) @dynamic
 {
     rl::closeWindow();
+    if(self.window != null) self.window = null;
 }
 
-module sys::framework::backends::bkend @if($feature(BACKEND_RGFW));
+module engine::sys::framework::backends::bkend @if($feature(BACKEND_RGFW));
 
 import std::io;
 import game::main;
@@ -166,23 +213,23 @@ interface IBackend {
 
 alias WindowHandle = RGFW_window*;
 
-struct Render (IBackend) 
+struct BackendRender (IBackend) 
 {
     WindowHandle window;
 }
 
 
-fn void Render.initialize(&self) @dynamic
+fn void BackendRender.initialize(&self) @dynamic
 {
     rgfw::init();
 }
 
-fn void Render.createWindow(&self, String title, int width, int height) @dynamic
+fn void BackendRender.createWindow(&self, String title, int width, int height) @dynamic
 {
     self.window = rgfw::createWindow(title.zstr_tcopy(), rgfw::Rect(100, 100, width, height), (long)0);
 }
 
-macro Render.renderLoop(Render* rd; @body) {
+macro BackendRender.renderLoop(BackendRender* rd; @body) {
     while (rgfw::window_shouldClose(rd.window) == rgfw::FALSE) {
         // Clear screen
         // todo
@@ -194,20 +241,20 @@ macro Render.renderLoop(Render* rd; @body) {
     }
 }
 
-fn void Render.shutdown() @dynamic
+fn void BackendRender.shutdown() @dynamic
 {
     rgfw::window_close(self.window);
     // or perhaps self.window.close();
 }
 
-fn void Render.pollEvents() @dynamic @inline
+fn void BackendRender.pollEvents() @dynamic @inline
 {
     while (rgfw::window_checkEvent(self.window)) {
         if (self.window.event.type == rgfw::quit) break;
     }
 }
 
-fn void Render.swapBuffers() @dynamic
+fn void BackendRender.swapBuffers() @dynamic
 {
     rgfw::window_swapBuffers(self.window);
     // or perhaps self.window.swapBuffers();

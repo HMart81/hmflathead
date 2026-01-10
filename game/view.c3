@@ -59,7 +59,7 @@ import game::camview::postprocess::pp;
 
 /*
     NOTE(HM) 
-    In raylib, screen coordinates use a 2D Cartesian system 
+    In raylib, using 2D camera, screen coordinates use a 2D Cartesian system 
     with the origin (0,0) at the top-left corner of the window.
     
     ** world view space **
@@ -72,11 +72,13 @@ import game::camview::postprocess::pp;
     |             |
     |_____________|
 
+
+
     Unfortunatly OpenGL uses a different coordinate system
     with the origin (0,0) at the bottom-left corner of the window.
     And positive Y axis goes up, not down as in raylib screen space.
-    So when drawing to a framebuffer texture, the Y axis is inverted!!!
 
+    ** rendering/draw view space **
      _____________
     | +y          |
     | |           |
@@ -85,25 +87,21 @@ import game::camview::postprocess::pp;
     |             |
     0,0___________|
     
-    WARNING: Again when displaying framebuffer textures, 
+    WARNING: This means that when displaying framebuffer textures, 
              the Y coordinate, will be inverted!!!
-             Meaning, Y up becomes +Y and down becomes -Y!!!!!
-             Raylib functions getting 2D screen coordinates like rl::getMouseY(), 
+             And we will have to negate the Y axis when drawing the framebuffer texture.
+             BUT Raylib functions getting 2D screen coordinates, like rl::getMouseY(), etc..., 
              will return the value has if Y is NOT inverted, so have that in mind!!!
 
-    world_matrix:
-    s = scale
-    r = rotation
-    t = translation
     
     ** camera coordinate space **
     
      _____________
     |             |
-    |     -y      |
+    |      y      |
     | -x __|__ +x |
     |      |      |
-    |     +y      |
+    |     -y      |
     |_____________|
     
     CCW rotation (counter clockwise) using the right hand rule
@@ -125,12 +123,17 @@ import game::camview::postprocess::pp;
     [2D] = (camera coordinate space)
     
     canonical view square
-    | -1,-1   0,-1   1,-1 |   |     -1     |
-    | -1, 0   0, 0   1, 0 | = | -1___|___1 |
     | -1, 1   0, 1   1, 1 |   |      1     |
+    | -1, 0   0, 0   1, 0 | = | -1___|___1 |
+    | -1,-1   0,-1   1,-1 |   |     -1     |
 */
 
 /*
+  world_matrix:
+    s = scale
+    r = rotation
+    t = translation
+
 * column Major*
 |sx ry tx|   |a c e|   |m00 m01 m02|
 |rx sy ty| = |b d f| = |m10 m11 m12|
@@ -147,13 +150,23 @@ alias gameptr = main::gpGame;
 
 const int ENABLE_CAMERA_VIEW = 1;
 
-typedef RenderLayer @private = inline RLRenderTexture2D;
-alias RenderFunctionCallback = fn void(RenderView* view, RenderLayer* layer);
+typedef RenderTexture @private = inline RLRenderTexture2D;
+alias RenderFunctionCallback = fn void(RenderView* view, ViewLayer* layer);
 
 struct ViewLayer @private
 {
-    RenderLayer buffer;
-    RenderFunctionCallback callback;
+    RenderTexture data;
+}
+
+<*
+	Initializes the view layer with the given render texture.
+
+	@param #width : "the x width of the render texture to use for this view layer"
+	@param #height : "the y height of the render texture to use for this view layer"
+	@require #width >= 32 && #height >= 32
+*>
+macro ViewLayer.@init(&self, #width, #height) {
+	self.data = (RenderTexture)rl::loadRenderTexture(#width, #height);
 }
 
 struct RenderView (SaveSystemInterface)
@@ -161,10 +174,10 @@ struct RenderView (SaveSystemInterface)
     ViewLayer gameFrame;
     ViewLayer guiFrame;
     ViewLayer postGuiFrame;
-    //RenderLayer shadowFrameBuffer; // not used yet
+    //RenderTexture shadowFrameBuffer; // not used yet
     ViewLayer debugFrame; // not used yet
     //
-    RenderLayer* currentRender; // current render target/layer displayed
+    RenderTexture* currentRender; // current render target/layer displayed
     bool taking_screenshot;
     HMPostProcess grayscale;
     bool enable_grayscale;
@@ -200,19 +213,14 @@ fn void RenderView.reload(&self, SaveFile* file) @dynamic {
 fn void RenderView.init(&self, int screenWidth, int screenHeight) @inline 
 {
     // @testing...
-    self.gameFrame.buffer      = (RenderLayer)rl::loadRenderTexture(screenWidth, screenHeight);
-    self.guiFrame.buffer       = (RenderLayer)rl::loadRenderTexture(screenWidth, screenHeight);
-    self.postGuiFrame.buffer   = (RenderLayer)rl::loadRenderTexture(screenWidth, screenHeight);
-    //self.shadowFrame.buffer  = (RenderLayer)rl::loadRenderTexture(screenWidth, screenHeight); // not used yet
-    self.debugFrame.buffer     = (RenderLayer)rl::loadRenderTexture(screenWidth, screenHeight);
-    self.gameFrame.callback    = &renderGameFBO;
-    self.guiFrame.callback     = &renderGuiFBO;
-    self.postGuiFrame.callback = &renderPostGuiFBO;
-    //self.shadowFrame.callback  = &renderShadowFBO; // not used yet
-    self.debugFrame.callback   = &renderDebugFBO; // not used yet
+	self.gameFrame.@init(screenWidth, screenHeight);
+    self.guiFrame.@init(screenWidth, screenHeight);
+    self.postGuiFrame.@init(screenWidth, screenHeight);
+    //self.shadowFrame.data  = (RenderLayer)rl::loadRenderTexture(screenWidth, screenHeight); // not used yet
+    self.debugFrame.@init(screenWidth, screenHeight);
     //
     // NOTE(HM) used to point to the main render layer to be used for shaders and such if necessary
-    self.currentRender              = &self.gameFrame.buffer;
+    self.currentRender = &self.gameFrame.data;
 
     self.grayscale.load("grayscale");
     
@@ -277,15 +285,13 @@ $endif
     input::makeKeyboardAction("pp_graysacle",   rl::KEY_G);
 }
 
-fn void RenderView.deinit(&self) 
+fn void RenderView.deinit(&self)
 {
      // Unload render texture (FBO)
-    rl::unloadRenderTexture(self.gameFrame.buffer);
-    rl::unloadRenderTexture(self.guiFrame.buffer);
-    rl::unloadRenderTexture(self.postGuiFrame.buffer);
-    self.guiFrame.callback     = null;
-    self.postGuiFrame.callback = null;
-    self.currentRender              = null;
+    if(rl::isRenderTextureValid(self.gameFrame.data))    rl::unloadRenderTexture(self.gameFrame.data);
+    if(rl::isRenderTextureValid(self.guiFrame.data))     rl::unloadRenderTexture(self.guiFrame.data);
+    if(rl::isRenderTextureValid(self.postGuiFrame.data)) rl::unloadRenderTexture(self.postGuiFrame.data);
+    self.currentRender = null;
     self.grayscale.unload();
 }
 
@@ -315,6 +321,19 @@ fn void RenderView.debug(&self)
     */
 }
 
+<*
+    Renders to the given framebuffer layer using the provided callback function.
+    
+    @param callback : "the rendering function callback to use"
+    @param [inout] target_layer : "the framebuffer layer to render into"
+    @require callback != null && target_layer != null
+*>
+fn void RenderView.renderFBO(&self, RenderFunctionCallback callback, ViewLayer* target_layer) @inline @local
+{
+    if(callback) {
+        callback(self, target_layer);
+    }
+}
 
 // NOTE(HM) This was disabled because I found Raysan's
 // hardcoded F12 key for the screenshot action, very annoying,
@@ -588,9 +607,11 @@ int old_sort @local; // used to sort the sprites by their sort value
     @param [inout] layer : "the framebuffer layer to render into"
     @require view != null && layer != null
 *>
-fn void renderGameFBO(RenderView* view, RenderLayer* layer) @local 
+fn void renderGameFBO(RenderView* view, ViewLayer* layer) @local 
 {
-    rl::beginTextureMode(*layer);       // Enable drawing to a texture
+	RLRenderTexture2D tex = (*layer).data;
+    rl::beginTextureMode(tex); // Enable drawing to a texture
+
         //rl::clearBackground(rl::WHITE);  // Clear texture background
         rl::clearBackground(rl::fade(rl::WHITE, 0.0f));
         
@@ -678,9 +699,11 @@ $endif
     @param [inout] layer : "the framebuffer layer to render to"
     @require view != null && layer != null
 *>
-fn void renderGuiFBO(RenderView* view, RenderLayer* layer) @local 
+fn void renderGuiFBO(RenderView* view, ViewLayer* layer) @local 
 {
-    rl::@textureMode(*layer) {
+    RLRenderTexture2D tex = (*layer).data;
+	rl::@textureMode(tex) 
+	{
         rl::clearBackground(rl::fade(rl::WHITE, 0.0f));
 $if $defined(ENABLE_CAMERA_VIEW):
         rl::@mode2D(view.camera) {
@@ -701,16 +724,17 @@ $endif
     @param [&in] view : "the view to render to the framebuffer layer" 
     @param [&inout] layer : "the framebuffer layer to render to"
 *>
-fn void renderPostGuiFBO(RenderView* view, RenderLayer* layer) @local 
+fn void renderPostGuiFBO(RenderView* view, ViewLayer* layer) @local 
 {
-     rl::@textureMode(*layer) 
-     {
-        rl::clearBackground(rl::fade(rl::WHITE, 0.0f));
+	RLRenderTexture2D tex = (*layer).data;
+	rl::@textureMode(tex)
+	{
+		rl::clearBackground(rl::fade(rl::WHITE, 0.0f));
 $if $defined(ENABLE_CAMERA_VIEW):
-        rl::@mode2D(view.camera) 
-        {
-            main::gameOnPostGUIDraw(view.w, view.h);
-        };
+		rl::@mode2D(view.camera) 
+		{
+			main::gameOnPostGUIDraw(view.w, view.h);
+		};
 $endif
     }; // End drawing to texture (now we have a texture available for next passes)
 }
@@ -724,9 +748,10 @@ $endif
     @param [&in] view : "the view to render to the framebuffer layer" 
     @param [&inout] layer : "the framebuffer layer to render to"
 *>
-fn void renderDebugFBO(RenderView* view, RenderLayer* layer) @local 
+fn void renderDebugFBO(RenderView* view, ViewLayer* layer) @local 
 {
-    rl::@textureMode(*layer) {
+	RLRenderTexture2D tex = (*layer).data;
+    rl::@textureMode(tex) {
         rl::clearBackground(rl::fade(rl::WHITE, 0.0f));
 $if $defined(ENABLE_CAMERA_VIEW):
         rl::@mode2D(view.camera) {
@@ -741,17 +766,17 @@ fn void RenderView.renderToFBO(&self) @inline
     // render to the game layer
     if(self.enable_grayscale) {
         self.grayscale.@apply(self.currentRender) {
-            self.gameFrame.callback(self, &self.gameFrame.buffer);
+            self.renderFBO(&renderGameFBO, &self.gameFrame);
         };
     } else {
-        self.gameFrame.callback(self, &self.gameFrame.buffer);
+        self.renderFBO(&renderGameFBO, &self.gameFrame);
     }
     // render to the gui layer
-    self.guiFrame.callback(self, &self.guiFrame.buffer);
+    self.renderFBO(&renderGuiFBO, &self.guiFrame);
     // render to the post gui layer
-    self.postGuiFrame.callback(self, &self.postGuiFrame.buffer);
+    self.renderFBO(&renderPostGuiFBO, &self.postGuiFrame);
     // render to the debug layer
-    self.debugFrame.callback(self, &self.debugFrame.buffer);
+    self.renderFBO(&renderDebugFBO, &self.debugFrame);
 }
 
 fn void RenderView.draw(&self) @inline 
@@ -759,13 +784,13 @@ fn void RenderView.draw(&self) @inline
     // NOTE: Render texture must be y-flipped due to default OpenGL coordinates (left-bottom)
 
     // draw the game framebuffer
-    rl::drawTextureRec(self.gameFrame.buffer.texture, { 0, 0, (float)self.w, (float)-self.h }, { 0, 0 }, rl::WHITE);
+    rl::drawTextureRec(self.gameFrame.data.texture, { 0, 0, (float)self.w, (float)-self.h }, { 0, 0 }, rl::WHITE);
     // draw the gui framebuffer
-    rl::drawTextureRec(self.guiFrame.buffer.texture, { 0, 0, (float)self.w, (float)-self.h }, { 0, 0 }, rl::WHITE);
+    rl::drawTextureRec(self.guiFrame.data.texture, { 0, 0, (float)self.w, (float)-self.h }, { 0, 0 }, rl::WHITE);
     // draw the post gui framebuffer
-    rl::drawTextureRec(self.postGuiFrame.buffer.texture, { 0, 0, (float)self.w, (float)-self.h }, { 0, 0 }, rl::WHITE);
+    rl::drawTextureRec(self.postGuiFrame.data.texture, { 0, 0, (float)self.w, (float)-self.h }, { 0, 0 }, rl::WHITE);
     // draw the debug framebuffer
-    rl::drawTextureRec(self.debugFrame.buffer.texture, { 0, 0, (float)self.w, (float)-self.h }, { 0, 0 }, rl::WHITE);
+    rl::drawTextureRec(self.debugFrame.data.texture, { 0, 0, (float)self.w, (float)-self.h }, { 0, 0 }, rl::WHITE);
 }
 
 /*
@@ -941,7 +966,7 @@ fn void HMPostProcess.update(&self) {
   @todo();
 }
 
-macro HMPostProcess.@apply(&self, RenderLayer* layer; @body) {
+macro HMPostProcess.@apply(&self, RenderTexture* layer; @body) {
     self.shader.setUniformTexture("texture0", layer.texture);
     rl::@shaderMode(self.shader)
     {

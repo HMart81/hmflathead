@@ -389,6 +389,17 @@ fn void drawDebugBox(Vec2f pos, Vec2f size, RLColor color) @inline {
     rl::drawRectangleV(*((RLVector2*)&pos), *((RLVector2*)&size), color);
 }
 
+// untested
+fn RLTexture2D makeGridTexture(Vec2i grid_size, Vec2i tex_size, RLColor col1 = {0x00, 0x00, 0x00, 0xFF}, RLColor col2 = {0xFF, 0x00, 0xFF, 0xFF}) @inline 
+{
+	CInt width = tex_size.x;
+	CInt height = tex_size.y;
+	RLImage img = rl::genImageChecked(width, height, grid_size.x, grid_size.y, col1, col2);
+	
+	RLTexture2D texture = rl::loadTextureFromImage(img);
+	rl::unloadImage(img); // Free image memory after creating texture
+	return texture;
+}
 
 ///////////////////////////////////////
 // RLTexture2D misc functions
