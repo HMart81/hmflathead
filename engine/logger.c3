@@ -29,7 +29,7 @@
 module engine::logging::log;
 
 // region modules
-import std::io;
+import std::io, std::time, std::math;
 import libc;
 import game::main;
 import thirdparty::raylib5::rl;
@@ -37,7 +37,7 @@ import engine::sys::cvar;
 // end_region
 
 // region Cvars
-Cvar g_log @public = { "g_log", CvarType.BOOLEAN, "true", "turns on loggin for debuggin."};
+Cvar g_log @public = { "g_log", CvarType.BOOL, "true", "turns on loggin for debuggin."};
 
 fn void register_cvars() {
 	cvar::@register(&g_log);
@@ -53,27 +53,25 @@ const ZString APPEND_TO_END    = "a";
 // region defines
 // end_region
 
-enum Where {
+enum Where
+{
     FILE,
     CONSOLE
 }
-const Where FILE @export = Where.FILE;
+const Where FILE @export    = Where.FILE;
 const Where CONSOLE @export = Where.CONSOLE;
 
 /*
 // Trace log level, taken from raylib55
 // NOTE: Organized by priority level
-RLTraceLogLevel
-{
-    ALL,            // Display all logs (0)
-    TRACE,          // Trace logging, intended for internal use only
-    DEBUG,          // Debug logging, used for internal debugging, it should be disabled on release builds
-    INFO,           // Info logging, used for program execution info
-    WARNING,        // Warning logging, used on recoverable failures
-    ERROR,          // Error logging, used on unrecoverable failures
-    FATAL,          // Fatal logging, used to abort program: exit(EXIT_FAILURE)
-    NONE            // Disable logging
-}
+ALL     = Display all logs (0)
+TRACE   = Trace logging, intended for internal use only
+DEBUG   = Debug logging, used for internal debugging, it should be disabled on release builds
+INFO    = Info logging, used for program execution info
+WARNING = Warning logging, used on recoverable failures
+ERROR   = Error logging, used on unrecoverable failures
+FATAL   = Fatal logging, used to abort program: exit(EXIT_FAILURE)
+NONE    = Disable logging
 */
 
 // region local globals
@@ -90,7 +88,7 @@ fn void setLogLevel(RLTraceLogLevel level) @inline
 
 // NOTE(HM) controls file and Console logging 
 // plus sets where the log file is saved as well.
-fn void initGlobalLoggingDir() @inline
+fn void initGlobalLoggingDir() @inline @local
 {
     gpath = rl::getWorkingDirectory().str_view().tconcat("\\debug.log").zstr_tcopy();
 }
@@ -224,9 +222,9 @@ $if $feature(_DEBUG):
 				level_str = "[INFO]";
 		}
 		
-		//libc::fprintf(file, "%s: %s\n", level_str.tcopy(), str.zstr_view());
-		//libc::fflush(file);
-		gfile.write(string::tformat("%s: %s\n", level_str, str))!!;
+		DateTime date = datetime::now();
+		String date_str = string::tformat("%s:%s.%d ", date.min, date.sec, (date.usec / 1000));
+		gfile.write(string::tformat("%s %s: %s\n",date_str, level_str, str))!!;
 		gfile.flush()!!;
 		glogcount++;
 	}

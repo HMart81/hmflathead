@@ -37,7 +37,7 @@ const float	INFINITY = 1e30f;
 
 const VEC2_ZERO @local = (Vec2f){0.0f, 0.0f};
 
-Cvar db_showBounds = { "db_showBounds", CvarType.BOOLEAN, "0", "displays used bounding box's on screen for debug"};
+Cvar db_showBounds = { "db_showBounds", CvarType.BOOL, "0", "displays used bounding box's on screen for debug"};
 
 fn void register_cvars() {
     cvar::@register(&db_showBounds);

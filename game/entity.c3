@@ -50,7 +50,7 @@ import thirdparty::wren; // wren scripting engine
 // end_region
 
 // region cvars
-Cvar ent_debugBounds  = { "ent_debugBounds", CvarType.BOOLEAN, "0", "show debug visualization for entity bounding box" };
+Cvar ent_debugBounds  = { "ent_debugBounds", CvarType.BOOL, "0", "show debug visualization for entity bounding box" };
 
 // NOTE(HM) this is called in main.c3
 fn void register_cvars() @inline 

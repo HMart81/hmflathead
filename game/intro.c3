@@ -26,7 +26,7 @@ const FRAME_TIME       = FADE_IN_TIME + VISIBLE_DURATION + FADE_OUT_TIME; // ms
 // end_region
 
 // region cvars
-Cvar skip_intro @public = { "skip_intro", CvarType.BOOLEAN, "1", "skip displaying the intro" };
+Cvar skip_intro @public = { "skip_intro", CvarType.BOOL, "1", "skip displaying the intro" };
 
 fn void register_cvars() @public 
 {

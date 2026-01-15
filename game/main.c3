@@ -249,22 +249,22 @@ alias asstManager    @public= astmng::assetManager;
 // #endregion Alias
 
 // #region Cvars
-Cvar developer      @public = { "developer"     , CvarType.BOOLEAN, "0",    "enables developer mode"};
-Cvar editor         @public = { "editor"        , CvarType.BOOLEAN, "0",    "enables the game editor (requires developer mode)"};
+Cvar developer      @public = { "developer"     , CvarType.BOOL, "0",    "enables developer mode"};
+Cvar editor         @public = { "editor"        , CvarType.BOOL, "0",    "enables the game editor (requires developer mode)"};
 Cvar r_mode         @public = { "r_mode"        , CvarType.INT,     "-1",   "index of window resolution [0 to 32], -1 = ini file setting"};
-Cvar r_showFPS      @public = { "r_showFPS"     , CvarType.BOOLEAN, "1",    "draws framerate on screen"};
-Cvar r_noSplashPic  @public = { "r_noSplashPic" , CvarType.BOOLEAN, "1",    "disables the splash image at game start"};
+Cvar r_showFPS      @public = { "r_showFPS"     , CvarType.BOOL, "1",    "draws framerate on screen"};
+Cvar r_noSplashPic  @public = { "r_noSplashPic" , CvarType.BOOL, "1",    "disables the splash image at game start"};
 Cvar r_fullscreen   @public = { "r_fullscreen"  , CvarType.INT,     "-1",   "screen mode 0 = window, 1 = borderless, 2 = dedicated, -1 = ini file setting"};
-Cvar r_fps_unlocked @public = { "r_unlockFps"   , CvarType.BOOLEAN, "false", "sets if the fps is unlocked (true) or locked to the monitor refresh rate (false)"};
+Cvar r_fps_unlocked @public = { "r_unlockFps"   , CvarType.BOOL, "false", "sets if the fps is unlocked (true) or locked to the monitor refresh rate (false)"};
 Cvar r_max_fps      @public = { "r_max_fps"     , CvarType.INT,     "-1",   "sets the maximum fps when fps is unlocked, -1 = monitor refresh rate"};
 Cvar fs_base        @public = { "fs_base"       , CvarType.STRING,  "data", "default game base folder"};
 Cvar fs_mod_name    @public = { "fs_mod_name"   , CvarType.STRING,  "",     "folder name of mod to run"};
 Cvar fs_mod_base    @public = { "fs_mod_base"   , CvarType.STRING,  "",     "folder name for custom database of running mod"};
-Cvar db_drawPhysics @public = { "db_drawPhysics", CvarType.BOOLEAN, "1",    "show debug visualization for world physics" };
-Cvar s_noaudio      @public = { "s_noaudio"     , CvarType.BOOLEAN, "0",    "disables all audio"};
-Cvar fl_help        @public = { "help"          , CvarType.BOOLEAN, "0",    "shows help message"};
+Cvar db_drawPhysics @public = { "db_drawPhysics", CvarType.BOOL, "1",    "show debug visualization for world physics" };
+Cvar s_noaudio      @public = { "s_noaudio"     , CvarType.BOOL, "0",    "disables all audio"};
+Cvar fl_help        @public = { "help"          , CvarType.BOOL, "0",    "shows help message"};
 // TODO(HM) disable editor cvar, when not used anymore
-//Cvar r_window_resizable @public = { "r_window_resizable", CvarType.BOOLEAN,  "0",   "makes window resizable, window mode only."};
+//Cvar r_window_resizable @public = { "r_window_resizable", CvarType.BOOL,  "0",   "makes window resizable, window mode only."};
 
 fn void register_cvars() @local 
 {
@@ -3487,7 +3487,8 @@ fn void gameDoOneFrame() @local
 
 //usz* memory_pool @local;
 
-fn void pre_InitFunc() @init {
+fn void pre_InitFunc() @init 
+{
     io::printfn("/*******************************************\n");
     io::printfn("This should run %s%s%s main entry function!\n", ansi::color_rgb(171, 218, 217), "BEFORE", Ansi.RESET);
     io::printfn("*******************************************\\\n");
@@ -3520,9 +3521,6 @@ $endif
     local_game.infoBox.init(MessageBoxType.INFO);
 
     showSettingsWindow();
-
-    // Update(HM): can't be done here needs window/Opengl context to be initialize because of loading textures
-    // rgui::style::dark::load();
 
     log::info(FILE, "-------- THE <toname> ENGINE LOG ------------");
     DateTime date = datetime::now();

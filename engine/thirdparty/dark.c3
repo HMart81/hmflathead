@@ -1,7 +1,6 @@
 module thirdparty::raygui5::rgui::style::dark;
 
 import thirdparty::raygui5::rgui;
-
 import thirdparty::raylib5::rl;
 
 //////////////////////////////////////////////////////////////////////////////////
@@ -549,6 +548,12 @@ const GlyphInfo[DARK_FONT_RECS.len] DARK_FONT_GLYPHS = {
 
 $assert DARK_SIZE_PROPS.len == DARK_STYLE_PROPS_COUNT;
 // Style loading function: Dark
+<*
+	loads a custom dark style for the UI controls
+	requires the window to be initialized before calling
+	because it loads a font texture and other resources
+	@require rl::isWindowReady() == true : "Window must be initialized before loading a style"
+*>
 fn void load()
 {
     // Load style properties provided

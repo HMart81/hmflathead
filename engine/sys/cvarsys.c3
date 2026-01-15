@@ -82,15 +82,16 @@ enum CvarType : char
     NONE,
     FLOAT,
     INT,
-    BOOLEAN,
+    BOOL,
     STRING
 }
 
-fn String typeToString(CvarType type) @local @inline {
+fn String typeToString(CvarType type) @local @inline 
+{
     switch(type) {
         case CvarType.FLOAT:   return "float";  
         case CvarType.INT:     return "int";    
-        case CvarType.BOOLEAN: return "boolean";
+        case CvarType.BOOL: return "boolean";
         case CvarType.STRING:  return "string"; 
         case CvarType.NONE: 
         default:               return "unknown";
@@ -145,7 +146,7 @@ fn void printCvars() @inline
     foreach(cv: cvars) {
         io::printfn("%s : %s", cv.name, typeToString(cv.type));
         io::printfn("\t - desc: %s", cv.description);
-        io::printfn("\t - default: %s", (cv.type != CvarType.BOOLEAN) ? cv.value : misc::bool2str(cv.value == "1"));
+        io::printfn("\t - default: %s", (cv.type != CvarType.BOOL) ? cv.value : misc::bool2str(cv.value == "1"));
         //io::printfn("--------------------------------------------------------");
     }
     io::printfn("Total cvars: %d", cvars.len());
@@ -227,7 +228,7 @@ macro Cvar.initWithStrings( String name, String value, int flags, String descrip
 
 fn bool Cvar.getBool(&self, bool default_value = false) @inline
 {
-    if(self.type != CvarType.BOOLEAN) {
+    if(self.type != CvarType.BOOL) {
         log::warning(Where.FILE, "Trying to get boolean value from Cvar: %s but it is not a bool: %s->%d", self.name, $$FUNC, $$LINE);
         return default_value;
     }
@@ -279,7 +280,7 @@ fn String Cvar.getString(&self, String default_value = "") @inline {
 fn Cvar* Cvar.set(&self, String value) @inline {
     self.value = value.tcopy();
 $if $feature(_DEBUG):
-    if(self.type == CvarType.BOOLEAN) {
+    if(self.type == CvarType.BOOL) {
         log::info(CONSOLE, "Cvar %s was set to %s.", self.name, (self.value == "1") ? "true" : "false");
     } else {
         log::info(CONSOLE, "Cvar %s was set to value %s.", self.name, value);
