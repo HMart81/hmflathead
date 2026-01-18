@@ -262,7 +262,8 @@ fn void Action.update(&self, float timeStep)
     self.handleInput();
 }
 
-fn void Action.handleInput(&self) {
+fn void Action.handleInput(&self) 
+{
     if (self.isTriggered /*self.wasTriggered()*/) {
         if(self.callback != null) self.callback();
     }
@@ -307,14 +308,15 @@ fn void makeKeyboardAction(String name, RLKeyboardKey key1, RLKeyboardKey key2 =
         return;
     }
 
-    if(getAction(name) != null) {
-        log::warning(Where.CONSOLE, "Cannot create action with name \"%s\", already exists.", name);
-        return;
-    }
+    foreach(act : local_manager.actions)
+	{
+		if(act.name == name) {
+        	log::warning(CONSOLE, "Cannot create another action named \"%s\", is already taken.", name);
+       		return;
+    	}
 
-    foreach(act : local_manager.actions) {
         if(act.kind == ActionKind.KEYBOARD && act.keyboard.key1 == key1 && act.keyboard.key2 == key2) {
-            log::warning(Where.CONSOLE, "Cannot create action with key1 \"%s\" and key2 \"%s\", already assigned to action \"%s\".", getKeyboardKeyName(key1), getKeyboardKeyName(key2), act.name);
+            log::warning(CONSOLE, "Cannot give key1 \"%s\" and key2 \"%s\" to action \"%s\", they are already taken by action \"%s\".", getKeyboardKeyName(key1), getKeyboardKeyName(key2), name, act.name);
             return;
         }
     }
@@ -374,7 +376,7 @@ fn void makeInputActionImp(Input_Action_Entry entry, MakeInputActionFunc func) @
 		func(&entry);
 	}
 }
-macro void @makeInputAction(Input_Action_Entry entry) 
+macro void @makeAction(Input_Action_Entry entry) 
 {
 	makeInputActionImp(entry, fn void(Input_Action_Entry* e) {
 		switch (e.kind)
@@ -518,11 +520,13 @@ fn RLKeyboardKey getKeyCodeFromStr(String name) @inline
  @param name : "the name of the action to retrieve"
  @require name != ""
 *>
-fn Action* getAction(String name) @inline {
+fn Action* getAction(String name) @inline 
+{
     return local_manager.getActionByName(name);
 }
 
-fn void removeAction(String name) @inline {
+fn void removeAction(String name) @inline 
+{
     if(name == "") return;
     
     foreach(act : local_manager.actions) {
@@ -533,7 +537,8 @@ fn void removeAction(String name) @inline {
     }
 }
 
-fn String getKeyboardKeyName(RLKeyboardKey k) {
+fn String getKeyboardKeyName(RLKeyboardKey k) 
+{
     switch (k)
     {
         case rl::KEY_NULL         : return "KEY_NULL";
@@ -646,11 +651,13 @@ fn String getKeyboardKeyName(RLKeyboardKey k) {
     }
 }
 
-fn void listActions() @inline {
+fn void listActions() @inline 
+{
     local_manager.listActions();
 }
 
-fn String getMouseBtnName(RLMouseButton btn) @inline @local {
+fn String getMouseBtnName(RLMouseButton btn) @inline @local 
+{
     switch (btn)
     {
         case rl::RLMouseButton.LEFT  : return "MOUSE_BUTTON_LEFT";
@@ -667,7 +674,8 @@ fn String getMouseBtnName(RLMouseButton btn) @inline @local {
 <*
     @param [&in] action : "the action to retrieve the main button name from"
 *>
-fn String getMainBtnNameFrom(Action* action) @inline @local {
+fn String getMainBtnNameFrom(Action* action) @inline @local 
+{
     switch (action.kind)
     {
         case KEYBOARD: return getKeyboardKeyName(action.keyboard.key1);
@@ -704,7 +712,8 @@ ActionManager* gpManager = &local_manager;
 <*
  @param [&in] action : "the action to register"
 *>
-fn void ActionManager.register(&self, Action* action) @inline {
+fn void ActionManager.register(&self, Action* action) @inline 
+{
     foreach(act : self.actions) 
     {
         if(act.name == action.name) {
@@ -720,7 +729,8 @@ fn void ActionManager.register(&self, Action* action) @inline {
  @param name : "the name of the action to retrieve"
  @require name != ""
 *>
-fn Action* ActionManager.getActionByName(&self, String name) @inline @local {
+fn Action* ActionManager.getActionByName(&self, String name) @inline @local 
+{
     if(name == "") return null;
     
     foreach(action : self.actions) {
@@ -775,7 +785,8 @@ fn void ActionManager.update(&self)
     // todo detect actions with the same keys
 }
 
-fn void ActionManager.free(&self) {
+fn void ActionManager.free(&self) 
+{
     if(self.actions.len()) {
         foreach(action: self.actions) {
             if(action.callback) action.callback = null;
@@ -788,11 +799,11 @@ fn void ActionManager.free(&self) {
 fn void ActionManager.listActions(&self) @local @inline
 {
     if(self.actions.len()) {
-        log::info(Where.FILE, "[ KEY ACTIONS ]");
+        log::info(FILE, "[ KEY ACTIONS ]");
         foreach(action: self.actions) {
-           log::info(Where.FILE, "\t-> \"%s\" : {%s, %s},", action.name, getKeyboardKeyName(action.keyboard.key1), getKeyboardKeyName(action.keyboard.key2));
+           log::info(FILE, "\t-> \"%s\" : {%s, %s},", action.name, getKeyboardKeyName(action.keyboard.key1), getKeyboardKeyName(action.keyboard.key2));
         }
-        log::info(Where.FILE, "[ END ACTIONS ]]");
+        log::info(FILE, "[ END ACTIONS ]]");
     }
 }
 

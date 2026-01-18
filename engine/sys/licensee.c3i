@@ -30,6 +30,7 @@ module engine::sys::licensee;
 
 import std::io;
 import engine::misc; // misc code
+import engine::sys::framework::platform::platf;
 /*
 ===============================================================================
 
@@ -37,23 +38,24 @@ import engine::misc; // misc code
 
 ===============================================================================
 */
-const ENGINE_VERSION @Hardcode	= "hmpixy2d 1.5.1";	// printed in console
 
 const int MAX_VERSION                = 0;
 const int MIN_VERSION                = 0;
 const int BABY_VERSION               = 4;
-const GAME_NAME	@Hardcode = "hmflathead"; // appears on window titles and errors
+const GAME_NAME	@Hardcode = "hmflathead"; // appears on window titles and errors NO SPACES in the names please!
 const GAME_SUB_NAME @Hardcode = "engine"; // NOTE(HM) optional...
 macro @game_version() => string::tformat("%d.%d.%d", MAX_VERSION, MIN_VERSION, BABY_VERSION);
 
+const ENGINE_VERSION @Hardcode = @sprintf("%s %s.%s.%s", "hmpixy2d", MAX_VERSION, MIN_VERSION, BABY_VERSION);	// printed in console and used in log files
+
 // paths
-const BASE_GAMEDIR = "data";	// directory where the game data exists, relative to the executable
+const BASE_GAMEDIR = "data"+++platf::PATHSEPERATOR_STR;	// directory where the game data exists, relative to the executable
 
 // filenames
-const CONFIG_FILE =	"hmpixy2d.ini";	// configuration file name, in BASE_GAMEDIR
+const CONFIG_FILE =	GAME_NAME+++".ini";	// configuration file name, in BASE_GAMEDIR
 
 // base folder where the source code lives
-const SOURCE_CODE_BASE_FOLDER = "src";
+const SOURCE_CODE_BASE_FOLDER = "src"+++platf::PATHSEPERATOR_STR;
 
 // Savegame Version
 // Update when you can no longer maintain compatibility with previous savegames

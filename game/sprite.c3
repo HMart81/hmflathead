@@ -151,7 +151,8 @@ fn void HMSprite.initRect(&self, RLRectangle rect, RLColor color = rl::WHITE, Sp
     self.init(rect.x, rect.y, rect.width, rect.height, color, kind, material_name);
 }
 
-fn void HMSprite.initV(&self, Vec2f pos, Vec2f size, RLColor color = rl::WHITE, SpriteKind kind = GENERIC, String material_name = "") @inline {
+fn void HMSprite.initV(&self, Vec2f pos, Vec2f size, RLColor color = rl::WHITE, SpriteKind kind = GENERIC, String material_name = "") @inline 
+{
     self.initRect({ pos.x, pos.y, size.x, size.y }, color, kind, material_name);
 }
 

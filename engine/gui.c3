@@ -1993,7 +1993,7 @@ macro Desktop.@addChildren(&self; @body(self))
 macro Desktop.getChild(&self, int id) {
     Widget* child = self.children[id];
     if (child == null) {
-        log::warning(Where.CONSOLE, "Cannot get child %d from %s because is null.", id, self.super.name);
+        log::warning(CONSOLE, "Cannot get child %d from %s because is null.", id, self.super.name);
         return null;
     }
     return child;
@@ -2001,7 +2001,7 @@ macro Desktop.getChild(&self, int id) {
 
 fn void Desktop.debug(&self) 
 {
-    if(gui::ui_debugDraw.getBool()) 
+    if(gui::ui_debugDraw.getBool())
     {
         int scr_w, scr_h;
         float lineThick  = 1.0f;

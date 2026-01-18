@@ -34,31 +34,31 @@ module game::gui::menu;
     GUI creation process:
 
     - Create a Desktop
-    gui::Desktop main_menu;
+    	Desktop main_menu;
     - init the Desktop
-    main_menu.ini(...);
+    	main_menu.ini(...);
     - create any children panels/widgets
-    gui::WidgetButton main_menu_button;
+    	WidgetButton main_menu_button;
     - init the Widget and add it to Desktop
-    main_menu_button.init();
-    main_menu_button.addTo(&main_menu);
+    	main_menu_button.init();
+    	main_menu_button.addTo(&main_menu);
 
     or
 
     - Create a Desktop
-    gui::Desktop menu;
+    	Desktop menu;
     - init the Desktop
-    menu.ini(...);
-
-    menu.@addChildren() 
-    {
-        // create any children panels/widgets
-        {
-            gui::WidgetButton button0;
-            // init the Widget
-            button0.init();
-            button0.addTo(self);
-        }
+    	menu.ini(...);
+	- add children using the addChildren block
+		menu.@addChildren() 
+		{
+			// create any children panels/widgets
+			{
+				WidgetButton button0;
+				// init the Widget
+				button0.init();
+				button0.addTo(self);
+			}
     };
 */
 
@@ -206,7 +206,8 @@ fn void exit()
     @param [&in] bdef : "button callbacks definition struct pointer"
     @ensure return != null : "pointer to the created checkbox"
 *>
-fn WidgetCheckBox* Desktop.create_menu_checkbox(&self, String text, MenuButtonDef* bdef) @local @inline {
+fn WidgetCheckBox* Desktop.create_menu_checkbox(&self, String text, MenuButtonDef* bdef) @local @inline 
+{
     WidgetCheckBox* checkbox = gui::createCheckBox("Checkbox 1");
     checkbox.setColor(rl::DARKGRAY);
     checkbox.addTo(self);
@@ -225,7 +226,8 @@ fn WidgetCheckBox* Desktop.create_menu_checkbox(&self, String text, MenuButtonDe
     return checkbox;
 }
 
-fn WidgetText* Desktop.create_menu_label(&self, String text, RLFont* font, int font_size, RLColor color) @local @inline {
+fn WidgetText* Desktop.create_menu_label(&self, String text, RLFont* font, int font_size, RLColor color) @local @inline 
+{
     WidgetText* label = gui::createLabel("", text, font, font_size, color);
     Desktop* desktop = self;
     label.addTo(desktop);
@@ -251,7 +253,8 @@ struct MenuButtonDef
     @param [&in] bdef : "button callbacks definition struct pointer"
     @ensure return != null : "pointer to the created button"
 *>
-macro WidgetButton* Desktop.create_menu_button(&self, Vec2f pos, String text, MenuButtonDef* bdef) @local {
+macro WidgetButton* Desktop.create_menu_button(&self, Vec2f pos, String text, MenuButtonDef* bdef) @local 
+{
     WidgetButton* button = gui::createButton();
     button.addTo(self);
     // set the button properties

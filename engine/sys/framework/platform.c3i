@@ -1,0 +1,26 @@
+module engine::sys::framework::platform::platf;
+
+import std::io, std::os;
+
+/*
+===============================================================================
+
+	Non-portable system services.
+
+===============================================================================
+*/
+
+const PATHSEPERATOR_STR	 @if(env::WIN32) = "\\";
+const PATHSEPERATOR_CHAR @if(env::WIN32) = '\\';
+const PATHSEPERATOR_STR	 @if(env::POSIX) = "/";
+const PATHSEPERATOR_CHAR @if(env::POSIX) = '/';
+
+const NULL @if(!$defined(NULL)) = ((void *)0);
+macro int @bit($num) @if(!$defined(@bit)) => ( 1 << $num );
+
+const MAX_STRING_CHARS = 1024;		// max length of a string
+
+// maximum world size
+const MAX_WORLD_COORD = ( 128 * 1024 );
+const MIN_WORLD_COORD = ( -128 * 1024 );
+const MAX_WORLD_SIZE  = ( MAX_WORLD_COORD - MIN_WORLD_COORD );

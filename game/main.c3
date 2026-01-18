@@ -50,6 +50,7 @@ import engine::sys::reader::svg;
 import game::material::manager::mtrmng; // material database
 import engine::sys::framework::language::lang;
 import engine::sys::framework::backends::bkend; // graphics backend interface
+import engine::sys::framework::platform::platf; // platform specific stuff
 //
 import thirdparty::wren;
 import engine::sys::script_engine::scpt; // Script Engine (based on Wren language)
@@ -108,8 +109,8 @@ const DEFAULT_PIXELS_PER_METER @public @Hardcode = 100.0f; // 100 pixels per met
 const DEFAULT_UNITS_PER_PIXEL @public @Hardcode = DEFAULT_UNITS_PER_METER / DEFAULT_PIXELS_PER_METER; // 0.01 units per pixel
 
 
-const String MOUSE_IMAGE_NAME          @Hardcode = "pointer.png";
-const String MOUSE_POINTER_MAT         @Hardcode = "gui/pointer"; // game assets folder
+const String MOUSE_IMAGE_NAME @Hardcode = "pointer.png";
+const String MOUSE_POINTER_MAT_NAME @Hardcode = "gui/pointer"; // game assets folder
 const GAME_CURSOR_SCALER               @Hardcode = 0.025f;
 const int MAX_ENTITY_COUNT     @public @Hardcode = 1 << 12; //int.max;
 
@@ -982,14 +983,14 @@ fn bool system_cursor_visible() @public @inline {
 fn void init_game_cursor() @inline
 {
     local_game.mouse_cursor.initV(
-        {0,0}, // position in pixel units
-        {
+        pos: {0,0}, // position in pixel units
+        size: {
             0.45f, // width in game units
             0.45f  // height in game units
         },
-        rl::WHITE,
-        SpriteKind.CURSOR,
-        MOUSE_POINTER_MAT
+        color: rl::WHITE,
+        kind: SpriteKind.CURSOR,
+        material_name: MOUSE_POINTER_MAT_NAME
     );
 }
 
@@ -1024,14 +1025,15 @@ fn void update_game_cursor(int screen_w, int screen_h) @public
     
     // update size
     // TODO do a better mouse cursor size dependent on screen size!!
-    float cursor_h          = local_game.mouse_cursor.getSizeY();
+    float cursor_h = local_game.mouse_cursor.getSizeY();
     float desired_cursor_size = math::floor((GAME_CURSOR_SCALER * misc::pixelsToMeters(screen_h)));
     if(cursor_h > desired_cursor_size) {
         set_game_cursor_size(desired_cursor_size, desired_cursor_size);
     }
 }
 
-fn void show_game_cursor() @public @inline {
+fn void show_game_cursor() @public @inline 
+{
     if(local_game.mouse_cursor.hidden()) local_game.mouse_cursor.show();
 }
 
@@ -2085,7 +2087,7 @@ $endif
         return INVALID_WORK_DIR?; // will this ever happen?
     }
     // Detect and Setup the base folder where required game assets/data live.
-    local_game.app_default_base_folder = local_game.app_default_workdir.tconcat(fs_base.getString()).tconcat("\\");
+    local_game.app_default_base_folder = local_game.app_default_workdir.tconcat(fs_base.getString()).tconcat(platf::PATHSEPERATOR_STR);
     
     local_game.app_work_dir    = local_game.app_default_workdir;
     local_game.app_base_folder = local_game.app_default_base_folder;
@@ -2107,14 +2109,14 @@ $endif
         mods_dir = local_game.app_default_workdir.tconcat("mods");
         if(fs::directoryExists(mods_dir)) // look inside
         {
-            mod_work_dir = mods_dir.tconcat("\\").tconcat(mod_name).tconcat("\\");
+            mod_work_dir = mods_dir.tconcat(platf::PATHSEPERATOR_STR).tconcat(mod_name).tconcat(platf::PATHSEPERATOR_STR);
             // make sure mod work dir exists as well
             if(fs::directoryExists(mod_work_dir))
             {
                 // set the game work dir to the mod work dir
                 local_game.app_work_dir = mod_work_dir;
                 // now set the game base dir for the mod base dir
-                mod_base_folder = mod_work_dir.tconcat(fs_mod_base.getString()).tconcat("\\");
+                mod_base_folder = mod_work_dir.tconcat(fs_mod_base.getString()).tconcat(platf::PATHSEPERATOR_STR);
                 // also make sure the mod base dir exists
                 if(fs::directoryExists(mod_base_folder))
                 {
@@ -2180,7 +2182,7 @@ $endif
         // NOTE(HM) append the desired final folder 
         // and look in the OS user save directory, to see if folder is already there 
         // if not create it.
-        local_game.app_save_folder = local_game.app_save_folder.tconcat("\\").tconcat(local_game.app_name);
+        local_game.app_save_folder = local_game.app_save_folder.tconcat(platf::PATHSEPERATOR_STR).tconcat(local_game.app_name);
         if(fs::directoryExists(local_game.app_save_folder)) 
         {
             log::info(FILE, "\tUser Save folder set to: %s", local_game.app_save_folder);
@@ -3244,7 +3246,7 @@ fn void saveGame()
     // look in the directory for the game save folder
     String save_folder = local_game.app_save_folder;
     if(fs::directoryExists(save_folder)) {
-        String file_path = save_folder.tconcat("\\").tconcat(string::tformat("%s%s%s", local_game.app_name, local_game.time_ms, ".sav"));
+        String file_path = save_folder.tconcat(platf::PATHSEPERATOR_STR).tconcat(string::tformat("%s%s%s", local_game.app_name, local_game.time_ms, ".sav"));
         SaveFile? save_file = svs::make_new(file_path);
         defer (void)svs::close(&save_file);
         if(catch excuse = save_file) {
@@ -3373,7 +3375,7 @@ $endif
 
 $if !$feature(_DEBUG):
     //input::makeKeyboardAction("quit", input::getKeyCodeFromStr(settings_file.getString("quit")), rl::KEY_NULL, (ActionCallBack)&input::quitGame);
-	input::@makeInputAction({.name = "quit", .kind = ActionKind.KEYBOARD, 
+	input::@makeAction({.name = "quit", .kind = KEYBOARD, 
 		.key1 = input::getKeyCodeFromStr(settings_file.getString("quit")), 
 		.func = &quitGame});
 $endif
