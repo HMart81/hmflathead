@@ -297,14 +297,7 @@ fn void RenderView.deinit(&self)
 
 fn void RenderView.debug(&self) 
 {
-    /*
-    // RLRectangle rec = {
-        // .x = 0,
-        // .y = 0,
-        // .width  = self.currentRender.texture.width,
-        // .height = self.currentRender.texture.height
-    // };
-    RLRectangle rec = {
+    /*RLRectangle rec = {
         .x = self.origin.x,
         .y = self.origin.y,
         .width  = self.w,
@@ -317,8 +310,7 @@ fn void RenderView.debug(&self)
     //rl::drawTextEx(*main::gpGame.candara_font, "TEXT DRAWN IN RENDER TEXTURE", {10, 30}, 16.0f, 2.0f, rl::COLOR_RED);
     //rl::drawLine((int)self.camera.target.x, -(int)rec.height*10, (int)self.camera.target.x, (int)rec.height*10, rl::COLOR_GREEN);
     //rl::drawCircleV(self.camera.target, 16.0f, rl::COLOR_RED);
-    //rl::drawRectangle(-6000, 320, 13000, 8000, rl::DARKGRAY);
-    */
+    //rl::drawRectangle(-6000, 320, 13000, 8000, rl::DARKGRAY);*/
 }
 
 <*

@@ -25,9 +25,11 @@
 # Hilario Martins, Rua de Sanguinhedo 1010 4850-545 Vieira Do Minho Portugal.
 # 
 *********************************************************************************************************************************************/
+/*
+// unused file
+//UNFINISHED GAME INTERFACE
 
-/* #delete
-module engine::sys::framework::game;
+module engine::sys::framework::game @private;
 
 import std::io;
 
@@ -44,58 +46,44 @@ const MAX_STRING_CHARS = 1024;
 interface IGame
 {
     // Initialize the game for the first time.
-    fn void? onStart(String[] args);
-    fn void update(double deltaTime);
-    fn void render();
+    fn void? onStart(String[] args) @optional;
+    fn void  onUpdate(double deltaTime) @optional;
+    fn void  onRender() @optional;
     // Shut down the entire game.
-    fn void shutdown();
+    fn void  onShutdown() @optional;
     // Loads a map and spawns all the entities.
-    fn void	initFromNewMap(String mapName, /*idRenderWorld *renderWorld, idSoundWorld *soundWorld,*/ bool isServer, bool isClient, int randseed );
-
+    fn void	 initFromNewMap(String mapName, /*HMRenderWorld *renderWorld, HMSoundWorld *soundWorld,*/ int randseed ) @optional;
     // Shut down the current map.
-    fn void	mapShutdown();
-
+    fn void	 mapShutdown() @optional;
     // Saves the current game state to a savegame file.
-    fn void	saveGame( SaveFile* saveGameFile );
-
+    fn void	 saveGame( SaveFile* saveGameFile ) @optional;
     // Loads a map from a savegame file.
-    fn bool	initFromSaveGame( String mapName, /*idRenderWorld *renderWorld, idSoundWorld *soundWorld,*/ SaveFile* saveGameFile );
-
+    fn bool	 initFromSaveGame( String mapName, /*idRenderWorld *renderWorld, idSoundWorld *soundWorld,*/ SaveFile* saveGameFile ) @optional;
     // The session calls this before moving the single player game to a new level.
     // TODO create a dictionary class based/inspired on idDict
-    //fn idDict &		GetPersistentPlayerInfo( int clientNum );
-
+    	//fn HMDict* getPersistentPlayerInfo( int clientNum ) @optional;
     // The session calls this right before a new level is loaded.
-    //fn void				SetPersistentPlayerInfo( int clientNum, const idDict &playerInfo ) = 0;
-
+    	//fn void setPersistentPlayerInfo( int clientNum, HMDict* playerInfo ) @optional;
     // Caches media referenced from in key/value pairs in the given dictionary.
-    //fn void	cacheDictionaryMedia( idDict *dict );
-
+    	//fn void cacheDictionaryMedia( HMDict *dict ) @optional;
     // Spawns the player entity to be used by the client.
-    fn void	spawnPlayer( int clientNum );
-
+    fn void	spawnPlayer( int clientNum ) @optional;
     // Runs a game frame, may return a session command for level changing, etc
-    fn GameReturn runFrame();
-
+    fn GameReturn runFrame() @optional;
     // Makes rendering and sound system calls to display for a given clientNum.
-    fn bool	draw(int clientNum = 0);
-
+    fn bool	onDraw(int clientNum = 0) @optional;
     // Let the game do it's own UI when ESCAPE is used
     // TODO change Desktop name to UserInterface
-    fn ESCAction handleESC( Desktop** gui );
-
+    fn ESCAction handleESC( Desktop** gui ) @optional;
     // get the games menu if appropriate ( multiplayer )
     // TODO change Desktop name to UserInterface
-    fn Desktop* startMenu();
-
+    fn Desktop* startMenu() @optional;
     // When the game is running it's own UI fullscreen, GUI commands are passed through here
     // return NULL once the fullscreen UI mode should stop, or "main" to go to main menu
-    fn String handleGuiCommands( String menuCommand );
-
+    fn String handleGuiCommands( String menuCommand ) @optional;
     // main menu commands not caught in the engine are passed here
     // TODO change Desktop name to UserInterface
-    fn void	handleMainMenuCommands( String menuCommand, Desktop* gui );
-
-    fn void	getMapLoadingGUI( char[ MAX_STRING_CHARS ] gui );
+    fn void	handleMainMenuCommands( String menuCommand, Desktop* gui ) @optional;
+    fn void	getMapLoadingGUI( char[MAX_STRING_CHARS]* gui ) @optional;
 }
 

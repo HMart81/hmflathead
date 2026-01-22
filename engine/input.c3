@@ -80,31 +80,18 @@ macro String actionKindToString(ActionKind k) {
 }
 // end_region
 
-interface ActionInterface {
-    /**
-	 * Update special logic for the action. Normally empty
-	 */
+interface ActionInterface 
+{
+	//Update special logic for the action. Normally empty
 	fn void updateLogic(float timeStep) @optional;
-	/**
-	 * Filled in by the class that inherits from Action.
-	 * \return true if the action is being triggered
-	 */
+	//Filled in by the class that inherits from Action.
+	//return true if the action is being triggered
 	fn bool fnIsTriggered() @optional;
-
-	/**
-	 *
-	 * \return A value from the input, ie the relative mouse x position.
-	 */
+	//return A value from the input, ie the relative mouse x position.
 	fn float getValue() @optional;
-
-	/**
-	 * The name of the key, ie for keyboard the name of the key is returned.
-	 */
+	//The name of the key, ie for keyboard the name of the key is returned.
 	fn String getInputName() @optional;
-
-	/**
-	 * The name of the input kind.
-	 */
+	//The name of the input kind. ie KEYBOARD, MOUSE, GAMEPAD, MOBILE
 	fn String getInputKind() @optional;
 }
 
@@ -112,7 +99,7 @@ struct Action (ActionInterface)
 {
     typeid type;
     String name;
-    
+
     ActionKind kind;
     
     struct keyboard {
@@ -147,28 +134,19 @@ struct Action (ActionInterface)
 	double timeCount;
 }
 
-fn bool Action.fnIsTriggered(&self) @dynamic
+fn bool Action.fnIsTriggered(&self) @dynamic @nodiscard
 {
     switch (self.kind) 
     {
         case KEYBOARD:
-            /*bool hasExtKey = self.keyboard.key2 != rl::KEY_NULL;
-            if (rl::isKeyDown(self.keyboard.key1)) 
-            {
-                if(hasExtKey) {
-                   return rl::isKeyDown(self.keyboard.key2);
-                }
-                
-                return true;
-            }*/
             bool hasExtKey = self.keyboard.key2 != rl::KEY_NULL;
-            if (!hasExtKey && rl::isKeyDown(self.keyboard.key1)) 
+            if (hasExtKey) 
+            {
+				return (rl::isKeyPressed(self.keyboard.key1) && rl::isKeyDown(self.keyboard.key2)) ? true : false; 
+            }
+            else if(rl::isKeyDown(self.keyboard.key1))
             {
                 return true;
-            }
-            else if(hasExtKey)
-            {
-                return (rl::isKeyPressed(self.keyboard.key1) && rl::isKeyDown(self.keyboard.key2)) ? true : false; 
             }
         case MOUSE:
             if (rl::isMouseButtonDown(self.mouse.btn))
@@ -189,8 +167,7 @@ fn bool Action.fnIsTriggered(&self) @dynamic
     return false;
 }
 
-/**
- *
+/*
  * returns true if the action was just triggered, else false
  */
 fn bool Action.wasTriggered(&self)
@@ -205,8 +182,7 @@ fn bool Action.wasTriggered(&self)
     return false;
 }
 
-/**
- *
+/*
  * return true if the action just became triggered, else false
  */
 fn bool Action.fnBecameTriggered(&self)
@@ -219,8 +195,7 @@ fn bool Action.fnBecameTriggered(&self)
     return false;
 }
 
-/**
-*
+/*
 * return true if the action just was double triggered (double clicked), else false
 */
 fn bool Action.fnDoubleTriggered(&self, float limit)
@@ -242,8 +217,7 @@ fn bool Action.fnDoubleTriggered(&self, float limit)
     return false;
 }
 
-
-/**
+/*
 * Update the Action, called by action manager
 */
 fn void Action.update(&self, float timeStep)
@@ -717,8 +691,12 @@ fn void ActionManager.register(&self, Action* action) @inline
     foreach(act : self.actions) 
     {
         if(act.name == action.name) {
-            log::warning(Where.CONSOLE, "Cannot register \"%s\" because is already registered.", action.name);
-            return;
+            log::warning(CONSOLE, "Cannot register \"%s\" because action with that name already exists.", action.name);
+			$if $feature(_DEBUG):
+				unreachable();
+            $else
+				return;
+			$endif
         }
     }
     
@@ -726,10 +704,10 @@ fn void ActionManager.register(&self, Action* action) @inline
 }
 
 <*
- @param name : "the name of the action to retrieve"
- @require name != ""
+	@param name : "the name of the action to retrieve"
+	@require name != ""
 *>
-fn Action* ActionManager.getActionByName(&self, String name) @inline @local 
+fn Action* ActionManager.getActionByName(&self, String name) @inline @local @nodiscard
 {
     if(name == "") return null;
     

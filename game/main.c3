@@ -264,6 +264,7 @@ Cvar fs_mod_base    @public = { "fs_mod_base"   , CvarType.STRING,  "",     "fol
 Cvar db_drawPhysics @public = { "db_drawPhysics", CvarType.BOOL, "1",    "show debug visualization for world physics" };
 Cvar s_noaudio      @public = { "s_noaudio"     , CvarType.BOOL, "0",    "disables all audio"};
 Cvar fl_help        @public = { "help"          , CvarType.BOOL, "0",    "shows help message"};
+Cvar dbg_stats      @public = { "dbg_stats"     , CvarType.BOOL, "0",    "shows various debug things on screen"};
 // TODO(HM) disable editor cvar, when not used anymore
 //Cvar r_window_resizable @public = { "r_window_resizable", CvarType.BOOL,  "0",   "makes window resizable, window mode only."};
 
@@ -283,7 +284,7 @@ fn void register_cvars() @local
     cvar::@register(&db_drawPhysics);
     cvar::@register(&s_noaudio);
     cvar::@register(&fl_help);
-    //cvar::@register(r_window_resizable);
+    cvar::@register(&dbg_stats);
     
     //if(cvar::cvars.len()) foreach(cv: cvar::cvars) {log::info(Where.CONSOLE, cv.name);}
 }
@@ -325,7 +326,7 @@ enum GameMode @public
 const usz GAME_ARENA_PAGE_SIZE = 256 * 1024; // 256 KB
 DynamicArenaAllocator gameArena @public;
 
-struct Game (SaveSystemInterface) @local 
+struct Game (SaveSystemInterface/*, IGame*/) @local 
 {
     bool should_update_entities;
     bool system_cursor_enabled;
@@ -873,6 +874,39 @@ fn void Game.unloadDefaultAssets(&self) {
     rl::unloadSound(self.default_sound);
     rl::unloadMusicStream(self.default_music);
     rl::unloadFont(self.default_font);
+}
+
+fn void? Game.loadSettingsFile(&self)
+{
+    String settings_path = local_game.app_save_folder.tconcat("settings.ini");
+    if(!fs::fileExists(settings_path)) {
+        log::warning(FILE, "Settings file not found, creating default settings file at: %s", settings_path);
+        File data = ini::create_default_settings_fileEx(settings_path)!!;
+        defer data.close()!!;
+        if(!local_game.settings_file.loadEx(data, settings_path)) {
+            log::fatal(FILE, "Failed to load settings file at: %s", settings_path);
+            return ini::FAILED_READ_FILE?;
+        }
+        // set default settings
+        ini::setBool(&local_game.settings_file, "video", "fullscreen", false);
+        ini::setInt(&local_game.settings_file, "video", "resolution_width", SCREEN_RES[DEFAULT_SCREEN_INDEX].w);
+        ini::setInt(&local_game.settings_file, "video", "resolution_height", SCREEN_RES[DEFAULT_SCREEN_INDEX].h);
+        ini::setInt(&local_game.settings_file, "video", "vsync", 1);
+        ini::setInt(&local_game.settings_file, "audio", "master_volume", 100);
+        ini::setInt(&local_game.settings_file, "audio", "music_volume", 80);
+        ini::setInt(&local_game.settings_file, "audio", "sfx_volume", 80);
+        // save file
+        if(!ini::saveConfigFile(&local_game.settings_file)) {
+            log::fatal(FILE, "Failed to save default settings file at: %s", settings_path);
+            return ini::FAILED_OPEN_FILE?;
+        }
+    }
+    // load settings file
+    bool? settings_load_sucess = local_game.settings_file.load(settings_path, false);
+    if(catch excuse = settings_load_sucess) {
+        log::warning(FILE, "Failed to load %s file with excuse: %s", settings_path, excuse);
+        return excuse?;
+    }
 }
 
 fn void Game.unload(&self) {
@@ -1482,7 +1516,7 @@ fn void drawWorkInProgressMessage(int screen_w, int screen_h) @local
 
 fn void drawGameOnScreenDebugInfo(int screen_w, int screen_h) @local
 {
-    if(guieditor::enabled()) return;
+    if(guieditor::enabled() || (!dbg_stats.getBool() && !local_game.show_statistics)) return;
     
     ZString slot1;
     ZString slot2;

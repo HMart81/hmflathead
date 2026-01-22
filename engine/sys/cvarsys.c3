@@ -52,37 +52,35 @@ alias CvarList = List{Cvar*};
 //const int PRINT_CVAR_SETTING = 1;
 // end_region
 
-enum CvarFlags : (inline int val) // not used yet
-{
-	CVAR_ALL				= -1,		// all flags
-	CVAR_BOOL				= @bit(0),	// variable is a boolean
-	CVAR_INTEGER			= @bit(1),	// variable is an integer
-	CVAR_FLOAT				= @bit(2),	// variable is a float
-	CVAR_SYSTEM				= @bit(3),	// system variable
-	CVAR_RENDERER			= @bit(4),	// renderer variable
-	CVAR_SOUND				= @bit(5),	// sound variable
-	CVAR_GUI				= @bit(6),	// gui variable
-	CVAR_GAME				= @bit(7),	// game variable
-	CVAR_TOOL				= @bit(8),	// tool variable
-	CVAR_USERINFO			= @bit(9),	// sent to servers, available to menu
-	CVAR_SERVERINFO			= @bit(10),	// sent from servers, available to menu
-	CVAR_NETWORKSYNC		= @bit(11),	// cvar is synced from the server to clients
-	CVAR_STATIC				= @bit(12),	// statically declared, not user created
-	CVAR_CHEAT				= @bit(13),	// variable is considered a cheat
-	CVAR_NOCHEAT			= @bit(14),	// variable is not considered a cheat
-	CVAR_INIT				= @bit(15),	// can only be set from the command-line
-	CVAR_ROM				= @bit(16),	// display only, cannot be set by user at all
-	CVAR_ARCHIVE			= @bit(17),	// set to cause it to be saved to a config file
-	CVAR_MODIFIED			= @bit(18)	// set when the variable is modified
-}
+// cvar flags
+const int FLAG_ALL				= -1;		// all flags
+const int FLAG_BOOL				= @bit(0);	// variable is a boolean
+const int FLAG_INTEGER			= @bit(1);	// variable is an integer
+const int FLAG_FLOAT			= @bit(2);	// variable is a float
+const int FLAG_SYSTEM			= @bit(3);	// system variable
+const int FLAG_RENDERER			= @bit(4);	// renderer variable
+const int FLAG_SOUND			= @bit(5);	// sound variable
+const int FLAG_GUI				= @bit(6);	// gui variable
+const int FLAG_GAME				= @bit(7);	// game variable
+const int FLAG_TOOL				= @bit(8);	// tool variable
+const int FLAG_USERINFO			= @bit(9);	// sent to servers, available to menu
+const int FLAG_SERVERINFO		= @bit(10);	// sent from servers, available to menu
+const int FLAG_NETWORKSYNC		= @bit(11);	// cvar is synced from the server to clients
+const int FLAG_STATIC			= @bit(12);	// statically declared, not user created
+const int FLAG_CHEAT			= @bit(13);	// variable is considered a cheat
+const int FLAG_NOCHEAT			= @bit(14);	// variable is not considered a cheat
+const int FLAG_INIT				= @bit(15);	// can only be set from the command-line
+const int FLAG_ROM				= @bit(16);	// display only, cannot be set by user at all
+const int FLAG_ARCHIVE			= @bit(17);	// set to cause it to be saved to a config file
+const int FLAG_MODIFIED			= @bit(18);	// set when the variable is modified
 
 // todo(HM) replace this with the cvar flags
 enum CvarType : char
 {
     NONE,
-    FLOAT,
-    INT,
     BOOL,
+    INT,
+    FLOAT,
     STRING
 }
 
@@ -91,7 +89,7 @@ fn String typeToString(CvarType type) @local @inline
     switch(type) {
         case CvarType.FLOAT:   return "float";  
         case CvarType.INT:     return "int";    
-        case CvarType.BOOL: return "boolean";
+        case CvarType.BOOL:    return "boolean";
         case CvarType.STRING:  return "string"; 
         case CvarType.NONE: 
         default:               return "unknown";
@@ -101,11 +99,11 @@ fn String typeToString(CvarType type) @local @inline
 struct Cvar
 {
     String   name;
+    //int      flags; // flags for the cvar (not used yet)
     CvarType type;
     String   value;
     //String   resetvalue; // resetting will change to this value (not used yet)
     String   description;
-    //int      flags; // flags for the cvar (not used yet)
     //float valueMin; // min value for the cvar (not used yet)
     //float valueMax; // max value for the cvar (not used yet)
 
@@ -118,17 +116,18 @@ struct Cvar
     //String[] valueStrings; // list of strings for the cvar (not used yet)
 
     // NOTE(HM) 
-    // The pointer was a idea I saw on Star Trek Elite Force 1 SDK game code
+    // This pointer was a idea I saw on Star Trek Elite Force 1 SDK game code
     // they used a linked list of cvars, to loop through them.
     // But I think it makes the cvar declaration and looping through more involved as well,
-    // so for the time being, I decided for a global dynamic list instead.
+    // so for the time being, I decided for a global dynamic array instead.
     // But this is still a cool idea to save for the future if needed....
     //Cvar* next;
 }
 
 CvarList cvars;
 
-macro @register(#cvar) {
+macro @register(#cvar) 
+{
     cvars.push(#cvar);
 $if $feature(_DEBUG):
     io::printfn("[INFO] Registered Cvar %s (%s).", #cvar.name, #cvar.description);
@@ -277,11 +276,12 @@ fn String Cvar.getString(&self, String default_value = "") @inline {
     return self.value;
 }
 
-fn Cvar* Cvar.set(&self, String value) @inline {
+fn Cvar* Cvar.set(&self, String value) @inline 
+{
     self.value = value.tcopy();
 $if $feature(_DEBUG):
     if(self.type == CvarType.BOOL) {
-        log::info(CONSOLE, "Cvar %s was set to %s.", self.name, (self.value == "1") ? "true" : "false");
+        log::info(CONSOLE, "Cvar %s was set to %s.", self.name, (self.value == "1" || self.value == "true") ? "true" : "false");
     } else {
         log::info(CONSOLE, "Cvar %s was set to value %s.", self.name, value);
     }
@@ -289,7 +289,38 @@ $endif
     return self;
 }
 
-fn Cvar* findCvar( String name ) @local @inline {
+fn void Cvar.archive(&self)
+{
+	@todo();
+	/*
+	// make sure we have the pre-loaded settings file
+	if(main::gpGame.settings_file.path == "") {
+		main::gpGame.loadSettingsFile();
+	}
+
+	ConfigFile* settings_file = &main::gpGame.settings_file;
+	if(settings_file.hasSection("Cvars")) {
+		IniSection* section = settings_file.getSection("Cvars");
+		IniCMD* cd  = mem::new(IniCMD);
+    	cd.type     = (int)self.type;
+    	cd.cmd      = (IniCmdData){self.name, self.value};
+		settings_file.addToSection(&section, cd);
+	} else {
+		IniSection* section = settings_file.createSection("Cvars");
+		settings_file.addSection(&section);
+	}
+
+    foreach( cvar : cvars ) {
+        if ( cvar.name == name ) {
+            return cvar;
+        }
+    }
+	return null;
+	*/
+}
+
+fn Cvar* findCvar( String name ) @local @inline 
+{
     foreach( cvar : cvars ) {
         if ( cvar.name == name ) {
             return cvar;

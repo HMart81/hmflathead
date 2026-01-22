@@ -1,0 +1,2 @@
+- Write a file system journal for better error prevention
+https://hivo.co/blog/understanding-file-system-journaling-enhancing-data-integrity

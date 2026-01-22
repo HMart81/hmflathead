@@ -26,7 +26,9 @@
 # 
 *********************************************************************************************************************************************/
 
-/* still needs a huge amount of work
+/* 
+DO NOT USE -> is outdated c3 code, all necessary peaces to use this still don't
+exist and this code, needs a huge amount of work...
 
 module engine::sys::cmd;
 
