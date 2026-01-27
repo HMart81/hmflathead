@@ -202,8 +202,8 @@ alias RLTexture2D = RLTexture;
 // but sometimes it's better to be explicit
 const INVALID_TEXTURE = (RLTexture2D){0, 0, 0, 0, (RLPixelFormat)0};
 
-// TextureCubemap, same as RLTexture
-alias TextureCubemap = RLTexture;
+// RLTextureCubemap, same as RLTexture
+alias RLTextureCubemap = RLTexture;
 
 // RLRenderTexture, fbo for texture rendering
 struct RLRenderTexture
@@ -1547,7 +1547,7 @@ fn RLTexture2D loadTexture(ZString fileName) @cname("LoadTexture");
 // Load texture from image data
 fn RLTexture2D loadTextureFromImage(RLImage image) @cname("LoadTextureFromImage");
 // Load cubemap from image, multiple image cubemap layouts supported
-fn TextureCubemap loadTextureCubemap(RLImage image, CInt layout) @cname("LoadTextureCubemap");
+fn RLTextureCubemap loadTextureCubemap(RLImage image, CInt layout) @cname("LoadTextureCubemap");
 // Load texture for rendering (framebuffer)
 fn RLRenderTexture2D loadRenderTexture(CInt width, CInt height) @cname("LoadRenderTexture");
 // Check if a texture is valid (loaded in GPU)

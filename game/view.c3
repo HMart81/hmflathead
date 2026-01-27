@@ -151,7 +151,7 @@ alias gameptr = main::gpGame;
 const int ENABLE_CAMERA_VIEW = 1;
 
 typedef RenderTexture @private = inline RLRenderTexture2D;
-alias RenderFunctionCallback = fn void(RenderView* view, ViewLayer* layer);
+alias RenderFunctionCallback = fn void(RenderView* view);
 
 struct ViewLayer @private
 {
@@ -317,13 +317,12 @@ fn void RenderView.debug(&self)
     Renders to the given framebuffer layer using the provided callback function.
     
     @param callback : "the rendering function callback to use"
-    @param [inout] target_layer : "the framebuffer layer to render into"
-    @require callback != null && target_layer != null
+    @require callback != null
 *>
-fn void RenderView.renderFBO(&self, RenderFunctionCallback callback, ViewLayer* target_layer) @inline @local
+fn void RenderView.renderFBO(&self, RenderFunctionCallback callback) @inline @local
 {
     if(callback) {
-        callback(self, target_layer);
+        callback(self);
     }
 }
 
@@ -573,7 +572,7 @@ $endif
 
 fn void RenderView.updateBounds(&self) {
     @pool() {
-        Vec2f bb_maxc    = self.getTarget() + misc::VEC_UP * (float)(self.h / 2) + misc::VEC_LEFT * (float)(self.w / 2);  
+        Vec2f bb_maxc = self.getTarget() + misc::VEC_UP * (float)(self.h / 2) + misc::VEC_LEFT * (float)(self.w / 2);  
         self.bounds.setRect(misc::makeRect(bb_maxc,{self.w, self.h}));
     };
 }
@@ -595,13 +594,11 @@ int old_sort @local; // used to sort the sprites by their sort value
     This is the main game rendering function, it draws all the game sprites and entities
     and also the physics debug drawing if enabled.
 
-    @param [in] view : "the view to render to the framebuffer layer" 
-    @param [inout] layer : "the framebuffer layer to render into"
-    @require view != null && layer != null
+    @param [&in] view : "the view to render to the framebuffer layer" 
 *>
-fn void renderGameFBO(RenderView* view, ViewLayer* layer) @local 
+fn void renderGameFBO(RenderView* view) @local 
 {
-	RLRenderTexture2D tex = (*layer).data;
+	RLRenderTexture2D tex = (*view).gameFrame.data;
     rl::beginTextureMode(tex); // Enable drawing to a texture
 
         //rl::clearBackground(rl::WHITE);  // Clear texture background
@@ -610,6 +607,17 @@ fn void renderGameFBO(RenderView* view, ViewLayer* layer) @local
 $if $defined(ENABLE_CAMERA_VIEW):
         rl::beginMode2D(view.camera);
 $endif
+
+		if(main::gpGame.vidCabinet.movies.len()) 
+		{
+			// draw videos from video cabinet library
+			foreach(video : main::gpGame.vidCabinet.movies)
+			{
+				if(video.should_play) {
+					video.renderFrame(view.origin, (Vec2f)view.size);
+				}
+			}
+		}
 
         // draw general game sprites
         if(main::gpGame.sprites.len()) 
@@ -687,13 +695,11 @@ $endif
 <*
     // NOTE(HM) This renders AFTER the game layer
     
-    @param [in] view : "the view to render to the framebuffer layer" 
-    @param [inout] layer : "the framebuffer layer to render to"
-    @require view != null && layer != null
+    @param [&in] view : "the view to render to the framebuffer layer" 
 *>
-fn void renderGuiFBO(RenderView* view, ViewLayer* layer) @local 
+fn void renderGuiFBO(RenderView* view) @local 
 {
-    RLRenderTexture2D tex = (*layer).data;
+    RLRenderTexture2D tex = (*view).guiFrame.data;
 	rl::@textureMode(tex) 
 	{
         rl::clearBackground(rl::fade(rl::WHITE, 0.0f));
@@ -714,11 +720,10 @@ $endif
     // NOTE(HM) This renders AFTER the game gui layer
     
     @param [&in] view : "the view to render to the framebuffer layer" 
-    @param [&inout] layer : "the framebuffer layer to render to"
 *>
-fn void renderPostGuiFBO(RenderView* view, ViewLayer* layer) @local 
+fn void renderPostGuiFBO(RenderView* view) @local 
 {
-	RLRenderTexture2D tex = (*layer).data;
+	RLRenderTexture2D tex = (*view).postGuiFrame.data;
 	rl::@textureMode(tex)
 	{
 		rl::clearBackground(rl::fade(rl::WHITE, 0.0f));
@@ -738,11 +743,10 @@ $endif
     // and the debug layer is used for visual debugging
     
     @param [&in] view : "the view to render to the framebuffer layer" 
-    @param [&inout] layer : "the framebuffer layer to render to"
 *>
-fn void renderDebugFBO(RenderView* view, ViewLayer* layer) @local 
+fn void renderDebugFBO(RenderView* view) @local 
 {
-	RLRenderTexture2D tex = (*layer).data;
+	RLRenderTexture2D tex = (*view).debugFrame.data;
     rl::@textureMode(tex) {
         rl::clearBackground(rl::fade(rl::WHITE, 0.0f));
 $if $defined(ENABLE_CAMERA_VIEW):
@@ -758,17 +762,17 @@ fn void RenderView.renderToFBO(&self) @inline
     // render to the game layer
     if(self.enable_grayscale) {
         self.grayscale.@apply(self.currentRender) {
-            self.renderFBO(&renderGameFBO, &self.gameFrame);
+            self.renderFBO(&renderGameFBO);
         };
     } else {
-        self.renderFBO(&renderGameFBO, &self.gameFrame);
+        self.renderFBO(&renderGameFBO);
     }
     // render to the gui layer
-    self.renderFBO(&renderGuiFBO, &self.guiFrame);
+    self.renderFBO(&renderGuiFBO);
     // render to the post gui layer
-    self.renderFBO(&renderPostGuiFBO, &self.postGuiFrame);
+    self.renderFBO(&renderPostGuiFBO);
     // render to the debug layer
-    self.renderFBO(&renderDebugFBO, &self.debugFrame);
+    self.renderFBO(&renderDebugFBO);
 }
 
 fn void RenderView.draw(&self) @inline 

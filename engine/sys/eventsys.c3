@@ -119,9 +119,9 @@ const MAX_EVENTSPERFRAME = 8192;
 
 // The only number type in wren, is double precision floating point number or double (64bit). 
 const VOID			= ((char)0); // wren uses null as void
+const DOUBLE		= 'd';
 const INTEGER		= 'i'; // just a double
 const FLOAT			= 'f'; // just a double
-const DOUBLE		= 'd'; // ...
 const VECTOR		= 'v'; // a list of doubles
 const STRING		= 's'; // a char array
 //
@@ -146,7 +146,8 @@ fn usz EventDef.getArgBytesCountInWren(&self) {
 <*
  @ensure return != null
 *>
-fn EventDef* getEventCommand(EventFunc[] events,  int eventnum ) {
+fn EventDef* getEventCommand(EventFunc[] events,  int eventnum ) @nodiscard
+{
 	return events[eventnum].event;
 }
 
@@ -259,7 +260,7 @@ const PTR    = 'p';
 // TODO: "pointers" will be defined as a single double value (like they are in reality on 64bits OS's...)
 const ENTITY		= 'e'; // entity pointer
 const ENTITY_NULL	= '€'; // null entity
-// TODO: ability todo 2d collision traces in script
+// TODO: 2d collision traces in script
 const TRACE			= 't'; // todo
 
 alias EventDefList = List{EventDef*}; // list of entities that are targets for this entity

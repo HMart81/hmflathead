@@ -26,6 +26,29 @@
 # 
 *********************************************************************************************************************************************/
 
+module thirdparty::tracy @if(!$feature(TRACY_ENABLE));
+
+<*
+    Similar to ZoneScoped, context ends at macro scope end.
+    
+    @param $name : "name to show on zone frame in the viewer"
+    @param $active : "Set to 0 to disable the zone"
+*>
+macro @zoneN($name, $active; @body)
+{
+    @body();
+}
+
+macro @messageL( #txt )
+{
+    (void)#txt;
+}
+
+macro set_thread_name( $name ) 
+{
+	(void)$name;
+}
+
 module thirdparty::tracy @if($feature(TRACY_ENABLE));
 
 import std::io;
@@ -39,7 +62,11 @@ enum PlotFormat
     WATT
 }
 
-fn void set_thread_name( ZString name ) @cname("___tracy_set_thread_name");
+fn void _set_thread_name( ZString name ) @local @cname("___tracy_set_thread_name");
+macro set_thread_name( $name ) 
+{
+	_set_thread_name( $name );
+}	
 
 alias UInt8_t @private = char;
 

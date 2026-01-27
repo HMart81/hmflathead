@@ -346,7 +346,7 @@ struct Game (SaveSystemInterface/*, IGame*/) @local
     //
 
     // video player
-    VideoPlayer* vidplayer;
+    VideoCabinet* vidCabinet @if($feature(VIDEO_PLAYBACK_ENABLE));
 
     // microui
     mu::MU_Context* mu_ctx @if($feature(MICROUI_ENABLE)); // microui context, used for the micro ui system
@@ -1665,7 +1665,9 @@ fn void gameDraw(int screenWidth, int screenHeight) @local
             // this is where input pooling and swapping buffers happens
             //rl::endDrawing();
         };
+        $if $feature(TRACY_ENABLE):
         tracy::frameMark();
+        $endif
         
         // NOTE(HM) 1)
         // drawing after the frame buffer are swapped/updated
@@ -2749,12 +2751,6 @@ $endif
 
 // #endregion Window initialization
 
-//  init video player
-    local_game.vidplayer = vid::initVideoPlayer(local_game.app_base_folder.tconcat("videos/"));
-    if(local_game.vidplayer) {
-        local_game.vidplayer.registerVideos()!;
-    }
-
 // #region physics engine
     log::info(FILE, "Starting Physics Engine:");
     log::info(FILE, "---------------------------------------------");
@@ -2861,6 +2857,13 @@ $endif
     } else {
         log::warning(FILE, "Failed to load SVG file: %s", svgfile.path);
     }
+
+    //  init video player
+	$if $feature(VIDEO_PLAYBACK_ENABLE):
+	log::info(FILE, "Initializing Video Player:");
+    @catch(vid::initVideoCabinet(&local_game.vidCabinet));
+	log::info(FILE, "---------------------------------------------\n");
+	$endif
         
     log::info(FILE,  "** done **");
     log::info(FILE, "---------------------------------------------\n");
@@ -3125,6 +3128,25 @@ $endif
     $if $defined(BOIDS_ENABLE):
     local_game.boidManager1.init();
     $endif
+
+    //  init video player
+	$if $feature(VIDEO_PLAYBACK_ENABLE):
+	if(local_game.vidCabinet) 
+    { 
+        if(local_game.vidCabinet.hasMovie("intro")) 
+        {
+            log::info(FILE, "Playing test video:");
+            VidMovie* vid1 = local_game.vidCabinet.getMovie("intro");
+            if(vid1 != null) {
+                log::info(FILE, "\tVideo loaded successfully into video player.");
+                vid1.play();
+            } else {
+                log::warning(FILE, "\tFailed to load test video into video player!");
+            }
+        }
+    }
+	log::info(FILE, "---------------------------------------------\n");
+	$endif
     
     log::info(FILE,  "** Done. **");
 // #endregion Test game stuff
@@ -3204,9 +3226,13 @@ $endif
     }
     //
 
-    if(local_game.vidplayer) {
-        vid::deinitVideoPlayer(local_game.vidplayer);
+	$if $feature(VIDEO_PLAYBACK_ENABLE):
+	log::info(FILE, "Deinitializing Video Player:");
+    if(local_game.vidCabinet) {
+        vid::deinitVideoCabinet(local_game.vidCabinet);
     }
+	log::info(FILE, "---------------------------------------------\n");
+	$endif
 
     rl::closeAudioDevice();
 
