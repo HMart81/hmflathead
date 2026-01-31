@@ -29,9 +29,16 @@
 module engine::gui;
 
 /*
-    TODO:
-        A ingame gui edit mode for easy placement of widgets
-        Perhaps even create a simple gui editor using raygui buttons and such...
+DOC:
+
+	GUI System
+
+	A simplistic retained mode gui system made just to create simple menus.
+	Still lacks many functionality.
+
+TODO:
+    A ingame gui edit mode for easy placement of widgets
+    Perhaps even create a simple gui editor using raygui buttons and such...
 */
 
 // region modules
@@ -71,8 +78,9 @@ fn void register_cvars() @public
 ///////////////////////////////////////////////////////////////////////////
 /*                                PANEL
 
-    NOTE(HM) Panel is a simple data structure representing a big square or image, 
+    NOTE(HM) simple data structure representing a square or image, 
     used for background images or single color rectangles.
+	I wanted to use Rectangle as name but it was already taken by raylib...
 */
 ///////////////////////////////////////////////////////////////////////////
 
@@ -86,10 +94,55 @@ const uint HORIZONTAL_DIR = 1;
 const uint VERTICAL_DIR   = 2;
 // #endregion
 
+typedef GuiAnchor = inline Vec2f;
+
+enum GuiAnchorType : const inline int
+{
+    TOP_LEFT,
+    TOP_CENTER,
+    TOP_RIGHT,
+    CENTER_LEFT,
+    CENTER,
+    CENTER_RIGHT,
+    BOTTOM_LEFT,
+    BOTTOM_CENTER,
+    BOTTOM_RIGHT
+}
+
+
+fn Vec2f getAnchorVecPosFrom(GuiAnchorType type, RenderView view) @inline 
+{
+    float half_w = view.w / 2.0f;
+    float half_h = view.h / 2.0f;
+    Vec2f result = view.origin;
+    switch (type)
+    {
+        case TOP_LEFT:       
+            return result += (misc::VEC_UP * half_h) + (misc::VEC_LEFT * half_w);
+        case TOP_CENTER:     
+            return result += (misc::VEC_UP * half_h);
+        case TOP_RIGHT:      
+            return result += (misc::VEC_UP * half_h) + (misc::VEC_RIGHT * half_w);
+        case CENTER_LEFT:    
+            return result += (misc::VEC_LEFT * half_w);
+        case CENTER:         
+            return result;
+        case CENTER_RIGHT:
+            return result += (misc::VEC_RIGHT * half_w);
+        case BOTTOM_LEFT:
+            return result += (misc::VEC_DOWN * half_h) + (misc::VEC_LEFT * half_w);
+        case BOTTOM_CENTER:
+            return result += (misc::VEC_DOWN * half_h);
+        case BOTTOM_RIGHT:
+            return result += (misc::VEC_DOWN * half_h) + (misc::VEC_RIGHT * half_w);
+        default: unreachable();
+    }
+}
+
 enum PanelShape : const inline int
 {
     BOX,
-    ROUNDED_BOX
+    ROUNDED_BOX // with rounded corners (unused right now)
 }
 
 struct PanelFlags
@@ -119,6 +172,9 @@ struct Panel (SaveSystemInterface, Printable)
 
 fn void Panel.save(&self, SaveFile* file) @dynamic 
 {
+    svs::writeInt(file, self.id);
+    svs::writeString(file, self.name);
+	svs::write(file, (void*)&self.flags, PanelFlags.sizeof);
     svs::writeInt(file, self.shape);
     svs::writeRect(file, self.rect);
     svs::writeColor(file, self.color);
@@ -130,6 +186,11 @@ fn void Panel.save(&self, SaveFile* file) @dynamic
 fn void Panel.reload(&self, SaveFile* file) @dynamic 
 {
     int value;
+
+    svs::readInt(file, &value);
+	self.id = value;
+	svs::readString(file, &self.name);
+	svs::read(file, (void*)&self.flags, PanelFlags.sizeof);
     svs::readInt(file, &value);
     self.shape = (PanelShape)value;
     svs::readRect(file, &self.rect);
@@ -137,7 +198,7 @@ fn void Panel.reload(&self, SaveFile* file) @dynamic
     svs::readColor(file, &self.color_selected);
     String mat_name;
     svs::readString(file, &mat_name);
-    self.mat = mtrmng::getMaterial(mat_name);
+    if(mat_name != "") self.mat = mtrmng::getMaterial(mat_name);
 }
 
 fn usz? Panel.to_format(&self, Formatter* f) @dynamic 

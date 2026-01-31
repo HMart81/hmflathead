@@ -803,7 +803,7 @@ fn void? Game.loadDefaultAssets(&self)
     self.default_texture = rl::loadTexture(self.app_base_folder.tconcat("images//default.png").zstr_tcopy());
     if(self.default_texture.isInvalid()) {
         log::fatal(FILE, "Required asset: images//default.png failed to load!");
-        return MISSING_REQUIRED_ASSET?;
+        return MISSING_REQUIRED_ASSET~;
     }
     
     RLImage white = rl::genImageColor(32, 32, rl::WHITE);
@@ -829,7 +829,7 @@ fn void? Game.loadDefaultAssets(&self)
     );
     if(rl::isShaderValid(self.default_shader) == false) {
         log::fatal(FILE, "Required default shader not found in folder %s!", self.app_base_folder.tconcat("//shaders"));
-        return MISSING_REQUIRED_ASSET?;
+        return MISSING_REQUIRED_ASSET~;
     }
     
     /*int test_tex_loc = rl::getShaderLocation(self.default_shader, "texture0");
@@ -850,14 +850,14 @@ fn void? Game.loadDefaultAssets(&self)
         //$endif
     } else {
         log::fatal(FILE, "Required default asset: \"sounds/default.wav\" failed to load!");
-        return MISSING_REQUIRED_ASSET?;
+        return MISSING_REQUIRED_ASSET~;
     }
     
     // load required default music
     self.default_music = rl::loadMusicStream(self.app_base_folder.tconcat("music//default.mp3").zstr_tcopy());
     if(rl::isMusicValid(self.default_music) == false) {
         log::fatal(FILE, "Required default asset: \"music/default.mp3\" failed to load!");
-        return MISSING_REQUIRED_ASSET?;
+        return MISSING_REQUIRED_ASSET~;
     }
     
     // get the default game font
@@ -885,7 +885,7 @@ fn void? Game.loadSettingsFile(&self)
         defer data.close()!!;
         if(!local_game.settings_file.loadEx(data, settings_path)) {
             log::fatal(FILE, "Failed to load settings file at: %s", settings_path);
-            return ini::FAILED_READ_FILE?;
+            return ini::FAILED_READ_FILE~;
         }
         // set default settings
         ini::setBool(&local_game.settings_file, "video", "fullscreen", false);
@@ -898,14 +898,14 @@ fn void? Game.loadSettingsFile(&self)
         // save file
         if(!ini::saveConfigFile(&local_game.settings_file)) {
             log::fatal(FILE, "Failed to save default settings file at: %s", settings_path);
-            return ini::FAILED_OPEN_FILE?;
+            return ini::FAILED_OPEN_FILE~;
         }
     }
     // load settings file
     bool? settings_load_sucess = local_game.settings_file.load(settings_path, false);
     if(catch excuse = settings_load_sucess) {
         log::warning(FILE, "Failed to load %s file with excuse: %s", settings_path, excuse);
-        return excuse?;
+        return excuse~;
     }
 }
 
@@ -1297,6 +1297,17 @@ fn void gameUpdate() @local
         //////////
         
         gameHandleGeneralControls();
+
+		$if $feature(VIDEO_PLAYBACK_ENABLE):
+		if(main::gpGame.vidCabinet.movies.len()) 
+		{
+			// draw videos from video cabinet library
+			foreach(movie : local_game.vidCabinet.movies)
+			{
+				movie.decode();
+			}
+		}
+		$endif
 
         if(editor.getBool() && local_game.editor.isOpened()) {
             local_game.editor.update();
@@ -2068,7 +2079,7 @@ $if $feature(TSODING_FLAG):
     if (!flg::flag_parse(args.len, argv.to_tarray())) {
         usage();
         flg::print_error(&&io::stderr());
-        return GAME_START_FAILED?;
+        return GAME_START_FAILED~;
     }
 $else
     handle_cmdline(*args);
@@ -2120,7 +2131,7 @@ $endif
     {
         log::info(FILE, "\tWorking from default Dir: %s", local_game.app_default_workdir);
     } else { 
-        return INVALID_WORK_DIR?; // will this ever happen?
+        return INVALID_WORK_DIR~; // will this ever happen?
     }
     // Detect and Setup the base folder where required game assets/data live.
     local_game.app_default_base_folder = local_game.app_default_workdir.tconcat(fs_base.getString()).tconcat(platf::PATHSEPERATOR_STR);
@@ -2186,7 +2197,7 @@ $endif
             log::info(FILE,  "\tWorking now from Dir: %s", local_game.app_work_dir);
         }
     } else {
-        return INVALID_WORK_DIR?;
+        return INVALID_WORK_DIR~;
     }
     
     // make sure required base folder exists
@@ -2208,7 +2219,7 @@ $endif
                        A non-empty folder called '%s' (case sensitive) most exist.\n
                        Please reinstall game.`, local_game.app_work_dir, fs_base.getString(), local_game.app_name);
         }
-        return NO_DATA_FOLDER?;
+        return NO_DATA_FOLDER~;
     }
     
     // get the home folder to save necessary game data
@@ -2230,7 +2241,7 @@ $endif
             {
                 log::warning(FILE,"Failed to create user folder %s inside %s with excuse: %s", 
                            local_game.app_name, local_game.app_save_folder, excuse);
-                return NO_USER_SAVE_FOLDER?;
+                return NO_USER_SAVE_FOLDER~;
             }
         }
     }
@@ -2246,7 +2257,7 @@ $endif
         
         if(!win32::writeRegistryValue(reg_key, reg_value, reg_data)) {
             log::warning(FILE, "Failed to write to registry key: %s", reg_key);
-            //return REGISTRY_WRITE_FAILED?;
+            //return REGISTRY_WRITE_FAILED~;
         }
     }
     $endif // $if $defined(env::WIN32)
@@ -2294,7 +2305,7 @@ $endif
     if( catch excuse = settings_load_sucess) {
         log::warning(FILE, "Failed to load %s file with excuse: %s", ini_file_path, excuse);
         settings_file = null;
-        return excuse?;
+        return excuse~;
     }
     //defer if(settings_load_sucess) ini::unload(&settings_file);
 
@@ -2304,14 +2315,14 @@ $endif
         File? file = fs::openFile(fs::getWorkingDirectory().tconcat("prefs.data"));
         if( catch excuse = file) {
             log::warning(FILE, "Failed to load json file with excuse: %s", excuse);
-            return excuse?;
+            return excuse~;
         }
         //String jstext = fs::fileLoadEntireText(fs::getWorkingDirectory().tconcat("prefs.data"));
         Object*? config = json::tparse(&file);
         //Object*? config = json::tparse_string(jstext)!;
         if(catch excuse = config) {
             log::warning(FILE, "Failed to parse json file with excuse: %s", excuse);
-            return excuse?;
+            return excuse~;
         }
         config.map.@each(; String key, value) {
             io::printfn("%s -> %s", key, value);
@@ -2430,7 +2441,7 @@ $endif
     if(res_index == -1 || local_game.screen.w <= 0 || local_game.screen.h <= 0) 
     {
         log::error(FILE, "Invalid screen resolution %dx%d, cannot continue!", local_game.screen.w, local_game.screen.h);
-        return INVALID_SCREEN_RESOLUTION?;
+        return INVALID_SCREEN_RESOLUTION~;
     }
     
     log::info(FILE,  "Video mode set -> %s", SCREEN_RES[res_index].str);
@@ -2540,7 +2551,7 @@ $endif
         else
         {
             unreachable("Game window is not set to any known state, this should never happen!");
-            //return WINDOW_INIT_FAILED?;
+            //return WINDOW_INIT_FAILED~;
         }
     $else
         rl::initWindow(screenWidth, screenHeight, window_name);
@@ -2549,7 +2560,7 @@ $endif
         if(rl::isWindowReady() == false) 
         {
             log::fatal(FILE, "Failed to init rl window and OpenGL context!");
-            return WINDOW_INIT_FAILED?;
+            return WINDOW_INIT_FAILED~;
         } else {
             log::info(FILE, "Window initialized successfully.");
 
@@ -2568,7 +2579,7 @@ $endif
             else
             {
                 unreachable("Game window is not set to any known state, this should never happen!");
-                //return WINDOW_INIT_FAILED?;
+                //return WINDOW_INIT_FAILED~;
             }
         }
     $endif
@@ -2858,7 +2869,7 @@ $endif
         log::warning(FILE, "Failed to load SVG file: %s", svgfile.path);
     }
 
-    //  init video player
+    //  init video library
 	$if $feature(VIDEO_PLAYBACK_ENABLE):
 	log::info(FILE, "Initializing Video Player:");
     @catch(vid::initVideoCabinet(&local_game.vidCabinet));
@@ -3106,7 +3117,7 @@ $endif
     log::info(FILE,  "** Creating test entities. **");
     for(int i = 1; i <= 2; i++) 
     {
-        $if $defined(ENABLE_CAMERA_VIEW):
+        $if $defined(view::ENABLE_CAMERA_VIEW):
             Vec2f origin = local_game.view.origin;
         $else
             Vec2f origin;
@@ -3135,13 +3146,18 @@ $endif
     { 
         if(local_game.vidCabinet.hasMovie("intro")) 
         {
-            log::info(FILE, "Playing test video:");
+            log::info(FILE, "Setting up test video:");
             VidMovie* vid1 = local_game.vidCabinet.getMovie("intro");
-            if(vid1 != null) {
-                log::info(FILE, "\tVideo loaded successfully into video player.");
-                vid1.play();
+            if(vid1 != null) 
+			{
+                if(vid1.preparePlayer()) {
+					log::info(FILE, "\tVideo player prepared the video for playback successfully.");
+					vid1.start();
+				} else {
+					log::warning(FILE, "\tVideo player failed to prepare the video for playback!");
+				}
             } else {
-                log::warning(FILE, "\tFailed to load test video into video player!");
+                log::warning(FILE, "\tFailed to get test video from video library!");
             }
         }
     }
@@ -3709,7 +3725,7 @@ fn void showSplashScreenImage()
     String splash_path = local_game.app_base_folder.tconcat("images/splash.bmp");
     if(fs::fileExists(splash_path)) 
     {
-        rl::RLImage splash_img = rl::loadImage(splash_path.zstr_tcopy());
+        RLImage splash_img = rl::loadImage(splash_path.zstr_tcopy());
         if(splash_img.data != null)
         {
             if(splash_img.width != 600 && splash_img.height != 200) 
@@ -3727,7 +3743,7 @@ fn void showSplashScreenImage()
             rl::initWindow(600, 200, "");
             rl::setWindowMonitor(0); // set to first monitor
             rl::setTargetFPS(24); // set to 24 fps
-            rl::RLTexture2D texture = rl::loadTextureFromImage(splash_img);
+            RLTexture2D texture = rl::loadTextureFromImage(splash_img);
             float time_start = (float)rl::getTime();
             // show the image for X seconds
             while(!rl::windowShouldClose()) 

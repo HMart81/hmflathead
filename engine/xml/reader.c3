@@ -117,7 +117,7 @@ fn void XmlReader.read(&this, char[] slice) {
 fn char? XmlReaderImpl.readChar(&self, char[] slice) @local {
 	usz readHead = self.readHead;
 	if (readHead >= slice.len){
-		return io::EOF?;
+		return io::EOF~;
 	}
 	char c = slice[readHead];
 	self.readHead = readHead + 1;

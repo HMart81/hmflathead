@@ -143,9 +143,10 @@ EXES_TO_CLEAN := $(wildcard $(BUILD_PATH)/*.exe)
 DEBUG_GAME_ARGUMENTS := +developer +editor +r_mode 9
 RELEASE_GAME_ARGUMENTS := +r_fullscreen 0 +r_mode 9
 
+#-D VIDEO_PLAYBACK_ENABLE
 # in c3 you need to use $feature(_DEBUG) to check for this defines, C3 $define doesn't work for this...
 ifeq ($(SCRIPT_LANG), umka)
-DEBUG_DEFINES   := -D _DEBUG -D TRACY_ENABLE -D MICROUI_ENABLE -D UMKA_ENABLE -D BACKEND_RAYLIB -D VIDEO_PLAYBACK_ENABLE
+DEBUG_DEFINES   := -D _DEBUG -D TRACY_ENABLE -D MICROUI_ENABLE -D UMKA_ENABLE -D BACKEND_RAYLIB
 else
 ifeq ($(SCRIPT_LANG), wren)
 DEBUG_DEFINES   := -D _DEBUG -D TRACY_ENABLE -D MICROUI_ENABLE -D WREN_ENABLE

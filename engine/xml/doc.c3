@@ -73,7 +73,7 @@ fn XmlDoc*? read_file(File file, Allocator allocator = allocator::mem) {
 	while (!file.eof()) {
 		usz? bytesRead = file.read(buff);
 		if (catch f = bytesRead) {
-			return f?;
+			return f~;
 		}
 		char[] data = buff[0:bytesRead];
 		reader.read(data);
@@ -176,7 +176,7 @@ fn char[]? XmlNode.get_attrib_value(&self, char[] name) @deprecated("Use XmlNode
 			return attribute.value;
 		}
 	}
-	return ATTRIBUTE_NOT_FOUND?;
+	return ATTRIBUTE_NOT_FOUND~;
 }
 
 

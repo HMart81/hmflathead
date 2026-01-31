@@ -1478,7 +1478,7 @@ fn bool? MTRFile.load(&self, File file) @inline @public
     if(catch excuse = doc)
     {
        log::warning(Where.FILE, " Failed to load/open MTR xml file [%s] with excuse: %s", self.path, excuse);
-       return MTR_LOAD_ERROR?;
+       return MTR_LOAD_ERROR~;
     }
     
     return self.parse(doc);

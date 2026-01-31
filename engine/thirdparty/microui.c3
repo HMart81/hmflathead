@@ -915,7 +915,7 @@ $if $defined(ENABLE_OLD_STRING):
   $else
     //if(input_text.len) input_text = "";
     int key;
-    while(key = rl::getKeyPressed())
+    while((key = rl::getKeyPressed()) != 0)
     {
         if(input_text.len >= MAX_INPUT_TEXT) break; // prevent buffer overflow
 

@@ -523,7 +523,7 @@ macro Vec2f RLRectangle.getScreenPos(self) => worldToScreen(self.getPosition());
 // the camera is never moved around, as world coords and camera coords
 // are very similar only the center/origin changes.
 // UNTESTED!!!!!!!!!!!!!!!!!!!!!
-fn Vec2f RLRectangle.getPosCameraCoords(&self) @if ($defined(ENABLE_CAMERA_VIEW))
+fn Vec2f RLRectangle.getPosCameraCoords(&self) @if ($defined(view::ENABLE_CAMERA_VIEW))
 {
     Vec2f world_origin   = {0, 0};
     Vec2f cam_org        = main::gpGame.view.camera.target;

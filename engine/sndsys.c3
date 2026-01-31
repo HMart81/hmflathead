@@ -95,7 +95,7 @@ fn bool? populateMusicDataBase() {
 	PathList? paths = path::ls(tmem, path::temp(music_folder));
 	if(catch excuse = paths) {
 		log::warning(Where.FILE,  "Unable to get audio from folder music with excuse: %s", excuse);
-		return astmng::FOLDER_SCAN_ERROR?;
+		return astmng::FOLDER_SCAN_ERROR~;
 	}
 	
 	foreach(path: paths)

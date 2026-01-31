@@ -170,7 +170,7 @@ fn bool? fileSaveEntireBytes(String fileName, char[] data) {
     if(rl::saveFileData(fileName.zstr_tcopy(), (void*)data.ptr, data.len)) {
         return true;
     } else {
-        return FS_FAILED_SAVE_DATA?;
+        return FS_FAILED_SAVE_DATA~;
     }
 }
 

@@ -157,7 +157,7 @@ fn WindowHandle? BackendRender.createWindow(&self, String title, int width, int 
     if(flags) rl::setConfigFlags(flags);
 
     rl::initWindow(width, height, title.zstr_tcopy());
-    if(!rl::isWindowReady()) return WINDOW_CREATION_FAILED?;
+    if(!rl::isWindowReady()) return WINDOW_CREATION_FAILED~;
 
     self.window = rl::getWindowHandle();
     if(self.window) { return self.window; } else { return FAILED_TO_GET_WINDOW_HANDLE?; }

@@ -345,7 +345,7 @@ fn bool? SVGData.load(&self)
 {
     if(self.path == "") {
         log::error(Where.FILE, "SVG file path is empty, cannot load svg file data!");
-        return SVG_FILE_PATH_EMPTY?;
+        return SVG_FILE_PATH_EMPTY~;
     }
     // check if the file exists
     File file = fs::openFile(self.path)!;

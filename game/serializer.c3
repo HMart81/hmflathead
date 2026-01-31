@@ -172,8 +172,10 @@ fn void? close(SaveFile* save) @inline {
 
 ////////////////////////////// Writting /////////////////////////////////
 <*
- @param [inout] savefile : "the file to write the data to"
- @require savefile != null
+ @param [&inout] savefile : "the file to write the data to"
+ @param [&in] buffer : "the data to write"
+ @param bytes_len : "the number of bytes to write"
+ @require bytes_len > 0
 *>
 fn void	write(SaveFile* savefile, void* buffer, int bytes_len ) {
     char[] _buffer = ((char*)buffer)[:bytes_len];
@@ -393,9 +395,15 @@ fn void advance_reading_position(SaveFile* f, usz n) @inline @local @deprecated
 	unreachable();
 }
 
+<*
+ @param [&in] savefile : "the file to read the data from"
+ @param [&inout] buffer : "the adress to place the data into"
+ @param bytes_len : "the number of bytes to read"
+ @require bytes_len > 0
+*>
 fn void read(SaveFile* savefile, void *buffer, usz bytes_len) {
     if(@catch(savefile.file.read(((char*)buffer)[:bytes_len]))) {
-        log::warning(Where.CONSOLE, "failed to read data from file %s! : %s:%s", savefile.path, $$FUNC, $$LINE);
+        log::warning(CONSOLE, "failed to read data from file %s! : %s:%s", savefile.path, $$FUNC, $$LINE);
         return;
     }
     //advance_reading_position(savefile, bytes_len);
@@ -432,11 +440,22 @@ fn void readBool(SaveFile* file, bool* value) {
 	// *value = bits::bswap(*(int*)result); 
 }
 
+<*
+ @param [&in] savefile : "the file to read the data from"
+ @param [&inout] string : "the adress to place the data into"
+*>
 fn void readString(SaveFile* savefile, String* string) {
-    if(@catch(savefile.file.read(*string))) {
+	char[1024] buffer;
+    /*if(@catch(savefile.file.read(*string))) {
         log::warning(Where.CONSOLE, "failed to read data from file %s! : %s:%s", savefile.path, $$FUNC, $$LINE);
         return;
+    }*/
+	usz? bytesRead = savefile.file.read(buffer[..]);
+    if(catch excuse = bytesRead) {
+        log::warning(Where.CONSOLE, "failed to read data from file %s! with excuse %s : %s:%s", savefile.path, excuse, $$FUNC, $$LINE);
+        return;
     }
+	(*string) = ((String)buffer[:bytesRead]).tcopy();
     // advance_reading_position(savefile, string.len);
 }
 

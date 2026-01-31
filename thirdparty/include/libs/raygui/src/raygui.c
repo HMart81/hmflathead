@@ -552,7 +552,7 @@ typedef enum {
 //----------------------------------------------------------------------------------
 // DEFAULT extended properties
 // NOTE: Those properties are common to all controls or global
-// WARNING: We only have 8 slots for those properties by default!!! -> New global control: TEXT?
+// WARNING: We only have 8 slots for those properties by default!!! -> New global control: TEXT~
 typedef enum {
     TEXT_SIZE = 16,             // Text size (glyphs max height)
     TEXT_SPACING,               // Text spacing between glyphs

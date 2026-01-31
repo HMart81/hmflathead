@@ -110,7 +110,7 @@ fn bool? LANGData.load(&self, String _path)
         defer file.close()!!;
         if(file.file == null) {
             log::error(FILE, "Failed to open language file '%s'", self.path);
-            return LANG_LOAD_ERROR?;
+            return LANG_LOAD_ERROR~;
         }
 
         LANGFile* lang_file = (LANGFile*)xml::read_file(file)!;

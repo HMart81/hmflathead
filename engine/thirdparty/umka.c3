@@ -230,7 +230,7 @@ fn bool? Umka.init(&self, UmkaScriptInitData* inidata)
                        inidata.implLibsEnabled);
   if(ok) return ok; 
 
-  return INIT_FAILED?;
+  return INIT_FAILED~;
 }
 
 extern fn bool Umka._compile(&self) @local @cname("umkaCompile");

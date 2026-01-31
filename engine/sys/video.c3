@@ -42,12 +42,14 @@ import game::camview;
 
 const VIDEO_FILE_EXTENSION = ".mpg";
 const VIDEOS_FOLDER_PATH   = "videos"+++platf::PATHSEPERATOR_STR;
+const COLOR_CHANNELS  @local = 3;
+const BYTES_PER_PIXEL @local = COLOR_CHANNELS * Uint8_t.sizeof;
 
 alias gpGame = main::gpGame;
 
 alias VideoFile   = File;
 alias VideoPlayer = PLM_t; // video player to play videos
-alias VideoFrame  = RLTexture;
+alias VideoFrame  = RLTexture2D;
 
 const TRUE @local  = 1;
 const FALSE @local = 0;
@@ -74,73 +76,131 @@ struct VidMovie @public
     float duration; // in seconds
 	bool is_playing;
 	bool should_play;
+	bool is_ready;
+	VideoPlayer plyr;
 	VideoFrame frame;
 }
 
 fn void VidMovie.renderFrame(&self, Vec2f position, Vec2f size) @public
 {
-	if(rl::isTextureValid(self.frame)) {
-		rl::drawTexturePro(
-			self.frame,
-			(RLRectangle){0.0f, 0.0f, (float)self.frame.width, (float)-self.frame.height},
-			(RLRectangle){position.x, position.y, size.x, size.y},
-			(RLVector2){0.0f, 0.0f},
-			0.0f,
-			rl::WHITE
-		);
+	if(self.is_ready && self.should_play) 
+	{
+		if(rl::isTextureValid(self.frame)) 
+		{
+			//rl::drawTexture(self.frame, (int)position.x, (int)position.y, rl::WHITE);
+			rl::drawTexturePro(
+				self.frame,
+				(RLRectangle){0.0f, 0.0f, (float)self.frame.width, (float)-self.frame.height},
+				(RLRectangle){position.x, position.y, size.x, size.y},
+				(RLVector2){0.0f, 0.0f},
+				0.0f,
+				rl::WHITE
+			);
+		}
 	}
 }
 
-fn bool VidMovie.play(&self, bool loop = false) @public
+<*
+	@param [&in] frame : "pointer to the current plm frame to update the video frame"
+*>
+fn void VidMovie.updateFrame(&self, VideoPlayer mpeg, PLMframe *frame)
+{
+	int w, h;
+	w = mpeg.get_width();
+	h = mpeg.get_height();
+	// create image to hold frame data
+	// compute stride
+	usz stride = w * BYTES_PER_PIXEL;
+	usz dataSize = stride * h;
+	// allocate memory for frame data
+	char* fileData = (char*)mem::malloc(dataSize);
+    frame.to_rgb((Uint8_t*)fileData, (int)stride);
+	RLImage image = rl::loadImageFromMemory(".png", fileData, (CInt)dataSize);
+	defer rl::unloadImage(image);
+	
+    image.width     = w;
+    image.height    = h;
+    image.mipmaps = 1;
+    image.format = rl::RLPixelFormat.UNCOMPRESSED_R8G8B8;
+
+	// unload previous texture frame
+	if(rl::isTextureValid(self.frame)) {
+		rl::unloadTexture(self.frame);
+	}
+	// update texture frame
+	self.frame = rl::loadTextureFromImage(image);
+}
+
+<*
+	@param loop : "should the video loop when it ends"
+	@param audio : "should the video play audio"
+*>
+fn bool VidMovie.preparePlayer(&self, bool loop = false, bool audio = false) @public @nodiscard
 {
     VideoFile? video = fs::openFile(self.path, fs::FILE_READ_BINARY);
 	if(catch excuse = video ) {
 		log::warning(FILE, "failed to open video %s to play with error: %s", self.name, excuse);
 		return false;
 	} else { // successfully opened video file
-		VideoPlayer plyr = plm::create_with_file(video.file, TRUE);
-		if(plyr == null) {
+		assert(self.plyr == null);
+		self.plyr = plm::create_with_file(video.file, TRUE);
+
+		if(self.plyr == null) {
 			log::warning(FILE, "failed to create video player to play video: %s", self.name);
 			return false;
 		}
 
-		if (!plyr.has_headers()) {
+		if (!self.plyr.has_headers()) {
 			log::warning(FILE, "Invalid MPEG video found %s has no valid headers.", self.name);
 			unreachable();
 		}
 
-		if (!plyr.probe(5000 * 1024)) {
+		if (!self.plyr.probe(5000 * 1024)) {
 			log::warning(FILE, "No MPEG video or audio streams found in %s", self.name);
 			unreachable();
 		}
 
-		self.samplerate = plyr.get_samplerate();
-		self.framerate  = (float)plyr.get_framerate();
-		self.duration   = (float)plyr.get_duration();
+		self.samplerate = self.plyr.get_samplerate();
+		self.framerate  = (float)self.plyr.get_framerate();
+		self.duration   = (float)self.plyr.get_duration();
 
-		vid::initDecodingSystem(plyr, self);
+		vid::initDecodingSystem(self);
 
-		(loop) ? plyr.set_loop(TRUE) : plyr.set_loop(FALSE);
-		plyr.set_audio_enabled(TRUE);
-		plyr.set_audio_stream(0);
+		(loop)  ? self.plyr.set_loop(TRUE) : self.plyr.set_loop(FALSE);
+		(audio) ? self.plyr.set_audio_enabled(TRUE) : self.plyr.set_audio_enabled(FALSE);
+		self.plyr.set_audio_stream(0);
 
-		self.should_play = true;
-
-		// Decode
-		do {
-			plyr.decode(self.time_since_last_call);
-			self.time_since_last_call += gpGame.time_sec;
-			self.is_playing = true;
-		} while (!plyr.has_ended());
-
-		self.stop();
+		self.is_ready = true;
 	}
-    return false;
+
+	return self.is_ready;
+}
+
+fn void VidMovie.decode(&self) @public
+{
+	if(!self.should_play) return;
+
+	assert(self.is_ready == true);
+
+	// Decode
+	if(!self.plyr.has_ended()) {
+		self.plyr.decode(self.time_since_last_call);
+		self.time_since_last_call += gpGame.time_sec;
+		self.is_playing = true;
+	} else {
+		// Stop playback
+		self.stop();
+		self.is_playing = false;
+	}
+}
+
+fn void VidMovie.start(&self) @public @inline
+{
+	self.should_play = true;
 }
 
 fn void VidMovie.stop(&self) @public @inline
 {
-	self.is_playing = false;
 	self.should_play = false;
 }
 
@@ -153,8 +213,18 @@ fn void VidMovie.reset(&self)
     self.samplerate = 0;
     self.framerate = 0.0f;
     self.duration = 0.0f;
-	rl::unloadTexture(self.frame);
+	self.is_playing = false;
+	self.should_play = false;
+	self.is_ready = false;
+	if(self.plyr != null) {
+		self.plyr.destroy();
+		self.plyr = null;
+	}
+	if(rl::isTextureValid(self.frame)) rl::unloadTexture(self.frame);
 }
+
+
+//////////////////////////////////////////// VIDEO CABINET ////////////////////////////////////////////
 
 alias VideoListPtr = List{VidMovie*};
 // place to hold all videos
@@ -169,7 +239,7 @@ fn void VideoCabinet.setMoviesDirectory(&self, String movies_dir) @local @inline
     self.movies_folder = movies_dir.tcopy();
 }
 
-fn void VideoCabinet.init(&self) @local @inline
+fn void VideoCabinet.initMoviesDirectory(&self) @local @inline
 {
 	String videos_path = gpGame.app_base_folder.tconcat(VIDEOS_FOLDER_PATH);
 	/*if(catch excuse = fs::makeDirectory_IfNotExist(videos_path)) {
@@ -185,7 +255,7 @@ fn void VideoCabinet.init(&self) @local @inline
 fn void? initVideoCabinet(VideoCabinet** vidc) @public
 {
 	(*vidc) = mem::new(VideoCabinet);
-	(*vidc).init();
+	(*vidc).initMoviesDirectory();
 	if(catch excuse = (*vidc).registerVideos()) {
 		log::error(FILE, "failed to register videos inside video cabinet with excuse %s.",  excuse);
 		(*vidc).movies_folder = "";
@@ -296,6 +366,7 @@ struct PLMframe copy pasted from lpmpeg.c3i for doc reasons only
 	PLMplane cb;
 }
 */
+
 <*
 	@param [&in] mpeg : "pointer to the mpeg player"
 	@param [&in] frame : "pointer to the decoded frame"
@@ -304,20 +375,7 @@ struct PLMframe copy pasted from lpmpeg.c3i for doc reasons only
 fn void on_video(VideoPlayer mpeg, PLMframe *frame, void *user) 
 {
 	var video @safeinfer = (VidMovie*)user;
-
-    RLImage image;
-    image.width     = mpeg.get_width();
-    image.height    = mpeg.get_height();
-    const COLOR_CHANNELS  = 3;
-	const BYTES_PER_PIXEL = COLOR_CHANNELS * Uint8_t.sizeof;
-	usz stride = image.width * BYTES_PER_PIXEL;
-    image.data = mem::malloc(stride * image.height);
-    frame.to_rgb((Uint8_t*)image.data, (int)stride);
-    image.mipmaps = 1;
-    image.format = rl::RLPixelFormat.UNCOMPRESSED_R8G8B8;
-
-    video.frame = rl::loadTextureFromImage(image);
-    rl::unloadImage(image);
+    video.updateFrame(mpeg, frame);
 }
 
 fn void on_audio(PLM_t mpeg, PLMsamples *samples, void *user) {
@@ -349,11 +407,10 @@ fn void on_audio(PLM_t mpeg, PLMsamples *samples, void *user) {
 }
 
 <*
-	@param [&in] player : "pointer to the video player"
 	@param [&in] video : "pointer to the video movie data"
 *>
-fn void initDecodingSystem(VideoPlayer* player, VidMovie* video) 
+fn void initDecodingSystem(VidMovie* video)
 {
-    plm::set_video_decode_callback(player, &on_video, video);
-	plm::set_audio_decode_callback(player, &on_audio, video);
+    plm::set_video_decode_callback(video.plyr, &on_video, video);
+	plm::set_audio_decode_callback(video.plyr, &on_audio, video);
 }

@@ -336,7 +336,7 @@ fn void takeScreenShot()
     /*
     String shots_dir = main::gpGame.app_work_dir.tconcat("screenshots\\");
     if(fs::directoryExists(shots_dir) == false) {
-        bool? sucess = fs::makeDirectory(shots_dir);
+        bool~ sucess = fs::makeDirectory(shots_dir);
         if(catch excuse = sucess) {
             log::warning(Where.FILE, "Cannot create screenshots directory at: %s!\n\t -> excuse: %s", 
                         shots_dir, excuse);
@@ -608,17 +608,6 @@ $if $defined(ENABLE_CAMERA_VIEW):
         rl::beginMode2D(view.camera);
 $endif
 
-		if(main::gpGame.vidCabinet.movies.len()) 
-		{
-			// draw videos from video cabinet library
-			foreach(video : main::gpGame.vidCabinet.movies)
-			{
-				if(video.should_play) {
-					video.renderFrame(view.origin, (Vec2f)view.size);
-				}
-			}
-		}
-
         // draw general game sprites
         if(main::gpGame.sprites.len()) 
         {
@@ -731,6 +720,17 @@ $if $defined(ENABLE_CAMERA_VIEW):
 		rl::@mode2D(view.camera) 
 		{
 			main::gameOnPostGUIDraw(view.w, view.h);
+
+			$if $feature(VIDEO_PLAYBACK_ENABLE):
+			if(main::gpGame.vidCabinet.movies.len()) 
+			{
+				// draw videos from video cabinet library
+				foreach(movie : main::gpGame.vidCabinet.movies)
+				{
+					movie.renderFrame(view.origin, (Vec2f)view.size);
+				}
+			}
+			$endif
 		};
 $endif
     }; // End drawing to texture (now we have a texture available for next passes)

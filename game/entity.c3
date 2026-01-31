@@ -76,10 +76,10 @@ const float ENTITY_DEFAULT_SIZE_Y_METER   = 1.0f;  // 1  m
 alias TargetList = List{Entity*}; // list of entities that are targets for this entity
 
 // WORK_IN_PROGRESS!!
-const EventDef EV_ENTITY_GET_NAME @if($defined(ENABLE_EVENTS)) = {"getName", "p", "s"}; 
-const EventDef EV_ENTITY_GET_ID @if($defined(ENABLE_EVENTS)) = {"getID", "p", "i"};
+const EventDef EV_ENTITY_GET_NAME @if($defined(event::ENABLE_EVENTS)) = {"getName", "p", "s"}; 
+const EventDef EV_ENTITY_GET_ID @if($defined(event::ENABLE_EVENTS)) = {"getID", "p", "i"};
 
-const EventFunc[*] ENTITY_EVENTS @if($defined(ENABLE_EVENTS)) = {
+const EventFunc[*] ENTITY_EVENTS @if($defined(event::ENABLE_EVENTS)) = {
 	{&EV_ENTITY_GET_NAME, &ent::event_getName},
 	{&EV_ENTITY_GET_ID, &ent::event_getID},
 };

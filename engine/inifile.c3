@@ -756,7 +756,7 @@ fn int detect_comment_char_in_line(String str) @local @inline
 fn String[]? openConfigfileAndCutDataByLines(String filepath, bool isrelative) @local 
 {
     if(filepath == "") {
-        return MISSING_FILE_PATH?;
+        return MISSING_FILE_PATH~;
     }
     
     if(isrelative) filepath = game.app_base_folder.tconcat(filepath);
