@@ -117,16 +117,16 @@ fn bool? LANGData.load(&self, String _path)
         defer lang_file.free();
         if(lang_file == null) {
             log::error(FILE, "Failed to read language file '%s'", self.path);
-            return LANG_READ_ERROR?;
+            return LANG_READ_ERROR~;
         }
 
         if(self.parse(lang_file)) {
             return true;
         } else {
-            return LANG_PARSING_ERROR?;
+            return LANG_PARSING_ERROR~;
         }
     } else {
-        return LANG_FILE_MISSING?;
+        return LANG_FILE_MISSING~;
     }
 }
 

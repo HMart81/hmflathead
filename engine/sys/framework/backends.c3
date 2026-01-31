@@ -160,7 +160,7 @@ fn WindowHandle? BackendRender.createWindow(&self, String title, int width, int 
     if(!rl::isWindowReady()) return WINDOW_CREATION_FAILED~;
 
     self.window = rl::getWindowHandle();
-    if(self.window) { return self.window; } else { return FAILED_TO_GET_WINDOW_HANDLE?; }
+    if(self.window) { return self.window; } else { return FAILED_TO_GET_WINDOW_HANDLE~; }
 }
 
 fn void BackendRender.shutdown(&self) @dynamic

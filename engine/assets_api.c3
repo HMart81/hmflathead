@@ -27,7 +27,7 @@
 *********************************************************************************************************************************************/
 
 // region module
-module engine::assets_api::asset{Type};
+module engine::assets_api::asset;
 
 import std::io;
 import thirdparty::raylib5::rl;
@@ -35,7 +35,7 @@ import engine::misc;
 import engine::sys::framework::glsl;
 import engine::filesystem::fs;
 
-struct Asset
+struct Asset <Type>
 {
 	String name;
 	String path;
@@ -675,7 +675,7 @@ fn void? loadAssetsRecursively(String basepath, String parent_folder = "") @inli
 	PathList? paths = path::ls(tmem, path::temp(search_path));
 	if(catch excuse = paths) {
 		log::warning(Where.FILE,  "Unable to get list of files from folder: %s with excuse: %s", search_path, excuse);
-		return FOLDER_SCAN_ERROR?;
+		return FOLDER_SCAN_ERROR~;
 	}
 	
 	foreach(path: paths)
@@ -1349,7 +1349,7 @@ fn void? loadSoundShaderRecursively(String basepath, String parent_folder = "") 
 	PathList! paths = path::temp_ls(path::temp_new(search_path));
 	if(catch excuse = paths) {
 		log::warning(Where.FILE, "Unable to get files from folder: %s with excuse: %s", search_path, excuse);
-		return AssetError.FOLDER_SCAN_ERROR?;
+		return AssetError.FOLDER_SCAN_ERROR~;
 	}
 	
 	foreach(path: paths)

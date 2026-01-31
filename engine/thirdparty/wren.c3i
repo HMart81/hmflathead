@@ -49,9 +49,9 @@
 *   (but don't try storing the structs by value after that...)
 ****************************************************************/
 
-module buffer{Type} @private @if($feature(WREN_ENABLE));
+module buffer @private @if($feature(WREN_ENABLE));
 
-struct Buffer @if($feature(WREN_ENABLE))                                                      
+struct Buffer <Type> @if($feature(WREN_ENABLE))                                                    
 {
   Type* data;
   int count;

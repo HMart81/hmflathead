@@ -239,14 +239,14 @@ fn bool? GUIPStructure.load(&self, String path)
 {
     if(path == "") {
         log::warning(Where.FILE, "GUIP file path was empty, cannot load guip file data!");
-        return MISSING_GUIP?;
+        return MISSING_GUIP~;
     }
     self.path = path;
 
     String file_data = fs::readEntireFileX(self.path)!;
     if(file_data == "") {
         log::error(Where.FILE, "Failed to read data from guip file '%s'", self.path);
-        return GUIP_READ_ERROR?;
+        return GUIP_READ_ERROR~;
     }
 
     //self.parse(file_data)!;
@@ -263,7 +263,7 @@ fn bool? GUIPStructure.parse(&self, String data) @local
 {
     if(data == "") {
         log::error(Where.FILE, "Invalid guip file '%s', no data found!", self.path);
-        return GUIP_PARSING_ERROR?;
+        return GUIP_PARSING_ERROR~;
     }
 
     String[] lines = data.tsplit("\n");
@@ -476,25 +476,25 @@ fn bool? SVGData.load(&self)
 {
     if(self.path == "") {
         log::error(Where.FILE, "SVG file path is empty, cannot load svg file data!");
-        return SVG_FILE_PATH_EMPTY?;
+        return SVG_FILE_PATH_EMPTY~;
     }
     // check if the file exists
     File file = fs::openFile(self.path)!;
     defer file.close()!!;
     if(file.file == null) {
         log::error(Where.FILE, "Failed to open svg file '%s'", self.path);
-        return SVG_LOAD_ERROR?;
+        return SVG_LOAD_ERROR~;
     }
 
     SVGFile* svg_file = (SVGFile*)xml::read_file(file)!;
     defer svg_file.free();
     if(svg_file == null) {
         log::error(Where.FILE, "Failed to read svg file '%s'", self.path);
-        return SVG_LOAD_ERROR?;
+        return SVG_LOAD_ERROR~;
     }
 
     if(self.parse(svg_file) == false) {
-        return SVG_PARSING_ERROR?;
+        return SVG_PARSING_ERROR~;
     }
     
     return true;
@@ -930,7 +930,7 @@ fn float? to_float(String value) @local @inline
     if(value.contains("e") || value.contains("E")) 
     {
         // NOTE(HM) we don't support scientific notation here, so we return an error
-        return SVG_VALUE_ERROR?;
+        return SVG_VALUE_ERROR~;
     }
     
     clean_value(&value);
@@ -975,7 +975,7 @@ fn int? to_int(String value) @local @inline
     {
         // NOTE(HM) we don't support negative percentages or pixel count.
         if(value.starts_with("-")) {
-            return SVG_VALUE_ERROR?;
+            return SVG_VALUE_ERROR~;
         }
         // if we reach here then the value is a percentage or pixel count
         // so we need to remove the % or px from the end of the value
@@ -988,7 +988,7 @@ fn int? to_int(String value) @local @inline
     if(value.contains("e") || value.contains("E")) 
     {
         // NOTE(HM) we don't support scientific notation here, so we return an error
-        return SVG_VALUE_ERROR?;
+        return SVG_VALUE_ERROR~;
     }
 
     return 0;

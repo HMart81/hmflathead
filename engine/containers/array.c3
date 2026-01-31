@@ -26,9 +26,9 @@
 # 
 *********************************************************************************************************************************************/
 
-module engine::collections::keyval{Key, Val};
+module engine::collections::keyval;
 
-struct KeyVal
+struct KeyVal <Key, Val>
 {
     Key key;
     Val value;
@@ -44,7 +44,7 @@ fn bool KeyVal.nequl(&self, KeyVal kv ) @operator(!=)
     return (self.key == kv.key && self.value == kv.value);
 }
 
-module engine::collections::dynamic_array::dyarr{Type};
+
 
 /*
 ===============================================================================
@@ -55,21 +55,22 @@ module engine::collections::dynamic_array::dyarr{Type};
 		  // (update) c3 lib already has a dynamic array implementation... List...
 ===============================================================================
 */
+module engine::collections::dynamic_array::dyarr;
 
 import std::io, std::core::mem;
 
-struct DyArray (Printable)
+struct DyArray (Printable) <Type>
 {
 	int count;
 	int capacity;
 	Type* data;
 }
 
-fn bool array_invariants(arr) @inline @local {
-	return (arr.count >= 0 && arr.count <= arr.capacity && !arr.data == !arr.capacity) ? true : false;
+macro bool @array_invariants(#arr) @local {
+	return (#arr.count >= 0 && #arr.count <= #arr.capacity && !#arr.data == !#arr.capacity) ? true : false;
 }
 
-macro Type* DyArray.get(&self, usz index) @operator([])
+macro Type* DyArray.get(&self, usz index) <Type> @operator([])
 {
 	assert(index >= 0 && index < self.count && self.count <= self.capacity && self.data);
 	return &(self.data + index);
@@ -77,9 +78,9 @@ macro Type* DyArray.get(&self, usz index) @operator([])
 
 macro int DyArray.count(self) @operator(len) => self.count;
 
-fn void DyArray.amortize(&self, int new_count) 
+fn void DyArray.amortize(&self, int new_count) <Type>
 {
-	assert(array_invariants(self) == true);
+	assert(@array_invariants(self) == true);
 	if (new_count > self.capacity)
 	{
 		if (self.capacity < 16) self.capacity = 16;
@@ -91,20 +92,22 @@ fn void DyArray.amortize(&self, int new_count)
 
 fn void DyArray.reserve(&self, int new_capacity) 
 {
-	assert(array_invariants(self) == true);
+	assert(@array_invariants(self) == true);
 	assert(new_capacity >= 0);
 	self.amortize(new_capacity);
 }
 
-fn void DyArray.resize(&self, int new_count, Type value = {}) {
-	assert(array_invariants(self) == true);
+fn void DyArray.resize(&self, int new_count, Type value = {}) <Type>
+{
+	assert(@array_invariants(self) == true);
 	self.amortize(new_count);
 	for (usz i = self.count; self.count < new_count; i++) self.data[i] = value;
 	self.count = new_count;
 }
 
-fn DyArray DyArray.copy(&self) {
-	assert(array_invariants(self) == true);
+fn DyArray DyArray.copy(&self) <Type>
+{
+	assert(@array_invariants(self) == true);
 	DyArray result;
 	if (self.count) {
 		result.amortize(self.count);
@@ -114,8 +117,9 @@ fn DyArray DyArray.copy(&self) {
 	return result;
 }
 
-fn DyArray DyArray.move(&self) {
-	assert(array_invariants(self) == true);
+fn DyArray DyArray.move(&self) <Type>
+{
+	assert(@array_invariants(self) == true);
 	DyArray result;
 	if (self.count) {
 		result.amortize(self.count);
@@ -126,22 +130,25 @@ fn DyArray DyArray.move(&self) {
 	return result;
 }
 
-fn Type* DyArray.push(&self, Type value = {}) {
-	assert(array_invariants(self) == true);
+fn Type* DyArray.push(&self, Type value = {}) <Type>
+{
+	assert(@array_invariants(self) == true);
 	self.amortize(self.count + 1);
 	self.count++;
 	self.data[self.count - 1] = value;
 	return &self.data[self.count - 1];
 }
 
-fn Type DyArray.pop(&self) {
-	assert(array_invariants(self) == true && self.count > 0);
+fn Type DyArray.pop(&self) 
+{
+	assert(@array_invariants(self) == true && self.count > 0);
 	self.count -= 1;
 	return *self.data[self.count];
 }
 
-fn Type* DyArray.insert(&self, int index, Type value = {}) {
-	assert(array_invariants(self) == true && index < self.count);
+fn Type* DyArray.insert(&self, int index, Type value = {}) <Type>
+{
+	assert(@array_invariants(self) == true && index < self.count);
 	self.amortize(self.count + 1);
 	mem::move(self.data[index + 1], self.data[index], (self.count - index - 1) * Type.sizeof);
 	self.count++;
@@ -149,25 +156,29 @@ fn Type* DyArray.insert(&self, int index, Type value = {}) {
 	return &self.data[index];
 }
 
-fn void DyArray.remove(&self, int index) {
-	assert(array_invariants(self) == true && index < self.count);
+fn void DyArray.remove(&self, int index) 
+{
+	assert(@array_invariants(self) == true && index < self.count);
 	self.data[index] = self.data[self.count - 1];
 	self.count -= 1;
 }
 
-fn void DyArray.remove_ordered(&self, int index, int how_many = 1) {
-	assert(array_invariants(self) == true && index < self.count);
+fn void DyArray.remove_ordered(&self, int index, int how_many = 1) <Type>
+{
+	assert(@array_invariants(self) == true && index < self.count);
 	mem::move(self.data[index], self.data[index + 1], (self.count - index - 1) * Type.sizeof);
 	self.count -= how_many;
 }
 
-fn void DyArray.clear(&self) {
-	assert(array_invariants(self) == true);
+fn void DyArray.clear(&self) 
+{
+	assert(@array_invariants(self) == true);
 	self.count = 0;
 }
 
-fn void DyArray.release(&self) {
-	assert(array_invariants(self) == true);
+fn void DyArray.release(&self) 
+{
+	assert(@array_invariants(self) == true);
 	if (self.data) {
 		mem::free(self.data);
 	}
@@ -176,12 +187,14 @@ fn void DyArray.release(&self) {
 	self.capacity = 0;
 }
 
-fn Type* DyArray.begin(&self) {
-	assert(array_invariants(self) == true);
+fn Type* DyArray.begin(&self) <Type>
+{
+	assert(@array_invariants(self) == true);
 	return self.data;
 }
 
-fn Type* DyArray.end(&self) {
-	assert(array_invariants(self) == true);
+fn Type* DyArray.end(&self) <Type>
+{
+	assert(@array_invariants(self) == true);
 	return (self.data + self.count);
 }

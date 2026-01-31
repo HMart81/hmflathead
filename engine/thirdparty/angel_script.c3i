@@ -39,9 +39,9 @@
 *   (but don't try storing the structs by value after that...)
 ****************************************************************/
 
-module buffer{Type} @private @if($feature(ANGEL_ENABLE));
+module buffer @private @if($feature(ANGEL_ENABLE));
 
-struct Buffer @if($feature(ANGEL_ENABLE))                                             
+struct Buffer <Type> @if($feature(ANGEL_ENABLE))                                             
 {
   Type* data;
   int count;

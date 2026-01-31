@@ -1493,7 +1493,7 @@ fn bool? MTRFile.parse(&self, XmlDoc* doc)
     if(invalid_mtr)
     {
        log::error(Where.FILE, " Malformed material data file '%s', root node expected to be 'MTR' but is '%s' instead.", self.path, doc.rootNode.name);
-       return MTR_MALFORMED_FILE?;
+       return MTR_MALFORMED_FILE~;
     }
 
     String? version = (String)doc.rootNode.getAttribute(NodeAttrib.VERSION).value;
@@ -1507,7 +1507,7 @@ fn bool? MTRFile.parse(&self, XmlDoc* doc)
     if(version != MTR_VERSION_STRING)
     {
         log::error(Where.FILE, " Invalid material data file '%s', version expected to be '%s' but is '%s' instead.", self.path, MTR_VERSION_STRING, version);
-        return MTR_VERSION_MISMATCH?;
+        return MTR_VERSION_MISMATCH~;
     }
 
     // else everything should be fine from here, so keep parsing this material data
@@ -1520,7 +1520,7 @@ fn bool? MTRFile.parse(&self, XmlDoc* doc)
             if(node == null) 
             {
                 log::error(Where.FILE, "Null node found in mtr file '%s', skipping it.", self.path);
-                return MTR_MATERIAL_PARSING_ERROR?;
+                return MTR_MATERIAL_PARSING_ERROR~;
             }
         $endif
 
@@ -1539,7 +1539,7 @@ fn bool? MTRFile.parse(&self, XmlDoc* doc)
                 // Because the xml reader, reads character by character, is not easy to solve this, 
                 //  so it will create a text node, regardless if is empty or not.  
                 // The workaround, was to test for empty text nodes and just don't register them, in the xml doc file.
-                return MTR_MATERIAL_PARSING_ERROR?;
+                return MTR_MATERIAL_PARSING_ERROR~;
                 //
             case mtr::isXmlNode(node, Node.MATERIAL):
                 HMaterial* mat = self.parse_material(node);
@@ -1547,12 +1547,12 @@ fn bool? MTRFile.parse(&self, XmlDoc* doc)
                     self.register(mat);
                 } else {
                     log::error(Where.FILE, "Failed to parse material node '%s' in mtr file '%s'", node.name, self.path);
-                    return MTR_MATERIAL_PARSING_ERROR?;
+                    return MTR_MATERIAL_PARSING_ERROR~;
                 }
             default:
                 log::warning(Where.FILE, " Unexpected node in mtr file '%s', expected <MATERIAL> found <%s>", self.path, node.name);
                 $if $feature(_DEBUG):
-                    return MTR_MATERIAL_PARSING_ERROR?;
+                    return MTR_MATERIAL_PARSING_ERROR~;
                 $else
                     continue;
                 $endif
@@ -1773,7 +1773,7 @@ fn void? load_mtr_files(String search_path, MaterialDataBase* database) @local
 	PathList? paths = path::ls(tmem, path::temp(search_path));
 	if(catch excuse = paths) {
 		log::warning(Where.FILE,  "Unable get mtr files paths from folder: %s with excuse: %s", search_path, excuse);
-		return FOLDER_SCAN_ERROR?;
+		return FOLDER_SCAN_ERROR~;
 	}
 	
 	foreach(path: paths)

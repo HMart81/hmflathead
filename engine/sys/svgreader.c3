@@ -352,18 +352,18 @@ fn bool? SVGData.load(&self)
     defer file.close()!!;
     if(file.file == null) {
         log::error(Where.FILE, "Failed to open svg file '%s'", self.path);
-        return SVG_LOAD_ERROR?;
+        return SVG_LOAD_ERROR~;
     }
 
     SVGFile* svg_file = (SVGFile*)xml::read_file(file)!;
     defer svg_file.free();
     if(svg_file == null) {
         log::error(Where.FILE, "Failed to read svg file '%s'", self.path);
-        return SVG_LOAD_ERROR?;
+        return SVG_LOAD_ERROR~;
     }
 
     if(self.parse(svg_file) == false) {
-        return SVG_PARSING_ERROR?;
+        return SVG_PARSING_ERROR~;
     }
     
     return true;
@@ -799,7 +799,7 @@ fn float? to_float(String value) @local @inline
     if(value.contains("e") || value.contains("E")) 
     {
         // NOTE(HM) we don't support scientific notation here, so we return an error
-        return SVG_VALUE_ERROR?;
+        return SVG_VALUE_ERROR~;
     }
     
     clean_value(&value);
@@ -844,7 +844,7 @@ fn int? to_int(String value) @local @inline
     {
         // NOTE(HM) we don't support negative percentages or pixel count.
         if(value.starts_with("-")) {
-            return SVG_VALUE_ERROR?;
+            return SVG_VALUE_ERROR~;
         }
         // if we reach here then the value is a percentage or pixel count
         // so we need to remove the % or px from the end of the value
@@ -857,7 +857,7 @@ fn int? to_int(String value) @local @inline
     if(value.contains("e") || value.contains("E")) 
     {
         // NOTE(HM) we don't support scientific notation here, so we return an error
-        return SVG_VALUE_ERROR?;
+        return SVG_VALUE_ERROR~;
     }
 
     return 0;

@@ -37,9 +37,9 @@
 *   The reality is, you don't need to know the full data-layout for most of them to use this... 
 *   (but don't try storing the structs by value after that...)
 ****************************************************************/
-module umkadyarr{Type} @private @if($feature(UMKA_ENABLE));
+module umkadyarr @private @if($feature(UMKA_ENABLE));
 
-struct DynArray @if($feature(UMKA_ENABLE))                                                      
+struct DynArray <Type> @if($feature(UMKA_ENABLE))                                                      
 {
   void* internal;
   long itemSize;
@@ -236,7 +236,7 @@ fn bool? Umka.init(&self, UmkaScriptInitData* inidata)
 extern fn bool Umka._compile(&self) @local @cname("umkaCompile");
 macro bool? Umka.compile(&self) {
   if(self._compile()) return true;
-  return COMPILE_FAILED?;
+  return COMPILE_FAILED~;
 }
 extern fn int  Umka.run(&self) @cname("umkaRun");
 extern fn int  Umka.call(&self, UmkaFuncContext *func) @cname("umkaCall");

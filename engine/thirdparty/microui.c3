@@ -26,9 +26,9 @@
 # 
 *********************************************************************************************************************************************/
 
-module thirdparty::microui::mu_stack {Type, MAX_SIZE} @private @if($feature(MICROUI_ENABLE));
+module thirdparty::microui::mu_stack @private @if($feature(MICROUI_ENABLE));
 
-struct MU_Stack
+struct MU_Stack <Type, MAX_SIZE>
 {
 	int idx;
 	Type[MAX_SIZE] items;

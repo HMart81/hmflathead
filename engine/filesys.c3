@@ -184,7 +184,7 @@ fn bool? fileSaveEntireText(String fileName, String text) {
     if(rl::saveFileText(fileName.zstr_tcopy(), text.zstr_tcopy())) {
         return true;
     } else {
-        return FS_FAILED_SAVE_DATA?;
+        return FS_FAILED_SAVE_DATA~;
     }
 }
 
@@ -306,7 +306,7 @@ fn bool? makeDirectory_IfNotExist(String dirPath) {
     if(rl::makeDirectory(dirPath.zstr_tcopy()) == SUCESS) {
         return true;
     } else {
-        return FS_FAILED_MAKE_DIR?;
+        return FS_FAILED_MAKE_DIR~;
     }
 }
 // Change working directory, return true on success
@@ -314,7 +314,7 @@ fn bool? changeDirectory(String dir) {
     if(rl::changeDirectory(dir.zstr_tcopy())) {
         return true;
     } else {
-        return FS_FAILED_CHANGE_DIR?;
+        return FS_FAILED_CHANGE_DIR~;
     }
 }
 // Check if a given path is a file
@@ -648,7 +648,7 @@ fn Win32_PHKEY? regOpenCurrentUser(Reg_SAM desired)
     if (status == ERROR_SUCCESS) {
         return result; // Return the opened registry key handle (call regCloseKey to close it later)
     }
-    return ERROR_REGISTRY_KEY_OPEN_FAILED?; // or handle the error as needed
+    return ERROR_REGISTRY_KEY_OPEN_FAILED~; // or handle the error as needed
 }
 
 /*
@@ -669,7 +669,7 @@ fn Win32_PHKEY? regOpenKey(Win32_HKEY key, Win32_LPCSTR sub_key, Win32_DWORD opt
     if (status == ERROR_SUCCESS) {
         return result; // Return the opened registry key handle (call regCloseKey to close it later)
     }
-    return ERROR_REGISTRY_KEY_OPEN_FAILED?; // or handle the error as needed
+    return ERROR_REGISTRY_KEY_OPEN_FAILED~; // or handle the error as needed
 }
 
 /*
@@ -698,7 +698,7 @@ fn bool? regCreateKey(Win32_HKEY key, Win32_LPCSTR sub_key, Win32_DWORD reserve,
         return true;
     }
 
-    return ERROR_REGISTRY_KEY_CREATION_FAILED?; // or handle the error as needed
+    return ERROR_REGISTRY_KEY_CREATION_FAILED~; // or handle the error as needed
 }
 
 /*LSTATUS RegSetValueExA(
@@ -731,7 +731,7 @@ fn Win32_PHKEY? createRegistryKey(String keyname) @inline
     if(try regCreateKey(currentUserKey, ((Win32_LPCSTR))registry_path, 0, null, REG_OPTION_BACKUP_RESTORE, WIN32_KEY_WRITE, null, &result, &dwDisposition)) {
         return result; // Return the created or opened registry key handle
     }
-    return ERROR_REGISTRY_KEY_CREATION_FAILED?;
+    return ERROR_REGISTRY_KEY_CREATION_FAILED~;
 }
 
 fn void? setRegistryDwordValue(String setting, uint value) @public
@@ -745,7 +745,7 @@ fn void? setRegistryDwordValue(String setting, uint value) @public
     dwSize = Win32_DWORD32.sizeof; // size of the Win32_DWORD unsigned 32bits value
     if(regSetValue(folder_key, (Win32_LPCSTR)setting.zstr_tcopy(), 0, dwType, (Win32_BYTE*)&value, dwSize) == ERROR_SUCCESS) return;
     // else return an error
-    return ERROR_REGISTRY_KEY_SET_VALUE_FAILED?;
+    return ERROR_REGISTRY_KEY_SET_VALUE_FAILED~;
 }
 
 // unfinished does not work yet because of user permissions, don't know if I will bother with this

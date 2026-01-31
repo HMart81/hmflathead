@@ -116,7 +116,7 @@ fn void SaveFile.closeself(&self) @inline
 fn SaveFile? open(String filepath, int file_version = SAVE_FILE_VERSION) 
 {
     if(filepath == "" || filepath.len < 3) {
-        return MISSING_FILE_PATH?;
+        return MISSING_FILE_PATH~;
     }
 
     SaveFile file_data;
@@ -124,7 +124,7 @@ fn SaveFile? open(String filepath, int file_version = SAVE_FILE_VERSION)
 	$foreach $menber : $typeof(file_data).membersof:
  		$if $menber.tagof("version") != SAVE_FILE_VERSION:
 			log::warning(CONSOLE, "SaveFile member %s is not compatible with version %d. Please update the save file version.", $menber.nameof, SAVE_FILE_VERSION);
-			return VERSION_MISMATCH?;
+			return VERSION_MISMATCH~;
 		$endif
 	$endforeach
 
@@ -132,7 +132,7 @@ fn SaveFile? open(String filepath, int file_version = SAVE_FILE_VERSION)
     file_data.path    = filepath;
     io::File? file    = fs::openFile(filepath, fs::FILE_READ_BINARY);
     if(catch excuse = file) {
-        return FAILED_OPEN_FILE?;
+        return FAILED_OPEN_FILE~;
     } else {
         file_data.file = file;
         return file_data;
@@ -141,19 +141,19 @@ fn SaveFile? open(String filepath, int file_version = SAVE_FILE_VERSION)
 
 fn SaveFile? make_new(String filepath, int file_version = SAVE_FILE_VERSION) {
     if(filepath == "") {
-        return MISSING_FILE_PATH?;
+        return MISSING_FILE_PATH~;
     }
     
 	// create the file by trying to open it for writing
     io::File? file  = fs::openFile(filepath, fs::FILE_WRITE_BINARY);
     if(catch excuse = file) {
-        return FAILED_OPEN_FILE?;
+        return FAILED_OPEN_FILE~;
     } else {
         SaveFile file_data;
 		$foreach $menber : $typeof(file_data).membersof:
 			$if $menber.tagof("version") != SAVE_FILE_VERSION:
 				log::warning(Where.CONSOLE, "SaveFile member %s is not compatible with version %d. Please update the save file version.", $menber.nameof, SAVE_FILE_VERSION);
-				return VERSION_MISMATCH?;
+				return VERSION_MISMATCH~;
 			$endif
 		$endforeach
         file_data.version = file_version;

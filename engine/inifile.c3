@@ -767,7 +767,7 @@ fn String[]? openConfigfileAndCutDataByLines(String filepath, bool isrelative) @
     String? entire_file = fs::readEntireFileX(filepath);
     if(catch excuse = entire_file) {
         log::warning(FILE,  "Unable to read data from file: %s with excuse: %s", filepath, excuse);
-        return FAILED_READ_FILE?;
+        return FAILED_READ_FILE~;
     }
     
     // cut the data into individual string slices
@@ -780,7 +780,7 @@ fn String[]? openConfigfileAndCutDataByLines(String filepath, bool isrelative) @
     if(lines.len) {
         return lines;
     }  else {
-        return FAILED_READ_FILE?;
+        return FAILED_READ_FILE~;
     }
 }
 
@@ -952,20 +952,20 @@ fn int get_cmd_type_from_value(String value) @inline @local
 fn ConfigFile*? load(String filepath, bool isrelative = true) 
 {
     if(filepath == EMPTY_STR) {
-        return MISSING_FILE_PATH?;
+        return MISSING_FILE_PATH~;
     }
     
     String[]? data = openConfigfileAndCutDataByLines(filepath, isrelative);
     if(catch excuse = data) {
         log::warning(FILE,  "Unable to open file %s to cut with excuse: %s", filepath, excuse);
-        return FILE_LOAD_FAILED?;
+        return FILE_LOAD_FAILED~;
     }
     
     //data is valid from here
     ConfigFile*? file_data = parse_file(data);
     if(catch excuse = file_data) {
         log::warning(FILE, "Failed to parse config file: %s with excuse: %s", filepath, excuse);
-        return MALFORMED_FILE?;
+        return MALFORMED_FILE~;
     }
     file_data.path = filepath.tcopy();
 
@@ -982,7 +982,7 @@ fn bool? ConfigFile.load(&self, String filepath, bool isrelative = true)
     String[]? lines = openConfigfileAndCutDataByLines(filepath, isrelative);
     if(catch excuse = lines) {
         log::warning(Where.FILE,  "Unable to open file %s to cut with excuse: %s", filepath, excuse);
-        return FILE_LOAD_FAILED?;
+        return FILE_LOAD_FAILED~;
     }
 
     self.path = filepath.tcopy();
@@ -1242,7 +1242,7 @@ fn File? create_default_settings_fileEx(String filepath) @inline
 	File? data = file::open(filepath, "w");
     if(catch excuse = data) {
         log::warning(FILE, "Failed to open settings file: %s to write with excuse: %s", filepath, excuse);
-        return excuse?;
+        return excuse~;
     }
     log::warning(FILE, "Settings file missing, creating one with default settings at: %s", filepath);
     @catch(data.write(SAFE_SETTINGS));
@@ -1257,11 +1257,11 @@ fn File? create_default_settings_fileEx(String filepath) @inline
  *>
 fn bool? populate(ConfigFile* file_data, String path) @deprecated {
     if(file_data == null) {
-        return MISSING_DATA_BUFFER?;
+        return MISSING_DATA_BUFFER~;
     }
 
     if(path == "") {
-        return MISSING_FILE_PATH?;
+        return MISSING_FILE_PATH~;
     }
     
     // first get the file raw data (comes with garbage at the end)
@@ -1274,7 +1274,7 @@ fn bool? populate(ConfigFile* file_data, String path) @deprecated {
         String[] lines = misc::cut_by_newline(entire_data);
         
         if(lines.len == 0) {
-            return MALFORMED_FILE?;
+            return MALFORMED_FILE~;
         }
         
         IniSection* section;
