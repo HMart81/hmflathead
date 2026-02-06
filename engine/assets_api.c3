@@ -29,11 +29,11 @@
 // region module
 module engine::assets_api::asset;
 
-import std::io;
-import thirdparty::raylib5::rl;
-import engine::misc;
-import engine::sys::framework::glsl;
-import engine::filesystem::fs;
+//import std::io;
+//import thirdparty::raylib5::rl;
+//import engine::misc;
+//import engine::sys::framework::glsl;
+//import engine::filesystem::fs;
 
 struct Asset <Type>
 {
@@ -95,7 +95,8 @@ alias AssetMusicListPtr   = List{Asset{RLMusic}*};
 alias AssetFontListPtr    = List{Asset{RLFont}*};
 alias AssetShaderListPtr  = List{Asset{RLShader}*};
 
-struct Manager {
+struct Manager 
+{
 	AssetTextureListPtr textures; // list of texture assets 
     AssetSoundListPtr   sounds;   // list of sound assets
     AssetMusicListPtr   musics;   // list of music assets
@@ -106,12 +107,16 @@ struct Manager {
 Manager local_manager @local;
 Manager* assetManager = &local_manager;
 
+<*
+	@param [inout] asset : "the asset to register, must be a pointer to an Asset struct of a supported type, like Asset{RLTexture2D}* for example."
+	@require asset.ptr != null
+*>
 fn void Manager.register(&self, any asset) @local
 {
-    if(asset.ptr == null) {
+    /*if(asset.ptr == null) {
         log::error(FILE, "Trying to register a null asset, skipping it.");
         return;
-    }
+    }*/
 
     switch(asset.type)
     {
@@ -309,8 +314,6 @@ fn any Manager.getAsset(&self, String name, typeid type)
         default:
             unreachable();
     }
-	
-	//return null;
 }
 
 /*
@@ -407,7 +410,7 @@ fn bool Manager.hasAsset(&self, String name, typeid type) @inline
 }
 */
 
-fn int Manager.hasAsset(&self, String name, typeid type) @inline 
+fn int Manager.hasAsset(&self, String name, typeid type) @inline
 {
     if(name == "") return -1; // no asset name provided
 
@@ -439,9 +442,10 @@ fn int Manager.hasAsset(&self, String name, typeid type) @inline
 }
 
 <*
-@ensure return != null
+	@ensure return != null
 *>
-fn RLTexture2D* Manager.getTexture(&self, String name) @inline {
+fn RLTexture2D* Manager.getTexture(&self, String name) @inline @nodiscard
+{
     if(name != "") 
     {
         any asset = local_manager.getAsset(name, RLTexture2D.typeid);
@@ -459,7 +463,7 @@ fn RLTexture2D* Manager.getTexture(&self, String name) @inline {
     @require name != ""
     @ensure return != null
 *>
-fn RLShader* Manager.getShader(&self, String name) //@inline 
+fn RLShader* Manager.getShader(&self, String name) @nodiscard //@inline 
 {
     any asset = local_manager.getAsset(name, RLShader.typeid);
     if(asset.ptr != null) {
@@ -471,9 +475,10 @@ fn RLShader* Manager.getShader(&self, String name) //@inline
 }
 
 <*
-@ensure return != null
+	@ensure return != null
 *>
-fn RLSound* Manager.getSound(&self, String name) @inline {
+fn RLSound* Manager.getSound(&self, String name) @nodiscard @inline 
+{
     if(name != "") 
     {
         any asset = local_manager.getAsset(name, RLSound.typeid);
@@ -487,9 +492,10 @@ fn RLSound* Manager.getSound(&self, String name) @inline {
 }
 
 <*
-@ensure return != null
+	@ensure return != null
 *>
-fn RLMusic* Manager.getMusic(&self, String name) @inline {
+fn RLMusic* Manager.getMusic(&self, String name) @nodiscard @inline 
+{
     if(name != "") 
     {
         any asset = local_manager.getAsset(name, RLMusic.typeid);
@@ -503,9 +509,10 @@ fn RLMusic* Manager.getMusic(&self, String name) @inline {
 }
 
 <*
-@ensure return != null
+	@ensure return != null
 *>
-fn RLFont* Manager.getFont(&self, String name) @inline {
+fn RLFont* Manager.getFont(&self, String name) @nodiscard @inline 
+{
 	if(name != "") 
     {
         any asset = local_manager.getAsset(name, RLFont.typeid);
@@ -522,10 +529,17 @@ fn RLFont* Manager.getFont(&self, String name) @inline {
 ///////////////////////// ASSET LOADING FUNCTIONS /////////////////////
 ///////////////////////////////////////////////////////
 
+<*
+	Loads an asset from a given path and registers it in the asset manager.
 
+	@param path : "the path to the asset to load, must be a valid path to an existing file, with a supported extension, like .png for example."
+	@require path != "" : "if the path is empty, it can't be a valid asset file."
+	@require path.len >= 5 : "because the shortest valid asset file name is 'a.png' which is 5 characters long, if the path is shorter than that, it can't be a valid asset file."
+	@require fs::fileExists(path) && path.contains(".") : "if the file doesn't exist or doesn't have an extension, it can't be a valid asset file."
+*>
 fn void loadAsset(String path) 
 {
-    if(path == "") {
+    /*if(path == "") {
         log::error(Where.FILE, "Trying to load an asset with an empty path, skipping it.");
         return;
     }
@@ -534,11 +548,11 @@ fn void loadAsset(String path)
         log::error(Where.FILE, "Trying to load an asset with a path that is too short, skipping it.");
         return;
     }
-
+	
     if(!fs::fileExists(path)) {
         log::error(Where.FILE, "Trying to load an asset with a path that does not exist: %s", path);
         return;
-    }
+    }*/
 
     bool should_load;
     String asset_name = fs::getFileNameWithoutExt(path);

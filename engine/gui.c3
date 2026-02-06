@@ -94,6 +94,7 @@ const uint HORIZONTAL_DIR = 1;
 const uint VERTICAL_DIR   = 2;
 // #endregion
 
+/*
 typedef GuiAnchor = inline Vec2f;
 
 enum GuiAnchorType : const inline int
@@ -138,6 +139,7 @@ fn Vec2f getAnchorVecPosFrom(GuiAnchorType type, RenderView view) @inline
         default: unreachable();
     }
 }
+*/
 
 enum PanelShape : const inline int
 {
@@ -878,8 +880,8 @@ fn void Widget.draw(&self) @dynamic
         case KIND_CHECKBOX:
             // draw the checkbox
             WidgetCheckBox* this = (WidgetCheckBox*)self;
-            Vec2f center = this.getPosition() + misc::VEC_LEFT * (this.getWidth() / 2.0f);
-            center += misc::VEC_DOWN * (this.getHeight() / 2.0f);
+            Vec2f center = this.getPosition(); //+ misc::VEC_LEFT * (this.getWidth() / 2.0f);
+            //center += misc::VEC_DOWN * (this.getHeight() / 2.0f);
             r2d::drawRectangle((int)center.x, (int)center.y, 20, 20, this.color);
 
             // draw the label
@@ -1053,16 +1055,17 @@ struct WidgetText
 fn void WidgetText.init(&self) //@inline 
 {
     self.super.init(KIND_TEXT);
-    self.super.hide(); // don't show the button shape
+    self.super.hide(); // don't show the square shape
     self.super.name = "TextLabel";
-    self.setColor({0, 0, 0, 0});
+    self.setColor({0, 0, 0, 0}); // invisible color for the panel shape
     self.spacing    = 2.0f; //@hardcode, todo make this int a cvar
     self.font_size  = 20; //@hardcode
     self.setDefaultColor(rl::WHITE); //@hardcode
     self.align      = WidgetTextAlign.CENTER;
 }
 
-fn void WidgetText.deinit(&self) @inline {
+fn void WidgetText.deinit(&self) @inline 
+{
     self.super.deinit();
     if(self.font) {
         // NOTE(HM) we don't deinit the font here, as it is done through the game singleton 
@@ -1074,10 +1077,12 @@ fn void WidgetText.deinit(&self) @inline {
 }
 
 <*
- @require self.text != ""
+	Updates the bounds of the text widget based on the current text and font.
+	@require self.text != ""
 *>
 fn void WidgetText.updateBounds(&self) @local 
 {
+	// if custom font is set use it to measure text bounds
     if(self.font != null) {
         RLVector2 bounds = rl::measureTextEx(*self.font, self.text.zstr_tcopy(), (float)self.font_size, self.spacing);
         /*int txt_len = rl::measureText(self.text.zstr_tcopy(), self.font_size);
@@ -1086,49 +1091,51 @@ fn void WidgetText.updateBounds(&self) @local
         }*/
         self.text_len = (int)bounds.x;
         self.setSize(bounds.x, bounds.y);
-    } else {
+    } else { // use default font
         self.text_len = rl::measureText(self.text.zstr_tcopy(), self.font_size);
         self.setSize((float)self.text_len, (float)self.font_size);
     }
 }
 
-fn Vec2f WidgetText.getBounds(&self) @inline {
-    // returns the bounds of the text, not the widget
+fn Vec2f WidgetText.getBounds(&self) @inline 
+{
+    // returns the bounds of the text, not the widget itself
     return { (float)self.text_len, (float)self.font_size };
 }
 
-fn void WidgetText.setFont(&self, RLFont* font) @inline {
-    if (font == null) {
-        log::error(Where.CONSOLE, "WidgetText: Cannot set font to null.");
-        return;
-    }
+<*
+	@param [in] font : "font to set"
+	@require font != null
+*>
+fn void WidgetText.setFont(&self, RLFont* font) @inline 
+{
     self.font = font;
     self.updateBounds();
-
 }
 
-fn void WidgetText.setText(&self, String text) {
+fn void WidgetText.setText(&self, String text) @inline
+{
     self.text = text;
     self.updateBounds();
 }
 
-fn int WidgetText.textlen(&self) @inline {
-    return rl::measureText(self.text.zstr_tcopy(), self.font_size);
-}
-
-fn float WidgetText.textlenf(&self) @inline {
+fn float WidgetText.textlen(&self) @inline 
+{
     return (float)rl::measureText(self.text.zstr_tcopy(), self.font_size);
 }
 
-fn void WidgetText.setTextColor(&self, RLColor color) @inline {
+fn void WidgetText.setTextColor(&self, RLColor color) @inline 
+{
     self.color = color;
 }
 
-fn void WidgetText.setAlign(&self, WidgetTextAlign align) @inline {
+fn void WidgetText.setAlign(&self, WidgetTextAlign align) @inline 
+{
     self.align = align;
 }
 
-fn void WidgetText.setFontSize(&self, int size) @inline {
+fn void WidgetText.setFontSize(&self, int size) @inline 
+{
     self.font_size = size;
     self.updateBounds();
 }
@@ -1308,7 +1315,8 @@ fn void WidgetButton.draw(&self) {
 <*
  @ensure return != null
 *>
-fn WidgetButton* createButton() @inline {
+fn WidgetButton* createButton() @inline 
+{
     WidgetButton* button = mem::new(WidgetButton);
     button.init();
     return button;
@@ -1576,11 +1584,11 @@ import engine::gui::guieditor;
     BASIC GUI creation process:
     
     - Create a Desktop
-        gui::Desktop main_menu;
+        Desktop main_menu;
     - init the Desktop
         main_menu.ini(...);
     - create any widgets
-        gui::WidgetButton main_menu_button;
+        WidgetButton main_menu_button;
     - init the Widget and add it to Desktop
         main_menu_button.init();
         main_menu_button.addTo(&main_menu);
@@ -1635,7 +1643,7 @@ fn void Desktop.reload(&self, SaveFile* file) @dynamic {
 // todo
 }
 
-// todo init this from a svg file
+// todo init this from a file
 fn bool Desktop.initFromFile(&self, ZString path, bool cache ) 
 {
     @todo();
@@ -1709,7 +1717,6 @@ fn bool Desktop.initFromFile(&self, ZString path, bool cache )
     @param isFullscreen : "if true, the desktop will cover the entire screen"
     @param w : "width of the desktop, used only if isFullscreen is false"
     @param h : "height of the desktop, used only if isFullscreen is false"
-
     @require rl::isWindowReady() == true
 *>
 fn void Desktop.init(&self, String name, bool isFullscreen = true, int w = 800, int h = 600) @inline 
@@ -1720,6 +1727,9 @@ fn void Desktop.init(&self, String name, bool isFullscreen = true, int w = 800, 
     //
     if(isFullscreen)
     {
+		assert(main::gpGame.screen.w > 0 && main::gpGame.screen.h > 0, 
+			"Desktop.init: Cannot initialize fullscreen desktop when screen width or height is zero."
+		);
         self.rect = { // @hardcode
             .x      = 0,
             .y      = 0, 
@@ -1739,8 +1749,11 @@ fn void Desktop.init(&self, String name, bool isFullscreen = true, int w = 800, 
     
     self.color = rl::WHITE;
     //
-    self.isInteractive = true;
-    self.show();
+	//NOTE(HM) by default the desktop is not active when created
+	//self.active = false; // in this language bools are set false by default
+	//
+    self.isInteractive = true; // by default the desktop is interactive
+    self.show(); 			   // by default the desktop is visible
     
     Desktop* this = self;
     local_manager.register(this);
@@ -1757,9 +1770,9 @@ fn void Desktop.deinit(&this) @inline
 fn void Desktop.setFocus(&self, bool focus) @inline 
 {
     if (focus) {
-        self.activate(true, main::gpGame.time_ms);
+        if(!self.active) self.activate();
     } else {
-        self.activate(false, main::gpGame.time_ms);
+        if(self.active) self.deactivate();
     }
 }
 
@@ -1797,10 +1810,10 @@ fn void Desktop.activate(&self, bool activate = true, int _time = main::gpGame.t
 }
 
 fn void Desktop.deactivate(&self, int _time = main::gpGame.time_ms) @inline {
-    self.time   = _time;
-    self.active = false;
+    self.activate(false, _time);
 }
 
+// used when the desktop state changes like some widget is added/removed or modified in some ways.
 fn void Desktop.stateChanged(&self, int _time, bool redraw ) {
 	self.time = _time;
 	if (redraw) {
@@ -1959,20 +1972,20 @@ fn void Desktop.update(&self)
         }
     }
 
-    if(rl::isMusicValid(self.music_stream)) {
-        if(rl::isMusicStreamPlaying(self.music_stream) && 
-                                        main::gpGame.pause_all_music)
+    if(rl::isMusicValid(self.music_stream)) 
+	{
+        if(main::gpGame.pause_all_music)
         {
-            rl::pauseMusicStream(self.music_stream);
+           if(rl::isMusicStreamPlaying(self.music_stream)) rl::pauseMusicStream(self.music_stream);
         } 
-        
-        if(!rl::isMusicStreamPlaying(self.music_stream) && 
-                                    !main::gpGame.pause_all_music)
+        else if (!rl::isMusicStreamPlaying(self.music_stream))
         {
-            // play music stream
             rl::resumeMusicStream(self.music_stream);
-        }
-        rl::updateMusicStream(self.music_stream);
+        } 
+		else 
+		{
+			rl::updateMusicStream(self.music_stream);
+		}
     }
 }
 

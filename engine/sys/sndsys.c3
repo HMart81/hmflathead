@@ -26,9 +26,9 @@
 # 
 *********************************************************************************************************************************************/
 
-// Ignore UNFINISHED
+// Sound System - Ignore UNFINISHED
 
-module engine::soundsystem::sndsys;
+module engine::sys::sndsys;
 
 // region modules
 import std::io;
@@ -36,11 +36,12 @@ import std::core::mem; // for malloc/new
 import std::math;
 import std::collections::list;
 import engine::misc;
-import engine::assets_api::astmng; // asset manager
 import game::main;
 import game::assets::sprt; // sprite
 import engine::filesystem::fs;
 import thirdparty::raylib5::rl;
+import engine::assets_api::asset; // for the asset system
+import engine::assets_api::astmng; // asset manager
 //import raygui5::rgui;
 import thirdparty::raylib5::rmath;
 import game::serialize::svs; // save system
@@ -83,13 +84,235 @@ import engine::logging::log;
     fn float getMusicTimePlayed(SSMusic music) 
 */
 
-alias SSMusicDatabase = List{SSMusic*};
-SSMusicDatabase music_data;
+struct SSWave 
+{
+	inline RLWave super;
+	String name;
+}
+
+alias SSMusicDatabase = List{Asset{RLMusic}*};
+alias SSSoundDatabase = List{Asset{RLSound}*};
+alias SSWavDatabase = List{SSWave*};
+
+alias SSSoundWorlds = List{SoundWorld*};
+SSSoundWorlds sound_worlds;
+
+struct SoundWorld 
+{
+	String name;
+	SSMusicDatabase music;
+	SSSoundDatabase sounds;
+	SSWavDatabase waves;
+	// placeholder for future sound world data
+}
+
+fn void SoundWorld.addMusic(&self, Asset{RLMusic}* music_asset) @extern("addMusic")
+{
+	self.music.push(music_asset);
+}
+
+fn void SoundWorld.addSound(&self, Asset{RLSound}* sound_asset) @extern("addSound")
+{
+	self.sounds.push(sound_asset);
+}
+
+fn void SoundWorld.addWave(&self, SSWave* wave_ptr) @extern("addWave")
+{
+	self.waves.push(wave_ptr);
+}
+
+// getters
+fn Asset{RLMusic}* SoundWorld.getMusicByName(&self, String music) @nodiscard @extern("getMusicByName")
+{
+	foreach(music_asset : self.music) {
+		if(music_asset.name == music) {
+			return music_asset;
+		}
+	}
+	return null;
+}
+
+fn Asset{RLSound}* SoundWorld.getSoundByName(&self, String sound) @nodiscard @extern("getSoundByName")
+{
+	foreach(sound_asset : self.sounds) {
+		if(sound_asset.name == sound) {
+			return sound_asset;
+		}
+	}
+	return null;
+}
+
+fn RLWave* SoundWorld.getWaveByName(&self, String wave_name) @nodiscard @extern("getWaveByName")
+{
+	foreach(wave_ptr : self.waves) {
+		if(wave_ptr.name == wave_name) {
+			return wave_ptr;
+		}
+	}
+	return null;
+}
+
+fn void SoundWorld.removeMusic(&self, Asset{RLMusic}* music_asset) @extern("removeMusic")
+{
+	self.music.remove_item(music_asset);
+}
+
+fn void SoundWorld.removeSound(&self, Asset{RLSound}* sound_asset) @extern("removeSound")
+{
+	self.sounds.remove_item(sound_asset);
+}
+
+fn void SoundWorld.removeWave(&self, SSWave* wave_ptr) @extern("removeWave")
+{
+	wave_ptr.name = ""; // clear name for safety
+	rl::unloadWave(wave_ptr.super); // unload the wave data
+	mem::free(wave_ptr); // free the wave struct
+	self.waves.remove_item(wave_ptr);
+}
+
+fn void SoundWorld.clearMusic(&self) @extern("clearMusic")
+{
+	self.music.clear();
+}
+
+fn void SoundWorld.clearSounds(&self) @extern("clearSounds")
+{
+	self.sounds.clear();
+}
+
+fn void SoundWorld.clearWaves(&self) @extern("clearWaves")
+{
+	self.waves.clear();
+}
+
+fn void SoundWorld.clearAll(&self) @extern("clearAll")
+{
+	self.music.clear();
+	self.sounds.clear();
+	self.waves.clear();
+}
+
+fn void SoundWorld.playMusic(&self, Asset{RLMusic}* music_asset) @extern("playMusic")
+{
+	if(rl::isMusicValid(music_asset.data)) {
+		if(!rl::isMusicStreamPlaying(music_asset.data)) {
+			rl::playMusicStream(music_asset.data);
+		}
+	}
+}
+
+fn void SoundWorld.playMusicByName(&self, String music_name) @extern("playMusicByName")
+{
+	foreach(music_asset : self.music) {
+		if(music_asset.name == music_name) {
+			self.playMusic(music_asset);
+			return;
+		}
+	}
+}
+
+fn void SoundWorld.resumeMusic(&self, Asset{RLMusic}* music_asset) @extern("resumeMusic")
+{
+	if(!rl::isMusicStreamPlaying(music_asset.data)) {
+		rl::resumeMusicStream(music_asset.data);
+	}
+}
+
+fn void SoundWorld.pauseMusic(&self, Asset{RLMusic}* music_asset) @extern("pauseMusic")
+{
+	if(rl::isMusicStreamPlaying(music_asset.data)) {
+		rl::pauseMusicStream(music_asset.data);
+	}
+}
+
+fn void SoundWorld.stopMusic(&self, Asset{RLMusic}* music_asset) @extern("stopMusic")
+{
+	if(rl::isMusicStreamPlaying(music_asset.data)) {
+		rl::stopMusicStream(music_asset.data);
+	}
+}
+
+////////////////////////////////////////////////////////////////////////
+////////////////// Sound World Management Functions //////////////////
+
+<*
+ @param [&in] sw : "sound world to register"
+*>
+fn void registerSoundWorld(SoundWorld* sw) @extern("registerSoundWorld")
+{
+	sound_worlds.push(sw);
+}
+
+fn SoundWorld* createSoundWorld(String name) @extern("createSoundWorld")
+{
+	SoundWorld* sw = mem::new(SoundWorld);
+	sw.name = name.tcopy();
+	return sw;
+}
+
+fn void destroySoundWorld(SoundWorld* sw) @extern("destroySoundWorld")
+{
+	// unload all music
+	foreach(music_asset : sw.music) {
+		rl::unloadMusicStream(music_asset.data);
+		mem::free(music_asset);
+	}
+	sw.music.clear();
+	
+	// unload all sounds
+	foreach(sound_asset : sw.sounds) {
+		rl::unloadSound(sound_asset.data);
+		mem::free(sound_asset);
+	}
+	sw.sounds.clear();
+	
+	// unload all waves
+	foreach(wave_ptr : sw.waves) {
+		rl::unloadWave(*wave_ptr);
+		mem::free(wave_ptr);
+	}
+	sw.waves.clear();
+	
+	mem::free(sw);
+}
+
+fn void updateSoundWorld(SoundWorld* sw) @extern("updateSoundWorld")
+{
+	// update all music streams
+	foreach(music_asset : sw.music) {
+		rl::updateMusicStream(music_asset.data);
+	}
+	// no need to update sounds or waves
+}
+
+fn void silenceSoundWorld(SoundWorld* sw) @extern("silenceSoundWorld")
+{
+	// stop all music streams
+	foreach(music_asset : sw.music) {
+		rl::stopMusicStream(music_asset.data);
+	}
+	// stop all sounds
+	foreach(sound_asset : sw.sounds) {
+		rl::stopSound(sound_asset.data);
+	}
+	// no need to stop waves
+}
+
+fn void silenceSoundWorldByName(String name) @extern("silenceSoundWorldByName")
+{
+	foreach(sw : sound_worlds) {
+		if(sw.name == name) {
+			silenceSoundWorld(sw);
+			return;
+		}
+	}
+}
 
 fn void init() {
     rl::initAudioDevice();
 }
 
+/*
 fn bool? populateMusicDataBase() {
     String music_folder = main::gpGame.app_base_folder.tconcat("\\").tconcat("music\\");
 	PathList? paths = path::ls(tmem, path::temp(music_folder));
@@ -138,14 +361,6 @@ fn bool? populateMusicDataBase() {
 	}
     
     return false;
-}
-
-fn void update() {
-    if(music_data.len()) {
-        foreach(music : music_data) {
-           rl::updateMusicStream(music.stream);
-        }
-    }
 }
 
 struct SSMusic {
