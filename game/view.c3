@@ -146,7 +146,7 @@ const Matrix3f VIEW_AXIS_IDENTITY = {
     0.0f, 0.0f, 1.0f
 };
 
-alias gameptr = main::gpGame;
+alias gameptr = game::gpGame;
 
 const int ENABLE_CAMERA_VIEW = 1;
 
@@ -307,7 +307,7 @@ fn void RenderView.debug(&self)
     rl::drawRectangleLinesEx(rec, 2.5f, rl::RED);
     String view_data_text = string::tformat("Screen Size: {%.2f, %.2f}", rec.width, rec.height);
     rl::drawText(view_data_text.zstr_tcopy(), 100, 10, 30, rl::RED);
-    //rl::drawTextEx(*main::gpGame.candara_font, "TEXT DRAWN IN RENDER TEXTURE", {10, 30}, 16.0f, 2.0f, rl::COLOR_RED);
+    //rl::drawTextEx(*game::gpGame.candara_font, "TEXT DRAWN IN RENDER TEXTURE", {10, 30}, 16.0f, 2.0f, rl::COLOR_RED);
     //rl::drawLine((int)self.camera.target.x, -(int)rec.height*10, (int)self.camera.target.x, (int)rec.height*10, rl::COLOR_GREEN);
     //rl::drawCircleV(self.camera.target, 16.0f, rl::COLOR_RED);
     //rl::drawRectangle(-6000, 320, 13000, 8000, rl::DARKGRAY);*/
@@ -334,7 +334,7 @@ fn void takeScreenShot()
 {
     unreachable();
     /*
-    String shots_dir = main::gpGame.app_work_dir.tconcat("screenshots\\");
+    String shots_dir = game::gpGame.app_work_dir.tconcat("screenshots\\");
     if(fs::directoryExists(shots_dir) == false) {
         bool~ sucess = fs::makeDirectory(shots_dir);
         if(catch excuse = sucess) {
@@ -360,7 +360,7 @@ fn void takeScreenShot()
         //log::info(Where.CONSOLE, "current dir after all = %s", rl::getWorkingDirectory());
         if(bytes_count) {
             // return to main work dir
-            fs::changeDirectory(main::gpGame.app_work_dir)!!;
+            fs::changeDirectory(game::gpGame.app_work_dir)!!;
             rl::unloadFileData(saved_shot_file);
             // and try to delete older file
             @catch(file::delete(shotname.str_view()));
@@ -394,7 +394,7 @@ fn void takeScreenShot()
 
 fn void moveScreenShots() 
 {
-    String shots_dir = main::gpGame.app_work_dir.tconcat("screenshots\\");
+    String shots_dir = game::gpGame.app_work_dir.tconcat("screenshots\\");
     bool? sucess = fs::makeDirectory_IfNotExist(shots_dir);
     if(catch excuse = sucess) { // will ignore if the directory already exists
         log::warning(Where.FILE, "Cannot create screenshots directory at: %s!\n\t -> excuse: %s", 
@@ -405,7 +405,7 @@ fn void moveScreenShots()
     }
     
     // count how many shots are in the w folder then
-    RLFilePathList files = fs::loadDirectoryFilesEx(main::gpGame.app_work_dir, ".png", scanSubdirs: false);
+    RLFilePathList files = fs::loadDirectoryFilesEx(game::gpGame.app_work_dir, ".png", scanSubdirs: false);
     for(int i = 0; i < files.count; i++) {
         // move the images to the screenshot folder
         String file_shot_path = ((ZString)files.paths[i]).str_view();
@@ -549,7 +549,7 @@ $endif
 
 fn void RenderView.update(&self) 
 {
-    if(main::developer.getBool()) 
+    if(game::developer.getBool()) 
     {
         // for some stupid reason raysan from raylib hardcoded F12 to the screenshot action
         // so now I can't reuse that key for something else
@@ -609,9 +609,9 @@ $if $defined(ENABLE_CAMERA_VIEW):
 $endif
 
         // draw general game sprites
-        if(main::gpGame.sprites.len()) 
+        if(game::gpGame.sprites.len()) 
         {
-            foreach(sprite : main::gpGame.sprites)
+            foreach(sprite : game::gpGame.sprites)
             {
                 if(sprite.kind == SpriteKind.CURSOR) { continue; } // skip game cursor sprite
                 
@@ -647,9 +647,9 @@ $endif
         }
             
         // draw game entities
-        if(main::gpGame.entityList.len()) 
+        if(game::gpGame.entityList.len()) 
         {
-            foreach(ent : main::gpGame.entityList) 
+            foreach(ent : game::gpGame.entityList) 
             {
                 bool ent_out_of_view = !view.bounds.intersectsOther(&ent.bounds);
                 if(ent_out_of_view) {
@@ -664,14 +664,14 @@ $endif
         
         // draw the boid entities
         $if $defined(BOIDS_ENABLE):
-        main::gpGame.boidManager1.draw();
+        game::gpGame.boidManager1.draw();
         $endif
         
         // physics debug drawing
         // NOTE(HM) this is done here because I want it to draw
         // before/behind the gui and other debug stuff at the same time as the game entities.
-        if(main::db_drawPhysics.getBool()) {
-            main::gpGame.physWorldId.debugDraw(&main::gpGame.phys_debug);
+        if(game::db_drawPhysics.getBool()) {
+            game::gpGame.physWorldId.debugDraw(&game::gpGame.phys_debug);
         }
 
 $if $defined(ENABLE_CAMERA_VIEW):
@@ -699,7 +699,7 @@ $if $feature(_DEBUG):
             //view.drawWorldSpaceCoords();
             view.drawCameraSpaceCoords();
 $endif
-            main::gameOnGuiDraw(view.w, view.h);
+            game::onGuiDraw(view.w, view.h);
         };
 $endif
     }; // End drawing to texture (now we have a texture available for next passes)
@@ -719,13 +719,13 @@ fn void renderPostGuiFBO(RenderView* view) @local
 $if $defined(ENABLE_CAMERA_VIEW):
 		rl::@mode2D(view.camera) 
 		{
-			main::gameOnPostGUIDraw(view.w, view.h);
+			game::onPostGUIDraw(view.w, view.h);
 
 			$if $feature(VIDEO_PLAYBACK_ENABLE):
-			if(main::gpGame.vidCabinet.movies.len()) 
+			if(game::gpGame.vidCabinet.movies.len()) 
 			{
 				// draw videos from video cabinet library
-				foreach(movie : main::gpGame.vidCabinet.movies)
+				foreach(movie : game::gpGame.vidCabinet.movies)
 				{
 					movie.renderFrame(view.origin, (Vec2f)view.size);
 				}
@@ -918,7 +918,7 @@ struct HMPostProcess
 *>
 fn void HMPostProcess.load(&self, String _name) 
 {
-    String shader_path = main::gpGame.app_base_folder.tconcat(SHADERS_FOLDER).tconcat(_name);
+    String shader_path = game::gpGame.app_base_folder.tconcat(SHADERS_FOLDER).tconcat(_name);
     self.shader = glsl::loadShader("", shader_path.tconcat(".fs"));
     if(rl::isShaderValid(self.shader)) {
         self.name = _name.tcopy();

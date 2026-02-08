@@ -734,7 +734,7 @@ fn void debug_window(MU_Context* ctx) @inline
 		ctx.text("Put here any debug stuff you need.");
     ctx.@make_rows(1, &&(int[*]) { 100 }) 
     {
-      ctx.checkbox("Pause RLMusic:", &main::gpGame.pause_all_music);
+      ctx.checkbox("Pause RLMusic:", &game::gpGame.pause_all_music);
     };
 	};
 
@@ -778,14 +778,14 @@ fn void statistics_window(MU_Context* ctx) @inline
 // in this function we run all microui "frames"
 fn void run_microui_frames(MU_Context* ctx) @inline
 {
-  if(main::gpGame.show_microui_test_frames) 
+  if(game::gpGame.show_microui_test_frames) 
   {
     ctx.run(&test_window);
     ctx.run(&log_window);
   	ctx.run(&debug_window);
   }
 
-  if(main::gpGame.show_statistics) 
+  if(game::gpGame.show_statistics) 
   {
     ctx.run(&statistics_window);
   }
@@ -1062,7 +1062,7 @@ fn void MU_Context.forward_keyboard_input(MU_Context* ctx)
 // micro ui icons 
 fn void r_draw_icon(int id, MU_Rect _rect, MU_Color color) @local 
 {
-  assert(rl::isTextureValid(main::gpGame.mu_font_atlas), "MicroUI font texture is not initialized.");
+  assert(rl::isTextureValid(game::gpGame.mu_font_atlas), "MicroUI font texture is not initialized.");
   MU_Rect src = mu::ICONS[id]; //atlas[id].rect;
   int x = _rect.x + (_rect.w - src.w) / 2;
   int y = _rect.y + (_rect.h - src.h) / 2;
@@ -1073,7 +1073,7 @@ fn void r_draw_icon(int id, MU_Rect _rect, MU_Color color) @local
   rl::setBlendFactors(rl::RL_ONE, rl::RL_ONE, rl::RL_FUNC_ADD);
   rl::@blendMode(RLBlendMode.CUSTOM) 
   {
-    rl::drawTexturePro(main::gpGame.mu_font_atlas,
+    rl::drawTexturePro(game::gpGame.mu_font_atlas,
       (RLRectangle){src.x, src.y, src.w, src.h},
       (RLRectangle){x, y, src.w, src.h},
       (RLVector2){0, 0}, 0.0f, color);

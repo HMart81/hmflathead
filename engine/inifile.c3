@@ -143,7 +143,7 @@ const String NEWLINE_CHAR       @local = "\n";
 alias ListIniSectionPrts @local = List{IniSection*};
 alias ListIniCMDPrts     @local = List{IniCMD*};
 alias IniCmdData         @local = Pair{String, String};
-alias game               @local = main::gpGame;
+alias game               @local = game::gpGame;
 
 
 struct Config_Flags @local  // flags used to store config file state

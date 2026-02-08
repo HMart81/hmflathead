@@ -45,7 +45,7 @@ const VIDEOS_FOLDER_PATH   = "videos"+++platf::PATHSEPERATOR_STR;
 const COLOR_CHANNELS  @local = 3;
 const BYTES_PER_PIXEL @local = COLOR_CHANNELS * Uint8_t.sizeof;
 
-alias gpGame = main::gpGame;
+alias gpGame = game::gpGame;
 
 alias VideoFile   = File;
 alias VideoPlayer = PLM_t; // video player to play videos

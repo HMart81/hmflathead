@@ -455,7 +455,7 @@ fn RLTexture2D* Manager.getTexture(&self, String name) @inline @nodiscard
     }
     
     log::warning(Where.FILE,  "[Asset Manager]: Requesting texture asset but returning default texture, because no asset name was provided.");
-    return &main::gpGame.default_texture;
+    return &game::gpGame.default_texture;
 }
 
 <*
@@ -471,7 +471,7 @@ fn RLShader* Manager.getShader(&self, String name) @nodiscard //@inline
     }
 
     log::warning(Where.FILE,  "[Asset Manager]: Requesting shader asset but returning default shader, because no asset name was provided.");
-	return &main::gpGame.default_shader;
+	return &game::gpGame.default_shader;
 }
 
 <*
@@ -488,7 +488,7 @@ fn RLSound* Manager.getSound(&self, String name) @nodiscard @inline
     }
 
     log::warning(Where.FILE,  "[Asset Manager]: Requesting sound asset but returning default sound, because no asset name was provided.");
-    return &main::gpGame.default_sound;
+    return &game::gpGame.default_sound;
 }
 
 <*
@@ -505,7 +505,7 @@ fn RLMusic* Manager.getMusic(&self, String name) @nodiscard @inline
     }
 
     log::warning(Where.FILE,  "[Asset Manager]: Requesting music asset but returning default music, because no asset name was provided.");
-    return &main::gpGame.default_music;
+    return &game::gpGame.default_music;
 }
 
 <*
@@ -522,7 +522,7 @@ fn RLFont* Manager.getFont(&self, String name) @nodiscard @inline
     }
 
     log::warning(Where.FILE,  "[Asset Manager]: Requesting font asset but returning default font, because no asset name was provided.");
-    return &main::gpGame.default_font;
+    return &game::gpGame.default_font;
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -661,7 +661,7 @@ fn void loadAsset(String path)
                 .path = path, 
                 .type = RLFont.typeid,
                 .data = rl::loadFontEx(path.zstr_tcopy(), 
-                                       main::DEFAULT_FONT_SIZE, 
+                                       game::DEFAULT_FONT_SIZE, 
                                        null, 
                                        0
                                        )
@@ -743,13 +743,13 @@ fn void? loadAssetsRecursively(String basepath, String parent_folder = "") @inli
 }
 
 <*
-*@require main::gpGame.app_base_folder.len > 0
+*@require game::gpGame.app_base_folder.len > 0
 *>
 fn void? loadAssets() {
 
 	@profile_zone("loadAssets", false)
     {
-        loadAssetsRecursively(main::gpGame.app_base_folder)!!;
+        loadAssetsRecursively(game::gpGame.app_base_folder)!!;
         
         $if $feature(_DEBUG):
             //assetManager.listAssets();
@@ -1051,7 +1051,7 @@ import game::assets::astmng;
 import std::collections::list, std::collections::map;
 // end_region
 
-alias Spawnarg             = main::StringTuple;
+alias Spawnarg             = game::StringTuple;
 // global file sound list
 alias SoundShaderList      = List{SoundShader*};
 alias SoundShaderSoundList = List{sndshd::RLSound*};

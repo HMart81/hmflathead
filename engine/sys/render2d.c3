@@ -413,7 +413,7 @@ fn RLTexture2D loadTexture(String texture_path)
 {
     //assert(rl::isWindowReady() == true, "Window not ready! Unable to load texture");
     
-    String path = main::gpGame.app_base_folder.tconcat(texture_path);
+    String path = game::gpGame.app_base_folder.tconcat(texture_path);
     assert(path.len > 0, "RLTexture path is empty! Unable to load texture");
     assert(fs::fileExists(path), "RLTexture file does not exist: %s", path);
 
@@ -424,7 +424,7 @@ $if $feature(_DEBUG):
         return tex;
     } else {
         log::warning(Where.FILE, "Failed to load RLTexture '%s' returning default texture...", texture_path);
-        return main::gpGame.default_texture;
+        return game::gpGame.default_texture;
     }
 $else
     // In release mode, we can skip the debug checks for performance

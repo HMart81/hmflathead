@@ -121,7 +121,7 @@ fn void Entity.reload(&self, SaveFile* file) @dynamic {
 
 fn void Entity.register(&self) @inline
 {
-	main::gpGame.entityList.push(self);
+	game::gpGame.entityList.push(self);
 }
 
 <*
@@ -132,9 +132,9 @@ fn void Entity.register(&self) @inline
 *>
 fn bool Entity.shouldSkip(&self, String name) @inline @local 
 {
-    if(main::gpGame.entityList.len() == main::MAX_ENTITY_COUNT) {
+    if(game::gpGame.entityList.len() == game::MAX_ENTITY_COUNT) {
 		log::warning(FILE, "Skipping entity: '%s' creation, max count of '%s' was reached!", 
-			name, main::MAX_ENTITY_COUNT);
+			name, game::MAX_ENTITY_COUNT);
 		return true;
 	}
     
@@ -156,7 +156,7 @@ fn void Entity.init(&self, String aname, Vec2f origin, RLColor color = rl::WHITE
 	self.type = Entity.typeid;
 	self.move_dir = DIR_NONE;
 	
-	usz entity_count = main::gpGame.entityList.len();
+	usz entity_count = game::gpGame.entityList.len();
 	/*if( entity_count == 0 ) {
 		unreachable("invalid entity count at this time, that should only happen if player1 entity is missing!");
 	}*/
@@ -178,8 +178,8 @@ $if $feature(_DEBUG):
 $endif
     
 	//
-	float x_meters = main::gpGame.screen.width_in_meters;
-	float y_meters = main::gpGame.screen.height_in_meters;
+	float x_meters = game::gpGame.screen.width_in_meters;
+	float y_meters = game::gpGame.screen.height_in_meters;
     self.vs.initV(
     origin, 
 	{ // entity visual size
@@ -211,7 +211,7 @@ $endif
     //bodyDef.enableSleep = true;
     
     // create the body from the definition data above
-    self.physics        = box2d::createBody(main::gpGame.physWorldId, &bodyDef);
+    self.physics        = box2d::createBody(game::gpGame.physWorldId, &bodyDef);
     //
     // create the physics shape
     // ‍Caution: A dynamic body should have at least one shape with a non-zero density. 
@@ -247,7 +247,7 @@ $endif
 
 fn void Entity.setTexture(&self, String texture_name_with_ext) @inline {
 	unreachable();
-	//self.vs.tex = main::asstManager.getAssetExt(texture_name_with_ext, RLTexture2D.typeid);
+	//self.vs.tex = game::asstManager.getAssetExt(texture_name_with_ext, RLTexture2D.typeid);
 }
 
 fn void Entity.setMaterial(&self, String material_name) @inline {
@@ -459,7 +459,7 @@ fn Entity* Entity.find_other_in_radius(self, float radius )
 	// square the radius, so that we don't have to do a square root
 	float r2 = misc::square(radius);
 	
-	foreach(int index, Entity* other : main::gpGame.entityList)
+	foreach(int index, Entity* other : game::gpGame.entityList)
 	{
 		// NOTE(HM) Should this really ignore hidden entities?
 		if (other == null || other.isDead() || other.hidden()) {
@@ -489,7 +489,7 @@ fn Entity* findradius(Entity *startent, Vec2f* org, float rad )
 	if ( !startent )
 	{
 		// startent becomes the player
-		startent = (Entity*)main::gpGame.getLocalPlayer(); //entityList[0];
+		startent = (Entity*)game::gpGame.getLocalPlayer(); //entityList[0];
 	}
 	
 	assert( startent );
@@ -502,7 +502,7 @@ fn Entity* findradius(Entity *startent, Vec2f* org, float rad )
 	// square the radius so that we don't have to do a square root
 	float r2 = misc::square(rad);
 	
-	foreach(int index, Entity* other : main::gpGame.entityList) 
+	foreach(int index, Entity* other : game::gpGame.entityList) 
 	{
 		if(other.isDead() || other.hidden()) continue;
 		
@@ -552,7 +552,7 @@ fn void Entity.setAlive(&self, bool live) @inline {
 			if (self.thinkflags & TH_THINK) {
 				self.stopThinking(); // stop thinking if it was thinking
 			}
-			if(!main::gpGame.entitiesToRemove.contains(self)) main::gpGame.entitiesToRemove.push(self);
+			if(!game::gpGame.entitiesToRemove.contains(self)) game::gpGame.entitiesToRemove.push(self);
 		}
 	}
 }
@@ -622,7 +622,7 @@ fn bool Entity.isDead(&self) @inline
 }
 
 fn bool Entity.onThinkingList(&self) @local @inline {
-	return main::gpGame.thinkingEntities.contains(self);
+	return game::gpGame.thinkingEntities.contains(self);
 }
 
 fn bool Entity.notOnThinkingList(&self) @local @inline {
@@ -635,7 +635,7 @@ fn void Entity.startThinking(&self) @inline
 
 	self.thinkflags = 0;
 	self.thinkflags |= TH_THINK;
-	if(self.notOnThinkingList()) main::gpGame.thinkingEntities.push(self);
+	if(self.notOnThinkingList()) game::gpGame.thinkingEntities.push(self);
 }
 
 fn void Entity.stopThinking(&self) @inline 
@@ -645,7 +645,7 @@ fn void Entity.stopThinking(&self) @inline
 	if (self.thinkflags) {
 		self.thinkflags &= ~ent::TH_THINK; // remove the thinking flag
 
-		if(self.onThinkingList()) main::gpGame.thinkingEntities.remove_at(main::gpGame.thinkingEntities.index_of(self)!!);
+		if(self.onThinkingList()) game::gpGame.thinkingEntities.remove_at(game::gpGame.thinkingEntities.index_of(self)!!);
 
 		// if all thinking flags are removed, then we can deactivate the entity
 		if (!self.thinkflags && self.isActive()) {
@@ -655,7 +655,7 @@ fn void Entity.stopThinking(&self) @inline
 }
 
 fn bool Entity.onActiveList(&self) @inline {
-	return main::gpGame.activeEntities.contains(self);
+	return game::gpGame.activeEntities.contains(self);
 }
 
 fn bool Entity.notOnActiveList(&self) @inline {
@@ -666,12 +666,12 @@ fn void Entity.setActive(&self, bool active) @inline {
 	if (active) {
 		if (!self.isActive()) {
 			self.flags.active = true;
-			if(self.notOnActiveList()) main::gpGame.activeEntities.push(self);
+			if(self.notOnActiveList()) game::gpGame.activeEntities.push(self);
 		}
 	} else {
 		if (self.isActive()) {
 			self.flags.active = false;
-			if(self.onActiveList()) main::gpGame.activeEntities.remove_at(main::gpGame.activeEntities.index_of(self)!!);
+			if(self.onActiveList()) game::gpGame.activeEntities.remove_at(game::gpGame.activeEntities.index_of(self)!!);
 		}
 	}
 }
@@ -794,15 +794,15 @@ fn void Entity.draw(&self)
 	self.becomeInactive(TH_UPDATEVISUALS);
 	
 	RLRectangle rect = self.vs.rect;
-	switch (main::CURRENT_UNITS)
+	switch (game::CURRENT_UNITS)
 	{
-		case main::UNITS_METER:
+		case game::UNITS_METER:
 			// position is still in pixels, todo convert to meters 
 			//rect.x = misc::metersToPixels(self.rect.x);
 			//rect.y = misc::metersToPixels(self.rect.y);
 			rect.width  = misc::metersToPixels(self.vs.rect.width);
 			rect.height = misc::metersToPixels(self.vs.rect.height);
-		case main::UNITS_PIXEL:
+		case game::UNITS_PIXEL:
 			rect;  // do nothing already in pixels
 		default:
 			log::error(FILE, "Unsupported units set for Entity rendering.");

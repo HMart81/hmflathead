@@ -37,14 +37,14 @@ import std::math;
 import std::collections::list;
 import engine::misc;
 import game::main;
-import game::assets::sprt; // sprite
+//import game::assets::sprt; // sprite
 import engine::filesystem::fs;
 import thirdparty::raylib5::rl;
 import engine::assets_api::asset; // for the asset system
 import engine::assets_api::astmng; // asset manager
 //import raygui5::rgui;
-import thirdparty::raylib5::rmath;
-import game::serialize::svs; // save system
+//import thirdparty::raylib5::rmath;
+//import game::serialize::svs; // save system
 import engine::logging::log;
 // end_region
 
@@ -314,7 +314,7 @@ fn void init() {
 
 /*
 fn bool? populateMusicDataBase() {
-    String music_folder = main::gpGame.app_base_folder.tconcat("\\").tconcat("music\\");
+    String music_folder = game::gpGame.app_base_folder.tconcat("\\").tconcat("music\\");
 	PathList? paths = path::ls(tmem, path::temp(music_folder));
 	if(catch excuse = paths) {
 		log::warning(Where.FILE,  "Unable to get audio from folder music with excuse: %s", excuse);

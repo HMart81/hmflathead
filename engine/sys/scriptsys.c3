@@ -166,7 +166,7 @@ fn void ScriptEngine.init(&self) @dynamic
     log::info(FILE, "---------------------------------------------\n");
 
     log::info(FILE, "-----------Registering Scripts -----------------\n");
-    self.registerScripts(main::gpGame.app_base_folder.tconcat(SCRIPT_FOLDER_PATH));
+    self.registerScripts(game::gpGame.app_base_folder.tconcat(SCRIPT_FOLDER_PATH));
     log::info(FILE, "%d scripts registered.", self.scripts.len());
     log::info(FILE, "---------------------------------------------\n");
 }
@@ -290,11 +290,11 @@ fn void ScriptEngine.reloadScripts(&self, String script_folder) @dynamic
 // if so it will reload the script.
 fn void ScriptEngine.fileWatcher(&self) @dynamic
 {
-    if(main::developer.getBool() == false) return; // only in developer mode
+    if(game::developer.getBool() == false) return; // only in developer mode
     
-    if(main::gpGame.time_ms >= self.next_check_time)
+    if(game::gpGame.time_ms >= self.next_check_time)
     {
-        self.next_check_time = main::gpGame.time_ms + 1000; // check every second
+        self.next_check_time = game::gpGame.time_ms + 1000; // check every second
     } 
     else { return; }
 
@@ -811,7 +811,7 @@ fn void ScriptEngine.init(&self) @dynamic
     log::info(FILE, "---------------------------------------------\n");
 
     log::info(FILE, "-----------Registering Scripts -----------------\n");
-    self.registerScripts(main::gpGame.app_base_folder.tconcat(SCRIPT_FOLDER_PATH));
+    self.registerScripts(game::gpGame.app_base_folder.tconcat(SCRIPT_FOLDER_PATH));
     log::info(FILE, "%d scripts registered.", self.scripts.len());
     log::info(FILE, "---------------------------------------------\n");
 }
@@ -905,11 +905,11 @@ fn void ScriptEngine.reloadScripts(&self, String script_folder) @dynamic
 // if so it will reload the script.
 fn void ScriptEngine.fileWatcher(&self) @dynamic
 {
-    if(main::developer.getBool() == false) return; // only in developer mode
+    if(game::developer.getBool() == false) return; // only in developer mode
     
-    if(main::gpGame.time_ms >= self.next_check_time)
+    if(game::gpGame.time_ms >= self.next_check_time)
     {
-        self.next_check_time = main::gpGame.time_ms + 1000; // check every second
+        self.next_check_time = game::gpGame.time_ms + 1000; // check every second
     } 
     else { return; }
 
@@ -1104,7 +1104,7 @@ fn void ScriptEngine.init(&self) @dynamic
     log::info(FILE, "------------------ done ---------------------\n");
 
     log::info(FILE, "-----------Registering Scripts -----------------\n");
-    self.registerScripts(main::gpGame.app_base_folder.tconcat(SCRIPT_FOLDER_PATH));
+    self.registerScripts(game::gpGame.app_base_folder.tconcat(SCRIPT_FOLDER_PATH));
     log::info(FILE, "%d scripts registered.", self.scripts.len());
     log::info(FILE, "------------------ done ---------------------\n");
     self.debug = mem::new(LUADebug);
@@ -1207,11 +1207,11 @@ fn void ScriptEngine.reloadScripts(&self, String script_folder) @dynamic
 // if so it will reload the script.
 fn void ScriptEngine.fileWatcher(&self) @dynamic
 {
-    if(main::developer.getBool() == false) return; // only in developer mode
+    if(game::developer.getBool() == false) return; // only in developer mode
     
-    if(main::gpGame.time_ms >= self.next_check_time)
+    if(game::gpGame.time_ms >= self.next_check_time)
     {
-        self.next_check_time = main::gpGame.time_ms + 1000; // check every second
+        self.next_check_time = game::gpGame.time_ms + 1000; // check every second
     } 
     else { return; }
 
@@ -1435,7 +1435,7 @@ fn void ScriptEngine.init(&self) @dynamic
 {
     log::info(FILE, "- Language(%s) - Version(%s)", SCRIPT_LANGUAGE, SCRIPT_LANG_VERSION);
     log::info(FILE, "-----------Registering Scripts -----------------\n");
-        self.registerScripts(main::gpGame.app_base_folder.tconcat(SCRIPT_FOLDER_PATH));
+        self.registerScripts(game::gpGame.app_base_folder.tconcat(SCRIPT_FOLDER_PATH));
         usz scpt_count = self.scripts.len();
         log::info(FILE, "\t- '%d' %s registered.", scpt_count, (scpt_count > 1) ? "scripts" : "script");
     log::info(FILE, "Script Engine initialized!");
@@ -1547,11 +1547,11 @@ fn void ScriptEngine.removeScript(&self, String name) @dynamic
 // if so it will reload the script.
 fn void ScriptEngine.fileWatcher(&self) @dynamic
 {
-    if(main::developer.getBool() == false) return; // only in developer mode
+    if(game::developer.getBool() == false) return; // only in developer mode
     
-    if(main::gpGame.time_ms >= self.next_check_time)
+    if(game::gpGame.time_ms >= self.next_check_time)
     {
-        self.next_check_time = main::gpGame.time_ms + 1000; // check every second
+        self.next_check_time = game::gpGame.time_ms + 1000; // check every second
     } 
     else { return; }
 

@@ -26,31 +26,17 @@
 # 
 *********************************************************************************************************************************************/
 
-module engine::gui;
+module engine::sys::ui @private;
 
-/*
-DOC:
-
-	GUI System
-
-	A simplistic retained mode gui system made just to create simple menus.
-	Still lacks many functionality.
-
-TODO:
-    A ingame gui edit mode for easy placement of widgets
-    Perhaps even create a simple gui editor using raygui buttons and such...
-*/
-
-// region modules
 import std::io;
 import std::core::mem; // for malloc
 import std::math;
 import std::collections::list;
 import engine::misc;
 import engine::input;
-//import engine::assets::astmng; // asset manager
 import game::material::mat;
 import game::material::manager::mtrmng;
+import engine::assets_api::asset;
 import engine::logging::log;
 import game::main;
 import game::camview;
@@ -63,6 +49,7 @@ import engine::sys::render2d::r2d; // 2D rendering
 // end_region
 
 // region cvars
+/*
 Cvar ui_debugDraw @public = { "ui_debugDraw", CvarType.BOOL, "0", "show debug visualization for gui development, 0, 1, true, false" };
 Cvar ui_editGui   @public = { "ui_editGui", CvarType.BOOL, "0", "turn on gui editing functionality for gui development, 0, 1, true, false" };
 
@@ -72,17 +59,8 @@ fn void register_cvars() @public
     cvar::@register(&ui_debugDraw);
     cvar::@register(&ui_editGui);
 }
-// end_region
-
-
-///////////////////////////////////////////////////////////////////////////
-/*                                PANEL
-
-    NOTE(HM) simple data structure representing a square or image, 
-    used for background images or single color rectangles.
-	I wanted to use Rectangle as name but it was already taken by raylib...
 */
-///////////////////////////////////////////////////////////////////////////
+// end_region
 
 // #region constants
 //const bool PANEL_PROFILE = true;
@@ -94,60 +72,52 @@ const uint HORIZONTAL_DIR = 1;
 const uint VERTICAL_DIR   = 2;
 // #endregion
 
-/*
-typedef GuiAnchor = inline Vec2f;
+// globals
+bool should_draw_background = false;
 
-enum GuiAnchorType : const inline int
+fn void drawbackground(Type t) <Type> @public
 {
-    TOP_LEFT,
-    TOP_CENTER,
-    TOP_RIGHT,
-    CENTER_LEFT,
-    CENTER,
-    CENTER_RIGHT,
-    BOTTOM_LEFT,
-    BOTTOM_CENTER,
-    BOTTOM_RIGHT
+	if(Type.typeid == RLColor.typeid) 
+	{
+		do {
+			drawbackgroundColor(t);
+		} while(should_draw_background);
+	} 
+	else if(Type.typeid == Asset{RLTexture2D}*.typeid) 
+	{
+		do {
+			drawbackgroundImage(t);
+		} while(should_draw_background);
+	}
+	else
+	{
+		log::error(FILE, "Invalid background type! Expected RLColor or Material*, got %s", backg.typeid.name);
+	}
 }
 
-
-fn Vec2f getAnchorVecPosFrom(GuiAnchorType type, RenderView view) @inline 
-{
-    float half_w = view.w / 2.0f;
-    float half_h = view.h / 2.0f;
-    Vec2f result = view.origin;
-    switch (type)
-    {
-        case TOP_LEFT:       
-            return result += (misc::VEC_UP * half_h) + (misc::VEC_LEFT * half_w);
-        case TOP_CENTER:     
-            return result += (misc::VEC_UP * half_h);
-        case TOP_RIGHT:      
-            return result += (misc::VEC_UP * half_h) + (misc::VEC_RIGHT * half_w);
-        case CENTER_LEFT:    
-            return result += (misc::VEC_LEFT * half_w);
-        case CENTER:         
-            return result;
-        case CENTER_RIGHT:
-            return result += (misc::VEC_RIGHT * half_w);
-        case BOTTOM_LEFT:
-            return result += (misc::VEC_DOWN * half_h) + (misc::VEC_LEFT * half_w);
-        case BOTTOM_CENTER:
-            return result += (misc::VEC_DOWN * half_h);
-        case BOTTOM_RIGHT:
-            return result += (misc::VEC_DOWN * half_h) + (misc::VEC_RIGHT * half_w);
-        default: unreachable();
-    }
-}
-*/
-
-enum PanelShape : const inline int
-{
-    BOX,
-    ROUNDED_BOX // with rounded corners (unused right now)
+fn void drawbackgroundColor(RLColor color) {
+	rl::clearBackground(color);
 }
 
-struct PanelFlags
+fn void drawbackgroundImage(String name, RLTexture2D* texture) {
+	RLTexture2D* tex = texture;
+
+    if(tex == null) {
+		log::warning(FILE, "Cannot show background image %s, texture was null! Showing default texture.", name);
+        tex = &game::gpGame.default_texture;
+	}
+
+	rl::drawTexturePro(*tex, 
+		{0, 0, (float)(*tex).width, (float)(*tex).height}, 
+		{0, 0, (float)game::gpGame.screen.w, (float)game::gpGame.screen.h}, 
+		{0, 0}, 0.0f, rl::WHITE);
+}
+
+fn void toggleBackgroundDrawing() @public => should_draw_background = !should_draw_background;
+fn void setBackgroundDrawing(bool choice) @public => should_draw_background = choice;
+
+
+struct UIFlags
 {
     bool isHidden;
     bool isActive;
@@ -158,44 +128,41 @@ struct PanelFlags
     bool capture; // used to know if the panel is capturing mouse input
     bool isDestroyed; // used to mark panels that are being destroyed
     bool showBounds; // used to debug the panel bounds
+	bool isrounded; // used to know if the panel is rounded or not, for editor purposes
 }
 
-struct Panel (SaveSystemInterface, Printable)
+struct UIRectangle (SaveSystemInterface, Printable)
 {
-    int id;  // used to uniquily identify each panel
-    String name;
-    PanelFlags flags;
-    PanelShape shape; // default is BOX
-    RLRectangle  rect; // x, y, width, height
+    String       name;
+    int          id;  // used to uniquily identify each rectangle, for editor purposes
+    UIFlags      flags;
+    RLRectangle  quad; // x, y, width, height
     RLColor      color; // material color overrides this color
     RLColor      color_selected; // for gui editor functionality
-    HMaterial* mat;
+    HMaterial*   mat;
 }
 
-fn void Panel.save(&self, SaveFile* file) @dynamic 
+fn void UIRectangle.save(&self, SaveFile* file) @dynamic 
 {
-    svs::writeInt(file, self.id);
     svs::writeString(file, self.name);
-	svs::write(file, (void*)&self.flags, PanelFlags.sizeof);
-    svs::writeInt(file, self.shape);
-    svs::writeRect(file, self.rect);
+    svs::writeInt(file, self.id);
+	svs::write(file, (void*)&self.flags, UIFlags.sizeof);
+    svs::writeRect(file, self.quad);
     svs::writeColor(file, self.color);
     svs::writeColor(file, self.color_selected);
     // cannot save pointers so just save the material name
     svs::writeString(file, (self.mat != null) ? self.mat.name : "");
 }
 
-fn void Panel.reload(&self, SaveFile* file) @dynamic 
+fn void UIRectangle.reload(&self, SaveFile* file) @dynamic 
 {
     int value;
 
+	svs::readString(file, &self.name);
     svs::readInt(file, &value);
 	self.id = value;
-	svs::readString(file, &self.name);
-	svs::read(file, (void*)&self.flags, PanelFlags.sizeof);
-    svs::readInt(file, &value);
-    self.shape = (PanelShape)value;
-    svs::readRect(file, &self.rect);
+	svs::read(file, (void*)&self.flags, UIFlags.sizeof);
+    svs::readRect(file, &self.quad);
     svs::readColor(file, &self.color);
     svs::readColor(file, &self.color_selected);
     String mat_name;
@@ -203,166 +170,203 @@ fn void Panel.reload(&self, SaveFile* file) @dynamic
     if(mat_name != "") self.mat = mtrmng::getMaterial(mat_name);
 }
 
-fn usz? Panel.to_format(&self, Formatter* f) @dynamic 
+fn usz? UIRectangle.to_format(&self, Formatter* f) @dynamic 
 {
-    return f.printf(`Panel { 
-    "id" = %s,\n"name" = %s,\n"shape" = %s,\n"rect" = { x: %s, y: %s, width: %s, height: %s  },\n"color" = { r: %s, g: %s, b: %s, a: %s  },\n"material" = %s 
-    }`, self.id, self.name, self.shape, self.rect.x, self.rect.y, self.rect.width, self.rect.height, self.color.r, self.color.g, self.color.b, self.color.a, (self.mat != null) ? self.mat.name : "null");
+    return f.printf(`UIRectangle { 
+    "id" = %s,\n"name" = %s,\n"quad" = { x: %s, y: %s, width: %s, height: %s  },\n"color" = { r: %s, g: %s, b: %s, a: %s  },\n"material" = %s 
+    }`, self.id, self.name, self.quad.x, self.quad.y, self.quad.width, self.quad.height, self.color.r, self.color.g, self.color.b, self.color.a, (self.mat != null) ? self.mat.name : "null");
 }
 
-fn void Panel.initRec(&self, RLRectangle rect, RLColor color) @inline
+
+fn void UIRectangle.initQuad(&self, RLRectangle quad, RLColor color) @inline
 {
-    self.rect  = rect;
+    self.quad  = quad;
     self.color = color;
 }
 
-fn void Panel.initV(&self, Vec2f pos, Vec2f size, RLColor color) @inline
+fn void UIRectangle.initV(&self, Vec2f pos, Vec2f size, RLColor color) @inline
 {
-    self.initRec({pos.x, pos.y, size.x, size.y}, color);
+    self.initQuad({pos.x, pos.y, size.x, size.y}, color);
 }
-
-fn void Panel.init(&self) @inline
-{
-    self.initRec({0, 0, MIN_PANEL_SIZE, MIN_PANEL_SIZE}, rl::WHITE);
-}
-
-fn void Panel.deinit(&self) @inline 
-{ 
-    if(self.mat) self.mat = null;
-}
-
-fn void Panel.setShape(&self, PanelShape shape) @inline => self.shape = shape;
 
 <*
-    Todo(HM) Make a way to select or view pannels with very low sizes or huge sizes
+	Initializes the UIRectangle with default values, position (0, 0), size (MIN_PANEL_SIZE, MIN_PANEL_SIZE) and white color.
+    @param [inout] typ : "the user interface type to initialize"
+    @require typ != null
+	@require rl::isWindowReady() == true : "needs the window to be already started."
+	@require game::gpGame.screen.w >= 600 && game::gpGame.screen.h >= 400 : "because it uses the screen size to set the default size of the quad."
+*>
+fn void init(Type* typ) <Type> @inline @public
+{
+    switch((*typ).typeid) {
+        case UIRectangle.typeid:
+            (*typ).initQuad({0, 0, 0.20f*game::gpGame.screen.w, 0.20f*game::gpGame.screen.h}, rl::WHITE);
+        case UIButton.typeid:
+        default:
+            unreachable();
+    }
+}
+
+<*
+	DeInitializes a pre created UIRectangle.
+    @param [inout] typ : "the user interface type to kill"
+    @require typ != null
+*>
+fn void deinit(Type* typ) <Type> @inline @public
+{
+    switch((*typ).typeid) {
+        case UIRectangle.typeid:
+            if((*typ).mat) (*typ).mat = null;   
+        case UIButton.typeid:
+        default:
+            unreachable();
+    }
+}
+
+<*
+    Todo(HM) Make a way to select or view types with very low sizes or huge sizes
 
     @param w_scaler : "value to scale the panel horizontally, from 0.05f to INF"
     @param h_scaler : "value to scale the panel verticaly, from 0.05f to INF"
+    @param [inout] typ : "the user interface type to scale"
+    @require typ != null
     @require w_scaler >= 0.05f && h_scaler >= 0.05f
 *>
-fn void Panel.scale(&self, float w_scaler, float h_scaler) @inline 
+fn void scale(Type* typ, float w_scaler, float h_scaler) <Type> @inline @public
 {
     if( w_scaler >= 0.05f && w_scaler < 0.06f &&
         h_scaler >= 0.05f && h_scaler < 0.06f )
     {
-        log::warning(FILE, "scaled a panel to almost invisible size! Was that desired?");
+        log::warning(FILE, "scaled a UIRectangle to almost invisible size! Was that desired?");
     }
 
-    self.rect.width  *= w_scaler;
-    self.rect.height *= h_scaler;
+    switch((*typ).typeid) {
+        case UIRectangle.typeid:
+            (*typ).quad.width  *= w_scaler;
+            (*typ).quad.height *= h_scaler;
+        case UIButton.typeid:
+        default:
+            unreachable();
+    }
 }
 
 <*
     @param scale : "vector to scale the panel with, from 0.05f to INF"
+    @param [inout] typ : "the user interface type to scale"
+    @require typ != null
     @require scale.x >= 0.05f && scale.y >= 0.05f
 *>
-fn void Panel.scaleV(&self, Vec2f scale) @inline => self.scale(scale.x, scale.y);
+fn void scaleV(Type* typ, Vec2f scale) <Type> @inline @public => scale{Type}(typ, scale.x, scale.y);
 
 <*
     @param amount : "value to scale equaly both coordinates with, from 0.05f to INF"
+    @param [inout] typ : "the user interface type to scale"
+    @require typ != null
     @require amount >= 0.05f
 *>
-fn void Panel.scale_equaly(&self, float amount) @inline => self.scale(amount, amount);
+fn void scale_equaly(Type* typ, float amount) <Type> @inline @public => scale{Type}(typ, amount, amount);
 
 <*
     @param w_scaler : "value to scale x coordinate with"
     @param h_scaler : "value to scale y coordinate with"
+    @param [inout] typ : "the user interface type to scale"
+    @require typ != null
     @require w_scaler >= 0.05f && w_scaler <= 1.0f
     @require h_scaler >= 0.05f && h_scaler <= 1.0f
 *>
-fn void Panel.scaleNormalized(&self, float w_scaler, float h_scaler) @inline 
+fn void scaleNormalized(Type* typ, float w_scaler, float h_scaler) <Type> @inline @public 
 {
     float x, y;
     x = math::clamp(w_scaler, 0.05f, 1.0f);
     y = math::clamp(h_scaler, 0.05f, 1.0f);
-    /*
-    if(w_scaler < 0.05f) { w_scaler = 0.05f; }
-    else if(w_scaler > 1.0f) { w_scaler = 1.0f; }
-
-    if(h_scaler < 0.05f) { h_scaler = 0.05f; }
-    else if(h_scaler > 1.0f) { h_scaler = 1.0f; }
-    */
-
-    self.rect.width  *= x;
-    self.rect.height *= y;
+    scale{Type}(typ, x, y);
 }
 
+/*
+
+
+
+
+
+
+
+
 <*
-    Sets the size of the Panel, units is in pixels.
+    Sets the size of the UIRectangle, units is in pixels.
 *>
-fn void Panel.setSize(&self, float w, float h) @inline 
+fn void UIRectangle.setSize(&self, float w, float h) @inline 
 {
-    self.rect.width  = w;
-    self.rect.height = h;
+    self.quad.width  = w;
+    self.quad.height = h;
 }
 
 <*
-    Sets the size of the Panel, vector units is in pixels.
+    Sets the size of the UIRectangle, vector units is in pixels.
 *>
-fn void Panel.setSizeV(&self, Vec2f scale) @inline => self.setSize(scale.x, scale.y);
+fn void UIRectangle.setSizeV(&self, Vec2f scale) @inline => self.setSize(scale.x, scale.y);
 
 <*
-    gets the size of the Panel, units is in pixels.
+    gets the size of the UIRectangle, units is in pixels.
 *>
-fn Vec2f Panel.getSize(&self) @inline => { self.rect.width, self.rect.height };
+fn Vec2f UIRectangle.getSize(&self) @inline => { self.quad.width, self.quad.height };
 
 <*
-    gets the width of the Panel, units is in pixels.
+    gets the width of the UIRectangle, units is in pixels.
 *>
-fn float Panel.getWidth(&self) @inline => self.rect.width;
+fn float UIRectangle.getWidth(&self) @inline => self.quad.width;
 
 <*
-    gets the height of the Panel, units is in pixels.
+    gets the height of the UIRectangle, units is in pixels.
 *>
-fn float Panel.getHeight(&self) @inline => self.rect.height;
+fn float UIRectangle.getHeight(&self) @inline => self.quad.height;
 
 <*
-    replaces the position of the Panel, units is in pixels.
+    replaces the position of the UIRectangle, units is in pixels.
 *>
-fn void Panel.setPosition(&self, float x, float y) @inline {
-    self.rect.x = x;
-    self.rect.y = y;
+fn void UIRectangle.setPosition(&self, float x, float y) @inline {
+    self.quad.x = x;
+    self.quad.y = y;
 }
 
 <*
-    replaces position of the Panel, vector units is in pixels.
+    replaces position of the UIRectangle, vector units is in pixels.
 *>
-fn void Panel.setPositionV(&self, Vec2f pos) @inline => self.setPosition(pos.x, pos.y);
+fn void UIRectangle.setPositionV(&self, Vec2f pos) @inline => self.setPosition(pos.x, pos.y);
 
 <*
-    adds to existing position of the Panel, units is in pixels.
+    adds to existing position of the UIRectangle, units is in pixels.
 *>
-fn void Panel.addToPosition(&self, float x, float y) @inline {
-    self.rect.x += x;
-    self.rect.y += y;
+fn void UIRectangle.addToPosition(&self, float x, float y) @inline {
+    self.quad.x += x;
+    self.quad.y += y;
 }
 
 <*
-    adds to existing position of the Panel, vector units is in pixels.
+    adds to existing position of the UIRectangle, vector units is in pixels.
 *>
-fn void Panel.addToPositionV(&self, Vec2f pos) @inline => self.addToPosition(pos.x, pos.y);
+fn void UIRectangle.addToPositionV(&self, Vec2f pos) @inline => self.addToPosition(pos.x, pos.y);
 
 <*
-    gets current position of the Panel, vector units is in pixels.
+    gets current position of the UIRectangle, vector units is in pixels.
 *>
-fn Vec2f Panel.getPosition(&self) @inline => { self.rect.x, self.rect.y };
+fn Vec2f UIRectangle.getPosition(&self) @inline => { self.quad.x, self.quad.y };
 <*
-    gets current X position of the Panel, units is in pixels.
+    gets current X position of the UIRectangle, units is in pixels.
 *>
-fn float Panel.getX(&self) => self.rect.x;
+fn float UIRectangle.getX(&self) => self.quad.x;
 <*
-    gets current Y position of the Panel, units is in pixels.
+    gets current Y position of the UIRectangle, units is in pixels.
 *>
-fn float Panel.getY(&self) => self.rect.y;
+fn float UIRectangle.getY(&self) => self.quad.y;
 
-fn void Panel.setMaterial(&self, String material_name) @inline 
+fn void UIRectangle.setMaterial(&self, String material_name) @inline 
 {
     self.mat = mtrmng::getMaterial(material_name);
 }
 
-fn bool Panel.hasMaterial(&self) @inline => self.mat != null;
+fn bool UIRectangle.hasMaterial(&self) @inline => self.mat != null;
 
-fn void Panel.fadeIn(&self, float factor) {
+fn void UIRectangle.fadeIn(&self, float factor) {
     /*if(self.hasMaterial())
     {
         self.mat.
@@ -372,60 +376,60 @@ fn void Panel.fadeIn(&self, float factor) {
     //}
 }
 
-fn void Panel.fadeOut(&self, float factor) {
+fn void UIRectangle.fadeOut(&self, float factor) {
     //self.color = rl::colorLerp(self.color, misc::INVISIBLE_COLOR, factor);
     //self.color.a = math::lerp(self.color.a, 0, factor);
     self.color.a = (char)misc::move_toward(self.color.a, 0, factor);
 }
 
-fn bool Panel.isValid(&self) @inline {
-    if(self.rect.width  >= MIN_PANEL_SIZE && 
-       self.rect.height >= MIN_PANEL_SIZE ) return true;
+fn bool UIRectangle.isValid(&self) @inline {
+    if(self.quad.width  >= MIN_PANEL_SIZE && 
+       self.quad.height >= MIN_PANEL_SIZE ) return true;
        
     return false;
 }
 
-fn void Panel.hide(&self) @inline {
+fn void UIRectangle.hide(&self) @inline {
     if(self.hidden()) return;
     self.flags.isHidden = true;
     self.deactivate();
 }
 
-fn void Panel.show(&self) @inline {
+fn void UIRectangle.show(&self) @inline {
     if(!self.hidden()) return;
     self.flags.isHidden = false;
     self.activate();
 }
 
-fn void Panel.debugBounds(&self, bool choice) @inline {
+fn void UIRectangle.debugBounds(&self, bool choice) @inline {
     self.flags.showBounds = choice;
 }
 
-fn bool Panel.displayBounds(&self) @inline {
+fn bool UIRectangle.displayBounds(&self) @inline {
     return self.flags.showBounds;
 }
 
-fn bool Panel.hidden(&self)  @inline => self.flags.isHidden;
+fn bool UIRectangle.hidden(&self)  @inline => self.flags.isHidden;
 
-fn void Panel.activate(&self) @inline {
+fn void UIRectangle.activate(&self) @inline {
     if(self.flags.isActive) return;
     self.flags.isActive = true;
 }
 
-fn void Panel.deactivate(&self) @inline {
+fn void UIRectangle.deactivate(&self) @inline {
     if(!self.flags.isActive) return;
     self.flags.isActive = false;
 }
 
-fn bool Panel.active(&self)  @inline => self.flags.isActive;
+fn bool UIRectangle.active(&self)  @inline => self.flags.isActive;
 
-fn bool Panel.active_visible_infocus(&self) @inline => (self.active() && !self.hidden() && self.asFocus());
+fn bool UIRectangle.active_visible_infocus(&self) @inline => (self.active() && !self.hidden() && self.asFocus());
 
 //    WARNING(HM)
 //    If the 2D camera view is changed in any way besides moving in x and y
 //    like if the camera is zoomed or the camera is rotated, this will break.
 //    If so it will require conversion from world space coordinates to camera space.
-fn bool Panel.isMouseOver(&self)
+fn bool UIRectangle.isMouseOver(&self)
 {
     if (!self.active() || self.hidden() || guieditor::as_focus() || game::gpGame.showMessageBox) return false;
 
@@ -435,14 +439,14 @@ fn bool Panel.isMouseOver(&self)
     Vec2f mouse_size = game::getGameCursorSize() * 0.5f; // half size of the cursor
     RLRectangle mouseRect = misc::@recFromVecs(mouseWorldPos, mouse_size);
 
-    if (rl::checkCollisionRecs(mouseRect, self.rect)) return true;
+    if (rl::checkCollisionRecs(mouseRect, self.quad)) return true;
 
     return false;
 }
 
-fn bool Panel.asFocus(&self)  @inline => self.flags.inFocus;
+fn bool UIRectangle.asFocus(&self)  @inline => self.flags.inFocus;
 
-fn void Panel.update(&self) 
+fn void UIRectangle.update(&self) 
 {
     if((guieditor::enabled() && guieditor::as_focus()) || game::gpGame.show_microui_test_frames)
     {
@@ -454,7 +458,7 @@ fn void Panel.update(&self)
     self.flags.inFocus = self.isMouseOver();
 }
 
-fn void Panel.draw(&self, bool selected = false)
+fn void UIRectangle.draw(&self, bool selected = false)
 {
     if(self.hidden()) return;
 
@@ -465,7 +469,7 @@ fn void Panel.draw(&self, bool selected = false)
         RLTexture2D* texture = self.mat.getTexture(mat::STAGE_DIFFUSE);
         Vec2f texture_size = { texture.width, texture.height };
         RLRectangle source = { 0, 0, texture_size.x, texture_size.y };
-        RLRectangle* dist = &self.rect;
+        RLRectangle* dist = &self.quad;
 
         RLColor color = (selected) ? self.color_selected : self.mat.getStage(mat::STAGE_DIFFUSE).color;
 
@@ -496,7 +500,7 @@ fn void Panel.draw(&self, bool selected = false)
             /*case (bool)(self.mat.coverage & (mat::COVERAGE_PERFORATED | mat::COVERAGE_TRANSLUCENT)):
                 blending = RLBlendMode.CUSTOM; // custom blending mode*/
             case (bool)(coverage & mat::COVERAGE_BAD):
-                log::error(FILE, "Panel with material %s has a bad material coverage type.", self.mat.name);
+                log::error(FILE, "UIRectangle with material %s has a bad material coverage type.", self.mat.name);
                 unreachable();
         }
 
@@ -534,15 +538,35 @@ fn void Panel.draw(&self, bool selected = false)
     {
         switch(self.shape)
         {
-            case BOX:         r2d::@drawRect(self.rect, (selected) ? self.color_selected : self.color);
-            case ROUNDED_BOX: r2d::drawRectangleRounded(self.rect, 0.65f, 6, (selected) ? self.color_selected : self.color);
+            case BOX:         r2d::@drawRect(self.quad, (selected) ? self.color_selected : self.color);
+            case ROUNDED_BOX: r2d::drawRectangleRounded(self.quad, 0.65f, 6, (selected) ? self.color_selected : self.color);
             default: unreachable();
         }
     }
 
     if(self.displayBounds()) {
-        r2d::drawRectangleLinesEx(self.rect, 1.0f, rl::RED);
+        r2d::drawRectangleLinesEx(self.quad, 1.0f, rl::RED);
     }
+}
+
+
+fn UIRectangle* createRectangle(String name, int id) @public @inline @nodiscard
+{
+	UIRectangle* rect = (UIRectangle*)mem::malloc(UIRectangle.sizeof);
+	rect.init();
+	rect.name = name.tcopy();
+	return rect;
+}
+
+<*
+	Destroys a UIRectangle and frees its memory. 
+	@param [inout] rect : "the rectangle to destroy"
+*>
+fn void destroyRectangle(UIRectangle* rect) @public @inline 
+{
+	if(rect == null) return;
+	rect.deinit();
+	mem::free(rect);
 }
 
 //////////////// ******** GUI FRAME && WIDGET'S STRUCTS ******** ////////////////////////
@@ -554,8 +578,8 @@ alias MouseOverCallback = fn bool(Widget*);
 
 struct Frame (SaveSystemInterface)
 {
-    // extends Panel (super/base class)
-    inline Panel super;
+    // extends UIRectangle (super/base class)
+    inline UIRectangle super;
     String name;
     WidgetList widgets;
 }
@@ -573,7 +597,7 @@ fn void Frame.reload(&self, SaveFile* file) @dynamic {
 fn void Frame.init(&self, String name) @inline {
     assert(rl::isWindowReady() == true);
 
-    // init panel stuff (inits default rect and color)
+    // init panel stuff (inits default quad and color)
     self.super.init();
 
     // init the frame menbers
@@ -671,8 +695,8 @@ interface WidgetInterface
 
 struct Widget (WidgetInterface) 
 {
-    // extends Panel (super/base class)
-    inline Panel super;
+    // extends UIRectangle (super/base class)
+    inline UIRectangle super;
     
     //int layer;
     int kind;
@@ -850,20 +874,20 @@ fn void Widget.draw(&self) @dynamic
                 {
                 case CENTER:
                     center = {
-                        self.rect.x + self.rect.width / 2,
-                        self.rect.y + self.rect.height / 2
+                        self.quad.x + self.quad.width / 2,
+                        self.quad.y + self.quad.height / 2
                     };
                     center.x -= (float)(this.text_len / 2);
                     center.y -= (float)this.font_size / 2;
                 case LEFT:
                     center = {
-                        self.rect.x,
-                        self.rect.y
+                        self.quad.x,
+                        self.quad.y
                     };
                 case RIGHT:
                     center = {
-                        self.rect.x + self.rect.width,
-                        self.rect.y
+                        self.quad.x + self.quad.width,
+                        self.quad.y
                     };
                     center.x -= this.text_len;
                 }
@@ -875,7 +899,7 @@ fn void Widget.draw(&self) @dynamic
             }
 
             if(self.displayBounds()) {
-                r2d::drawRectangleLinesEx(self.rect, 1.0f, rl::RED);
+                r2d::drawRectangleLinesEx(self.quad, 1.0f, rl::RED);
             }
         case KIND_CHECKBOX:
             // draw the checkbox
@@ -913,7 +937,7 @@ fn bool Widget.isWithinScreenBounds(&self) @dynamic
     .height = game::gpGame.screen.h
     };
 
-    return rl::checkCollisionRecs(screen_bounds, self.rect) ? true : false;
+    return rl::checkCollisionRecs(screen_bounds, self.quad) ? true : false;
 }
 
 fn bool Widget.isInWidget(&self, int x, int y) @dynamic
@@ -921,7 +945,7 @@ fn bool Widget.isInWidget(&self, int x, int y) @dynamic
     if (self.hidden()) return false;
 
     RLVector2 point = { (float)x, (float)y };
-    return rl::checkCollisionPointRec(point, self.rect) ? true : false;
+    return rl::checkCollisionPointRec(point, self.quad) ? true : false;
 }
 
 <*
@@ -1298,7 +1322,7 @@ fn void WidgetButton.update(&self)
 {
     // NOTE(HM) still so much to learn about OOP...
     // I need to manully call the root widget update,
-    // that is the update method from the super class Panel 
+    // that is the update method from the super class UIRectangle 
     // for the focus code to work
     self.super.update(); // for isMouseOver to run...
     //
@@ -1306,7 +1330,7 @@ fn void WidgetButton.update(&self)
 }
 
 fn void WidgetButton.draw(&self) {
-    rl::@scissorMode((int)self.rect.x, (int)self.rect.y, (int)self.rect.width, (int)self.rect.height)
+    rl::@scissorMode((int)self.quad.x, (int)self.quad.y, (int)self.quad.width, (int)self.quad.height)
     {
         self.super.draw();
     };
@@ -1608,7 +1632,7 @@ struct Desktop (SaveSystemInterface)
     int number; // used to uniquily identify each desktop
     
     // visuals
-    RLRectangle rect;
+    RLRectangle quad;
     RLColor color;
     // todo support more complex backgrounds
     RLTexture2D* tex;
@@ -1686,8 +1710,8 @@ fn bool Desktop.initFromFile(&self, ZString path, bool cache )
 		desktop->SetFlag( WIN_DESKTOP );
 		desktop->name = "Desktop";
 		desktop->text = va( "Invalid GUI: %s", qpath );
-		desktop->rect = idRectangle( 0.0f, 0.0f, 640.0f, 480.0f );
-		desktop->drawRect = desktop->rect;
+		desktop->quad = idRectangle( 0.0f, 0.0f, 640.0f, 480.0f );
+		desktop->drawRect = desktop->quad;
 		desktop->foreColor = idVec4( 1.0f, 1.0f, 1.0f, 1.0f );
 		desktop->backColor = idVec4( 0.0f, 0.0f, 0.0f, 1.0f );
 		desktop->SetupFromState();
@@ -1730,7 +1754,7 @@ fn void Desktop.init(&self, String name, bool isFullscreen = true, int w = 800, 
 		assert(game::gpGame.screen.w > 0 && game::gpGame.screen.h > 0, 
 			"Desktop.init: Cannot initialize fullscreen desktop when screen width or height is zero."
 		);
-        self.rect = { // @hardcode
+        self.quad = { // @hardcode
             .x      = 0,
             .y      = 0, 
             .width  = game::gpGame.screen.w,
@@ -1739,7 +1763,7 @@ fn void Desktop.init(&self, String name, bool isFullscreen = true, int w = 800, 
     } 
     else 
     {
-        self.rect = { // @hardcode
+        self.quad = { // @hardcode
             .x      = 0,
             .y      = 0, 
             .width  = w,
@@ -1778,30 +1802,30 @@ fn void Desktop.setFocus(&self, bool focus) @inline
 
 fn void Desktop.setPosition(&self, float x, float y) @inline 
 {
-    self.rect.x = x;
-    self.rect.y = y;
+    self.quad.x = x;
+    self.quad.y = y;
 }
 
 fn void Desktop.setPositionV(&self, Vec2f pos) @inline 
 {
-    self.rect.x = pos.x;
-    self.rect.y = pos.y;
+    self.quad.x = pos.x;
+    self.quad.y = pos.y;
 }
 
 fn Vec2f Desktop.getPosition(&self) @inline 
 {
-    return {self.rect.x, self.rect.y};
+    return {self.quad.x, self.quad.y};
 }
 
 fn void Desktop.setSize(&self, float w, float h) @inline 
 {
-    self.rect.width  = w;
-    self.rect.height = h;
+    self.quad.width  = w;
+    self.quad.height = h;
 }
 
 fn Vec2f Desktop.getSize(&self) @inline 
 {
-    return {self.rect.width, self.rect.height};
+    return {self.quad.width, self.quad.height};
 }
 
 fn void Desktop.activate(&self, bool activate = true, int _time = game::gpGame.time_ms) @inline {
@@ -2004,9 +2028,9 @@ fn void Desktop.redraw(&self, int _time)
     // draw Desktop background
     if(self.tex) {
         assert(rl::isTextureValid(*self.tex));
-        rl::drawTexture(*self.tex, (int)self.rect.x, (int)self.rect.y, self.color);
+        rl::drawTexture(*self.tex, (int)self.quad.x, (int)self.quad.y, self.color);
     } else {
-        r2d::@drawRect(self.rect, self.color);
+        r2d::@drawRect(self.quad, self.color);
     }
 
     self.drawCursor();
@@ -2105,7 +2129,7 @@ fn void Desktop.debug(&self)
         }
 */
         // draw a react around the destop area itself
-        r2d::drawRectangleLinesEx(self.rect, 2.0f, rl::RED);
+        r2d::drawRectangleLinesEx(self.quad, 2.0f, rl::RED);
         // show destop name
         Vec2f dbg_text_pos;
         dbg_text_pos += misc::VEC_RIGHT * (0.10f * scr_w);
@@ -2125,16 +2149,16 @@ fn void Desktop.debug(&self)
             {
                if(child.selected) continue;
                
-               dbg_text_pos = {child.rect.x, child.rect.y};
-               dbg_text_pos += misc::VEC_UP * (0.30f * child.rect.height); 
+               dbg_text_pos = {child.quad.x, child.quad.y};
+               dbg_text_pos += misc::VEC_UP * (0.30f * child.quad.height); 
                rl::drawText(
-                    string::tformat("(w:%dpx, h:%dpx) : (w:%d%%, h:%d%%)", child.rect.x, child.rect.y, 
-                    ((child.rect.x * 100) / scr_w), ((child.rect.y * 100) / scr_h)).zstr_tcopy(),
+                    string::tformat("(w:%dpx, h:%dpx) : (w:%d%%, h:%d%%)", child.quad.x, child.quad.y, 
+                    ((child.quad.x * 100) / scr_w), ((child.quad.y * 100) / scr_h)).zstr_tcopy(),
                     (int)dbg_text_pos.x, (int)dbg_text_pos.y, 9, rl::RED
                );
                // draw widget center
-               r2d::drawCircle((int)child.rect.x, (int)child.rect.y, 2.0f, rl::SKYBLUE);
-               r2d::drawRectangleLinesEx(child.rect, 1.5f, rl::RED);
+               r2d::drawCircle((int)child.quad.x, (int)child.quad.y, 2.0f, rl::SKYBLUE);
+               r2d::drawRectangleLinesEx(child.quad, 1.5f, rl::RED);
             }
         }
     }

@@ -294,11 +294,11 @@ fn void Cvar.archive(&self)
 	@todo();
 	/*
 	// make sure we have the pre-loaded settings file
-	if(main::gpGame.settings_file.path == "") {
-		main::gpGame.loadSettingsFile();
+	if(game::gpGame.settings_file.path == "") {
+		game::gpGame.loadSettingsFile();
 	}
 
-	ConfigFile* settings_file = &main::gpGame.settings_file;
+	ConfigFile* settings_file = &game::gpGame.settings_file;
 	if(settings_file.hasSection("Cvars")) {
 		IniSection* section = settings_file.getSection("Cvars");
 		IniCMD* cd  = mem::new(IniCMD);

@@ -86,7 +86,7 @@ fn void SaveFile.openself(&self, String filepath) @inline
 	SaveFile? file = open(filepath, SAVE_FILE_VERSION);
 	if( catch excuse = file) {
 		log::warning(CONSOLE, "Failed to open save file %s : %s:%s", filepath, $$FUNC, $$LINE);
-		if(main::developer.getBool()) unreachable();
+		if(game::developer.getBool()) unreachable();
 	} else {
 		*self = file;
 	}
@@ -97,7 +97,7 @@ fn void SaveFile.makeself(&self, String filepath) @inline
 	SaveFile? file = make_new(filepath, SAVE_FILE_VERSION);
 	if( catch excuse = file) {
 		log::warning(CONSOLE, "Failed to create save file %s : %s:%s", filepath, $$FUNC, $$LINE);
-		if(main::developer.getBool()) unreachable();
+		if(game::developer.getBool()) unreachable();
 	} else {
 		*self = file;
 	}
@@ -109,7 +109,7 @@ fn void SaveFile.closeself(&self) @inline
 		return;
 	} else {
 		log::warning(CONSOLE, "Failed to close save file %s : %s:%s", self.path, $$FUNC, $$LINE);
-		if(main::developer.getBool()) unreachable();
+		if(game::developer.getBool()) unreachable();
 	}
 }
 
@@ -485,7 +485,7 @@ fn void readAsset(SaveFile* savefile, any* asset) {
     readString(savefile, &name);
     if(name == "") return;
     
-    (*asset) = main::asstManager.getAsset(name, asset.type);
+    (*asset) = game::asstManager.getAsset(name, asset.type);
 }
 
 
@@ -732,7 +732,7 @@ ActionManager* gpActnMnagr = &local_manager;
 fn void ActionManager.register(&self, Action* action) @inline {
     foreach(act : self.actions) {
         if(act.name == action.name) {
-            main::log::warning(Where.CONSOLE, "Cannot register \"%s\" because is already registered.", action.name) {}
+            game::log::warning(Where.CONSOLE, "Cannot register \"%s\" because is already registered.", action.name) {}
             return;
         }
     }

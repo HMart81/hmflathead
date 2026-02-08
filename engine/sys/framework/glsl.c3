@@ -134,7 +134,7 @@ fn void handleShaderIncludes(String* shdcode) @local
 
                 assert(replace_directive.is_empty() == false, "replace directive should not be empty!");
 
-                String? code_to_included = fs::readEntireFileX(main::gpGame.app_base_folder.tconcat(include_path));
+                String? code_to_included = fs::readEntireFileX(game::gpGame.app_base_folder.tconcat(include_path));
                 if(catch excuse = code_to_included) {
                     log::error(Where.FILE, "Failed to include file: %s, error: %s", include_path, excuse);
                     // NOTE(HM) if the file is not found, we will just remove the include directive

@@ -76,7 +76,7 @@ import thirdparty::raylib5::rl;
 // end_region
 
 // region alias
-alias gpGame @local = main::gpGame;
+alias gpGame @local = game::gpGame;
 // end_region
 
 // region constants
@@ -84,7 +84,7 @@ const SCREEN_TOP_CORNER = (Vec2f) {0.0f, 0.0f}; // In Raylib the top-left corner
 // end_region
 
 fn Desktop* getActiveMenu() @local @inline {
-	return main::gpGame.guiActive;
+	return game::gpGame.guiActive;
 }
 
 fn void setGUI(Desktop* menu) 
@@ -97,26 +97,26 @@ fn void setGUI(Desktop* menu)
         if ( guiActive != null ) {
             guiActive.deactivate();
         }
-        main::gpGame.guiActive = null;
+        game::gpGame.guiActive = null;
 		return;
 	}
 
     //else set the current menu
-    guiActive = main::gpGame.guiActive = menu;
+    guiActive = game::gpGame.guiActive = menu;
     if(guiActive.hidden()) {
         guiActive.show();
     }
 
-	if (guiActive == main::gpGame.main_menu) {
-        if(main::gpGame.editor.isOpened()) {
-            if(main::game_cursor_visible()) main::hide_game_cursor();
+	if (guiActive == game::gpGame.main_menu) {
+        if(game::gpGame.editor.isOpened()) {
+            if(game::game_cursor_visible()) game::hide_game_cursor();
         } else {
-           if(main::game_cursor_hidden()) main::show_game_cursor();
+           if(game::game_cursor_hidden()) game::show_game_cursor();
         }
         // todo set the gui vars
 		//SetSaveGameGuiVars();
 		//SetMainMenuGuiVars();
-	} /*else if ( guiActive == main::gpGame.restart_menu ) {
+	} /*else if ( guiActive == game::gpGame.restart_menu ) {
 		SetSaveGameGuiVars();
 	}*/
 
@@ -126,7 +126,7 @@ fn void setGUI(Desktop* menu)
 	//ev.evType = SE_NONE;
 
 	//guiActive.handleEvent( &ev, com_frameTime );
-	//guiActive.activate( true, main::gpGame.time_ms );
+	//guiActive.activate( true, game::gpGame.time_ms );
     guiActive.setFocus(true);
 }
 
@@ -144,7 +144,7 @@ fn void start(Desktop* gui) {
 	// start playing the menu sounds
 	//soundSystem->SetPlayingSoundWorld( menuSoundWorld );
     if(rl::isMusicValid(gui.music_stream)) {
-        if(!rl::isMusicStreamPlaying(gui.music_stream) && !main::gpGame.pause_all_music) rl::playMusicStream(gui.music_stream);
+        if(!rl::isMusicStreamPlaying(gui.music_stream) && !game::gpGame.pause_all_music) rl::playMusicStream(gui.music_stream);
     }
 
     setGUI(gui);
@@ -186,7 +186,7 @@ fn void exit()
     // TODO(HM) This should be set ONLY when we are sure we are ingame and not
     // in some other state, right now is set when all menus exit what is not 
 	// total guarantie that we are returning to the game world.
-    main::gpGame.mode = GameMode.PLAYING;
+    game::gpGame.mode = GameMode.PLAYING;
 
 	// go back to the game sounds
 	//soundSystem->SetPlayingSoundWorld( sw );
@@ -265,7 +265,7 @@ macro WidgetButton* Desktop.create_menu_button(&self, Vec2f pos, String text, Me
     //
     float button_width  = bdef.size.x;
     float button_height = bdef.size.y;
-    WidgetText* label   = gui::createLabel(text, text, main::gpGame.candara_font, 0, bdef.label_color);
+    WidgetText* label   = gui::createLabel(text, text, game::gpGame.candara_font, 0, bdef.label_color);
     label.addTo(self);
     // set the label properties
     Vec2f label_offset  = pos;
@@ -297,10 +297,10 @@ macro WidgetButton* Desktop.create_menu_button(&self, Vec2f pos, String text, Me
     
 fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
 {
-    main::gpGame.mode = main::GameMode.MENU;
+    game::gpGame.mode = game::GameMode.MENU;
 
     // Menu creation
-    Vec2f screen_center       = main::gpGame.view.origin; //(Vec2f) {(float)screenWidth/2.0f, (float)screenHeight / 2.0f};
+    Vec2f screen_center       = game::gpGame.view.origin; //(Vec2f) {(float)screenWidth/2.0f, (float)screenHeight / 2.0f};
     float screen_half_width   = screen_center.x;
     float screen_half_height  = screen_center.y;
     Vec2f screen_top_center   = {screen_half_width, 0.0f};
@@ -323,7 +323,7 @@ fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
     desk_options.previous = desk_main;
     
 
-    String music_path = main::gpGame.app_base_folder.tconcat("music\\main_menu\\Swallow.ogg");
+    String music_path = game::gpGame.app_base_folder.tconcat("music\\main_menu\\Swallow.ogg");
     if(fs::fileExists(music_path))
     {
         log::info(Where.FILE, "\tloading %s music: %s", desk_main.name, music_path);
@@ -372,7 +372,7 @@ fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
     //*************
     const TITLE           = "FlatHead";
     const TITLE_FONT_SIZE = 50;
-    RLFont* title_font = main::gpGame.trojan_pro_font;
+    RLFont* title_font = game::gpGame.trojan_pro_font;
     WidgetText* title_label = desk_main.create_menu_label(TITLE, title_font, TITLE_FONT_SIZE, rl::GRAY);
     Vec2f title_offset = misc::VEC_RIGHT * screen_top_center.x;
     title_offset -= {title_label.text_len / 2.0f, 0.0f};
@@ -384,7 +384,7 @@ fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
     //*************
     const SUBTITLE           = "engine";
     const SUBTITLE_FONT_SIZE = 16;
-    RLFont* subtitle_font = main::gpGame.lucida_font;
+    RLFont* subtitle_font = game::gpGame.lucida_font;
     WidgetText* subtitle_label = desk_main.create_menu_label(SUBTITLE, subtitle_font, SUBTITLE_FONT_SIZE, rl::RAYWHITE);
     Vec2f subtitle_offset = misc::VEC_RIGHT * screen_top_center.x;
     subtitle_offset -= {subtitle_label.text_len / 2.0f, 0.0f};
@@ -659,7 +659,7 @@ fn void quit_button_onPress(any widget) {
 
 fn void quit_button_onSinglePress(any widget) {
     button_onSinglePress(widget);
-    main::quitGame();
+    game::quitGame();
 }
 
 fn void options_button_onPress(any widget) {

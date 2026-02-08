@@ -57,8 +57,8 @@ struct IntroAnimation
 
 macro makeFrame(String material_name, IntroAnimation* anim) @local {
     int w, h;
-    w = main::gpGame.screen.w;
-    h = main::gpGame.screen.h;
+    w = game::gpGame.screen.w;
+    h = game::gpGame.screen.h;
     Frame* frame = mem::new(Frame);
     frame.image  = mem::new(Panel);
     frame.image.initV({0,0}, {w,h},  {0xFF,0xFF,0xFF,0} /*rl::WHITE*/);
@@ -89,10 +89,10 @@ fn void deinitAnimation(IntroAnimation* anim) {
 
 fn void hide_cursors() @local @inline
 {
-    if(main::game_cursor_visible()) main::hide_game_cursor();
-    if(main::gpGame.screen.state.fullscreen || main::gpGame.screen.state.borderless) 
+    if(game::game_cursor_visible()) game::hide_game_cursor();
+    if(game::gpGame.screen.state.fullscreen || game::gpGame.screen.state.borderless) 
     {
-        if(main::system_cursor_enabled()) main::disable_system_cursor();
+        if(game::system_cursor_enabled()) game::disable_system_cursor();
     }
 }
 
@@ -103,15 +103,15 @@ fn void init_anim_timing(IntroAnimation* anim) @local @inline
 {
     if(!anim.timing_initialized) {
         // each frame duration
-        anim.next_frame_time    = main::gpGame.time_ms + FRAME_TIME;
+        anim.next_frame_time    = game::gpGame.time_ms + FRAME_TIME;
         // full anim duration
         int frames_amout = (int)anim.frames.len();
-        anim.duration           = main::gpGame.time_ms + (frames_amout * FRAME_TIME);
+        anim.duration           = game::gpGame.time_ms + (frames_amout * FRAME_TIME);
         anim.timing_initialized = true;
         foreach(&frame : anim.frames)
         {
-            (*frame).fade_in_time  += main::gpGame.time_ms;
-            (*frame).fade_out_time += main::gpGame.time_ms;
+            (*frame).fade_in_time  += game::gpGame.time_ms;
+            (*frame).fade_out_time += game::gpGame.time_ms;
         }
     }
 }
@@ -129,14 +129,14 @@ fn bool play(IntroAnimation* anim) @inline {
     @param [&inout] anim : "animation to handle"
 *>
 fn void setup(IntroAnimation* anim) @inline @local {
-    main::gpGame.mode = GameMode.INTRO;
+    game::gpGame.mode = GameMode.INTRO;
     hide_cursors();
     init_anim_timing(anim);
     anim.should_play = true;
 }
 
 fn void IntroAnimation.stop(&self) @inline {
-    main::gpGame.mode = GameMode.NONE;
+    game::gpGame.mode = GameMode.NONE;
     self.should_play = false;
 }
 
@@ -154,7 +154,7 @@ fn void IntroAnimation.loop_frame(&self, uint idx) @inline {
 fn void update(IntroAnimation* anim)
 {
     //  if animation played to the end or we skipped the intro
-    if(main::gpGame.time_ms >= anim.duration || input::getAction("skipIntro").fnBecameTriggered()) {
+    if(game::gpGame.time_ms >= anim.duration || input::getAction("skipIntro").fnBecameTriggered()) {
         anim.stop();
         return;
     }
@@ -174,9 +174,9 @@ fn void update(IntroAnimation* anim)
         }
 
         // else set next frame index to play after the required time
-        if(main::gpGame.time_ms >= anim.next_frame_time) {
+        if(game::gpGame.time_ms >= anim.next_frame_time) {
             anim.current_frame_index++;
-            anim.next_frame_time = main::gpGame.time_ms + FRAME_TIME;
+            anim.next_frame_time = game::gpGame.time_ms + FRAME_TIME;
         }
     }
 }
@@ -189,12 +189,12 @@ fn void drawAnimation(IntroAnimation* anim, int w, int h) {
 
     /*foreach(&frame : anim.frames)
     {
-        (*frame).fade_in_time  += main::gpGame.time_ms;
-        (*frame).fade_out_time += main::gpGame.time_ms;
+        (*frame).fade_in_time  += game::gpGame.time_ms;
+        (*frame).fade_out_time += game::gpGame.time_ms;
     }*/
 
     Frame* frame = anim.frames[anim.current_frame_index];
-    int current_time = main::gpGame.time_ms;
+    int current_time = game::gpGame.time_ms;
     if(!frame.fade_in_done && current_time <= frame.fade_in_time) {
         frame.image.fadeIn(0.5f);
     } else {
@@ -204,7 +204,7 @@ fn void drawAnimation(IntroAnimation* anim, int w, int h) {
     //io::printfn("RLColor = %s", misc::printColor(anim.frames[anim.current_frame_index].image.color));
     if(frame.fade_in_done) frame.image.draw();
     
-    if(frame.fade_in_done && !frame.fade_out_done && main::gpGame.time_ms <= frame.fade_out_time) {
+    if(frame.fade_in_done && !frame.fade_out_done && game::gpGame.time_ms <= frame.fade_out_time) {
         frame.image.fadeOut(0.5f);
     } else {
         if(!frame.fade_out_done) frame.fade_out_done = true;

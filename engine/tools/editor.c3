@@ -270,7 +270,7 @@ fn void Editor.open(&self) @inline
     self.flags.is_opened = true;
     self.kind = EditorKind.MAIN_EDITOR;
     self.setVisible(); // also sets the editor to active
-    main::gpGame.mode = GameMode.EDITOR;
+    game::gpGame.mode = GameMode.EDITOR;
 }
 
 fn bool Editor.isOpened(&self) => self.flags.is_opened;
@@ -284,7 +284,7 @@ fn void Editor.close(&self) @inline
     }
     self.flags.is_opened = false;
     self.setInvisible(); // also sets the editor to inactive and unfocused
-    main::gpGame.mode = GameMode.NONE;
+    game::gpGame.mode = GameMode.NONE;
 }
 
 
@@ -450,7 +450,7 @@ fn bool Editor.isMouseOver(&self) @local
     // gets windows mouse position...
     Vec2f mouseWorldPos = rl::getMousePosition();
 
-    Vec2f mouse_rect_size = main::getGameCursorSize() * 0.5f; // half the size of the game cursor
+    Vec2f mouse_rect_size = game::getGameCursorSize() * 0.5f; // half the size of the game cursor
     RLRectangle mouseRect = misc::@recFromVecs(mouseWorldPos, mouse_rect_size);
 
     if (rl::checkCollisionRecs(mouseRect, self.main_window)) return true;
@@ -468,11 +468,11 @@ fn void Editor.update(&self) @inline
 
     if (self.focused()) 
     {
-        if(main::game_cursor_visible()) main::hide_game_cursor();
-        if(!main::system_cursor_visible()) main::show_system_cursor();
+        if(game::game_cursor_visible()) game::hide_game_cursor();
+        if(!game::system_cursor_visible()) game::show_system_cursor();
     } else {
-        if(main::system_cursor_visible()) main::hide_system_cursor();
-        main::show_game_cursor();
+        if(game::system_cursor_visible()) game::hide_system_cursor();
+        game::show_game_cursor();
     }
 
     if(self.input_dialog_open_count > 1) {
@@ -796,7 +796,7 @@ fn void addToConsoleHistory(Editor* editor, String input_text) //@inline
 macro void con_printfn(String fmt, ...) @public @builtin {
 	DString str = dstring::temp_with_capacity(fmt.len + $vacount * 8);
 	str.appendf(fmt, $vasplat);
-	main::gpGame.editor.con_history.push(str.str_view().copy(mem));
+	game::gpGame.editor.con_history.push(str.str_view().copy(mem));
 }
 
 <* 
@@ -841,7 +841,7 @@ $endif
             editor.kind = EditorKind.GUI_EDITOR;
             editor.setActive();
             editor.setVisible();
-            main::gpGame.mode = GameMode.EDITOR;
+            game::gpGame.mode = GameMode.EDITOR;
             con_printfn("GUI Editor opened.");*/
             (guieditor::is_opened()) ?  guieditor::close() : guieditor::open();
             nextcase "quit";
@@ -891,8 +891,8 @@ fn void drawOpenEditorBorder(Editor* editor) @inline
     }
 
     int w, h;
-    w = (int)main::gpGame.screen.w;
-    h = (int)main::gpGame.screen.h;
+    w = (int)game::gpGame.screen.w;
+    h = (int)game::gpGame.screen.h;
     rl::drawRectangleLinesEx({0, 0, w, h}, 2.0f, *editor.border_color);
 }
 

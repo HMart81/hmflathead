@@ -164,7 +164,7 @@ fn void State.runFunction(&self, String func_name, int fl, args...)
     self.pop(1); // pop only function
     unreachable("Failed to execute script function '%s' with excuse: %s", func_name, result);
   } 
-  else if(main::developer.getBool()) 
+  else if(game::developer.getBool()) 
   {
     result = self.tostring(STACK_IDX_RETURN).str_view();
     io::printfn("Script function '%s' executed successfully with return value: %s", func_name, result);

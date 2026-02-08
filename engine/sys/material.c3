@@ -380,7 +380,7 @@ fn void HMaterial.init(&self) @public
     self.getStage(STAGE_EMISSION).lighting = SL_AMBIENT;
 
     // NOTE(HM) all materials start with the default game shader
-    //self.shader = main::getDefaultShaderCopy();
+    //self.shader = game::getDefaultShaderCopy();
 }
 
 fn void HMaterial.free(&self) @public
@@ -392,7 +392,7 @@ fn void HMaterial.free(&self) @public
     if(self.shader.isValid()) 
     {
         assert(self.shader.id != 0, "Invalid shader id for material '%s' in file '%s'!", self.name, self.mtrfile.path);
-        if(self.shader.id != main::getDefaultShader().id) { 
+        if(self.shader.id != game::getDefaultShader().id) { 
             rl::unloadShader(self.shader);
         }
     }
@@ -631,7 +631,7 @@ fn void HMaterial.parse_stage(&self, XmlNode* stage_node) @public
                 self.parse_blend(child, stage);
             case mtr::isXmlNode(child, Node.MAP):
                 // create the full path by concatenating the relative material path to the game base folder
-                String texture_path = main::gpGame.app_base_folder.tconcat(child.getAttribute(NodeAttrib.URL).value);
+                String texture_path = game::gpGame.app_base_folder.tconcat(child.getAttribute(NodeAttrib.URL).value);
                 if(texture_path.is_empty()) {
                     unreachable("RLMaterial '%s' in file '%s' has a stage node with a map node without a url attribute!", self.name, self.mtrfile.path);
                 }
@@ -698,7 +698,7 @@ fn void HMaterial.parse_maps(&self, XmlNode* maps_node) @public
                             // path is relative to the game base folder
                             String relative_texture_path = child.getText();
                             if(relative_texture_path.extractFileBaseByCopy() == "default.png") {
-                                self.getStage(STAGE_DIFFUSE).tex = main::gpGame.default_texture;
+                                self.getStage(STAGE_DIFFUSE).tex = game::gpGame.default_texture;
                             } else {
                                 self.getStage(STAGE_DIFFUSE).loadTexture(relative_texture_path);
                                 $if $feature(_DEBUG):
@@ -1572,7 +1572,7 @@ fn bool check_material_existance(String name, MTRFile* mtr_file = null) @inline 
 
     // else check for it in the global material database
     // NOTE(HM) this is a slow operation, so use it with caution
-    MaterialDataBase* mtr_db = &main::gpGame.mtrDB;
+    MaterialDataBase* mtr_db = &game::gpGame.mtrDB;
     foreach(mtr: mtr_db.data) {
         if(mtr.findMaterial(name) != null) return true;
     }
@@ -1842,11 +1842,11 @@ fn void? load_mtr_files(String search_path, MaterialDataBase* database) @local
 
 <*
     @param [inout] db : "material file data base"
-    @require main::gpGame.app_base_folder.len > 0
+    @require game::gpGame.app_base_folder.len > 0
 *>
 fn void? loadMaterialFilesTo(MaterialDataBase* db) @inline @public
 {
-    String material_folder = main::gpGame.app_base_folder.tconcat("materials").tconcat("\\");
+    String material_folder = game::gpGame.app_base_folder.tconcat("materials").tconcat("\\");
 	load_mtr_files(material_folder, db)!!;
 
     // see if we have a default material file, if not create one
@@ -1858,7 +1858,7 @@ fn void? loadMaterialFilesTo(MaterialDataBase* db) @inline @public
         HMaterial* default_material = mem::new(HMaterial);
         default_material.init();
         default_material.name = "default_material";
-        default_material.getStage(mat::STAGE_DIFFUSE).tex = main::gpGame.default_texture;
+        default_material.getStage(mat::STAGE_DIFFUSE).tex = game::gpGame.default_texture;
         default_material.getStage(mat::STAGE_DIFFUSE).color = rl::WHITE;
         db.data[0].register(default_material);
     }
@@ -1869,14 +1869,14 @@ fn void? loadMaterialFilesTo(MaterialDataBase* db) @inline @public
 
     @param [in] material_name : "name of the material to search for"
     @require material_name.len > 0
-    @require main::gpGame.mtrDB.data.len() > 0
+    @require game::gpGame.mtrDB.data.len() > 0
 *>
 fn HMaterial* getMaterial(String material_name) @public
 {
     HMaterial* mat;
     uint index;
 
-    uint count = (uint)main::gpGame.mtrDB.data.len();
+    uint count = (uint)game::gpGame.mtrDB.data.len();
     if(count == 0) {
         log::error(Where.FILE, "No material files loaded in the game, cannot get material '%s'", material_name);
         return null;
@@ -1886,7 +1886,7 @@ fn HMaterial* getMaterial(String material_name) @public
         // NOTE(HM): This is done this way because findMaterial() from MTRFile returns null 
         // if the material is not found in the mtr data, so while we have materials in the data base
         // we need to keep looking through all of them.
-        mat = main::gpGame.mtrDB.data[index++].findMaterial(material_name);
+        mat = game::gpGame.mtrDB.data[index++].findMaterial(material_name);
     } while(mat == null && index < count);
 
     // just for testing purposes
@@ -1912,7 +1912,7 @@ fn void MaterialDataBase.listMTRs(&self) @public
         {
             log::info(CONSOLE, "[MATERIAL FILES]");
             foreach(mtr: self.data) {
-                String trimmed_path = "...\\".tconcat(mtr.path.strip(main::gpGame.app_base_folder));
+                String trimmed_path = "...\\".tconcat(mtr.path.strip(game::gpGame.app_base_folder));
                 io::printfn("%s\t-> \"%s\"%s", ansi::color_rgb(171, 218, 217), trimmed_path, Ansi.RESET);
             }
         }

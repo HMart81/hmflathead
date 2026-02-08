@@ -756,7 +756,7 @@ fn void ActionManager.update(&self)
     if(self.actions.len())
     {
         foreach(act: self.actions) {
-            act.update(main::gpGame.dt);
+            act.update(game::gpGame.dt);
         }
     }
     
@@ -788,7 +788,7 @@ fn void ActionManager.listActions(&self) @local @inline
 // TODO(HM) Move this to the cmds module
 // region input cmds
 fn void quitGame() {
-    main::gpGame.should_quit = true;
+    game::gpGame.should_quit = true;
 }
 // endregion
 

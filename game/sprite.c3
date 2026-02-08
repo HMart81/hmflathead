@@ -129,7 +129,7 @@ fn void HMSprite.reload(&self, SaveFile* file) @dynamic {
 }
 
 fn void HMSprite.register(&self) @inline {
-    main::gpGame.sprites.push(self);
+    game::gpGame.sprites.push(self);
 }
 
 fn void HMSprite.init(&self, float x, float y, float width, float height, RLColor color = rl::WHITE, SpriteKind kind = GENERIC, String material_name = "")
@@ -157,7 +157,7 @@ fn void HMSprite.initV(&self, Vec2f pos, Vec2f size, RLColor color = rl::WHITE, 
 }
 
 fn void HMSprite.resetPosAndSize(&self) @inline {
-    self.setPositionV(main::gpGame.view.origin);
+    self.setPositionV(game::gpGame.view.origin);
     self.setSizeV(MIN_SIZE);
 }
 
@@ -192,7 +192,7 @@ fn void remove(HMSprite* sprite, Allocator allocator) @inline {
 }
 
 fn HMSprite* HMSprite.clone(&self) @inline {
-   return sprite::create(self.rect.x, self.rect.y, self.rect.width, self.rect.height, self.color, self.kind, (self.mat != null) ? self.mat.name : "", &main::gameArena);
+   return sprite::create(self.rect.x, self.rect.y, self.rect.width, self.rect.height, self.color, self.kind, (self.mat != null) ? self.mat.name : "", &game::gameArena);
 }
 
 fn void HMSprite.deinit(&self) @inline {
@@ -323,7 +323,7 @@ fn HMSprite* HMSprite.setPosition(&self, float x, float y) @inline {
     return self;
 /*
 $if $feature(_DEBUG):   
-    if(main::gpGame.isPointInsideScreenView({x,y}) == false) {
+    if(game::gpGame.isPointInsideScreenView({x,y}) == false) {
         unreachable("HMSprite origin is outside the view.");
     }
 $endif
@@ -342,7 +342,7 @@ fn HMSprite* HMSprite.addToPosition(&self, float x, float y) @inline {
     self.rect.y += y;
     return self;
 // $if $feature(_DEBUG):   
-    // if(main::gpGame.isPointInsideScreenView({self.rect.x, self.rect.y}) == false) {
+    // if(game::gpGame.isPointInsideScreenView({self.rect.x, self.rect.y}) == false) {
         // unreachable("HMSprite origin is outside the view.");
     // }
 // $endif
@@ -462,7 +462,7 @@ fn void HMSprite.update(&self) @inline
 
     // update the in-game cursor
     if(self.kind == SpriteKind.CURSOR) {
-        main::update_game_cursor(main::gpGame.screen.w, main::gpGame.screen.h);
+        game::update_game_cursor(game::gpGame.screen.w, game::gpGame.screen.h);
     }
 }
 
@@ -490,14 +490,14 @@ fn void HMSprite.draw(&self)  @inline
         if(self.flags.isHidden) return;
 
         RLRectangle rect = self.rect;
-        switch (main::CURRENT_UNITS)
+        switch (game::CURRENT_UNITS)
         {
-            case main::UNITS_METER:
+            case game::UNITS_METER:
                 //rect.x = misc::metersToPixels(self.rect.x);
                 //rect.y = misc::metersToPixels(self.rect.y);
                 rect.width  = misc::metersToPixels(self.rect.width);
                 rect.height = misc::metersToPixels(self.rect.height);
-            case main::UNITS_PIXEL:
+            case game::UNITS_PIXEL:
                 rect;  // do nothing already in pixels
             default:
                 log::error(FILE, "Unsupported size units set for HMSprite rendering.", self.kind);
@@ -657,7 +657,7 @@ fn void Particle.create(&self, Vec2f pos, Vec2f size, RLColor color = rl::WHITE,
     // init the inline sprite data
     self.initV(pos, size, color);
     //self.tex          = assetManager.getAssetExt(tex_name, RLTexture2D.typeid);
-    self.lifetime     = main::gpGame.time_ms + lifetime_ms;
+    self.lifetime     = game::gpGame.time_ms + lifetime_ms;
     self.dir          = misc::VEC_UP;
     self.velocity     = self.dir;
     self.acceleration = 1.0f;
@@ -666,9 +666,9 @@ fn void Particle.create(&self, Vec2f pos, Vec2f size, RLColor color = rl::WHITE,
 fn void Particle.animate(&self) @inline {
     if(self.lifetime == 0) return;
     
-    self.velocity  *= self.acceleration * main::gpGame.dt;
+    self.velocity  *= self.acceleration * game::gpGame.dt;
     self.addToPositionV(self.dir * self.velocity);
-    if(main::gpGame.time_ms > self.lifetime) self.remove();
+    if(game::gpGame.time_ms > self.lifetime) self.remove();
 }
 
 fn void Particle.stop(&self) @inline {
@@ -701,7 +701,7 @@ struct ParticleSpawner
 }
 
 fn void ParticleSpawner.init(&self, Vec2f pos, int delay = 0) {
-    String name = string::tformat("%s%s", "ParticleSpawner_", main::gpGame.time_ms);
+    String name = string::tformat("%s%s", "ParticleSpawner_", game::gpGame.time_ms);
     RLColor color = misc::INVISIBLE_COLOR;
 $if $feature(_DEBUG):
     color = rl::RED;
@@ -730,10 +730,10 @@ fn void ParticleSpawner.setParticleSize(&self, int size) @inline {
 
 fn void ParticleSpawner.activate(&self) @inline {
     if(self.delay_ms) {
-        self.delay_ms = main::gpGame.time_ms + self.delay_ms;
+        self.delay_ms = game::gpGame.time_ms + self.delay_ms;
         self.lifetime = self.delay_ms + self.lifetime;
     } else {
-        self.lifetime = main::gpGame.time_ms + self.lifetime;
+        self.lifetime = game::gpGame.time_ms + self.lifetime;
     }
     self.super.startThinking();
     self.startThinking();
@@ -746,18 +746,18 @@ fn void ParticleSpawner.deactivate(&self) @inline {
 }
 
 fn void ParticleSpawner.spawnParticle(&self) {
-    Particle* part = allocator::new(&main::gameArena, Particle);
+    Particle* part = allocator::new(&game::gameArena, Particle);
     part.create(self.getPosition(), {self.part_size, self.part_size}, self.vs.color);
     part.animate();
 }
 
 // TODO(HM) Create a CPU thread for this?
 fn void ParticleSpawner.think(&self) {
-   self.super.think(main::gpGame.dt);
+   self.super.think(game::gpGame.dt);
     
     if(self.flags & ent::TH_THINK)
     {
-        int current_time = main::gpGame.time_ms;
+        int current_time = game::gpGame.time_ms;
         log::info(Where.CONSOLE, "Entity '%s' has flag %s!!!\n", self.name, self.flags);
         if(current_time < self.delay_ms) {
            // do nothing

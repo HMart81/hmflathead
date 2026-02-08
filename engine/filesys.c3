@@ -440,8 +440,8 @@ fn void moveFiles(String from, String to, String fileExtensions = "")
             to = to.tconcat("\\");
         }
         
-        String files_dir = main::gpGame.app_work_dir.tconcat(from);
-        String files_to  = main::gpGame.app_work_dir.tconcat(to);
+        String files_dir = game::gpGame.app_work_dir.tconcat(from);
+        String files_to  = game::gpGame.app_work_dir.tconcat(to);
 
         bool? sucess = fs::makeDirectory_IfNotExist(files_to);
         if(catch excuse = sucess) { // will ignore if the directory already exists

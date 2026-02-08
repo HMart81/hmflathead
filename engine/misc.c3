@@ -214,7 +214,7 @@ fn int metersToPixels(float meters) @inline {
     }
 
     float value = math::round(meters);
-    int pixels = (int)(math::abs(value) * main::DEFAULT_PIXELS_PER_METER);
+    int pixels = (int)(math::abs(value) * game::DEFAULT_PIXELS_PER_METER);
     if(pixels < MINIMUM_SIZE_IN_PIXELS) {
         return MINIMUM_SIZE_IN_PIXELS;
     } else {
@@ -229,7 +229,7 @@ macro @metersToPixels($meters)
     }
 
     var value = math::round($meters);
-    var pixels = (int)(math::abs(value) * main::DEFAULT_PIXELS_PER_METER);
+    var pixels = (int)(math::abs(value) * game::DEFAULT_PIXELS_PER_METER);
     if(pixels < MINIMUM_SIZE_IN_PIXELS) {
         return MINIMUM_SIZE_IN_PIXELS;
     } else {
@@ -248,7 +248,7 @@ macro @metersToPixels($meters)
 fn float pixelsToMeters(int pixels, float minimum_size = MINIMUM_SIZE_IN_METERS) @inline {
     if(pixels <= MINIMUM_SIZE_IN_PIXELS) return minimum_size;
     
-    float m = math::abs((float)(pixels / main::DEFAULT_PIXELS_PER_METER));
+    float m = math::abs((float)(pixels / game::DEFAULT_PIXELS_PER_METER));
     if(m <= minimum_size) {
         return minimum_size;
     } else {
@@ -266,13 +266,13 @@ fn float pixelsToMeters(int pixels, float minimum_size = MINIMUM_SIZE_IN_METERS)
 *>
 fn float unitsToMeters(int units, float minimum_size = MINIMUM_SIZE_IN_METERS) @inline 
 {
-    if(fgetDiff(main::DEFAULT_UNITS_PER_METER, 1.0f) < 0.0001f) {
+    if(fgetDiff(game::DEFAULT_UNITS_PER_METER, 1.0f) < 0.0001f) {
         return units; // if the units are equal to the default meter scale starting at 1.0f, just return the units
     }
 
     if(units <= minimum_size) return minimum_size;
 
-    float v = math::abs((float)(units / main::DEFAULT_UNITS_PER_METER));
+    float v = math::abs((float)(units / game::DEFAULT_UNITS_PER_METER));
     return (v <= minimum_size) ? minimum_size : v;
 }
 
@@ -335,7 +335,7 @@ struct DebugLine
 }
 
 fn void DebugLine.update(&self) @inline {
-    if(self.lifetime < main::gpGame.time_ms) {
+    if(self.lifetime < game::gpGame.time_ms) {
         self.nodraw = true;
         self.unregister(); // remove the line from the global list
         mem::free(self); // free the memory allocated for the line
@@ -355,7 +355,7 @@ fn void makeDbgLine(Vec2f start, Vec2f end, RLColor color = rl::RED, int lifetim
     line.startPos   = start;
     line.endPos     = end;
     line.color      = color;
-    line.lifetime   = main::gpGame.time_ms + lifetime_ms;
+    line.lifetime   = game::gpGame.time_ms + lifetime_ms;
     line.register();
 }
 
@@ -448,8 +448,8 @@ fn float percent(uint p, float x) @inline
 
 macro int @bit($x) @builtin => 1 << $x;
 
-macro Vec2f worldToScreen(Vec2f wpos) => rl::getWorldToScreen2D(wpos, main::gpGame.cameraView);
-macro Vec2f screenToWorld(spos) => rl::getScreenToWorld2D(wpos, main::gpGame.cameraView);
+macro Vec2f worldToScreen(Vec2f wpos) => rl::getWorldToScreen2D(wpos, game::gpGame.cameraView);
+macro Vec2f screenToWorld(spos) => rl::getScreenToWorld2D(wpos, game::gpGame.cameraView);
 // end_region MATH misc
 
 // region vec2 extensions
@@ -526,7 +526,7 @@ macro Vec2f RLRectangle.getScreenPos(self) => worldToScreen(self.getPosition());
 fn Vec2f RLRectangle.getPosCameraCoords(&self) @if ($defined(view::ENABLE_CAMERA_VIEW))
 {
     Vec2f world_origin   = {0, 0};
-    Vec2f cam_org        = main::gpGame.view.camera.target;
+    Vec2f cam_org        = game::gpGame.view.camera.target;
     Vec2f offset_vec_dir = cam_org - world_origin;
     float offset_len     = offset_vec_dir.length();
     
@@ -560,12 +560,12 @@ fn RLSound loadSound(String asset_path) @inline {
     }
     
     log::warning(Where.FILE,  "Unable to load » %s", asset_path);
-    return main::gpGame.default_sound;
+    return game::gpGame.default_sound;
 }
 // end_region
 
-macro sec_since_init()  => main::gpGame.time_sec;
-macro mili_since_init() => main::gpGame.time_ms;
+macro sec_since_init()  => game::gpGame.time_sec;
+macro mili_since_init() => game::gpGame.time_ms;
 
 macro bool recIsValid(rec) => ((getRecSize(rec).length() + getRecPos(rec).length()) > 0) ? true : false;
 
@@ -864,7 +864,7 @@ $if $feature(PROFILE):
             value = value / 1000.0f;
             print_sec = true;
         }
-        //main::gpGame.gameView.pushDebugText("Performance zone:\n [%s] = %s %s", name, value, (print_sec) ? "sec" : "ms");
+        //game::gpGame.gameView.pushDebugText("Performance zone:\n [%s] = %s %s", name, value, (print_sec) ? "sec" : "ms");
         io::printfn("Performance zone:\n [%s] = %s %s", $$FUNC, value, (print_sec) ? "sec" : "ms");
 $endif
 */
