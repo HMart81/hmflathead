@@ -59,6 +59,7 @@ import engine::assets_api::asset;
 import engine::logging::log;
 import engine::filesystem::fs;
 import engine::misc;
+import engine::telemetry::telem;
 import engine::sys::framework::glsl;
 
 faultdef INVALID_ASSETS_PATH_STRING,
@@ -747,7 +748,7 @@ fn void? loadAssetsRecursively(String basepath, String parent_folder = "") @inli
 *>
 fn void? loadAssets() {
 
-	@profile_zone("loadAssets", false)
+	telem::@profile_zone("loadAssets", false)
     {
         loadAssetsRecursively(game::gpGame.app_base_folder)!!;
         

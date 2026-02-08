@@ -1253,7 +1253,7 @@ $endif
 
 fn void onUpdate() @local 
 {
-    misc::@profile_zone("Game Update")
+    telem::@profile_zone("Game Update")
     {
     $if $feature(_DEBUG):
         const CHOICE = 1;
@@ -1622,7 +1622,7 @@ fn void onDraw(int screenWidth, int screenHeight) @local
 {
     //float gameDraw_start = @start_profile_zone();
     //defer @end_profile_zone(gameDraw_start);
-    misc::@profile_zone("Game Draw", OFF)
+    telem::@profile_zone("Game Draw", OFF)
     {
         // 1) render to "offline" frame buffer objects/images in the background
         local_game.view.renderToFBO();
@@ -3477,7 +3477,7 @@ fn void waitFrame(int msec = misc::sec2ms(1.0f / local_game.screen.displayHz)) @
 
 fn void doOneFrame()
 {
-    misc::@profile_zone("Game Loop")
+    telem::@profile_zone("Game Loop")
     {
         $if $feature(BACKEND_RAYLIB) || $feature(BACKEND_RGFW):
         while(rl::windowShouldClose() != true) 

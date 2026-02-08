@@ -35,6 +35,7 @@ import std::math;
 import std::collections::map;
 import game::main;
 import engine::misc;
+import engine::telemetry::telem;
 import game::camview;
 //import engine::assets_api::asset; // for the asset system
 import engine::assets_api::astmng; // asset manager
@@ -483,7 +484,7 @@ macro @drawSprite(#s, #b, #t, #ra, #rb, #c) @local
 
 fn void HMSprite.draw(&self)  @inline 
 {
-    misc::@profile_zone("HMSprite Draw")
+    telem::@profile_zone("HMSprite Draw")
     {
     tracy::@zoneN("sprite draw", 0)
     {
