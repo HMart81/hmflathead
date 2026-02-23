@@ -32,7 +32,7 @@ import libc;
 import std::io, std::io::file;
 import std::core::mem, std::core::ascii, std::core::cpudetect;
 import std::math;
-import std::collections;
+import std::collections, std::collections::list;
 import engine::logging::log;
 import engine::physics::box2d;
 import game::main;
@@ -59,6 +59,15 @@ const Vec2f VEC_DOWN  = {0.0f,  1.0f};
 //const Vec2f VEC_DOWN  = {0.0f,  -1.0f};
 const Vec2f VEC_LEFT  = {-1.0f, 0.0f};
 const Vec2f VEC_RIGHT = {1.0f,  0.0f};
+
+macro unurdered_remove(List{Typ}* list, usz index) <Typ>
+{
+	if(index >= (*list).len()) return; // out of bounds check
+	//self.len() - 1
+	(*list).swap(index, (*list).index_of((*list).last()!!)!!); // swap the element at index with the last element
+	//list.pop(); // remove the last element
+	(*list).remove_last();
+}
 
 const ON  @builtin = 1;
 const OFF @builtin = 2;

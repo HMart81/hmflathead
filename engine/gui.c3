@@ -63,8 +63,8 @@ import engine::sys::render2d::r2d; // 2D rendering
 // end_region
 
 // region cvars
-Cvar ui_debugDraw @public = { "ui_debugDraw", CvarType.BOOL, "0", "show debug visualization for gui development, 0, 1, true, false" };
-Cvar ui_editGui   @public = { "ui_editGui", CvarType.BOOL, "0", "turn on gui editing functionality for gui development, 0, 1, true, false" };
+CVar ui_debugDraw @public = { "ui_debugDraw", CvarType.BOOL, "0", "show debug visualization for gui development, 0, 1, true, false" };
+CVar ui_editGui   @public = { "ui_editGui", CvarType.BOOL, "0", "turn on gui editing functionality for gui development, 0, 1, true, false" };
 
 
 fn void register_cvars() @public 
@@ -89,6 +89,7 @@ fn void register_cvars() @public
 const bool DEBUG_PANELS   = true;
 const int  MIN_PANEL_SIZE = 32;
 
+const RLColor INVISIBLE_COLOR @local = {0, 0, 0, 0};
 // mostly for the panel texture inversion ability
 const uint HORIZONTAL_DIR = 1;
 const uint VERTICAL_DIR   = 2;
@@ -362,7 +363,8 @@ fn void Panel.setMaterial(&self, String material_name) @inline
 
 fn bool Panel.hasMaterial(&self) @inline => self.mat != null;
 
-fn void Panel.fadeIn(&self, float factor) {
+fn void Panel.fadeIn(&self, float factor) 
+{
     /*if(self.hasMaterial())
     {
         self.mat.
@@ -372,20 +374,23 @@ fn void Panel.fadeIn(&self, float factor) {
     //}
 }
 
-fn void Panel.fadeOut(&self, float factor) {
+fn void Panel.fadeOut(&self, float factor) 
+{
     //self.color = rl::colorLerp(self.color, misc::INVISIBLE_COLOR, factor);
     //self.color.a = math::lerp(self.color.a, 0, factor);
     self.color.a = (char)misc::move_toward(self.color.a, 0, factor);
 }
 
-fn bool Panel.isValid(&self) @inline {
+fn bool Panel.isValid(&self) @inline 
+{
     if(self.rect.width  >= MIN_PANEL_SIZE && 
        self.rect.height >= MIN_PANEL_SIZE ) return true;
        
     return false;
 }
 
-fn void Panel.hide(&self) @inline {
+fn void Panel.hide(&self) @inline 
+{
     if(self.hidden()) return;
     self.flags.isHidden = true;
     self.deactivate();
@@ -467,9 +472,9 @@ fn void Panel.draw(&self, bool selected = false)
         RLRectangle source = { 0, 0, texture_size.x, texture_size.y };
         RLRectangle* dist = &self.rect;
 
-        RLColor color = (selected) ? self.color_selected : self.mat.getStage(mat::STAGE_DIFFUSE).color;
+        RLColor color = (selected) ? self.color_selected : self.color; //self.mat.getStage(mat::STAGE_DIFFUSE).color;
 
-        RLBlendMode blending;
+        RLBlendMode blending = -1;
         Coverage coverage = self.mat.coverage;
         switch //
         {
@@ -500,34 +505,39 @@ fn void Panel.draw(&self, bool selected = false)
                 unreachable();
         }
 
+        bool with_blending;
         switch (blending)
         {
             case RLBlendMode.ALPHA:
             case RLBlendMode.ALPHA_PREMUL:
-                rl::@blendMode(blending)
-                {
-                    rl::drawTexturePro(*texture, source, *dist, {0, 0}, 0.0f, color);
-                };
+                with_blending = true;
+                break;
             case RLBlendMode.CUSTOM:
                 rl::setBlendFactors(rl::RL_ONE, rl::RL_ONE_MINUS_SRC_ALPHA, rl::RL_FUNC_ADD);
-                rl::setBlendMode(rl::RLBlendMode.CUSTOM);
-                rl::@blendMode(blending)
-                {
-                    rl::drawTexturePro(*texture, source, *dist, {0, 0}, 0.0f, color);
-                };
+                rl::setBlendMode(RLBlendMode.CUSTOM);
+                with_blending = true;
+                break;
             case RLBlendMode.CUSTOM_SEPARATE:
                 rl::setBlendFactorsSeparate(rl::RL_SRC_ALPHA, rl::RL_ONE_MINUS_SRC_ALPHA, rl::RL_ONE, rl::RL_ONE, rl::RL_FUNC_ADD, rl::RL_MAX);
-                rl::setBlendMode(rl::RLBlendMode.CUSTOM_SEPARATE);
-                rl::@blendMode(blending)
-                {
-                    // NOTE(HM) center of the texture (rotation/scale point), 
-                    // it's relative to destination rectangle dimentions, not the screen dimentions.
-                    rl::drawTexturePro(*texture, source, *dist, {0, 0}, 0.0f, color);
-                };
-            default: // opaque unless the image has invisible pixels...
+                rl::setBlendMode(RLBlendMode.CUSTOM_SEPARATE);
+                 with_blending = true;
+                break;
+            default: break; // opaque unless the image has invisible pixels...
+                // NOTE(HM) center of the texture (rotation/scale point), 
+                // it's relative to destination rectangle dimentions, not the screen dimentions.
+                //rl::drawTexturePro(*texture, source, *dist, {0, 0}, 0.0f, color);
+        }
+
+        if(with_blending) 
+        {
+            rl::@blendMode(blending)
+            {
                 // NOTE(HM) center of the texture (rotation/scale point), 
                 // it's relative to destination rectangle dimentions, not the screen dimentions.
                 rl::drawTexturePro(*texture, source, *dist, {0, 0}, 0.0f, color);
+            };
+        } else {
+            rl::drawTexturePro(*texture, source, *dist, {0, 0}, 0.0f, color);
         }
     } 
     else
@@ -653,9 +663,14 @@ interface WidgetInterface
     fn bool bound();
     fn void unbind();
     fn String getName();
+    fn void setName(String name);
     fn void link(Widget* other);
     fn bool isLinked();
     fn void unlink();
+    fn bool hasParentDesktop() @optional;
+    fn void setParentDesktop(Desktop*) @optional;
+    fn void releaseParentDesktop() @optional;
+
     fn void setColor(rl::RLColor);
 //
     fn bool onMouseOver(int x, int y) @optional;
@@ -678,7 +693,7 @@ struct Widget (WidgetInterface)
     int kind;
     bool selected;  // for the gui editor
 
-    // for binding
+    // for binding (one single binding for now, but in the future we could have multiple bindings)
     struct parent 
     {
         Desktop* desktop;
@@ -699,18 +714,17 @@ struct Widget (WidgetInterface)
     WidgetCallback onLoad;   // called when the widget is loaded
 }
 
-fn void Widget.init(&self, int kind = KIND_NONE) @dynamic {
+fn void Widget.init(&self, int kind = KIND_WIDGET) @dynamic 
+{
     self.super.init();
-    self.kind = KIND_WIDGET;
-    if(kind != KIND_NONE) {
-        self.kind = kind;
-    }
+    self.kind = kind;
 }
 
-fn void Widget.deinit(&self) @dynamic{
+fn void Widget.deinit(&self) @dynamic
+{
     self.unlink();
     self.unbind();
-    self.parent.desktop = null;
+    if(self.hasParentDesktop()) self.releaseParentDesktop();
     self.super.deinit();
 }
 
@@ -930,7 +944,8 @@ fn bool Widget.isInWidget(&self, int x, int y) @dynamic
 *>
 fn void Widget.addTo(&self, Desktop* desktop) @dynamic 
 {
-    self.parent.desktop = desktop;
+    //self.parent.desktop = desktop;
+    self.setParentDesktop(desktop);
     // todo change this to activate logic like the panel system...
     if (self.parent.desktop.isInteractive) {
         self.activate();
@@ -963,7 +978,8 @@ fn Desktop* Widget.getDesktop(&self) @dynamic => self.parent.desktop;
  @param [in] other : "parent widget"
  @require other != null
 *>
-fn void Widget.bindTo(&self, Widget* other) @dynamic {
+fn void Widget.bindTo(&self, Widget* other) @dynamic 
+{
     if(self.bound()) {
         log::warning(Where.CONSOLE, "Cannot Bind %s to %s because is already bound to %s.", self.super.id, other.super.id, self.parent.other.super.id);
         return;
@@ -980,11 +996,13 @@ fn void Widget.bindTo(&self, Widget* other) @dynamic {
     //
 }
 
-fn bool Widget.bound(&self) @dynamic {
+fn bool Widget.bound(&self) @dynamic 
+{
     return self.parent.other != null;
 }
 
-fn void Widget.unbind(&self) @dynamic {
+fn void Widget.unbind(&self) @dynamic 
+{
     if(!self.bound()) {
         return;
     }
@@ -993,8 +1011,10 @@ fn void Widget.unbind(&self) @dynamic {
 }
 
 fn String Widget.getName(&self) @inline @dynamic => self.super.name;
+fn void Widget.setName(&self, String name) @inline @dynamic => self.super.name = name.tcopy();
 
-fn void Widget.link(&self, Widget* other) @dynamic {
+fn void Widget.link(&self, Widget* other) @dynamic 
+{
     if (other == null) return;
 
     if (self.isLinked()) {
@@ -1005,12 +1025,29 @@ fn void Widget.link(&self, Widget* other) @dynamic {
     self.next = other;
 }
 
-fn bool Widget.isLinked(&self) @dynamic {
+fn bool Widget.isLinked(&self) @dynamic 
+{
     return (self.next != null) ? true : false;
 }
 
-fn void Widget.unlink(&self) @inline @dynamic {
+fn void Widget.unlink(&self) @inline @dynamic 
+{
     if (self.isLinked()) self.next = null;
+}
+
+fn bool Widget.hasParentDesktop(&self) @inline @dynamic
+{
+    return (self.parent.desktop != null) ? true : false;
+}
+
+fn void Widget.setParentDesktop(&self, Desktop* desktop) @inline @dynamic
+{
+    self.parent.desktop = desktop;
+}
+
+fn void Widget.releaseParentDesktop(&self) @inline @dynamic
+{
+    self.parent.desktop = null;
 }
 
 fn void Widget.setColor(&self, RLColor color) @dynamic 
@@ -1056,8 +1093,8 @@ fn void WidgetText.init(&self) //@inline
 {
     self.super.init(KIND_TEXT);
     self.super.hide(); // don't show the square shape
-    self.super.name = "TextLabel";
-    self.setColor({0, 0, 0, 0}); // invisible color for the panel shape
+    self.super.name = "TextLabel"; // @hardcode
+    self.setColor(INVISIBLE_COLOR); // invisible color for the panel shape
     self.spacing    = 2.0f; //@hardcode, todo make this int a cvar
     self.font_size  = 20; //@hardcode
     self.setDefaultColor(rl::WHITE); //@hardcode
@@ -1157,13 +1194,13 @@ fn void WidgetText.draw(&self) //@inline
     The label will also be shown by default.
     Don't forget to free the label memory when you are done with it.
 
-    @param name : "name of the label"
     @param text : "text to display on the label"
     @param font : "font to use for the label, can be null"
     @param font_size : "font size to use for the label, must be greater than 0 to be applied"
     @param text_color : "color of the text"
+	@ensure return != null
 *>
-fn WidgetText* createLabel(String name, String text, RLFont* font, int font_size, RLColor text_color) 
+fn WidgetText* createLabel(String text, RLFont* font, int font_size, RLColor text_color) @nodiscard
 {
     WidgetText* label = mem::new(WidgetText);
     label.init();
@@ -1180,6 +1217,39 @@ fn WidgetText* createLabel(String name, String text, RLFont* font, int font_size
     label.deactivate();
     label.show();
     return label;
+}
+
+<*
+	Initializes a label widget with the given name and text.
+	The label will use the given font and font size, if provided.
+	The label will be deactivated by default, so it won't be interactive.
+	The label will also be shown by default.
+
+	@param label : "label widget to initialize"
+	@param text : "text to display on the label"
+	@param font : "font to use for the label, can be null"
+	@param font_size : "font size to use for the label, must be greater than 0 to be applied"
+	@param text_color : "color of the text"
+	@param desk : "desktop to add the label to"
+	@require desk != null
+	@require label != null
+*>
+fn void init_label(WidgetText* label, String text, RLFont* font, int font_size, RLColor text_color, Desktop* desk) @inline 
+{
+	label.init();
+	label.name = label.name.tconcat(text);
+	label.setText(text);
+	label.setTextColor(text_color);
+	if (font != null) {
+		label.setFont(font);
+	}
+	if (font_size > 0) {
+		label.setFontSize(font_size);
+	}
+	// labels shouldn't be interactive (to save perf...)
+	label.deactivate();
+	label.show();
+	label.addTo(desk);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1213,21 +1283,25 @@ fn void WidgetButton.init(&self, int kind = KIND_BUTTON) //@inline
     self.setSound(&game::gpGame.default_sound); //@hardcode, todo give this a better sound
 }
 
-fn void WidgetButton.deinit(&self) @inline {
+fn void WidgetButton.deinit(&self) @inline 
+{
     self.super.deinit();
     if (self.interaction_sound) self.interaction_sound = null;
 }
 
-fn void WidgetButton.setColor(&self, RLColor color) @dynamic {
+fn void WidgetButton.setColor(&self, RLColor color) @dynamic 
+{
     self.super.setColor(color);
 }
 
-fn void WidgetButton.setDefaultColor(&self, RLColor color) @inline {
+fn void WidgetButton.setDefaultColor(&self, RLColor color) @inline 
+{
     self.default_color = color;
     self.setColor(color);
 }
 
-fn void WidgetButton.setSound(&self, RLSound* sound) @inline {
+fn void WidgetButton.setSound(&self, RLSound* sound) @inline 
+{
     self.interaction_sound = sound;
 }
 
@@ -1305,7 +1379,8 @@ fn void WidgetButton.update(&self)
     self.manage_interactions();
 }
 
-fn void WidgetButton.draw(&self) {
+fn void WidgetButton.draw(&self) 
+{
     rl::@scissorMode((int)self.rect.x, (int)self.rect.y, (int)self.rect.width, (int)self.rect.height)
     {
         self.super.draw();
@@ -1472,11 +1547,13 @@ fn void WidgetContainer.init(&self, ContainerParams params) @inline
     self.kind = gui::KIND_CONTAINER;
 }
 
-fn void WidgetContainer.deinit(&self) @inline {
+fn void WidgetContainer.deinit(&self) @inline 
+{
     self.super.deinit();
 }
 
-fn void WidgetContainer.update(&self) {
+fn void WidgetContainer.update(&self) 
+{
     self.super.update();
 
     float pad_left, pad_right, pad_top, pad_bottom;
@@ -1537,7 +1614,8 @@ fn void WidgetContainer.update(&self) {
     }
 }
 
-fn void WidgetContainer.draw(&self) {
+fn void WidgetContainer.draw(&self) 
+{
     self.super.draw();
 
     foreach(child : self.children) {
@@ -1555,7 +1633,8 @@ fn void WidgetContainer.draw(&self) {
     }
 }
 
-fn void WidgetContainer.register(&self, any child) @inline {
+fn void WidgetContainer.register(&self, any child) @inline 
+{
     self.children.push(child);
     @catch(anycast(child, Widget).bindTo((Widget*)self));
 }
@@ -1619,14 +1698,20 @@ struct Desktop (SaveSystemInterface)
     bool visible;
     bool active;
     bool loading; // when eventually we load guis from a file
+    bool keyboardInput_enabled; // if true, the desktop will receive keyboard input, otherwise it will ignore it
+    bool mouse_is_moving; // to detect mouse movement and implement hover effects
     //
     // to handle timing while the desktop is open/active
     int time; // milliseconds
+
+    // mouse position relative to the desktop
+    Vec2f mouse_pos;
 
     RLMusic music_stream; // any music stream that we may want to attach to a desktop
     List{Desktop*} shared_music_stream_desktops; // list of desktops that share the same music stream
     
     // Lists
+    ChildrenQueue selected; // List of selected widgets, used for multi-selection in the editor, and also to keep track of what widgets are currently selected for other purposes like changing their color or properties.
     ChildrenQueue children;
     // todo make a queue for hidden children to better control what to hide and show.
 
@@ -1804,17 +1889,20 @@ fn Vec2f Desktop.getSize(&self) @inline
     return {self.rect.width, self.rect.height};
 }
 
-fn void Desktop.activate(&self, bool activate = true, int _time = game::gpGame.time_ms) @inline {
+fn void Desktop.activate(&self, bool activate = true, int _time = game::gpGame.time_ms) @inline 
+{
 	self.time   = _time;
 	self.active = activate;
 }
 
-fn void Desktop.deactivate(&self, int _time = game::gpGame.time_ms) @inline {
+fn void Desktop.deactivate(&self, int _time = game::gpGame.time_ms) @inline 
+{
     self.activate(false, _time);
 }
 
 // used when the desktop state changes like some widget is added/removed or modified in some ways.
-fn void Desktop.stateChanged(&self, int _time, bool redraw ) {
+fn void Desktop.stateChanged(&self, int _time, bool redraw ) 
+{
 	self.time = _time;
 	if (redraw) {
 		self.redraw(_time);
@@ -1833,7 +1921,11 @@ fn void Desktop.stateChanged(&self, int _time, bool redraw ) {
 
 fn String Desktop.getName(&self) @inline => self.name;
 
-fn void Desktop.setColor(&self, RLColor color) @inline => self.color = color;
+fn void Desktop.setColor(&self, RLColor color) @inline 
+{ 
+	self.color = color;
+	self.stateChanged(game::gpGame.time_ms, true);
+}
 
 // delete all down to the basic desktop
 fn void Desktop.clear(&self) @inline
@@ -1912,7 +2004,8 @@ fn void Desktop.hide(&self)
     }
 }
 
-fn void Desktop.show(&self) {
+fn void Desktop.show(&self) 
+{
     if(!self.hidden()) return;
     
     self.visible = true;
@@ -1951,7 +2044,12 @@ fn void Desktop.drawCursor(&self) @inline
 fn void Desktop.update(&self) 
 {
     if(self.hidden() && self.active == false) return;
-    
+
+    self.mouse_pos = rl::getMousePosition(); //- self.getPosition();
+    self.mouse_is_moving = rl::getMouseDelta().sq_magnitude() >= 1; // this will be zero if the mouse is not moving, and greater than zero if it is moving
+
+    self.keyboardInput_enabled = !self.mouse_is_moving && rl::getCharPressed() != 0;
+
     if (self.children.len())
     {
         foreach(child: self.children)
@@ -1959,7 +2057,14 @@ fn void Desktop.update(&self)
             switch (child.kind)
             {
                 case gui::KIND_BUTTON:
-                    ((WidgetButton*)child).update(); 
+                    if (self.keyboardInput_enabled) {
+                        // do something here...
+                        //if(!self.selected.contains(child)) {
+                            //child.select();
+                        //}
+                    }
+
+                    ((WidgetButton*)child).update();
                 case gui::KIND_TEXT:
                     ((WidgetText*)child).update();
                 case gui::KIND_CHECKBOX:
@@ -2010,6 +2115,8 @@ fn void Desktop.redraw(&self, int _time)
     }
 
     self.drawCursor();
+
+    //r2d::drawCircleV(self.mouse_pos, 5, rl::RED); // debug mouse position
     
     // draw Desktop content/children
     if (self.children.len())
@@ -2049,7 +2156,8 @@ fn void Desktop.draw(&self, int time) {
 	}
 }
 
-fn void Desktop.addChild(&self, Widget* child) @inline @local {
+fn void Desktop.addChild(&self, Widget* child) @inline @local 
+{
     self.children.push(child);
 }
 
@@ -2064,7 +2172,8 @@ macro Desktop.@addChildren(&self; @body(self))
     @body(self);
 }
 
-macro Desktop.getChild(&self, int id) {
+macro Desktop.getChild(&self, int id) 
+{
     Widget* child = self.children[id];
     if (child == null) {
         log::warning(CONSOLE, "Cannot get child %d from %s because is null.", id, self.super.name);
@@ -2142,9 +2251,9 @@ fn void Desktop.debug(&self)
 
 //////////////////////////////////// DESKTOP MANAGER //////////////////////////////////////
 
-enum GUIMode : inline int
+enum GUIMode : const int
 {
-    NORMAL,
+    NORMAL = 1,
     EDITOR
 }
 
@@ -2153,7 +2262,8 @@ alias DesktopList = List{Desktop*};
 // NOTE(HM) TODO(HM) Rename to MenuOS?
 // Every user GUI should have at lest one Desktop,
 // is a data structure to put everything that makes up a user GUI inside.
-struct DesktopManager {
+struct DesktopManager 
+{
     DesktopList desktops;
     GUIMode mode;
 }
@@ -2164,7 +2274,8 @@ DesktopManager* gpManager = &local_manager;
 <*
  @param [&in] _desk : "the desktop to register"
 *>
-fn void DesktopManager.register(&self, Desktop* _desk) @inline {
+fn void DesktopManager.register(&self, Desktop* _desk) @inline 
+{
     foreach(desk : self.desktops) {
         if(desk.name == _desk.name) {
             log::warning(Where.CONSOLE, "Cannot register \"%s\" because is already registered.", desk.name);
@@ -2178,7 +2289,8 @@ fn void DesktopManager.register(&self, Desktop* _desk) @inline {
 <*
  @param [&inout] _desk : "the desktop to remove"
 *>
-fn void DesktopManager.unregister(&self, Desktop* _desk) @inline {
+fn void DesktopManager.unregister(&self, Desktop* _desk) @inline 
+{
     foreach(desk : self.desktops) {
         if(desk.name == _desk.name) {
             self.desktops.remove_item(desk);
@@ -2188,7 +2300,8 @@ fn void DesktopManager.unregister(&self, Desktop* _desk) @inline {
     }
 }
 
-fn void DesktopManager.update(&self) {
+fn void DesktopManager.update(&self) 
+{
 
     /*if(ui_editGui.getBool()) {
         // enable edit mode
@@ -2216,7 +2329,8 @@ fn void DesktopManager.update(&self) {
     }
 }
 
-fn void DesktopManager.draw(&self, int screenWidth, int screenHeight) @inline {
+fn void DesktopManager.draw(&self, int screenWidth, int screenHeight) @inline 
+{
 
     usz desktop_count = self.desktops.len();
     if(desktop_count >= 1) {
@@ -2235,13 +2349,15 @@ fn void DesktopManager.draw(&self, int screenWidth, int screenHeight) @inline {
     }
 }
 
-fn void DesktopManager.free(&self) {
+fn void DesktopManager.free(&self) 
+{
     if(self.desktops.len()) foreach(desk: self.desktops) desk.deinit();
     
     self.desktops.free();
 }
 
-fn void DesktopManager.editor(&self, bool choice = false) {
+fn void DesktopManager.editor(&self, bool choice = false) 
+{
     self.mode = (choice) ? EDITOR : NORMAL;
 }
 

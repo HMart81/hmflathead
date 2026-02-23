@@ -188,11 +188,11 @@ fn void CmdSystem.argCompletion_DemoName( CmdArgs* args, Callback callback ) @dy
 	cmdSystem.argCompletion_FolderExtension( args, callback, "demos/", true, ".demo", NULL );
 }
 
-//Cvar* idCVar::staticVars = NULL;
+//CVar* idCVar::staticVars = NULL;
 
 struct InternalCVar 
 {
-    inline Cvar super;
+    inline CVar super;
 
 	void					UpdateValue();
 	void					UpdateCheat();
@@ -232,7 +232,7 @@ fn void InternalCVar.initExt(&self, String newName, String newValue, int newFlag
 }
 
 
-fn void InternalCVar.init(&self, Cvar *cvar ) {
+fn void InternalCVar.init(&self, CVar *cvar ) {
 	self.nameString = cvar.name;
 	super.name = self.nameString;
 	self.valueString = cvar.getString();
@@ -287,7 +287,7 @@ fn String* InternalCVar.copyValueStrings(self, String* strings ) {
 InternalCVar.Update
 ============
 */
-fn void InternalCVar.update(&self, Cvar *cvar ) {
+fn void InternalCVar.update(&self, CVar *cvar ) {
 
 	// if this is a statically declared variable
 	if ( cvar.flags & CVAR_STATIC ) {

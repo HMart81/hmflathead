@@ -67,15 +67,18 @@ const RLColor BLANK       = { 0, 0, 0, 0 };           // Blank (Transparent)
 const RLColor MAGENTA     = { 255, 0, 255, 255 };     // Magenta
 const RLColor RAYWHITE    = { 245, 245, 245, 255 };   // My own White (raylib logo)
 
+const RLColor CBLACK       = { 0x18, 0x18, 0x18, 0xFF }; // Custom Black
+const RLColor CTRANSPARENT = { 0x00, 0x00, 0x00, 0x00 }; // Transparent
 /// Converts a COMPILE TIME hex color value to a RLColor struct.
 macro @hexToColor($hexValue) @builtin
 {
-  var rgbColor = WHITE;
+  /*var rgbColor = WHITE;
   rgbColor.r = (char)(($hexValue >> 16) & 0xFF);  // Extract the RR byte
   rgbColor.g = (char)(($hexValue >> 8) & 0xFF);   // Extract the GG byte
   rgbColor.b = (char)(($hexValue) & 0xFF);        // Extract the BB byte
 
-  return rgbColor;
+  return rgbColor;*/
+  return getColor((CUInt)$hexValue);
 }
 
 macro RLVector2.toVec2i(&self) => (Vec2i) {(CInt)self.x, (CInt)self.y};
@@ -765,7 +768,7 @@ enum RLFontType : const int
 // RLColor blending modes (pre-defined)
 enum RLBlendMode : const inline CInt
 {
-    ALPHA = 0,                    // Blend textures considering alpha (default)
+    ALPHA = 0,                // Blend textures considering alpha (default)
     ADDITIVE,                 // Blend textures adding colors
     MULTIPLIED,               // Blend textures multiplying colors
     ADD_COLORS,               // Blend textures adding colors (alternative)

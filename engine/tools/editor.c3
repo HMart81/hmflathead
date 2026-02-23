@@ -135,7 +135,7 @@ const CInt CONSOLE_FONT_SIZE @local = 12;
 const CInt CONSOLE_MAX_LINES @local = 1000;
 const CInt CONSOLE_INPUT_MAX_LINE_LENGTH @local = 1024;
 
-Cvar con_debug @public = { "con_debug", CvarType.BOOL, "0", "enables console debugging mode"};
+CVar con_debug @public = { "con_debug", CvarType.BOOL, "0", "enables console debugging mode"};
 
 fn void register_cvars() @inline
 {

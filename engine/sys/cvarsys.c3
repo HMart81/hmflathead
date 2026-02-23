@@ -27,6 +27,11 @@
 *********************************************************************************************************************************************/
 
 // TODO(HM)
+// Rework the cvar system to be more like the one on idTech 4, with a global list of cvars and a macro to register them, and functions to get/set them by name, and also support for different flags (system, renderer, sound, cheat, etc).
+// Also add support for cvar completion in the console, and for archiving cvars to a config file.
+// Also add support for cvar reset to default value, and for cvar min/max values.
+// Also add support for cvar change callbacks, so that when a cvar is changed, a callback function can be called to handle the change (e.g. for changing the renderer settings when a renderer cvar is changed).
+// Also add support for cvar value strings, so that a cvar can have a list of valid string values (e.g. for a cvar that sets the resolution, it can have a list of valid resolution strings to choose from).
 // implement cvar reset see L:\dark_dev\dhewm\neo\framework\CVarSystem.cpp for a good example
 // convert L:\dark_dev\dhewm\neo\idlib\CmdArgs.cpp to C3 to use it as a base for our command arguments system
 // bring L:\dark_dev\dhewm\neo\framework\CmdSystem.h to C3 to use it as a base for our command system
@@ -45,7 +50,7 @@ import game::main;
 // #endregion
 
 // #region defines
-alias CvarList = List{Cvar*};
+alias CvarList = List{CVar*};
 // #endregion
 
 // region constantes
@@ -53,7 +58,7 @@ alias CvarList = List{Cvar*};
 // end_region
 
 // cvar flags
-const int FLAG_ALL				= -1;		// all flags
+/*const int FLAG_ALL				= -1;		// all flags
 const int FLAG_BOOL				= @bit(0);	// variable is a boolean
 const int FLAG_INTEGER			= @bit(1);	// variable is an integer
 const int FLAG_FLOAT			= @bit(2);	// variable is a float
@@ -63,7 +68,7 @@ const int FLAG_SOUND			= @bit(5);	// sound variable
 const int FLAG_GUI				= @bit(6);	// gui variable
 const int FLAG_GAME				= @bit(7);	// game variable
 const int FLAG_TOOL				= @bit(8);	// tool variable
-const int FLAG_USERINFO			= @bit(9);	// sent to servers, available to menu
+const int FLAG_STRING			= @bit(9);	// variable is a string
 const int FLAG_SERVERINFO		= @bit(10);	// sent from servers, available to menu
 const int FLAG_NETWORKSYNC		= @bit(11);	// cvar is synced from the server to clients
 const int FLAG_STATIC			= @bit(12);	// statically declared, not user created
@@ -73,11 +78,12 @@ const int FLAG_INIT				= @bit(15);	// can only be set from the command-line
 const int FLAG_ROM				= @bit(16);	// display only, cannot be set by user at all
 const int FLAG_ARCHIVE			= @bit(17);	// set to cause it to be saved to a config file
 const int FLAG_MODIFIED			= @bit(18);	// set when the variable is modified
+*/
 
 // todo(HM) replace this with the cvar flags
-enum CvarType : char
+enum CvarType : const char
 {
-    NONE,
+    NONE = 0,
     BOOL,
     INT,
     FLOAT,
@@ -87,20 +93,20 @@ enum CvarType : char
 fn String typeToString(CvarType type) @local @inline 
 {
     switch(type) {
-        case CvarType.FLOAT:   return "float";  
-        case CvarType.INT:     return "int";    
-        case CvarType.BOOL:    return "boolean";
-        case CvarType.STRING:  return "string"; 
-        case CvarType.NONE: 
+        case FLOAT:   return "float";  
+        case INT:     return "int";    
+        case BOOL:    return "boolean";
+        case STRING:  return "string"; 
+        case NONE: 
         default:               return "unknown";
     }
 }
 
-struct Cvar
+struct CVar
 {
     String   name;
-    //int      flags; // flags for the cvar (not used yet)
     CvarType type;
+    //int      flags; // flags for the cvar (not used yet)
     String   value;
     //String   resetvalue; // resetting will change to this value (not used yet)
     String   description;
@@ -121,7 +127,7 @@ struct Cvar
     // But I think it makes the cvar declaration and looping through more involved as well,
     // so for the time being, I decided for a global dynamic array instead.
     // But this is still a cool idea to save for the future if needed....
-    //Cvar* next;
+    //CVar* next;
 }
 
 CvarList cvars;
@@ -130,7 +136,7 @@ macro @register(#cvar)
 {
     cvars.push(#cvar);
 $if $feature(_DEBUG):
-    io::printfn("[INFO] Registered Cvar %s (%s).", #cvar.name, #cvar.description);
+    io::printfn("[INFO] Registered CVar %s (%s).", #cvar.name, #cvar.description);
 $endif
 }
 
@@ -155,7 +161,7 @@ fn void printCvars() @inline
 /*
     How to use the macros:
     1. Declare the cvar in your code at the top of the file, like this:
-    Cvar someCvar;
+    CVar someCvar;
 
     2. Use the macro to initialize the cvar, like this inside a function:
     OnGameStart() {
@@ -165,7 +171,7 @@ fn void printCvars() @inline
 */
 /*
 // Always use one of the following initializers.
-macro Cvar.init(&self, String name, String value, int flags, String description, ArgCompletionCallback valueCompletion = null ) {
+macro CVar.init(&self, String name, String value, int flags, String description, ArgCompletionCallback valueCompletion = null ) {
     self.name  = name;
     self.type  = CvarType.NONE;
     self.value = value.copy(mem);
@@ -180,7 +186,7 @@ macro Cvar.init(&self, String name, String value, int flags, String description,
 
     @register(self);
 }
-macro Cvar.initMinMax( String name, String value, int flags, const String description, float valueMin, float valueMax, ArgCompletionCallback valueCompletion = null ) {
+macro CVar.initMinMax( String name, String value, int flags, const String description, float valueMin, float valueMax, ArgCompletionCallback valueCompletion = null ) {
     self.name  = name;
     self.type  = CvarType.NONE;
     self.value = value.copy(mem);
@@ -195,7 +201,7 @@ macro Cvar.initMinMax( String name, String value, int flags, const String descri
 
     @register(self);
 }
-macro Cvar.initWithStrings( String name, String value, int flags, String description, String[] valueStrings, ArgCompletionCallback valueCompletion = null ) {
+macro CVar.initWithStrings( String name, String value, int flags, String description, String[] valueStrings, ArgCompletionCallback valueCompletion = null ) {
     self.name  = name;
     self.type  = CvarType.NONE;
     self.value = value.copy(mem);
@@ -212,7 +218,7 @@ macro Cvar.initWithStrings( String name, String value, int flags, String descrip
 }
 */
 
-// fn void register_cvars(Cvar*[] cvars) {
+// fn void register_cvars(CVar*[] cvars) {
     // foreach(cv: cvars) {
         // @register(*cv);
     // }
@@ -221,14 +227,14 @@ macro Cvar.initWithStrings( String name, String value, int flags, String descrip
 // // compile time definition of a cvar
 // macro void @make_cvar($name, $_type, $value, $disc)
 // {
-    // Cvar cv = { $name, $_type, $value, $disc };
+    // CVar cv = { $name, $_type, $value, $disc };
     // cvars.push(&cv);
 // }
 
-fn bool Cvar.getBool(&self, bool default_value = false) @inline
+fn bool CVar.getBool(&self, bool default_value = false) @inline
 {
     if(self.type != CvarType.BOOL) {
-        log::warning(Where.FILE, "Trying to get boolean value from Cvar: %s but it is not a bool: %s->%d", self.name, $$FUNC, $$LINE);
+        log::warning(Where.FILE, "Trying to get boolean value from CVar: %s but it is not a bool: %s->%d", self.name, $$FUNC, $$LINE);
         return default_value;
     }
     
@@ -241,14 +247,14 @@ fn bool Cvar.getBool(&self, bool default_value = false) @inline
     // from here we expect a valid char value
     char? value = self.value.to_uchar();
     if(catch excuse = value) {
-        log::error(Where.FILE, "Cvar: %s fault '%s' :: %s->%d", self.name, excuse, $$FUNC, $$LINE);
+        log::error(Where.FILE, "CVar: %s fault '%s' :: %s->%d", self.name, excuse, $$FUNC, $$LINE);
         return default_value;
     }
     
     return (value > 0) ? true : false;
 }
 
-fn int Cvar.getInt(&self, int default_value = 0) @inline {
+fn int CVar.getInt(&self, int default_value = 0) @inline {
     if(try int result = self.value.to_int()) {
         return result;
     } else {
@@ -257,7 +263,7 @@ fn int Cvar.getInt(&self, int default_value = 0) @inline {
     }
 }
 
-fn float Cvar.getfloat(&self, float default_value = 0.0f) @inline {
+fn float CVar.getfloat(&self, float default_value = 0.0f) @inline {
     if(try float result = self.value.to_float()) {
         return result;
     } else {
@@ -266,9 +272,9 @@ fn float Cvar.getfloat(&self, float default_value = 0.0f) @inline {
     }
 }
 
-fn String Cvar.getString(&self, String default_value = "") @inline {
+fn String CVar.getString(&self, String default_value = "") @inline {
     if(self.type != CvarType.STRING) {
-        log::warning(FILE, "Cvar: %s was not defined as a string: %s->%d", self.name, $$FUNC, $$LINE);
+        log::warning(FILE, "CVar: %s was not defined as a string: %s->%d", self.name, $$FUNC, $$LINE);
         return default_value;
     }
     
@@ -276,20 +282,20 @@ fn String Cvar.getString(&self, String default_value = "") @inline {
     return self.value;
 }
 
-fn Cvar* Cvar.set(&self, String value) @inline 
+fn CVar* CVar.set(&self, String value) @inline 
 {
     self.value = value.tcopy();
 $if $feature(_DEBUG):
     if(self.type == CvarType.BOOL) {
-        log::info(CONSOLE, "Cvar %s was set to %s.", self.name, (self.value == "1" || self.value == "true") ? "true" : "false");
+        log::info(CONSOLE, "CVar %s was set to %s.", self.name, (self.value == "1" || self.value == "true") ? "true" : "false");
     } else {
-        log::info(CONSOLE, "Cvar %s was set to value %s.", self.name, value);
+        log::info(CONSOLE, "CVar %s was set to value %s.", self.name, value);
     }
 $endif
     return self;
 }
 
-fn void Cvar.archive(&self)
+fn void CVar.archive(&self)
 {
 	@todo();
 	/*
@@ -319,7 +325,7 @@ fn void Cvar.archive(&self)
 	*/
 }
 
-fn Cvar* findCvar( String name ) @local @inline 
+fn CVar* findCvar( String name ) @local @inline 
 {
     foreach( cvar : cvars ) {
         if ( cvar.name == name ) {
@@ -331,7 +337,7 @@ fn Cvar* findCvar( String name ) @local @inline
 
 
 fn String getCVarString( String name ) @inline {
-    Cvar* internal = findCvar( name );
+    CVar* internal = findCvar( name );
     if ( internal ) {
         return internal.getString();
     }
@@ -339,7 +345,7 @@ fn String getCVarString( String name ) @inline {
 }
 
 fn bool getCVarBool( String name ) @inline {
-    Cvar* internal = findCvar( name );
+    CVar* internal = findCvar( name );
     if ( internal ) {
         return internal.getBool();
     }
@@ -347,7 +353,7 @@ fn bool getCVarBool( String name ) @inline {
 }
 
 fn int getCVarInteger( String name ) @inline {
-    Cvar* internal = findCvar( name );
+    CVar* internal = findCvar( name );
     if ( internal ) {
         return internal.getInt();
     }
@@ -355,7 +361,7 @@ fn int getCVarInteger( String name ) @inline {
 }
 
 fn float getCVarFloat( String name ) @inline {
-    Cvar* internal = findCvar( name );
+    CVar* internal = findCvar( name );
     if ( internal ) {
         return internal.getfloat();
     }
@@ -364,7 +370,7 @@ fn float getCVarFloat( String name ) @inline {
 
 
 fn bool command( String[] args ) {
-	Cvar *internal = findCvar( args[0]);
+	CVar *internal = findCvar( args[0]);
 
 	if ( internal == null ) {
 		return false;
@@ -410,7 +416,7 @@ fn void argCompletion( String cmdString, CvarCompletionCallback callback ) {
 }
 
 
-/*fn void Cvar.init(&self, String name, CvarType _type, String value, String description) {
+/*fn void CVar.init(&self, String name, CvarType _type, String value, String description) {
     self.name  = name;
     self.type  = _type;
     self.value = value;

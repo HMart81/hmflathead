@@ -69,6 +69,7 @@ import std::math::vector;
 import std::collections::list;
 import game::main;
 import engine::gui;
+import engine::sys::ui;
 import engine::misc;
 import engine::logging::log;
 import engine::filesystem::fs;
@@ -83,7 +84,8 @@ alias gpGame @local = game::gpGame;
 const SCREEN_TOP_CORNER = (Vec2f) {0.0f, 0.0f}; // In Raylib the top-left corner is (0,0), is different from OpenGL where the bottom-left corner is (0,0)
 // end_region
 
-fn Desktop* getActiveMenu() @local @inline {
+fn Desktop* getActiveMenu() @local @inline 
+{
 	return game::gpGame.guiActive;
 }
 
@@ -92,7 +94,8 @@ fn void setGUI(Desktop* menu)
     Desktop* guiActive;
 
     // if the menu is set to null, deactivate the current menu
-	if (menu == null) {
+	if (menu == null) 
+    {
         guiActive = getActiveMenu();
         if ( guiActive != null ) {
             guiActive.deactivate();
@@ -107,12 +110,16 @@ fn void setGUI(Desktop* menu)
         guiActive.show();
     }
 
-	if (guiActive == game::gpGame.main_menu) {
+	if (guiActive == game::gpGame.main_menu) 
+    {
+        if(game::gpGame.mode != game::GameMode.MENU) game::gpGame.mode = game::GameMode.MENU;
+
         if(game::gpGame.editor.isOpened()) {
             if(game::game_cursor_visible()) game::hide_game_cursor();
         } else {
            if(game::game_cursor_hidden()) game::show_game_cursor();
         }
+        
         // todo set the gui vars
 		//SetSaveGameGuiVars();
 		//SetMainMenuGuiVars();
@@ -130,7 +137,8 @@ fn void setGUI(Desktop* menu)
     guiActive.setFocus(true);
 }
 
-fn void start(Desktop* gui) {
+fn void start(Desktop* gui) 
+{
     // if already started
 	if ( getActiveMenu() == gui ) {
 		return;
@@ -198,7 +206,8 @@ fn void exit()
 }
 
 
-// region MAIN MENU
+//////////////////////////////////////////////////////////////////
+//////////////////////// region MAIN MENU ////////////////////////
 <*
     Create a checkbox for the menu
 
@@ -226,9 +235,38 @@ fn WidgetCheckBox* Desktop.create_menu_checkbox(&self, String text, MenuButtonDe
     return checkbox;
 }
 
+<*
+    init a checkbox for the menu
+
+    @param [&inout] chk : "checkbox to init"
+	@param [in] name : "checkbox name"
+	@param [in] label : "checkbox label text"
+	@param [&in] bdef : "button callbacks definition struct pointer"
+	@param [&inout] desk : "desktop to add the checkbox to"
+*>
+fn void init_checkbox(WidgetCheckBox* chk, String name, String label, MenuButtonDef* bdef, Desktop* desk) 
+{
+	chk.init();
+	chk.setName(name);
+	chk.setLabel(label);
+    chk.setColor(rl::DARKGRAY);
+    chk.addTo(desk);
+    // set the checkbox properties
+    chk.onOver        = bdef.callbacks[0]; // &button_onOver;
+    chk.onStopOver    = bdef.callbacks[1]; // &button_onStopOver;
+    chk.onPress       = bdef.callbacks[2]; // &start_button_onPress;
+    chk.onSinglePress = bdef.callbacks[3]; // &start_button_onSinglePress;
+    chk.onRelease     = bdef.callbacks[4]; // &button_onRelease;
+    chk.onLoad        = &button_onLoad;
+
+    // button on load callback runs right now when the button is inited
+    // perhaps rename this to onInit?
+    if(chk.onLoad) chk.onLoad(chk);
+}
+
 fn WidgetText* Desktop.create_menu_label(&self, String text, RLFont* font, int font_size, RLColor color) @local @inline 
 {
-    WidgetText* label = gui::createLabel("", text, font, font_size, color);
+    WidgetText* label = gui::createLabel(text, font, font_size, color);
     Desktop* desktop = self;
     label.addTo(desktop);
     return label;
@@ -265,8 +303,8 @@ macro WidgetButton* Desktop.create_menu_button(&self, Vec2f pos, String text, Me
     //
     float button_width  = bdef.size.x;
     float button_height = bdef.size.y;
-    WidgetText* label   = gui::createLabel(text, text, game::gpGame.candara_font, 0, bdef.label_color);
-    label.addTo(self);
+    WidgetText* label   = mem::new(WidgetText);
+    gui::init_label(label, text, game::gpGame.candara_font, 0, bdef.label_color, self);
     // set the label properties
     Vec2f label_offset  = pos;
     /*Vec2f label_offset  = pos + misc::VEC_RIGHT * (button_width / 2);
@@ -294,11 +332,10 @@ macro WidgetButton* Desktop.create_menu_button(&self, Vec2f pos, String text, Me
 
     return button;
 }
-    
+
+
 fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
 {
-    game::gpGame.mode = game::GameMode.MENU;
-
     // Menu creation
     Vec2f screen_center       = game::gpGame.view.origin; //(Vec2f) {(float)screenWidth/2.0f, (float)screenHeight / 2.0f};
     float screen_half_width   = screen_center.x;
@@ -373,7 +410,8 @@ fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
     const TITLE           = "FlatHead";
     const TITLE_FONT_SIZE = 50;
     RLFont* title_font = game::gpGame.trojan_pro_font;
-    WidgetText* title_label = desk_main.create_menu_label(TITLE, title_font, TITLE_FONT_SIZE, rl::GRAY);
+    WidgetText* title_label = mem::new(WidgetText);
+	gui::init_label(title_label, TITLE, title_font, TITLE_FONT_SIZE, rl::GRAY, desk_main);
     Vec2f title_offset = misc::VEC_RIGHT * screen_top_center.x;
     title_offset -= {title_label.text_len / 2.0f, 0.0f};
     title_offset += misc::VEC_DOWN * (0.10f * screenHeight);
@@ -385,7 +423,8 @@ fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
     const SUBTITLE           = "engine";
     const SUBTITLE_FONT_SIZE = 16;
     RLFont* subtitle_font = game::gpGame.lucida_font;
-    WidgetText* subtitle_label = desk_main.create_menu_label(SUBTITLE, subtitle_font, SUBTITLE_FONT_SIZE, rl::RAYWHITE);
+    WidgetText* subtitle_label = mem::new(WidgetText);
+	gui::init_label(subtitle_label, SUBTITLE, subtitle_font, SUBTITLE_FONT_SIZE, rl::RAYWHITE, desk_main);
     Vec2f subtitle_offset = misc::VEC_RIGHT * screen_top_center.x;
     subtitle_offset -= {subtitle_label.text_len / 2.0f, 0.0f};
     subtitle_offset += misc::VEC_DOWN * (0.18f * screenHeight);
@@ -448,7 +487,9 @@ fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
     btn_def.callbacks[2] = null; //&checkbox1_onPress;
     btn_def.callbacks[3] = &checkbox1_onSinglePress;
 
-    WidgetCheckBox* checkbox1 = desk_options.create_menu_checkbox("Checkbox 1", &btn_def);
+    //WidgetCheckBox* checkbox1 = desk_options.create_menu_checkbox("Checkbox 1", &btn_def);
+    WidgetCheckBox* checkbox1 = mem::new(WidgetCheckBox);
+	init_checkbox(checkbox1, "checkbox1", "no Sound", &btn_def, desk_options);
     offset = desk_options.getPosition();
     offset += misc::VEC_RIGHT * (desk_options.getSize().x / 2);
     offset += misc::VEC_DOWN * (0.20f * desk_options.getSize().y);
@@ -480,7 +521,8 @@ fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
 // #region  ################ Button callbacks ##########################
 
 // generic button callbacks
-fn void button_onLoad(any widget) {
+fn void button_onLoad(any widget) 
+{
     assert(widget.ptr != null);
     switch (widget.type)
     {
@@ -503,7 +545,8 @@ fn void button_onLoad(any widget) {
 }
 
 // generic button callbacks
-fn void button_onOver(any widget/*Widget* widget*/) {
+fn void button_onOver(any widget/*Widget* widget*/) 
+{
     assert(widget.ptr != null);
     switch (widget.type)
     {
@@ -548,7 +591,8 @@ fn void button_onOver(any widget/*Widget* widget*/) {
 }
 
 // generic button callbacks
-fn void button_onStopOver(/*Widget* widget*/ any widget) {
+fn void button_onStopOver(/*Widget* widget*/ any widget) 
+{
     assert(widget.ptr != null);
     if(widget.type == WidgetButton.typeid) {
         WidgetButton* self = (WidgetButton*)widget.ptr;
@@ -562,7 +606,8 @@ fn void button_onStopOver(/*Widget* widget*/ any widget) {
 }
 
 // generic button callbacks
-fn void button_onRelease(/*Widget* widget*/ any widget) {
+fn void button_onRelease(/*Widget* widget*/ any widget) 
+{
     assert(widget.ptr != null);
     if(widget.type == WidgetButton.typeid) {
         WidgetButton* self = (WidgetButton*)widget.ptr;
@@ -589,7 +634,8 @@ fn void button_onRelease(/*Widget* widget*/ any widget) {
     @param [in] widget : "widget calling this function"
     @require widget != null
 *>
-fn void button_onPress(/*Widget* widget*/ any widget) {
+fn void button_onPress(/*Widget* widget*/ any widget) 
+{
     assert(widget.ptr != null);
     if(widget.type == WidgetButton.typeid) {
         WidgetButton* self = (WidgetButton*)widget.ptr;
@@ -689,7 +735,8 @@ fn void options_button_onSinglePress(any widget)
     //gui::setGui();
 }
 
-fn void back_button_options_onPress(any widget) {
+fn void back_button_options_onPress(any widget) 
+{
     button_onPress(widget);
     Desktop* active_menu = getActiveMenu();
     if(active_menu && active_menu.previous != null) {
@@ -720,7 +767,16 @@ fn void checkbox1_onSinglePress(any widget)
     {
         WidgetCheckBox* this = (WidgetCheckBox*)widget.ptr;
         this.setChecked(!this.checked);
-        log::info(CONSOLE, "Checkbox 1 is now %s.", this.isChecked() ? "checked" : "unchecked");
+        //log::info(CONSOLE, "Checkbox 1 is now %s.", this.isChecked() ? "checked" : "unchecked");
+		if(this.isChecked()) {
+			log::info(CONSOLE, "Checkbox 1 is now checked.");
+			game::gpGame.pause_all_music = 1;
+			if(rl::isMusicStreamPlaying(game::gpGame.guiActive.music_stream)) rl::pauseMusicStream(game::gpGame.guiActive.music_stream);
+		} else {
+			log::info(CONSOLE, "Checkbox 1 is now unchecked.");
+			game::gpGame.pause_all_music = 0;
+			if(!rl::isMusicStreamPlaying(game::gpGame.guiActive.music_stream)) rl::resumeMusicStream(game::gpGame.guiActive.music_stream);
+		}
         // TODO(HM) do something with checkbox state
     } else {
         unreachable("widget %s is not a valid button!", ((Widget*)widget.ptr).name);

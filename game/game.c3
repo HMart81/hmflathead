@@ -241,23 +241,23 @@ alias asstManager    @public= astmng::assetManager;
 // #endregion Alias
 
 // #region Cvars
-Cvar developer      @public = { "developer"     , CvarType.BOOL, "0",    "enables developer mode"};
-Cvar editor         @public = { "editor"        , CvarType.BOOL, "0",    "enables the game editor (requires developer mode)"};
-Cvar r_mode         @public = { "r_mode"        , CvarType.INT,     "-1",   "index of window resolution [0 to 32], -1 = ini file setting"};
-Cvar r_showFPS      @public = { "r_showFPS"     , CvarType.BOOL, "1",    "draws framerate on screen"};
-Cvar r_noSplashPic  @public = { "r_noSplashPic" , CvarType.BOOL, "1",    "disables the splash image at game start"};
-Cvar r_fullscreen   @public = { "r_fullscreen"  , CvarType.INT,     "-1",   "screen mode 0 = window, 1 = borderless, 2 = dedicated, -1 = ini file setting"};
-Cvar r_fps_unlocked @public = { "r_unlockFps"   , CvarType.BOOL, "false", "sets if the fps is unlocked (true) or locked to the monitor refresh rate (false)"};
-Cvar r_max_fps      @public = { "r_max_fps"     , CvarType.INT,     "-1",   "sets the maximum fps when fps is unlocked, -1 = monitor refresh rate"};
-Cvar fs_base        @public = { "fs_base"       , CvarType.STRING,  "data", "default game base folder"};
-Cvar fs_mod_name    @public = { "fs_mod_name"   , CvarType.STRING,  "",     "folder name of mod to run"};
-Cvar fs_mod_base    @public = { "fs_mod_base"   , CvarType.STRING,  "",     "folder name for custom database of running mod"};
-Cvar db_drawPhysics @public = { "db_drawPhysics", CvarType.BOOL, "1",    "show debug visualization for world physics" };
-Cvar s_noaudio      @public = { "s_noaudio"     , CvarType.BOOL, "0",    "disables all audio"};
-Cvar fl_help        @public = { "help"          , CvarType.BOOL, "0",    "shows help message"};
-Cvar dbg_stats      @public = { "dbg_stats"     , CvarType.BOOL, "0",    "shows various debug things on screen"};
+CVar developer      @public = { "developer"     , CvarType.BOOL, "0",    "enables developer mode"};
+CVar editor         @public = { "editor"        , CvarType.BOOL, "0",    "enables the game editor (requires developer mode)"};
+CVar r_mode         @public = { "r_mode"        , CvarType.INT,     "-1",   "index of window resolution [0 to 32], -1 = ini file setting"};
+CVar r_showFPS      @public = { "r_showFPS"     , CvarType.BOOL, "1",    "draws framerate on screen"};
+CVar r_noSplashPic  @public = { "r_noSplashPic" , CvarType.BOOL, "1",    "disables the splash image at game start"};
+CVar r_fullscreen   @public = { "r_fullscreen"  , CvarType.INT,     "-1",   "screen mode 0 = window, 1 = borderless, 2 = dedicated, -1 = ini file setting"};
+CVar r_fps_unlocked @public = { "r_unlockFps"   , CvarType.BOOL, "false", "sets if the fps is unlocked (true) or locked to the monitor refresh rate (false)"};
+CVar r_max_fps      @public = { "r_max_fps"     , CvarType.INT,     "-1",   "sets the maximum fps when fps is unlocked, -1 = monitor refresh rate"};
+CVar fs_base        @public = { "fs_base"       , CvarType.STRING,  "data", "default game base folder"};
+CVar fs_mod_name    @public = { "fs_mod_name"   , CvarType.STRING,  "",     "folder name of mod to run"};
+CVar fs_mod_base    @public = { "fs_mod_base"   , CvarType.STRING,  "",     "folder name for custom database of running mod"};
+CVar db_drawPhysics @public = { "db_drawPhysics", CvarType.BOOL, "1",    "show debug visualization for world physics" };
+CVar s_noaudio      @public = { "s_noaudio"     , CvarType.BOOL, "0",    "disables all audio"};
+CVar fl_help        @public = { "help"          , CvarType.BOOL, "0",    "shows help message"};
+CVar dbg_stats      @public = { "dbg_stats"     , CvarType.BOOL, "0",    "shows various debug things on screen"};
 // TODO(HM) disable editor cvar, when not used anymore
-//Cvar r_window_resizable @public = { "r_window_resizable", CvarType.BOOL,  "0",   "makes window resizable, window mode only."};
+//CVar r_window_resizable @public = { "r_window_resizable", CvarType.BOOL,  "0",   "makes window resizable, window mode only."};
 
 fn void register_cvars() @local 
 {
@@ -1357,7 +1357,7 @@ $endif
         {
             if(rl::isMusicStreamPlaying(local_game.default_music))
             {
-                if(local_game.pause_all_music && !rl::isWindowFocused()) {
+                if(local_game.pause_all_music /*&& !rl::isWindowFocused()*/) {
                     rl::pauseMusicStream(local_game.default_music);
                 }
             } 
@@ -1472,7 +1472,8 @@ $endif
     }; // profile_zone
 }
 
-fn void gameReset() @local {
+fn void gameReset() @local 
+{
     @todo("reset game state");
 }
 
@@ -1765,8 +1766,8 @@ fn void onPostGUIDraw(int screenWidth, int screenHeight) @public
     }
 }
 
-fn void onGuiDraw(int screenWidth, int screenHeight) @public @inline {
-    
+fn void onGuiDraw(int screenWidth, int screenHeight) @public @inline 
+{
     desk::gpManager.draw(screenWidth, screenHeight);
     
     if(local_game.intro.should_play) {
@@ -3073,13 +3074,13 @@ $endif
 
     // TODO(HM) do this only in the main menu
     // custom game cursor
-    if(local_game.mode == MENU) 
-    {
+    //if(local_game.mode == MENU) 
+    //{
         // just in case...
         if(system_cursor_enabled()) disable_system_cursor();
         init_game_cursor();
         //show_game_cursor(); now done in menus.c3
-    }
+    //}
     
 // #region Test game stuff
     createGameInputActions(settings_file);
@@ -3910,7 +3911,7 @@ fn void parse_user_settings(ConfigFile* settings, int* window_flags)
                                         if(value > 0) {
                                             //rl::setTargetFPS(value);
                                             r_max_fps.set(cmd_value);
-                                            log::warning(FILE, "Cvar 'r_max_fps' value got changed to %s by cmd %s of section %s.", cmd_value, cmd_id, section.name);
+                                            log::warning(FILE, "CVar 'r_max_fps' value got changed to %s by cmd %s of section %s.", cmd_value, cmd_id, section.name);
                                         }
                                     } else {
                                         log::warning(FILE, "Unnable to convert value %s of cmd %s of section %s to int.", cmd_value, cmd_id, section.name);

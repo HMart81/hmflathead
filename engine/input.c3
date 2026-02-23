@@ -792,4 +792,599 @@ fn void quitGame() {
 }
 // endregion
 
+/*
+// #region event system
+module engine::key_events::keyev;
+
+import std::collections::list;
+import engine::sys::cvar;
+
+enum EventType : const int 
+{
+	NONE = 0,			// evTime is still valid
+	KEY,				// evValue is a key code, evValue2 is the down flag
+	CHAR,				// evValue is an ascii char
+	MOUSE,				// evValue and evValue2 are reletive signed x / y moves
+	GAMEPAD_AXIS		// evValue is an axis number and evValue2 is the current state (-127 to 127)
+}
+
+enum Events : const int
+{
+	ACTION1 = 1,
+	ACTION2,
+	ACTION3,
+	ACTION4,
+	ACTION5,
+	ACTION6,
+	ACTION7,
+	ACTION8,
+	DELTAX,
+	DELTAY,
+	DELTAZ
+}
+
+struct ControlEvent
+{
+	int		evType;
+	int		evValue;
+	int		evValue2;
+}
+
+const String DEFAULT_KBD_LAYOUT = "english";
+
+const String[*] KBD_NAMES = {
+	"english", "french", "german", "italian", "spanish", "turkish", "norwegian", "brazilian", "portuguese", "japanese", "korean", "chinese"
+};
+
+CVar in_kbd @public = {"in_kbd", CvarType.STRING, DEFAULT_KBD_LAYOUT, " current keyboard layout"};
+
+struct KBD_Poll
+{
+	int key;
+	bool state;
+}
+
+struct MousePoll @compact
+{
+	int action;
+	int value;
+}
+
+List{KBD_Poll} kbd_polls;
+List{MousePoll} mouse_polls;
+
+fn void initInput() @inline
+{
+	kbd_polls.reserve(64);
+	mouse_polls.reserve(64);
+	cvar::@register(&in_kbd);
+}
+
+fn void shutdownInput() @inline
+{
+	kbd_polls.clear();
+	mouse_polls.clear();
+}
+
+char[2] keys @local = { '`', '~' }; // NOTE(HM) this seems to be US/EN system
+
+char getConsoleKey(bool shifted) 
+{
+	if (String lang = in_kbd.getString(), lang != DEFAULT_KBD_LAYOUT) 
+	{
+		if (lang.len()) 
+        {
+            switch (lang) 
+            {
+                case "portuguese":
+                case "italian":
+                case "japanese":
+                case "korean":
+                case "chinese":
+                    keys[0] = 92; // \ ¥ ₩
+                    keys[1] = 124; // |
+                case "french":
+				    keys[0] = '<';
+				    keys[1] = '>';
+			    case "german":
+				    keys[0] = '^';
+				    keys[1] = 176; // °
+			    case "spanish":
+				    keys[0] = 186; // º
+				    keys[1] = 170; // ª
+			    case "turkish":
+				    keys[0] = '"';
+				    keys[1] = 233; // é
+			    case "norwegian":
+				    keys[0] = 124; // |
+				    keys[1] = 167; // §
+			    case "brazilian":
+				    keys[0] = '\'';
+				    keys[1] = '"';
+                default:
+                    break;
+            }
+		} else {
+            log::warning(FILE, "in_kbd cvar is empty, using default console key.");
+        }
+	}
+
+	return shifted ? keys[1] : keys[0];
+}
+
+fn char mapCharForKey(int key) 
+{
+	return key & 0xff;
+}
+
+const ControlEvent RES_NONE @local = {
+    .evType = EventType.NONE,
+    .evValue = 0,
+    .evValue2 = 0
+};
+
+fn ControlEvent getEvent() 
+{
+	ControlEvent res;
+	char key;
+
+#if SDL_VERSION_ATLEAST(2, 0, 0)
+	static char s[SDL_TEXTINPUTEVENT_TEXT_SIZE] = {0};
+	static size_t s_pos = 0;
+
+	if (s[0] != '\0') {
+		res.evType = SE_CHAR;
+		res.evValue = s[s_pos];
+
+		++s_pos;
+
+		if (!s[s_pos] || s_pos == SDL_TEXTINPUTEVENT_TEXT_SIZE) {
+			memset(s, 0, sizeof(s));
+			s_pos = 0;
+		}
+
+		return res;
+	}
+#endif
+
+	static byte c = 0;
+
+	if (c) {
+		res.evType = SE_CHAR;
+		res.evValue = c;
+
+		c = 0;
+
+		return res;
+	}
+
+	// loop until there is an event we care about (will return then) or no more events
+	while(SDL_PollEvent(&ev)) {
+#if defined(_HM) && defined(DEAR_IMGUI)
+		ImGui_ImplSDL2_ProcessEvent(&ev);
+#endif // _HM
+
+		switch (ev.type) {
+#if SDL_VERSION_ATLEAST(2, 0, 0)
+		case SDL_WINDOWEVENT:
+			switch (ev.window.event) {
+				case SDL_WINDOWEVENT_FOCUS_GAINED: {
+						// unset modifier, in case alt-tab was used to leave window and ALT is still set
+						// as that can cause fullscreen-toggling when pressing enter...
+						SDL_Keymod currentmod = SDL_GetModState();
+					
+						int newmod = KMOD_NONE;
+						if (currentmod & KMOD_CAPS) // preserve capslock
+							newmod |= KMOD_CAPS;
+
+						SDL_SetModState((SDL_Keymod)newmod);
+					} // new context because visual studio complains about newmod and currentmod not initialized because of the case SDL_WINDOWEVENT_FOCUS_LOST
+
+					
+					common->ActivateTool( false );
+					GLimp_GrabInput(GRAB_ENABLE | GRAB_REENABLE | GRAB_HIDECURSOR); // FIXME: not sure this is still needed after the ActivateTool()-call
+
+					// start playing the game sound world again (when coming from editor)
+					session->SetPlayingSoundWorld();
+
+					break;
+				case SDL_WINDOWEVENT_FOCUS_LOST:
+					GLimp_GrabInput(0);
+					break;
+			}
+
+			continue; // handle next event
+#else
+		case SDL_ACTIVEEVENT:
+			{
+				int flags = 0;
+
+				if (ev.active.gain) {
+					flags = GRAB_ENABLE | GRAB_REENABLE | GRAB_HIDECURSOR;
+
+					// unset modifier, in case alt-tab was used to leave window and ALT is still set
+					// as that can cause fullscreen-toggling when pressing enter...
+					SDLMod currentmod = SDL_GetModState();
+					int newmod = KMOD_NONE;
+					if (currentmod & KMOD_CAPS) // preserve capslock
+						newmod |= KMOD_CAPS;
+
+					SDL_SetModState((SDLMod)newmod);
+				}
+
+				GLimp_GrabInput(flags);
+			}
+
+			continue; // handle next event
+
+		case SDL_VIDEOEXPOSE:
+			continue; // handle next event
+#endif
+
+		case SDL_KEYDOWN:
+			if (ev.key.keysym.sym == SDLK_RETURN && (ev.key.keysym.mod & KMOD_ALT) > 0) {
+				cvarSystem->SetCVarBool("r_fullscreen", !renderSystem->IsFullScreen());
+				PushConsoleEvent("vid_restart");
+				return res_none;
+			}
+
+			// fall through
+		case SDL_KEYUP:
+#if !SDL_VERSION_ATLEAST(2, 0, 0)
+			key = mapkey(ev.key.keysym.sym);
+			if (!key) {
+				unsigned char c;
+				// check if its an unmapped console key
+				if (ev.key.keysym.unicode == (c = Sys_GetConsoleKey(false))) {
+					key = c;
+				} else if (ev.key.keysym.unicode == (c = Sys_GetConsoleKey(true))) {
+					key = c;
+				} else {
+					if (ev.type == SDL_KEYDOWN)
+						common->Warning("unmapped SDL key %d (0x%x)", ev.key.keysym.sym, ev.key.keysym.unicode);
+					continue; // handle next event
+				}
+			}
+#else
+		{
+			// workaround for AZERTY-keyboards, which don't have 1, 2, ..., 9, 0 in first row:
+			// always map those physical keys (scancodes) to those keycodes anyway
+			// see also https://bugzilla.libsdl.org/show_bug.cgi?id=3188
+			SDL_Scancode sc = ev.key.keysym.scancode;
+			if(sc == SDL_SCANCODE_0)
+			{
+				key = '0';
+			}
+			else if(sc >= SDL_SCANCODE_1 && sc <= SDL_SCANCODE_9)
+			{
+				// note that the SDL_SCANCODEs are SDL_SCANCODE_1, _2, ..., _9, SDL_SCANCODE_0
+				// while in ASCII it's '0', '1', ..., '9' => handle 0 and 1-9 separately
+				// (doom3 uses the ASCII values for those keys)
+				key = '1' + (sc - SDL_SCANCODE_1);
+			}
+			else
+			{
+				key = mapkey(ev.key.keysym.sym);
+			}
+
+			if(!key) {
+				if (ev.key.keysym.scancode == SDL_SCANCODE_GRAVE) { // TODO: always do this check?
+					key = Sys_GetConsoleKey(true);
+				} else {
+					if (ev.type == SDL_KEYDOWN) {
+						common->Warning("unmapped SDL key %d", ev.key.keysym.sym);
+					}
+					continue; // handle next event
+				}
+			}
+		}
+#endif
+
+			res.evType = SE_KEY;
+			res.evValue = key;
+			res.evValue2 = ev.key.state == SDL_PRESSED ? 1 : 0;
+
+			kbd_polls.Append(kbd_poll_t(key, ev.key.state == SDL_PRESSED));
+
+			// handle keypresses for microui gui's
+#if defined(_HM) && defined(USE_MICROUI)
+			if (ev.type == SDL_KEYDOWN) 
+			{ 
+				mu_input_keydown(MICROUI::microui_manager->mu_context, key);
+			}
+			if (ev.type == SDL_KEYUP) { 
+				mu_input_keyup(MICROUI::microui_manager->mu_context, key);
+			}
+#endif // USE_MICROUI
+
+#if SDL_VERSION_ATLEAST(2, 0, 0)
+			if (key == K_BACKSPACE && ev.key.state == SDL_PRESSED)
+				c = key;
+#else
+			if (ev.key.state == SDL_PRESSED && (ev.key.keysym.unicode & 0xff00) == 0)
+				c = ev.key.keysym.unicode & 0xff;
+#endif
+
+			return res;
+
+#if SDL_VERSION_ATLEAST(2, 0, 0)
+		case SDL_TEXTINPUT:
+
+#if defined(_HM) && defined(USE_MICROUI)
+			mu_input_text(MICROUI::microui_manager->mu_context, ev.text.text);
+#endif // USE_MICROUI
+
+			if (ev.text.text[0]) {
+				res.evType = SE_CHAR;
+				res.evValue = ev.text.text[0];
+
+				if (ev.text.text[1] != '\0')
+				{
+					memcpy(s, ev.text.text, SDL_TEXTINPUTEVENT_TEXT_SIZE);
+					s_pos = 1; // pos 0 is returned
+				}
+				return res;
+			}
+
+			continue; // handle next event
+
+		case SDL_TEXTEDITING:
+			// on windows we get this event whenever the window gains focus.. just ignore it.
+			continue;
+#endif
+
+		case SDL_MOUSEMOTION:
+#if defined(_HM) && defined(USE_MICROUI)
+			{
+				s32 w, h;
+				renderSystem->GetGLSettings(w, h);
+				mu_input_mousemove(MICROUI::microui_manager->mu_context, ev.motion.xrel * (f32(VIRTUAL_WIDTH) / w), ev.motion.yrel * (f32(VIRTUAL_HEIGHT) / h));
+			}
+#endif // _HM && USE_MICROUI
+
+			res.evType = SE_MOUSE;
+			res.evValue = ev.motion.xrel;
+			res.evValue2 = ev.motion.yrel;
+
+			mouse_polls.Append(mouse_poll_t(M_DELTAX, ev.motion.xrel));
+			mouse_polls.Append(mouse_poll_t(M_DELTAY, ev.motion.yrel));
+
+			return res;
+
+#if SDL_VERSION_ATLEAST(2, 0, 0)
+		case SDL_MOUSEWHEEL:
+#if defined(_HM) && defined(USE_MICROUI)
+			mu_input_scroll(MICROUI::microui_manager->mu_context, 0, ev.wheel.y * -30);
+#endif // _HM && USE_MICROUI
+
+			res.evType = SE_KEY;
+
+			if (ev.wheel.y > 0) {
+				res.evValue = K_MWHEELUP;
+				mouse_polls.Append(mouse_poll_t(M_DELTAZ, 1));
+			} else {
+				res.evValue = K_MWHEELDOWN;
+				mouse_polls.Append(mouse_poll_t(M_DELTAZ, -1));
+			}
+
+			res.evValue2 = 1;
+
+			return res;
+#endif
+
+		case SDL_MOUSEBUTTONDOWN:
+		case SDL_MOUSEBUTTONUP:
+			res.evType = SE_KEY;
+
+			switch (ev.button.button) {
+			case SDL_BUTTON_LEFT:
+				res.evValue = K_MOUSE1;
+				mouse_polls.Append(mouse_poll_t(M_ACTION1, ev.button.state == SDL_PRESSED ? 1 : 0));
+#if defined(_HM) && defined(USE_MICROUI)
+				if (ev.type == SDL_MOUSEBUTTONDOWN) {
+					mu_input_mousedown(MICROUI::microui_manager->mu_context, ev.button.x, ev.button.y, K_MOUSE1);
+				}
+				if (ev.type == SDL_MOUSEBUTTONUP) {
+					mu_input_mouseup(MICROUI::microui_manager->mu_context, ev.button.x, ev.button.y, K_MOUSE1);
+				}
+#endif // _HM && USE_MICROUI
+				break;
+			case SDL_BUTTON_MIDDLE:
+				res.evValue = K_MOUSE3;
+				mouse_polls.Append(mouse_poll_t(M_ACTION3, ev.button.state == SDL_PRESSED ? 1 : 0));
+				break;
+			case SDL_BUTTON_RIGHT:
+				res.evValue = K_MOUSE2;
+				mouse_polls.Append(mouse_poll_t(M_ACTION2, ev.button.state == SDL_PRESSED ? 1 : 0));
+#if defined(_HM) && defined(USE_MICROUI)
+				if (ev.type == SDL_MOUSEBUTTONDOWN) {
+					mu_input_mousedown(MICROUI::microui_manager->mu_context, ev.button.x, ev.button.y, K_MOUSE3);
+				}
+				if (ev.type == SDL_MOUSEBUTTONUP) {
+					mu_input_mouseup(MICROUI::microui_manager->mu_context, ev.button.x, ev.button.y, K_MOUSE3);
+				}
+#endif // _HM && USE_MICROUI
+				break;
+
+#ifdef _HM
+			case SDL_BUTTON_X1:
+				res.evValue = K_MOUSE4;
+				mouse_polls.Append(mouse_poll_t(M_ACTION4, ev.button.state == SDL_PRESSED ? 1 : 0));
+#if defined(_HM) && defined(USE_MICROUI)
+				if (ev.type == SDL_MOUSEBUTTONDOWN) {
+					mu_input_mousedown(MICROUI::microui_manager->mu_context, ev.button.x, ev.button.y, K_MOUSE4);
+				}
+				if (ev.type == SDL_MOUSEBUTTONUP) {
+					mu_input_mouseup(MICROUI::microui_manager->mu_context, ev.button.x, ev.button.y, K_MOUSE4);
+				}
+#endif // _HM && USE_MICROUI
+				break;
+			case SDL_BUTTON_X2:
+				res.evValue = K_MOUSE5;
+				mouse_polls.Append(mouse_poll_t(M_ACTION5, ev.button.state == SDL_PRESSED ? 1 : 0));
+#if defined(_HM) && defined(USE_MICROUI)
+				if (ev.type == SDL_MOUSEBUTTONDOWN) {
+					mu_input_mousedown(MICROUI::microui_manager->mu_context, ev.button.x, ev.button.y, K_MOUSE5);
+				}
+				if (ev.type == SDL_MOUSEBUTTONUP) {
+					mu_input_mouseup(MICROUI::microui_manager->mu_context, ev.button.x, ev.button.y, K_MOUSE5);
+				}
+#endif // _HM && USE_MICROUI
+				break;
+#endif // _HM
+
+
+#if !SDL_VERSION_ATLEAST(2, 0, 0)
+			case SDL_BUTTON_WHEELUP:
+				res.evValue = K_MWHEELUP;
+				if (ev.button.state == SDL_PRESSED)
+					mouse_polls.Append(mouse_poll_t(M_DELTAZ, 1));
+				break;
+			case SDL_BUTTON_WHEELDOWN:
+				res.evValue = K_MWHEELDOWN;
+				if (ev.button.state == SDL_PRESSED)
+					mouse_polls.Append(mouse_poll_t(M_DELTAZ, -1));
+				break;
+#endif
+			default:
+#if SDL_VERSION_ATLEAST(2, 0, 0)
+				// handle X1 button and above
+				if( ev.button.button < SDL_BUTTON_LEFT + 8 ) // doesn't support more than 8 mouse buttons
+				{
+					int buttonIndex = ev.button.button - SDL_BUTTON_LEFT;
+					res.evValue = K_MOUSE1 + buttonIndex;
+					mouse_polls.Append( mouse_poll_t( M_ACTION1 + buttonIndex, ev.button.state == SDL_PRESSED ? 1 : 0 ) );
+#if defined(_HM) && defined(USE_MICROUI)
+					mu_input_mouseup(MICROUI::microui_manager->mu_context, ev.button.x, ev.button.y, K_MOUSE1 + buttonIndex);
+#endif // _HM && USE_MICROUI
+				}
+				else
+#endif
+				continue; // handle next event
+			}
+
+			res.evValue2 = ev.button.state == SDL_PRESSED ? 1 : 0;
+
+			return res;
+
+		case SDL_QUIT:
+			PushConsoleEvent("quit");
+			return res_none;
+
+		case SDL_USEREVENT:
+			switch (ev.user.code) {
+			case SE_CONSOLE:
+				res.evType = SE_CONSOLE;
+				res.evPtrLength = (intptr_t)ev.user.data1;
+				res.evPtr = ev.user.data2;
+				return res;
+			default:
+				common->Warning("unknown user event %u", ev.user.code);
+				continue; // handle next event
+			}
+		default:
+			// ok, I don't /really/ care about unknown SDL events. only uncomment this for debugging.
+			// common->Warning("unknown SDL event 0x%x", ev.type);
+			continue; // handle next event
+		}
+	}
+
+	return res_none;
+}
+
+/*
+================
+Sys_ClearEvents
+================
+*/
+void Sys_ClearEvents() {
+	SDL_Event ev;
+
+	while (SDL_PollEvent(&ev))
+		;
+
+	kbd_polls.SetNum(0, false);
+	mouse_polls.SetNum(0, false);
+}
+
+/*
+================
+Sys_GenerateEvents
+================
+*/
+void Sys_GenerateEvents() {
+	char *s = Sys_ConsoleInput();
+
+	if (s)
+		PushConsoleEvent(s);
+
+	SDL_PumpEvents();
+}
+
+/*
+================
+Sys_PollKeyboardInputEvents
+================
+*/
+int Sys_PollKeyboardInputEvents() {
+	return kbd_polls.Num();
+}
+
+/*
+================
+Sys_ReturnKeyboardInputEvent
+================
+*/
+int Sys_ReturnKeyboardInputEvent(const int n, int &key, bool &state) {
+	if (n >= kbd_polls.Num())
+		return 0;
+
+	key = kbd_polls[n].key;
+	state = kbd_polls[n].state;
+	return 1;
+}
+
+/*
+================
+Sys_EndKeyboardInputEvents
+================
+*/
+void Sys_EndKeyboardInputEvents() {
+	kbd_polls.SetNum(0, false);
+}
+
+/*
+================
+Sys_PollMouseInputEvents
+================
+*/
+int Sys_PollMouseInputEvents() {
+	return mouse_polls.Num();
+}
+
+/*
+================
+Sys_ReturnMouseInputEvent
+================
+*/
+int	Sys_ReturnMouseInputEvent(const int n, int &action, int &value) {
+	if (n >= mouse_polls.Num())
+		return 0;
+
+	action = mouse_polls[n].action;
+	value = mouse_polls[n].value;
+	return 1;
+}
+
+/*
+================
+Sys_EndMouseInputEvents
+================
+*/
+void Sys_EndMouseInputEvents() {
+	mouse_polls.SetNum(0, false);
+}
+
+// #endregion
+
 

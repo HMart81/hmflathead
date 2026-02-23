@@ -196,7 +196,7 @@ fn void pos_MainFunc() @finalizer
     io::printfn("/*******************************************\n");
     io::printfn("This should run %s%s%s main entry point function returns!\n", ansi::color_rgb(171, 218, 217), "AFTER", Ansi.RESET);
     io::printfn("*******************************************\\\n");
-    libc::system("pause");
+    //libc::system("pause");
 }
 
 // #endregion

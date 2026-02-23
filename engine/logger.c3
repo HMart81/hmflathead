@@ -37,7 +37,7 @@ import engine::sys::cvar;
 // end_region
 
 // region Cvars
-Cvar g_log @public = { "g_log", CvarType.BOOL, "true", "turns on loggin for debuggin."};
+CVar g_log @public = { "g_log", CvarType.BOOL, "true", "turns on loggin for debuggin."};
 
 fn void register_cvars() {
 	cvar::@register(&g_log);

@@ -50,8 +50,8 @@ import engine::sys::render2d::r2d; // 2D rendering
 
 // region cvars
 /*
-Cvar ui_debugDraw @public = { "ui_debugDraw", CvarType.BOOL, "0", "show debug visualization for gui development, 0, 1, true, false" };
-Cvar ui_editGui   @public = { "ui_editGui", CvarType.BOOL, "0", "turn on gui editing functionality for gui development, 0, 1, true, false" };
+CVar ui_debugDraw @public = { "ui_debugDraw", CvarType.BOOL, "0", "show debug visualization for gui development, 0, 1, true, false" };
+CVar ui_editGui   @public = { "ui_editGui", CvarType.BOOL, "0", "turn on gui editing functionality for gui development, 0, 1, true, false" };
 
 
 fn void register_cvars() @public 
@@ -95,24 +95,60 @@ fn void drawbackground(Type t) <Type> @public
 	}
 }
 
-fn void drawbackgroundColor(RLColor color) {
+fn void drawbackgroundColor(RLColor color) 
+{
 	rl::clearBackground(color);
 }
 
-fn void drawbackgroundImage(String name, RLTexture2D* texture) {
-	RLTexture2D* tex = texture;
-
+<*
+    Draws the given texture as the background. If the texture is null, it will draw the default texture and log a warning.
+    @param tex : "the texture to draw as the background"
+    @param w : "the width to draw the texture, usually the screen width"
+    @param h : "the height to draw the texture, usually the screen height"
+    @require rl::isWindowReady() == true : "needs the window to be already started."
+*>
+fn void drawImage(RLTexture2D* tex, float w, float h) @public
+{
     if(tex == null) {
-		log::warning(FILE, "Cannot show background image %s, texture was null! Showing default texture.", name);
+		log::warning(FILE, "Cannot show image, texture was null! Showing default texture. %s::%s", $$FILE, $$LINE);
         tex = &game::gpGame.default_texture;
 	}
 
+    if(w <= 0 || h <= 0) {
+        log::warning(FILE, "Invalid width or height for background image! width: %f, height: %f. Using screen dimensions instead.", w, h);
+        w = (float)game::gpGame.screen.w;
+        h = (float)game::gpGame.screen.h;
+    }
+
 	rl::drawTexturePro(*tex, 
 		{0, 0, (float)(*tex).width, (float)(*tex).height}, 
-		{0, 0, (float)game::gpGame.screen.w, (float)game::gpGame.screen.h}, 
+		{0, 0, w, h}, 
 		{0, 0}, 0.0f, rl::WHITE);
 }
 
+<*
+    Draws the given texture as the background, stretched to fill the entire screen. If the texture is null, it will draw the default texture and log a warning.
+    @param tex : "the texture to draw as the background"
+    @require rl::isWindowReady() == true : "needs the window to be already started."
+*>
+fn void drawImageFullScreen(RLTexture2D* tex) @public
+{
+
+    if(tex == null) {
+		log::warning(FILE, "Cannot show fullscreen image, it was null! Showing default texture.");
+        tex = &game::gpGame.default_texture;
+	}
+
+    float w = (float)game::gpGame.screen.w;
+    float h = (float)game::gpGame.screen.h;
+
+	rl::drawTexturePro(*tex, 
+		{0, 0, (float)(*tex).width, (float)(*tex).height}, 
+		{0, 0, w, h}, 
+		{0, 0}, 0.0f, rl::WHITE);
+}
+
+fn void drawbackgroundImage(RLTexture2D* texture) => drawImageFullScreen(texture);
 fn void toggleBackgroundDrawing() @public => should_draw_background = !should_draw_background;
 fn void setBackgroundDrawing(bool choice) @public => should_draw_background = choice;
 
@@ -131,19 +167,53 @@ struct UIFlags
 	bool isrounded; // used to know if the panel is rounded or not, for editor purposes
 }
 
-struct UIRectangle (SaveSystemInterface, Printable)
+struct UIRect 
+{
+    Vec2f  pos; // x, y, width, height
+    union size
+    {
+        struct 
+        {
+            float x;
+            float y;
+        }
+        struct 
+        {
+            float w;
+            float h;
+        }
+        struct 
+        {
+            float width;
+            float height;
+        }
+    }
+}
+
+fn RLRectangle UIRect.toRLRectangle(&self) @public @inline @nodiscard => { self.pos.x, self.pos.y, self.size.x, self.size.y };
+
+struct UIRectangleColors @packed
+{
+    RLColor normal;
+    RLColor selected;
+    RLColor hovered;
+    RLColor active;
+}
+
+struct UIRectangle (SaveSystemInterface, Printable) @public
 {
     String       name;
     int          id;  // used to uniquily identify each rectangle, for editor purposes
     UIFlags      flags;
-    RLRectangle  quad; // x, y, width, height
-    RLColor      color; // material color overrides this color
-    RLColor      color_selected; // for gui editor functionality
+    UIRect       quad;
+    UIRectangleColors color;
     HMaterial*   mat;
 }
 
 fn void UIRectangle.save(&self, SaveFile* file) @dynamic 
 {
+    @todo();
+    /*
     svs::writeString(file, self.name);
     svs::writeInt(file, self.id);
 	svs::write(file, (void*)&self.flags, UIFlags.sizeof);
@@ -152,10 +222,13 @@ fn void UIRectangle.save(&self, SaveFile* file) @dynamic
     svs::writeColor(file, self.color_selected);
     // cannot save pointers so just save the material name
     svs::writeString(file, (self.mat != null) ? self.mat.name : "");
+    */
 }
 
 fn void UIRectangle.reload(&self, SaveFile* file) @dynamic 
 {
+    @todo();
+    /*
     int value;
 
 	svs::readString(file, &self.name);
@@ -168,25 +241,33 @@ fn void UIRectangle.reload(&self, SaveFile* file) @dynamic
     String mat_name;
     svs::readString(file, &mat_name);
     if(mat_name != "") self.mat = mtrmng::getMaterial(mat_name);
+    */
 }
 
 fn usz? UIRectangle.to_format(&self, Formatter* f) @dynamic 
 {
+    @todo();
+    /*
     return f.printf(`UIRectangle { 
     "id" = %s,\n"name" = %s,\n"quad" = { x: %s, y: %s, width: %s, height: %s  },\n"color" = { r: %s, g: %s, b: %s, a: %s  },\n"material" = %s 
     }`, self.id, self.name, self.quad.x, self.quad.y, self.quad.width, self.quad.height, self.color.r, self.color.g, self.color.b, self.color.a, (self.mat != null) ? self.mat.name : "null");
+    */
 }
 
-
-fn void UIRectangle.initQuad(&self, RLRectangle quad, RLColor color) @inline
+fn void UIRectangle.initQuad(&self, UIRect quad, UIRectangleColors colors) @inline
 {
     self.quad  = quad;
-    self.color = color;
+    self.color = colors;
 }
 
-fn void UIRectangle.initV(&self, Vec2f pos, Vec2f size, RLColor color) @inline
+fn void UIRectangle.initV(&self, Vec2f pos, Vec2f size, UIRectangleColors colors) @inline
 {
-    self.initQuad({pos.x, pos.y, size.x, size.y}, color);
+    self.initQuad({pos, {size.x, size.y}}, colors);
+}
+
+fn void UIRectangle.setcolors(&self, UIRectangleColors colors) @inline @public
+{
+    self.color = colors;
 }
 
 <*
@@ -200,8 +281,16 @@ fn void init(Type* typ) <Type> @inline @public
 {
     switch((*typ).typeid) {
         case UIRectangle.typeid:
-            (*typ).initQuad({0, 0, 0.20f*game::gpGame.screen.w, 0.20f*game::gpGame.screen.h}, rl::WHITE);
+            (*typ).initQuad({0, 0, 0.20f*game::gpGame.screen.w, 0.20f*game::gpGame.screen.h}, 
+                            {
+                                .normal   = rl::WHITE,
+                                .selected = rl::GRAY,
+                                .hovered  = rl::LIGHTGRAY,
+                                .active   = rl::DARKGRAY
+                            }
+                            );
         case UIButton.typeid:
+            @todo();
         default:
             unreachable();
     }
@@ -218,6 +307,7 @@ fn void deinit(Type* typ) <Type> @inline @public
         case UIRectangle.typeid:
             if((*typ).mat) (*typ).mat = null;   
         case UIButton.typeid:
+                @todo();
         default:
             unreachable();
     }
@@ -245,6 +335,7 @@ fn void scale(Type* typ, float w_scaler, float h_scaler) <Type> @inline @public
             (*typ).quad.width  *= w_scaler;
             (*typ).quad.height *= h_scaler;
         case UIButton.typeid:
+            @todo();
         default:
             unreachable();
     }
