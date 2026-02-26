@@ -48,20 +48,14 @@
 *   delete the body and alias them to a void* to cut on code compilation time. 
 *   (but don't try storing the structs by value after that...)
 ****************************************************************/
+module thirdparty::wren @if($feature(WREN_ENABLE));
 
-module buffer @private @if($feature(WREN_ENABLE));
-
-struct Buffer <Type> @if($feature(WREN_ENABLE))                                                    
+struct WrenBuffer <Type>                                                  
 {
   Type* data;
   int count;
   int capacity;
 }
-
-
-module thirdparty::wren @if($feature(WREN_ENABLE));
-
-import buffer @public;
 
 // The Wren semantic version number components.
 const int VERSION_MAJOR = 0;
@@ -106,11 +100,11 @@ struct ObjString
 typedef Value = inline ulong;
 typedef Byte  = inline char;
 
-alias MethodBuffer = Buffer{Method};
-alias ByteBuffer   = Buffer{Byte};
-alias ValueBuffer  = Buffer{Value};
-alias IntBuffer    = Buffer{int};
-alias StringBuffer = Buffer{ObjString*};
+alias MethodBuffer = WrenBuffer{Method};
+alias ByteBuffer   = WrenBuffer{Byte};
+alias ValueBuffer  = WrenBuffer{Value};
+alias IntBuffer    = WrenBuffer{int};
+alias StringBuffer = WrenBuffer{ObjString*};
 alias SymbolTable  = StringBuffer;
 
 // A hash table mapping keys to values.

@@ -26,7 +26,7 @@ const FRAME_TIME       = FADE_IN_TIME + VISIBLE_DURATION + FADE_OUT_TIME; // ms
 // end_region
 
 // region cvars
-CVar skip_intro @public = { "skip_intro", CvarType.BOOL, "0", "skip displaying the intro" };
+CVar skip_intro @public = { "skip_intro", CvarType.BOOL, "1", "skip displaying the intro" };
 
 fn void register_cvars() @public 
 {
@@ -43,26 +43,42 @@ struct Frame @local
     bool fade_out_done;
 }
 
-fn void Frame.init(&self, Vec2f pos, Vec2f size, RLColor color) @local
+<*
+    @param [inout] frame : "frame to initialize"
+    @param pos : "position of the frame on the screen"
+    @param size : "size of the frame"
+    @param color : "color of the frame (including alpha for fade in/out)"
+*>
+fn void init_frame(Frame* frame, Vec2f pos, Vec2f size, RLColor color) @local
 {
-	self.image = mem::new(Panel);
-	self.image.initV(pos, size, color);
+	frame.image = mem::new(Panel);
+	frame.image.initV(pos, size, color);
 }
 
-fn void Frame.deinit(&self) @local
+<*
+    @param [&inout] frame : "frame to deinitialize"
+*>
+fn void deinit_frame(Frame* frame) @local
 {
-	self.image.deinit();
-	self.image = null;
+	frame.image.deinit();
+	frame.image = null;
 }
 
-fn void Frame.setMaterial(&self, String material_name) @local
+<*
+    @param [&inout] frame : "frame to set material on"
+    @param material_name : "name of the material to set on the frame"
+*>
+fn void setFrameMaterial(Frame* frame, String material_name) @local
 {
-	self.image.setMaterial(material_name);
+	frame.image.setMaterial(material_name);
 }
 
-fn void Frame.draw(&self) @local
+<*
+    @param [&inout] frame : "frame to draw"
+*>
+fn void draw(Frame* frame) @local
 {
-	self.image.draw();
+	frame.image.draw();
 }
 
 struct IntroAnimation 
@@ -81,11 +97,11 @@ macro makeFrame(String material_name, IntroAnimation* anim) @local
     w = game::gpGame.screen.w;
     h = game::gpGame.screen.h;
     Frame* frame = mem::new(Frame);
-    frame.init({0,0}, {w,h}, rl::WHITE);
+    init_frame(frame, {0,0}, {w,h}, rl::WHITE);
     $if($defined(FADE_FRAMES)):
     frame.image.color.a = 0; // start with a transparent frame for fade in
     $endif
-    frame.setMaterial(material_name);
+    setFrameMaterial(frame, material_name);
     anim.frames.push(frame);
 }
 
@@ -111,7 +127,7 @@ fn void initAnimation(IntroAnimation* anim)
 fn void deinitAnimation(IntroAnimation* anim) {
     foreach(frame : anim.frames) {
         if(frame) {
-            frame.deinit();
+            deinit_frame(frame);
             mem::free(frame);
         }
     }
@@ -290,7 +306,7 @@ fn void drawAnimation(IntroAnimation* anim, int w, int h) @if($defined(FADE_FRAM
         }
     }
 
-    frame.draw();
+    draw(frame);
 }
 
 

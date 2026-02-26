@@ -104,13 +104,13 @@ macro min(a, b) @private => ((a) < (b) ? (a) : (b));
 macro max(a, b) @private => ((a) > (b) ? (a) : (b));
 macro clamp(x, a, b) @private => min(b, max(a, x));
 
-enum MU_Clip : const inline int 
+constdef MU_Clip : inline int 
 {
 	PART = 1,
 	ALL  = 2,
 }
 
-enum MU_Icon : const inline int
+constdef MU_Icon : inline int
 {
 	CLOSE = 1,
 	CHECK,
@@ -119,14 +119,14 @@ enum MU_Icon : const inline int
 	MAX
 }
 
-enum MU_Res : const inline int 
+constdef MU_Res : inline int
 {
 	ACTIVE = (1 << 0),
 	SUBMIT = (1 << 1),
 	CHANGE = (1 << 2)
 }
 
-enum MU_Opt : const inline int
+constdef MU_Opt : inline int
 {
 	ALIGNCENTER  = (1 << 0),
 	ALIGNRIGHT   = (1 << 1),
@@ -143,7 +143,7 @@ enum MU_Opt : const inline int
 	EXPANDED     = (1 << 12)
 }
 
-enum MU_Mouse : const inline int
+constdef MU_Mouse : inline int
 {
   LEFT    = (1 << 0),
   RIGHT   = (1 << 1),
@@ -154,7 +154,7 @@ enum MU_Mouse : const inline int
   BACK    = (1 << 6),   // Mouse button back (advanced mouse device)
 }
 
-enum MU_Key : const inline int
+constdef MU_Key : inline int
 {
   SHIFT     = (1 << 0),
   CTRL      = (1 << 1),

@@ -130,7 +130,7 @@ fn void Entity.register(&self) @inline
 	@param [in] name : "name of the entity to test"
 	@require name != "" : "entities should all have a name!"
 *>
-fn bool Entity.shouldSkip(&self, String name) @inline @local 
+fn bool Entity.shouldSkip(&self, String name) @inline 
 {
     if(game::gpGame.entityList.len() == game::MAX_ENTITY_COUNT) {
 		log::warning(FILE, "Skipping entity: '%s' creation, max count of '%s' was reached!", 
@@ -621,11 +621,11 @@ fn bool Entity.isDead(&self) @inline
 	return (self.flags.alive) ? false : true;
 }
 
-fn bool Entity.onThinkingList(&self) @local @inline {
+fn bool Entity.onThinkingList(&self) @inline {
 	return game::gpGame.thinkingEntities.contains(self);
 }
 
-fn bool Entity.notOnThinkingList(&self) @local @inline {
+fn bool Entity.notOnThinkingList(&self) @inline {
 	return !self.onThinkingList();
 }
 

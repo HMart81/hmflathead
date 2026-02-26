@@ -81,9 +81,9 @@ fn void bindPrintToFile(State* state) @local
   state.pushundefined();
 }
 
-fn void State.panic(&self) @local
+fn void state_panic(State* state) @local
 {
-  ZString msg = self.tostring(-1);
+  ZString msg = state.tostring(-1);
   unreachable("mujs panic: %s", msg);
   //log::error(Where.FILE, "mujs panic: %s", msg);
   // Handle panic appropriately, e.g., log the error, clean up resources, etc.
@@ -91,7 +91,11 @@ fn void State.panic(&self) @local
  // exit(1);
 }
 
-fn void State.report(&self, ZString message) @local
+<*
+  @param [&in] state : "The mujs state"
+  @param [in] message : "The message to report"
+*>
+fn void report_state(State* state, ZString message) @local
 {
   log::warning(Where.FILE, "mujs report: %s", message);
 }

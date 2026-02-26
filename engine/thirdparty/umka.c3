@@ -96,9 +96,9 @@ struct UmkaFuncContext
 
 alias ExternFuncCallback = fn void(UmkaStackSlot *params, UmkaStackSlot *result);
 
-enum UmkaHookEvent : const int
+constdef UmkaHookEvent : inline int
 {
-  UMKA_HOOK_CALL,
+  UMKA_HOOK_CALL = 0,
   UMKA_HOOK_RETURN,
 }
 
@@ -233,9 +233,9 @@ fn bool? Umka.init(&self, UmkaScriptInitData* inidata)
   return INIT_FAILED~;
 }
 
-extern fn bool Umka._compile(&self) @local @cname("umkaCompile");
+extern fn bool _compile(Umka *umka) @local @cname("umkaCompile");
 macro bool? Umka.compile(&self) {
-  if(self._compile()) return true;
+  if(_compile(self)) return true;
   return COMPILE_FAILED~;
 }
 extern fn int  Umka.run(&self) @cname("umkaRun");

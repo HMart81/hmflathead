@@ -509,7 +509,7 @@ struct RLAutomationEventList
 
 // Trace log level
 // NOTE: Organized by priority level
-enum RLTraceLogLevel : const inline CInt
+constdef RLTraceLogLevel : inline CInt
 {
     ALL = 0,        // Display all logs (0)
     TRACE,          // Trace logging, intended for internal use only
@@ -522,7 +522,7 @@ enum RLTraceLogLevel : const inline CInt
 }
 
 // Mouse buttons
-enum RLMouseButton : const inline CInt
+constdef RLMouseButton : inline CInt
 {
     LEFT = 0,       // Mouse button left
     RIGHT,      // Mouse button right
@@ -534,7 +534,7 @@ enum RLMouseButton : const inline CInt
 }
 
 // Mouse cursor
-enum RLMouseCursor : const CInt
+constdef RLMouseCursor : inline CInt
 {
     DEFAULT = 0,       // Default pointer shape
     ARROW,         // Arrow shape
@@ -550,7 +550,7 @@ enum RLMouseCursor : const CInt
 }
 
 // Gamepad buttons
-enum RLGamepadButton : const CInt
+constdef RLGamepadButton : inline CInt
 {
     UNKNOWN = 0,             // Unknown button, just for error checking
     LEFT_FACE_UP,        // Gamepad left DPAD up button
@@ -572,7 +572,7 @@ enum RLGamepadButton : const CInt
     RIGHT_THUMB          // Gamepad joystick pressed button right
 }
 
-enum RLGamepadAxis : const CInt
+constdef RLGamepadAxis : inline CInt
 {
     LEFT_X = 0,           // Gamepad left stick X axis
     LEFT_Y,           // Gamepad left stick Y axis
@@ -583,7 +583,7 @@ enum RLGamepadAxis : const CInt
 }
 
 // RLMaterial map index
-enum RLMtlMapIndex : const inline CInt
+constdef RLMtlMapIndex : inline CInt
 {
     ALBEDO = 0,            // Albedo material (same as: MATERIAL_MAP_DIFFUSE)
     METALNESS,         // Metalness material (same as: MATERIAL_MAP_SPECULAR)
@@ -610,36 +610,36 @@ const MATERIAL_MAP_SPECULAR = RLMtlMapIndex.METALNESS;
 // this is so is easy to parse the shader code and find the location
 enum RLShdLocInd : inline CInt (String str)
 {
-    VERTEX_POSITION   = "vertexPosition",  // RLShader location: vertex attribute: position
-    VERTEX_TEXCOORD01 = "vertexTexCoord1",  // RLShader location: vertex attribute: texcoord01
-    VERTEX_NORMAL     = "vertexNormal",  // RLShader location: vertex attribute: normal
-    VERTEX_COLOR      = "vertexColor",  // RLShader location: vertex attribute: color
-    VERTEX_TANGENT    = "vertexTangent",  // RLShader location: vertex attribute: tangent
-    VERTEX_TEXCOORD02 = "vertexTexCoord2",  // RLShader location: vertex attribute: texcoord02
-    MATRIX_MVP        = "mvp",  // RLShader location: matrix uniform: model-view-projection
-    MATRIX_VIEW       = "matView",  // RLShader location: matrix uniform: view (camera transform)
-    MATRIX_PROJECTION = "matProjection",  // RLShader location: matrix uniform: projection
-    MATRIX_MODEL      = "matModel",  // RLShader location: matrix uniform: model (transform)
-    MATRIX_NORMAL     = "matNormal",  // RLShader location: matrix uniform: normal
-    VECTOR_VIEW       = "vector_view",  // RLShader location: vector uniform: view
-    COLOR_DIFFUSE     = "colDiffuse",  // RLShader location: vector uniform: diffuse color
-    COLOR_SPECULAR    = "colSpecular",  // RLShader location: vector uniform: specular color
-    COLOR_AMBIENT     = "colAmbient",  // RLShader location: vector uniform: ambient color
-    MAP_ALBEDO        = "map_albedo",  // RLShader location: sampler2d texture: albedo (same as: SHADER_LOC_MAP_DIFFUSE)
-    MAP_METALNESS     = "map_metalness",  // RLShader location: sampler2d texture: metalness (same as: SHADER_LOC_MAP_SPECULAR)
-    MAP_NORMAL        = "map_normal",  // RLShader location: sampler2d texture: normal
-    MAP_ROUGHNESS     = "map_roughness",  // RLShader location: sampler2d texture: roughness
-    MAP_OCCLUSION     = "map_occlusion",  // RLShader location: sampler2d texture: occlusion
-    MAP_EMISSION      = "map_emission",  // RLShader location: sampler2d texture: emission
-    MAP_HEIGHT        = "map_height",  // RLShader location: sampler2d texture: height
-    MAP_CUBEMAP       = "map_cubemap",  // RLShader location: samplerCube texture: cubemap
-    MAP_IRRADIANCE    = "map_irradiance",  // RLShader location: samplerCube texture: irradiance
-    MAP_PREFILTER     = "map_prefilter",  // RLShader location: samplerCube texture: prefilter
-    MAP_BRDF          = "map_brdf",   // RLShader location: sampler2d texture: brdf
-    DEPTH0            = "depth0",  // RLShader location: sampler2d texture: depth map 0
-    DEPTH1            = "depth1",  // RLShader location: sampler2d texture: depth map 1
-    DEPTH2            = "depth2",  // RLShader location: sampler2d texture: depth map 2
-    DEPTH3            = "depth3"  // RLShader location: sampler2d texture: depth map 3
+    VERTEX_POSITION   {"vertexPosition"},  // RLShader location: vertex attribute: position
+    VERTEX_TEXCOORD01 {"vertexTexCoord1"},  // RLShader location: vertex attribute: texcoord01
+    VERTEX_NORMAL     {"vertexNormal"},  // RLShader location: vertex attribute: normal
+    VERTEX_COLOR      {"vertexColor"},  // RLShader location: vertex attribute: color
+    VERTEX_TANGENT    {"vertexTangent"},  // RLShader location: vertex attribute: tangent
+    VERTEX_TEXCOORD02 {"vertexTexCoord2"},  // RLShader location: vertex attribute: texcoord02
+    MATRIX_MVP        {"mvp"},  // RLShader location: matrix uniform: model-view-projection
+    MATRIX_VIEW       {"matView"},  // RLShader location: matrix uniform: view (camera transform)
+    MATRIX_PROJECTION {"matProjection"},  // RLShader location: matrix uniform: projection
+    MATRIX_MODEL      {"matModel"},  // RLShader location: matrix uniform: model (transform)
+    MATRIX_NORMAL     {"matNormal"},  // RLShader location: matrix uniform: normal
+    VECTOR_VIEW       {"vector_view"},  // RLShader location: vector uniform: view
+    COLOR_DIFFUSE     {"colDiffuse"},  // RLShader location: vector uniform: diffuse color
+    COLOR_SPECULAR    {"colSpecular"},  // RLShader location: vector uniform: specular color
+    COLOR_AMBIENT     {"colAmbient"},  // RLShader location: vector uniform: ambient color
+    MAP_ALBEDO        {"map_albedo"},  // RLShader location: sampler2d texture: albedo (same as: SHADER_LOC_MAP_DIFFUSE)
+    MAP_METALNESS     {"map_metalness"},  // RLShader location: sampler2d texture: metalness (same as: SHADER_LOC_MAP_SPECULAR)
+    MAP_NORMAL        {"map_normal"},  // RLShader location: sampler2d texture: normal
+    MAP_ROUGHNESS     {"map_roughness"},  // RLShader location: sampler2d texture: roughness
+    MAP_OCCLUSION     {"map_occlusion"},  // RLShader location: sampler2d texture: occlusion
+    MAP_EMISSION      {"map_emission"},  // RLShader location: sampler2d texture: emission
+    MAP_HEIGHT        {"map_height"},  // RLShader location: sampler2d texture: height
+    MAP_CUBEMAP       {"map_cubemap"},  // RLShader location: samplerCube texture: cubemap
+    MAP_IRRADIANCE    {"map_irradiance"},  // RLShader location: samplerCube texture: irradiance
+    MAP_PREFILTER     {"map_prefilter"},  // RLShader location: samplerCube texture: prefilter
+    MAP_BRDF          {"map_brdf"},   // RLShader location: sampler2d texture: brdf
+    DEPTH0            {"depth0"},  // RLShader location: sampler2d texture: depth map 0
+    DEPTH1            {"depth1"},  // RLShader location: sampler2d texture: depth map 1
+    DEPTH2            {"depth2"},  // RLShader location: sampler2d texture: depth map 2
+    DEPTH3            {"depth3"}  // RLShader location: sampler2d texture: depth map 3
 }
 
 $assert(RLShdLocInd.VERTEX_POSITION.ordinal == 0);
@@ -674,7 +674,7 @@ They are defined inside raylib/src/config.h
 //#define SHADER_LOC_MAP_SPECULAR     SHADER_LOC_MAP_METALNESS
 
 // RLShader uniform data type
-enum RLShdUniTyp : inline CInt
+constdef RLShdUniTyp : inline CInt
 {
     FLOAT,           // RLShader uniform type: float
     VEC2,            // RLShader uniform type: vec2 (2 float)
@@ -698,7 +698,7 @@ enum RLShdrAttrbDatTyp : CInt
 
 // Pixel formats
 // NOTE: Support depends on OpenGL version and platform
-enum RLPixelFormat : const inline CInt
+constdef RLPixelFormat : inline CInt
 {
 	NONE = 0,
     UNCOMPRESSED_GRAYSCALE,     // 8 bit per pixel (no alpha)
@@ -727,7 +727,7 @@ enum RLPixelFormat : const inline CInt
 // RLTexture parameters: filter mode
 // NOTE 1: Filtering considers mipmaps if available in the texture
 // NOTE 2: Filter is accordingly set for minification and magnification
-enum RLTextureFilter : const CInt
+constdef RLTextureFilter : inline CInt
 {
     POINT = 0,                   // No filter, just pixel approximation
     BILINEAR,                // Linear filtering
@@ -738,7 +738,7 @@ enum RLTextureFilter : const CInt
 }
 
 // RLTexture parameters: wrap mode
-enum RLTextureWrap : const int
+constdef RLTextureWrap : inline int
 {
     REPEAT = 0,                    // Repeats texture in tiled mode
     CLAMP,                     // Clamps texture to edge pixel in tiled mode
@@ -747,7 +747,7 @@ enum RLTextureWrap : const int
 }
 
 // Cubemap layouts
-enum RLCubemapLayout : const int
+constdef RLCubemapLayout : inline int
 {
     AUTO_DETECT = 0,             // Automatically detect layout type
     LINE_VERTICAL,           // Layout is defined by a vertical line with faces
@@ -758,7 +758,7 @@ enum RLCubemapLayout : const int
 }
 
 // RLFont type, defines generation method
-enum RLFontType : const int
+constdef RLFontType : inline int
 {
     DEFAULT = 0,                   // Default font generation, anti-aliased
     BITMAP,                    // Bitmap font generation, no anti-aliasing
@@ -766,7 +766,7 @@ enum RLFontType : const int
 }
 
 // RLColor blending modes (pre-defined)
-enum RLBlendMode : const inline CInt
+constdef RLBlendMode : inline CInt
 {
     ALPHA = 0,                // Blend textures considering alpha (default)
     ADDITIVE,                 // Blend textures adding colors
@@ -812,7 +812,7 @@ const RL_BLEND_COLOR               = 0x8005;      // GL_BLEND_COLOR
 
 
 // RLCamera system modes
-enum RLCameraMode : const int
+constdef RLCameraMode : inline int
 {
     CUSTOM = 0,                  // RLCamera custom, controlled by user (UpdateCamera() does nothing)
     FREE,                    // RLCamera free mode
@@ -822,14 +822,14 @@ enum RLCameraMode : const int
 }
 
 // RLCamera projection
-enum RLCameraProjection : const int
+constdef RLCameraProjection : inline int
 {
     PERSPECTIVE = 0,             // Perspective projection
     ORTHOGRAPHIC             // Orthographic projection
 }
 
 // N-patch layout
-enum RLNPatchLayout : const int
+constdef RLNPatchLayout : inline int
 {
     NINE_PATCH = 0,              // Npatch layout: 3x3 tiles
     THREE_PATCH_VERTICAL,    // Npatch layout: 1x3 tiles
@@ -2168,7 +2168,7 @@ macro void @vrMode(RLVrStereoConfig config ;@body)
 // NOTE: Every bit registers one state (use it with bit masks)
 // By default all flags are set to 0
 
-typedef RLConfigFlag = inline CUInt;
+typedef RLConfigFlag @constinit = inline CUInt;
 
 const RLConfigFlag FLAG_VSYNC_HINT         = 0x00000040;   // Set to try enabling V-Sync on GPU
 const RLConfigFlag FLAG_FULLSCREEN_MODE    = 0x00000002;   // Set to run program in fullscreen

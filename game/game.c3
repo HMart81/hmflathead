@@ -256,6 +256,7 @@ CVar db_drawPhysics @public = { "db_drawPhysics", CvarType.BOOL, "1",    "show d
 CVar s_noaudio      @public = { "s_noaudio"     , CvarType.BOOL, "0",    "disables all audio"};
 CVar fl_help        @public = { "help"          , CvarType.BOOL, "0",    "shows help message"};
 CVar dbg_stats      @public = { "dbg_stats"     , CvarType.BOOL, "0",    "shows various debug things on screen"};
+CVar skip_config    @public = { "skip_config"   , CvarType.BOOL, "1", "skips the configuarator at game start" };
 // TODO(HM) disable editor cvar, when not used anymore
 //CVar r_window_resizable @public = { "r_window_resizable", CvarType.BOOL,  "0",   "makes window resizable, window mode only."};
 
@@ -276,6 +277,7 @@ fn void register_cvars() @local
     cvar::@register(&s_noaudio);
     cvar::@register(&fl_help);
     cvar::@register(&dbg_stats);
+	cvar::@register(&skip_config);
     
     //if(cvar::cvars.len()) foreach(cv: cvar::cvars) {log::info(Where.CONSOLE, cv.name);}
 }
@@ -593,7 +595,7 @@ fn void Game.reload(&self, SaveFile* file) @dynamic {
 <*
  @require(self.entityList.len() >= 1)
 *>
-fn Player* Game.getLocalPlayer(&self) @public @inline {
+fn Player* Game.getLocalPlayer(&self) @inline {
     return (Player*)self.entityList[0];
 }
 
@@ -655,9 +657,9 @@ const DEFAULT_MESSAGE_BOX_H = 100;
 const DEFAULT_MESSAGE_BOX_W = 250;
 const DEFAULT_MESSAGE_BOX_MARGIN = 20;
 
-enum MessageBoxType : const inline int
+constdef MessageBoxType : inline int
 {
-    NONE,
+    NONE = 0,
     INFO,
     WARN,
     ERROR
@@ -686,7 +688,7 @@ fn void MessageBox.init(&self, int type) {
     self.box.height = h;
     self.box.width  = w;
     self.initted = true;
-    self.register();
+    register_messagebox(self);
 }
 
 fn void MessageBox.updateSize(&self) @inline {
@@ -699,7 +701,11 @@ fn void MessageBox.setMessage(&self, String msg) {
     self.updateSize();
 }
 
-fn void MessageBox.register(&self) @local => messageBoxs.push(self);
+<*
+	@param [&inout] msgBox : "the message box to register, it needs to be initted first"
+ 	@require(msgBox.initted)
+*>
+fn void register_messagebox(MessageBox* msgBox) @local => messageBoxs.push(msgBox);
 
 fn void MessageBox.delete(&self) {
     if(self.isVisible) self.isVisible = false;
@@ -3744,6 +3750,8 @@ fn void settings_window(MU_Context* ctx) //@inline
 fn void showSettingsWindow()
 {
 $if $feature(MICROUI_ENABLE):
+	if(skip_config.getBool()) return; // skip showing the settings window if the user has chosen to skip it in the settings file.
+	
     ZString font_path = rl::getApplicationDirectory().str_view().tconcat("data\\images\\mu_atlas.png").zstr_tcopy();
 
     MU_Context* mu_ctx = mem::tnew(MU_Context);

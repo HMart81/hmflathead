@@ -323,9 +323,9 @@ module thirdparty::plmpeg::plm::buffer;
 
 import std::io;
 
-enum BFMode : const inline int
+constdef BFMode : inline int
 {
-	FILE,
+	FILE = 0,
 	FIXED_MEM,
 	RING,
 	APPEND

@@ -319,7 +319,7 @@ fn void RenderView.debug(&self)
     @param callback : "the rendering function callback to use"
     @require callback != null
 *>
-fn void RenderView.renderFBO(&self, RenderFunctionCallback callback) @inline @local
+fn void RenderView.renderFBO(&self, RenderFunctionCallback callback) @inline
 {
     if(callback) {
         callback(self);

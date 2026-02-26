@@ -120,7 +120,7 @@ fn bool? LANGData.load(&self, String _path)
             return LANG_READ_ERROR~;
         }
 
-        if(self.parse(lang_file)) {
+        if(_parse_lang(self, lang_file)) {
             return true;
         } else {
             return LANG_PARSING_ERROR~;
@@ -134,7 +134,7 @@ fn bool? LANGData.load(&self, String _path)
 <*
     @param [&in] doc : "the language file/document to parse"
 *>
-fn bool LANGData.parse(&self, LANGFile* doc) @local
+fn bool _parse_lang(LANGData* self, LANGFile* doc) @local
 {
     if(doc.rootNode.name != "LANG")
     {

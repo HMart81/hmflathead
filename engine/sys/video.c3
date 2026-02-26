@@ -81,7 +81,7 @@ struct VidMovie @public
 	VideoFrame frame;
 }
 
-fn void VidMovie.renderFrame(&self, Vec2f position, Vec2f size) @public
+fn void VidMovie.renderFrame(&self, Vec2f position, Vec2f size)
 {
 	if(self.is_ready && self.should_play) 
 	{
@@ -135,7 +135,7 @@ fn void VidMovie.updateFrame(&self, VideoPlayer mpeg, PLMframe *frame)
 	@param loop : "should the video loop when it ends"
 	@param audio : "should the video play audio"
 *>
-fn bool VidMovie.preparePlayer(&self, bool loop = false, bool audio = false) @public @nodiscard
+fn bool VidMovie.preparePlayer(&self, bool loop = false, bool audio = false) @nodiscard
 {
     VideoFile? video = fs::openFile(self.path, fs::FILE_READ_BINARY);
 	if(catch excuse = video ) {
@@ -176,7 +176,7 @@ fn bool VidMovie.preparePlayer(&self, bool loop = false, bool audio = false) @pu
 	return self.is_ready;
 }
 
-fn void VidMovie.decode(&self) @public
+fn void VidMovie.decode(&self)
 {
 	if(!self.should_play) return;
 
@@ -194,12 +194,12 @@ fn void VidMovie.decode(&self) @public
 	}
 }
 
-fn void VidMovie.start(&self) @public @inline
+fn void VidMovie.start(&self) @inline
 {
 	self.should_play = true;
 }
 
-fn void VidMovie.stop(&self) @public @inline
+fn void VidMovie.stop(&self) @inline
 {
 	self.should_play = false;
 }
@@ -234,18 +234,18 @@ struct VideoCabinet @public
     VideoListPtr movies;
 }
 
-fn void VideoCabinet.setMoviesDirectory(&self, String movies_dir) @local @inline
+fn void setCabinetMoviesDirectory(VideoCabinet* self, String movies_dir) @local @inline
 {
     self.movies_folder = movies_dir.tcopy();
 }
 
-fn void VideoCabinet.initMoviesDirectory(&self) @local @inline
+fn void initCabinetMoviesDirectory(VideoCabinet* self) @local @inline
 {
 	String videos_path = gpGame.app_base_folder.tconcat(VIDEOS_FOLDER_PATH);
 	/*if(catch excuse = fs::makeDirectory_IfNotExist(videos_path)) {
 		log::error(FILE, "failed to create videos directory at path: %s with excuse %s", videos_path, excuse);
 	}*/
-    self.setMoviesDirectory(videos_path);
+    setCabinetMoviesDirectory(self, videos_path);
 }
 
 <*
@@ -255,7 +255,7 @@ fn void VideoCabinet.initMoviesDirectory(&self) @local @inline
 fn void? initVideoCabinet(VideoCabinet** vidc) @public
 {
 	(*vidc) = mem::new(VideoCabinet);
-	(*vidc).initMoviesDirectory();
+	initCabinetMoviesDirectory((*vidc));
 	if(catch excuse = (*vidc).registerVideos()) {
 		log::error(FILE, "failed to register videos inside video cabinet with excuse %s.",  excuse);
 		(*vidc).movies_folder = "";
@@ -264,7 +264,7 @@ fn void? initVideoCabinet(VideoCabinet** vidc) @public
 	}
 }
 
-fn void VideoCabinet.addMovie(&self, VidMovie* movie) @public @inline
+fn void VideoCabinet.addMovie(&self, VidMovie* movie) @inline
 {
 	self.movies.push(movie);
 }
@@ -309,7 +309,7 @@ fn void? VideoCabinet.registerVideos(&self)
 }
 
 
-fn bool VideoCabinet.hasMovie(&self, String name) @public
+fn bool VideoCabinet.hasMovie(&self, String name)
 {
 	if(self.movies.len() == 0) 
 	{
@@ -328,7 +328,7 @@ fn bool VideoCabinet.hasMovie(&self, String name) @public
 }
 
 // todo return a default error video maybe?
-fn VidMovie* VideoCabinet.getMovie(&self, String vid_name) @public
+fn VidMovie* VideoCabinet.getMovie(&self, String vid_name)
 {
     foreach(movie : self.movies) 
     {

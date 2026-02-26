@@ -65,7 +65,7 @@ const Vec2f MIN_SIZE @local = {MIN_SPRIT_SIZE, MIN_SPRIT_SIZE};
 //const int DEBUG_SPRITES = 1;
 
 // Used for very special sprites only
-enum SpriteKind : const int 
+constdef SpriteKind : inline int 
 {
     GENERIC = 0,
     CURSOR,

@@ -69,74 +69,74 @@ faultdef MALFORMED_SVG_FILE,
     @param [in] node : "xml node to compare the given name with"
     @require node != null
 *>
-fn bool XmlNode.isNode(XmlNode* node, String name) @inline @local => (node.name == name) ? true : false;
+fn bool is(XmlNode* node, String name) @inline @local => (node.name == name) ? true : false;
 
 // NOTE(HM) acording to Zeal Doc this is mostly complete (minus deprecated elements)
 enum ElemID : (inline String name)
 {
-    INVALID             = "",     // not really a real svg element just used to mark invalid elements
-    ANIMATE             = "animate",
-    ANIMATEMOTION       = "animateMotion",
-    ANIMATETRANSFORM    = "animateTransform",
-    CIRCLE              = "circle",
-    CLIPPATH            = "clipPath",
-    DEFS                = "defs",
-    DESC                = "desc",
-    ELLIPSE             = "ellipse",
-    FEBLEND             = "feBlend",
-    FECOLORMATRIX       = "feColorMatrix",
-    FECOMPONENTTRANSFER = "feComponentTransfer",
-    FECOMPOSITE         = "feComposite",
-    FECONVOLVEMATRIX    = "feConvolveMatrix",
-    FEDIFFUSELIGHTING   = "feDiffuseLighting",
-    FEDISPLACEMENTMAP   = "feDisplacementMap",
-    FEDISTANTLIGHT      = "feDistantLight",
-    FEDROPSHADOW        = "feDropShadow",
-    FEFLOOD             = "feFlood",
-    FEFUNCA             = "feFuncA",
-    FEFUNCB             = "feFuncB",
-    FEFUNCG             = "feFuncG",
-    FEFUNCR             = "feFuncR",
-    FEGAUSSIANBLUR      = "feGaussianBlur",
-    FEIMAGE             = "feImage",
-    FEMERGE             = "feMerge",
-    FEMERGENODE         = "feMergeNode",
-    FEMORPHOLOGY        = "feMorphology",
-    FEOFFSET            = "feOffset",
-    FEPOINTLIGHT        = "fePointLight",
-    FESPECULARLIGHTING  = "feSpecularLighting",
-    FESPOTLIGHT         = "feSpotLight",
-    FETILE              = "feTile",
-    FETURBULENCE        = "feTurbulence",
-    FILTER              = "filter",
-    FOREIGNOBJECT       = "foreignObject",
-    G                   = "g",
-    IMAGE               = "image",
-    LINE                = "line",
-    LINEARGRADIENT      = "linearGradient",
-    MARKER              = "marker",
-    MASK                = "mask",
-    METADATA            = "metadata",
-    MPATH               = "mpath",
-    PATH                = "path",
-    PATTERN             = "pattern",
-    POLYGON             = "polygon",
-    POLYLINE            = "polyline",
-    RADIALGRADIENT      = "radialGradient",
-    RECT                = "rect",
-    SCRIPT              = "script",
-    SET                 = "set",
-    STOP                = "stop",
-    STYLE               = "style",
-    SVG                 = "svg",   // this is the root element of the svg file
-    SWITCH              = "switch",
-    SYMBOL              = "symbol",
-    TEXT                = "text",
-    TEXTPATH            = "textPath",
-    TITLE               = "title",
-    TSPAN               = "tspan",
-    USE                 = "use",
-    VIEW                = "view",
+    INVALID             {""},     // not really a real svg element just used to mark invalid elements
+    ANIMATE             {"animate"},
+    ANIMATEMOTION       {"animateMotion"},
+    ANIMATETRANSFORM    {"animateTransform"},
+    CIRCLE              {"circle"},
+    CLIPPATH            {"clipPath"},
+    DEFS                {"defs"},
+    DESC                {"desc"},
+    ELLIPSE             {"ellipse"},
+    FEBLEND             {"feBlend"},
+    FECOLORMATRIX       {"feColorMatrix"},
+    FECOMPONENTTRANSFER {"feComponentTransfer"},
+    FECOMPOSITE         {"feComposite"},
+    FECONVOLVEMATRIX    {"feConvolveMatrix"},
+    FEDIFFUSELIGHTING   {"feDiffuseLighting"},
+    FEDISPLACEMENTMAP   {"feDisplacementMap"},
+    FEDISTANTLIGHT      {"feDistantLight"},
+    FEDROPSHADOW        {"feDropShadow"},
+    FEFLOOD             {"feFlood"},
+    FEFUNCA             {"feFuncA"},
+    FEFUNCB             {"feFuncB"},
+    FEFUNCG             {"feFuncG"},
+    FEFUNCR             {"feFuncR"},
+    FEGAUSSIANBLUR      {"feGaussianBlur"},
+    FEIMAGE             {"feImage"},
+    FEMERGE             {"feMerge"},
+    FEMERGENODE         {"feMergeNode"},
+    FEMORPHOLOGY        {"feMorphology"},
+    FEOFFSET            {"feOffset"},
+    FEPOINTLIGHT        {"fePointLight"},
+    FESPECULARLIGHTING  {"feSpecularLighting"},
+    FESPOTLIGHT         {"feSpotLight"},
+    FETILE              {"feTile"},
+    FETURBULENCE        {"feTurbulence"},
+    FILTER              {"filter"},
+    FOREIGNOBJECT       {"foreignObject"},
+    G                   {"g"},
+    IMAGE               {"image"},
+    LINE                {"line"},
+    LINEARGRADIENT      {"linearGradient"},
+    MARKER              {"marker"},
+    MASK                {"mask"},
+    METADATA            {"metadata"},
+    MPATH               {"mpath"},
+    PATH                {"path"},
+    PATTERN             {"pattern"},
+    POLYGON             {"polygon"},
+    POLYLINE            {"polyline"},
+    RADIALGRADIENT      {"radialGradient"},
+    RECT                {"rect"},
+    SCRIPT              {"script"},
+    SET                 {"set"},
+    STOP                {"stop"},
+    STYLE               {"style"},
+    SVG                 {"svg"},   // this is the root element of the svg file
+    SWITCH              {"switch"},
+    SYMBOL              {"symbol"},
+    TEXT                {"text"},
+    TEXTPATH            {"textPath"},
+    TITLE               {"title"},
+    TSPAN               {"tspan"},
+    USE                 {"use"},
+    VIEW                {"view"},
 }
 
 
@@ -150,34 +150,34 @@ alias ListOfAttributes    = List{SVGAttribute*};
 // still relies on them, at lest for now.
 enum AttrID : char (String name)
 {
-    INVALID             = "",     // not really a real svg attribute just used to mark invalid ones
-    WIDTH               = "width",
-    HEIGHT              = "height",
-    VIEWBOX             = "viewBox",
-    VERSION             = "version",
-    ID                  = "id",
-    XMLSPACE            = "xml:space", // deprecated
-    XMLNSXLINK          = "xmlns:xlink",
-    XMLNS               = "xmlns",
-    XMLNSSVG            = "xmlns:svg",
-    XLINKHREF           = "xlink:href", // deprecated
-    CLIPPATHUNITS       = "clipPathUnits",
-    STYLE               = "style",
-    X                   = "x",
-    Y                   = "y",
-    TRANSFORM           = "transform",
-    CX                  = "cx",
-    CY                  = "cy",
-    RX                  = "rx",
-    RY                  = "ry",
-    D                   = "d",
-    PRESERVEASPECTRATIO = "preserveAspectRatio",
-    CLIPPATH            = "clip-path",
+    INVALID             {""},     // not really a real svg attribute just used to mark invalid ones
+    WIDTH               {"width"},
+    HEIGHT              {"height"},
+    VIEWBOX             {"viewBox"},
+    VERSION             {"version"},
+    ID                  {"id"},
+    XMLSPACE            {"xml:space"}, // deprecated
+    XMLNSXLINK          {"xmlns:xlink"},
+    XMLNS               {"xmlns"},
+    XMLNSSVG            {"xmlns:svg"},
+    XLINKHREF           {"xlink:href"}, // deprecated
+    CLIPPATHUNITS       {"clipPathUnits"},
+    STYLE               {"style"},
+    X                   {"x"},
+    Y                   {"y"},
+    TRANSFORM           {"transform"},
+    CX                  {"cx"},
+    CY                  {"cy"},
+    RX                  {"rx"},
+    RY                  {"ry"},
+    D                   {"d"},
+    PRESERVEASPECTRATIO {"preserveAspectRatio"},
+    CLIPPATH            {"clip-path"}
 }
 
-enum AttrType : const char
+constdef AttrType : inline char
 {
-    INT,
+    INT = 0,
     FLOAT,
     STRING,
     VEC2,
@@ -362,7 +362,7 @@ fn bool? SVGData.load(&self)
         return SVG_LOAD_ERROR~;
     }
 
-    if(self.parse(svg_file) == false) {
+    if(parse_svg(self, svg_file) == false) {
         return SVG_PARSING_ERROR~;
     }
     
@@ -373,7 +373,7 @@ fn bool? SVGData.load(&self)
     @param [in] doc : "the svg file document to parse"
     @require doc != null
 *>
-fn bool SVGData.parse(&self, SVGFile* doc) @local
+fn bool parse_svg(SVGData* self, SVGFile* doc) @local
 {
     bool invalid_svg = (doc.rootNode.name == "" && doc.rootNode.name != ElemID.SVG.name);
     if(invalid_svg)
@@ -423,7 +423,7 @@ fn void register_SVGElemNode_data(SVGElemNode* svgElemNode, SVGData* svgfile)
     {
         foreach (node : svgElemNode.children)
         {
-            if(node == null || node.isNode(ElemID.INVALID)) continue;
+            if(node == null || is(node, ElemID.INVALID)) continue;
             register_SVGElemNode_data((SVGElemNode*)node, svgfile);
         }
     }
@@ -452,10 +452,10 @@ fn void get_node_Attributes(XmlNode* node, SVGData* svgfile, SVGElement* inElem 
 
 enum TransfType : char (inline String str)
 {
-    NONE      = "none",
-    ROTATE    = "rotate",
-    TRANSLATE = "translate",
-    SCALE     = "scale"
+    NONE      {"none"},
+    ROTATE    {"rotate"},
+    TRANSLATE {"translate"},
+    SCALE     {"scale"}
 }
 
 <*

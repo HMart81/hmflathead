@@ -112,7 +112,7 @@ Manager* assetManager = &local_manager;
 	@param [inout] asset : "the asset to register, must be a pointer to an Asset struct of a supported type, like Asset{RLTexture2D}* for example."
 	@require asset.ptr != null
 *>
-fn void Manager.register(&self, any asset) @local
+fn void Manager.register(&self, any asset)
 {
     /*if(asset.ptr == null) {
         log::error(FILE, "Trying to register a null asset, skipping it.");

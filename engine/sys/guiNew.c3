@@ -190,7 +190,7 @@ struct UIRect
     }
 }
 
-fn RLRectangle UIRect.toRLRectangle(&self) @public @inline @nodiscard => { self.pos.x, self.pos.y, self.size.x, self.size.y };
+fn RLRectangle UIRect.toRLRectangle(&self) @inline @nodiscard => { self.pos.x, self.pos.y, self.size.x, self.size.y };
 
 struct UIRectangleColors @packed
 {
@@ -265,7 +265,7 @@ fn void UIRectangle.initV(&self, Vec2f pos, Vec2f size, UIRectangleColors colors
     self.initQuad({pos, {size.x, size.y}}, colors);
 }
 
-fn void UIRectangle.setcolors(&self, UIRectangleColors colors) @inline @public
+fn void UIRectangle.setcolors(&self, UIRectangleColors colors) @inline 
 {
     self.color = colors;
 }

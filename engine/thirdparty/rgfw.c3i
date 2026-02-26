@@ -62,7 +62,7 @@ const RGFW_bool FALSE @local = 0;
 const RGFW_bool TRUE  @local = 1;
 
 /* for RGFW_event.lockstate */
-enum RGFW_keymod : const CUChar 
+constdef RGFW_keymod : inline CUChar 
 {
 	CAPSLOCK   = @bit(0),
 	NUMLOCK    = @bit(1),
@@ -278,7 +278,7 @@ fn RGFW_window* createWindowPtr(ZString name, RGFW_rect rect, RGFW_WindowFlags f
 *>
 fn RGFW_bool RGFW_window.setIcon(RGFW_window* win, CUChar* icon, RGFW_area area, int channels) @cname("RGFW_window_setIcon");
 
-enum RGFW_icon : const CUChar 
+constdef RGFW_icon : inline CUChar 
 {
 	TASKBAR = @bit(0),
 	WINDOW  = @bit(1),

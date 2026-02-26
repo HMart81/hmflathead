@@ -302,6 +302,6 @@ fn void BoidManager.resume(&self) @inline {
 	self.paused = false;
 }
 
-fn Vec2f Vec2f.add(self, Vec2f v) @local @inline { return {self.x+v.x, self.y+v.y}; }
+fn Vec2f _add(Vec2f* self, Vec2f v) @local @inline { return {self.x+v.x, self.y+v.y}; }
 
-fn Vec2f Vec2f.div_n(self, float n) @local @inline { return {self.x/n, self.y/n}; }
+fn Vec2f _div_n(Vec2f* self, float n) @local @inline { return {self.x/n, self.y/n}; }

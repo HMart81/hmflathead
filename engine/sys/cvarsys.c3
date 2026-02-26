@@ -81,7 +81,7 @@ const int FLAG_MODIFIED			= @bit(18);	// set when the variable is modified
 */
 
 // todo(HM) replace this with the cvar flags
-enum CvarType : const char
+constdef CvarType : inline char
 {
     NONE = 0,
     BOOL,

@@ -120,7 +120,7 @@ macro Vec2f Anchor.mulScalerEqual(self, float sc) @operator(*=)
 }
 */
 
-module engine::tools::editor;
+module engine::tools::editor @private;
 
 import std::io, std::ascii, std::collections::list;
 import engine::gui;
@@ -137,7 +137,7 @@ const CInt CONSOLE_INPUT_MAX_LINE_LENGTH @local = 1024;
 
 CVar con_debug @public = { "con_debug", CvarType.BOOL, "0", "enables console debugging mode"};
 
-fn void register_cvars() @inline
+fn void register_cvars() @public @inline
 {
     cvar::@register(&con_debug);
 }
@@ -197,7 +197,8 @@ struct EditorFlags @local
     bool is_dockable;
 }
 
-struct Editor {
+struct Editor @public
+{
     EditorFlags flags;
 
     RLColor background_color;
@@ -443,7 +444,7 @@ fn void Editor.setUndockable(&self) @inline
 //    If the 2D camera view is changed in any way besides moving in x and y
 //    like if the camera is zoomed or the camera is rotated, this will break.
 //    it will require conversion from world space coordinates to camera space.
-fn bool Editor.isMouseOver(&self) @local
+fn bool Editor.isMouseOver(&self)
 {
     if (self.isVisible() == false) return false;
 

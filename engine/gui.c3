@@ -142,7 +142,7 @@ fn Vec2f getAnchorVecPosFrom(GuiAnchorType type, RenderView view) @inline
 }
 */
 
-enum PanelShape : const inline int
+constdef PanelShape : inline int
 {
     BOX,
     ROUNDED_BOX // with rounded corners (unused right now)
@@ -728,7 +728,7 @@ fn void Widget.deinit(&self) @dynamic
     self.super.deinit();
 }
 
-fn void Widget.editor_interactions(&self) @local
+fn void Widget.editor_interactions(&self)
 {
     // when in gui edit mode, we can select widgets with the mouse
     // and they should all be set to not active, as that is part of
@@ -799,7 +799,7 @@ fn RLColor selected_color_anim(Widget* wgt) @inline @local
  @param [in] wgt : "widget to draw the origin coordinates for"
  @require wgt != null
 *>
-fn void Widget.draw_origin_coordinates(Widget* wgt) @local @inline 
+fn void Widget.draw_origin_coordinates(Widget* wgt) @inline 
 {
     if(!wgt.selected) return;
     
@@ -1117,7 +1117,7 @@ fn void WidgetText.deinit(&self) @inline
 	Updates the bounds of the text widget based on the current text and font.
 	@require self.text != ""
 *>
-fn void WidgetText.updateBounds(&self) @local 
+fn void WidgetText.updateBounds(&self)
 {
 	// if custom font is set use it to measure text bounds
     if(self.font != null) {
@@ -1312,7 +1312,7 @@ fn void WidgetButton.onEnterKey(&self) @inline {
 }
 */
 
-fn void WidgetButton.manage_interactions(&self) @local 
+fn void WidgetButton.manage_interactions(&self)
 {
     if (self.active() == false) return;
 
@@ -2156,7 +2156,7 @@ fn void Desktop.draw(&self, int time) {
 	}
 }
 
-fn void Desktop.addChild(&self, Widget* child) @inline @local 
+fn void Desktop.addChild(&self, Widget* child) @inline 
 {
     self.children.push(child);
 }
@@ -2251,7 +2251,7 @@ fn void Desktop.debug(&self)
 
 //////////////////////////////////// DESKTOP MANAGER //////////////////////////////////////
 
-enum GUIMode : const int
+constdef GUIMode : inline int
 {
     NORMAL = 1,
     EDITOR

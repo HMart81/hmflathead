@@ -333,7 +333,7 @@ extern fn int LUAState.version(&self) @cname("lua_version");
 
 extern fn void LUAState.openlibs(&self) @cname("luaL_openlibs");
 
-extern fn int LUAState.loadfilex(&self, ZString filename, ZString mode) @local @cname("luaL_loadfilex");
+extern fn int loadfilex(LUAState* state, ZString filename, ZString mode) @local @cname("luaL_loadfilex");
 
 // WARNING(HM):
 // loadfile loads the file's contents as a chunk but DOES NOT EXECUTE IT, 
@@ -344,7 +344,7 @@ extern fn int LUAState.loadfilex(&self, ZString filename, ZString mode) @local @
 //  meaning no variables are assigned or functions are run.
 // To run the loaded script code, you need to call pcall() after this.
 // And then after you can inspect the stack for any variables or functions defined in the script.
-macro LUAState.@loadfile(&self, #f) =>	self.loadfilex(#f.zstr_tcopy(), null);
+macro LUAState.@loadfile(&self, #f) => loadfilex(self, #f.zstr_tcopy(), null);
 
 extern fn int LUAState.loadstring(&self, ZString s) @cname("luaL_loadstring");
 

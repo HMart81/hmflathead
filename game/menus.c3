@@ -215,7 +215,7 @@ fn void exit()
     @param [&in] bdef : "button callbacks definition struct pointer"
     @ensure return != null : "pointer to the created checkbox"
 *>
-fn WidgetCheckBox* Desktop.create_menu_checkbox(&self, String text, MenuButtonDef* bdef) @local @inline 
+fn WidgetCheckBox* Desktop.create_menu_checkbox(&self, String text, MenuButtonDef* bdef) @inline 
 {
     WidgetCheckBox* checkbox = gui::createCheckBox("Checkbox 1");
     checkbox.setColor(rl::DARKGRAY);
@@ -264,7 +264,7 @@ fn void init_checkbox(WidgetCheckBox* chk, String name, String label, MenuButton
     if(chk.onLoad) chk.onLoad(chk);
 }
 
-fn WidgetText* Desktop.create_menu_label(&self, String text, RLFont* font, int font_size, RLColor color) @local @inline 
+fn WidgetText* Desktop.create_menu_label(&self, String text, RLFont* font, int font_size, RLColor color) @inline 
 {
     WidgetText* label = gui::createLabel(text, font, font_size, color);
     Desktop* desktop = self;

@@ -496,7 +496,7 @@ fn RLKeyboardKey getKeyCodeFromStr(String name) @inline
 *>
 fn Action* getAction(String name) @inline 
 {
-    return local_manager.getActionByName(name);
+    return _getActionByName(&local_manager, name);
 }
 
 fn void removeAction(String name) @inline 
@@ -627,7 +627,7 @@ fn String getKeyboardKeyName(RLKeyboardKey k)
 
 fn void listActions() @inline 
 {
-    local_manager.listActions();
+    _listActions(&local_manager);
 }
 
 fn String getMouseBtnName(RLMouseButton btn) @inline @local 
@@ -707,11 +707,11 @@ fn void ActionManager.register(&self, Action* action) @inline
 	@param name : "the name of the action to retrieve"
 	@require name != ""
 *>
-fn Action* ActionManager.getActionByName(&self, String name) @inline @local @nodiscard
+fn Action* _getActionByName(ActionManager* actdb, String name) @inline @local @nodiscard
 {
     if(name == "") return null;
     
-    foreach(action : self.actions) {
+    foreach(action : actdb.actions) {
         if(action.name == name) {
             return action;
         }
@@ -735,12 +735,12 @@ fn ActionQueue ActionManager.getActionsByKind(&self, ActionKind kind) @inline {
     return actions;
 }
 
-fn void ActionManager.unregister(&self, Action* action) @inline @local {
+fn void _unregister_action(ActionManager* actdb, Action* action) @inline @local {
     if(action == null) return;
     
-    foreach(act : self.actions) {
+    foreach(act : actdb.actions) {
         if(act.name == action.name) {
-            self.actions.remove_item(act);
+            actdb.actions.remove_item(act);
             act = null;
             return;
         }
@@ -748,7 +748,7 @@ fn void ActionManager.unregister(&self, Action* action) @inline @local {
 }
 
 fn void ActionManager.remove(&self, Action* action) @inline {
-    self.unregister(action);
+    _unregister_action(self, action);
 }
 
 fn void ActionManager.update(&self) 
@@ -774,11 +774,11 @@ fn void ActionManager.free(&self)
     self.actions.free();
 }
 
-fn void ActionManager.listActions(&self) @local @inline
+fn void _listActions(ActionManager* actdb) @local @inline
 {
-    if(self.actions.len()) {
+    if(actdb.actions.len()) {
         log::info(FILE, "[ KEY ACTIONS ]");
-        foreach(action: self.actions) {
+        foreach(action: actdb.actions) {
            log::info(FILE, "\t-> \"%s\" : {%s, %s},", action.name, getKeyboardKeyName(action.keyboard.key1), getKeyboardKeyName(action.keyboard.key2));
         }
         log::info(FILE, "[ END ACTIONS ]]");

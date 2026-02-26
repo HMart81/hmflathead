@@ -90,9 +90,8 @@ alias SectionListPtr = List{IniSection}*;
  @param [in] key : `The cmd name`
  @param [&in] inifile : `The ini file data`
  @require key != ""
- @deprecated
 *>
-fn String getIniKey(String key, ConfigFile* inifile) {
+fn String getIniKey(String key, ConfigFile* inifile)  @deprecated {
     foreach(section : inifile.sections) {
         foreach(inicmd : section.cmds) {
             if(inicmd.cmd.first == key) {
@@ -163,7 +162,7 @@ struct ConfigFile {
 <*
   @param [&in] section : "a new section adress to save into the section adresses list"
 *>
-fn void ConfigFile.register(&self, IniSection* section) @local @inline {
+fn void ConfigFile.register(&self, IniSection* section) @inline {
     self.sections.push(section);
 }
 
@@ -171,7 +170,7 @@ fn void ConfigFile.register(&self, IniSection* section) @local @inline {
   @param [in] name : " name of the new section to create"
   @ensure return != null
 *>
-fn IniSection* ConfigFile.createSection(&self, String name) @local @nodiscard
+fn IniSection* ConfigFile.createSection(&self, String name) @nodiscard
 {
     if(self.hasSection(name)) {
         log::warning(FILE, "Section %s already exists in config file %s.", name, self.path);
@@ -188,7 +187,7 @@ fn IniSection* ConfigFile.createSection(&self, String name) @local @nodiscard
     @UNTESTED
     @param [&in] section : "the new section to save into the file"
 *>
-fn void ConfigFile.addSection(&self, IniSection* section) @local @inline 
+fn void ConfigFile.addSection(&self, IniSection* section) @inline 
 {
     if(self.hasSection(section.name)) {
         log::warning(FILE, "Cant add section %s already exists in config file %s.", section.name, self.path);
@@ -227,7 +226,7 @@ fn void ConfigFile.addSection(&self, IniSection* section) @local @inline
 <*
   @param [in] name : " name of the new section to get"
 *>
-fn IniSection* ConfigFile.getSection(&self, String name) @local 
+fn IniSection* ConfigFile.getSection(&self, String name) 
 {
     foreach(section : self.sections) {
         if(section.name == name) {
@@ -245,7 +244,7 @@ fn IniSection* ConfigFile.getSection(&self, String name) @local
 <*
   @param [in] name : " name of the new section to look for"
 *>
-fn bool ConfigFile.hasSection(&self, String name) @local 
+fn bool ConfigFile.hasSection(&self, String name)
 {
     foreach(section : self.sections) {
         if(section.name == name) {
@@ -293,7 +292,7 @@ fn void ConfigFile.addToSection(&self, IniSection* section, IniCMD* cmd)
     self.markModified(); // mark the config as modified
 }
 
-fn void ConfigFile.freeChildSections(&self) @local
+fn void ConfigFile.freeChildSections(&self)
 {
     foreach(section : self.sections) {
         if(section.isLinked()) {
@@ -302,7 +301,7 @@ fn void ConfigFile.freeChildSections(&self) @local
     }
 }
 
-fn void ConfigFile.markModified(&self) @local => self.flags.is_modified = true;
+fn void ConfigFile.markModified(&self) => self.flags.is_modified = true;
 fn bool ConfigFile.isModified(&self) => self.flags.is_modified;
 
 <*
@@ -310,7 +309,7 @@ fn bool ConfigFile.isModified(&self) => self.flags.is_modified;
  @param [in] default_value : `The fallback value`
  @require key != ""
 *>
-fn String ConfigFile.getValue(&self, String key, String default_value = "") @local
+fn String ConfigFile.getValue(&self, String key, String default_value = "")
 {
    ListIniCMDPrts* cmds;
 
@@ -550,7 +549,7 @@ fn bool ConfigFile.sectionHasValue(&self, String section_name, String key)
  @param key : `The cmd name`
  @require key != ""
 *>
-fn void ConfigFile.setValue(&self, String key, String value) @local
+fn void ConfigFile.setValue(&self, String key, String value)
 {
    ListIniCMDPrts* cmds;
 
@@ -691,27 +690,28 @@ struct IniSection {
 <*
   @param [&in] cmd : "a new cmd adress to save into the cmd adresses list"
 *>
-fn void IniSection.register(&self, IniCMD* cmd) @local @inline {
+fn void IniSection.register(&self, IniCMD* cmd) @inline {
     self.cmds.push(cmd);
 }
 
 <*
-  @param [&in] other : "pointer to another section"
+  	@param [&in] other : "pointer to another section to link to the first one"
 *>
-fn void IniSection.link(&self, IniSection* other) @local @inline {
+fn void IniSection.link(&self, IniSection* other) @inline {
     self.next   = other;
     self.linked = true;
 }
 
-fn bool IniSection.isLinked(&self) @local @inline {
+fn bool IniSection.isLinked(&self) @inline {
     return self.linked;
 }
 
-fn bool IniSection.hasChild(&self) @local @inline {
+fn bool IniSection.hasChild(&self) @inline {
     return self.isLinked();
 }
 
-fn void IniSection.freeChild(&self) @local @inline {
+// for now only one child section is supported, but in the future we can change this to support multiple child sections if needed
+fn void IniSection.freeChild(&self) @inline {
     if(!self.isLinked()) return;
     
     // first free the child section cmds data if any

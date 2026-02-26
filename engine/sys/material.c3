@@ -246,7 +246,7 @@ struct NewStage @if($defined(NEW_MATERAL_SYSTEM)) @public
     StageArgument[MAX_STAGE_ARGS] args; // array of arguments for this stage
 }
 
-fn void NewStage.init(&self, MatStageIndex _type = STAGE_DIFFUSE, int _lighting = SL_DIFFUSE) @public @if($defined(NEW_MATERAL_SYSTEM))
+fn void NewStage.init(&self, MatStageIndex _type = STAGE_DIFFUSE, int _lighting = SL_DIFFUSE) @if($defined(NEW_MATERAL_SYSTEM))
 {
     //self.tex = rl::INVALID_TEXTURE;
     self.type = _type; // invalid type
@@ -256,7 +256,7 @@ fn void NewStage.init(&self, MatStageIndex _type = STAGE_DIFFUSE, int _lighting 
     //self.args.clear();
 }
 
-fn void NewStage.free(&self) @public @if($defined(NEW_MATERAL_SYSTEM))
+fn void NewStage.free(&self) @if($defined(NEW_MATERAL_SYSTEM))
 {
     if(rl::isTextureValid(self.tex) || self.tex != rl::INVALID_TEXTURE) {
         rl::unloadTexture(self.tex);
@@ -273,7 +273,7 @@ fn void NewStage.free(&self) @public @if($defined(NEW_MATERAL_SYSTEM))
 
 
 // contents flags used to mark entities in the game, max 31 bits
-enum Contents : int (inline int flag)
+constdef Contents : inline int
 {
 	SOLID				= misc::@bit(0),	// an eye is never valid in a solid
 	OPAQUE				= misc::@bit(1),	// blocks visibility (for ai)
@@ -342,20 +342,20 @@ struct HMaterial  (SaveSystemInterface) @public
     MTRFile* mtrfile;  // pointer to mtr data in memory where this material is defined
 }
 
-fn void HMaterial.save(&self, SaveFile* file) @dynamic @public {
+fn void HMaterial.save(&self, SaveFile* file) @dynamic {
     @todo();
 }
 
-fn void HMaterial.reload(&self, SaveFile* file) @dynamic @public {
+fn void HMaterial.reload(&self, SaveFile* file) @dynamic {
     @todo();
 }
 
-fn void HMaterial.init(&self) @public
+fn void HMaterial.init(&self)
 {
 	//self.coverage |= COVERAGE_OPAQUE;
     // TODO(HM) solve this stuff with c3 enums not being able to be used as flags
     // use constants instead of enums for this?
-    self.contentes |= (Contents.SOLID.flag | Contents.OPAQUE.flag);
+    self.contentes |= (Contents.SOLID | Contents.OPAQUE);
     self.comment  = "<no comment>";
 
     // diffuse stage is the only one supported for now
@@ -383,7 +383,7 @@ fn void HMaterial.init(&self) @public
     //self.shader = game::getDefaultShaderCopy();
 }
 
-fn void HMaterial.free(&self) @public
+fn void HMaterial.free(&self)
 {
 	foreach(stage : self.maps) stage.clear();
     if(self.mtrfile) self.mtrfile = null;
@@ -399,7 +399,7 @@ fn void HMaterial.free(&self) @public
 }
 
 // TODO(HM) make this print a more detailed material info
-fn void HMaterial.print(self) @public //@local
+fn void HMaterial.print(self)
 {
     RLColor color = self.getStage(mat::STAGE_DIFFUSE).color;
     RLTexture2D* tex = &self.getStage(mat::STAGE_DIFFUSE).tex;
@@ -415,12 +415,12 @@ fn void HMaterial.print(self) @public //@local
     }
 }
 
-fn void HMaterial.setShader(&self, RLShader shader) @inline @public
+fn void HMaterial.setShader(&self, RLShader shader) @inline
 {
     self.shader = shader;
 }
 
-fn void HMaterial.setCoverage(&self, Coverage cv) @public
+fn void HMaterial.setCoverage(&self, Coverage cv)
 {
     if(self.coverage & cv) return;
 
@@ -489,7 +489,7 @@ fn void HMaterial.copy(&self, HMaterial* other)
  @param index : "stage index to get the necessary texture data." 
  @require index >= 0 && index < MAX_STAGE_INDICES
 *>
-fn MaterialStage* HMaterial.getStage(&self, MatStageIndex index) @inline @public
+fn MaterialStage* HMaterial.getStage(&self, MatStageIndex index) @inline
 {
     return &self.maps[index];
 }
@@ -500,7 +500,7 @@ fn MaterialStage* HMaterial.getStage(&self, MatStageIndex index) @inline @public
     @require index >= 0 && index < MAX_STAGE_INDICES
     @param isPBR : "if true, will get the PBR texture, otherwise will get the standard texture"
 *>
-fn RLTexture2D* HMaterial.getTexture(&self, MatStageIndex index, bool isPBR = false) @public
+fn RLTexture2D* HMaterial.getTexture(&self, MatStageIndex index, bool isPBR = false)
 {
     switch(index)
     {
@@ -541,7 +541,7 @@ fn String HMaterial.defaultDefinition(self) @inline
 <*
     @param [&in] node : "current node we are parsing"
 *>
-fn void HMaterial.parse_node_atributes(&self, XmlNode* node) @public
+fn void HMaterial.parse_node_atributes(&self, XmlNode* node)
 {
     if(node.hasAttributes() == false) return;
 
@@ -565,7 +565,7 @@ fn void HMaterial.parse_node_atributes(&self, XmlNode* node) @public
 <*
     @param [&in] stage_node : "xml node we are currently parsing"
 *>
-fn void HMaterial.parse_stage(&self, XmlNode* stage_node) @public
+fn void HMaterial.parse_stage(&self, XmlNode* stage_node)
 {
 @off() 
 {
@@ -679,7 +679,7 @@ fn void HMaterial.parse_stage(&self, XmlNode* stage_node) @public
     Todo(HM): deprecate this in the future, use parse_stage instead. 
     @param [&in] maps_node : "node we are currently parsing"
 *>
-fn void HMaterial.parse_maps(&self, XmlNode* maps_node) @public
+fn void HMaterial.parse_maps(&self, XmlNode* maps_node)
 {
     foreach(node: maps_node.children)
     {
@@ -763,7 +763,7 @@ fn void HMaterial.parse_maps(&self, XmlNode* maps_node) @public
 <*
     @param [&in] node : "node to get data from"
 *>
-fn void HMaterial.parse_comment(&self, XmlNode* node) @inline @public
+fn void HMaterial.parse_comment(&self, XmlNode* node) @inline
 {
     String str  = node.getText();
     if(str != "") self.comment = str.tcopy();
@@ -772,7 +772,7 @@ fn void HMaterial.parse_comment(&self, XmlNode* node) @inline @public
 <*
     @param [&in] node : "node to get data from"
 *>
-fn void HMaterial.parse_keyword(&self, XmlNode* node) @public
+fn void HMaterial.parse_keyword(&self, XmlNode* node)
 {
     String keyword = node.getText();
     if(keyword.is_empty()) {
@@ -840,7 +840,7 @@ fn void HMaterial.parse_keyword(&self, XmlNode* node) @public
 <*
     @param [&in] node : "node to get data from"
 *>
-fn void HMaterial.parse_sound(&self, XmlNode* node) @inline @public
+fn void HMaterial.parse_sound(&self, XmlNode* node) @inline
 {
    self.parse_node_atributes(node);
             
@@ -1141,16 +1141,16 @@ fn void HMaterial.parse_uniform(&self, XmlNode* child, RLShader* shader)
                     {
                         case RLShdUniTyp.FLOAT:
                             float f = atrb.value.to_float()!!;
-                            shader.setValue(loc, (void*)&f, RLShdUniTyp.FLOAT.ordinal);
+                            shader.setValue(loc, (void*)&f, RLShdUniTyp.FLOAT);
                         case RLShdUniTyp.VEC2:
                             Vec2f vec2 = getVector2FromString(atrb.value);
-                            shader.setValueV(loc, (void*)&&((float[2]){vec2.x, vec2.y}), RLShdUniTyp.VEC2.ordinal, 1);
+                            shader.setValueV(loc, (void*)&&((float[2]){vec2.x, vec2.y}), RLShdUniTyp.VEC2, 1);
                         case RLShdUniTyp.VEC3:
                             Vec3f vec3 = getVector3FromString(atrb.value);
-                            shader.setValueV(loc, (void*)&&((float[3]){vec3.x, vec3.y, vec3.z}), RLShdUniTyp.VEC3.ordinal, 1);
+                            shader.setValueV(loc, (void*)&&((float[3]){vec3.x, vec3.y, vec3.z}), RLShdUniTyp.VEC3, 1);
                         case RLShdUniTyp.VEC4:
                             Vec4f vec4 = getVector4FromString(atrb.value);
-                            shader.setValueV(loc, (void*)&&((float[4]){vec4.x, vec4.y, vec4.z, vec4.w}), RLShdUniTyp.VEC4.ordinal, 1);
+                            shader.setValueV(loc, (void*)&&((float[4]){vec4.x, vec4.y, vec4.z, vec4.w}), RLShdUniTyp.VEC4, 1);
                         case RLShdUniTyp.SAMPLER2D:
                             RLTexture2D tex = *astmng::assetManager.getTexture(atrb.value);
                             if(!rl::isTextureValid(tex)) {
@@ -1181,7 +1181,7 @@ fn void HMaterial.parse_uniform(&self, XmlNode* child, RLShader* shader)
 <*
     @param [&in] node : "node to get data from"
 *>
-fn void HMaterial.parse_shader(&self, XmlNode* node) @public
+fn void HMaterial.parse_shader(&self, XmlNode* node)
 {
     String shader_path = (String)node.getAttribute(NodeAttrib.PATH).value;
     if(shader_path.is_empty()) {
@@ -1353,23 +1353,23 @@ faultdef MTR_INVALID_PATH,
 // NOTE(HM) This represents every usefull node in the mtr xml file 
 enum Node : int (inline String str) @public
 {
-    ROOT             = "MTR",
-    TEXT             = "#text",
-    MATERIAL         = "MATERIAL",
-    COMMENT          = "comments",
-    MAPS             = "maps",
-    MAP              = "map",
-    BLEND            = "blend", // used for blending two textures together
-    VIDEO_MAP        = "video_map",
-    KEYWORD          = "keyword", // global or stage keywords
-    COLOR            = "color",
-    ALBEDO           = "albedo",
-    NORMAL           = "normal",
-    SPECULAR         = "specular",
-    SOUND            = "sound",
-    SHADER           = "shader",
-    VERTEX_ATTRIBUTE = "vertex_attribute",
-    UNIFORM          = "uniform"
+    ROOT             {"MTR"},
+    TEXT             {"#text"},
+    MATERIAL         {"MATERIAL"},
+    COMMENT          {"comments"},
+    MAPS             {"maps"},
+    MAP              {"map"},
+    BLEND            {"blend"}, // used for blending two textures together
+    VIDEO_MAP        {"video_map"},
+    KEYWORD          {"keyword"}, // global or stage keywords
+    COLOR            {"color"},
+    ALBEDO           {"albedo"},
+    NORMAL           {"normal"},
+    SPECULAR         {"specular"},
+    SOUND            {"sound"},
+    SHADER           {"shader"},
+    VERTEX_ATTRIBUTE {"vertex_attribute"},
+    UNIFORM          {"uniform"}
 }
 
 <*
@@ -1380,34 +1380,34 @@ fn bool isXmlNode(XmlNode* node, Node kind) @inline @public => (node.name == kin
 enum NodeKeyword : int (inline String str) @public
 {
     // general
-    TRANSLUCENT    = "translucent",
-    CLAMP          = "clamp",
-    ALPHAZEROCLAMP = "alphazeroclamp",   // prevents the alpha channel of this material from tiling by forcing 100% opacity outside normalized UV coordinates
-    SORT           = "sort",             // used to sort materials by their sort value, lower values are rendered first
-    ALPHA          = "alpha",
-    TILE_H         = "tileH",
-    TILE_V         = "tileV",
-    SCROLL_X       = "scrollX",
-    SCROLL_Y       = "scrollY",
-    TRANSLATE_X    = "translateX",
-    TRANSLATE_Y    = "translateY",
+    TRANSLUCENT    {"translucent"},
+    CLAMP          {"clamp"},
+    ALPHAZEROCLAMP {"alphazeroclamp"},   // prevents the alpha channel of this material from tiling by forcing 100% opacity outside normalized UV coordinates
+    SORT           {"sort"},             // used to sort materials by their sort value, lower values are rendered first
+    ALPHA          {"alpha"},
+    TILE_H         {"tileH"},
+    TILE_V         {"tileV"},
+    SCROLL_X       {"scrollX"},
+    SCROLL_Y       {"scrollY"},
+    TRANSLATE_X    {"translateX"},
+    TRANSLATE_Y    {"translateY"},
 }
 
 // NOTE(HM) This represents the atributes assigned to a xml node
 enum NodeAttrib : int (inline String str) @public
 {
     // general
-    NAME        = "name",
-    VERSION     = "version",
-    PATH        = "path",
-    KIND        = "kind",
-    BLEND_MODE  = "mode", // used for blending modes in the material
+    NAME        {"name"},
+    VERSION     {"version"},
+    PATH        {"path"},
+    KIND        {"kind"},
+    BLEND_MODE  {"mode"}, // used for blending modes in the material
 
     // shader specific
-    LOCATION    = "loc", // shader location for the attribute
-    VALUE       = "value", // used for vertex attributes and uniforms
-    TYPE        = "type", // used for vertex attributes and uniforms
-    ID          = "id", // used for uniforms
+    LOCATION    {"loc"}, // shader location for the attribute
+    VALUE       {"value"}, // used for vertex attributes and uniforms
+    TYPE        {"type"}, // used for vertex attributes and uniforms
+    ID          {"id"}, // used for uniforms
 }
 
 // NOTE(HM) This is the data structure represents a material file, it contains a list of materials and their data
@@ -1418,14 +1418,14 @@ struct MTRFile @public
     MaterialList mats;  // list of materials in this file.
 }
 
-fn void MTRFile.init(&self, String path) @inline @public
+fn void MTRFile.init(&self, String path) @inline
 {
     self.path = path.tcopy();
     self.version = MTR_VERSION_STRING;
     self.mats.reserve(MAX_MATERIALS_PER_FILE);
 }
 
-fn void MTRFile.unload(&self) @inline @public
+fn void MTRFile.unload(&self) @inline
 {
     if(self.mats.len() == 0) return; // nothing to unload
 
@@ -1436,7 +1436,7 @@ fn void MTRFile.unload(&self) @inline @public
 <*
     @param [&in] mat : "material to register"
 *>
-fn void MTRFile.register(&self, HMaterial* mat) @inline @public
+fn void MTRFile.register(&self, HMaterial* mat) @inline
 {
     if(self.mats.len() >= MAX_MATERIALS_PER_FILE) {
         log::error(Where.FILE, "Maximum number of materials per mtr file reached (%d), cannot register material '%s' in file '%s'.", MAX_MATERIALS_PER_FILE, mat.name, self.path);
@@ -1447,7 +1447,7 @@ fn void MTRFile.register(&self, HMaterial* mat) @inline @public
 
 // @Performance This will probably be very slow with many materials...
 // TODO(HM) make this faster by using a hash table
-fn HMaterial* MTRFile.findMaterial(&self, String name) @inline @public
+fn HMaterial* MTRFile.findMaterial(&self, String name) @inline
 {
 	foreach(mat: self.mats) {
 		if(mat.name == name) return mat;
@@ -1457,7 +1457,7 @@ fn HMaterial* MTRFile.findMaterial(&self, String name) @inline @public
 }
 
 
-fn void MTRFile.printMaterials(&self) @inline @public
+fn void MTRFile.printMaterials(&self) @inline
 {
     // Remove the comments if you want to print the materials in the console.
     /*
@@ -1470,7 +1470,7 @@ fn void MTRFile.printMaterials(&self) @inline @public
     */
 }
 
-fn bool? MTRFile.load(&self, File file) @inline @public
+fn bool? MTRFile.load(&self, File file) @inline
 {
     XmlDoc*? doc = xml::read_file(file);
     defer doc.free()!!;
@@ -1746,13 +1746,6 @@ struct MaterialDataBase @public
     MTR_FileList data;
 }
 
-
-fn HMaterial* MaterialDataBase.getMaterial(&self, String material_name) @local
-{
-    return getMaterial(material_name);
-}
-
-
 faultdef INVALID_PATH_STRING,
 	     MALFORMED_MTR_FILE,
 	     UNKNOWN_FOLDER,
@@ -1833,7 +1826,7 @@ fn void? load_mtr_files(String search_path, MaterialDataBase* database) @local
             }
 			
             // every thing was fine, so save the mtr file, in material files database
-            database.register(mtr_file);
+            _register(database, mtr_file);
 		}
         
 		//continue to next file
@@ -1850,7 +1843,7 @@ fn void? loadMaterialFilesTo(MaterialDataBase* db) @inline @public
 	load_mtr_files(material_folder, db)!!;
 
     // see if we have a default material file, if not create one
-    if(db.getMaterial("default_material") == null)
+    if(mtrmng::getMaterial("default_material") == null)
     {
         // TODO(HM) Makes this use the default material definition
         // from the HMaterial.defaultDefinition() function
@@ -1898,14 +1891,14 @@ fn HMaterial* getMaterial(String material_name) @public
 }
 
 <*
- @param [inout] mtr : "the mtr file to register"
- @require mtr != null
+	@param [&in] db : "the material database to register the mtr file in"
+	@param [&inout] mtr : "the mtr file to register"
 *>
-fn void MaterialDataBase.register(&self, MTRFile* mtr) @local @inline {
-	self.data.push(mtr);
+fn void _register(MaterialDataBase* db, MTRFile* mtr) @local @inline {
+	db.data.push(mtr);
 }
 
-fn void MaterialDataBase.listMTRs(&self) @public 
+fn void MaterialDataBase.listMTRs(&self)
 {
     $if $feature(_DEBUG):
         if(self.data.len())
@@ -1926,7 +1919,7 @@ fn void MaterialDataBase.listMTRs(&self) @public
 // This is done this way, because I don't have many mtr files in this game, for now,
 // if that ever changes someday, I will have to refactor all of this.
 // For now getting them hot from RAM, is faster then reading the data from the HD/SSD/MD2 drive.
-fn void MaterialDataBase.clear(&self) @inline @public
+fn void MaterialDataBase.clear(&self) @inline
 {
 	if(self.data.len()) 
     {

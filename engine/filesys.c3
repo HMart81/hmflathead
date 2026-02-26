@@ -491,17 +491,17 @@ import engine::logging::log;
 const PERSONAL_FOLDER_MY_GAMES = 0;
 
 enum HResult : int (Win32_HRESULT val, String disc) @local {
-    S_OK           = {(Win32_HRESULT)0x00000000, "Operation successful"},
-    E_ABORT        = {(Win32_HRESULT)0x80004004, "Operation aborted"},
-    E_ACCESSDENIED = {(Win32_HRESULT)0x80070005, "General access denied error"},
-    E_FAIL         = {(Win32_HRESULT)0x80004005, "Unspecified failure"},
-    E_HANDLE       = {(Win32_HRESULT)0x80070006, "Handle that is not valid"},
-    E_INVALIDARG   = {(Win32_HRESULT)0x80070057, "One or more arguments are not valid"},
-    E_NOINTERFACE  = {(Win32_HRESULT)0x80004002, "No such interface supported"},
-    E_NOTIMPL      = {(Win32_HRESULT)0x80004001, "Not implemented"},
-    E_OUTOFMEMORY  = {(Win32_HRESULT)0x8007000E, "Failed to allocate necessary memory"},
-    E_POINTER      = {(Win32_HRESULT)0x80004003, "Pointer that is not valid"},
-    E_UNEXPECTED   = {(Win32_HRESULT)0x8000FFFF, "Unexpected failure"}
+    S_OK           {(Win32_HRESULT)0x00000000, "Operation successful"},
+    E_ABORT        {(Win32_HRESULT)0x80004004, "Operation aborted"},
+    E_ACCESSDENIED {(Win32_HRESULT)0x80070005, "General access denied error"},
+    E_FAIL         {(Win32_HRESULT)0x80004005, "Unspecified failure"},
+    E_HANDLE       {(Win32_HRESULT)0x80070006, "Handle that is not valid"},
+    E_INVALIDARG   {(Win32_HRESULT)0x80070057, "One or more arguments are not valid"},
+    E_NOINTERFACE  {(Win32_HRESULT)0x80004002, "No such interface supported"},
+    E_NOTIMPL      {(Win32_HRESULT)0x80004001, "Not implemented"},
+    E_OUTOFMEMORY  {(Win32_HRESULT)0x8007000E, "Failed to allocate necessary memory"},
+    E_POINTER      {(Win32_HRESULT)0x80004003, "Pointer that is not valid"},
+    E_UNEXPECTED   {(Win32_HRESULT)0x8000FFFF, "Unexpected failure"}
 }
 
 const Win32_DWORD KNOWN_FOLDER_FLAG_DEFAULT                          @local = 0x00000000;

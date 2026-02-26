@@ -55,11 +55,11 @@ const float PLAYER_DEFAULT_SIZE_Y_METER   = 2.0f;
 
 enum Move_Dir : int (Vec2i vec, String id)
 {
-    DIR_NONE  = {{ 0,  0},  "none"},
-    DIR_UP    = {{ 0, -1},    "up"},
-    DIR_DOWN  = {{ 0,  1},  "down"},
-    DIR_LEFT  = {{-1,  0},  "left"},
-    DIR_RIGHT = {{ 1,  0}, "right"}
+    DIR_NONE  {{ 0,  0},  "none"},
+    DIR_UP    {{ 0, -1},    "up"},
+    DIR_DOWN  {{ 0,  1},  "down"},
+    DIR_LEFT  {{-1,  0},  "left"},
+    DIR_RIGHT {{ 1,  0}, "right"}
 }
 
 // Save here any info the player should take into other levels 
@@ -154,7 +154,7 @@ fn void Player.init(&self, Vec2f origin, RLColor color, int id)
     // not the first like is the case now.
 }
 
-fn bool Player.anyKeyPressed(&self) @inline @local {
+fn bool Player.anyKeyPressed(&self) @inline {
     // I don't care about what key was pressed
     if(rl::getKeyPressed()) return true;
     

@@ -121,9 +121,9 @@ extern fn int ScriptEngine.release(ScriptEngine *e) @extern("asEngine_Release");
 extern fn int ScriptEngine.shutDownAndRelease(ScriptEngine *e) @extern("asEngine_ShutDownAndRelease");
 
 // Compiler messages
-extern fn ContextState ScriptEngine._setMessageCallback(ScriptEngine *e, FunctionCallback callback, void *obj, uint callConv) @local @extern("asEngine_SetMessageCallback");
+extern fn ContextState _setMessageCallback(ScriptEngine *e, FunctionCallback callback, void *obj, uint callConv) @local @extern("asEngine_SetMessageCallback");
 macro ContextState ScriptEngine.setMessageCallback(&self, FunctionCallback callback, void *obj = null, uint callConv = CallConv.CDECL) {
-  ContextState result = self._setMessageCallback(callback, obj, CallConv.CDECL);
+  ContextState result = _setMessageCallback(self, callback, obj, callConv);
   assert(result >= 0, "Failed to set message callback");
   return result;
 }
@@ -131,9 +131,9 @@ extern fn int ScriptEngine.clearMessageCallback(ScriptEngine *e) @extern("asEngi
 extern fn int ScriptEngine.writeMessage(ScriptEngine *e, ZString section, int row, int col, MsgType type, ZString message) @extern("asEngine_WriteMessage");
 
 // Global functions
-extern fn ContextState ScriptEngine._registerGlobalFunction(ScriptEngine *e, ZString declaration, FunctionCallback funcPointer, uint callConv, void *auxiliary) @local @extern("asEngine_RegisterGlobalFunction");
+extern fn ContextState _registerGlobalFunction(ScriptEngine *e, ZString declaration, FunctionCallback funcPointer, uint callConv, void *auxiliary) @local @extern("asEngine_RegisterGlobalFunction");
 macro ContextState ScriptEngine.registerGlobalFunction(&self, ZString declaration, FunctionCallback funcPointer, uint callConv = CallConv.CDECL, void *auxiliary = null) {
-  ContextState result = self._registerGlobalFunction(declaration, funcPointer, callConv, auxiliary); 
+  ContextState result = _registerGlobalFunction(self, declaration, funcPointer, callConv, auxiliary); 
   assert(result >= 0, "Failed to register global function: %s", declaration);
   return result;
 }

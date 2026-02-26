@@ -91,9 +91,9 @@ $endif
     log::init(RLTraceLogLevel.INFO);
     // *********************************************************
 
-    game::gpGame.warningBox.init(MessageBoxType.WARN);
-    game::gpGame.errorBox.init(MessageBoxType.ERROR);
-    game::gpGame.infoBox.init(MessageBoxType.INFO);
+    game::gpGame.warningBox.init((int)MessageBoxType.WARN);
+    game::gpGame.errorBox.init((int)MessageBoxType.ERROR);
+    game::gpGame.infoBox.init((int)MessageBoxType.INFO);
 
     game::showSettingsWindow();
 
