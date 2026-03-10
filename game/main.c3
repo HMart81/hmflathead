@@ -144,20 +144,9 @@ $endif
         log::error(FILE, "Game initialization failed with excuse: %s", excuse);
         return -1;
     } else {
-        //assetsLoadingMutex.init()!!;
-        //assetsLoadingThread.create(&loadAssets, null)!!;
-        //assetsLoadingThread.detach()!!;
-        
-        /*Thread[] threads = mem::temp_new_array(Thread, os::num_cpu());
-        foreach (&t : threads) {
-            t.create(&loadAssets, null)!!;
-            // The thread resources will be cleaned up when the thread exits.
-            t.detach()!!;
-        }*/
-        
         // Play the intro in a separate thread
 		// mutex used to protect intro state
-        if(try introMutex.init()) {
+        /*if(try introMutex.init()) {
 			// create and run intro thread
         	if(try introThread.create(&game::playIntro, null)) {
 				excuse = @catch(introThread.detach()); // detach it so it runs independently and cleans up itself on exit
@@ -169,7 +158,7 @@ $endif
 			}
 		} else {
 			log::error(FILE, "Failed to init mutex to play intro!!");
-		}
+		}*/
         // NOTE(HM) 
         // using .join hangs the game, I think this is because 
         // intro thread will block the main game thread and 

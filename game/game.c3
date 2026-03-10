@@ -777,7 +777,7 @@ fn void Game.updateScreenSize(&self, int rez_index) @inline @deprecated {
 }
 */
 
-fn void Game.initFonts(&self) @inline {
+fn void Game.initFonts(&self) /*@inline*/ {
     self.candara_font       = asstManager.getFont("candara.fnt");
     self.candara_light_font = asstManager.getFont("candara_light.fnt");
     self.lucida_font        = asstManager.getFont("lucida.fnt");
@@ -1455,6 +1455,10 @@ $endif
             }
         }
 
+		if(local_game.intro.should_play) {
+            intro::update(&local_game.intro);
+        }
+
         // update message box's
         if(messageBoxs.len()) {
             messageBoxsIndecesToRemove.clear();
@@ -1632,7 +1636,7 @@ fn void onDraw(int screenWidth, int screenHeight) @local
     telem::@profile_zone("Game Draw", OFF)
     {
         // 1) render to "offline" frame buffer objects/images in the background
-        local_game.view.renderToFBO();
+        local_game.view.renderFrameBuffersObjects();
         
         // Main Basic rendering
         //rl::beginDrawing();
@@ -1644,6 +1648,7 @@ fn void onDraw(int screenWidth, int screenHeight) @local
             // 2) render the view FBO's rendered above into the back buffer
             if(rl::isShaderValid(*local_game.current_global_shader)) 
             {
+                rl::drawText(string::tformat_zstr("shader id: %s", (*local_game.current_global_shader).id), 50, 100, 16, rl::RED);
                 //(*local_game.current_global_shader).setUniformTexture("_currentRender", local_game.view.currentRender.texture);
                 rl::@shaderMode(*local_game.current_global_shader) 
                 {
@@ -1657,7 +1662,7 @@ fn void onDraw(int screenWidth, int screenHeight) @local
             
             // NOTE(HM) 
             // drawing after the scene is draw but before the GUI
-            onPostSceneDraw(screenWidth, screenHeight);
+            //onPostSceneDraw(screenWidth, screenHeight);
             //
             //onGuiDraw(screenWidth, screenHeight);
             // NOTE(HM) 
@@ -1689,39 +1694,9 @@ fn void onDraw(int screenWidth, int screenHeight) @local
 }
 
 // NOTE(HM) Any code here draws before the game user interface
-fn void onPostSceneDraw(int screenWidth, int screenHeight) @local 
+fn void onPostSceneDraw(int screenWidth, int screenHeight) @public //@local 
 {
-$if $feature(MICROUI_ENABLE) :
-    // process microui panels/frames
-    mu::process_frames(local_game.mu_ctx, rl::getFrameTime());
 
-    if(local_game.show_microui_test_frames && mu::open_frames.len() == 0) {
-        local_game.show_microui_test_frames = false; // disable microui focus if no frames are open
-    }
-    // NOTE(HM) microui context end, should be called 
-    // before calling the followiong microui commands
-    // that is done inside mu::process_frames()::@render() function.
-
-    MU_Command * cmd = null;
-    while (local_game.mu_ctx.next_command(&cmd))
-    {
-      switch (cmd.type)
-      {
-        case mu::MU_COMMAND_JUMP: io::printfn("MU_COMMAND_JUMP");
-        case mu::MU_COMMAND_TEXT: mu::draw_text((ZString)&cmd.text.str, cmd.text.pos, cmd.text.color);
-        case mu::MU_COMMAND_RECT: mu::draw_rect(cmd.rect.rect, cmd.rect.color);
-        case mu::MU_COMMAND_ICON: mu::draw_icon(cmd.icon.id, cmd.icon.rect, cmd.icon.color);
-        case mu::MU_COMMAND_CLIP: mu::set_clip_rect(cmd.clip.rect);
-      }
-    }
-    // Make sure we end any lingering scissor mode.
-   // Without this precaution it's possible for clipping to persist into the next frame 
-   // and obstruct stuff until the next clip command from microui is handled!
-   //rl::endScissorMode();
-$endif
-
-    // draw game cursor sprite
-    draw_game_cursor();
 }
 
 // NOTE(HM) Any code here draws on top of the game user interface
@@ -1770,14 +1745,47 @@ fn void onPostGUIDraw(int screenWidth, int screenHeight) @public
             }
         }
     }
+
+    // draw game cursor sprite
+    draw_game_cursor();
 }
 
 fn void onGuiDraw(int screenWidth, int screenHeight) @public @inline 
 {
+    // draw custom gui code
     desk::gpManager.draw(screenWidth, screenHeight);
-    
-    if(local_game.intro.should_play) {
-        intro::drawAnimation(&local_game.intro, screenWidth, screenHeight);
+
+    $if $feature(MICROUI_ENABLE) :
+        // process microui panels/frames
+        mu::process_frames(local_game.mu_ctx, rl::getFrameTime());
+
+        if(local_game.show_microui_test_frames && mu::open_frames.len() == 0) {
+            local_game.show_microui_test_frames = false; // disable microui focus if no frames are open
+        }
+        // NOTE(HM) microui context end, should be called 
+        // before calling the followiong microui commands
+        // that is done inside mu::process_frames()::@render() function.
+
+        MU_Command * cmd = null;
+        while (local_game.mu_ctx.next_command(&cmd))
+        {
+            switch (cmd.type)
+            {
+                case mu::MU_COMMAND_JUMP: io::printfn("MU_COMMAND_JUMP");
+                case mu::MU_COMMAND_TEXT: mu::draw_text((ZString)&cmd.text.str, cmd.text.pos, cmd.text.color);
+                case mu::MU_COMMAND_RECT: mu::draw_rect(cmd.rect.rect, cmd.rect.color);
+                case mu::MU_COMMAND_ICON: mu::draw_icon(cmd.icon.id, cmd.icon.rect, cmd.icon.color);
+                case mu::MU_COMMAND_CLIP: mu::set_clip_rect(cmd.clip.rect);
+            }
+        }
+        // Make sure we end any lingering scissor mode.
+        // Without this precaution it's possible for clipping to persist into the next frame 
+        // and obstruct stuff until the next clip command from microui is handled!
+        //rl::endScissorMode();
+    $endif
+
+	if(local_game.intro.should_play) {
+        intro::drawAnimation(&local_game.intro);
     }
 
     if(local_game.showSaveMessage && 
@@ -2050,7 +2058,8 @@ fn void handle_cmdline(String[] args)
     }
 }
 
-fn void print_game_version() @local @inline {
+fn void print_game_version() @local @inline 
+{
     log::info(FILE, "---------------------------------------------");
     log::info(FILE, "Game Version: %s", lic::@game_version());
     log::info(FILE, "---------------------------------------------\n");
@@ -3037,13 +3046,6 @@ $endif
     local_game.editor.initDefaults();
     log::info(FILE, "-done-");
     log::info(FILE, "---------------------------------------------\n");
-
-    // init intro stuff here
-    // Todo(HM) create real pre loading logo videos?
-    //
-    // Set the current program mode to the intro mode
-    local_game.mode = INTRO;
-    intro::initAnimation(&local_game.intro);
     
     // Load custom shader to be used on some parts drawing
     // NOTE 1: Using GLSL 330 shader version, on OpenGL ES 2.0 use GLSL 100 shader version
@@ -3095,7 +3097,15 @@ $endif
     {
         input::printKeyActions();
     }
-    
+
+
+	// init intro stuff here
+    // Todo(HM) create real pre loading logo videos?
+    //
+    // Set the current program mode to the intro mode
+    if(intro::skip.getBool() == false) intro::play(&local_game.intro);
+
+
     // Create the main Single Player
     // NOTE(HM) todo: the player and ingame entities should be created only at spawn of a level 
     // but right now, I don't have a concept of a "level" or game World.
@@ -3514,7 +3524,8 @@ fn void doOneFrame()
                         onUpdate();
                         onDraw(screen_w, screen_h);
 
-                        /*if(r_fps_unlocked.getBool() && r_max_fps.getInt() > 0)
+                        /*
+                        if(r_fps_unlocked.getBool() && r_max_fps.getInt() > 0)
                         {
                             int max_fps = r_max_fps.getInt();
                             if(max_fps > 240) {
@@ -3522,7 +3533,8 @@ fn void doOneFrame()
                             }
                             // NOTE(HM) this will cap the framerate to the user defined value
                             waitFrame(misc::sec2ms(1.0f / max_fps));
-                        }*/
+                        }
+                        */
                     }; // end @profile_zone
                 }; // tracy scope end
            // };
@@ -3573,7 +3585,7 @@ fn void doOneFrame()
 // }
 
 // Stops all gameplay and goes to main menu
-fn void disconnect() 
+fn void disconnect() @public
 {
 	menu::stop();
 	menu::start(local_game.main_menu);
@@ -3836,34 +3848,6 @@ $if $feature(MICROUI_ENABLE):
     rl::clearWindowState((int)rl::FLAG_WINDOW_UNDECORATED);
     rl::closeWindow();
 $endif;
-}
-
-fn int playIntro(void*) 
-{
-    tracy::set_thread_name("intro_thread");
-    main::introMutex.lock()!!;
-    defer main::introMutex.unlock()!!;
-
-    menu::stop();
-
-    bool run = intro::play(&local_game.intro);
-    if(run) 
-    {
-        while(local_game.intro.should_play) {
-            intro::update(&local_game.intro);
-            thread::sleep_ms(16);
-        }
-    }
-
-     // cleanup
-    intro::deinitAnimation(&local_game.intro);
-    
-    //local_game.main_menu.show();
-    // 
-    // restarts from the main menu;
-    disconnect();
-    
-    return 0;
 }
 
 // TODO rename to set_user_settings?

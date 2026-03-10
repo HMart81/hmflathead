@@ -29,7 +29,10 @@
 // NOTE(HM) This module is the main game view, it handles the rendering of the game world
 // TODO(HM)
 //       - Refactor this to use meters instead of pixels because of box2d physics, 
-//       - also right now this code is very confusing.
+//       - also warning, because this module was a very early one, from the start of this engine, 
+//         many stuff changed, so some of this code is unnused or even outright wrong to the way, 
+//         the view system now works, so may cause confusion, I still have not cleanned this because
+//         the necessary base systems are still not final and may change again, so this is still very experimental.
 //
 // WARNING(HM) MOST OF THE SCREEN INFO BELLOW IS TOTALLY OUTDATED!!!
 
@@ -155,27 +158,42 @@ alias RenderFunctionCallback = fn void(RenderView* view);
 
 struct ViewLayer @private
 {
+    String name;
     RenderTexture data;
+}
+
+// NOTE(HM) layers are rendered as defined here front to back, 
+// aka top one is rendered first and bottom one is rendered last
+ViewLayer[*] layers = {
+    {"game", {}},
+    {"postgame", {}},
+    {"gui", {}},
+    {"postgui", {}},
+    {"debug", {}}
+};
+
+macro @getLayer($name) @local
+{ 
+    foreach(&it : layers) {
+        if(it.name == $name) return it;
+    }
+    return null;
 }
 
 <*
 	Initializes the view layer with the given render texture.
 
-	@param #width : "the x width of the render texture to use for this view layer"
-	@param #height : "the y height of the render texture to use for this view layer"
-	@require #width >= 32 && #height >= 32
+	@param width : "the x width of the render texture to use for this view layer"
+	@param height : "the y height of the render texture to use for this view layer"
+	@require width >= 32 && height >= 32
 *>
-macro ViewLayer.@init(&self, #width, #height) {
-	self.data = (RenderTexture)rl::loadRenderTexture(#width, #height);
+fn void initViewLayer(ViewLayer* layer, int width, int height) @local @inline
+{
+	layer.data = (RenderTexture)rl::loadRenderTexture(width, height);
 }
 
 struct RenderView (SaveSystemInterface)
 {
-    ViewLayer gameFrame;
-    ViewLayer guiFrame;
-    ViewLayer postGuiFrame;
-    //RenderTexture shadowFrameBuffer; // not used yet
-    ViewLayer debugFrame; // not used yet
     //
     RenderTexture* currentRender; // current render target/layer displayed
     bool taking_screenshot;
@@ -213,16 +231,14 @@ fn void RenderView.reload(&self, SaveFile* file) @dynamic {
 fn void RenderView.init(&self, int screenWidth, int screenHeight) @inline 
 {
     // @testing...
-	self.gameFrame.@init(screenWidth, screenHeight);
-    self.guiFrame.@init(screenWidth, screenHeight);
-    self.postGuiFrame.@init(screenWidth, screenHeight);
-    //self.shadowFrame.data  = (RenderLayer)rl::loadRenderTexture(screenWidth, screenHeight); // not used yet
-    self.debugFrame.@init(screenWidth, screenHeight);
+    foreach(&layer : layers) layer.data = (RenderTexture)rl::loadRenderTexture(screenWidth, screenHeight);
+   
     //
     // NOTE(HM) used to point to the main render layer to be used for shaders and such if necessary
-    self.currentRender = &self.gameFrame.data;
+    //self.currentRender = &self.gameFrame.data;
+    self.currentRender = @getLayer("game");
 
-    self.grayscale.load("grayscale");
+    self.grayscale.loadPPShader("grayscale");
     
     self.w = screenWidth;
     self.h = screenHeight;
@@ -288,9 +304,8 @@ $endif
 fn void RenderView.deinit(&self)
 {
      // Unload render texture (FBO)
-    if(rl::isRenderTextureValid(self.gameFrame.data))    rl::unloadRenderTexture(self.gameFrame.data);
-    if(rl::isRenderTextureValid(self.guiFrame.data))     rl::unloadRenderTexture(self.guiFrame.data);
-    if(rl::isRenderTextureValid(self.postGuiFrame.data)) rl::unloadRenderTexture(self.postGuiFrame.data);
+    foreach(layer : layers) if(rl::isRenderTextureValid(layer.data))  rl::unloadRenderTexture(layer.data);
+
     self.currentRender = null;
     self.grayscale.unload();
 }
@@ -321,9 +336,7 @@ fn void RenderView.debug(&self)
 *>
 fn void RenderView.renderFBO(&self, RenderFunctionCallback callback) @inline
 {
-    if(callback) {
-        callback(self);
-    }
+    if(callback) callback(self);
 }
 
 // NOTE(HM) This was disabled because I found Raysan's
@@ -567,10 +580,12 @@ $endif
 
     if (input::getAction("pp_graysacle").fnBecameTriggered()) {
         self.enable_grayscale = !self.enable_grayscale;
+        //log::info(CONSOLE, "grayscale: %s", (self.enable_grayscale) ? "on" : "off");
     }
 }
 
-fn void RenderView.updateBounds(&self) {
+fn void RenderView.updateBounds(&self) 
+{
     @pool() {
         Vec2f bb_maxc = self.getTarget() + misc::VEC_UP * (float)(self.h / 2) + misc::VEC_LEFT * (float)(self.w / 2);  
         self.bounds.setRect(misc::makeRect(bb_maxc,{self.w, self.h}));
@@ -585,181 +600,11 @@ fn B2AABBox RenderView.fromBoundsToPhysicsAABB(&self)
 	return bb;
 }
 
-
-
-int old_sort @local; // used to sort the sprites by their sort value
-
-<*
-    This renders the game world into a framebuffer layer.
-    This is the main game rendering function, it draws all the game sprites and entities
-    and also the physics debug drawing if enabled.
-
-    @param [&in] view : "the view to render to the framebuffer layer" 
-*>
-fn void renderGameFBO(RenderView* view) @local 
+fn void RenderView.renderFrameBuffersObjects(&self) 
 {
-	RLRenderTexture2D tex = (*view).gameFrame.data;
-    rl::beginTextureMode(tex); // Enable drawing to a texture
+    renderLayersFBOs(self);
 
-        //rl::clearBackground(rl::WHITE);  // Clear texture background
-        rl::clearBackground(rl::fade(rl::WHITE, 0.0f));
-        
-$if $defined(ENABLE_CAMERA_VIEW):
-        rl::beginMode2D(view.camera);
-$endif
-
-        // draw general game sprites
-        if(game::gpGame.sprites.len()) 
-        {
-            foreach(sprite : game::gpGame.sprites)
-            {
-                if(sprite.kind == SpriteKind.CURSOR) { continue; } // skip game cursor sprite
-                
-                 bool out_of_view = !view.bounds.intersectsOther(&sprite.bounds);
-                if(out_of_view) {
-                    sprite.hide();
-                } else if(sprite.hidden()) { 
-                    sprite.show(); 
-                } else {
-                    if(sprite.hasMaterial())
-                    {
-                        int sort = sprite.mat.sort;
-                        if(sort <= old_sort) 
-                        {
-                            // draw opaque sprites first
-                            if(sprite.mat.flags.has_AlphaTest == false && !(sprite.mat.coverage & mat::COVERAGE_TRANSLUCENT)) 
-                            {
-                                sprite.draw();
-                            } 
-                            else // draw translucent sprites
-                            {
-                                sprite.draw();
-                            }
-                        }
-                        old_sort = sort;
-                    }
-                    else // draw with no material using the default shader
-                    {
-                        sprite.draw(); 
-                    }
-                }
-            }
-        }
-            
-        // draw game entities
-        if(game::gpGame.entityList.len()) 
-        {
-            foreach(ent : game::gpGame.entityList) 
-            {
-                bool ent_out_of_view = !view.bounds.intersectsOther(&ent.bounds);
-                if(ent_out_of_view) {
-                    ent.hide();
-                } else if(ent.hidden()) { 
-                    ent.show(); 
-                } else {
-                    ent.draw();
-                }
-            }
-        }
-        
-        // draw the boid entities
-        $if $defined(BOIDS_ENABLE):
-        game::gpGame.boidManager1.draw();
-        $endif
-        
-        // physics debug drawing
-        // NOTE(HM) this is done here because I want it to draw
-        // before/behind the gui and other debug stuff at the same time as the game entities.
-        if(game::db_drawPhysics.getBool()) {
-            game::gpGame.physWorldId.debugDraw(&game::gpGame.phys_debug);
-        }
-
-$if $defined(ENABLE_CAMERA_VIEW):
-        rl::endMode2D();
-$endif
-    
-    rl::endTextureMode(); // End drawing to texture (now we have a texture available for next passes)
-}
-
-<*
-    // NOTE(HM) This renders AFTER the game layer
-    
-    @param [&in] view : "the view to render to the framebuffer layer" 
-*>
-fn void renderGuiFBO(RenderView* view) @local 
-{
-    RLRenderTexture2D tex = (*view).guiFrame.data;
-	rl::@textureMode(tex) 
-	{
-        rl::clearBackground(rl::fade(rl::WHITE, 0.0f));
-$if $defined(ENABLE_CAMERA_VIEW):
-        rl::@mode2D(view.camera) {
-$if $feature(_DEBUG):
-            //view.debug();
-            //view.drawWorldSpaceCoords();
-            view.drawCameraSpaceCoords();
-$endif
-            game::onGuiDraw(view.w, view.h);
-        };
-$endif
-    }; // End drawing to texture (now we have a texture available for next passes)
-}
-
-<*
-    // NOTE(HM) This renders AFTER the game gui layer
-    
-    @param [&in] view : "the view to render to the framebuffer layer" 
-*>
-fn void renderPostGuiFBO(RenderView* view) @local 
-{
-	RLRenderTexture2D tex = (*view).postGuiFrame.data;
-	rl::@textureMode(tex)
-	{
-		rl::clearBackground(rl::fade(rl::WHITE, 0.0f));
-$if $defined(ENABLE_CAMERA_VIEW):
-		rl::@mode2D(view.camera) 
-		{
-			game::onPostGUIDraw(view.w, view.h);
-
-			$if $feature(VIDEO_PLAYBACK_ENABLE):
-			if(game::gpGame.vidCabinet.movies.len()) 
-			{
-				// draw videos from video cabinet library
-				foreach(movie : game::gpGame.vidCabinet.movies)
-				{
-					movie.renderFrame(view.origin, (Vec2f)view.size);
-				}
-			}
-			$endif
-		};
-$endif
-    }; // End drawing to texture (now we have a texture available for next passes)
-}
-
-<*
-    // NOTE(HM) This renders AFTER the post gui layer
-    // both the post gui and debug layers are used for debugging purposes
-    // but the post gui layers is mostly used for text/line debugging
-    // and the debug layer is used for visual debugging
-    
-    @param [&in] view : "the view to render to the framebuffer layer" 
-*>
-fn void renderDebugFBO(RenderView* view) @local 
-{
-	RLRenderTexture2D tex = (*view).debugFrame.data;
-    rl::@textureMode(tex) {
-        rl::clearBackground(rl::fade(rl::WHITE, 0.0f));
-$if $defined(ENABLE_CAMERA_VIEW):
-        rl::@mode2D(view.camera) {
-            // nothing for now...
-        };
-$endif
-    }; // End drawing to texture (now we have a texture available for next passes)
-}
-
-fn void RenderView.renderToFBO(&self) @inline
-{
-    // render to the game layer
+    /*// render to the game layer
     if(self.enable_grayscale) {
         self.grayscale.@apply(self.currentRender) {
             self.renderFBO(&renderGameFBO);
@@ -767,26 +612,28 @@ fn void RenderView.renderToFBO(&self) @inline
     } else {
         self.renderFBO(&renderGameFBO);
     }
+	self.renderFBO(&renderPostSceneFBO);
     // render to the gui layer
     self.renderFBO(&renderGuiFBO);
     // render to the post gui layer
     self.renderFBO(&renderPostGuiFBO);
     // render to the debug layer
-    self.renderFBO(&renderDebugFBO);
+    self.renderFBO(&renderDebugFBO);*/
 }
 
-fn void RenderView.draw(&self) @inline 
+fn void RenderView.draw(&self)
 {
     // NOTE: Render texture must be y-flipped due to default OpenGL coordinates (left-bottom)
-
-    // draw the game framebuffer
-    rl::drawTextureRec(self.gameFrame.data.texture, { 0, 0, (float)self.w, (float)-self.h }, { 0, 0 }, rl::WHITE);
-    // draw the gui framebuffer
-    rl::drawTextureRec(self.guiFrame.data.texture, { 0, 0, (float)self.w, (float)-self.h }, { 0, 0 }, rl::WHITE);
-    // draw the post gui framebuffer
-    rl::drawTextureRec(self.postGuiFrame.data.texture, { 0, 0, (float)self.w, (float)-self.h }, { 0, 0 }, rl::WHITE);
-    // draw the debug framebuffer
-    rl::drawTextureRec(self.debugFrame.data.texture, { 0, 0, (float)self.w, (float)-self.h }, { 0, 0 }, rl::WHITE);
+    foreach(layer : layers) 
+    {
+        if(self.enable_grayscale) {
+            self.grayscale.@apply() {
+                rl::drawTextureRec(layer.data.texture, { 0, 0, (float)self.w, (float)-self.h }, { 0, 0 }, rl::WHITE);
+            };
+        } else {
+            rl::drawTextureRec(layer.data.texture, { 0, 0, (float)self.w, (float)-self.h }, { 0, 0 }, rl::WHITE);
+        }
+    }
 }
 
 /*
@@ -885,6 +732,199 @@ fn void RenderView.drawCameraSpaceCoords(&self) @if($defined(ENABLE_CAMERA_VIEW)
     rl::drawCircleV(self.camera.target, 10.0f, rl::GREEN);
 }
 
+/////////////////////////////////////////////////////////////////////////////
+////////////////////////// RENDER CALLBACKS /////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////
+
+int old_sort @local; // used to sort the sprites by their sort value
+
+
+<*
+    This renders the framebuffer layers.
+    @param [&in] view : "the view to render to the framebuffer layer" 
+*>
+fn void renderLayersFBOs(RenderView* view) @local 
+{
+    foreach(layer : layers) 
+    {
+	    rl::@textureMode(layer.data) 
+	    {
+            rl::clearBackground(rl::CTRANSPARENT);
+            switch(layer.name) 
+            {
+                case "game":
+                    renderMainGameLayer(view);
+                case "postgame": 
+                    renderPostSceneLayer(view);
+                case "gui":
+                    renderGuiLayer(view);
+                case "postgui": 
+                    renderPostGuiLayer(view);
+                case "debug":
+                    renderDebugLayer(view);
+                default:
+                    unreachable();
+            }
+        }; // End drawing to texture (now we have a texture available for next passes)
+    }
+}
+
+<*
+    This renders the game world into a framebuffer layer.
+    This is the main game rendering function, it draws all the game sprites and entities
+    and also the physics debug drawing if enabled.
+
+    @param [&in] view : "the view to render to the framebuffer layer" 
+*>
+fn void renderMainGameLayer(RenderView* view) @local 
+{
+$if $defined(ENABLE_CAMERA_VIEW):
+        rl::beginMode2D(view.camera);
+$endif
+
+        // draw general game sprites
+        if(game::gpGame.sprites.len()) 
+        {
+            foreach(sprite : game::gpGame.sprites)
+            {
+                if(sprite.kind == SpriteKind.CURSOR) { continue; } // skip game cursor sprite
+                
+                 bool out_of_view = !view.bounds.intersectsOther(&sprite.bounds);
+                if(out_of_view) {
+                    sprite.hide();
+                } else if(sprite.hidden()) { 
+                    sprite.show(); 
+                } else {
+                    if(sprite.hasMaterial())
+                    {
+                        int sort = sprite.mat.sort;
+                        if(sort <= old_sort) 
+                        {
+                            // draw opaque sprites first
+                            if(sprite.mat.flags.has_AlphaTest == false && !(sprite.mat.coverage & mat::COVERAGE_TRANSLUCENT)) 
+                            {
+                                sprite.draw();
+                            } 
+                            else // draw translucent sprites
+                            {
+                                sprite.draw();
+                            }
+                        }
+                        old_sort = sort;
+                    }
+                    else // draw with no material using the default shader
+                    {
+                        sprite.draw(); 
+                    }
+                }
+            }
+        }
+            
+        // draw game entities
+        if(game::gpGame.entityList.len()) 
+        {
+            foreach(ent : game::gpGame.entityList) 
+            {
+                bool ent_out_of_view = !view.bounds.intersectsOther(&ent.bounds);
+                if(ent_out_of_view) {
+                    ent.hide();
+                } else if(ent.hidden()) { 
+                    ent.show(); 
+                } else {
+                    ent.draw();
+                }
+            }
+        }
+        
+        // draw the boid entities
+        $if $defined(BOIDS_ENABLE):
+        game::gpGame.boidManager1.draw();
+        $endif
+        
+        // physics debug drawing
+        // NOTE(HM) this is done here because I want it to draw
+        // before/behind the gui and other debug stuff at the same time as the game entities.
+        if(game::db_drawPhysics.getBool()) {
+            game::gpGame.physWorldId.debugDraw(&game::gpGame.phys_debug);
+        }
+
+$if $defined(ENABLE_CAMERA_VIEW):
+        rl::endMode2D();
+$endif
+}
+
+<*
+    NOTE(HM) This renders AFTER the game layer
+    @param [&in] view : "the view to render to the framebuffer layer" 
+*>
+fn void renderPostSceneLayer(RenderView* view) @local 
+{
+$if $defined(ENABLE_CAMERA_VIEW):
+        rl::@mode2D(view.camera) {
+            game::onPostSceneDraw(view.w, view.h);
+        };
+$endif
+}
+
+<*
+    NOTE(HM) This renders AFTER the game layer
+    @param [&in] view : "the view to render to the framebuffer layer" 
+*>
+fn void renderGuiLayer(RenderView* view) @local 
+{
+$if $defined(ENABLE_CAMERA_VIEW):
+        rl::@mode2D(view.camera) {
+$if $feature(_DEBUG):
+            //view.debug();
+            //view.drawWorldSpaceCoords();
+            view.drawCameraSpaceCoords();
+$endif
+            game::onGuiDraw(view.w, view.h);
+        };
+$endif
+}
+
+<*
+    NOTE(HM) This renders AFTER the game gui layer 
+    @param [&in] view : "the view to render to the framebuffer layer" 
+*>
+fn void renderPostGuiLayer(RenderView* view) @local 
+{
+$if $defined(ENABLE_CAMERA_VIEW):
+		rl::@mode2D(view.camera) 
+		{
+			game::onPostGUIDraw(view.w, view.h);
+
+			$if $feature(VIDEO_PLAYBACK_ENABLE):
+			if(game::gpGame.vidCabinet.movies.len()) 
+			{
+				// draw videos from video cabinet library
+				foreach(movie : game::gpGame.vidCabinet.movies)
+				{
+					movie.renderFrame(view.origin, (Vec2f)view.size);
+				}
+			}
+			$endif
+		};
+$endif
+}
+
+<*
+    NOTE(HM) This renders AFTER the post gui layer
+    both the post gui and debug layers are used for debugging purposes
+    but the post gui layers is mostly used for text/line debugging
+    and the debug layer is used for visual debugging
+    
+    @param [&in] view : "the view to render to the framebuffer layer" 
+*>
+fn void renderDebugLayer(RenderView* view) @local 
+{
+$if $defined(ENABLE_CAMERA_VIEW):
+        rl::@mode2D(view.camera) {
+            // nothing for now...
+        };
+$endif
+}
 
 module game::camview::postprocess::pp;
 
@@ -905,24 +945,24 @@ PostProcessList pplist @local;
 struct HMPostProcess
 {
     String name;
-    int id;
+    uint id;
     RLShader shader;
 }
 
 <*
     Load a PostProcess shader
     shaders should be put inside the main shader folder no sub folder
-    and only the name is passed to the function, no need for the path or extension.
+    and only the shader file name is passed to the function, no need for the path or extension.
     @param [in] _name : "name of the post process shader to load"
     @require _name != ""
 *>
-fn void HMPostProcess.load(&self, String _name) 
+fn void HMPostProcess.loadPPShader(&self, String _name) 
 {
-    String shader_path = game::gpGame.app_base_folder.tconcat(SHADERS_FOLDER).tconcat(_name);
-    self.shader = glsl::loadShader("", shader_path.tconcat(".fs"));
+    String shader_path = game::gpGame.app_base_folder.tconcat(SHADERS_FOLDER).tconcat(_name).tconcat(".fs");
+    self.shader = glsl::loadShader("", shader_path);
     if(rl::isShaderValid(self.shader)) {
         self.name = _name.tcopy();
-        self.id = (int)pplist.len(); // we use the past list lenght as the index. Because is 1 minus the current lenght like what indices are... 
+        self.id = (uint)pplist.len(); // we use the past list lenght as the index. Because is 1 minus the current lenght like what indices are... 
         pplist.push(self);
     } else {
         unreachable("failed to load required post process shader %s!", _name);
@@ -931,8 +971,10 @@ fn void HMPostProcess.load(&self, String _name)
 
 fn void HMPostProcess.unload(&self) 
 {
-    pplist[self.id] = null;
     if(rl::isShaderValid(self.shader))  glsl::unloadShader(&self.shader);
+    pplist[self.id] = null;
+    if(self.id) self.id = 0;
+    self.name = "";
 }
 
 fn int getPostProcessIdxFromName(String _name) @inline 
@@ -943,7 +985,7 @@ fn int getPostProcessIdxFromName(String _name) @inline
     return -1;
 }
 
-fn HMPostProcess* getPostProcessFromID(int idx) @inline 
+fn HMPostProcess* getPostProcessFromID(uint idx) @inline 
 {
     return pplist[idx];
 }
@@ -951,7 +993,7 @@ fn HMPostProcess* getPostProcessFromID(int idx) @inline
 fn HMPostProcess* getPostProcessFromName(String _name) @inline 
 {
     int indice = getPostProcessIdxFromName(_name);
-    if(indice < 0) {
+    if(indice == -1) {
         io::printf("failed to find post process shader %s.", _name);
         return null;
     }
@@ -962,8 +1004,9 @@ fn void HMPostProcess.update(&self) {
   @todo();
 }
 
-macro HMPostProcess.@apply(&self, RenderTexture* layer; @body) {
-    self.shader.setUniformTexture("texture0", layer.texture);
+macro HMPostProcess.@apply(&self, RenderTexture* layer = null; @body) {
+    //self.shader.setUniformTexture("texture0", layer.texture);
+    //game::gpGame.current_global_shader = &self.shader;
     rl::@shaderMode(self.shader)
     {
         @body();

@@ -316,11 +316,11 @@ macro bool RLShader.nequal(&self, RLShader other) @operator(!=)
     return (bool)(self.id != other.id || self.locs != other.locs);
 }
 
-macro bool RLShader.isValid(&self)
-{
+macro bool RLShader.isValid(&self) => isShaderValid(*self);
+/*{
     const INVALID_ID = 0x00ff00ff;
     return (bool)(self.id != INVALID_ID && self.id != 0);
-}
+}*/
 
 /*
     DOC(HM) RLMaterialMap
@@ -729,7 +729,7 @@ constdef RLPixelFormat : inline CInt
 // NOTE 2: Filter is accordingly set for minification and magnification
 constdef RLTextureFilter : inline CInt
 {
-    POINT = 0,                   // No filter, just pixel approximation
+    POINT = 0,               // No filter, just pixel approximation
     BILINEAR,                // Linear filtering
     TRILINEAR,               // Trilinear filtering (linear with mipmaps)
     ANISOTROPIC_4X,          // Anisotropic filtering 4x
@@ -2086,7 +2086,7 @@ macro void @drawing(;@body)
  * Setup 2D mode with custom camera to start 2D Mode, then calls [block].
  * Mode2D will end after [block] has finished.
  */
-macro void @mode2D(RLCamera2D camera ;@body)
+macro void @mode2D(RLCamera2D camera;@body)
 {
   beginMode2D(camera);
   defer endMode2D();
@@ -2097,7 +2097,7 @@ macro void @mode2D(RLCamera2D camera ;@body)
  * Setup 3D mode with custom camera to start 2D Mode, then calls [block].
  * Mode2D will end after [block] has finished.
  */
-macro void @mode3D(RLCamera3D camera ;@body)
+macro void @mode3D(RLCamera3D camera;@body)
 {
   beginMode3D(camera);
   defer endMode3D();
@@ -2108,7 +2108,7 @@ macro void @mode3D(RLCamera3D camera ;@body)
  * Setup texture mode to draw to render texture, then calls [block].
  * texture mode will end after [block] has finished.
  */
-macro void @textureMode(RLRenderTexture2D texture ;@body)
+macro void @textureMode(RLRenderTexture2D texture;@body)
 {
   beginTextureMode(texture);
   defer endTextureMode();
@@ -2120,7 +2120,7 @@ macro void @textureMode(RLRenderTexture2D texture ;@body)
  * Setup custom shqder mode then calls [block].
  * shader mode will end after [block] has finished.
  */
-macro void @shaderMode(RLShader shader ;@body)
+macro void @shaderMode(RLShader shader;@body)
 {
   beginShaderMode(shader);
   defer endShaderMode();
@@ -2131,7 +2131,7 @@ macro void @shaderMode(RLShader shader ;@body)
  * Setup blending mode, then calls [block].
  * blend mode will end after [block] has finished.
  */
-macro void @blendMode(RLBlendMode mode ;@body)
+macro void @blendMode(RLBlendMode mode;@body)
 {
     setBlendMode(mode); // WARNING(HM) don't forget to set blend factors before this
     beginBlendMode(mode);
@@ -2154,7 +2154,7 @@ macro void @scissorMode(CInt x, CInt y, CInt width, CInt height ;@body)
  * Setup stereo rendering mode, then calls [block].
  * stereo rendering mode will end after [block] has finished.
  */
-macro void @vrMode(RLVrStereoConfig config ;@body)
+macro void @vrMode(RLVrStereoConfig config;@body)
 {
   beginVrStereoMode(config);
   defer endVrStereoMode();

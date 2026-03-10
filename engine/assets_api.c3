@@ -411,31 +411,36 @@ fn bool Manager.hasAsset(&self, String name, typeid type) @inline
 }
 */
 
-fn int Manager.hasAsset(&self, String name, typeid type) @inline
+<*
+	Sees if a asset exists within the asset manager
+	@param name : "name of the asset"
+	@param type : "type identification of the asset being serched for"
+	@require name != ""
+*>
+fn int Manager.hasAsset(&self, String name, typeid type) /*@inline*/
 {
-    if(name == "") return -1; // no asset name provided
-
+	int found = 1;
     switch(type)
     {
         case RLTexture2D.typeid:
             foreach(i, texture: self.textures) {
-                if(texture.name == name) return (int)i;
+                if(texture.name == name) return found;
             }
         case RLSound.typeid:
            foreach(i, sound: self.sounds) {
-                if(sound.name == name) return (int)i;
+                if(sound.name == name) return found;
             }
         case RLMusic.typeid:
            foreach(i, music: self.musics) {
-                if(music.name == name) return (int)i;
+                if(music.name == name) return found;
             }
         case RLFont.typeid:
            foreach(i, font: self.fonts) {
-                if(font.name == name) return (int)i;
+                if(font.name == name) return found;
             }
         case RLShader.typeid:
            foreach(i, shader: self.shaders) {
-                if(shader.name == name) return (int)i;
+                if(shader.name == name) return found;
             }
     }
     
@@ -512,7 +517,7 @@ fn RLMusic* Manager.getMusic(&self, String name) @nodiscard @inline
 <*
 	@ensure return != null
 *>
-fn RLFont* Manager.getFont(&self, String name) @nodiscard @inline 
+fn RLFont* Manager.getFont(&self, String name) @nodiscard /*@inline*/ 
 {
 	if(name != "") 
     {
@@ -522,7 +527,11 @@ fn RLFont* Manager.getFont(&self, String name) @nodiscard @inline
         }
     }
 
-    log::warning(Where.FILE,  "[Asset Manager]: Requesting font asset but returning default font, because no asset name was provided.");
+    if(name != "") {
+		log::warning(Where.FILE,  "[Asset Manager]: Requesting font %s but returning default font, because it was not found.", name);
+	} else {
+		log::warning(Where.FILE,  "[Asset Manager]: Requesting font asset but returning default font, because no asset name was provided.");
+	}
     return &game::gpGame.default_font;
 }
 
@@ -675,7 +684,7 @@ fn void loadAsset(String path)
 	};
 }
 
-fn void? loadAssetsRecursively(String basepath, String parent_folder = "") @inline @local 
+fn void? loadAssetsRecursively(String basepath, String parent_folder = "") /*@inline*/ @local 
 {
 	String search_path = basepath;
 	if(parent_folder != "")

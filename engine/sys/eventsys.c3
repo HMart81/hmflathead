@@ -138,9 +138,27 @@ struct EventDef
 	char returnType;
 }
 
+<*
+	@require $kindof(#ev) == (&EventDef) &&& $kindof(#func) == (&EventFunc)
+*>
+macro @event(#ev, #func) => {&(#ev), &(#func)};
+
 // double because wren uses double as the only number type, we use it to store the size of the eventDef
-fn usz EventDef.getArgBytesCountInWren(&self) {
-	return (self.argtypes.len * double.sizeof);
+fn usz getArgBytesCount(EventDef* ev, typeid type = double.typeid) 
+{
+	switch(type)
+	{
+		case double.typeid:
+			return (ev.argtypes.len * double.sizeof);
+		case float.typeid:
+			return (ev.argtypes.len * float.sizeof);
+		case int.typeid:
+			return (ev.argtypes.len * int.sizeof);
+		default:
+			unreachable("Can't get argument byte count from an unkown type!");
+	}
+
+	return 0;
 }
 
 <*
@@ -151,7 +169,8 @@ fn EventDef* getEventCommand(EventFunc[] events,  int eventnum ) @nodiscard
 	return events[eventnum].event;
 }
 
-fn EventDef* findEvent(EventFunc[] events, String name ) {
+fn EventDef* findEvent(EventFunc[] events, String name ) 
+{
 	assert( name != "" );
 
 	foreach( evfunc : events) 
@@ -267,6 +286,8 @@ alias EventDefList = List{EventDef*}; // list of entities that are targets for t
 
 EventDefList eventDefList @local;
 
+fn uint numEventCommands() => (uint)eventDefList.len();
+
 struct EventDef @packed
 {
 	String name; // script function name
@@ -274,14 +295,15 @@ struct EventDef @packed
 	String returnType; // fn return type as a string
 }
 
-macro EventDef.getName(&self) => self.name;
-macro EventDef.getArgs(&self) => self.argtypes;
-macro EventDef.getReturnType(&self) => self.returnType;
-
-fn uint getNum(EventDef _ev) {
+<*
+	Get the number of the event from 1 to MAX_EVENTS
+	@param [&in] _ev : "pointer of event to look for"
+*>
+fn uint getNum(EventDef* _ev) @nodiscard
+{
 	foreach(i, ev : eventDefList) 
 	{
-		if ( ev.name == _ev.name ) {
+		if ( ev == _ev ) {
 			return (uint)(i + 1);
 		}
 	}
@@ -289,7 +311,12 @@ fn uint getNum(EventDef _ev) {
 	return 0;
 }
 
-fn uint getIndex(EventDef _ev) {
+<*
+	Get the index of the event from 0 to MAX_EVENTS - 1
+	@param [&in] _ev : "pointer of event to look for"
+*>
+fn uint getIndex(EventDef* _ev) @nodiscard
+{
 	foreach(i, ev : eventDefList) 
 	{
 		if ( ev.name == _ev.name ) {
@@ -299,8 +326,6 @@ fn uint getIndex(EventDef _ev) {
 
 	return 0;
 }
-
-fn uint numEventCommands() => (uint)eventDefList.len();
 
 fn EventDef* find(String name)
 {
@@ -316,16 +341,32 @@ fn EventDef* find(String name)
 	return null;
 }
 
-fn void registerEvents(EventFunc[]* events) {
-	@todo();
-	/*
-	foreach(i, ev : events) 
+// warning makes no testing to see if events are duplicated
+// and now because of the way the event system is done, is very
+// easy for two diferent events to have the same internal, name string.
+// Todo(HM) find a way to ignore duplicate events
+fn void registerEvents(EventFunc[]* events) 
+{
+	foreach(ev : events) 
 	{
-		/*if () {
-			return i;
-		}*/
+		// @performance!!
+		if(isDuplicated(ev.event)) {
+			unreachable("Trying to register a event again, that is not supported!");
+		} else {
+			eventDefList.push(ev.event);
+		}
 	}
-	*/
+}
+
+fn bool isDuplicated(EventDef* _ev) @local
+{
+	// find duplicates;
+	foreach(ev : eventDefList)
+	{
+		if(ev == _ev) return true;
+	}
+
+	return false;
 }
 
 struct EventFunc 

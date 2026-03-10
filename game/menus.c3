@@ -690,25 +690,30 @@ fn void button_onSinglePress(any widget)
 }
 
 // while the button is kept pressed
-fn void start_button_onPress(/*Widget* widget*/ any widget) {
+fn void start_button_onPress(/*Widget* widget*/ any widget) 
+{
     button_onPress(widget);
 }
 
-fn void start_button_onSinglePress(any widget) {
+fn void start_button_onSinglePress(any widget) 
+{
     button_onSinglePress(widget);
     menu::exit();
 }
 
-fn void quit_button_onPress(any widget) {
+fn void quit_button_onPress(any widget) 
+{
     button_onPress(widget);
 }
 
-fn void quit_button_onSinglePress(any widget) {
+fn void quit_button_onSinglePress(any widget) 
+{
     button_onSinglePress(widget);
     game::quitGame();
 }
 
-fn void options_button_onPress(any widget) {
+fn void options_button_onPress(any widget) 
+{
     button_onPress(widget);
 }
 

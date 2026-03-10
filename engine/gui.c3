@@ -670,6 +670,7 @@ interface WidgetInterface
     fn bool hasParentDesktop() @optional;
     fn void setParentDesktop(Desktop*) @optional;
     fn void releaseParentDesktop() @optional;
+    fn void connect(WidgetCallback) @optional;
 
     fn void setColor(rl::RLColor);
 //
@@ -1315,11 +1316,14 @@ fn void WidgetButton.onEnterKey(&self) @inline {
 fn void WidgetButton.manage_interactions(&self)
 {
     if (self.active() == false) return;
+	
+	typeid type = WidgetButton.typeid;
+	any widget  = any_make(self, type);
 
     //game::log::info(Where.CONSOLE, "Gui: I'm over button: %s", self.super.name);
     if (self.asFocus() && self.selected == false)
     {
-        if(self.onOver) self.onOver(any_make(self, WidgetButton.typeid));
+        if(self.onOver) self.onOver(widget);
 
         // Todo(HM) support keyboard/gamepad navigation to buttons
         // like using tab or arrow keys to navigate between buttons and enter to press them
@@ -1328,42 +1332,37 @@ fn void WidgetButton.manage_interactions(&self)
             if (rl::isMouseButtonDown(RLMouseButton.LEFT) && self.press_count >= 1) {
                 //game::log::info(Where.CONSOLE, "Gui: I'm pressing button: %s", self.super.name);
                 if (self.onPress) { 
-                    self.onPress(any_make(self, WidgetButton.typeid));
+                    self.onPress(widget);
                 }
             }
             
             if (Action* action = input::getAction("Double Press")) {
                 if (action.fnDoubleTriggered(0.250f) && self.onDoublePress) { 
-                    self.onDoublePress(any_make(self, WidgetButton.typeid));
+                    self.onDoublePress(widget);
                 }
             }
             
             if (Action* action = input::getAction("Single Press")) {
                 if (action.fnBecameTriggered() && self.onSinglePress) { 
-                    self.onSinglePress(any_make(self, WidgetButton.typeid)); 
+                    self.onSinglePress(widget); 
                 }
-                // if(action.fnBecameTriggered()) {
-                    // String[] array = {"apple", "banana", "apple", "orange", "banana"};
-                    // int size = array.len;
-                    // input::detect_duplicates(array, size);
-                // }
             }
 
             if (rl::isMouseButtonReleased(RLMouseButton.LEFT)) {
                 if (self.onRelease) { 
-                    self.onRelease(any_make(self, WidgetButton.typeid)); 
+                    self.onRelease(widget); 
                 }
             }
 
             if (rl::isKeyPressed(rl::KEY_ENTER) && !rl::isKeyPressedRepeat(rl::KEY_ENTER)) {
                 if (self.onEnterKey) { 
-                    self.onEnterKey(any_make(self, WidgetButton.typeid)); 
+                    self.onEnterKey(widget); 
                 }
             }
         }
     } else {
         if (self.onStopOver) { 
-            self.onStopOver(any_make(self, WidgetButton.typeid));
+            self.onStopOver(widget);
         }
     }
 }

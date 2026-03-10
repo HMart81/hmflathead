@@ -921,6 +921,12 @@ fn long roundDoubleToLong(double value) @inline {
     return result;
 }
 
+fn uint countDigits(uint numb) @inline @nodiscard
+{ 
+	uint result = (uint)(roundFloatToInt((float)math::log(numb, 10)) + 1u);
+	return result;
+}
+
 <*
  Convert an type to another type safely, returning an failure if there is a type mismatch.
 

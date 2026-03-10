@@ -1872,6 +1872,7 @@ fn HMaterial* getMaterial(String material_name) @public
     uint count = (uint)game::gpGame.mtrDB.data.len();
     if(count == 0) {
         log::error(Where.FILE, "No material files loaded in the game, cannot get material '%s'", material_name);
+		// todo return a required default material
         return null;
     }
 
