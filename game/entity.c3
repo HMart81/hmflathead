@@ -796,13 +796,13 @@ fn void Entity.draw(&self)
 	RLRectangle rect = self.vs.rect;
 	switch (game::CURRENT_UNITS)
 	{
-		case game::UNITS_METER:
+		case game::Units.METER:
 			// position is still in pixels, todo convert to meters 
 			//rect.x = misc::metersToPixels(self.rect.x);
 			//rect.y = misc::metersToPixels(self.rect.y);
 			rect.width  = misc::metersToPixels(self.vs.rect.width);
 			rect.height = misc::metersToPixels(self.vs.rect.height);
-		case game::UNITS_PIXEL:
+		case game::Units.PIXEL:
 			rect;  // do nothing already in pixels
 		default:
 			log::error(FILE, "Unsupported units set for Entity rendering.");

@@ -62,7 +62,7 @@ import game::camview::postprocess::pp;
 
 /*
     NOTE(HM) 
-    In raylib, using 2D camera, screen coordinates use a 2D Cartesian system 
+    Raylib 2D camera screen coordinates use a 2D Cartesian system, 
     with the origin (0,0) at the top-left corner of the window.
     
     ** world view space **
@@ -76,10 +76,9 @@ import game::camview::postprocess::pp;
     |_____________|
 
 
-
-    Unfortunatly OpenGL uses a different coordinate system
-    with the origin (0,0) at the bottom-left corner of the window.
-    And positive Y axis goes up, not down as in raylib screen space.
+    Unfortunatly OpenGL uses a different coordinate system.
+    The origin (0,0) is at the bottom-left corner of the window.
+    And positive Y axis goes up, not down like raylib 2D camera.
 
     ** rendering/draw view space **
      _____________
@@ -92,23 +91,27 @@ import game::camview::postprocess::pp;
     
     WARNING: This means that when displaying framebuffer textures, 
              the Y coordinate, will be inverted!!!
-             And we will have to negate the Y axis when drawing the framebuffer texture.
+             So we have to negate the Y axis when drawing the framebuffer texture.
              BUT Raylib functions getting 2D screen coordinates, like rl::getMouseY(), etc..., 
              will return the value has if Y is NOT inverted, so have that in mind!!!
 
     
-    ** camera coordinate space **
+
+    ** OUR Game camera coordinate space **
+	uses the Raylib Cartesian system BUT the origin is
+	moved from the top left to the middle of the screen
     
      _____________
     |             |
-    |      y      |
-    | -x __|__ +x |
-    |      |      |
     |     -y      |
+    | -x __|__ +x | <- {0,0}
+    |      |      |
+    |     +y      |
     |_____________|
     
-    CCW rotation (counter clockwise) using the right hand rule
-    with +Z towards the viewer, it is also axis of rotation (not used for now...)
+    Rotation is CCW (counter clockwise) using the right hand rule
+    with +Z towards the viewer. 
+	Positive Z is also 2D axis of rotation (not used for now...)
     
     
     ** entity/model space **
@@ -126,9 +129,9 @@ import game::camview::postprocess::pp;
     [2D] = (camera coordinate space)
     
     canonical view square
-    | -1, 1   0, 1   1, 1 |   |      1     |
-    | -1, 0   0, 0   1, 0 | = | -1___|___1 |
     | -1,-1   0,-1   1,-1 |   |     -1     |
+    | -1, 0   0, 0   1, 0 | = | -1___|___1 |
+    | -1, 1   0, 1   1, 1 |   |      1     |
 */
 
 /*
@@ -210,11 +213,11 @@ struct RenderView (SaveSystemInterface)
         Vec2i size;
     }
     // render view position/origin
-    Vec2f origin;
-    Vec2f default_origin;
+    Vec2f origin; // xy position IN PIXELS
+    Vec2f default_origin; // xy position IN PIXELS
     Bounds bounds;
 
-    Matrix3f axis; // world to view axis transform matrix
+    //Matrix3f axis; // world to view axis transform matrix
 
     RLCamera2D camera  @if ($defined(ENABLE_CAMERA_VIEW));
     RLCamera3D camera3D @if ($defined(ENABLE_CAMERA3D_VIEW)); // not used for now...
@@ -240,21 +243,21 @@ fn void RenderView.init(&self, int screenWidth, int screenHeight) @inline
 
     self.grayscale.loadPPShader("grayscale");
     
-    self.w = screenWidth;
-    self.h = screenHeight;
+    self.size = { screenWidth, screenHeight };
     
 $if $defined(ENABLE_CAMERA_VIEW):
     // middle of the screen is the origin
     self.origin = { self.w / 2.0f, self.h / 2.0f };
     self.default_origin = self.origin;
-    // sets camera view target and view direction
-    // look at the origin
+    // sets the target the camera looks at and view direction
+    // look down at the origin
     self.camera.target = self.origin;
     // move the view axis center to be the target
     //self.axis.translate(self.camera.target.arr);
     
-    // sets how far the camera is from the view target
-    // right now theres no offset for the target
+    // sets how far in the 2D plain 
+	// the camera is from the view target
+    // right now theres no offset from the target/origin
     self.camera.offset = self.camera.target;
    
     // NOTE(HM) To simplify things camera rotation will not be possible
@@ -263,11 +266,11 @@ $if $defined(ENABLE_CAMERA_VIEW):
     self.camera.zoom = 1.0f;
 $endif
 
-    self.axis = VIEW_AXIS_IDENTITY;
+    /*self.axis = VIEW_AXIS_IDENTITY;
     {
         // flip Y axis to match the camera coordinate space
         self.axis.m11 = -1.0f;
-    }
+    }*/
 
 $if ($defined(ENABLE_CAMERA3D_VIEW)):
     float aspect_ratio = (float)screenWidth / (float)screenHeight;
@@ -287,9 +290,10 @@ $if ($defined(ENABLE_CAMERA3D_VIEW)):
 $endif
 
     // view bounds
-    Vec2f bb_maxc = self.origin + misc::VEC_UP * (float)(self.h / 2) + misc::VEC_LEFT * (float)(self.w / 2);  
-    RLRectangle bb_def = misc::makeRect(bb_maxc, {self.w, self.h});
-    self.bounds.setRect(bb_def);
+	// calculate top left coorner of the bbox square
+    Vec2f bb_maxc = self.origin + misc::VEC_UP * (float)(self.h / 2) + misc::VEC_LEFT * (float)(self.w / 2);
+	Vec2f bb_minc = {self.w, self.h};
+    self.bounds.setRect(misc::makeRect(bb_maxc, bb_minc));
     
     // key actions
     input::makeKeyboardAction("cam_move_up",    rl::KEY_W);
@@ -339,10 +343,12 @@ fn void RenderView.renderFBO(&self, RenderFunctionCallback callback) @inline
     if(callback) callback(self);
 }
 
-// NOTE(HM) This was disabled because I found Raysan's
+// NOTE(HM) This was disabled because I found Raysan's Raylib
+// already has this function builtin, he also unfortunatly
 // hardcoded F12 key for the screenshot action, very annoying,
-// and also didn't provided a way to override the folder 
-// where the screenshot is saved, is always next to the .exe
+// also didn't provided a way to override the folder 
+// where the screenshots are placed/saved, they are put always 
+// next to the .exe
 fn void takeScreenShot() 
 {
     unreachable();
@@ -410,14 +416,15 @@ fn void moveScreenShots()
     String shots_dir = game::gpGame.app_work_dir.tconcat("screenshots\\");
     bool? sucess = fs::makeDirectory_IfNotExist(shots_dir);
     if(catch excuse = sucess) { // will ignore if the directory already exists
-        log::warning(Where.FILE, "Cannot create screenshots directory at: %s!\n\t -> excuse: %s", 
+        log::warning(FILE, "Cannot create screenshots directory at: %s!\n\t -> excuse: %s", 
                     shots_dir, excuse);
         $if $feature(_DEBUG):
-            unreachable();
+            unreachable("Cannot create screenshots directory at: %s!\n\t -> excuse: %s", 
+                    shots_dir, excuse);
         $endif
     }
     
-    // count how many shots are in the w folder then
+    // count how many shots are in the work directory (where the .exe is...)
     RLFilePathList files = fs::loadDirectoryFilesEx(game::gpGame.app_work_dir, ".png", scanSubdirs: false);
     for(int i = 0; i < files.count; i++) {
         // move the images to the screenshot folder
@@ -665,8 +672,8 @@ fn Vec2f RenderView.toCanonicalViewSpace(&self, Vec2i vec)
     // map the coords to -1 to 1
     //x = misc::@mapValueRangeToOtherX(vec.x, 0, width, -1, 1);
     //y = misc::@mapValueRangeToOtherX(vec.y, 0, height,-1, 1);
-    x = misc::@clampfBinormalMapToRange(vec.x, 0, width);
-    y = misc::@clampfBinormalMapToRange(vec.y, 0, height);
+    x = misc::clampfBinormalMapToRange(vec.x, 0, width);
+    y = misc::clampfBinormalMapToRange(vec.y, 0, height);
     // io::printfn("[");
     // io::printfn("{%s, %s}", vec.x, vec.y);
     // io::printfn("Canonical X = %s", x);

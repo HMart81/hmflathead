@@ -493,12 +493,12 @@ fn void HMSprite.draw(&self)  @inline
         RLRectangle rect = self.rect;
         switch (game::CURRENT_UNITS)
         {
-            case game::UNITS_METER:
+            case game::Units.METER:
                 //rect.x = misc::metersToPixels(self.rect.x);
                 //rect.y = misc::metersToPixels(self.rect.y);
                 rect.width  = misc::metersToPixels(self.rect.width);
                 rect.height = misc::metersToPixels(self.rect.height);
-            case game::UNITS_PIXEL:
+            case game::Units.PIXEL:
                 rect;  // do nothing already in pixels
             default:
                 log::error(FILE, "Unsupported size units set for HMSprite rendering.", self.kind);

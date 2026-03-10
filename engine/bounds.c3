@@ -37,13 +37,14 @@ const float	INFINITY = 1e30f;
 
 const VEC2_ZERO @local = (Vec2f){0.0f, 0.0f};
 
-CVar db_showBounds = { "db_showBounds", CvarType.BOOL, "0", "displays used bounding box's on screen for debug"};
+CVar db_showBounds = { "db_showBounds", CvarType.BOOL, "1", "displays used bounding box's on screen for debug"};
 
 fn void register_cvars() {
     cvar::@register(&db_showBounds);
 }
 
-struct Bounds {
+struct Bounds @packed
+{
     Vec2f maxc;
     Vec2f minc;
 }
@@ -206,12 +207,11 @@ fn void Bounds.pequals(&self, Bounds* other) @operator(+=)
     // self.minc = self.maxc - other.minc;
 // }
 
-fn void Bounds.setRect(&self, RLRectangle rect) @inline {
-    Vec2f origin = rect.getPosition();
-    float w, h;
-    w = rect.getSize().x;
-    h = rect.getSize().y;
-    self.maxc = origin;
+fn void Bounds.setRect(&self, RLRectangle rect) @inline 
+{
+    float w = rect.size.x;
+    float h = rect.size.y;
+    self.maxc = rect.pos;
     self.minc = self.maxc + misc::VEC_RIGHT * w + misc::VEC_DOWN * h;
 }
 
@@ -233,7 +233,8 @@ fn bool Bounds.compare2(&self, Bounds* a ) @operator(!=)
     return (self.minc != a.minc && self.maxc != a.maxc);
 }
 
-fn void Bounds.clear(&self) @inline {
+fn void Bounds.clear(&self) @inline 
+{
 	self.maxc.x = self.maxc.y = INFINITY;
 	self.minc.x = self.minc.y = -INFINITY;
 }

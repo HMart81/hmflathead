@@ -949,26 +949,32 @@ macro @mapValueRangeToOther(#x, $in_min, $in_max, $out_min, $out_max)
 
 macro clamp01f(x) => math::clamp((float)x, 0.0f, 1.0f);
 
-macro float @clamp01fMapToRange(#x, #min, #max) {
-    var result = 0.0f;
-    var range  = (float)#max - (float)#min;
+fn float clamp01fMapToRange(float x, float min, float max) @inline @nodiscard
+{
+    float result;
+    float range = max - min;
     if(range != 0.0f) {
-        result = clamp01f((float)(#x - #min) / range);
+        result = clamp01f((x - min) / range);
     }
     return result;
 }
 
-macro @clampfBinormalMapToRange(#x, #min, #max) {
-    return -1.0f + 2.0f * @clamp01fMapToRange(#x, #min, #max);
+fn float clampfBinormalMapToRange(float x, float min, float max) @inline @nodiscard
+{
+    return -1.0f + 2.0f * clamp01fMapToRange(x, min, max);
 }
 
-macro reverse_digits(num)
+<*
+	Reverts a integer from 0 to uint.max 
+	@param num : "number to reverse like 1234 into 4321"
+	@require num <= uint.max
+*>
+fn uint reverse_digits(uint num) @inline
 {
-    var rev_num = 0;
-    $for rev_num; num > 0; num = num / 10:
+    uint rev_num;
+    for(rev_num; num > 0; num = num / 10) {
         rev_num = rev_num * 10 + num % 10;
-    $endfor
-    
+	}
     return rev_num;
 }
 
@@ -994,6 +1000,28 @@ fn int igetDiff(int s1, int s2)
     } else {
         return s2 - s1;
     }
+}
+
+<*
+	<UNTESTED>
+	Gets the barycentric position of a point inside a triangle 
+	in percentages from the corners 0% means right on top of triangle corner;
+	@param p1 : " corner top"
+	@param p2 : " corner left"
+	@param p3 : " corner right"
+	@param [inout] out : "a vector with the required percentages"
+*>
+fn bool Vec2f.barycentricf(self, Vec2f p1, Vec2f p2, Vec2f p3, Vec3i* out = null) @inline
+{
+	if(rl::checkCollisionPointTriangle(self, p1, p2, p3)) {
+		if(out) {
+			out.x = (int)(self.distance_sq(p1) * 100.0f);
+			out.y = (int)(self.distance_sq(p2) * 100.0f);
+			out.z = (int)(self.distance_sq(p3) * 100.0f);
+		}
+		return true;
+	}
+    return false;
 }
 
 // end_region MISC

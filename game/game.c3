@@ -101,18 +101,22 @@ const SCRIPT_ENGINE = true; // use the new script engine
    Minimum scale for physics objects is 10 units (10 cm), this is a hard limit 
    imposed by box2d physics engine.
 */
-const UNITS_METER @public = 1;
-const UNITS_PIXEL @public = 2;
-const CURRENT_UNITS @public = UNITS_METER; // default units are meters
+constdef Units : inline int @public
+{
+	METER = 1,
+	PIXEL
+}
+const CURRENT_UNITS @public = Units.METER; // default units are meters
 
-const DEFAULT_UNITS_PER_METER @public @Hardcode = 1.0f;
+const DEFAULT_UNITS_PER_METER @public @Hardcode  = 1.0f;
 const DEFAULT_PIXELS_PER_METER @public @Hardcode = 100.0f; // 100 pixels per meter
-const DEFAULT_UNITS_PER_PIXEL @public @Hardcode = DEFAULT_UNITS_PER_METER / DEFAULT_PIXELS_PER_METER; // 0.01 units per pixel
+const DEFAULT_UNITS_PER_PIXEL @public @Hardcode  = DEFAULT_UNITS_PER_METER / DEFAULT_PIXELS_PER_METER; // 0.01 units per pixel
 
 
 const String MOUSE_IMAGE_NAME @Hardcode = "pointer.png";
 const String MOUSE_POINTER_MAT_NAME @Hardcode = "gui/pointer"; // game assets folder
 const GAME_CURSOR_SCALER               @Hardcode = 0.025f;
+
 const int MAX_ENTITY_COUNT     @public @Hardcode = 1 << 12; //int.max;
 
 const MIN_DISPLAY_HZ_FACTOR @Hardcode = 0.13f; // if the display hz is bellow this factor of the monitor hz, we set it to the minimum
