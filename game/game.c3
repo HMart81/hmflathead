@@ -46,9 +46,9 @@ import engine::telemetry::telem;
 import engine::gui, engine::gui::desktop::desk;
 import game::gui::menu;
 import game::intro;
-import engine::assets_api::asset; // for the asset system
 import engine::assets_api::astmng; // asset manager
 import engine::sys::reader::svg;
+import engine::sys::render2d::r2d;
 import game::material::manager::mtrmng; // material database
 import engine::sys::framework::language::lang;
 import engine::sys::framework::backends::bkend; // graphics backend interface
@@ -331,15 +331,18 @@ struct Game (SaveSystemInterface/*, IGame*/) @local
     bool msgbox_showing;
     bool is_modded_game; // is the game running a mod?
     
-    ConfigFile settings_file; // game settings file, used to get or save the game settings
+    ConfigFile settings_file; // game settings file data, used to get or save game settings
     
     IntroAnimation intro;
     
-    LANGData langdict;
+    LANGData langdict; // handles the games languages
 
     // menus
     Desktop* guiActive; // to handle all guis
     Desktop* main_menu;
+    // new immediate mode gui
+    IMUI_Context test_ui;
+    bool show_test_tool_frame;
     //
 
     // video player
@@ -382,7 +385,7 @@ struct Game (SaveSystemInterface/*, IGame*/) @local
     //
     int      pause_all_music; // to pause all music on demand
     
-    // game fonts TODO(HM) We should chose only 2 for the final game...
+    // game fonts TODO(HM) We should only chose 2 for the final game...
     RLFont* candara_font;
     RLFont* candara_light_font;
     RLFont* lucida_font;
@@ -391,6 +394,7 @@ struct Game (SaveSystemInterface/*, IGame*/) @local
     
     String[] cursors; // list of game cursors, used to load the game cursors from the assets folder
     HMSprite mouse_cursor;
+    Vec2f mouse_window_pos; // raylib coordinates origin top left
     
     Player* main_player;
     PersistentInfo playerPersistentInfo; // to save any info that the player carries along for each level
@@ -1299,6 +1303,10 @@ fn void onUpdate() @local
         
         gameHandleGeneralControls();
 
+        if(rl::getMouseDelta().sq_magnitude() > 0) {
+            local_game.mouse_window_pos = rl::getMousePosition(); // pixel coordinates, top left origin
+        }
+
 		$if $feature(VIDEO_PLAYBACK_ENABLE):
 		if(game::gpGame.vidCabinet.movies.len()) 
 		{
@@ -1748,6 +1756,9 @@ fn void onPostGUIDraw(int screenWidth, int screenHeight) @public
                 line.draw();
             }
         }
+
+        // draw representations of the various mouse positions
+        //r2d::drawDebugPoint(local_game.mouse_window_pos, rl::RED);
     }
 
     // draw game cursor sprite
@@ -1792,6 +1803,7 @@ fn void onGuiDraw(int screenWidth, int screenHeight) @public @inline
         intro::drawAnimation(&local_game.intro);
     }
 
+	// SAVE MESSAGE
     if(local_game.showSaveMessage && 
        local_game.mode != STARTING && 
        local_game.mode != INTRO &&
@@ -1829,6 +1841,32 @@ fn void onGuiDraw(int screenWidth, int screenHeight) @public @inline
             local_game.msgbox_showing = false;
         }
     }
+
+	// Custom immediate UI testing
+    imui::update_mouse_pos(&local_game.test_ui, local_game.mouse_window_pos);
+    imui::update_time(&local_game.test_ui, local_game.time_ms);
+	if(developer.getBool() && local_game.show_test_tool_frame &&
+       local_game.mode == PLAYING)
+    {
+		RLRectangle frame_rect = {
+			.x = local_game.screen.center.x + 100, 
+			.y = local_game.screen.center.y + 100,
+		    .width = 500, .height = 200
+		};
+
+        if(imui::@makeFrame(&local_game.test_ui, &frame_rect, rl::BLUE, "Tools")
+        {
+            if(imui::doButton(&local_game.test_ui, "test_imui_btn", "STATS",
+            {
+                .x = frame_rect.x + 10,
+                .y = frame_rect.y + 10,
+            })) {
+				dbg_stats.setBool(!dbg_stats.getBool());
+				local_game.show_statistics = !local_game.show_statistics;
+			}
+        }){} else {local_game.show_test_tool_frame = false;}
+	}
+	//
 }
 
 fn void onPostBufferSwap() @local @inline {
@@ -3048,6 +3086,9 @@ $endif
     log::info(FILE, "---------------------------------------------");
     // init the game editor defaults
     local_game.editor.initDefaults();
+
+    // // immediate UI @testing
+    local_game.show_test_tool_frame = true;
     log::info(FILE, "-done-");
     log::info(FILE, "---------------------------------------------\n");
     

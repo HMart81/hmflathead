@@ -2360,6 +2360,254 @@ fn void DesktopManager.editor(&self, bool choice = false)
     self.mode = (choice) ? EDITOR : NORMAL;
 }
 
+module engine::gui::immediate::imui;
+
+import std::io;
+import thirdparty::raylib5::rl;
+import engine::logging::log;
+import engine::sys::render2d::r2d;
+import engine::assets_api::astmng; // asset manager
+import game::main;
+import std::math;
+import engine::misc;
+
+alias asstManager @local = astmng::assetManager;
+
+enum IMUI_FONTs : int (String name) @local
+{
+    BIG    {"candara.fnt"},
+    MEDIUM {"candara.fnt"},
+    SMALL  {"candara.fnt"}
+}
+
+enum IMUI_IDs : int (String str)
+{
+    FRAME  {"Frame"},
+	BUTTON {"Button"},
+	LABEL  {"Label"}
+}
+
+struct IMUI_Style
+{
+    IMUI_IDs kind;
+    IMUI_FONTs  font;
+    RLRectangle rect; // position and size of the "widget"
+	float frame_height_scaler; // value 0.0f to 1.0f
+    RLColor default_color;
+    RLColor hot_color;
+    RLColor active_color;
+}
+
+const IMUI_Style[*] IMUI_STYLES = {
+    {
+        .kind = FRAME,
+        .font = IMUI_FONTs.SMALL,
+        .rect = {0, 0, 100, 50},
+		.frame_height_scaler = 1.0f,
+        .default_color = rl::DARKGRAY
+    },
+    {
+        .kind = BUTTON,
+        .font = IMUI_FONTs.SMALL,
+        .rect = {0, 0, 100, 50},
+        .default_color = rl::YELLOW,
+        .hot_color = rl::RED,
+        .active_color = rl::GREEN
+    },
+    {
+        .kind = LABEL,
+        .font = IMUI_FONTs.MEDIUM,
+        .rect = {0, 0, 100, 50},
+        .default_color = rl::BLACK,
+        .hot_color = rl::YELLOW,
+        .active_color = rl::RED
+    }
+};
+
+
+const NEXT_MOUSE_QUERY_DELAY = 150; //ms
+struct IMUI_Context
+{
+	//int owner;
+	//int next;
+	//int index;
+    //int next_mouse_query_time;
+    Vec2f mouse_pos;
+    int time;  // gui time
+}
+
+<*
+	Update mouse position for gui interactions
+	@param [&inout] ctx : "pointer to the gui context"
+	@param mp : "the mouse position vector values"
+*>
+fn void update_mouse_pos(IMUI_Context* ctx, Vec2f mp) @inline
+{
+	ctx.mouse_pos = mp;
+}
+
+<*
+	Update mouse position for gui interactions
+	@param [&inout] ctx : "pointer to the gui context"
+	@param _time : "the current game time in milliseconds"
+*>
+fn void update_time(IMUI_Context* ctx, int _time) @inline
+{
+	ctx.time = _time;
+}
+
+const FRAME_HEIGHT_PERCENTAGE @local = 0.10f;
+fn bool beginFrame(IMUI_Context* ctx, RLRectangle* rect = null, RLColor color = {}, String title = "") @nodiscard
+{
+    IMUI_Style style;
+    bool style_set;
+
+    if(rect == null && color == rl::BLANK) {
+        style = IMUI_STYLES[IMUI_IDs.FRAME.ordinal];
+		rect  = &style.rect;
+        color = style.default_color;
+        style_set = true;
+    }
+
+    assert(misc::isValidRect(*rect));
+
+    if(title) {
+        int title_bar_height;
+        // remove the height of the bar from the main frame rect height
+		title_bar_height = (int)(FRAME_HEIGHT_PERCENTAGE*rect.height); // set main overall bar height (after set, do not change)
+        rect.height -= title_bar_height;
+        // now move the frame rect down amount being height of the frame
+		// do not change title_bar_height, use frame_height_scaler to scale the bar height if needed.
+        if(!style_set) { rect.y += title_bar_height; } else { rect.y += style.frame_height_scaler * title_bar_height; }
+        r2d::drawRectangleRec(*rect, color);
+
+        // draw a title bar rectangle
+		float bar_rect_x = rect.x;
+        float bar_rect_y = rect.y - title_bar_height;
+		RLRectangle bar_rect = {bar_rect_x, bar_rect_y, rect.width, title_bar_height};
+        r2d::drawRectangleRec(bar_rect, rl::DARKGRAY);
+        // draw the title text
+        int font_size; 
+        if(style_set) { 
+            font_size = asstManager.getFont(style.font.name).baseSize;
+        } else {
+            font_size = rl::getFontDefault().baseSize;
+        }
+        font_size        = (int)(font_size * 1.0f);
+        int title_size   = rl::measureText(title.zstr_tcopy(), font_size);
+        int title_offset = (int)math::round(0.015f * rect.width);
+        rl::drawText( 
+            text: title.zstr_tcopy(),
+            posX: (int)(rect.x + title_offset),
+            posY: (int)((bar_rect_y + (title_bar_height / 2.0f)) - (font_size / 2.0f)),
+            fontSize: font_size,
+            color: rl::BLACK
+        );
+
+        // draw a close "button"
+        ZString close_text = string::tformat_zstr("%c", '0x001F');
+        font_size = (int)(font_size * 1.0f);
+        int symb_size = rl::measureText(close_text, font_size);
+        RLRectangle btn_rect = {
+            .x = ((rect.x + rect.width) - 3 * ((float)symb_size / 2)),
+            .y = ((bar_rect_y + (title_bar_height / 2.0f)) - (font_size / 2.0f)),
+            .width = symb_size,
+            .height = 2 * (float)font_size / 2
+        };
+        //r2d::drawRectangleRec(btn_rect, rl::RED);
+        
+        RLColor btn_color = rl::BLACK;
+
+        Vec2f mouse_size = game::getGameCursorSize() * 0.5f; // half size of the cursor
+        RLRectangle mouseRect = misc::@recFromVecs(ctx.mouse_pos, mouse_size);
+        if (rl::checkCollisionRecs(mouseRect, btn_rect)) {
+            btn_color = {0x1E, 0x1E, 0x1E, 0xFF};
+            if(rl::isMouseButtonPressed(RLMouseButton.LEFT)) {
+                if(rl::checkCollisionPointRec(ctx.mouse_pos, btn_rect)) {
+                    io::printfn("I pressed close FRAME '%s'", title);
+                    return false;
+                }
+            }
+        };
+
+        rl::drawText( 
+            text: close_text,
+            posX: (int)btn_rect.x,
+            posY: (int)btn_rect.y,
+            fontSize: font_size,
+            color: btn_color
+        );
+
+		// frame drag
+		/*if (rl::checkCollisionRecs(mouseRect, bar_rect)) {
+            if(rl::isMouseButtonDown(RLMouseButton.LEFT)) {
+				io::printfn("drag FRAME '%s'", title);
+                rect.x += ctx.mouse_pos.x;
+        		rect.y += ctx.mouse_pos.y;
+            }
+        };*/
+    } else {
+        // just draw a simple rectangle
+        r2d::drawRectangleRec(*rect, color);
+    }
+
+    return true;
+}
+
+macro endFrame(IMUI_Context* ctx) {
+}
+
+macro bool @makeFrame(ctx, rect, color = rl::CTRANSPARENT, title = ""; @body()) {
+    bool result;
+    if((result = beginFrame(ctx, rect, color, title))) {
+        @body();
+    }
+    endFrame(ctx);
+    return result;
+}
+
+fn bool doButton(IMUI_Context* ctx, String name, String label, Vec2f pos) 
+{
+    bool result;
+	IMUI_Style style = IMUI_STYLES[IMUI_IDs.BUTTON.ordinal];
+
+    RLRectangle rect = style.rect;
+    rect.pos = pos;
+    r2d::drawRectangleRec(rect, style.default_color);
+
+    //if(ctx.time >= ctx.next_mouse_query_time) {
+        Vec2f mouse_size = game::getGameCursorSize() * 0.5f; // half size of the cursor
+        RLRectangle mouseRect = misc::@recFromVecs(ctx.mouse_pos, mouse_size);
+        if (rl::checkCollisionRecs(mouseRect, rect)) {
+            r2d::drawRectangleRec(rect, style.hot_color);
+        };
+    //}
+
+	if(rl::isMouseButtonPressed(RLMouseButton.LEFT)) {
+		if(rl::checkCollisionPointRec(ctx.mouse_pos, rect)) {
+			io::printfn("I pressed button '%s'", name);
+			result = true;
+		}
+	}
+
+    CInt font_size  = asstManager.getFont(style.font.name).baseSize;//rl::getFontDefault().baseSize;
+	font_size = (int)(font_size * 1.5f);
+    CInt label_size = rl::measureText(label.zstr_tcopy(), font_size);
+	if(label) rl::drawText( 
+		text: label.zstr_tcopy(),
+		posX: (CInt)(rect.pos.x + (rect.width / 2 - (float)label_size / 2)),
+		posY: (CInt)(rect.pos.y + (rect.height / 2 - (float)font_size / 2)),
+		fontSize: font_size,
+		color: rl::DARKGRAY
+	);
+
+    //ctx.next_mouse_query_time = ctx.time + NEXT_MOUSE_QUERY_DELAY;
+
+	return result;
+}
+
+// end module imgui
+
 // *****************************************************************************
 // @deprecated 
 // NOTE(HM) TODO(HM) move this to a better place, like a gui editor file

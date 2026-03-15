@@ -231,7 +231,7 @@ macro CVar.initWithStrings( String name, String value, int flags, String descrip
     // cvars.push(&cv);
 // }
 
-fn bool CVar.getBool(&self, bool default_value = false) @inline
+fn bool CVar.getBool(&self, bool default_value = false) @inline @nodiscard
 {
     if(self.type != CvarType.BOOL) {
         log::warning(Where.FILE, "Trying to get boolean value from CVar: %s but it is not a bool: %s->%d", self.name, $$FUNC, $$LINE);
@@ -254,7 +254,8 @@ fn bool CVar.getBool(&self, bool default_value = false) @inline
     return (value > 0) ? true : false;
 }
 
-fn int CVar.getInt(&self, int default_value = 0) @inline {
+fn int CVar.getInt(&self, int default_value = 0) @inline @nodiscard
+{
     if(try int result = self.value.to_int()) {
         return result;
     } else {
@@ -263,7 +264,8 @@ fn int CVar.getInt(&self, int default_value = 0) @inline {
     }
 }
 
-fn float CVar.getfloat(&self, float default_value = 0.0f) @inline {
+fn float CVar.getfloat(&self, float default_value = 0.0f) @inline @nodiscard
+{
     if(try float result = self.value.to_float()) {
         return result;
     } else {
@@ -272,7 +274,8 @@ fn float CVar.getfloat(&self, float default_value = 0.0f) @inline {
     }
 }
 
-fn String CVar.getString(&self, String default_value = "") @inline {
+fn String CVar.getString(&self, String default_value = "") @inline @nodiscard 
+{
     if(self.type != CvarType.STRING) {
         log::warning(FILE, "CVar: %s was not defined as a string: %s->%d", self.name, $$FUNC, $$LINE);
         return default_value;
@@ -292,6 +295,17 @@ $if $feature(_DEBUG):
         log::info(CONSOLE, "CVar %s was set to value %s.", self.name, value);
     }
 $endif
+    return self;
+}
+
+fn CVar* CVar.setBool(&self, bool value) @inline
+{
+$if $feature(_DEBUG):
+    if(self.type != CvarType.BOOL) {
+        log::fatal(FILE, "Trying to set non bool CVar %s to bool value %s.", self.name, (self.value) ? "true" : "false");
+    }
+$endif
+    (value == true) ? self.set("true") : self.set("false");
     return self;
 }
 

@@ -40,7 +40,6 @@ import game::main;
 //import game::assets::sprt; // sprite
 import engine::filesystem::fs;
 import thirdparty::raylib5::rl;
-import engine::assets_api::asset; // for the asset system
 import engine::assets_api::astmng; // asset manager
 //import raygui5::rgui;
 //import thirdparty::raylib5::rmath;

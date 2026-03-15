@@ -35,31 +35,31 @@ import libc;
 import std::io, std::ascii;
 // end_region
 
-fn void advance(CChar** str, int count)  @inline
+fn void advance(char** str, int count)  @inline
 {
 	if(count <= 0) return;
-	
 	str += count;
 }
 
-fn bool isEndOfLine(CChar c)  @inline
+fn bool isEndOfLine(char c)  @inline
 {
 	return ((c == '\n') || (c == '\r'));
 }
 
-fn bool isWhiteSpace(CChar c)  @inline
+fn bool isWhiteSpace(char c)  @inline
 {
 	return ((c == ' ') || (c == '\t') || isEndOfLine(c));
 }
 
 <*
-    You can convert a CChar c to an integer safely:
-    if the char code falls withing the normal ASCII table values.
+    You can convert a char to an integer safely:
+    if the char code/value falls withing the normal ASCII table values.
+	aka 0 to 127
     
- @require ascii::is_alnum(c) : "Expected a number or symbol"
- @require c >= 0 && c <= 127 : "Expected valid ASCII value from 0 to 127"
+	@require ascii::is_alnum(c) : "Expected a number or symbol"
+	@require c <= ichar.max : "Expected valid ASCII value from 0 to 127"
 *>
-fn int charToInt(CChar c)  @inline
+fn int charToInt(char c)  @inline
 {
 	return  c - '0';
 }
@@ -69,41 +69,42 @@ fn int charToInt(CChar c)  @inline
 // Is like advance but stops at first space character
 // NOTE(HM) 
 // String is a char[] SLICE ( a struct with a pointer and a len)
-// not a array like C, that is just a pointer to the start of a contiguous peace of memory.
-fn CChar returnNextToken(String str, int curr_index)  @inline
+// not a array like in C.
+// In C a const char* is a pointer to the start of a contiguous peace of memory.
+fn char returnNextToken(String str, int curr_index)  @inline
 {
 	return *(str.ptr + curr_index + 1);
 }
 
 <*
- @param [&in] str : "the string to peak at, passed by pointer"
- @param cur_index : "where the cursor is currently in the string"
- @ensure return != null : "expect a character pointer got a null pointer"
+	@param cur_index : "where the cursor is currently in the string"
+	@param [in] str : "the string to peak at"
+	@ensure return != null : "make sure we got a valid char* not null"
 *>
-fn CChar* peakAtNextToken(String* str, int cur_index)  @inline
+fn char* peakAtNextToken(int cur_index, String str)  @inline
 {
-	return (CChar*)((*str).ptr + cur_index + 1);
+	return (char*)(str.ptr + cur_index + 1);
 }
 
 <*
-* DOC - go back a char
- @param [&in] str : "the string to peak at, passed by pointer"
- @param curr_index : "where we currently are in the string"
- @ensure return != null : "expect a character pointer got a null pointer"
+	DOC - go back a char
+	@param curr_index : "where we currently are in the string"
+	@param [in] str : "the string to peak at, passed by pointer"
+	@ensure return != null : "expect a character pointer got a null pointer"
 *>
-fn CChar* peakAtPreviousToken(String* str, int curr_index)  @inline
+fn char* peakAtPreviousToken(int curr_index, String str)  @inline
 {
-	return (CChar*)((*str).ptr + curr_index - 1);
+	return (char*)(str.ptr + curr_index - 1);
 }
 
 <*
- @param token : "the character to look for"
- @param [&in] str : "the string to look at"
- @param cur_index : "where we currently are in the string"
+	@param token : "the character to look for"
+	@param [in] str : "the string to look at"
+	@param cur_index : "where we currently are in the string"
 *>
-fn bool expectToken(CChar token, String* str, int cur_index)  @inline
+fn bool expectToken(char token, String str, int cur_index)  @inline
 {
-	if (*peakAtNextToken(str, cur_index) == token) {
+	if (*peakAtNextToken(cur_index, str) == token) {
 		return true;
 	} else {
 		return false;
@@ -119,15 +120,15 @@ fn int count_spaces(String str)  @inline
 
 <* 
     Removes all spaces from a string
-    @param [inout] str : "string to remove spaces from"
+    @param [&inout] str : "string to remove spaces from"
 *>
-fn void remove_all_spaces(String* str)  @inline
+fn void remove_all_spaces(String* str)  //@inline
 {
     int spaces_count = count_spaces(*str);
     if(spaces_count <= 0) return;
     
     int new_len      = (str.len - spaces_count) + 1;
-	CChar* buffer    = (CChar*)mem::calloc(new_len);
+	char* buffer    = (char*)mem::calloc(new_len);
     
     usz i;
     usz j;
@@ -151,11 +152,18 @@ fn void remove_all_spaces(String* str)  @inline
 }
 
 
+fn String String.removeSpaces(self) @inline
+{
+	return string::tjoin(self.tsplit(" "), "");
+}
+
+
 <*
     Eats all the spaces starting at current char untill a non space character is found
+	(shouldn't this be called ignore spaces not eat spaces? We are not really "eating" anything just jumping over)
     @param [&inout] cursor : "the current position in the string, passed by pointer"
 *>
-fn void eat_spaces_starting_from(CChar** cursor) @inline
+fn void eat_spaces_starting_from(char** cursor) @inline
 {
 	while (true)
 	{

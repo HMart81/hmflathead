@@ -36,7 +36,7 @@ import engine::misc;
 import engine::input;
 import game::material::mat;
 import game::material::manager::mtrmng;
-import engine::assets_api::asset;
+import engine::assets_api::astmng; // asset manager
 import engine::logging::log;
 import game::main;
 import game::camview;

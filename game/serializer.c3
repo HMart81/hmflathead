@@ -40,7 +40,6 @@ import std::collections::list;
 import game::main;
 import thirdparty::raylib5::rl;
 import engine::misc;
-import engine::assets_api::asset; // for the asset system
 import engine::assets_api::astmng; // asset manager
 import engine::logging::log;
 import engine::filesystem::fs; // for file system

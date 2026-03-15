@@ -80,6 +80,13 @@ macro @debug_break($x /*enable*/) @builtin {
     $endif
 }
 
+// does something only once per frame
+macro @doOnce(; @body()) {
+	for(int once = 0; once != 1; once = 1) {
+		@body();
+	}
+}
+
 macro @makeVec2f(#x, #y) => (Vec2f){#x, #y};
 macro @makeVec2fExt(#x) => (Vec2f){#x, #x};
 //
@@ -287,10 +294,8 @@ fn float unitsToMeters(int units, float minimum_size = MINIMUM_SIZE_IN_METERS) @
 
 const RLColor INVISIBLE_COLOR = {0xFF, 0xFF, 0xFF, 0x00};
 fn String printColor(RLColor color) @inline {
-    return string::tformat("{%s,%s,%s,%s}", color.r, color.g, color.b, color.a);
-} 
-
-//fn RLVector2 Vec2f.toVector2(&self) => (RLVector2) {self.x, self.y};
+    return string::tformat("{%d,%d,%d,%d}", color.r, color.g, color.b, color.a);
+}
 
 // NOTE(HM) empty user attributes (Need to start with a uppercase...)
 attrdef @Hardcode; // used to mark hardcoded values for easy search
@@ -328,6 +333,7 @@ const int COORD_360_EAST    = 360; // cardinal direction
 
 
 // region Debug Lines
+// TODO(HM) move this to a dedicated file?
 alias ListOfLines @local = List{DebugLine*};
 ListOfLines g_debugLines; // Global list of debug lines for drawing and updating
 
@@ -462,6 +468,8 @@ macro Vec2f screenToWorld(spos) => rl::getScreenToWorld2D(wpos, game::gpGame.cam
 // end_region MATH misc
 
 // region vec2 extensions
+const VEC2_ZERO @builtin = (Vec2f){0.0f, 0.0f};
+const IVEC2_ZERO @builtin = (Vec2f){0, 0};
 fn void Vec2f.scale(&self, float x, float y) @inline {
     (*self) = { self.x * x, self.y * y };
 }
@@ -524,13 +532,13 @@ fn B2Vec2 rot_GetYAxis( B2Rot q ) => (B2Vec2) { -q.s, q.c };
 
 
 // region raylib RLRectangle extensions
-macro RLRectangle makeRect(Vec2f v1, Vec2f v2) => (RLRectangle){v1.x, v1.y, v2.x, v2.y};
-
+macro makeRect(Vec2f pos, Vec2f size) => (RLRectangle){pos.x, pos.y, size.x, size.y};
+// right now this makes no sence both "world" position and "screen" position are the same?
 macro Vec2f RLRectangle.getScreenPos(self) => worldToScreen(self.getPosition());
 
-// NOTE(HM) This may return the exact same coords as put in if
+// NOTE(HM) This may return the same coords put in, if
 // the camera is never moved around, as world coords and camera coords
-// are very similar only the center/origin changes.
+// are very similar only the center/origin changed.
 // UNTESTED!!!!!!!!!!!!!!!!!!!!!
 fn Vec2f RLRectangle.getPosCameraCoords(&self) @if ($defined(view::ENABLE_CAMERA_VIEW))
 {
@@ -541,6 +549,9 @@ fn Vec2f RLRectangle.getPosCameraCoords(&self) @if ($defined(view::ENABLE_CAMERA
     
     return self.getPosition() * offset_vec_dir.normalize() * offset_len; 
 }
+
+// we only care about the size because position can be 0 or even negative
+fn bool isValidRect(RLRectangle rect) @inline @nodiscard => (rect.size.x > 0 && rect.size.y > 0);
 // end_region raylib RLRectangle extensions
 
 // region RLTexture stuff

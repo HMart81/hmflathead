@@ -68,7 +68,7 @@ const RLColor MAGENTA     = { 255, 0, 255, 255 };     // Magenta
 const RLColor RAYWHITE    = { 245, 245, 245, 255 };   // My own White (raylib logo)
 
 const RLColor CBLACK       = { 0x18, 0x18, 0x18, 0xFF }; // Custom Black
-const RLColor CTRANSPARENT = { 0x00, 0x00, 0x00, 0x00 }; // Transparent
+const RLColor CTRANSPARENT = BLANK; // Transparent
 /// Converts a COMPILE TIME hex color value to a RLColor struct.
 macro @hexToColor($hexValue) @builtin
 {
@@ -152,6 +152,7 @@ macro bool RLRectangle.neql(&self, RLRectangle other) @operator(!=)
 //macro RLVector2 RLRectangle.getPosition(&self)  => { self.x, self.y }; // in world coords
 //macro RLVector2 RLRectangle.getSize(&self) => { self.width, self.height }; // in pixel coords
 
+const RLRectangle EMPTY_RECT = {};
 macro RLVector2 RLRectangle.getPosition(&self)  => self.pos; // in world coords
 macro RLVector2 RLRectangle.getSize(&self) => self.size; // in pixel coords
 

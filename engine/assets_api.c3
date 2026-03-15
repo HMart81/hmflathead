@@ -25,26 +25,6 @@
 # Hilario Martins, Rua de Sanguinhedo 1010 4850-545 Vieira Do Minho Portugal.
 # 
 *********************************************************************************************************************************************/
-
-// region module
-module engine::assets_api::asset;
-
-//import std::io;
-//import thirdparty::raylib5::rl;
-//import engine::misc;
-//import engine::sys::framework::glsl;
-//import engine::filesystem::fs;
-
-struct Asset <Type>
-{
-	String name;
-	String path;
-    typeid type;
-	Type   data;
-}
-
-// end_region module
-
 ////////////////////////////////////////////////////////////////////////
 //////////////////////// ASSET MANAGER /////////////////////////////////
 // region module
@@ -55,7 +35,6 @@ import std::io::path;
 import std::collections::list;
 import thirdparty::raylib5::rl;
 import game::main;
-import engine::assets_api::asset;
 import engine::logging::log;
 import engine::filesystem::fs;
 import engine::misc;
@@ -71,6 +50,14 @@ faultdef INVALID_ASSETS_PATH_STRING,
 	     ASSET_RETRIVAL_ERROR,
 	     MISSING_ASSET;
 
+
+struct Asset <Type>
+{
+	String name;
+	String path;
+    typeid type;
+	Type   data;
+}
 
 // NOTE(HM) 
 // If this is changed need to update FILE_EXTENSIONS_ARRAY in hm_lib_funcs.c3 as well.
@@ -114,11 +101,6 @@ Manager* assetManager = &local_manager;
 *>
 fn void Manager.register(&self, any asset)
 {
-    /*if(asset.ptr == null) {
-        log::error(FILE, "Trying to register a null asset, skipping it.");
-        return;
-    }*/
-
     switch(asset.type)
     {
         case RLTexture2D.typeid:
