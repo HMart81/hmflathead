@@ -40,7 +40,8 @@ const SCROLLBAR_RIGHT_SIDE @builtin = 1;
 
 // Style property
 // NOTE: Used when exporting style as code for convenience
-struct GuiStyleProp {
+struct GuiStyleProp 
+{
   GuiControl controlId;   // Control identifier
   GuiControlProperty propertyId;  // Property identifier
   CInt propertyValue;          // Property value
@@ -49,7 +50,8 @@ struct GuiStyleProp {
 
 // Controls text style -NOT USED-
 // NOTE: Text style is defined by control
-struct GuiTextStyle {
+struct GuiTextStyle 
+{
   CUInt size;
   CInt charSpacing;
   CInt lineSpacing;
@@ -69,7 +71,8 @@ enum GuiState
 }
 
 // Gui control text alignment
-enum GuiTextAlignment {
+enum GuiTextAlignment 
+{
   TEXT_ALIGN_LEFT,
   TEXT_ALIGN_CENTER,
   TEXT_ALIGN_RIGHT
@@ -77,7 +80,8 @@ enum GuiTextAlignment {
 
 // Gui control text alignment vertical
 // NOTE: Text vertical position inside the text bounds
-enum GuiTextAlignmentVertical {
+enum GuiTextAlignmentVertical 
+{
   TEXT_ALIGN_TOP,
   TEXT_ALIGN_MIDDLE,
   TEXT_ALIGN_BOTTOM
@@ -85,14 +89,16 @@ enum GuiTextAlignmentVertical {
 
 // Gui control text wrap mode
 // NOTE: Useful for multiline text
-enum GuiTextWrapMode {
+enum GuiTextWrapMode 
+{
   TEXT_WRAP_NONE,
   TEXT_WRAP_CHAR,
   TEXT_WRAP_WORD
 }
 
 // Gui controls
-enum GuiControl : inline CUShort {
+enum GuiControl : inline CUShort 
+{
   // Default -> populates to all controls when set
   DEFAULT,
 

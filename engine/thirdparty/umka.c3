@@ -76,7 +76,7 @@ alias UmkaReal    = double;
 alias UmkaVoid    = void;
 
 // opaque pointer
-alias Umka = UmkaVoid*;
+typedef Umka = void;
 
 union UmkaStackSlot
 {
@@ -204,7 +204,7 @@ alias SetMetadataCallback     = fn void(void *umka, void *metadata);
 faultdef INIT_FAILED, 
          COMPILE_FAILED;
 
-extern fn Umka alloc() @cname("umkaAlloc");
+extern fn Umka* alloc() @cname("umkaAlloc");
 extern fn bool Umka._init(&self, ZString fileName, ZString sourceString, int stackSize, void *reserved, int argc, ZString *argv, bool fileSystemEnabled, bool implLibsEnabled, WarningCallback warningCallback = &umkaWarning) @cname("umkaInit");
 
 struct UmkaScriptInitData 

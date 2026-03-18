@@ -61,7 +61,22 @@ struct Asset <Type>
 
 // NOTE(HM) 
 // If this is changed need to update FILE_EXTENSIONS_ARRAY in hm_lib_funcs.c3 as well.
-const String[*] VALID_ASSET_EXTENSIONS = {
+enum FileExtension : int (String str)
+{
+	PNG {".png"},
+	JPG {".jpg"},
+	TGA {".tga"},
+	DDS {".dds"},
+	BMP {".bmp"},
+	MP3 {".mp3"},
+	VS  {".vs" },
+	FS  {".fs" },
+	WAV {".wav"},
+	OGG {".ogg"},
+	FNT {".fnt"}
+}
+
+/*const String[*] VALID_ASSET_EXTENSIONS = {
 	".png",
 	".jpg",
 	".tga",
@@ -73,7 +88,7 @@ const String[*] VALID_ASSET_EXTENSIONS = {
 	".wav",
 	".ogg",
 	".fnt"
-};
+};*/
 
 
 // TODO(HM) Support more asset types, like the new HMaterial, etc.
@@ -276,11 +291,12 @@ fn any Manager.getAsset(&self, String name, typeid type)
 
     int i; // asset index
 
-    i = self.hasAsset(name, type);
-    if( i == -1 ) {
+    if(self.hasAsset(name, type, &i) == false) {
         log::error(FILE, "Asset with name \"%s\" and type \"%s\" not found in the asset manager.", name, type);
         return null;
     }
+
+	assert(i != -1);
     
 	switch(type)
     {
@@ -291,7 +307,8 @@ fn any Manager.getAsset(&self, String name, typeid type)
         case RLMusic.typeid:
             return any_make(&(*self.musics[i]).data, type);
         case RLFont.typeid:
-            return any_make(&(*self.fonts[i]).data, type);
+			//Asset{RLFont}* font = self.fonts[i];
+            return any_make(self.fonts[i], type);
         case RLShader.typeid:
             return any_make(&(*self.shaders[i]).data, type);
         default:
@@ -395,38 +412,56 @@ fn bool Manager.hasAsset(&self, String name, typeid type) @inline
 
 <*
 	Sees if a asset exists within the asset manager
+	returns asset index.
+
 	@param name : "name of the asset"
 	@param type : "type identification of the asset being serched for"
 	@require name != ""
 *>
-fn int Manager.hasAsset(&self, String name, typeid type) /*@inline*/
+fn bool Manager.hasAsset(&self, String name, typeid type, int* index_out = null) /*@inline*/
 {
-	int found = 1;
+	if(index_out) (*index_out) = -1;
+	
     switch(type)
     {
-        case RLTexture2D.typeid:
-            foreach(i, texture: self.textures) {
-                if(texture.name == name) return found;
-            }
-        case RLSound.typeid:
-           foreach(i, sound: self.sounds) {
-                if(sound.name == name) return found;
-            }
-        case RLMusic.typeid:
-           foreach(i, music: self.musics) {
-                if(music.name == name) return found;
-            }
-        case RLFont.typeid:
-           foreach(i, font: self.fonts) {
-                if(font.name == name) return found;
-            }
-        case RLShader.typeid:
-           foreach(i, shader: self.shaders) {
-                if(shader.name == name) return found;
-            }
+	case RLTexture2D.typeid:
+		foreach(i, texture: self.textures) {
+			if(texture.name == name) {
+				if(index_out) (*index_out) = (int)i;
+				return true;
+			}
+		}
+	case RLSound.typeid:
+		foreach(i, sound: self.sounds) {
+			if(sound.name == name) {
+				if(index_out) (*index_out) = (int)i;
+				return true;
+			}
+		}
+	case RLMusic.typeid:
+		foreach(i, music: self.musics) {
+			if(music.name == name) {
+				if(index_out) (*index_out) = (int)i;
+				return true;
+			}
+		}
+	case RLFont.typeid:
+		foreach(i, font: self.fonts) {
+			if(font.name == name) {
+				if(index_out) (*index_out) = (int)i;
+				return true;
+			}
+		}
+	case RLShader.typeid:
+		foreach(i, shader: self.shaders) {
+			if(shader.name == name) {
+				if(index_out) (*index_out) = (int)i;
+				return true;
+			}
+		}
     }
     
-    return -1;
+    return false;
 }
 
 <*
@@ -503,6 +538,9 @@ fn RLFont* Manager.getFont(&self, String name) @nodiscard /*@inline*/
 {
 	if(name != "") 
     {
+		// just in case
+		if(name.contains(".")) name = fs::getFileNameWithoutExt(name);
+
         any asset = local_manager.getAsset(name, RLFont.typeid);
         if(asset.ptr != null) {
             return (RLFont*)&((Asset{RLFont}*)asset.ptr).data;
@@ -524,12 +562,14 @@ fn RLFont* Manager.getFont(&self, String name) @nodiscard /*@inline*/
 <*
 	Loads an asset from a given path and registers it in the asset manager.
 
-	@param path : "the path to the asset to load, must be a valid path to an existing file, with a supported extension, like .png for example."
-	@require path != "" : "if the path is empty, it can't be a valid asset file."
-	@require path.len >= 5 : "because the shortest valid asset file name is 'a.png' which is 5 characters long, if the path is shorter than that, it can't be a valid asset file."
+	@param [in] path : "the path to the asset to load, must be a valid path to an existing file, with a supported extension, like .png for example."
+	@param [in] asset_name : "the name of the asset to load."
+	@param extension : "the file extension to load."
+	@require path != "" && path.len >= 5 
+	@require asset_name != "" && asset_name.len >= 1
 	@require fs::fileExists(path) && path.contains(".") : "if the file doesn't exist or doesn't have an extension, it can't be a valid asset file."
 *>
-fn void loadAsset(String path) 
+fn void loadAsset(String path, String asset_name, FileExtension extension)
 {
     /*if(path == "") {
         log::error(Where.FILE, "Trying to load an asset with an empty path, skipping it.");
@@ -547,15 +587,15 @@ fn void loadAsset(String path)
     }*/
 
     bool should_load;
-    String asset_name = fs::getFileNameWithoutExt(path);
+    //String asset_name = fs::getFileNameWithoutExt(path);
 	
-    String extension = fs::getFileExtension(path);
+    //if(!extension) extension = fs::getFileExtension(path);
 	switch(extension)
 	{
-	case ".png":
-	case ".jpg":
-	case ".tga":
-        should_load = local_manager.hasAsset(asset_name, RLTexture2D.typeid) == -1;
+	case PNG:
+	case JPG:
+	case TGA:
+        should_load = !local_manager.hasAsset(asset_name, RLTexture2D.typeid);
         if(should_load) 
         {
             //path = path.trim_right(extension);
@@ -567,9 +607,9 @@ fn void loadAsset(String path)
             });
             local_manager.register(any_make(new_asset, new_asset.type));
         }
-	case ".vs":
-	case ".fs":
-        should_load = local_manager.hasAsset(asset_name, RLShader.typeid) == -1;
+	case VS:
+	case FS:
+        should_load = !local_manager.hasAsset(asset_name, RLShader.typeid);
         if(should_load) 
         {
             //path = path.trim_right(extension);
@@ -616,9 +656,9 @@ fn void loadAsset(String path)
             }
             local_manager.register(any_make(new_asset, new_asset.type));
         }
-	case ".mp3": nextcase;
-	case ".ogg":
-		should_load = local_manager.hasAsset(asset_name, RLMusic.typeid) == -1;
+	case MP3: nextcase;
+	case OGG:
+		should_load = !local_manager.hasAsset(asset_name, RLMusic.typeid);
         if(should_load) 
         {
             //path = path.trim_right(extension);
@@ -630,8 +670,8 @@ fn void loadAsset(String path)
             });
             local_manager.register(any_make(new_asset, new_asset.type));
         }
-	case ".wav":
-		should_load = local_manager.hasAsset(asset_name, RLSound.typeid) == -1;
+	case WAV:
+		should_load = !local_manager.hasAsset(asset_name, RLSound.typeid);
         if(should_load) 
         {
             //path = path.trim_right(extension);
@@ -643,24 +683,22 @@ fn void loadAsset(String path)
             });
             local_manager.register(any_make(new_asset, new_asset.type));
         }
-	case ".fnt":
-		should_load = local_manager.hasAsset(asset_name, RLFont.typeid) == -1;
+	case FNT:
+		should_load = !local_manager.hasAsset(asset_name, RLFont.typeid);
         if(should_load) 
         {
             //path = path.trim_right(extension);
             Asset{RLFont}* new_asset = mem::new(Asset{RLFont}, { 
-                .name = asset_name, 
-                .path = path, 
+                .name = asset_name.tcopy(),
+                .path = path.tcopy(), 
                 .type = RLFont.typeid,
-                .data = rl::loadFontEx(path.zstr_tcopy(), 
-                                       game::DEFAULT_FONT_SIZE, 
-                                       null, 
-                                       0
-                                       )
+                .data = rl::loadFontEx(path.zstr_tcopy(), game::DEFAULT_FONT_SIZE, null, 0)
             });
             assert(rl::isFontValid(new_asset.data), "Failed to load font from path: %s", path);
             local_manager.register(any_make(new_asset, new_asset.type));
         }
+	case DDS: nextcase;
+	case BMP: nextcase;
     default:
         unreachable("Can't load Asset \"%s\" at \"%s\", is missing or unknown type.", asset_name, path);
 	};
@@ -693,15 +731,21 @@ fn void? loadAssetsRecursively(String basepath, String parent_folder = "") /*@in
 			// NOTE(HM) ignore default assets those are handled directly
 			if (file_name == "default" || file_name == "splash") continue; // to next file
 			
-			String extension = fs::getFileExtension(path_);
+			String extension_str = fs::getFileExtension(path_);
 			bool valid_file;
 			
-			foreach(ext: VALID_ASSET_EXTENSIONS) {
-				if(extension == ext) { valid_file = true; break; }
+			FileExtension extension;
+			foreach(ext : FileExtension.values)
+			{
+				if(extension_str == ext.str) { 
+					valid_file = true;
+					extension = ext;
+					break; 
+				}
 			}
 			
 			if(valid_file == false) {
-                log::warning(Where.FILE,  "File %s is not a valid asset file, skipping it.", path_);
+                log::warning(FILE,  "File %s is not a valid asset file, skipping it.", path_);
 				continue; // to next file
 			}
 			
@@ -725,7 +769,7 @@ fn void? loadAssetsRecursively(String basepath, String parent_folder = "") /*@in
             // I was expecting to see the sliced strings in VS but they always showed as if 
             //      no cut was ever made and that throw me for a loop. So to see them correctly, 
             //      look at C3 strings in VS watch window, like so: String.ptr, len
-			loadAsset(asset_path);
+			loadAsset(asset_path, file_name, extension);
 			continue; // to next file
 			
 		} else { // is a child folder/Directory so do recursive a call

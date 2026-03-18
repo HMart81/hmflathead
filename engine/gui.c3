@@ -2380,7 +2380,7 @@ enum IMUI_FONTs : int (String name) @local
     SMALL  {"candara.fnt"}
 }
 
-enum IMUI_IDs : int (String str)
+enum IMUI_KINDs : int (String str)
 {
     FRAME  {"Frame"},
 	BUTTON {"Button"},
@@ -2389,7 +2389,7 @@ enum IMUI_IDs : int (String str)
 
 struct IMUI_Style
 {
-    IMUI_IDs kind;
+    IMUI_KINDs kind;
     IMUI_FONTs  font;
     RLRectangle rect; // position and size of the "widget"
 	float frame_height_scaler; // value 0.0f to 1.0f
@@ -2424,13 +2424,20 @@ const IMUI_Style[*] IMUI_STYLES = {
     }
 };
 
+<*
+	@ensure return != null
+*>
+fn IMUI_Style* getStyle(IMUI_KINDs kind) @inline @nodiscard {
+	foreach(&style : IMUI_STYLES){
+		if(style.kind == kind) return style;
+	}
+	return null;
+}
 
-const NEXT_MOUSE_QUERY_DELAY = 150; //ms
+
+//const NEXT_MOUSE_QUERY_DELAY = 150; //ms
 struct IMUI_Context
 {
-	//int owner;
-	//int next;
-	//int index;
     //int next_mouse_query_time;
     Vec2f mouse_pos;
     int time;  // gui time
@@ -2459,11 +2466,11 @@ fn void update_time(IMUI_Context* ctx, int _time) @inline
 const FRAME_HEIGHT_PERCENTAGE @local = 0.10f;
 fn bool beginFrame(IMUI_Context* ctx, RLRectangle* rect = null, RLColor color = {}, String title = "") @nodiscard
 {
-    IMUI_Style style;
+    IMUI_Style* style;
     bool style_set;
 
     if(rect == null && color == rl::BLANK) {
-        style = IMUI_STYLES[IMUI_IDs.FRAME.ordinal];
+        style = getStyle(FRAME); //IMUI_STYLES[IMUI_KINDs.FRAME.ordinal];
 		rect  = &style.rect;
         color = style.default_color;
         style_set = true;
@@ -2569,7 +2576,7 @@ macro bool @makeFrame(ctx, rect, color = rl::CTRANSPARENT, title = ""; @body()) 
 fn bool doButton(IMUI_Context* ctx, String name, String label, Vec2f pos) 
 {
     bool result;
-	IMUI_Style style = IMUI_STYLES[IMUI_IDs.BUTTON.ordinal];
+	IMUI_Style* style = getStyle(BUTTON);
 
     RLRectangle rect = style.rect;
     rect.pos = pos;

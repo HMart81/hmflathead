@@ -54,7 +54,7 @@ int main() {
 */
 
 // types
-alias RGFW_window = void*;
+typedef RGFW_window = void;
 alias RGFW_bool   = CUChar; // CUChar
 alias RGFW_key    = RGFW_bool;
 alias RGFW_mouse  = void;

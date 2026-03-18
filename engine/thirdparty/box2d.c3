@@ -39,7 +39,7 @@ import game::camview;
 	//return { (char)(( c >> 16 ) & 0xFF), (char)( ( c >> 8 ) & 0xFF ), (char)( c & 0xFF ), (char)( 0xFF * alpha ) };
 //}
 
-fn RLColor hexToColor(B2HexColor hexValue)
+fn RLColor hexToColor(B2HexColor hexValue) @local
 {
   RLColor rgbColor = { 0, 0, 0, 255 }; // Initialize with default values
   rgbColor.r = (char)((hexValue >> 16) & 0xFF);  // Extract the RR byte

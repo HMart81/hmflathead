@@ -552,6 +552,9 @@ fn Vec2f RLRectangle.getPosCameraCoords(&self) @if ($defined(view::ENABLE_CAMERA
 
 // we only care about the size because position can be 0 or even negative
 fn bool isValidRect(RLRectangle rect) @inline @nodiscard => (rect.size.x > 0 && rect.size.y > 0);
+macro bool recIsValid(rec) @deprecated("Use misc::isValidRect() instead.") => ((getRecSize(rec).length() + getRecPos(rec).length()) > 0) ? true : false;
+macro RLRectangle @recFromVecs(#vec1, #vec2) => (RLRectangle) {#vec1.x, #vec1.y, #vec2.x, #vec2.y};
+
 // end_region raylib RLRectangle extensions
 
 // region RLTexture stuff
@@ -586,11 +589,6 @@ fn RLSound loadSound(String asset_path) @inline {
 
 macro sec_since_init()  => game::gpGame.time_sec;
 macro mili_since_init() => game::gpGame.time_ms;
-
-macro bool recIsValid(rec) => ((getRecSize(rec).length() + getRecPos(rec).length()) > 0) ? true : false;
-
-macro RLRectangle @recFromVecs(#vec1, #vec2) => (RLRectangle) {#vec1.x, #vec1.y, #vec2.x, #vec2.y};
-
 
 //////////////////////////////////////////////////////////////////////////
 // #region String custom extension
@@ -1339,13 +1337,3 @@ fn bool Vec2f.barycentricf(self, Vec2f p1, Vec2f p2, Vec2f p3, Vec3i* out = null
 
         return Vec3f(result);
     }
-
-//macro percent(double percent, float value) 
-//{
-    /*
-    local_percent = cMath::Clamp(local_percent, 0.0, 100.0);
-    float result = (local_percent / 100.0);
-    return (result * value);
-    */
-    //return ((float)percent / 100.0) * value;
-//}
