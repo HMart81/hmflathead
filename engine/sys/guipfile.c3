@@ -44,12 +44,12 @@ import std::ascii;
 // is used to define GUI elements and their properties
 // ******************************************************************************
 
-faultdef MALFORMED_GUIP_FILE,
+faultdef GUIP_MALFORMED_FILE,
          GUIP_PARSING_ERROR,
 	     GUIP_LOAD_ERROR,
 	     GUIP_READ_ERROR,
          GUIP_VALUE_ERROR,
-	     MISSING_GUIP;
+	     GUIP_MISSING_FILE;
 
 // enum ElemID : int (inline String str)
 // {
@@ -239,7 +239,7 @@ fn bool? GUIPStructure.load(&self, String path)
 {
     if(path == "") {
         log::warning(Where.FILE, "GUIP file path was empty, cannot load guip file data!");
-        return MISSING_GUIP~;
+        return GUIP_MISSING_FILE~;
     }
     self.path = path;
 

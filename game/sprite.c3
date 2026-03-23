@@ -371,7 +371,7 @@ fn HMSprite* HMSprite.setMaterial(&self, String material_name) @inline {
     if(material_name) 
     {
         self.mat = mtrmng::getMaterial(material_name);
-        if(self.mat == null || rl::isTextureValid(*self.mat.getTexture(mat::STAGE_DIFFUSE)) == false) {
+        if(self.mat == null || rl::isTextureValid(*self.mat.getTexture(MTexture.DIFFUSE)) == false) {
             log::error(Where.FILE, "Unnable to set HMSprite material '%s'.\n", material_name);
             unreachable("Unnable to set HMSprite material.");
         }
@@ -383,11 +383,11 @@ fn HMSprite* HMSprite.setMaterial(&self, String material_name) @inline {
 }
 
 fn bool HMSprite.hasMaterial(&self) @inline {
-   return self.mat != null && rl::isTextureValid(*self.mat.getTexture(mat::STAGE_DIFFUSE));
+   return self.mat != null && rl::isTextureValid(*self.mat.getTexture(MTexture.DIFFUSE));
 }
 
 fn RLTexture2D* HMSprite.getTexture(&self) @inline {
-    if(self.hasMaterial()) { return self.mat.getTexture(mat::STAGE_DIFFUSE); }
+    if(self.hasMaterial()) { return self.mat.getTexture(MTexture.DIFFUSE); }
     
     return null;
 }
@@ -397,8 +397,8 @@ fn Vec2i HMSprite.getTextureSize(&self) @inline
 {
     if(self.hasMaterial() == false) return {0,0};
 
-    int w = (int)self.mat.getTexture(mat::STAGE_DIFFUSE).width;
-    int h = (int)self.mat.getTexture(mat::STAGE_DIFFUSE).height;
+    int w = (int)self.mat.getTexture(MTexture.DIFFUSE).width;
+    int h = (int)self.mat.getTexture(MTexture.DIFFUSE).height;
 
     return {w,h};
 }
@@ -511,13 +511,13 @@ fn void HMSprite.draw(&self)  @inline
         
         if(self.hasMaterial())
         {
-            RLTexture2D* texture = self.mat.getTexture(mat::TEXTURE_DIFFUSE);
+            RLTexture2D* texture = self.mat.getTexture(MTexture.DIFFUSE);
             assert(texture && *texture != rl::INVALID_TEXTURE, "HMSprite material '%s' has no diffuse texture.", self.mat.name);
             Vec2f texture_size   = texture.getSize(); //{ texture.width, texture.height };
             RLRectangle source   = { 0, 0, texture_size.x, texture_size.y };
             RLRectangle* dist    = &rect;
 
-            MaterialStage* diffuse_stage = self.mat.getStage(mat::STAGE_DIFFUSE);
+            MatStage* diffuse_stage = self.mat.getStage(MStageType.DIFFUSE);
             assert(diffuse_stage != null, "RLMaterial diffuse stage is null for material '%s'.", self.mat.name);
             RLColor color = diffuse_stage.color;
 

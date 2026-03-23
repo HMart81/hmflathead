@@ -112,7 +112,7 @@ fn void Player.init(&self, Vec2f origin, RLColor color, int id)
     
     // TODO(HM) makes this position editable...
     if(origin == {0, 0}) {
-        self.setPositionV(game::gpGame.getScreenCenterPos());
+        self.setPositionV(game::getScreenCenterPos());
     } else {
         self.setPositionV(origin);
     }

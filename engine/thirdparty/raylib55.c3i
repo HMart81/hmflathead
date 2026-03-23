@@ -1671,6 +1671,11 @@ fn void drawTextCodepoints(RLFont font, CInt* codepoints, CInt count, RLVector2 
 // Text font info functions
 // Set vertical line spacing when drawing with line-breaks
 fn void setTextLineSpacing(CInt spacing) @cname("SetTextLineSpacing");
+macro @setTextLineSpacing($x; @body) {
+	rl::setTextLineSpacing($x);
+	@body();
+	rl::setTextLineSpacing(2); // 2 is default raylib vertical spacing at time of this comment (19/03/2026)
+}
 // Measure string width for default font
 fn CInt measureText(ZString text, CInt fontSize) @cname("MeasureText");
 // Measure string size for RLFont

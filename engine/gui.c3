@@ -467,7 +467,7 @@ fn void Panel.draw(&self, bool selected = false)
     {
         // TODO(HM) find how to draw a image on a rounded rectangle!?
 
-        RLTexture2D* texture = self.mat.getTexture(mat::STAGE_DIFFUSE);
+        RLTexture2D* texture = self.mat.getTexture(MTexture.DIFFUSE);
         Vec2f texture_size = { texture.width, texture.height };
         RLRectangle source = { 0, 0, texture_size.x, texture_size.y };
         RLRectangle* dist = &self.rect;
@@ -1730,7 +1730,11 @@ fn void Desktop.reload(&self, SaveFile* file) @dynamic {
 // todo init this from a file
 fn bool Desktop.initFromFile(&self, ZString path, bool cache ) 
 {
-    @todo();
+	$if $feature(_DEBUG):
+    	@todo();
+	$else
+		return false;
+	$endif
     //return false;
 /*
 

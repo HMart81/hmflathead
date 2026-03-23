@@ -260,7 +260,7 @@ fn void Entity.setMaterial(&self, String material_name) @inline {
  @ensure return != null
 *>
 fn RLTexture2D* Entity.getTexture(&self) @inline {
-	return self.vs.mat.getTexture(mat::STAGE_DIFFUSE);
+	return self.vs.mat.getTexture(MTexture.DIFFUSE);
 }
 
 fn void Entity.setSize(&self, float w, float h) @inline {
@@ -814,13 +814,13 @@ fn void Entity.draw(&self)
     {
         // TODO(HM) find how to draw a image on a rounded rectangle!?
 
-        RLTexture2D* texture = self.vs.mat.getTexture(mat::STAGE_DIFFUSE);
+        RLTexture2D* texture = self.vs.mat.getTexture(MTexture.DIFFUSE);
         Vec2f texture_size = { texture.width, texture.height };
         RLRectangle source = { 0, 0, texture_size.x, texture_size.y };
 
 		// todo selection
-        //RLColor color = (selected) ? self.selected_color : self.mat.getStage(mat::STAGE_DIFFUSE).color;
-		RLColor color = self.vs.mat.getStage(mat::STAGE_DIFFUSE).color;
+        //RLColor color = (selected) ? self.selected_color : self.mat.getStage(MStageType.DIFFUSE).color;
+		RLColor color = self.vs.mat.getStage(MStageType.DIFFUSE).color;
 
         RLBlendMode blending;
 		Coverage coverage = self.getCoverage();

@@ -37,7 +37,8 @@ import engine::sys::cvar;
 // end_region
 
 // region Cvars
-CVar g_log @public = { "g_log", CvarType.BOOL, "true", "turns on loggin for debuggin."};
+CVar g_log @public @if($feature(_DEBUG)) = { "g_log", CvarType.BOOL, "1", "turns on loggin for debuggin."};
+CVar g_log @public @if($feature(_RELEASE)) = { "g_log", CvarType.BOOL, "1", "turns on loggin for debuggin."};
 
 fn void register_cvars() {
 	cvar::@register(&g_log);
@@ -168,7 +169,7 @@ fn void logTofile(RLTraceLogLevel level, String fmt, args...) @local @format(1)
 	// if nothing to write also do nothing
 	if(fmt.len == 0) return;
     
-$if $feature(_DEBUG):
+//$if $feature(_DEBUG):
 	bool should_log = (level >= glevel);
 	if(should_log)
 	{
@@ -228,7 +229,7 @@ $if $feature(_DEBUG):
 		gfile.flush()!!;
 		glogcount++;
 	}
-$endif
+//$endif
 }
 
 fn void logToConsole(RLTraceLogLevel level, String fmt, args...) @format(1) @local 

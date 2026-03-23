@@ -18,6 +18,7 @@ import engine::sys::render2d::r2d; // 2D rendering
 // region defines
 alias FrameQueue = List{Frame*};
 const FADE_FRAMES = true; // comment this to disable the fade effect
+alias pGame = game::gpGame;
 // end_region
 
 // region constants
@@ -77,7 +78,8 @@ fn void deinit_frame(Frame* frame) @local
 *>
 fn void draw(Frame* frame) @local
 {
-	if(rl::isTextureValid(frame.image)) {
+	if(rl::isTextureValid(frame.image)) 
+	{
 		//rl::setBlendFactors(rl::RL_ONE, rl::RL_ONE_MINUS_SRC_ALPHA, rl::RL_FUNC_ADD);
 		//rl::setBlendMode(RLBlendMode.CUSTOM);
 		//rl::@blendMode(RLBlendMode.ALPHA_PREMUL)
@@ -160,9 +162,11 @@ fn void makeTextFrame(IntroAnimation* anim, String message = "undefined", RLColo
 
 fn void drawEpilepsyWarning(int w, int h) @local 
 {
+	/////////
 	// Title
-	RLFont* _font  = game::gpGame.candara_font;
-	float fontSize = 28.0f;
+	float title_size = 0.05f*h;
+	RLFont* _font  = pGame.candara_font;
+	float fontSize = title_size;
 	ZString text   = string::tformat_zstr("%s", "PHOTOSENSITIVITY / EPILEPSY SEIZURES");
     Vec2f textDimensions = rl::measureTextEx(*_font, text, fontSize, FONT_SPACING);
 	float textlen  = textDimensions.x;
@@ -172,67 +176,72 @@ fn void drawEpilepsyWarning(int w, int h) @local
 	rl::drawTextEx(
             font : *_font,
             text : text,
-            position : { 
-                .x = x_pos,
-                .y = y_pos
-            },
+            position : {.x = x_pos, .y = y_pos},
 			fontSize : fontSize,
 			spacing  : FONT_SPACING,
 			tint : rl::RED,
         );
-
-    // sub tile
-    _font  = game::gpGame.candara_light_font;
-	fontSize = 20.0f;
+	///////////
+    // Subtile
+    _font    = pGame.candara_light_font;
+	fontSize = 0.85f*title_size;
 	text     = string::tformat_zstr("%s", "READ THIS NOTICE BEFORE PLAYING");
     textDimensions = rl::measureTextEx(*_font, text, fontSize, FONT_SPACING);
 	textlen  = textDimensions.x;
+	// NOTE(HM) xpos here this is not the same as the x_pos value above
+	// textlen in this case is the subtitle len (see lines of code above this comment)
     x_pos = (float)(w / 2) - (float)(textlen / 2);
+	y_pos = y_pos + textDimensions.y;
 	rl::drawTextEx(
             font : *_font,
             text : text,
-            position : { 
-                .x = x_pos,
-                .y = y_pos + 2.5f * textDimensions.y
-            },
+            position : {.x = x_pos, .y = y_pos},
 			fontSize : fontSize,
 			spacing  : FONT_SPACING,
 			tint : rl::RED,
         );
-
-
+	///////////
     // Message
     const MESSAGE = 
-    `    A percentage of people may experience epileptic seizures when exposed to certain kinds of flashing lights.
-    These persons, or even people who have no history of seizures or epilepsy, may experience epileptic symptoms 
-    or seizures while playing. If you or any of your relatives has an epileptic condition or has had seizures of any kind, 
-    consult your physician before playing this game.
-    
-    IMMEDIATELY STOP and consult a physician if you or your child experience any of the following symptoms:
-        dizziness, altered vision, eye or muscle twitching,
-        involuntary movements, loss of awareness, disorientation, or convulsions.
-    Parents should watch for or ask their children about the above symptoms.
-    You may reduce risk of photosensitive epileptic seizures by taking the following precautions:
-        sit farther from the screen, use a smaller screen, play in a well-lit room,
-        do not play when you are drowsy or fatigued.`;
+    `
+	A percentage of people may experience epileptic seizures when exposed to certain kinds of flashing lights.
+	Even people with no history of epilepsy, may experience epileptic symptoms or seizures while playing.
+	If you or any of your relatives has an epileptic condition or had seizures of any kind, consult your physician 
+	before playing this game.
+	
+	If you or your children experience any of the following symptoms while playing:
+		dizziness, altered vision, eye or muscle twitching,
+		involuntary movements, loss of awareness, disorientation, or convulsions.
+	IMMEDIATELY STOP and consult a physician.
+	Parents should watch for or ask their children about the above symptoms.
+	You may reduce risk of photosensitive epileptic seizures by taking the following precautions:
+		sit farther from the screen, use a smaller screen, play in a well-lit room,
+		do not play when you are drowsy or fatigued.`;
+	
 
-    _font    = game::gpGame.trojan_pro_font;
-	fontSize = 14.0f;
-	text     = string::tformat_zstr("%s", MESSAGE);
+    _font    = pGame.trojan_pro_font;
+	text     = string::tformat_zstr("%s", MESSAGE); 
+	fontSize = 0.50f*title_size;
     textDimensions = rl::measureTextEx(*_font, text, fontSize, FONT_SPACING);
+	if(textDimensions.x > h) {
+		fontSize = 0.75f*fontSize;
+    	textDimensions = rl::measureTextEx(*_font, text, fontSize, FONT_SPACING);
+	}
 	textlen  = textDimensions.x;
     x_pos = (float)(w / 2) - (float)(textlen / 2);
-	rl::drawTextEx(
-            font : *_font,
-            text : text,
-            position : { 
-                .x = x_pos,
-                .y = y_pos + textDimensions.y
-            },
-			fontSize : fontSize,
-			spacing  : FONT_SPACING,
-			tint : rl::WHITE,
-        );
+	//if((x_pos + textlen) > h) x_pos -= 0.02f*textlen;
+	y_pos = y_pos + (0.35f * textDimensions.y);
+	rl::@setTextLineSpacing(6) 
+	{
+		rl::drawTextEx(
+				font : *_font,
+				text : text,
+				position : {.x = x_pos, .y = y_pos},
+				fontSize : fontSize,
+				spacing  : FONT_SPACING,
+				tint : rl::RAYWHITE,
+			);
+	};
 }
 
 
@@ -242,8 +251,7 @@ fn void initAnimation(IntroAnimation* anim) @local
     makeTexturedFrame("images/gui/logo_hm.png", anim);
     //
     input::makeKeyboardAction("skipIntro", rl::KEY_ESCAPE);
-    input::@makeAction({.name = "skipFrame", .kind = KEYBOARD, 
-		                .key1 = rl::KEY_SPACE});
+    input::@makeAction({.name = "skipFrame", .kind = KEYBOARD, .key1 = rl::KEY_SPACE});
 
     /*
     // test unurdered_remove
@@ -270,7 +278,8 @@ fn void deinitAnimation(IntroAnimation* anim) @local
 fn void hide_cursors() @local @inline
 {
     if(game::game_cursor_visible()) game::hide_game_cursor();
-    if(game::gpGame.screen.state.fullscreen || game::gpGame.screen.state.borderless) 
+    if(game::gpGame.screen.state.fullscreen || 
+       game::gpGame.screen.state.borderless) 
     {
         if(game::system_cursor_enabled()) game::disable_system_cursor();
     }

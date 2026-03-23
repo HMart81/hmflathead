@@ -246,7 +246,11 @@ fn void UIRectangle.reload(&self, SaveFile* file) @dynamic
 
 fn usz? UIRectangle.to_format(&self, Formatter* f) @dynamic 
 {
-    @todo();
+    $if $feature(_DEBUG):
+    	@todo();
+	$else
+		return 0;
+	$endif
     /*
     return f.printf(`UIRectangle { 
     "id" = %s,\n"name" = %s,\n"quad" = { x: %s, y: %s, width: %s, height: %s  },\n"color" = { r: %s, g: %s, b: %s, a: %s  },\n"material" = %s 

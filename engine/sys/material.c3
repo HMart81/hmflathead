@@ -81,38 +81,41 @@ void SetModelMeshMaterial(RLModel *model, int meshId, int materialId);          
 
 const NEW_MATERAL_SYSTEM = true; // enable the new material system, still WIP
 
-const int TEXTURE_NONE      @public = 0;
-const int TEXTURE_DIFFUSE   @public = 1;
-const int TEXTURE_SPECULAR  @public = 2;
-const int TEXTURE_NORMAL    @public = 3;
-const int TEXTURE_OCCLUSION @public = 4;
-const int TEXTURE_EMISSION  @public = 5;
-const int TEXTURE_HEIGHT    @public = 6;
-const int TEXTURE_CUBEMAP   @public = 7;
+constdef MTexture : inline int @public
+{
+	NONE = 0,
+	DIFFUSE,
+	SPECULAR,
+	NORMAL,
+	OCCLUSION,
+	EMISSION,
+	HEIGHT,
+	CUBEMAP
+}
 
 // TODO(HM) Support more than one stage type per material, 
 // for example more than one diffuse map, etc.
-// RLMaterial stage index
-alias MatStageIndex = int;
-const MatStageIndex STAGE_DIFFUSE   @public = TEXTURE_DIFFUSE;    // only one supported (for now...)
-const MatStageIndex STAGE_SPECULAR  @public = TEXTURE_SPECULAR;
-const MatStageIndex STAGE_NORMAL    @public = TEXTURE_NORMAL;
-const MatStageIndex STAGE_OCCLUSION @public = TEXTURE_OCCLUSION;    // Ambient occlusion material
-const MatStageIndex STAGE_EMISSION  @public = TEXTURE_EMISSION;    // Emission material
-const MatStageIndex STAGE_HEIGHT    @public = TEXTURE_HEIGHT;    // Heightmap material
-const MatStageIndex STAGE_CUBEMAP   @public = TEXTURE_CUBEMAP;    // Cubemap material (NOTE: Uses GL_TEXTURE_CUBE_MAP)
-const MatStageIndex STAGE_VIDEO     @public = 8;    // video map stage
-const MatStageIndex STAGE_SOUND     @public = 9;    // sound map stage
-// Don't forget to update this max value if adding more stages above!!!
-const MAX_STAGE_INDICES = (STAGE_SOUND);
-// just in case...
-$assert MAX_STAGE_INDICES == STAGE_SOUND;
+constdef MStageType : inline int @public
+{
+	DIFFUSE   = 1, // only one supported (for now...)
+	SPECULAR,
+	NORMAL,
+	OCCLUSION,     // Ambient occlusion material
+	EMISSION,      // Emission material
+	HEIGHT, 	   // Heightmap material
+	CUBEMAP,       // Cubemap material (NOTE: Uses GL_MTexture.CUBE_MAP)
+	VIDEO,         // video map stage
+	SOUND          // sound map stage
+}
 
 alias StageLighting = int;  // Stage lighting type
-const StageLighting SL_AMBIENT  @public = 0;    // execute after lighting
-const StageLighting SL_BUMP     @public = 1;    // bump mapping stage, used for normal maps
-const StageLighting SL_DIFFUSE  @public = 2;    // diffuse lighting stage, used for diffuse maps
-const StageLighting SL_SPECULAR @public = 3;    // specular lighting stage, used for specular maps
+constdef StgLght : inline StageLighting @public  // Stage lighting type
+{
+	AMBIENT = 0, // execute after lighting
+	BUMP,        // bump mapping stage, used for normal maps
+	DIFFUSE,     // diffuse lighting stage, used for diffuse maps
+	SPECULAR     // specular lighting stage, used for specular maps
+}
 
 const int BLEND_NONE     @public = rl::RL_ZERO | rl::RL_ONE;                       // used when defining an alpha mask that doesn't draw
 const int BLEND_BLEND    @public = rl::RL_SRC_ALPHA | rl::RL_ONE_MINUS_SRC_ALPHA;
@@ -160,7 +163,7 @@ TODO(HM) potencial new future material file and stage system in XML format:
 */
 // NOTE(HM) raylib has the RLMaterialMap already that is almost equivalent, should we use that?
 // RLMaterial stage represents each texture type in a material
-struct MaterialStage @public
+struct MatStage @public
 {
     //int kind; // kind of stage, used to identify the stage type, for example diffuse, specular, normal, etc.
 
@@ -178,14 +181,14 @@ struct MaterialStage @public
     // Todo perhaps rethink this per stage args stuff....
     MaterialStageArgList args;
 
-    MatStageIndex type @NewMatSystem(1); // is also a index
+    MStageType type @NewMatSystem(1); // is also a index
     StageArgument[MAX_STAGE_ARGS] new_args @NewMatSystem(1); // array of arguments for this stage
 }
 
 <*
     @param [&in] node : "node we are looking at"
 *>
-fn void MaterialStage.register_args(&self, XmlNode* node) @deprecated
+fn void MatStage.register_args(&self, XmlNode* node) @deprecated
 {
     if(node.hasAttributes() == false) return;
 
@@ -197,12 +200,12 @@ fn void MaterialStage.register_args(&self, XmlNode* node) @deprecated
     }
 }
 
-fn void MaterialStage.loadTexture(&self, String path) @inline
+fn void MatStage.loadTexture(&self, String path) @inline
 {
     self.tex = r2d::loadTexture(path);
 }
 
-fn void MaterialStage.clear(&self)
+fn void MatStage.clear(&self)
 {
     if(rl::isTextureValid(self.tex)) {
         rl::unloadTexture(self.tex);
@@ -222,7 +225,7 @@ fn void MaterialStage.clear(&self)
 // todo
 struct MaterialVideoStage
 {
-    inline MaterialStage super;
+    inline MatStage super;
 }
 
 alias Coverage @public = int; //RLMaterial Coverage
@@ -236,17 +239,18 @@ const Coverage COVERAGE_TRANSLUCENT	@public =  2; // blended with background
 attrdef @NewMatSystem(value) = @tag("version", value), @if($defined(NEW_MATERAL_SYSTEM));
 
 const int MAX_STAGE_ARGS @if($defined(NEW_MATERAL_SYSTEM)) = 16; // max number of arguments per stage
-struct NewStage @if($defined(NEW_MATERAL_SYSTEM)) @public
+/*
+struct MStageNew @if($defined(NEW_MATERAL_SYSTEM)) @public
 {
     RLTexture2D tex; // GPU texture id
-    MatStageIndex type; // is also a index
+    MStageType type; // is also a index
     int blendMode;
     StageLighting lighting;
     RLColor color;
     StageArgument[MAX_STAGE_ARGS] args; // array of arguments for this stage
 }
 
-fn void NewStage.init(&self, MatStageIndex _type = STAGE_DIFFUSE, int _lighting = SL_DIFFUSE) @if($defined(NEW_MATERAL_SYSTEM))
+fn void MStageNew.init(&self, MStageType _type = MStageType.DIFFUSE, int _lighting = StgLght.DIFFUSE) @if($defined(NEW_MATERAL_SYSTEM))
 {
     //self.tex = rl::INVALID_TEXTURE;
     self.type = _type; // invalid type
@@ -256,7 +260,7 @@ fn void NewStage.init(&self, MatStageIndex _type = STAGE_DIFFUSE, int _lighting 
     //self.args.clear();
 }
 
-fn void NewStage.free(&self) @if($defined(NEW_MATERAL_SYSTEM))
+fn void MStageNew.free(&self) @if($defined(NEW_MATERAL_SYSTEM))
 {
     if(rl::isTextureValid(self.tex) || self.tex != rl::INVALID_TEXTURE) {
         rl::unloadTexture(self.tex);
@@ -266,6 +270,7 @@ fn void NewStage.free(&self) @if($defined(NEW_MATERAL_SYSTEM))
         arg.second = "";
     }
 }
+*/
 ///////////////////////////////////////////
 //
 //
@@ -335,7 +340,7 @@ struct HMaterial  (SaveSystemInterface) @public
     
     // TODO(HM) support more than one diffuse map stage, etc.
     // for more complex materials.
-    MaterialStage[MAX_STAGE_INDICES] maps;
+    MatStage[MStageType.len] maps;
     
     // NOTE(HM) Perhaps this should be a string with the mtr path in it, 
     // not a pointer to some data in memory, that could be freed anytime...
@@ -359,25 +364,30 @@ fn void HMaterial.init(&self)
     self.comment  = "<no comment>";
 
     // diffuse stage is the only one supported for now
-    self.getStage(STAGE_DIFFUSE).color = rl::WHITE;
-    self.getStage(STAGE_DIFFUSE).drawStateBits |= BLEND_NONE; // default blend mode
-    self.getStage(STAGE_DIFFUSE).lighting = SL_DIFFUSE; // default lighting stage
+	MatStage* stage = self.getStage(MStageType.DIFFUSE);
+    stage.color          = rl::WHITE;
+    stage.drawStateBits |= BLEND_NONE; // default blend mode
+    stage.lighting       = StgLght.DIFFUSE; // default lighting stage
     //
-    self.getStage(STAGE_OCCLUSION).color = rl::WHITE;
-    self.getStage(STAGE_OCCLUSION).drawStateBits |= BLEND_MODULATE;
-    self.getStage(STAGE_OCCLUSION).lighting = SL_DIFFUSE; // default lighting stage
+    stage = self.getStage(MStageType.OCCLUSION);
+	stage.color          = rl::WHITE;
+    stage.drawStateBits |= BLEND_MODULATE;
+    stage.lighting       = StgLght.DIFFUSE; // default lighting stage
     //
-    self.getStage(STAGE_SPECULAR).color = rl::BLACK; // default specular color
-    self.getStage(STAGE_SPECULAR).drawStateBits |= BLEND_NONE; // default blend mode
-    self.getStage(STAGE_SPECULAR).lighting = SL_SPECULAR; // default lighting stage
+    stage = self.getStage(MStageType.SPECULAR);
+	stage.color          = rl::BLACK; // default specular color
+    stage.drawStateBits |= BLEND_NONE; // default blend mode
+    stage.lighting       = StgLght.SPECULAR; // default lighting stage
     //
-    self.getStage(STAGE_NORMAL).color = rl::WHITE;
-    self.getStage(STAGE_NORMAL).drawStateBits |= BLEND_NONE; // default blend mode
-    self.getStage(STAGE_NORMAL).lighting = SL_BUMP; // default lighting stage
+    stage = self.getStage(MStageType.NORMAL);
+	stage.color          = rl::WHITE;
+    stage.drawStateBits |= BLEND_NONE; // default blend mode
+    stage.lighting       = StgLght.BUMP; // default lighting stage
     //
-    self.getStage(STAGE_EMISSION).color = rl::WHITE;
-    self.getStage(STAGE_EMISSION).drawStateBits |= BLEND_ADD; // default blend mode
-    self.getStage(STAGE_EMISSION).lighting = SL_AMBIENT;
+    stage = self.getStage(MStageType.EMISSION);
+	stage.color          = rl::WHITE;
+    stage.drawStateBits |= BLEND_ADD; // default blend mode
+    stage.lighting       = StgLght.AMBIENT;
 
     // NOTE(HM) all materials start with the default game shader
     //self.shader = game::getDefaultShaderCopy();
@@ -401,8 +411,8 @@ fn void HMaterial.free(&self)
 // TODO(HM) make this print a more detailed material info
 fn void HMaterial.print(self)
 {
-    RLColor color = self.getStage(mat::STAGE_DIFFUSE).color;
-    RLTexture2D* tex = &self.getStage(mat::STAGE_DIFFUSE).tex;
+    RLColor color = self.getStage(MStageType.DIFFUSE).color;
+    RLTexture2D* tex = &self.getStage(MStageType.DIFFUSE).tex;
     io::printfn("[material : '%s']", self.name);
     if(self.comment.len && self.comment != "<no comment>") {
         io::printfn(" comment = \"%s\"", self.comment);
@@ -410,7 +420,7 @@ fn void HMaterial.print(self)
     io::printfn(" [map : 'Diffuse']");
     io::printfn("  tex: \"id: %s, w: %s, h: %s, mp: %s, pf: %s\"", tex.id, tex.width, tex.height, tex.mipmaps, tex.format);
     io::printfn("  color: \"%s, %s , %s, %s\"", color.r, color.g, color.b, color.a);
-    foreach(i, arg : self.getStage(mat::STAGE_DIFFUSE).args) {
+    foreach(i, arg : self.getStage(MStageType.DIFFUSE).args) {
         io::printfn("  arg%d: \"%s = %s\"", i, arg.first, arg.second);
     }
 }
@@ -469,10 +479,10 @@ fn void HMaterial.copy(&self, HMaterial* other)
     self.shader = other.shader; // NOTE(HM) this will copy the shader id, not the shader itself, so it is safe to do this
     self.mtrfile = other.mtrfile; // NOTE(HM) this will copy the pointer, not the data itself, so it is safe to do this
     // copy the material stages
-    for (int index = 0; index < MAX_STAGE_INDICES; index++)
+    for (int index = 0; index < MStageType.len; index++)
     {
-        MaterialStage* stage = self.getStage(index);
-        MaterialStage* other_stage = other.getStage(index);
+        MatStage* stage = self.getStage((MStageType)index);
+        MatStage* other_stage = other.getStage((MStageType)index);
         stage.tex = other_stage.tex; // NOTE(HM) this will copy the texture id, not the texture itself, so it is safe to do this
         stage.color = other_stage.color;
         stage.args.clear();
@@ -481,43 +491,46 @@ fn void HMaterial.copy(&self, HMaterial* other)
             if(arg != null) stage.args.push(mem::new(StageArgument, {arg.first.tcopy(), arg.second.tcopy()}));
         }
     }
-	//self.getStage(mat::STAGE_DIFFUSE).tex = *other.getTexture(mat::TEXTURE_DIFFUSE);
-    //self.getStage(mat::STAGE_DIFFUSE).args.add_all(&other.getStage(mat::STAGE_DIFFUSE).args);
+	//self.getStage(MStageType.DIFFUSE).tex = *other.getTexture(mat::MTexture.DIFFUSE);
+    //self.getStage(MStageType.DIFFUSE).args.add_all(&other.getStage(MStageType.DIFFUSE).args);
 }
 
 <*
  @param index : "stage index to get the necessary texture data." 
- @require index >= 0 && index < MAX_STAGE_INDICES
+ @require index >= 0 && index < MStageType.len
 *>
-fn MaterialStage* HMaterial.getStage(&self, MatStageIndex index) @inline
+fn MatStage* HMaterial.getStage(&self, MStageType index) @inline
 {
     return &self.maps[index];
 }
 
 <*
-    Gets the texture for the given stage index
-    @param index : "stage index to get the necessary texture data." 
-    @require index >= 0 && index < MAX_STAGE_INDICES
+    Usage: Gets the RLTexture2D for the given stage type
+
+    @param type : "stage type to get the necessary texture data." 
+    @require type >= 0 && type < MTexture.len
     @param isPBR : "if true, will get the PBR texture, otherwise will get the standard texture"
 *>
-fn RLTexture2D* HMaterial.getTexture(&self, MatStageIndex index, bool isPBR = false)
+fn RLTexture2D* HMaterial.getTexture(&self, MTexture type, bool isPBR = false)
 {
-    switch(index)
+	if(isPBR) @todo("Physical Based Rendering (PBR) is still not implemented!");
+
+    switch(type)
     {
-        case TEXTURE_SPECULAR:  return &self.getStage(STAGE_SPECULAR).tex;
-        case TEXTURE_NORMAL:    return &self.getStage(STAGE_NORMAL).tex;
-        case TEXTURE_OCCLUSION: return &self.getStage(STAGE_OCCLUSION).tex;
-        case TEXTURE_EMISSION:  return &self.getStage(STAGE_EMISSION).tex;
-        case TEXTURE_HEIGHT:    return &self.getStage(STAGE_HEIGHT).tex;
-        case TEXTURE_CUBEMAP:   return &self.getStage(STAGE_CUBEMAP).tex;
-        //case STAGE_VIDEO:     //return &self.getStage(STAGE_VIDEO).tex;
-        //case STAGE_SOUND:     //return &self.getStage(STAGE_SOUND).tex;
+        case MTexture.SPECULAR:  return &self.getStage(MStageType.SPECULAR).tex;
+        case MTexture.NORMAL:    return &self.getStage(MStageType.NORMAL).tex;
+        case MTexture.OCCLUSION: return &self.getStage(MStageType.OCCLUSION).tex;
+        case MTexture.EMISSION:  return &self.getStage(MStageType.EMISSION).tex;
+        case MTexture.HEIGHT:    return &self.getStage(MStageType.HEIGHT).tex;
+        case MTexture.CUBEMAP:   return &self.getStage(MStageType.CUBEMAP).tex;
+        //case MStageType.VIDEO:     //return &self.getStage(MStageType.VIDEO).tex;
+        //case MStageType.SOUND:     //return &self.getStage(MStageType.SOUND).tex;
            //@todo();
-        case TEXTURE_NONE:
-            unreachable("Material '%s' in file '%s' has no texture for stage index %d!", self.name, self.mtrfile.path, index);
-        case TEXTURE_DIFFUSE:
+        case MTexture.NONE:
+            unreachable("Trying to get a invalid empty texture for Material '%s' in file '%s'! :> %s::%s", self.name, self.mtrfile.path, $$FUNC, $$LINE);
+        case MTexture.DIFFUSE:
         default:
-            return &self.getStage(STAGE_DIFFUSE).tex;
+            return &self.getStage(MStageType.DIFFUSE).tex;
     }
 }
 
@@ -575,45 +588,45 @@ fn void HMaterial.parse_stage(&self, XmlNode* stage_node)
         return;
     }
     // NOTE(HM) we only support diffuse stage for now, so we will just ignore the rest
-    if(stage_type != Node.STAGE_DIFFUSE.str) {
+    if(stage_type != Node.MStageType.DIFFUSE.str) {
         log::warning(Where.FILE, "RLMaterial '%s' in file '%s' has a stage node of type '%s', which is not supported yet! Skipping it.", self.name, self.mtrfile.path, stage_type);
         return;
     }
 
-    MaterialStage* stage;
+    MatStage* stage;
     defer self.registerStage(stage);
     stage.color = rl::WHITE; // default color for the stage
 
     switch(stage_type)
     {
-        case Node.STAGE_DIFFUSE.str:
-            stage.kind = Node.STAGE_DIFFUSE;
+        case Node.MStageType.DIFFUSE.str:
+            stage.kind = Node.MStageType.DIFFUSE;
             stage.drawStateBits |= BLEND_NONE; // default blend mode
-            stage.lighting = SL_DIFFUSE; // default lighting stage
-        case Node.STAGE_OCCLUSION.str:
-            stage.kind = Node.STAGE_OCCLUSION;
+            stage.lighting = StgLght.DIFFUSE; // default lighting stage
+        case Node.MStageType.OCCLUSION.str:
+            stage.kind = Node.MStageType.OCCLUSION;
             stage.drawStateBits |= BLEND_MODULATE; // default blend mode
-            stage.lighting = SL_DIFFUSE; // default lighting stage
-        case Node.STAGE_SPECULAR.str:
-            stage.kind = Node.STAGE_SPECULAR;
+            stage.lighting = StgLght.DIFFUSE; // default lighting stage
+        case Node.MStageType.SPECULAR.str:
+            stage.kind = Node.MStageType.SPECULAR;
             stage.drawStateBits |= BLEND_NONE; // default blend mode
-            stage.lighting = SL_SPECULAR; // default lighting stage
-        case Node.STAGE_NORMAL.str:
-            stage.kind = Node.STAGE_NORMAL;
+            stage.lighting = StgLght.SPECULAR; // default lighting stage
+        case Node.MStageType.NORMAL.str:
+            stage.kind = Node.MStageType.NORMAL;
             stage.drawStateBits |= BLEND_NONE; // default blend mode
-            stage.lighting = SL_BUMP; // default lighting stage
-        case Node.STAGE_EMISSION.str:
-            stage.kind = Node.STAGE_EMISSION;
+            stage.lighting = StgLght.BUMP; // default lighting stage
+        case Node.MStageType.EMISSION.str:
+            stage.kind = Node.MStageType.EMISSION;
             stage.drawStateBits |= BLEND_ADD; // default blend mode
-            stage.lighting = SL_AMBIENT; // default lighting stage
-        case Node.STAGE_HEIGHT.str:
-            stage.kind = Node.STAGE_HEIGHT;
-        case Node.STAGE_CUBEMAP.str:
-            stage.kind = Node.STAGE_CUBEMAP;
-        case Node.STAGE_VIDEO.str:
-            stage.kind = Node.STAGE_VIDEO;
-        case Node.STAGE_SOUND.str:
-            stage.kind = Node.STAGE_SOUND;
+            stage.lighting = StgLght.AMBIENT; // default lighting stage
+        case Node.MStageType.HEIGHT.str:
+            stage.kind = Node.MStageType.HEIGHT;
+        case Node.MStageType.CUBEMAP.str:
+            stage.kind = Node.MStageType.CUBEMAP;
+        case Node.MStageType.VIDEO.str:
+            stage.kind = Node.MStageType.VIDEO;
+        case Node.MStageType.SOUND.str:
+            stage.kind = Node.MStageType.SOUND;
             // TODO(HM) implement sound stage
             self.parse_sound(stage_node);
             return; // we are done here, no need to parse the rest of the stage node
@@ -698,26 +711,26 @@ fn void HMaterial.parse_maps(&self, XmlNode* maps_node)
                             // path is relative to the game base folder
                             String relative_texture_path = child.getText();
                             if(relative_texture_path.extractFileBaseByCopy() == "default.png") {
-                                self.getStage(STAGE_DIFFUSE).tex = game::gpGame.default_texture;
+                                self.getStage(MStageType.DIFFUSE).tex = game::gpGame.default_texture;
                             } else {
-                                self.getStage(STAGE_DIFFUSE).loadTexture(relative_texture_path);
+                                self.getStage(MStageType.DIFFUSE).loadTexture(relative_texture_path);
                                 $if $feature(_DEBUG):
                                     log::info(Where.FILE, "Loaded texture '%s' for material '%s' in file '%s'", relative_texture_path, self.name, self.mtrfile.path);
                                 $endif
                             }
                         case mtr::isXmlNode(child, Node.BLEND):
-                            self.parse_blend(child, self.getStage(STAGE_DIFFUSE));
+                            self.parse_blend(child, self.getStage(MStageType.DIFFUSE));
                             // NOTE(HM) this is a blend map, we will use it to blend two textures together
                             // TODO(HM) implement this
                             //log::warning(Where.FILE, "Blend is not implemented yet! Skipping node '%s' in material '%s' in file '%s'", child.name, self.name, self.mtrfile.path);
                         case mtr::isXmlNode(child, Node.COLOR):
-                            self.getStage(STAGE_DIFFUSE).color = mtr::xmlStrColorToColor(child.getText());
+                            self.getStage(MStageType.DIFFUSE).color = mtr::xmlStrColorToColor(child.getText());
                         case mtr::isXmlNode(child, Node.KEYWORD):
                             self.parse_keyword(child);
                             // if(child.hasAttributes()) 
                             // {
-                            //     self.getStage(STAGE_DIFFUSE).register_args(child);
-                            //     self.getStage(STAGE_DIFFUSE).handle_args(child, self);
+                            //     self.getStage(MStageType.DIFFUSE).register_args(child);
+                            //     self.getStage(MStageType.DIFFUSE).handle_args(child, self);
                             // }
                         default:
                             unreachable("Invalid node: %s child for material node %s.", child.name, node.name);
@@ -818,7 +831,7 @@ fn void HMaterial.parse_keyword(&self, XmlNode* node)
                 // set the material coverage to match
                 if ((bool)(self.coverage & COVERAGE_TRANSLUCENT) == false) self.setCoverage(COVERAGE_TRANSLUCENT);
             }
-            MaterialStage* stage = self.getStage(STAGE_DIFFUSE);
+            MatStage* stage = self.getStage(MStageType.DIFFUSE);
             stage.color.a = (char)misc::@mapValueRangeToOther(alpha, 0.0f, 1.0f, 0, 255);
             self.flags.has_AlphaTest = true;
         case NodeKeyword.SORT.str:
@@ -912,7 +925,7 @@ fn int HMaterial.nameToDstBlendMode(&self, String name )
     @param [&in] node : "node to get data from"
     @param [&inout] stage : "stage to set data for"
 *>
-fn void HMaterial.parse_blend(&self, XmlNode* node, MaterialStage *stage ) 
+fn void HMaterial.parse_blend(&self, XmlNode* node, MatStage *stage ) 
 {
     if(node.hasAttributes() == false) return;
 
@@ -942,13 +955,13 @@ fn void HMaterial.parse_blend(&self, XmlNode* node, MaterialStage *stage )
             stage.drawStateBits = BLEND_NONE;
             return; // we are done here
         case "bumpmap":
-            stage.lighting = SL_BUMP;
+            stage.lighting = StgLght.BUMP;
             return; // we are done here
         case "diffusemap":
-            stage.lighting = SL_DIFFUSE;
+            stage.lighting = StgLght.DIFFUSE;
             return; // we are done here
         case "specularmap":
-            stage.lighting = SL_SPECULAR;
+            stage.lighting = StgLght.SPECULAR;
             return; // we are done here
 	}
 
@@ -1851,8 +1864,8 @@ fn void? loadMaterialFilesTo(MaterialDataBase* db) @inline @public
         HMaterial* default_material = mem::new(HMaterial);
         default_material.init();
         default_material.name = "default_material";
-        default_material.getStage(mat::STAGE_DIFFUSE).tex = game::gpGame.default_texture;
-        default_material.getStage(mat::STAGE_DIFFUSE).color = rl::WHITE;
+        default_material.getStage(MStageType.DIFFUSE).tex = game::gpGame.default_texture;
+        default_material.getStage(MStageType.DIFFUSE).color = rl::WHITE;
         db.data[0].register(default_material);
     }
 }
@@ -1885,7 +1898,7 @@ fn HMaterial* getMaterial(String material_name) @public
 
     // just for testing purposes
     if(mat != null) {
-	    assert(rl::isTextureValid(*mat.getTexture(mat::TEXTURE_DIFFUSE)));
+	    assert(rl::isTextureValid(*mat.getTexture(mat::MTexture.DIFFUSE)));
     }
     
 	return mat;

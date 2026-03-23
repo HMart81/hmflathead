@@ -101,6 +101,9 @@ $endif
     DateTime date = datetime::now();
     log::info(FILE, "\t%s of %s of %s at %sh:%sm", date.day, date.month, date.year, date.hour, date.min);
     log::info(FILE, "---------------------------------------------");
+	$if $feature(_DEBUG):
+    log::info(FILE, "--- (application compiled in debug mode) ---");
+	$endif
     log::info(FILE, "---------------------------------------------\n"); 
 
     // print machine info

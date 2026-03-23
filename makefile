@@ -140,8 +140,8 @@ PDBS_TO_CLEAN := $(wildcard $(BUILD_PATH)/*.pdb)
 EXES_TO_CLEAN := $(wildcard $(BUILD_PATH)/*.exe)
 
 # arguments to set at game start
-DEBUG_GAME_ARGUMENTS := +developer +editor +r_mode 9
-RELEASE_GAME_ARGUMENTS := +r_fullscreen 0 +r_mode 9
+DEBUG_GAME_ARGUMENTS := +developer +r_fullscreen 2 +editor +r_mode 23
+RELEASE_GAME_ARGUMENTS := +r_fullscreen 1 +r_mode 23
 
 #-D VIDEO_PLAYBACK_ENABLE
 # in c3 you need to use $feature(_DEBUG) to check for this defines, C3 $define doesn't work for this...
@@ -166,7 +166,7 @@ endif
 #-D ANGEL_ENABLE (not working yet)
 ################################################
 # current release defines aren't really usefull... 
-RELEASE_DEFINES := -D _RELEASE -D TRACY_ENABLE -D MICROUI_ENABLE -D UMKA_ENABLE
+RELEASE_DEFINES := -D _RELEASE -D TRACY_ENABLE -D MICROUI_ENABLE -D UMKA_ENABLE -D BACKEND_RAYLIB
 
 # compiler to use, right now there's only one, c3c
 CC := c3c.exe

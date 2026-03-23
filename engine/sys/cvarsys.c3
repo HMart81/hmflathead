@@ -259,7 +259,7 @@ fn int CVar.getInt(&self, int default_value = 0) @inline @nodiscard
     if(try int result = self.value.to_int()) {
         return result;
     } else {
-        log::warning(Where.FILE, "unable to get integer value for '%s' :: %s->%d", self.name, $$FUNC, $$LINE);
+        log::warning(FILE, "unable to get integer value for '%s' :: %s->%d", self.name, $$FUNC, $$LINE);
         return default_value;
     }
 }

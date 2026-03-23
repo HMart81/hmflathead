@@ -25,7 +25,7 @@
 # Hilario Martins, Rua de Sanguinhedo 1010 4850-545 Vieira Do Minho Portugal.
 # 
 *********************************************************************************************************************************************/
-
+/*
 // unfinished code, this is a work in progress
 // this file is part of the game level system, which handles loading and saving levels/maps
 module game::level::lvl;

@@ -216,6 +216,7 @@ macro ScreenRes* @getResolutionFromIndex(#index) => &ScreenRes[#index];
 const int SMALL_FONT_SIZE   @Hardcode @public = 6;
 const int DEFAULT_FONT_SIZE @Hardcode @public = 10;
 const int BIG_FONT_SIZE     @Hardcode @public = 14;
+const int DEFAULT_FONT_TEXT_LINE_SPACING @Hardcode @public = 5;
 
 const PHYS_DEFAULT_SUBSTEPS        = 4;
 const PHYS_DEFAULT_TIMESTEP        = 1.0f / 60.0f; // 60fps @Hardcode
@@ -619,12 +620,12 @@ fn RLShader* getCurrentGlobalShader() @inline @public {
     return local_game.current_global_shader;
 }
 
-fn Vec2f Game.getScreenCenterPos(&self) {
-    return (Vec2f) { (float)rl::getScreenWidth() / 2, (float)rl::getScreenHeight() / 2 };
-}
+fn Vec2f getScreenCenterPos() @inline @public => local_game.screen.center;
 
-fn Vec2i Game.getScreenCenterPosI(&self) {
-    return (Vec2i) { rl::getScreenWidth() / 2, rl::getScreenHeight() / 2 };
+fn Vec2i getScreenCenterPosI() @inline @public 
+{
+    return {local_game.render.getScreenWidth() / 2, 
+            local_game.render.getScreenHeight() / 2};
 }
 
 <*
@@ -866,14 +867,14 @@ fn void? Game.loadDefaultAssets(&self)
     }
     
     // get the default game font
-    local_game.default_font = rl::getFontDefault();
+    local_game.default_font = bkend::getFontDefault();
 }
 
 fn void Game.unloadDefaultAssets(&self) {
-    rl::unloadTexture(self.default_texture);
-    rl::unloadTexture(self.tex_white);
-    rl::unloadTexture(self.tex_black);
-    rl::unloadTexture(self.tex_gray);
+    bkend::unloadTexture(self.default_texture);
+    bkend::unloadTexture(self.tex_white);
+    bkend::unloadTexture(self.tex_black);
+    bkend::unloadTexture(self.tex_gray);
     rl::unloadShader(self.default_shader);
     self.current_global_shader = null;
     rl::unloadSound(self.default_sound);
@@ -1277,7 +1278,7 @@ fn void onUpdate() @local
     tracy::@zoneN("gameUpdate", CHOICE)
     {
         // make game run at lower rate in case window loses focus
-        int runningHz = rl::getFPS();
+        int runningHz = local_game.render.getFPS();
         int max_fps = local_game.max_fps;
         if(max_fps <= 0) {
             max_fps = math::clamp(local_game.max_fps, MIN_DISPLAY_HZ, local_game.screen.displayHz);
@@ -1882,10 +1883,10 @@ fn void onPostBufferSwap() @local @inline {
 //////////////////////////////////////////////////////////////////
 // #region ARGS HANDLING ************************
 
-fn void handle_boolean_cmd(String cmd) @inline 
+fn void handle_standalone_cmd(String cmd) @inline 
 {
     // NOTE(HM) changing this cmds values will require a full game restart.
-    // special bool cmds (comands with no values, who's existance is enough to be set to true)
+    // special standalone cmds (comands with no values, who's existance is enough to be set)
     switch(cmd)
     {
         case "developer":
@@ -1900,15 +1901,26 @@ fn void handle_boolean_cmd(String cmd) @inline
             int value = r_fullscreen.getInt();
             if(value > 0) {
                 r_fullscreen.set("0");
-                log::warning(CONSOLE, "cmdline arg '%s' is overriding the value set by r_fullscreen.", cmd); 
+                log::warning(FILE, "cmdline arg '%s' is overriding the value set by r_fullscreen.", cmd); 
             } else {
-                log::warning(CONSOLE, "cmdline arg '%s' is not doing anything as r_fullscreen is already zero.", cmd); 
+                log::warning(FILE, "cmdline arg '%s' is not doing anything as r_fullscreen is already zero.", cmd); 
             }
         default:
-            log::warning(CONSOLE, "Invalid cmdline argument '%s'!", cmd);
+            log::warning(FILE, "Invalid cmdline argument '%s'!", cmd);
     }
 }
 
+macro @isValidInteger(#x) @local 
+{
+	for(usz i = 1; i < #x.len; i++)
+	{
+		if(ascii::is_digit(#x[i]) == false && #x[i] != '.') 
+		{
+			return false;
+		}
+	}
+	return true;
+}
 /*
 NOTE(HM) 
 The first argument in a cmdline, is just the path to the executable, 
@@ -1918,21 +1930,25 @@ if I ever create a developer console...
 */
 fn void handle_cmdline(String[] args)
 {
+	@debug_break(OFF);
     if(args.len <= 1) return;
     
-    log::info(FILE, "Handling cmd line args: %s\n", args[1..]);
+    log::info(FILE, "Handling cmd line args: %s\n", args[..]);
 
     String cmd_arg;
 
     foreach(arg_index, arg : args)
     {
-        // skip first argument, is only the path to the executable or its name.
-        if(arg_index == 0) continue;
+        // skip first argument, is always the path/name of the executable.
+		// NOTE(HM) This seems to be only true in _DEBUG (-O0) release!!!
+		$if $feature(_DEBUG):
+        	if(arg_index == 0) continue;
+		$endif
         
-        // skip equals sign or a space
+        // skip the equals sign and or spaces
         if(arg == "=" || arg == " ") continue;
         
-        bool cmd_is_boolean, 
+        bool cmd_is_standalone, 
              arg_is_number, 
              arg_is_string, 
              invalid_value_arg,
@@ -1940,67 +1956,57 @@ fn void handle_cmdline(String[] args)
         
         single_char_value = arg.len == 1;
 
-        // start of a command
+		/////////////////////
+        // start of a COMMAND
         if(arg.starts_with("+"))
         {
-            cmd_arg = arg.trim("+");
-            
-            // if the next cmd starts with a plus then the current cmd has no assignment operator
-            // or extra value and should be considered a boolean argument.
-            cmd_is_boolean = (args[arg_index + 1].starts_with("+")) ? true : false;
-            
-            if(cmd_is_boolean) {
-                handle_boolean_cmd(cmd_arg);
+            // previous cmd was not cleared, 
+            // then that means it didn't add no value defined, ~
+            // so it should be considered a standalone cmd;
+            if(cmd_arg != "") {
+                handle_standalone_cmd(cmd_arg);
             }
-            
+
+            // now update to the new/current cmd
+            cmd_arg = arg.trim("+");
             continue; // skip to the next argument
         }
         
-        // from here should be the value assigned to a cmd
+		/////////////////////////////////////////////////
+        // from here should be the VALUE assigned to a cmd
         switch
         {
             case ascii::is_digit(arg[0]):
                 arg_is_number = true;
                 if(single_char_value) break;
-                // else
-                foreach(ch: arg) 
-                {
-                    if(ascii::is_digit(ch) == false && ch != '.') 
-                    {
-                        arg_is_number = false;
-                        nextcase default;
-                    }
-                }
+                // else is a bigger integer number need to see if is a valid integer
+				arg_is_number = @isValidInteger(arg);
+                if(!arg_is_number) nextcase default;
             case arg.starts_with("-"): // negative numbers
                 if(single_char_value) 
                 {
-                    log::warning(CONSOLE, "rogue minus sign found in value of cmd \"%s\".", cmd_arg);
+                    log::warning(FILE, "rogue minus sign found in value of cmd \"%s\".", cmd_arg);
+					cmd_arg = ""; // clear cmd to ignore it in next pass
                     continue; // skip to next argument
                 }
-
-                arg_is_number = true;
-                for(int i = 1; i < arg.len; i++) 
-                {
-                    char ch = arg[i];
-                    if(ascii::is_digit(ch) == false && ch != '.') 
-                    {
-                        arg_is_number = false;
-                        nextcase default;
-                    }
-                }
+                arg_is_number = @isValidInteger(arg);
+                if(!arg_is_number) nextcase default;
             case arg.starts_with("\""):
                 if(!single_char_value && arg.ends_with("\"")) 
                 {
                     arg_is_string = true;
                 } else {
-                    log::warning(CONSOLE, "malformed string assigned to \"%s\", strings most be defined between two \"\".", arg, cmd_arg);
+                    log::warning(FILE, "malformed string assigned to \"%s\", strings most be defined between two \"\".", arg, cmd_arg);
+					cmd_arg = ""; // clear cmd to ignore it in next pass
                     continue; // skip to next argument
                 }
             case ascii::is_alpha(arg[0]):
-                log::warning(CONSOLE, "malformed string assigned to \"%s\", strings most be defined between two \"\".", arg, cmd_arg);
+                log::warning(FILE, "malformed string assigned to \"%s\", strings most be defined between two \"\".", arg, cmd_arg);
+				cmd_arg = ""; // clear cmd to ignore it in next pass
                 continue;
             default:
-                log::warning(CONSOLE, "invalid value '%s' assigned to cmd '%s'.", arg, cmd_arg);
+                log::warning(FILE, "invalid value '%s' assigned to cmd '%s'.", arg, cmd_arg);
+				cmd_arg = ""; // clear cmd to ignore it in next pass
                 continue;
         }
         
@@ -2011,24 +2017,21 @@ fn void handle_cmdline(String[] args)
             if(!single_char_value) 
             {
                 // detect floats
-                foreach(ch : arg) 
-                {
-                    if(ch == '.') 
-                    {
-                        arg_is_float = true;
-                        break;
-                    }
-                    
-                    if(ch == ',') 
-                    {
-                        log::warning(CONSOLE, "value %s in cmdline has a comma seperator.\n   -That is not supported for numbers, please use dot instead.", arg);
-                        invalid_value_arg = true;
-                    }
-                }
+				if(arg.contains(".") && arg.count(".") == 1) {
+					arg_is_float = true;
+				}
+				else if(arg.contains(",")) 
+				{
+					log::warning(CONSOLE, "value %s in cmdline has a comma seperator.\n   -That is not supported for numbers, please use dot instead.", arg);
+					invalid_value_arg = true;
+				} /*else {
+					unreachable("Invalid number argument \"%s\" for cmdline cmd: '%s'", arg, cmd_arg);
+				}*/
             }
             
             bool valid_value = !invalid_value_arg;
-            if(valid_value) {
+            if(valid_value) 
+			{
                 int ivalue;
                 float fvalue;
                     
@@ -2069,14 +2072,14 @@ fn void handle_cmdline(String[] args)
                         {
                             r_mode.set(arg);
                         } else {
-                            log::warning(CONSOLE, "Ignoring cmdline arg '%s' invalid resolution index, expected '0..%s' found \"%s\".", cmd_arg, SCREEN_RES.len - 1, arg);
+                            log::warning(FILE, "Ignoring cmdline arg '%s' invalid resolution index, expected '0..%s' found \"%s\".", cmd_arg, SCREEN_RES.len - 1, arg);
                         }
                     case "r_fullscreen":
-                        if(ivalue >= 0 && ivalue <= 2) 
+                        if(ivalue == -1 || ivalue >= 0 && ivalue <= 2) 
                         {
                             r_fullscreen.set(arg);
                         } else {
-                            log::warning(CONSOLE, "Ignoring cmdline arg '%s' invalid value, should be from '0..2'.", cmd_arg); 
+                            log::warning(FILE, "Ignoring cmdline arg '%s' invalid value, should be from '0..2'.", cmd_arg); 
                         }
                     default:
                         log::warning(CONSOLE, "cmdline arg '%s' with value = %s is still not handled.", cmd_arg, arg);
@@ -2097,6 +2100,10 @@ fn void handle_cmdline(String[] args)
                     log::warning(CONSOLE, "cmdline arg '%s' with string = %s is still not handled.", cmd_arg, arg);
             }
         }
+
+        // after dealing with a cmd clear it
+        // is necessary to hint what is and what is not a special "standalone" cmd
+        cmd_arg = "";
     }
 }
 
@@ -2114,7 +2121,7 @@ fn void print_game_version() @local @inline
 fn void? onStart(String[]* args) 
 {
     local_game.mode = STARTING;
-    
+
     print_game_version();
     
     // Handle cmdline arguments if any.
@@ -2401,26 +2408,34 @@ $endif
         unreachable("invalid ini file, required [game] section was not found!!");
     }
 
-    // change raylib log level
+    // change logging level
     // NOTE(HM) this will override the default log level set before in pre_InitFunc()
     if(settings_file.getBool("log")! == true)
     {
+		RLTraceLogLevel log_level;
+		bool default_set;
         String log_mode = settings_file.getString("log_level");
         switch(log_mode)
         {
-            case "info": log::setLogLevel(RLTraceLogLevel.INFO);
-            case "warn": log::setLogLevel(RLTraceLogLevel.WARNING);
-            case "error": log::setLogLevel(RLTraceLogLevel.ERROR);
-            case "fatal": log::setLogLevel(RLTraceLogLevel.FATAL);
+            case "info":  log_level = RLTraceLogLevel.INFO;
+            case "warn":  log_level = RLTraceLogLevel.WARNING;
+            case "error": log_level = RLTraceLogLevel.ERROR;
+            case "fatal": log_level = RLTraceLogLevel.FATAL;
             default:
-                // NOTE(HM) default is set to INFO
-                log::setLogLevel(RLTraceLogLevel.WARNING);
-                log::warning(FILE, "Unknown logging option '%s' setting to default WARNING level.", log_mode);
+			{
+                log_level = RLTraceLogLevel.WARNING;
+				default_set = true;
+			}
         }
+		log::setLogLevel(log_level);
+		if(default_set) {
+			log::warning(FILE, "Unknown logging option '%s' setting to default WARNING level.", log_mode);
+		} else {
+			log::info(FILE, "Logging set to: %s\n", RLTraceLogLevel.names[log_level]);
+		}
     }
     else if(settings_file.getBool("log")! == false)
     {
-        // NOTE(HM) disable raylib logging
         log::setLogLevel(RLTraceLogLevel.NONE);
         log::info(FILE, "Logging disabled.");
     }
@@ -2504,14 +2519,13 @@ $endif
         //window_flags |= (int)rl::FLAG_VSYNC_HINT;
         bkend::setWindowFlag(&window_flags, rl::FLAG_VSYNC_HINT);
         local_game.screen.vsync_hint = true;
-        log::info(FILE, "VSync hint enabled. (This is a hint, not a guarantee!)");
+        log::info(FILE, "VSync **hint** enabled. (may not apply)");
     }
     
     // NOTE(HM) cvar r_fullscreen has top priority
     int fullscreen_choice = r_fullscreen.getInt();
     // NOTE(HM) if cvar was not set, see if the config file is overriding the value
     if(fullscreen_choice == -1) fullscreen_choice = settings_file.getInt("r_fullscreen")!;
-    
     // prevent under or overflow
     if(fullscreen_choice < -1 || fullscreen_choice > 2) 
     {
@@ -2527,11 +2541,9 @@ $endif
     switch(fullscreen_choice)
     {
         case 1:
-            //window_flags |= (int)rl::FLAG_FULLSCREEN_MODE;
             bkend::setWindowFlag(&window_flags, rl::FLAG_FULLSCREEN_MODE);
             local_game.screen.state.fullscreen = true;
         case 2:
-            //window_flags |= (int)rl::FLAG_WINDOW_UNDECORATED;
             bkend::setWindowFlag(&window_flags, rl::FLAG_WINDOW_UNDECORATED);
             local_game.screen.state.borderless = true;
         default: // fullscreen_choice -1 or 0
@@ -2546,10 +2558,9 @@ $endif
         {
             if(msaa_samples > 0) 
             {
-                //window_flags |= (int)rl::FLAG_MSAA_4X_HINT;
                 bkend::setWindowFlag(&window_flags, rl::FLAG_MSAA_4X_HINT);
                 local_game.screen.multiSamples = msaa_samples;
-                log::info(FILE, "4x MSAA hint enabled (as a hint, may not apply).");
+                log::info(FILE, "4x MSAA **hint** enabled (may not apply).");
             }
         }
     }
@@ -2571,13 +2582,14 @@ $endif
     
     int screenWidth     = local_game.screen.w;
     int screenHeight    = local_game.screen.h;
-    ZString window_name = string::tformat_zstr("%s version: (%s, %s, %s)", local_game.app_name.zstr_tcopy(), lic::MAX_VERSION, lic::MIN_VERSION, lic::BABY_VERSION);
     
     //===============================//
     //========= Init Window ======== //
     $if $feature(BACKEND_RAYLIB) || $feature(BACKEND_RGFW):
+        String window_name = string::tformat("%s version: (%s, %s, %s)", local_game.app_name, lic::MAX_VERSION, lic::MIN_VERSION, lic::BABY_VERSION);
+       
         WindowHandle window = local_game.render.createWindow(
-            title: window_name.str_view(),
+            title: window_name,
             width: screenWidth,
             height: screenHeight,
             flags: window_flags
@@ -2603,6 +2615,8 @@ $endif
             //return WINDOW_INIT_FAILED~;
         }
     $else
+        ZString window_name = string::tformat_zstr("%s version: (%s, %s, %s)", local_game.app_name.zstr_tcopy(), lic::MAX_VERSION, lic::MIN_VERSION, lic::BABY_VERSION);
+        //============================== //
         rl::initWindow(screenWidth, screenHeight, window_name);
         //============================== //
         
@@ -2798,7 +2812,7 @@ $endif
     local_game.view.init(screenWidth, screenHeight);
     log::info(FILE, "---------------------------------------------\n");
 
-$if $feature(_DEBUG):
+//$if $feature(_DEBUG):
     // TODO(HM) On release version quit should only be done from main menu (or alt+f4...).
     // NOTE(HM) This needs to run after initWindow,
     //          it changes the default exit key (default was ESC key)
@@ -2807,7 +2821,7 @@ $if $feature(_DEBUG):
     rl::setExitKey(input::getKeyCodeFromStr(key_name));
     log::info(FILE, "Exit key set to: %s", key_name);
     log::info(FILE, "---------------------------------------------\n");
-$endif
+//$endif
 
 // #endregion Window initialization
 
@@ -3506,7 +3520,7 @@ $if !$feature(_DEBUG):
     //input::makeKeyboardAction("quit", input::getKeyCodeFromStr(settings_file.getString("quit")), rl::KEY_NULL, (ActionCallBack)&input::quitGame);
 	input::@makeAction({.name = "quit", .kind = KEYBOARD, 
 		.key1 = input::getKeyCodeFromStr(settings_file.getString("quit")), 
-		.func = &quitGame});
+		.func = (ActionCallBack)&quitGame});
 $endif
 
     input::makeKeyboardAction("quicksave", input::getKeyCodeFromStr(settings_file.getString("quicksave")), rl::KEY_NULL, (ActionCallBack)&saveGame);

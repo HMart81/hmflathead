@@ -41,20 +41,36 @@ faultdef WINDOW_CREATION_FAILED,
          FAILED_TO_GET_WINDOW_HANDLE;
 
 // Backend interface
-interface IBackend {
+interface IBackend 
+{
     fn void	initialize() @optional;
     fn WindowHandle? createWindow(String title, int width, int height, RLConfigFlag flags);
-    fn void setMainMonitor(uint monitor) @optional;
+    fn bool? isWindowReady() @optional;
+	fn bool isWindowFullscreen() @optional;
+	fn bool isWindowHidden() @optional;
+	fn bool isWindowMinimized() @optional;
+	fn bool isWindowMaximized() @optional;
+	fn bool isWindowFocused() @optional;
+	fn bool isWindowResized() @optional;
+	fn int getScreenWidth() @optional;
+	fn int getScreenHeight() @optional;
+	fn int getRenderWidth() @optional;
+	fn int getRenderHeight() @optional;
+	fn void setMainMonitor(uint monitor) @optional;
     fn int  getMonitorPhysicalWidth(uint monitor) @optional;
     fn int  getMonitorPhysicalHeight(uint monitor) @optional;
+	fn int getMonitorCount() @optional;
     fn Vec2f getMonitorPosition(uint monitor) @optional;
     fn int getMonitorRefreshRate(uint monitor) @optional;
-    fn bool isWindowFocused() @optional;
     fn void setTargetFPS(uint fps) @optional;
+	fn uint getFPS() @optional;
     fn void setBackGroundColor(RLColor color) @optional;
     fn void setWindowIcon(HMSprite icon) @optional;
     fn void	shutdown();
 }
+
+fn RLFont getFontDefault() @inline => rl::getFontDefault();
+fn void unloadTexture(RLTexture2D tex) @inline => rl::unloadTexture(tex);
 
 //const BACKEND_NONE   = 0;
 //const BACKEND_RAYLIB = 1;
@@ -100,8 +116,16 @@ fn void BackendRender.setTargetFPS(&self, uint fps) @dynamic
     rl::setTargetFPS((int)fps);
 }
 
-fn void BackendRender.setMainMonitor(&self, uint monitor_index) @dynamic
+fn uint BackendRender.getFPS(&self) @dynamic
 {
+	int val = rl::getFPS();
+	assert(val >= 0,  "Render Backend returned negative framerate!");
+    return (uint)val;
+}
+
+fn void BackendRender.setMainMonitor(&self, uint monitor_index = 0) @dynamic
+{
+	assert(monitor_index < self.getMonitorCount());
     rl::setWindowMonitor((int)monitor_index);
 }
 
@@ -125,9 +149,9 @@ fn int BackendRender.getMonitorRefreshRate(&self, uint monitor_index) @dynamic
     return rl::getMonitorRefreshRate((int)monitor_index);
 }
 
-fn bool BackendRender.isWindowFocused(&self) @dynamic
+fn int BackendRender.getMonitorCount(&self) @dynamic
 {
-    return rl::isWindowFocused();
+	return rl::getMonitorCount();
 }
 
 fn void BackendRender.setBackGroundColor(&self, RLColor color) @dynamic @inline
@@ -161,6 +185,61 @@ fn WindowHandle? BackendRender.createWindow(&self, String title, int width, int 
 
     self.window = rl::getWindowHandle();
     if(self.window) { return self.window; } else { return FAILED_TO_GET_WINDOW_HANDLE~; }
+}
+
+fn bool? BackendRender.isWindowReady(&self) @dynamic
+{
+	return (rl::isWindowReady()) ? true : WINDOW_CREATION_FAILED~;
+}
+
+fn bool BackendRender.isWindowFullscreen(&self) @dynamic
+{
+	return rl::isWindowFullscreen();
+}
+
+fn bool BackendRender.isWindowHidden(&self) @dynamic
+{
+	return rl::isWindowHidden();
+}
+
+fn bool BackendRender.isWindowMinimized(&self) @dynamic
+{
+	return rl::isWindowMinimized();
+}
+
+fn bool BackendRender.isWindowMaximized(&self) @dynamic
+{
+	return rl::isWindowMaximized();
+}
+
+fn bool BackendRender.isWindowFocused(&self) @dynamic
+{
+    return rl::isWindowFocused();
+}
+
+fn bool BackendRender.isWindowResized(&self) @dynamic
+{
+	return rl::isWindowResized();
+}
+
+fn int BackendRender.getScreenWidth(&self) @dynamic
+{
+	return rl::getScreenWidth();
+}
+
+fn int BackendRender.getScreenHeight(&self) @dynamic
+{
+	return rl::getScreenHeight();
+}
+
+fn int BackendRender.getRenderWidth(&self) @dynamic
+{
+	return rl::getRenderWidth();
+}
+
+fn int BackendRender.getRenderHeight(&self) @dynamic
+{
+	return rl::getRenderHeight();
 }
 
 fn void BackendRender.shutdown(&self) @dynamic

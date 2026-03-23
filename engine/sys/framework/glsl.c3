@@ -84,6 +84,7 @@ const SHADER_HOME_PATH  @local = "shaders/";
 fn void handleShaderIncludes(String* shdcode) @local
 {
     uint include_count = (uint)(*shdcode).count(INCLUDE_DIRECTIVE);
+	bool multi_line_coment_found;
     if(include_count > 0)
     {
         String[] lines = (*shdcode).tsplit("\r\n");
@@ -93,6 +94,15 @@ fn void handleShaderIncludes(String* shdcode) @local
 
             if(line.is_empty()) continue; // skip empty lines
             if(line.starts_with("//")) continue; // skip comments
+			if(line.starts_with("/*")) {
+				multi_line_coment_found = true;
+				continue;
+			} else if (line.ends_with("*/")) {
+				multi_line_coment_found = false;
+				continue;
+			}
+			if(multi_line_coment_found) continue; // skip multi line comments
+			// Directive found
             if(line.starts_with("#"))
             {
                 String[] tokens = line.tsplit(" ");
@@ -136,7 +146,7 @@ fn void handleShaderIncludes(String* shdcode) @local
 
                 String? code_to_included = fs::readEntireFileX(game::gpGame.app_base_folder.tconcat(include_path));
                 if(catch excuse = code_to_included) {
-                    log::error(Where.FILE, "Failed to include file: %s, error: %s", include_path, excuse);
+                    log::error(FILE, "Failed to include file: %s, error: %s", include_path, excuse);
                     // NOTE(HM) if the file is not found, we will just remove the include directive
                     (*shdcode) = (*shdcode).treplace(replace_directive, "");
                     continue; // skip to next line

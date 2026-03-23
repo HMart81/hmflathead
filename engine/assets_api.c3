@@ -418,7 +418,7 @@ fn bool Manager.hasAsset(&self, String name, typeid type) @inline
 	@param type : "type identification of the asset being serched for"
 	@require name != ""
 *>
-fn bool Manager.hasAsset(&self, String name, typeid type, int* index_out = null) /*@inline*/
+fn bool Manager.hasAsset(&self, String name, typeid type, int* index_out = null) /*@inline*/ @nodiscard
 {
 	if(index_out) (*index_out) = -1;
 	
@@ -532,25 +532,30 @@ fn RLMusic* Manager.getMusic(&self, String name) @nodiscard @inline
 }
 
 <*
+    @param [in] name : "name of the font with extension included"
+    @require name.contains(".") && fs::getFileExtension(name) == FileExtension.FNT.str
 	@ensure return != null
 *>
 fn RLFont* Manager.getFont(&self, String name) @nodiscard /*@inline*/ 
 {
 	if(name != "") 
     {
-		// just in case
-		if(name.contains(".")) name = fs::getFileNameWithoutExt(name);
+		// shouldn't remove extension to support diferent types of assets
+        // with the same name, diferentiate them using their extension. 
+		//if(name.contains(".")) name = fs::getFileNameWithoutExt(name);
 
         any asset = local_manager.getAsset(name, RLFont.typeid);
         if(asset.ptr != null) {
-            return (RLFont*)&((Asset{RLFont}*)asset.ptr).data;
+            Asset{RLFont}* font = asset.ptr;
+            return &font.data;
+            //return (RLFont*)&((Asset{RLFont}*)asset.ptr).data;
         }
     }
 
     if(name != "") {
-		log::warning(Where.FILE,  "[Asset Manager]: Requesting font %s but returning default font, because it was not found.", name);
+		log::warning(FILE,  "[Asset Manager]: Requesting font %s but returning default font, because it was not found.", name);
 	} else {
-		log::warning(Where.FILE,  "[Asset Manager]: Requesting font asset but returning default font, because no asset name was provided.");
+		log::warning(FILE,  "[Asset Manager]: Requesting font asset but returning default font, because no asset name was provided.");
 	}
     return &game::gpGame.default_font;
 }
@@ -587,9 +592,7 @@ fn void loadAsset(String path, String asset_name, FileExtension extension)
     }*/
 
     bool should_load;
-    //String asset_name = fs::getFileNameWithoutExt(path);
-	
-    //if(!extension) extension = fs::getFileExtension(path);
+  
 	switch(extension)
 	{
 	case PNG:
@@ -687,12 +690,16 @@ fn void loadAsset(String path, String asset_name, FileExtension extension)
 		should_load = !local_manager.hasAsset(asset_name, RLFont.typeid);
         if(should_load) 
         {
+            assert(rl::isWindowReady() == true);
             //path = path.trim_right(extension);
             Asset{RLFont}* new_asset = mem::new(Asset{RLFont}, { 
                 .name = asset_name.tcopy(),
                 .path = path.tcopy(), 
                 .type = RLFont.typeid,
-                .data = rl::loadFontEx(path.zstr_tcopy(), game::DEFAULT_FONT_SIZE, null, 0)
+                // NOTE(HM) This was always loading the default font data because of the 
+                // null and 0 in the call!! I forgot about the loadFontEx comment...
+                //.data = rl::loadFontEx(path.zstr_tcopy(), game::DEFAULT_FONT_SIZE, null, 0)
+                .data = rl::loadFont(path.zstr_tcopy())
             });
             assert(rl::isFontValid(new_asset.data), "Failed to load font from path: %s", path);
             local_manager.register(any_make(new_asset, new_asset.type));
@@ -726,12 +733,14 @@ fn void? loadAssetsRecursively(String basepath, String parent_folder = "") /*@in
 	{
 		String path_ = search_path.tconcat(path.str_view());
 		if(fs::isFile(path_)) // try to load it
-        { 
-			String file_name = fs::getFileNameWithoutExt(path_);
-			// NOTE(HM) ignore default assets those are handled directly
-			if (file_name == "default" || file_name == "splash") continue; // to next file
-			
+        {
 			String extension_str = fs::getFileExtension(path_);
+
+			String file_name = fs::getFileName(path_);//fs::getFileNameWithoutExt(path_);
+			// NOTE(HM) ignore default assets those are handled directly
+			if (file_name.trim_right(extension_str) == "default" || 
+                file_name.trim_right(extension_str) == "splash") continue; // to next file
+			
 			bool valid_file;
 			
 			FileExtension extension;

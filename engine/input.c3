@@ -59,24 +59,13 @@ alias ActionCallBack = fn void(args...);
 // region constants
 const MAX_ACTION_COUNT @local = 1024;
 
-enum ActionKind {
-    UNKNOWN,
-    KEYBOARD,
-    MOUSE,
-    GAMEPAD,
-    MOBILE
-}
-
-macro String actionKindToString(ActionKind k) {
-    switch (k)
-    {
-        case UNKNOWN : return "UNKNOWN";
-        case KEYBOARD: return "KEYBOARD";
-        case MOUSE   : return "MOUSE";
-        case GAMEPAD : return "GAMEPAD";
-        case MOBILE  : return "MOBILE";
-        default      : return "UNKNOWN";
-    }
+enum ActionKind : char (String str)
+{
+    UNKNOWN  {"UNKNOWN"},
+    KEYBOARD {"KEYBOARD"},
+    MOUSE    {"MOUSE"},
+    GAMEPAD  {"GAMEPAD"},
+    MOBILE   {"MOBILE"}
 }
 // end_region
 
@@ -668,7 +657,7 @@ fn void printKeyActions() @inline
         io::printfn("No input actions to print found.");
     } else {
         foreach(act: local_manager.actions) {
-            io::printfn("\t-> %s Action: \"%s\" - Key1: %s - Key2: %s", actionKindToString(act.kind), act.name, getMainBtnNameFrom(act), getKeyboardKeyName(act.keyboard.key2));
+            io::printfn("\t-> %s Action: \"%s\" - Key1: %s - Key2: %s", act.kind.str, act.name, getMainBtnNameFrom(act), getKeyboardKeyName(act.keyboard.key2));
         }
         io::printfn("Total actions: %d", count);
     }
