@@ -106,12 +106,11 @@ constdef Units : inline int @public
 	METER = 1,
 	PIXEL
 }
-const CURRENT_UNITS @public = Units.METER; // default units are meters
+const UNITS @public = Units.METER; // default units are meters
 
 const DEFAULT_UNITS_PER_METER @public @Hardcode  = 1.0f;
 const DEFAULT_PIXELS_PER_METER @public @Hardcode = 100.0f; // 100 pixels per meter
 const DEFAULT_UNITS_PER_PIXEL @public @Hardcode  = DEFAULT_UNITS_PER_METER / DEFAULT_PIXELS_PER_METER; // 0.01 units per pixel
-
 
 const String MOUSE_IMAGE_NAME @Hardcode = "pointer.png";
 const String MOUSE_POINTER_MAT_NAME @Hardcode = "gui/pointer"; // game assets folder
@@ -246,22 +245,22 @@ alias asstManager    @public= astmng::assetManager;
 // #endregion Alias
 
 // #region Cvars
-CVar developer      @public = { "developer"     , CvarType.BOOL, "0",    "enables developer mode"};
-CVar editor         @public = { "editor"        , CvarType.BOOL, "0",    "enables the game editor (requires developer mode)"};
-CVar r_mode         @public = { "r_mode"        , CvarType.INT,     "-1",   "index of window resolution [0 to 32], -1 = ini file setting"};
-CVar r_showFPS      @public = { "r_showFPS"     , CvarType.BOOL, "1",    "draws framerate on screen"};
-CVar r_noSplashPic  @public = { "r_noSplashPic" , CvarType.BOOL, "1",    "disables the splash image at game start"};
-CVar r_fullscreen   @public = { "r_fullscreen"  , CvarType.INT,     "-1",   "screen mode 0 = window, 1 = borderless, 2 = dedicated, -1 = ini file setting"};
-CVar r_fps_unlocked @public = { "r_unlockFps"   , CvarType.BOOL, "false", "sets if the fps is unlocked (true) or locked to the monitor refresh rate (false)"};
-CVar r_max_fps      @public = { "r_max_fps"     , CvarType.INT,     "-1",   "sets the maximum fps when fps is unlocked, -1 = monitor refresh rate"};
-CVar fs_base        @public = { "fs_base"       , CvarType.STRING,  "data", "default game base folder"};
-CVar fs_mod_name    @public = { "fs_mod_name"   , CvarType.STRING,  "",     "folder name of mod to run"};
-CVar fs_mod_base    @public = { "fs_mod_base"   , CvarType.STRING,  "",     "folder name for custom database of running mod"};
-CVar db_drawPhysics @public = { "db_drawPhysics", CvarType.BOOL, "1",    "show debug visualization for world physics" };
-CVar s_noaudio      @public = { "s_noaudio"     , CvarType.BOOL, "0",    "disables all audio"};
-CVar fl_help        @public = { "help"          , CvarType.BOOL, "0",    "shows help message"};
-CVar dbg_stats      @public = { "dbg_stats"     , CvarType.BOOL, "0",    "shows various debug things on screen"};
-CVar skip_config    @public = { "skip_config"   , CvarType.BOOL, "1", "skips the configuarator at game start" };
+CVar developer      @public = { "developer"     , CvarType.BOOL,   "0",     "enables developer mode"};
+CVar editor         @public = { "editor"        , CvarType.BOOL,   "0",     "enables the game editor (requires developer mode)"};
+CVar r_mode         @public = { "r_mode"        , CvarType.INT,    "-1",    "index of window resolution [0 to 32], -1 = ini file setting"};
+CVar r_showFPS      @public = { "r_showFPS"     , CvarType.BOOL,   "1",     "draws framerate on screen"};
+CVar r_noSplashPic  @public = { "r_noSplashPic" , CvarType.BOOL,   "1",     "disables the splash image at game start"};
+CVar r_fullscreen   @public = { "r_fullscreen"  , CvarType.INT,    "-1",    "screen mode 0 = window, 1 = borderless, 2 = dedicated, -1 = ini file setting"};
+CVar r_fps_unlocked @public = { "r_unlockFps"   , CvarType.BOOL,   "false", "sets if the fps is unlocked (true) or locked to the monitor refresh rate (false)"};
+CVar r_max_fps      @public = { "r_max_fps"     , CvarType.INT,    "-1",    "sets the maximum fps when fps is unlocked, -1 = monitor refresh rate"};
+CVar fs_base        @public = { "fs_base"       , CvarType.STRING, "data",  "default game base folder"};
+CVar fs_mod_name    @public = { "fs_mod_name"   , CvarType.STRING, "",      "folder name of mod to run"};
+CVar fs_mod_base    @public = { "fs_mod_base"   , CvarType.STRING, "",      "folder name for custom database of running mod"};
+CVar db_drawPhysics @public = { "db_drawPhysics", CvarType.BOOL,   "1",     "show debug visualization for world physics" };
+CVar s_noaudio      @public = { "s_noaudio"     , CvarType.BOOL,   "0",     "disables all audio"};
+CVar fl_help        @public = { "help"          , CvarType.BOOL,   "0",     "shows help message"};
+CVar dbg_stats      @public = { "dbg_stats"     , CvarType.BOOL,   "0",     "shows various debug things on screen"};
+CVar skip_config    @public = { "skip_config"   , CvarType.BOOL,   "1",     "skips the configuarator at game start" };
 // TODO(HM) disable editor cvar, when not used anymore
 //CVar r_window_resizable @public = { "r_window_resizable", CvarType.BOOL,  "0",   "makes window resizable, window mode only."};
 
@@ -345,9 +344,6 @@ struct Game (SaveSystemInterface/*, IGame*/) @local
     IMUI_Context test_ui;
     bool show_test_tool_frame;
     //
-
-    // video player
-    VideoCabinet* vidCabinet @if($feature(VIDEO_PLAYBACK_ENABLE));
 
     // microui
     mu::MU_Context* mu_ctx @if($feature(MICROUI_ENABLE)); // microui context, used for the micro ui system
@@ -488,6 +484,13 @@ Game* gpGame @public = &local_game;
 // ***********************
 // #endregion game manager
 // ***********************
+
+
+// Video playback
+// Place where game videos data are stored
+VideoCabinet* vidCabinet @public @if($feature(VIDEO_PLAYBACK_ENABLE));
+// end
+
 
 fn void Game.freeGameEntities(&self) @inline {
     if(int count = (int)self.entityList.len()) {
@@ -1279,7 +1282,7 @@ fn void onUpdate() @local
     {
         // make game run at lower rate in case window loses focus
         int runningHz = local_game.render.getFPS();
-        int max_fps = local_game.max_fps;
+        int max_fps   = local_game.max_fps;
         if(max_fps <= 0) {
             max_fps = math::clamp(local_game.max_fps, MIN_DISPLAY_HZ, local_game.screen.displayHz);
         }
@@ -1309,14 +1312,12 @@ fn void onUpdate() @local
         }
 
 		$if $feature(VIDEO_PLAYBACK_ENABLE):
-		if(game::gpGame.vidCabinet.movies.len()) 
-		{
-			// draw videos from video cabinet library
-			foreach(movie : local_game.vidCabinet.movies)
-			{
-				movie.decode();
-			}
-		}
+            if(vidCabinet.movies.len()) {
+                // extract a video frame for each video in cabinet library that should play
+                foreach(movie : vidCabinet.movies) {
+                    movie.decode();
+                }
+            }
 		$endif
 
         if(editor.getBool() && local_game.editor.isOpened()) {
@@ -1771,7 +1772,7 @@ fn void onGuiDraw(int screenWidth, int screenHeight) @public @inline
     // draw custom gui code
     desk::gpManager.draw(screenWidth, screenHeight);
 
-    $if $feature(MICROUI_ENABLE) :
+    $if $feature(MICROUI_ENABLE):
         // process microui panels/frames
         mu::process_frames(local_game.mu_ctx, rl::getFrameTime());
 
@@ -1803,6 +1804,16 @@ fn void onGuiDraw(int screenWidth, int screenHeight) @public @inline
 	if(local_game.intro.should_play) {
         intro::drawAnimation(&local_game.intro);
     }
+
+    // videos playback (Done inside the player view now in renderPostGuiLayer())
+    /*$if $feature(VIDEO_PLAYBACK_ENABLE):
+        if(vidCabinet.movies.len()) {
+            // update video frame for each video in cabinet library
+            foreach(movie : vidCabinet.movies) {
+                movie.draw();
+            }
+        }
+	$endif*/
 
 	// SAVE MESSAGE
     if(local_game.showSaveMessage && 
@@ -2196,7 +2207,7 @@ $endif
     local_game.app_base_folder = local_game.app_default_base_folder;
     
     // NOTE(HM) support for mods.
-    // WARNING(HM) This is needs more testing...
+    // WARNING(HM) This needs more testing...
     bool using_mod     = fs_mod_name.getString().len > 0;
     local_game.is_modded_game = using_mod;
     if(using_mod)
@@ -2307,9 +2318,9 @@ $endif
     {
         // NOTE(HM) this is only for windows, to test if we can write to the registry
         // and if the user has permissions to do so.
-        String reg_key = "Software\\HMartSoftware\\unnnamed\\settings\\";
+        String reg_key   = "Software\\HMartSoftware\\unnnamed\\settings\\";
         String reg_value = "TestValue";
-        String reg_data = "TestData";
+        String reg_data  = "TestData";
         
         if(!win32::writeRegistryValue(reg_key, reg_value, reg_data)) {
             log::warning(FILE, "Failed to write to registry key: %s", reg_key);
@@ -2544,7 +2555,7 @@ $endif
             bkend::setWindowFlag(&window_flags, rl::FLAG_FULLSCREEN_MODE);
             local_game.screen.state.fullscreen = true;
         case 2:
-            bkend::setWindowFlag(&window_flags, rl::FLAG_WINDOW_UNDECORATED);
+            bkend::setWindowFlag(&window_flags, rl::FLAG_BORDERLESS_WINDOWED_MODE /*| rl::FLAG_WINDOW_TOPMOST*/);
             local_game.screen.state.borderless = true;
         default: // fullscreen_choice -1 or 0
             local_game.screen.state.window = true;
@@ -2750,43 +2761,42 @@ $endif
     $else
         local_game.screen.displayHz = rl::getMonitorRefreshRate(local_game.screen.index);
     $endif
-    local_game.fps_unlocked     = r_fps_unlocked.getBool();
-    local_game.max_fps          = r_max_fps.getInt();
 
-    if(/*rl::isWindowFullscreen() &&*/rl::isWindowFocused()) 
+    local_game.fps_unlocked = r_fps_unlocked.getBool();
+
+	int max_fps = r_max_fps.getInt();
+    local_game.max_fps = (max_fps < MIN_DISPLAY_HZ) ? local_game.screen.displayHz : max_fps;
+	if(local_game.max_fps > MAX_DISPLAY_HZ) {
+        local_game.max_fps = MAX_DISPLAY_HZ; // to prevent extreme values
+    }
+
+    if(rl::isWindowFocused())
     {
-        if(local_game.fps_unlocked && local_game.max_fps > 0)
+        if(local_game.fps_unlocked)
         {
-            if(local_game.max_fps < MIN_DISPLAY_HZ) {
-                local_game.max_fps = MIN_DISPLAY_HZ;
-            } 
-            else if(local_game.max_fps > MAX_DISPLAY_HZ) {
-                local_game.max_fps = MAX_DISPLAY_HZ; // to prevent extreme values
-            }
             rl::setTargetFPS(local_game.max_fps);
             log::info(FILE,  "\tGame set to unlocked framerate with a max of %shz.", local_game.max_fps);
             if(local_game.max_fps > local_game.screen.displayHz) {
-                log::info(FILE,  "\tNote: max fps is higher than monitor speed of %s hz, tearing may occur!", local_game.screen.displayHz);
-                log::info(FILE,  "\t      consider enabling vsync or lowering max fps using fps limiter in the main menu.");
-                log::info(FILE,  "\t      (you can also set a custom max fps value using r_max_fps in the ini file).");
-                log::info(FILE,  "\t      (or set 'r_fps_unlocked' to false in the ini file, to use current set monitor hz)");
-                log::warning(FILE,  "\t      (changing these settings will require a game restart).");
-                log::warning(FILE,  "\t      (running the game at a rate above display rate, is wastefull the monitor cannot display those frames to you).");
+                log::info(FILE,  "\tNote: max fps is set to higher than monitor speed of %s hz, tearing may occur!", local_game.screen.displayHz);
+                log::info(FILE,  "\t      consider enabling vsync or lowering max fps value in the main menu or using r_max_fps start flag.");
+                log::info(FILE,  "\t      (you can also set 'r_max_fps' in the ini file).");
+                log::info(FILE,  "\t      (or set 'r_fps_unlocked' to false in the ini file as well, to use monitor hz)");
+                log::warning(FILE,  "\t      (changing all these settings will require a game restart)");
+                log::warning(FILE,  "\t      (running the game at a rate above the display rate, is wastefull, the monitor cannot display those extra frames to you).");
             }
         }
-        else //if((!local_game.fps_unlocked || local_game.fps_unlocked) && local_game.max_fps <= 0)
+        else // set the target fps to monitor hz set in windows (monitor framerate)
         {
-            // set the target fps to monitor set hz (framerate)
             rl::setTargetFPS(local_game.screen.displayHz);
-            log::info(FILE,  "\tSetting game to display update rate of %shz.", local_game.screen.displayHz);
+            log::info(FILE, "\tSetting game to display update rate of %shz.", local_game.screen.displayHz);
         }
-    } 
-    else if(local_game.screen.state.window || local_game.screen.state.borderless) // and lost focus
+    }
+    else // lost focus during game start /*if(local_game.screen.state.window || local_game.screen.state.borderless)*/ 
     {
         int val = (int)(MIN_DISPLAY_HZ_FACTOR * local_game.screen.displayHz);
         if(val < MIN_DISPLAY_HZ) val = MIN_DISPLAY_HZ;
         rl::setTargetFPS(val); // save resources when not focused
-        log::info(FILE,  "\tGame set to %shz update rate because lost focus.", val);
+        log::info(FILE, "\tGame set to %shz update rate because lost focus.", val);
     }
     
 
@@ -2935,7 +2945,7 @@ $endif
     //  init video library
 	$if $feature(VIDEO_PLAYBACK_ENABLE):
 	log::info(FILE, "Initializing Video Player:");
-    @catch(vid::initVideoCabinet(&local_game.vidCabinet));
+    @catch(vid::initVideoCabinet(&vidCabinet));
 	log::info(FILE, "---------------------------------------------\n");
 	$endif
         
@@ -3209,25 +3219,23 @@ $endif
 
     //  init video player
 	$if $feature(VIDEO_PLAYBACK_ENABLE):
-	if(local_game.vidCabinet) 
-    { 
-        if(local_game.vidCabinet.hasMovie("intro")) 
-        {
-            log::info(FILE, "Setting up test video:");
-            VidMovie* vid1 = local_game.vidCabinet.getMovie("intro");
-            if(vid1 != null) 
-			{
-                if(vid1.preparePlayer()) {
-					log::info(FILE, "\tVideo player prepared the video for playback successfully.");
-					vid1.start();
-				} else {
-					log::warning(FILE, "\tVideo player failed to prepare the video for playback!");
-				}
-            } else {
-                log::warning(FILE, "\tFailed to get test video from video library!");
+        if(vidCabinet) { 
+            if(vidCabinet.hasMovie("intro")) {
+                log::info(FILE, "Setting up a test video:");
+                VidMovie* vid1 = vidCabinet.getMovie("intro");
+                if(vid1 != null) {
+                    if(vid1.preparePlayer()) {
+                        log::info(FILE, "\tVideo player prepared the video for playback successfully.");
+                        vid1.fullscreen = true;
+						vid1.enable();
+                    } else {
+                        log::warning(FILE, "\tVideo player failed to prepare the video for playback!");
+                    }
+                } else {
+                    log::warning(FILE, "\tFailed to get test video from video library!");
+                }
             }
         }
-    }
 	log::info(FILE, "---------------------------------------------\n");
 	$endif
     
@@ -3311,9 +3319,9 @@ $endif
 
 	$if $feature(VIDEO_PLAYBACK_ENABLE):
 	log::info(FILE, "Deinitializing Video Player:");
-    if(local_game.vidCabinet) {
-        vid::deinitVideoCabinet(local_game.vidCabinet);
-    }
+        if(vidCabinet) {
+            vid::deinitVideoCabinet(vidCabinet);
+        }
 	log::info(FILE, "---------------------------------------------\n");
 	$endif
 

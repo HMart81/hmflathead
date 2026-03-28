@@ -55,14 +55,15 @@ alias assetManager @local = astmng::assetManager;
 // end_region
 
 // region constants
-const MIN_SPRIT_SIZE @local = misc::MINIMUM_SIZE_IN_METERS;
+const MIN_SPRIT_SIZE @local @if(game::UNITS == Units.METER) = misc::MINIMUM_SIZE_IN_METERS;
+const MIN_SPRIT_SIZE @local @if(game::UNITS == Units.PIXEL) = misc::MINIMUM_SIZE_IN_PIXELS;
 const Vec2f MIN_SIZE @local = {MIN_SPRIT_SIZE, MIN_SPRIT_SIZE};
 
 //
 // NOTE(HM) Uncoment this to enable the sprite profilling
 //const int SPRITE_PROFILE = 1;
 // NOTE(HM) Uncoment this to show debug boxes for the sprites
-//const int DEBUG_SPRITES = 1;
+const int DEBUG_SPRITES = 1;
 
 // Used for very special sprites only
 constdef SpriteKind : inline int 
@@ -90,8 +91,8 @@ struct SpriteFlags
 
 struct HMSprite (SaveSystemInterface)
 {
-    typeid type; // class type
-    SpriteKind kind; // object kind, used to differentiate between different sprite types
+    typeid type; // class type (runtime introspection for the win)
+    SpriteKind kind; // used to differentiate between different sprite types
 
     // flags for the sprite, used to hide it or show it
     // Todo(HM) should we use a bit field for this?
@@ -100,15 +101,16 @@ struct HMSprite (SaveSystemInterface)
     //
     RLRectangle rect; // position and size of the sprite, screen pixel coordinates and meters scale respectively.
     Bounds bounds; // should be equivalent to the rectangle size
-    RLColor color;  // only really used when a material is not defined.
+    RLColor color;  // only used when a material is not defined.
 
     // Todo(HM) rethink this, should the material be a pointer to a data base loaded in memory
-    // or each entity, should copy the material data from the data base
+    // or each entity, should have its on copy of the material data from the data base
     // and deal with its own copy?
     HMaterial* mat;
 }
 
-fn void HMSprite.save(&self, SaveFile* file) @dynamic {
+fn void HMSprite.save(&self, SaveFile* file) @dynamic 
+{
     svs::writeTypeid(file, self.type);
     svs::writeInt(file, (int)self.kind);
     svs::writeRect(file, self.rect);
@@ -117,7 +119,8 @@ fn void HMSprite.save(&self, SaveFile* file) @dynamic {
     svs::writeString(file, (self.mat != null) ? self.mat.name : "");
 }
 
-fn void HMSprite.reload(&self, SaveFile* file) @dynamic {
+fn void HMSprite.reload(&self, SaveFile* file) @dynamic 
+{
     svs::readTypeid(file, &self.type);
     int kind;
     svs::readInt(file, &kind);
@@ -129,18 +132,19 @@ fn void HMSprite.reload(&self, SaveFile* file) @dynamic {
     self.mat = mtrmng::getMaterial(mat_name);
 }
 
-fn void HMSprite.register(&self) @inline {
+fn void HMSprite.register(&self) @inline 
+{
     game::gpGame.sprites.push(self);
 }
 
-fn void HMSprite.init(&self, float x, float y, float width, float height, RLColor color = rl::WHITE, SpriteKind kind = GENERIC, String material_name = "")
+fn void HMSprite.init(&self, float x, float y, float w, float h, RLColor color = rl::WHITE, SpriteKind kind = GENERIC, String material_name = "")
 {
     self.type  = HMSprite.typeid;
     //
     self.kind  = kind;
     self.color = color;
-    self.setPosition( x, y );
-    self.setSize( width, height );
+    self.setPosition(x,y);
+    self.setSize(w,h);
     // now set the Bounds
     self.bounds.fromRect(&self.rect);
     self.setMaterial(material_name);
@@ -148,7 +152,8 @@ fn void HMSprite.init(&self, float x, float y, float width, float height, RLColo
     self.register();
 }
 
-fn void HMSprite.initRect(&self, RLRectangle rect, RLColor color = rl::WHITE, SpriteKind kind = GENERIC, String material_name = "") @inline {
+fn void HMSprite.initRect(&self, RLRectangle rect, RLColor color = rl::WHITE, SpriteKind kind = GENERIC, String material_name = "") @inline 
+{
     self.init(rect.x, rect.y, rect.width, rect.height, color, kind, material_name);
 }
 
@@ -157,7 +162,8 @@ fn void HMSprite.initV(&self, Vec2f pos, Vec2f size, RLColor color = rl::WHITE, 
     self.initRect({ pos.x, pos.y, size.x, size.y }, color, kind, material_name);
 }
 
-fn void HMSprite.resetPosAndSize(&self) @inline {
+fn void HMSprite.resetPosAndSize(&self) @inline 
+{
     self.setPositionV(game::gpGame.view.origin);
     self.setSizeV(MIN_SIZE);
 }
@@ -166,8 +172,8 @@ fn void HMSprite.resetPosAndSize(&self) @inline {
     Creates a new sprite instance
     @param x : "the x position in world coordinates"
     @param y : "the y position in world coordinates"
-    @param width : "the width in world units (meters)"
-    @param height : "the height in world units (meters)"
+    @param w : "the width in world units (meters)"
+    @param h : "the height in world units (meters)"
     @param color : "the color of the sprite"
     @param kind : "the kind of sprite"
     @param material_name : "the material name to use for the sprite"
@@ -175,10 +181,10 @@ fn void HMSprite.resetPosAndSize(&self) @inline {
     @require allocator != null
     @ensure return != null
 *>
-fn HMSprite* create(float x, float y, float width, float height, RLColor color = rl::WHITE, SpriteKind kind = GENERIC, String material_name = "", Allocator allocator) @inline 
+fn HMSprite* create(float x, float y, float w, float h, RLColor color = rl::WHITE, SpriteKind kind = GENERIC, String material_name = "", Allocator allocator) @inline 
 {
     HMSprite* sprite = allocator::new(allocator, HMSprite);
-    sprite.init(x, y, width, height, color, kind, material_name);
+    sprite.init(x, y, w, h, color, kind, material_name);
     return sprite;
 }
 
@@ -188,15 +194,18 @@ fn HMSprite* create(float x, float y, float width, float height, RLColor color =
     @param allocator : "the allocator to use for the sprite deallocation"
     @require allocator != null
 *>
-fn void remove(HMSprite* sprite, Allocator allocator) @inline {
+fn void remove(HMSprite* sprite, Allocator allocator) @inline 
+{
     if(sprite) allocator::free(allocator, sprite);
 }
 
-fn HMSprite* HMSprite.clone(&self) @inline {
+fn HMSprite* HMSprite.clone(&self) @inline 
+{
    return sprite::create(self.rect.x, self.rect.y, self.rect.width, self.rect.height, self.color, self.kind, (self.mat != null) ? self.mat.name : "", &game::gameArena);
 }
 
-fn void HMSprite.deinit(&self) @inline {
+fn void HMSprite.deinit(&self) @inline 
+{
     if(self.mat) self.mat = null;
 }
 
@@ -239,7 +248,8 @@ fn HMSprite* HMSprite.scale(&self, float w_scaler, float h_scaler) @inline
  @require scaler.x >= 0.0f
  @require scaler.y >= 0.0f
 *>
-fn HMSprite* HMSprite.scaleV(&self, Vec2f scaler) @inline {
+fn HMSprite* HMSprite.scaleV(&self, Vec2f scaler) @inline 
+{
     return self.scale(scaler.x, scaler.y);
 }
 
@@ -257,7 +267,8 @@ fn HMSprite* HMSprite.setSize(&self, float w, float h) @inline
 }
 
 // overrides the size of the sprite
-fn HMSprite* HMSprite.setSizeV(&self, Vec2f size) @inline {
+fn HMSprite* HMSprite.setSizeV(&self, Vec2f size) @inline 
+{
     if(misc::fgetDiff(size.x, 0.0f) <= 0.05f && misc::fgetDiff(size.y, 0.0f) <= 0.05f) {
         size.x = size.y = MIN_SPRIT_SIZE;
     }
@@ -268,47 +279,57 @@ fn HMSprite* HMSprite.setSizeV(&self, Vec2f size) @inline {
 }
 
 // overrides the size of the sprite
-fn HMSprite* HMSprite.setSizeX(&self, float w) @inline {
+fn HMSprite* HMSprite.setSizeX(&self, float w) @inline 
+{
     self.rect.width = w;
     return self;
 }
 
 // overrides the size of the sprite
-fn HMSprite* HMSprite.setSizeY(&self, float h) @inline {
+fn HMSprite* HMSprite.setSizeY(&self, float h) @inline 
+{
     self.rect.height = h;
     return self;
 }
 
-fn HMSprite* HMSprite.addToSize(&self, float w, float h) @inline {
+fn HMSprite* HMSprite.addToSize(&self, float w, float h) @inline 
+{
     self.rect.width  += w;
     self.rect.height += h;
     return self;
 }
 
 // overrides the size of the sprite
-fn HMSprite* HMSprite.addToSizeV(&self, Vec2f size) @inline {
+fn HMSprite* HMSprite.addToSizeV(&self, Vec2f size) @inline 
+{
     self.rect.width  += size.x;
     self.rect.height += size.y;
     return self;
 }
 
 // in meter coordinates
-fn Vec2f HMSprite.getSize(&self) @inline {
+fn Vec2f HMSprite.getSize(&self) @inline @nodiscard
+{
     return self.rect.getSize();
 }
 
 // in meter coordinates
-fn float HMSprite.getSizeX(&self) @inline {
+fn float HMSprite.getSizeX(&self) @inline @nodiscard
+{
     return self.rect.getSize().x;
 }
 
 // in meter coordinates
-fn float HMSprite.getSizeY(&self) @inline {
+fn float HMSprite.getSizeY(&self) @inline @nodiscard
+{
     return self.rect.getSize().y;
 }
 
 // in screen pixel coordinates
-fn Vec2i HMSprite.getSizeInPixels(&self) @inline {
+fn Vec2i HMSprite.getSizeInPixels(&self) @inline @nodiscard
+{
+	if(game::UNITS == Units.PIXEL) return (Vec2i)self.rect.size;
+	// else
     int w = misc::metersToPixels(self.rect.width);
     int h = misc::metersToPixels(self.rect.height);
     return (Vec2i){ w, h };
@@ -318,7 +339,8 @@ fn void HMSprite.setKind(&self, int kind) @inline => self.kind = kindFrom(kind);
 
 // this is a world position
 // overrides the original position of the sprite
-fn HMSprite* HMSprite.setPosition(&self, float x, float y) @inline {
+fn HMSprite* HMSprite.setPosition(&self, float x, float y) @inline 
+{
     self.rect.x = x;
     self.rect.y = y;
     return self;
@@ -333,12 +355,14 @@ $endif
 
 // this is a world position
 // overrides the original position of the sprite
-fn HMSprite* HMSprite.setPositionV(&self, Vec2f pos) @inline {
+fn HMSprite* HMSprite.setPositionV(&self, Vec2f pos) @inline 
+{
     return self.setPosition(pos.x, pos.y);
 }
 
 // this is a world position
-fn HMSprite* HMSprite.addToPosition(&self, float x, float y) @inline {
+fn HMSprite* HMSprite.addToPosition(&self, float x, float y) @inline 
+{
     self.rect.x += x;
     self.rect.y += y;
     return self;
@@ -350,14 +374,16 @@ fn HMSprite* HMSprite.addToPosition(&self, float x, float y) @inline {
 }
 
 // this is a world position
-fn HMSprite* HMSprite.addToPositionV(&self, Vec2f pos) @inline {
+fn HMSprite* HMSprite.addToPositionV(&self, Vec2f pos) @inline 
+{
     return self.addToPosition(pos.x, pos.y);
 }
 
 // this is a world position
-fn Vec2f HMSprite.getPos(&self) @inline => self.rect.getPosition();
+fn Vec2f HMSprite.getPos(&self) @inline @nodiscard => self.rect.getPosition();
 
-fn bool HMSprite.isValid(&self) {
+fn bool HMSprite.isValid(&self) @inline
+{
     if(self.rect.x >= 0 &&
        self.rect.y >= 0 &&
        self.rect.width  >= MIN_SPRIT_SIZE && 
@@ -366,7 +392,8 @@ fn bool HMSprite.isValid(&self) {
     return false;
 }
 
-fn HMSprite* HMSprite.setMaterial(&self, String material_name) @inline {
+fn HMSprite* HMSprite.setMaterial(&self, String material_name) @inline
+{
 
     if(material_name) 
     {
@@ -382,18 +409,20 @@ fn HMSprite* HMSprite.setMaterial(&self, String material_name) @inline {
     return self;
 }
 
-fn bool HMSprite.hasMaterial(&self) @inline {
+fn bool HMSprite.hasMaterial(&self) @inline 
+{
    return self.mat != null && rl::isTextureValid(*self.mat.getTexture(MTexture.DIFFUSE));
 }
 
-fn RLTexture2D* HMSprite.getTexture(&self) @inline {
+fn RLTexture2D* HMSprite.getTexture(&self) @inline @nodiscard
+{
     if(self.hasMaterial()) { return self.mat.getTexture(MTexture.DIFFUSE); }
     
     return null;
 }
 
 // in screen pixel coordinates
-fn Vec2i HMSprite.getTextureSize(&self) @inline 
+fn Vec2i HMSprite.getTextureSize(&self) @inline @nodiscard
 {
     if(self.hasMaterial() == false) return {0,0};
 
@@ -403,13 +432,15 @@ fn Vec2i HMSprite.getTextureSize(&self) @inline
     return {w,h};
 }
 
-fn HMSprite* HMSprite.hide(&self) @inline {
+fn HMSprite* HMSprite.hide(&self) @inline 
+{
     if(self.flags.isHidden) return self;
     self.flags.isHidden = true;
     return self;
 }
 
-fn HMSprite* HMSprite.show(&self) @inline {
+fn HMSprite* HMSprite.show(&self) @inline 
+{
     if(!self.flags.isHidden) return self;
     self.flags.isHidden = false;
     return self;
@@ -417,7 +448,8 @@ fn HMSprite* HMSprite.show(&self) @inline {
 
 fn bool HMSprite.hidden(&self) @inline => self.flags.isHidden;
 
-fn Vec2f HMSprite.getPosition(&self) @inline {
+fn Vec2f HMSprite.getPosition(&self) @inline @nodiscard
+{
     return {self.rect.x, self.rect.y};
 }
 
@@ -467,6 +499,10 @@ fn void HMSprite.update(&self) @inline
     }
 }
 
+fn Coverage HMSprite.getCoverage(self) @inline @nodiscard => self.mat.coverage;
+fn bool HMSprite.coverageSet(self, Coverage cv) @inline => self.mat.coverageSet(cv);
+
+
 macro @drawSprite(#s, #b, #t, #ra, #rb, #c) @local 
 {
     rl::@blendMode(#b)
@@ -491,14 +527,14 @@ fn void HMSprite.draw(&self)  @inline
         if(self.flags.isHidden) return;
 
         RLRectangle rect = self.rect;
-        switch (game::CURRENT_UNITS)
+        switch (game::UNITS)
         {
-            case game::Units.METER:
+            case Units.METER:
                 //rect.x = misc::metersToPixels(self.rect.x);
                 //rect.y = misc::metersToPixels(self.rect.y);
                 rect.width  = misc::metersToPixels(self.rect.width);
                 rect.height = misc::metersToPixels(self.rect.height);
-            case game::Units.PIXEL:
+            case Units.PIXEL:
                 rect;  // do nothing already in pixels
             default:
                 log::error(FILE, "Unsupported size units set for HMSprite rendering.", self.kind);
@@ -528,74 +564,49 @@ fn void HMSprite.draw(&self)  @inline
             Coverage coverage = self.mat.coverage;
             switch
             {
-                case (bool)(coverage & mat::COVERAGE_OPAQUE):
+                case self.coverageSet(Coverage.OPAQUE) && !self.coverageSet(Coverage.PERFORATED):
+                case self.coverageSet(Coverage.OPAQUE) && self.coverageSet(Coverage.PERFORATED):
                 //case diffuse_stage.drawStateBits & mat::BLEND_NONE:
                     break; // do nothing here
-                case (bool)(coverage & mat::COVERAGE_PERFORATED) && !(bool)(coverage & mat::COVERAGE_TRANSLUCENT):
+                case self.coverageSet(Coverage.PERFORATED) && !self.coverageSet(Coverage.TRANSLUCENT):
                     blending = RLBlendMode.ALPHA;
-                case (bool)(coverage & mat::COVERAGE_TRANSLUCENT) && !(bool)(coverage & mat::COVERAGE_PERFORATED):
+                case self.coverageSet(Coverage.TRANSLUCENT) && !self.coverageSet(Coverage.PERFORATED):
                 //case diffuse_stage.drawStateBits & mat::BLEND_BLEND:
                     blending = RLBlendMode.ALPHA_PREMUL;
-                    if(color.a == 255) // if the color is not transparent
-                    {
-                        color.a = 128; // half transparent
-                        float r = misc::@mapValueRangeToOther(color.r, 0, 255, 0.0f, 1.0f);
-                        float g = misc::@mapValueRangeToOther(color.g, 0, 255, 0.0f, 1.0f);
-                        float b = misc::@mapValueRangeToOther(color.b, 0, 255, 0.0f, 1.0f);
-                        float a = misc::@mapValueRangeToOther(color.a, 0, 255, 0.0f, 1.0f);
-
-                        color.r = (char)math::floor((r * a) * 255);
-                        color.g = (char)math::floor((g * a) * 255);
-                        color.b = (char)math::floor((b * a) * 255);
-                    }
-                case (bool)(coverage & mat::COVERAGE_TRANSLUCENT) && (bool)(coverage & mat::COVERAGE_PERFORATED):
+                case self.coverageSet(Coverage.TRANSLUCENT) && self.coverageSet(Coverage.PERFORATED):
                     blending = RLBlendMode.CUSTOM_SEPARATE; // use the custom blending mode
-                case (bool)(coverage & mat::COVERAGE_BAD):
+                case self.coverageSet(Coverage.BAD):
                     log::error(Where.FILE, "Panel with material %s has a bad material coverage type.", self.mat.name);
                     unreachable();
             }
 
+            bool blending_on = true;
             switch (blending)
             {
                 case RLBlendMode.ALPHA:
-                case RLBlendMode.ALPHA_PREMUL:
-                    @drawSprite(self, blending, *texture, source, *dist, color);
-                    /*rl::@blendMode(blending)
-                    {
-                        if(self.mat.shader.isValid()) 
-                        {
-                            rl::@shaderMode(self.mat.shader) // draw using the sprite shader
-                            {
-                                rl::drawTexturePro(*texture, source, *dist, {0, 0}, 0.0f, color);
-                            };
-                        } else { // draw using the default shader
-                            rl::drawTexturePro(*texture, source, *dist, {0, 0}, 0.0f, color);
-                        }
-                    };*/
+                case RLBlendMode.ALPHA_PREMUL: 
+                    break;
                 case RLBlendMode.CUSTOM:
                     rl::setBlendFactors(rl::RL_SRC_ALPHA, rl::RL_ONE_MINUS_SRC_ALPHA, rl::RL_FUNC_ADD);
                     rl::setBlendMode(rl::RLBlendMode.CUSTOM);
-                    @drawSprite(self, blending, *texture, source, *dist, color);
-                    /*rl::@blendMode(blending)
-                    {
-                        // NOTE(HM) center of the texture (rotation/scale point), 
-                        // it's relative to destination rectangle dimentions, not the screen dimentions.
-                        rl::drawTexturePro(*texture, source, *dist, {0, 0}, 0.0f, color);
-                    };*/
                 case RLBlendMode.CUSTOM_SEPARATE:
-                    rl::setBlendFactorsSeparate(rl::RL_SRC_ALPHA, rl::RL_ONE_MINUS_SRC_ALPHA, rl::RL_ONE, rl::RL_ONE, rl::RL_FUNC_ADD, rl::RL_MAX);
+                    rl::setBlendFactorsSeparate(rl::RL_SRC_ALPHA, rl::RL_SRC_ALPHA, rl::RL_ONE_MINUS_SRC_ALPHA, rl::RL_ONE_MINUS_SRC_ALPHA, rl::RL_FUNC_ADD, rl::RL_MAX);
                     rl::setBlendMode(rl::RLBlendMode.CUSTOM_SEPARATE);
-                    @drawSprite(self, blending, *texture, source, *dist, color);
-                    /*rl::@blendMode(blending)
-                    {
-                        // NOTE(HM) center of the texture (rotation/scale point), 
-                        // it's relative to destination rectangle dimentions, not the screen dimentions.
-                        rl::drawTexturePro(*texture, source, *dist, {0, 0}, 0.0f, color);
-                    };*/
-                default: // opaque unless the image has real invisible pixels...
+                default: // draw opaque unless the image has invisible pixels already...
+                    blending_on = false;
+            }
+
+            if(blending_on) {
+                rl::@blendMode(blending)
+                {
                     // NOTE(HM) center of the texture (rotation/scale point), 
                     // it's relative to destination rectangle dimentions, not the screen dimentions.
-                    rl::drawTexturePro(*texture, source, *dist, {0, 0}, 0.0f, color);
+                    rl::drawTexturePro(*texture, source, rect, {0, 0}, 0.0f, color);
+                };
+            } else { // no blending/Opaque (or perfurated as well)
+                // NOTE(HM) center of the texture (rotation/scale point), 
+                // it's relative to destination rectangle dimentions, not the screen dimentions.
+                rl::drawTexturePro(*texture, source, rect, {0, 0}, 0.0f, color);
             }
         } 
         else // draw simple flat shape

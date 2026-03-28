@@ -162,15 +162,14 @@ fn void start(Desktop* gui)
 
 fn void stop(Desktop* guiActive = getActiveMenu()) 
 {
-	//ClearWipe();
-
-	// clear mapSpawned and demo playing flags
+	// clear mapSpawned
 	//UnloadMap();
 
-	//if ( sw ) {
-		//sw->StopAllSounds();
+    // stop gui sound world
+	//if ( guiActive.soundWorld ) {
+		//guiActive.soundWorld.stopAllSounds();
 	//}
-    // stop sound world
+
     if(guiActive)
     {
         if(rl::isMusicValid(guiActive.music_stream)) {
@@ -179,9 +178,6 @@ fn void stop(Desktop* guiActive = getActiveMenu())
             //rl::unloadMusicStream(guiActive.music_stream);
         }
     }
-
-	//insideUpdateScreen = false;
-	//insideExecuteMapChange = false;
 
 	// drop all guis
 	setGUI(null);
@@ -221,11 +217,11 @@ fn WidgetCheckBox* Desktop.create_menu_checkbox(&self, String text, MenuButtonDe
     checkbox.setColor(rl::DARKGRAY);
     checkbox.addTo(self);
     // set the checkbox properties
-    checkbox.onOver        = bdef.callbacks[0]; // &button_onOver;
-    checkbox.onStopOver    = bdef.callbacks[1]; // &button_onStopOver;
-    checkbox.onPress       = bdef.callbacks[2]; // &start_button_onPress;
-    checkbox.onSinglePress = bdef.callbacks[3]; // &start_button_onSinglePress;
-    checkbox.onRelease     = bdef.callbacks[4]; // &button_onRelease;
+    checkbox.onOver        = bdef.cbs[CallBack.OVER]; // &button_onOver;
+    checkbox.onStopOver    = bdef.cbs[CallBack.STOP_OVER]; // &button_onStopOver;
+    checkbox.onPress       = bdef.cbs[CallBack.PRESS]; // &start_button_onPress;
+    checkbox.onSinglePress = bdef.cbs[CallBack.SINGLE_PRESS]; // &start_button_onSinglePress;
+    checkbox.onRelease     = bdef.cbs[CallBack.RELEASE]; // &button_onRelease;
     checkbox.onLoad        = &button_onLoad;
 
     // button on load callback runs right now when the button is created
@@ -252,11 +248,11 @@ fn void init_checkbox(WidgetCheckBox* chk, String name, String label, MenuButton
     chk.setColor(rl::DARKGRAY);
     chk.addTo(desk);
     // set the checkbox properties
-    chk.onOver        = bdef.callbacks[0]; // &button_onOver;
-    chk.onStopOver    = bdef.callbacks[1]; // &button_onStopOver;
-    chk.onPress       = bdef.callbacks[2]; // &start_button_onPress;
-    chk.onSinglePress = bdef.callbacks[3]; // &start_button_onSinglePress;
-    chk.onRelease     = bdef.callbacks[4]; // &button_onRelease;
+    chk.onOver        = bdef.cbs[CallBack.OVER]; // &button_onOver;
+    chk.onStopOver    = bdef.cbs[CallBack.STOP_OVER]; // &button_onStopOver;
+    chk.onPress       = bdef.cbs[CallBack.PRESS]; // &start_button_onPress;
+    chk.onSinglePress = bdef.cbs[CallBack.SINGLE_PRESS]; // &start_button_onSinglePress;
+    chk.onRelease     = bdef.cbs[CallBack.RELEASE]; // &button_onRelease;
     chk.onLoad        = &button_onLoad;
 
     // button on load callback runs right now when the button is inited
@@ -272,7 +268,16 @@ fn WidgetText* Desktop.create_menu_label(&self, String text, RLFont* font, int f
     return label;
 }
 
-const MAX_CALLBACK_PTRS @local = 10;
+constdef CallBack : inline int @local
+{
+	OVER = 0,  // mouse over button
+    STOP_OVER,
+    PRESS,  // press down
+    SINGLE_PRESS, // press down then release
+	RELEASE
+}
+
+//const MAX_CALLBACK_PTRS @local = CallBack.len;
 struct MenuButtonDef 
 {
     Vec2f size;
@@ -280,7 +285,8 @@ struct MenuButtonDef
     RLColor over_color;
     RLColor label_color;
     WidgetTextAlign label_align;
-    WidgetCallback[MAX_CALLBACK_PTRS] callbacks;
+    //WidgetCallback[MAX_CALLBACK_PTRS] callbacks;
+    WidgetCallback[CallBack.len] cbs;
 }
 
 <*
@@ -288,7 +294,7 @@ struct MenuButtonDef
 
     @param pos : "button position"
     @param [in] text : "button label text"
-    @param [&in] bdef : "button callbacks definition struct pointer"
+    @param [&in] bdef : "button cbs definition struct pointer"
     @ensure return != null : "pointer to the created button"
 *>
 macro WidgetButton* Desktop.create_menu_button(&self, Vec2f pos, String text, MenuButtonDef* bdef) @local 
@@ -319,11 +325,11 @@ macro WidgetButton* Desktop.create_menu_button(&self, Vec2f pos, String text, Me
     label.bindTo(button);
 
     // button interaction callbacks
-    button.onOver        = bdef.callbacks[0]; // &button_onOver;
-    button.onStopOver    = bdef.callbacks[1]; // &button_onStopOver;
-    button.onPress       = bdef.callbacks[2]; // &start_button_onPress;
-    button.onSinglePress = bdef.callbacks[3]; // &start_button_onSinglePress;
-    button.onRelease     = bdef.callbacks[4]; // &button_onRelease;
+    button.onOver        = bdef.cbs[CallBack.OVER]; // &button_onOver;
+    button.onStopOver    = bdef.cbs[CallBack.STOP_OVER]; // &button_onStopOver;
+    button.onPress       = bdef.cbs[CallBack.PRESS]; // &start_button_onPress;
+    button.onSinglePress = bdef.cbs[CallBack.SINGLE_PRESS]; // &start_button_onSinglePress;
+    button.onRelease     = bdef.cbs[CallBack.RELEASE]; // &button_onRelease;
     button.onLoad        = &button_onLoad;
 
     // button on load callback runs right now when the button is created
@@ -333,6 +339,11 @@ macro WidgetButton* Desktop.create_menu_button(&self, Vec2f pos, String text, Me
     return button;
 }
 
+constdef Desk : inline int @local
+{
+	OPTIONS = 0,
+	EXTRA
+}
 
 fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
 {
@@ -343,10 +354,18 @@ fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
     Vec2f screen_top_center   = {screen_half_width, 0.0f};
 
     Desktop* desk_main = mem::new(Desktop);
-    desk_main.init("MainMenu");
+    desk_main.init("MainMenu", shouldRegister: true);
     desk_main.setColor(rl::DARKGRAY);
-    Desktop* desk_options = mem::new(Desktop);
-    desk_options.init("OptionsMenu", false);
+	// TODO(HM) change the concept of child desktops
+	// to something like child windows, because right now
+	// I can only have one desktop open at the time...
+	// So when opening the child desktop the parent gets hidden...
+	// Need to find a way to have a desktop with more windows/pages.
+	desk_main.childDesktops.reserve(Desk.len);
+	// create options desk
+	desk_main.childDesktops.insert_at(Desk.OPTIONS, mem::new(Desktop));
+    Desktop* desk_options = desk_main.childDesktops.get(Desk.OPTIONS);
+    desk_options.init("OptionsMenu", isFullscreen: false, shouldRegister: true);
     Vec2f desk_options_center = screen_center - desk_options.getSize() / 2.0f; 
     desk_options.setPositionV({
         desk_options_center.x,
@@ -358,12 +377,23 @@ fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
     desk_main.next = desk_options;
     desk_options.home = desk_main;
     desk_options.previous = desk_main;
+
+	// create extra desk
+	desk_main.childDesktops.insert_at(Desk.EXTRA, mem::new(Desktop));
+    Desktop* desk_extra = desk_main.childDesktops.get(Desk.EXTRA);
+    desk_extra.init("ExtraMenu", isFullscreen: false, shouldRegister: true);
+    desk_extra.setPositionV({
+        desk_options_center.x,
+        desk_options_center.y
+        });
+    desk_extra.setColor(rl::GRAY);
+    desk_extra.hide();
     
 
     String music_path = game::gpGame.app_base_folder.tconcat("music\\main_menu\\Swallow.ogg");
     if(fs::fileExists(music_path))
     {
-        log::info(Where.FILE, "\tloading %s music: %s", desk_main.name, music_path);
+        log::info(FILE, "\tloading %s music: %s", desk_main.name, music_path);
     } else { 
         unreachable("music path not found: %s", music_path);
     }
@@ -445,11 +475,11 @@ fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
     //*************
     // START
     //*************
-    btn_def.callbacks[0] = &button_onOver;
-    btn_def.callbacks[1] = &button_onStopOver;
-    btn_def.callbacks[2] = &start_button_onPress;
-    btn_def.callbacks[3] = &start_button_onSinglePress;
-    btn_def.callbacks[4] = &button_onRelease;
+    btn_def.cbs[CallBack.OVER]         = &button_onOver;
+    btn_def.cbs[CallBack.STOP_OVER]    = &button_onStopOver;
+    btn_def.cbs[CallBack.PRESS]        = &start_button_onPress;
+    btn_def.cbs[CallBack.SINGLE_PRESS] = &start_button_onSinglePress;
+    btn_def.cbs[CallBack.RELEASE]      = &button_onRelease;
     
     offset += misc::VEC_RIGHT * screen_half_width;
     offset -= {button_width / 2.0f, 0.0f};
@@ -460,8 +490,8 @@ fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
     //************
     // QUIT
     //************
-    btn_def.callbacks[2] = &quit_button_onPress;
-    btn_def.callbacks[3] = &quit_button_onSinglePress;
+    btn_def.cbs[CallBack.PRESS]        = &quit_button_onPress;
+    btn_def.cbs[CallBack.SINGLE_PRESS] = &quit_button_onSinglePress;
     
     offset += misc::VEC_DOWN * button_height;
     offset.y += 0.5f * button_height;
@@ -471,8 +501,8 @@ fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
     //************
     // OPTIONS
     //************
-    btn_def.callbacks[2] = &options_button_onPress;
-    btn_def.callbacks[3] = &options_button_onSinglePress;
+    btn_def.cbs[CallBack.PRESS]        = &options_button_onPress;
+    btn_def.cbs[CallBack.SINGLE_PRESS] = &options_button_onSinglePress;
     
     offset += misc::VEC_DOWN * button_height;
     offset.y += 0.5f * button_height;
@@ -484,8 +514,8 @@ fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
     //************
     // Checkbox 1
     //******
-    btn_def.callbacks[2] = null; //&checkbox1_onPress;
-    btn_def.callbacks[3] = &checkbox1_onSinglePress;
+    btn_def.cbs[CallBack.PRESS]        = null; //&checkbox1_onPress;
+    btn_def.cbs[CallBack.SINGLE_PRESS] = &checkbox1_onSinglePress;
 
     //WidgetCheckBox* checkbox1 = desk_options.create_menu_checkbox("Checkbox 1", &btn_def);
     WidgetCheckBox* checkbox1 = mem::new(WidgetCheckBox);
@@ -498,8 +528,8 @@ fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
     //************
     // GO TO MAIN MENU
     //************
-    btn_def.callbacks[2] = &back_button_options_onPress;
-    btn_def.callbacks[3] = &back_button_options_onSinglePress;
+    btn_def.cbs[CallBack.PRESS]        = &back_button_options_onPress;
+    btn_def.cbs[CallBack.SINGLE_PRESS] = &back_button_options_onSinglePress;
     
     offset = desk_options.getPosition();
     offset += misc::VEC_RIGHT * (0.10f * (desk_options.getSize().x / 2));
@@ -721,7 +751,17 @@ fn void options_button_onSinglePress(any widget)
 {
     button_onSinglePress(widget);
     Desktop* active_menu = getActiveMenu();
-    if(active_menu) 
+	if(active_menu.getName() == "MainMenu")
+    {
+        //Desktop* next_menu = desk::gpManager.get("MainMenu");
+        Desktop* next_menu = active_menu.childDesktops.get(Desk.OPTIONS);
+        if(next_menu != null)
+        {
+            stop(active_menu); // clear the current menu
+            start(next_menu); // set the next menu
+        }
+    }
+    /*if(active_menu) 
     {
         Desktop* next_menu = active_menu.next;
         if(next_menu != null)
@@ -729,7 +769,7 @@ fn void options_button_onSinglePress(any widget)
             stop(active_menu); // clear the current menu
             start(next_menu); // set the next menu
         }
-    }
+    }*/
     //log::info(Where.CONSOLE, "Options Menu is still not done.");
     //log::info(Where.CONSOLE, "Pressed Count = %s.", ((WidgetButton*)widget).press_count);
     // TODO(HM) 
@@ -744,14 +784,30 @@ fn void back_button_options_onPress(any widget)
 {
     button_onPress(widget);
     Desktop* active_menu = getActiveMenu();
-    if(active_menu && active_menu.previous != null) {
-        Desktop* next_menu = active_menu.previous;
+	if(active_menu) {
+        Desktop* next_menu;
+		switch(active_menu.getName())
+		{
+			case "MainMenu": break; 
+			case "OptionsMenu":
+			case "ExtraMenu":
+				next_menu = desk::gpManager.get("MainMenu");
+			default: unreachable();
+		}
         if(next_menu != null)
         {
             stop(active_menu); // clear the current menu
             start(next_menu); // set the next menu
         }
     }
+    /*if(active_menu && active_menu.previous != null) {
+        Desktop* next_menu = active_menu.previous;
+        if(next_menu != null)
+        {
+            stop(active_menu); // clear the current menu
+            start(next_menu); // set the next menu
+        }
+    }*/
 }
 
 fn void back_button_options_onSinglePress(any widget) 

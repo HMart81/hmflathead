@@ -33,7 +33,8 @@ module thirdparty::plmpeg::plm; //@if($feature(LPMPEG_ENABLE));
 import std::io;
 import thirdparty::plmpeg::plm::buffer @public;
 
-alias PLM_t = void*;
+//alias PLM_t = void*;
+typedef PLM_t = void;
 alias Uint8_t = char;
 
 // Demuxed MPEG PS packet
@@ -82,7 +83,7 @@ struct PLMframe
 // Callback function type for decoded video frames used by the high-level
 // plm_* interface
 
-alias VideoDecodeCallback = fn void (PLM_t self, PLMframe *frame, void *user);
+alias VideoDecodeCallback = fn void (PLM_t* self, PLMframe *frame, void *user);
 
 // Decoded Audio Samples
 // Samples are stored as normalized (-1, 1) float either interleaved, or if
@@ -105,7 +106,7 @@ struct PLMsamples
 // Callback function type for decoded audio samples used by the high-level
 // plm_* interface
 
-alias AudioDecodeCallback = fn void (PLM_t self, PLMsamples *samples, void *user);
+alias AudioDecodeCallback = fn void (PLM_t* self, PLMsamples *samples, void *user);
 
 // Callback function for Buffer when it needs more data
 
@@ -149,7 +150,7 @@ fn PLM_t* create_with_buffer(Buffer *buffer, int destroy_when_done) @cname("plm_
 
 // Destroy a plmpeg instance and free all data.
 
-fn void PLM_t.destroy(PLM_t self) @cname("plm_destroy");
+fn void PLM_t.destroy(&self) @cname("plm_destroy");
 
 // Get whether we have headers on all available streams and we can report the 
 // number of video/audio streams, video dimensions, framerate and audio 
@@ -157,7 +158,7 @@ fn void PLM_t.destroy(PLM_t self) @cname("plm_destroy");
 // This returns FALSE if the file is not an MPEG-PS file or - when not using a
 // file as source - when not enough data is available yet.
 
-fn int PLM_t.has_headers(PLM_t self) @cname("plm_has_headers");
+fn int PLM_t.has_headers(&self) @cname("plm_has_headers");
 
 
 // Probe the MPEG-PS data to find the actual number of video and audio streams
@@ -172,50 +173,50 @@ fn int PLM_t.has_headers(PLM_t self) @cname("plm_has_headers");
 // streams in the file.
 // Returns TRUE if any streams were found within the probesize.
 
-fn int PLM_t.probe(PLM_t self, usz probesize) @cname("plm_probe");
+fn int PLM_t.probe(&self, usz probesize) @cname("plm_probe");
 
 // Get or set whether video decoding is enabled. Default TRUE.
 
-fn int PLM_t.get_video_enabled(PLM_t self) @cname("plm_get_video_enabled");
-fn void PLM_t.set_video_enabled(PLM_t self, int enabled) @cname("plm_set_video_enabled");
+fn int PLM_t.get_video_enabled(&self) @cname("plm_get_video_enabled");
+fn void PLM_t.set_video_enabled(&self, int enabled) @cname("plm_set_video_enabled");
 
 
 // Get the number of video streams (0--1) reported in the system header.
 
-fn int PLM_t.get_num_video_streams(PLM_t self) @cname("plm_get_num_video_streams");
+fn int PLM_t.get_num_video_streams(&self) @cname("plm_get_num_video_streams");
 
 
 // Get the display width/height of the video stream.
 
-fn int PLM_t.get_width(PLM_t self) @cname("plm_get_width");
-fn int PLM_t.get_height(PLM_t self) @cname("plm_get_height");
-fn double PLM_t.get_pixel_aspect_ratio(PLM_t self) @cname("plm_get_pixel_aspect_ratio");
+fn int PLM_t.get_width(&self) @cname("plm_get_width");
+fn int PLM_t.get_height(&self) @cname("plm_get_height");
+fn double PLM_t.get_pixel_aspect_ratio(&self) @cname("plm_get_pixel_aspect_ratio");
 
 
 // Get the framerate of the video stream in frames per second.
 
-fn double PLM_t.get_framerate(PLM_t self) @cname("plm_get_framerate");
+fn double PLM_t.get_framerate(&self) @cname("plm_get_framerate");
 
 
 // Get or set whether audio decoding is enabled. Default TRUE.
 
-fn int PLM_t.get_audio_enabled(PLM_t self) @cname("plm_get_audio_enabled");
-fn void PLM_t.set_audio_enabled(PLM_t self, int enabled) @cname("plm_set_audio_enabled");
+fn int PLM_t.get_audio_enabled(&self) @cname("plm_get_audio_enabled");
+fn void PLM_t.set_audio_enabled(&self, int enabled) @cname("plm_set_audio_enabled");
 
 
 // Get the number of audio streams (0--4) reported in the system header.
 
-fn int PLM_t.get_num_audio_streams(PLM_t self) @cname("plm_get_num_audio_streams");
+fn int PLM_t.get_num_audio_streams(&self) @cname("plm_get_num_audio_streams");
 
 
 // Set the desired audio stream (0--3). Default 0.
 
-fn void PLM_t.set_audio_stream(PLM_t self, int stream_index) @cname("plm_set_audio_stream");
+fn void PLM_t.set_audio_stream(&self, int stream_index) @cname("plm_set_audio_stream");
 
 
 // Get the samplerate of the audio stream in samples per second.
 
-fn int PLM_t.get_samplerate(PLM_t self) @cname("plm_get_samplerate");
+fn int PLM_t.get_samplerate(&self) @cname("plm_get_samplerate");
 
 
 // Get or set the audio lead time in seconds - the time in which audio samples
@@ -223,48 +224,48 @@ fn int PLM_t.get_samplerate(PLM_t self) @cname("plm_get_samplerate");
 // should be set to the duration of the buffer of the audio API that you use
 // for output. E.g. for SDL2: (SDL_AudioSpec.samples / samplerate)
 
-fn double PLM_t.get_audio_lead_time(PLM_t self) @cname("plm_get_audio_lead_time");
-fn void PLM_t.set_audio_lead_time(PLM_t self, double lead_time) @cname("plm_set_audio_lead_time");
+fn double PLM_t.get_audio_lead_time(&self) @cname("plm_get_audio_lead_time");
+fn void PLM_t.set_audio_lead_time(&self, double lead_time) @cname("plm_set_audio_lead_time");
 
 
 // Get the current internal time in seconds.
 
-fn double PLM_t.get_time(PLM_t self) @cname("plm_get_time");
+fn double PLM_t.get_time(&self) @cname("plm_get_time");
 
 
 // Get the video duration of the underlying source in seconds.
 
-fn double PLM_t.get_duration(PLM_t self) @cname("plm_get_duration");
+fn double PLM_t.get_duration(&self) @cname("plm_get_duration");
 
 
 // Rewind all buffers back to the beginning.
 
-fn void PLM_t.rewind(PLM_t self) @cname("plm_rewind");
+fn void PLM_t.rewind(&self) @cname("plm_rewind");
 
 
 // Get or set looping. Default FALSE.
 
-fn int PLM_t.get_loop(PLM_t self) @cname("plm_get_loop");
-fn void PLM_t.set_loop(PLM_t self, int loop) @cname("plm_set_loop");
+fn int PLM_t.get_loop(&self) @cname("plm_get_loop");
+fn void PLM_t.set_loop(&self, int loop) @cname("plm_set_loop");
 
 
 // Get whether the file has ended. If looping is enabled, this will always
 // return FALSE.
 
-fn int PLM_t.has_ended(PLM_t self) @cname("plm_has_ended");
+fn int PLM_t.has_ended(&self) @cname("plm_has_ended");
 
 // Set the callback for decoded video frames used with plm_decode(). If no 
 // callback is set, video data will be ignored and not be decoded. The *user
 // Parameter will be passed to your callback.
 
-fn void set_video_decode_callback(PLM_t player, VideoDecodeCallback fp, void *user) @cname("plm_set_video_decode_callback");
+fn void set_video_decode_callback(PLM_t* player, VideoDecodeCallback fp, void *user) @cname("plm_set_video_decode_callback");
 
 
 // Set the callback for decoded audio samples used with plm_decode(). If no 
 // callback is set, audio data will be ignored and not be decoded. The *user
 // Parameter will be passed to your callback.
 
-fn void set_audio_decode_callback(PLM_t player, AudioDecodeCallback fp, void *user) @cname("plm_set_audio_decode_callback");
+fn void set_audio_decode_callback(PLM_t* player, AudioDecodeCallback fp, void *user) @cname("plm_set_audio_decode_callback");
 
 
 // Advance the internal timer by seconds and decode video/audio up to this time.
@@ -272,7 +273,7 @@ fn void set_audio_decode_callback(PLM_t player, AudioDecodeCallback fp, void *us
 // of times. A frame-skip is not implemented, i.e. everything up to current time
 // will be decoded.
 
-fn void PLM_t.decode(PLM_t self, double seconds) @cname("plm_decode");
+fn void PLM_t.decode(&self, double seconds) @cname("plm_decode");
 
 
 // Decode and return one video frame. Returns NULL if no frame could be decoded
@@ -281,7 +282,7 @@ fn void PLM_t.decode(PLM_t self, double seconds) @cname("plm_decode");
 // The returned PLMframe is valid until the next call to plm_decode_video() 
 // or until plm_destroy() is called.
 
-fn PLMframe* PLM_t.decode_video(PLM_t self) @cname("plm_decode_video");
+fn PLMframe* PLM_t.decode_video(&self) @cname("plm_decode_video");
 
 
 // Decode and return one audio frame. Returns NULL if no frame could be decoded
@@ -290,7 +291,7 @@ fn PLMframe* PLM_t.decode_video(PLM_t self) @cname("plm_decode_video");
 // The returned PLMsamples is valid until the next call to plm_decode_audio()
 // or until plm_destroy() is called.
 
-fn PLMsamples* PLM_t.decode_audio(PLM_t self) @cname("plm_decode_audio");
+fn PLMsamples* PLM_t.decode_audio(&self) @cname("plm_decode_audio");
 
 // Seek to the specified time, clamped between 0 -- duration. This can only be 
 // used when the underlying plm_buffer is seekable, i.e. for files, fixed 
@@ -305,14 +306,14 @@ fn PLMsamples* PLM_t.decode_audio(PLM_t self) @cname("plm_decode_audio");
 // satisfied.
 // Returns TRUE if seeking succeeded or FALSE if no frame could be found.
 
-fn int PLM_t.seek(PLM_t self, double time, int seek_exact) @cname("plm_seek");
+fn int PLM_t.seek(&self, double time, int seek_exact) @cname("plm_seek");
 
 
 // Similar to plm_seek(), but will not call the video_decode_callback,
 // audio_decode_callback or make any attempts to sync audio.
 // Returns the found frame or NULL if no frame could be found.
 
-fn PLMframe* PLM_t.seek_frame(PLM_t self, double time, int seek_exact) @cname("plm_seek_frame");
+fn PLMframe* PLM_t.seek_frame(&self, double time, int seek_exact) @cname("plm_seek_frame");
 
 // -----------------------------------------------------------------------------
 // TODO see https://github.com/phoboslab/pl_mpeg/blob/master/pl_mpeg.h#L468 
@@ -610,12 +611,12 @@ fn PLMframe *PLMvideo.decode(PLMvideo *self) @cname("plm_video_decode");
 // size of at least (stride * frame->height).
 // Note that the alpha component of the dest buffer is always left untouched.
 
-fn void PLMframe.to_rgb(PLMframe *frame, Uint8_t *dest, int stride) @cname("plm_frame_to_rgb");
-fn void PLMframe.to_bgr(PLMframe *frame, Uint8_t *dest, int stride) @cname("plm_frame_to_bgr");
-fn void PLMframe.to_rgba(PLMframe *frame, Uint8_t *dest, int stride) @cname("plm_frame_to_rgba");
-fn void PLMframe.to_bgra(PLMframe *frame, Uint8_t *dest, int stride) @cname("plm_frame_to_bgra");
-fn void PLMframe.to_argb(PLMframe *frame, Uint8_t *dest, int stride) @cname("plm_frame_to_argb");
-fn void PLMframe.to_abgr(PLMframe *frame, Uint8_t *dest, int stride) @cname("plm_frame_to_abgr");
+fn void PLMframe.to_rgb(&self, Uint8_t *dest, int stride) @cname("plm_frame_to_rgb");
+fn void PLMframe.to_bgr(&self, Uint8_t *dest, int stride) @cname("plm_frame_to_bgr");
+fn void PLMframe.to_rgba(&self, Uint8_t *dest, int stride) @cname("plm_frame_to_rgba");
+fn void PLMframe.to_bgra(&self, Uint8_t *dest, int stride) @cname("plm_frame_to_bgra");
+fn void PLMframe.to_argb(&self, Uint8_t *dest, int stride) @cname("plm_frame_to_argb");
+fn void PLMframe.to_abgr(&self, Uint8_t *dest, int stride) @cname("plm_frame_to_abgr");
 
 
 // -----------------------------------------------------------------------------

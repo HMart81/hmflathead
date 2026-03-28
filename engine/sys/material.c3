@@ -228,11 +228,13 @@ struct MaterialVideoStage
     inline MatStage super;
 }
 
-alias Coverage @public = int; //RLMaterial Coverage
-const Coverage COVERAGE_BAD         @public = -1; // invalid coverage type
-const Coverage COVERAGE_OPAQUE      @public =  0; // completely fills the triangle
-const Coverage COVERAGE_PERFORATED  @public =  1; // may have alpha tested holes
-const Coverage COVERAGE_TRANSLUCENT	@public =  2; // blended with background
+constdef Coverage : inline int @public
+{
+	BAD         = -1, // invalid coverage type
+	OPAQUE      =  0, // completely fills the triangle
+	PERFORATED,       // may have alpha tested holes
+	TRANSLUCENT       // blended with background
+}
 //
 //
 // TODO(HM) implement this new stage system
@@ -357,7 +359,7 @@ fn void HMaterial.reload(&self, SaveFile* file) @dynamic {
 
 fn void HMaterial.init(&self)
 {
-	//self.coverage |= COVERAGE_OPAQUE;
+	//self.coverage |= Coverage.OPAQUE;
     // TODO(HM) solve this stuff with c3 enums not being able to be used as flags
     // use constants instead of enums for this?
     self.contentes |= (Contents.SOLID | Contents.OPAQUE);
@@ -432,29 +434,30 @@ fn void HMaterial.setShader(&self, RLShader shader) @inline
 
 fn void HMaterial.setCoverage(&self, Coverage cv)
 {
-    if(self.coverage & cv) return;
+    if(self.coverageSet(cv)) return;
 
     switch(cv)
     {
-        case COVERAGE_OPAQUE:
-            self.coverage |= COVERAGE_OPAQUE;
-            if(self.coverage & COVERAGE_TRANSLUCENT) {
-                self.coverage &= ~COVERAGE_TRANSLUCENT;
+        case Coverage.OPAQUE:
+            self.coverage |= Coverage.OPAQUE;
+			// disable translucency
+            if(self.coverage & Coverage.TRANSLUCENT) {
+                self.coverage &= ~Coverage.TRANSLUCENT;
             }
-        case COVERAGE_TRANSLUCENT:
-            self.coverage |= COVERAGE_TRANSLUCENT;
-            if(self.coverage & COVERAGE_OPAQUE) {
-                self.coverage &= ~COVERAGE_OPAQUE;
+        case Coverage.TRANSLUCENT:
+            self.coverage |= Coverage.TRANSLUCENT;
+            if(self.coverage & Coverage.OPAQUE) {
+                self.coverage &= ~Coverage.OPAQUE;
             }
-        case COVERAGE_PERFORATED:
-            self.coverage |= COVERAGE_PERFORATED;
-            if(self.coverage & COVERAGE_OPAQUE) {
-                self.coverage &= ~COVERAGE_OPAQUE;
-            }
+        case Coverage.PERFORATED:
+            self.coverage |= Coverage.PERFORATED;
         default:
             unreachable();
     }
 }
+
+fn bool HMaterial.coverageSet(self, Coverage cv) @inline => (bool)(self.coverage & cv);
+
 
 // @untested
 <*
@@ -719,9 +722,9 @@ fn void HMaterial.parse_maps(&self, XmlNode* maps_node)
                                 $endif
                             }
                         case mtr::isXmlNode(child, Node.BLEND):
-                            self.parse_blend(child, self.getStage(MStageType.DIFFUSE));
                             // NOTE(HM) this is a blend map, we will use it to blend two textures together
                             // TODO(HM) implement this
+                            self.parse_blend(child, self.getStage(MStageType.DIFFUSE));
                             //log::warning(Where.FILE, "Blend is not implemented yet! Skipping node '%s' in material '%s' in file '%s'", child.name, self.name, self.mtrfile.path);
                         case mtr::isXmlNode(child, Node.COLOR):
                             self.getStage(MStageType.DIFFUSE).color = mtr::xmlStrColorToColor(child.getText());
@@ -822,17 +825,27 @@ fn void HMaterial.parse_keyword(&self, XmlNode* node)
     switch (arg.first)
     {
         case NodeKeyword.TRANSLUCENT.str:
-            self.setCoverage(COVERAGE_TRANSLUCENT);
+            self.setCoverage(Coverage.TRANSLUCENT);
+			// todo control translucency value
+			// right now is hardcoded at 0.5
+			// pre-multiplied alpha
+			RLColor color = self.getStage(MStageType.DIFFUSE).color;
+            self.getStage(MStageType.DIFFUSE).color = rl::colorAlpha(color, 0.5f);
         case NodeKeyword.ALPHA.str:
-            self.setCoverage(COVERAGE_PERFORATED);
+            self.setCoverage(Coverage.PERFORATED);
             float alpha = misc::clamp01f(arg.second.to_float()!!);
-             // multiply previous alpha values by our new value
-            if(alpha > 0.0f && alpha < 1.0f) {
-                // set the material coverage to match
-                if ((bool)(self.coverage & COVERAGE_TRANSLUCENT) == false) self.setCoverage(COVERAGE_TRANSLUCENT);
-            }
-            MatStage* stage = self.getStage(MStageType.DIFFUSE);
-            stage.color.a = (char)misc::@mapValueRangeToOther(alpha, 0.0f, 1.0f, 0, 255);
+			alpha = misc::clamp01f(alpha);
+			RLColor color = self.getStage(MStageType.DIFFUSE).color;
+			self.getStage(MStageType.DIFFUSE).color = rl::colorAlpha(color, alpha);
+			/*RLImage image = rl::loadImageFromTexture(self.getStage(MStageType.DIFFUSE).tex);
+			RLColor* color = rl::loadImageColors(image);
+            // multiply texture alpha by the material alpha
+			Vec4f color_norm = rl::colorNormalize(*color);
+			alpha *= color_norm.a;
+			color_norm.a = alpha;
+			(*color) = rl::colorFromNormalized(color_norm);
+			rl::updateTexture(self.getStage(MStageType.DIFFUSE).tex, image.data);
+			*/
             self.flags.has_AlphaTest = true;
         case NodeKeyword.SORT.str:
             self.sort = arg.second.to_uint()!!;
@@ -922,10 +935,11 @@ fn int HMaterial.nameToDstBlendMode(&self, String name )
 }
 
 <*
+	WARNING still not used!!!!!
     @param [&in] node : "node to get data from"
     @param [&inout] stage : "stage to set data for"
 *>
-fn void HMaterial.parse_blend(&self, XmlNode* node, MatStage *stage ) 
+fn void HMaterial.parse_blend(&self, XmlNode* node, MatStage *stage ) @unused
 {
     if(node.hasAttributes() == false) return;
 
@@ -975,9 +989,9 @@ fn void HMaterial.parse_blend(&self, XmlNode* node, MatStage *stage )
 	stage.drawStateBits = srcBlend | dstBlend;
 }
 
-enum ShaderLayoutLocation : inline int
+constdef ShaderLayoutLocation : inline int
 {
-    VERTEX_POSITION,    // layout location: 0
+    VERTEX_POSITION = 0,    // layout location: 0
     VERTEX_TEXCOORD01,  // layout location: 1
     VERTEX_NORMAL,      // layout location: 2
     VERTEX_COLOR,       // layout location: 3
@@ -1030,7 +1044,7 @@ fn void HMaterial.parse_vertex_attribute(&self, XmlNode* child, RLShader* shader
                     }
                 case NodeAttrib.LOCATION:
                     int loc = atrb.value.to_int()!!;
-                    attrb.loc = ShaderLayoutLocation.from_ordinal(loc);
+                    attrb.loc = (ShaderLayoutLocation)loc; //ShaderLayoutLocation.from_ordinal(loc);
                     if(loc < 0 || loc >= 6) 
                     {
                         log::error(Where.FILE, "Invalid value '%d' for attribute '%s' in node '%s' of material '%s' in file '%s'!", 
@@ -1059,7 +1073,7 @@ fn void HMaterial.parse_vertex_attribute(&self, XmlNode* child, RLShader* shader
                     shader.locs[loc] = shader.getAttributeLocation(attrb_id);
                     */
 
-                    int loc = attrb.loc.ordinal;
+                    int loc = attrb.loc;
                     switch(attrb.type)
                     {
                         case RLShdrAttrbDatTyp.FLOAT:

@@ -49,7 +49,7 @@ alias gpGame = game::gpGame;
 
 alias VideoFile   = File;
 alias VideoPlayer = PLM_t; // video player to play videos
-alias VideoFrame  = RLTexture2D;
+alias VideoFrame  = RLImage;
 
 const TRUE @local  = 1;
 const FALSE @local = 0;
@@ -68,34 +68,54 @@ struct VidMovie @public
     CLong modtime; // modification time
 
     // this is done at play time
-    float time_since_last_call;
+    float time_since_last_call; // in seconds
 
+	// this is set at init time or play time
+	int startTime; // milliseconds
     // video data
     int samplerate; // for audio
     float framerate;
     float duration; // in seconds
 	bool is_playing;
 	bool should_play;
+	bool fullscreen;
 	bool is_ready;
-	VideoPlayer plyr;
+	bool set_frame_settings;
+	VideoPlayer* plyr; // each movie has its own video player
 	VideoFrame frame;
 }
 
-fn void VidMovie.renderFrame(&self, Vec2f position, Vec2f size)
+<*
+	Render each frame as a GPU texture unto screen
+	@param [&in] _frame : "frame data to render"
+	@param screen : "screen area where play the frame"
+	@require screen.size != VEC2_ZERO
+*>
+fn void renderFrame(RLImage* _frame, RLRectangle screen) @local
 {
-	if(self.is_ready && self.should_play) 
+	//@debug_break(ON);
+	RLTexture2D frame = rl::loadTextureFromImage(*_frame);
+	if(screen == rl::EMPTY_RECT) {
+		screen.size = (Vec2f){_frame.width, _frame.height};
+	}
+	//rl::drawTexture(vid.frame, (int)position.x, (int)position.y, rl::WHITE);
+	rl::drawTexturePro(
+		frame,
+		(RLRectangle){0.0f, 0.0f, (float)frame.width, (float)frame.height},
+		misc::makeRect(screen.pos, screen.size),
+		VEC2_ZERO,
+		0.0f,
+		rl::WHITE
+	);
+}
+
+fn void VidMovie.draw(&self, RLRectangle screen)
+{
+	if(self.is_ready && self.should_play)
 	{
-		if(rl::isTextureValid(self.frame)) 
+		if(rl::isImageValid(self.frame))
 		{
-			//rl::drawTexture(self.frame, (int)position.x, (int)position.y, rl::WHITE);
-			rl::drawTexturePro(
-				self.frame,
-				(RLRectangle){0.0f, 0.0f, (float)self.frame.width, (float)-self.frame.height},
-				(RLRectangle){position.x, position.y, size.x, size.y},
-				(RLVector2){0.0f, 0.0f},
-				0.0f,
-				rl::WHITE
-			);
+			renderFrame(&self.frame, screen);
 		}
 	}
 }
@@ -103,32 +123,40 @@ fn void VidMovie.renderFrame(&self, Vec2f position, Vec2f size)
 <*
 	@param [&in] frame : "pointer to the current plm frame to update the video frame"
 *>
-fn void VidMovie.updateFrame(&self, VideoPlayer mpeg, PLMframe *frame)
+fn void VidMovie.updateFrame(&self, PLMframe *frame)
 {
+	VideoPlayer* mpeg = self.plyr;
 	int w, h;
 	w = mpeg.get_width();
 	h = mpeg.get_height();
+	assert(w > 0 && h > 0);
 	// create image to hold frame data
 	// compute stride
-	usz stride = w * BYTES_PER_PIXEL;
-	usz dataSize = stride * h;
+	int stride = w * BYTES_PER_PIXEL;
+	int dataSize = stride * h;
 	// allocate memory for frame data
-	char* fileData = (char*)mem::malloc(dataSize);
-    frame.to_rgb((Uint8_t*)fileData, (int)stride);
-	RLImage image = rl::loadImageFromMemory(".png", fileData, (CInt)dataSize);
-	defer rl::unloadImage(image);
-	
-    image.width     = w;
-    image.height    = h;
-    image.mipmaps = 1;
-    image.format = rl::RLPixelFormat.UNCOMPRESSED_R8G8B8;
+	Uint8_t* fileData = (Uint8_t*)mem::malloc(dataSize);
+    frame.to_rgb(fileData, stride);
 
-	// unload previous texture frame
-	if(rl::isTextureValid(self.frame)) {
-		rl::unloadTexture(self.frame);
+	// unload previous frame
+	/*if(rl::isImageValid(self.frame)) {
+		rl::unloadImage(self.frame);
+	}*/
+
+	if(self.frame.data != null) {
+		mem::free(self.frame.data);
+		self.frame.data = null;
 	}
-	// update texture frame
-	self.frame = rl::loadTextureFromImage(image);
+
+	//self.frame = rl::loadImageFromMemory(".png", fileData, (CInt)dataSize);
+	self.frame.data = fileData;
+	if(self.set_frame_settings) {
+		self.frame.width   = w;
+		self.frame.height  = h;
+		self.frame.mipmaps = 1;
+		self.frame.format  = RLPixelFormat.UNCOMPRESSED_R8G8B8;
+		self.set_frame_settings = false;
+	}
 }
 
 <*
@@ -142,7 +170,7 @@ fn bool VidMovie.preparePlayer(&self, bool loop = false, bool audio = false) @no
 		log::warning(FILE, "failed to open video %s to play with error: %s", self.name, excuse);
 		return false;
 	} else { // successfully opened video file
-		assert(self.plyr == null);
+		assert(self.plyr == null); // player should be null at this time (I think...)
 		self.plyr = plm::create_with_file(video.file, TRUE);
 
 		if(self.plyr == null) {
@@ -163,17 +191,33 @@ fn bool VidMovie.preparePlayer(&self, bool loop = false, bool audio = false) @no
 		self.samplerate = self.plyr.get_samplerate();
 		self.framerate  = (float)self.plyr.get_framerate();
 		self.duration   = (float)self.plyr.get_duration();
+		log::info(FILE,
+			"Opened %s - framerate: %f, samplerate: %d, duration: %f", 
+			self.name, 
+			self.framerate,
+			self.samplerate,
+			self.duration
+		);
 
-		vid::initDecodingSystem(self);
+		initDecodingSystem(self);
 
 		(loop)  ? self.plyr.set_loop(TRUE) : self.plyr.set_loop(FALSE);
 		(audio) ? self.plyr.set_audio_enabled(TRUE) : self.plyr.set_audio_enabled(FALSE);
 		self.plyr.set_audio_stream(0);
 
 		self.is_ready = true;
+		self.set_frame_settings = true;
 	}
 
 	return self.is_ready;
+}
+
+fn void VidMovie.resetTime(&self, int time = 0) 
+{
+	//self.startTime = ( backEnd.viewDef ) ? 1000 * backEnd.viewDef->floatTime : -1;
+	self.startTime = game::gpGame.time_ms;
+	self.start();
+	//status = FMV_PLAY;
 }
 
 fn void VidMovie.decode(&self)
@@ -182,10 +226,19 @@ fn void VidMovie.decode(&self)
 
 	assert(self.is_ready == true);
 
+	// Compute the delta time since the last update, limit max step to 
+	// 1/30th of a second
+	float current_time = gpGame.time_sec;
+	float elapsed_time = current_time - self.time_since_last_call;
+	if (elapsed_time > 1.0f / 30.0f) {
+		elapsed_time = 1.0f / 30.0f;
+	}
+	self.time_since_last_call = current_time;
+
 	// Decode
 	if(!self.plyr.has_ended()) {
-		self.plyr.decode(self.time_since_last_call);
-		self.time_since_last_call += gpGame.time_sec;
+		self.plyr.decode(elapsed_time);
+		//self.time_since_last_call += gpGame.time_sec;
 		self.is_playing = true;
 	} else {
 		// Stop playback
@@ -204,6 +257,9 @@ fn void VidMovie.stop(&self) @inline
 	self.should_play = false;
 }
 
+fn void VidMovie.enable(&self) @inline => self.start();
+fn void VidMovie.disable(&self) @inline => self.stop();
+
 fn void VidMovie.reset(&self) 
 {
     self.path = "";
@@ -220,7 +276,12 @@ fn void VidMovie.reset(&self)
 		self.plyr.destroy();
 		self.plyr = null;
 	}
-	if(rl::isTextureValid(self.frame)) rl::unloadTexture(self.frame);
+    if (rl::isImageValid(self.frame)) {
+        if (self.frame.data != null) {
+            mem::free(self.frame.data);
+            self.frame.data = null;
+        }
+    }
 }
 
 
@@ -308,32 +369,16 @@ fn void? VideoCabinet.registerVideos(&self)
     }
 }
 
-
-fn bool VideoCabinet.hasMovie(&self, String name)
+fn bool VideoCabinet.hasMovie(&self, String name) @inline
 {
-	if(self.movies.len() == 0) 
-	{
-		return false;
-	}
-
-	foreach(movie : self.movies) 
-	{
-		if(movie.name == name) 
-		{
-			return true;
-		}
-	}
-
-	return false;
+	return (self.movies.len() != 0 && self.getMovie(name) != null) ? true : false;
 }
 
 // todo return a default error video maybe?
 fn VidMovie* VideoCabinet.getMovie(&self, String vid_name)
 {
-    foreach(movie : self.movies) 
-    {
-        if(movie.name == vid_name) 
-        {
+    foreach(movie : self.movies) {
+        if(movie.name == vid_name) {
             return movie;
 		}
     }
@@ -368,22 +413,34 @@ struct PLMframe copy pasted from lpmpeg.c3i for doc reasons only
 */
 
 <*
+	Required video callback for decoding (cannot change function sigture)
+
 	@param [&in] mpeg : "pointer to the mpeg player"
 	@param [&in] frame : "pointer to the decoded frame"
 	@param [&in] user : "pointer to some user data"
 *>
-fn void on_video(VideoPlayer mpeg, PLMframe *frame, void *user) 
+fn void on_video(VideoPlayer* mpeg, PLMframe *frame, void *user) 
 {
+	//log::fatal(CONSOLE, "this should run!!!!");
+	//@debug_break(ON);
 	var video @safeinfer = (VidMovie*)user;
-    video.updateFrame(mpeg, frame);
+    video.updateFrame(frame);
 }
 
-fn void on_audio(PLM_t mpeg, PLMsamples *samples, void *user) {
+<*
+	Required audio callback for decoding (cannot change function sigture)
+
+	@param [&in] mpeg : "pointer to the mpeg player"
+	@param [&in] samples : "pointer to the decoded audio samples"
+	@param [&in] user : "pointer to some user data"
+*>
+fn void on_audio(VideoPlayer* mpeg, PLMsamples *samples, void *user) 
+{
 	VidMovie *self = (VidMovie *)user;
 
-	// Hand the decoded samples over to SDL
+	// Hand the decoded samples over to raylib
 	
-	int size = float.sizeof * samples.count * 2;
+	int size = float.sizeof * samples.count * 2; // times two because stereo
     Buffer* buffer = buffer::create_with_capacity(size);
     buffer.write((Uint8_t*)&samples.left[0], samples.left.len);
     buffer.write((Uint8_t*)&samples.right[0], samples.right.len);
@@ -409,7 +466,7 @@ fn void on_audio(PLM_t mpeg, PLMsamples *samples, void *user) {
 <*
 	@param [&in] video : "pointer to the video movie data"
 *>
-fn void initDecodingSystem(VidMovie* video)
+fn void initDecodingSystem(VidMovie* video) //@inline
 {
     plm::set_video_decode_callback(video.plyr, &on_video, video);
 	plm::set_audio_decode_callback(video.plyr, &on_audio, video);

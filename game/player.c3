@@ -216,7 +216,7 @@ fn void Player.think(&self, float dt /*delta_time*/)
         // NOTE(HM) to run parent entity think code that may be necessary by the player
         self.super.think(dt); // parent
         
-        if(self.thinkflags & ent::TH_THINK)
+        if(self.thinkflags & EntTh.THINK)
         {
             tracy::@zoneN("Playerthink", 1)
             {
@@ -233,7 +233,7 @@ fn void Player.think(&self, float dt /*delta_time*/)
             };
         } 
         
-        if(self.thinkflags & ent::TH_PHYSICS) {
+        if(self.thinkflags & EntTh.PHYSICS) {
             // update player physics code here
         }
         

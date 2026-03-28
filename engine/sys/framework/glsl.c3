@@ -35,6 +35,34 @@ import thirdparty::raylib5::rl;
 import engine::filesystem::fs;
 import engine::logging::log;
 
+/*
+NOTE(HM) 
+Default shader attribute names to be used in glsl shader code, 
+is recomended to use them to take advantage of the default raylib shader 
+locations, so you don't have to set them manually.
+
+They are defined inside raylib/src/config.h
+
+**Attributes**
+"vertexPosition"    // Binded by default to shader location: 0
+"vertexTexCoord1"   // Binded by default to shader location: 1
+"vertexNormal"      // Binded by default to shader location: 2
+"vertexColor"       // Binded by default to shader location: 3
+"vertexTangent"     // Binded by default to shader location: 4
+"vertexTexCoord2"   // Binded by default to shader location: 5
+
+**Uniforms**
+"mvp"               // model-view-projection matrix
+"matView"           // view matrix
+"matProjection"     // projection matrix
+"matModel"          // model matrix
+"matNormal"         // normal matrix (transpose(inverse(matModelView))
+"colDiffuse"        // color diffuse (base tint color, multiplied by texture color)
+"texture0"          // texture0 (texture slot active 0)
+"texture1"          // texture1 (texture slot active 1)
+"texture2"          // texture2 (texture slot active 2)
+*/
+
 const String GLOBAL_SHADER_INCLUDE = `
 #version 330
 #extension GL_ARB_shading_language_420pack: enable
@@ -76,6 +104,57 @@ const String GLOBAL_SHADER_INCLUDE = `
 
 const INCLUDE_DIRECTIVE @local = "#include";
 const SHADER_HOME_PATH  @local = "shaders/";
+
+/*
+constdef GLPrgrmType : inline uint
+{
+	INVALID = 0,
+	VERTEX,
+	FRAGMENT
+}
+
+constdef GLPrgrm : inline uint
+{
+	INVALID = 0,
+	VPROG_DEFAULT,
+	FPROG_DEFAULT,
+	VPROG_BASIC,
+	FPROG_BASIC,
+	FPROG_GRAYSCALE,
+	VPROG_QUAD,
+	VPROG_RED,
+	FPROG_RED,
+	PROG_USER
+}
+
+struct ProgDef
+{
+	uint	target;
+	uint	ident;
+	String	name;
+}
+
+const int MAX_GLPROGS @local = 200;
+
+// a single file can have both a vertex program and a fragment program
+const ProgDef[MAX_GLPROGS] PROGRAMS = {
+	{ GLPrgrmType.VERTEX, GLPrgrm.VPROG_DEFAULT, "default.vs" },
+	{ GLPrgrmType.FRAGMENT, GLPrgrm.FPROG_DEFAULT, "default.fs" },
+	{ GLPrgrmType.VERTEX, GLPrgrm.VPROG_BASIC, "basic.vs" },
+	{ GLPrgrmType.FRAGMENT, GLPrgrm.FPROG_BASIC, "basic.fs" },
+	{ GLPrgrmType.VERTEX, VPROG_BUMPY_ENVIRONMENT, "bumpyEnvironment.vfp" },
+	{ GLPrgrmType.FRAGMENT, FPROG_BUMPY_ENVIRONMENT, "bumpyEnvironment.vfp" },
+	{ GLPrgrmType.VERTEX, VPROG_AMBIENT, "ambientLight.vfp" },
+	{ GLPrgrmType.FRAGMENT, FPROG_AMBIENT, "ambientLight.vfp" },
+	{ GLPrgrmType.VERTEX, VPROG_STENCIL_SHADOW, "shadow.vp" },
+	{ GLPrgrmType.VERTEX, VPROG_ENVIRONMENT, "environment.vfp" },
+	{ GLPrgrmType.FRAGMENT, FPROG_ENVIRONMENT, "environment.vfp" },
+	{ GLPrgrmType.VERTEX, VPROG_GLASSWARP, "arbVP_glasswarp.txt" },
+	{ GLPrgrmType.FRAGMENT, FPROG_GLASSWARP, "arbFP_glasswarp.txt" },
+
+	// additional programs can be dynamically specified in materials
+};
+*/
 
 <*
     This function replaces a special include directive in shader code for costum global code
@@ -253,11 +332,73 @@ fn RLShader loadShader(String vs_path, String fs_path) @nodiscard
     @param [&inout] shader : "shader to unload"
     @require shader != null
 *>
-fn void unloadShader(RLShader* shader) {
+fn void unloadShader(RLShader* shader) 
+{
     rl::unloadShader(*shader);
 }
 
-fn void RLShader.setUniformFloatValue(self, String uniform_name, float value) //@inline 
+struct UniformVal <Type>
+{
+	String name;
+	Type *data;
+}
+
+fn void RLShader.setUniformValue(&self, UniformVal{Type} value) <Type> //@inline 
+{
+	assert(rl::isShaderValid(self));
+    int locIndex = self.getUniformLocation(value.name.zstr_tcopy());
+    assert(locIndex >= 0, "RLShader uniform location not found: %s", value.name);
+
+    // NOTE(HM) this is used to set a shader uniform value
+    // if the shader is invalid it will do nothing
+    if(rl::isShaderValid(self)) {      
+		switch OUTER : (Type)
+		{
+			case float.typeid:
+        		rl::setShaderValue(self, locIndex, (void*)value.data, RLShdUniTyp.FLOAT);
+			case int.typeid:
+        		rl::setShaderValue(self, locIndex, (void*)value.data, RLShdUniTyp.INT);
+			case Vec2f.typeid:
+        		rl::setShaderValue(self, locIndex, (void*)value.data, RLShdUniTyp.VEC2);
+			case IVec2f.typeid:
+        		rl::setShaderValue(self, locIndex, (void*)value.data, RLShdUniTyp.IVEC2);
+			case Vec3f.typeid:
+        		rl::setShaderValue(self, locIndex, (void*)value.data, RLShdUniTyp.VEC3);
+			case IVec3f.typeid:
+        		rl::setShaderValue(self, locIndex, (void*)value.data, RLShdUniTyp.IVEC3);
+			case Vec4f.typeid:
+        		rl::setShaderValue(self, locIndex, (void*)value.data, RLShdUniTyp.VEC4);
+			case IVec4f.typeid:
+        		rl::setShaderValue(self, locIndex, (void*)value.data, RLShdUniTyp.IVEC4);
+			case RLTexture2D.typeid:
+        		rl::setShaderValueTexture(self, locIndex, *value.data, RLShdUniTyp.SAMPLER2D);
+			case RLMatrix.typeid:
+				rl::setShaderValueMatrix(self, locIndex, *value.data);
+			case any[].typeid:
+				RLShdUniTyp type;
+				switch INNER : (value.data.type)
+				{
+					case float.typeid:       type = RLShdUniTyp.FLOAT;
+					case int.typeid:         type = RLShdUniTyp.INT;
+					case Vec2f.typeid:       type = RLShdUniTyp.VEC2;
+					case IVec2f.typeid:      type = RLShdUniTyp.IVEC2;
+					case Vec3f.typeid:       type = RLShdUniTyp.VEC3;
+					case IVec3f.typeid:      type = RLShdUniTyp.IVEC3;
+					case Vec4f.typeid:       type = RLShdUniTyp.VEC4;
+					case IVec4f.typeid:      type = RLShdUniTyp.IVEC4;
+					case RLTexture2D.typeid: type = RLShdUniTyp.SAMPLER2D;
+					default: nextcase OUTER: default;
+				}
+				rl::setShaderValueV(self, locIndex, (void*)value.data.ptr, type);
+			default:
+				unreachable("Unknown uniform value passed to shader: %d", self.id);
+		}
+    } else {
+        log::warning(FILE, "Trying to set a value to a invalid shader: got id-> %d" (self.id >= 0) ? self.id : -1 );
+    }
+}
+
+fn void RLShader.setUniformIntValue(self, String uniform_name, int value) //@inline 
 {
     int locIndex = self.getUniformLocation(uniform_name.zstr_tcopy());
     assert(locIndex >= 0, "RLShader uniform location not found: %s", uniform_name);
@@ -265,11 +406,86 @@ fn void RLShader.setUniformFloatValue(self, String uniform_name, float value) //
     // NOTE(HM) this is used to set a shader uniform value
     // if the shader is invalid it will do nothing
     if(rl::isShaderValid(self)) {
-        rl::setShaderValue(self, locIndex, (void*)&value, rl::RLShdUniTyp.FLOAT);
+        rl::setShaderValue(self, locIndex, (void*)&value, RLShdUniTyp.INT);
     } else {
         log::warning(Where.FILE, "RLShader is invalid, unable to set value.");
     }
 }
+
+fn void RLShader.setUniformFloatSliceValues(self, String uniform_name, float[] values) //@inline 
+{
+    int locIndex = self.getUniformLocation(uniform_name.zstr_tcopy());
+    assert(locIndex >= 0, "RLShader uniform location not found: %s", uniform_name);
+
+    // NOTE(HM) this is used to set a shader uniform value array
+    // if the shader is invalid it will do nothing
+    if(rl::isShaderValid(self)) {
+        rl::setShaderValueV(self, locIndex, (void*)values.ptr, RLShdUniTyp.FLOAT, (CInt)values.len);
+    } else {
+        log::warning(Where.FILE, "RLShader is invalid, unable to set value.");
+    }
+}
+
+fn void RLShader.setUniformMatrixValue(self, String uniform_name, RLMatrix mat) //@inline 
+{
+    int locIndex = self.getUniformLocation(uniform_name.zstr_tcopy());
+    assert(locIndex >= 0, "RLShader uniform location not found: %s", uniform_name);
+
+    // NOTE(HM) this is used to set a shader uniform value matrix
+    // if the shader is invalid it will do nothing
+    if(rl::isShaderValid(self)) {
+        rl::setShaderValueMatrix(self, locIndex, mat);
+    } else {
+        log::warning(Where.FILE, "RLShader is invalid, unable to set value.");
+    }
+}
+
+fn void RLShader.setUniformTexture(self, String uniform_name, RLTexture2D tex) //@inline 
+{
+    int locIndex = self.getUniformLocation(uniform_name.zstr_tcopy());
+    assert(locIndex >= 0, "RLShader uniform location not found: %s", uniform_name);
+
+    // NOTE(HM) this is used to set a shader uniform value texture
+    // if the shader is invalid it will do nothing
+    if(rl::isShaderValid(self)) {
+        rl::setShaderValueTexture(self, locIndex, tex);
+    } else {
+        log::warning(Where.FILE, "RLShader is invalid, unable to set value.");
+    }
+}
+
+fn void RLShader.setUniformIntSliceValues(self, String uniform_name, int[] values) //@inline 
+{
+    int locIndex = self.getUniformLocation(uniform_name.zstr_tcopy());
+    assert(locIndex >= 0, "RLShader uniform location not found: %s", uniform_name);
+
+    // NOTE(HM) this is used to set a shader uniform value array
+    // if the shader is invalid it will do nothing
+    if(rl::isShaderValid(self)) {
+        rl::setShaderValueV(self, locIndex, (void*)values.ptr, RLShdUniTyp.INT, (CInt)values.len);
+    } else {
+        log::warning(Where.FILE, "RLShader is invalid, unable to set value.");
+    }
+}
+
+fn void RLShader.setUniformVector2Value(self, String uniform_name, RLVector2 vec) //@inline 
+{
+    int locIndex = self.getUniformLocation(uniform_name.zstr_tcopy());
+    assert(locIndex >= 0, "RLShader uniform location not found: %s", uniform_name);
+
+    // NOTE(HM) this is used to set a shader uniform value vector2
+    // if the shader is invalid it will do nothing
+    if(rl::isShaderValid(self)) {
+        rl::setShaderValue(self, locIndex, (void*)&vec, RLShdUniTyp.VEC2);
+    } else {
+        log::warning(Where.FILE, "RLShader is invalid, unable to set value.");
+    }
+}
+
+
+/////////////////////////////////////////////////////////////////////////////
+// ========================== Attributes ================================= //
+/////////////////////////////////////////////////////////////////////////////
 
 fn void RLShader.setAttributeFloatValue(self, String attribute_name, float value) //@inline 
 {
@@ -296,20 +512,6 @@ fn void RLShader.setAttributelocFloatValue(self, int locIndex, float value) //@i
     }
 }
 
-fn void RLShader.setUniformFloatSliceValues(self, String uniform_name, float[] values) //@inline 
-{
-    int locIndex = self.getUniformLocation(uniform_name.zstr_tcopy());
-    assert(locIndex >= 0, "RLShader uniform location not found: %s", uniform_name);
-
-    // NOTE(HM) this is used to set a shader uniform value array
-    // if the shader is invalid it will do nothing
-    if(rl::isShaderValid(self)) {
-        rl::setShaderValueV(self, locIndex, (void*)values.ptr, rl::RLShdUniTyp.FLOAT, values.len);
-    } else {
-        log::warning(Where.FILE, "RLShader is invalid, unable to set value.");
-    }
-}
-
 fn void RLShader.setAttributeFloatSliceValues(self, String attribute_name, float[] values) //@inline 
 {
     int locIndex = self.getAttributeLocation(attribute_name.zstr_tcopy());
@@ -319,20 +521,6 @@ fn void RLShader.setAttributeFloatSliceValues(self, String attribute_name, float
     // if the shader is invalid it will do nothing
     if(rl::isShaderValid(self)) {
         rl::setShaderValueV(self, locIndex, (void*)values.ptr, rl::RLShdUniTyp.FLOAT, values.len);
-    } else {
-        log::warning(Where.FILE, "RLShader is invalid, unable to set value.");
-    }
-}
-
-fn void RLShader.setUniformIntValue(self, String uniform_name, int value) //@inline 
-{
-    int locIndex = self.getUniformLocation(uniform_name.zstr_tcopy());
-    assert(locIndex >= 0, "RLShader uniform location not found: %s", uniform_name);
-
-    // NOTE(HM) this is used to set a shader uniform value
-    // if the shader is invalid it will do nothing
-    if(rl::isShaderValid(self)) {
-        rl::setShaderValue(self, locIndex, (void*)&value, rl::RLShdUniTyp.INT);
     } else {
         log::warning(Where.FILE, "RLShader is invalid, unable to set value.");
     }
@@ -352,20 +540,6 @@ fn void RLShader.setAttributeIntValue(self, String attribute_name, int value) //
     }
 }
 
-fn void RLShader.setUniformIntSliceValues(self, String uniform_name, int[] values) //@inline 
-{
-    int locIndex = self.getUniformLocation(uniform_name.zstr_tcopy());
-    assert(locIndex >= 0, "RLShader uniform location not found: %s", uniform_name);
-
-    // NOTE(HM) this is used to set a shader uniform value array
-    // if the shader is invalid it will do nothing
-    if(rl::isShaderValid(self)) {
-        rl::setShaderValueV(self, locIndex, (void*)values.ptr, rl::RLShdUniTyp.INT, values.len);
-    } else {
-        log::warning(Where.FILE, "RLShader is invalid, unable to set value.");
-    }
-}
-
 fn void RLShader.setAttributeIntSliceValues(self, String attribute_name, int[] values) //@inline 
 {
     int locIndex = self.getAttributeLocation(attribute_name.zstr_tcopy());
@@ -375,20 +549,6 @@ fn void RLShader.setAttributeIntSliceValues(self, String attribute_name, int[] v
     // if the shader is invalid it will do nothing
     if(rl::isShaderValid(self)) {
         rl::setShaderValueV(self, locIndex, (void*)values.ptr, rl::RLShdUniTyp.INT, values.len);
-    } else {
-        log::warning(Where.FILE, "RLShader is invalid, unable to set value.");
-    }
-}
-
-fn void RLShader.setUniformVector2Value(self, String uniform_name, RLVector2 vec) //@inline 
-{
-    int locIndex = self.getUniformLocation(uniform_name.zstr_tcopy());
-    assert(locIndex >= 0, "RLShader uniform location not found: %s", uniform_name);
-
-    // NOTE(HM) this is used to set a shader uniform value vector2
-    // if the shader is invalid it will do nothing
-    if(rl::isShaderValid(self)) {
-        rl::setShaderValueV(self, locIndex, (void*)&vec, rl::RLShdUniTyp.VEC2, 1);
     } else {
         log::warning(Where.FILE, "RLShader is invalid, unable to set value.");
     }
@@ -423,34 +583,6 @@ fn void RLShader.setAttributeLocValueV(self, int locIndex, float[] vec) //@inlin
         } else {
             log::warning(Where.FILE, "RLShader attribute value vector must be of size 2, 3 or 4.");
         }
-    } else {
-        log::warning(Where.FILE, "RLShader is invalid, unable to set value.");
-    }
-}
-
-fn void RLShader.setUniformMatrixValue(self, String uniform_name, RLMatrix mat) //@inline 
-{
-    int locIndex = self.getUniformLocation(uniform_name.zstr_tcopy());
-    assert(locIndex >= 0, "RLShader uniform location not found: %s", uniform_name);
-
-    // NOTE(HM) this is used to set a shader uniform value matrix
-    // if the shader is invalid it will do nothing
-    if(rl::isShaderValid(self)) {
-        rl::setShaderValueMatrix(self, locIndex, mat);
-    } else {
-        log::warning(Where.FILE, "RLShader is invalid, unable to set value.");
-    }
-}
-
-fn void RLShader.setUniformTexture(self, String uniform_name, RLTexture2D tex) //@inline 
-{
-    int locIndex = self.getUniformLocation(uniform_name.zstr_tcopy());
-    assert(locIndex >= 0, "RLShader uniform location not found: %s", uniform_name);
-
-    // NOTE(HM) this is used to set a shader uniform value texture
-    // if the shader is invalid it will do nothing
-    if(rl::isShaderValid(self)) {
-        rl::setShaderValueTexture(self, locIndex, tex);
     } else {
         log::warning(Where.FILE, "RLShader is invalid, unable to set value.");
     }

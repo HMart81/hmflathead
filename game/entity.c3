@@ -50,7 +50,8 @@ import thirdparty::wren; // wren scripting engine
 // end_region
 
 // region cvars
-CVar ent_debugBounds  = { "ent_debugBounds", CvarType.BOOL, "0", "show debug visualization for entity bounding box" };
+CVar ent_debugBounds @if($feature(_DEBUG)) = { "ent_debugBounds", CvarType.BOOL, "1", "show debug visualization for entity bounding box" };
+CVar ent_debugBounds @if($feature(_RELEASE)) = { "ent_debugBounds", CvarType.BOOL, "0", "show debug visualization for entity bounding box" };
 
 // NOTE(HM) this is called in main.c3
 fn void register_cvars() @inline 
@@ -59,10 +60,13 @@ fn void register_cvars() @inline
 }
 // end_region
 
-const int   TH_NONE          = 0;
-const int   TH_THINK         = 1;
-const int 	TH_UPDATEVISUALS = 2;
-const int   TH_PHYSICS       = 3; // for the future...
+constdef EntTh : inline int 
+{
+	NONE = 0,
+	THINK,
+	UPDATEVISUALS,
+	PHYSICS // for the future...
+}
 
 const MIN_VISUAL_SIZE_VALUE         @Hardcode = 1;     // pixel
 const MIN_PHYSICS_SIZE_VALUE        @Hardcode = 0.10f; // 10 cm;
@@ -370,7 +374,9 @@ fn bool Entity.nequalcoverage(&self, Coverage coverage) @operator(!=)
 	@require self.vs.mat != null
 	@ensure return >= 1
 *>
-fn Coverage Entity.getCoverage(&self) => self.vs.mat.coverage;
+fn Coverage Entity.getCoverage(&self) @inline => self.vs.mat.coverage;
+
+fn bool Entity.coverageSet(self, Coverage cv) @inline => self.vs.coverageSet(cv);
 
 fn void Entity.hide(&self) @inline => self.vs.hide();
 
@@ -538,7 +544,7 @@ fn void Entity.setAlive(&self, bool live) @inline {
 		if (!self.isActive()) {
 			self.setActive(true); // activate the entity
 		}
-		if (!(self.thinkflags & TH_THINK)) {
+		if (!(self.thinkflags & EntTh.THINK)) {
 			self.startThinking(); // start thinking if it was not thinking
 		}
 	} 
@@ -549,7 +555,7 @@ fn void Entity.setAlive(&self, bool live) @inline {
 			if (self.isActive()) {
 				self.setActive(false); // deactivate the entity
 			}
-			if (self.thinkflags & TH_THINK) {
+			if (self.thinkflags & EntTh.THINK) {
 				self.stopThinking(); // stop thinking if it was thinking
 			}
 			if(!game::gpGame.entitiesToRemove.contains(self)) game::gpGame.entitiesToRemove.push(self);
@@ -631,19 +637,19 @@ fn bool Entity.notOnThinkingList(&self) @inline {
 
 fn void Entity.startThinking(&self) @inline 
 {
-	if (self.thinkflags & TH_THINK) return; // already thinking
+	if (self.thinkflags & EntTh.THINK) return; // already thinking
 
 	self.thinkflags = 0;
-	self.thinkflags |= TH_THINK;
+	self.thinkflags |= EntTh.THINK;
 	if(self.notOnThinkingList()) game::gpGame.thinkingEntities.push(self);
 }
 
 fn void Entity.stopThinking(&self) @inline 
 {
-	if (!(self.thinkflags & TH_THINK)) return; // not thinking
+	if (!(self.thinkflags & EntTh.THINK)) return; // not thinking
 
 	if (self.thinkflags) {
-		self.thinkflags &= ~ent::TH_THINK; // remove the thinking flag
+		self.thinkflags &= ~ent::EntTh.THINK; // remove the thinking flag
 
 		if(self.onThinkingList()) game::gpGame.thinkingEntities.remove_at(game::gpGame.thinkingEntities.index_of(self)!!);
 
@@ -682,14 +688,14 @@ fn bool Entity.isActive(&self) @inline {
 
 fn void Entity.becomeInactive(&self, int flags) 
 {
-	if ((flags & TH_PHYSICS)) {
-		flags &= ~TH_PHYSICS;
+	if ((flags & EntTh.PHYSICS)) {
+		flags &= ~EntTh.PHYSICS;
 		return;
 		// may only disable physics on a team master if no team members are running physics or bound to a joints
 		/*if (teamMaster == this) {
 			for (Entity *ent = teamMaster.teamChain; ent; ent = ent.teamChain) {
-				if ((ent->thinkflags & TH_PHYSICS) || ((ent->bindMaster == this) && (ent->bindJoint != INVALID_JOINT))) {
-					flags &= ~TH_PHYSICS;
+				if ((ent->thinkflags & EntTh.PHYSICS) || ((ent->bindMaster == this) && (ent->bindJoint != INVALID_JOINT))) {
+					flags &= ~EntTh.PHYSICS;
 					break;
 				}
 			}
@@ -704,12 +710,12 @@ fn void Entity.becomeInactive(&self, int flags)
 		}
 	}
 
-	/*if ((flags & TH_PHYSICS)) {
+	/*if ((flags & EntTh.PHYSICS)) {
 		// if this entity has a team master
 		if (teamMaster && teamMaster != this) {
 			// if the team master is at rest
 			if (teamMaster->IsAtRest()) {
-				teamMaster->BecomeInactive(TH_PHYSICS);
+				teamMaster->BecomeInactive(EntTh.PHYSICS);
 			}
 		}
 	}*/
@@ -717,12 +723,12 @@ fn void Entity.becomeInactive(&self, int flags)
 
 fn void Entity.becomeActive(&self, int flags) 
 {
-	if ((flags & TH_PHYSICS)) {
+	if ((flags & EntTh.PHYSICS)) {
 		// enable the team master if this entity is part of a physics team
 		/*if (teamMaster && teamMaster != this) {
-			teamMaster->BecomeActive(TH_PHYSICS);
+			teamMaster->BecomeActive(EntTh.PHYSICS);
 		}
-		else if (!(thinkflags & TH_PHYSICS)) {
+		else if (!(thinkflags & EntTh.PHYSICS)) {
 			// if this is a pusher
 			if (physics->IsType(idPhysics_Parametric::Type) || physics->IsType(idPhysics_Actor::Type)) {
 				gameLocal.sortPushers = true;
@@ -758,7 +764,7 @@ fn void Entity.move(&self) {
 
 fn void Entity.think(&self, float dt) // update in other engines
 {
-    if(self.thinkflags & TH_THINK)
+    if(self.thinkflags & EntTh.THINK)
     {
 		$if $feature(TRACY_ENABLE):
 			tracy::@zoneN("Entity.think", 1)
@@ -781,28 +787,28 @@ fn void Entity.think(&self, float dt) // update in other engines
 
 fn void Entity.updateVisuals(&self) 
 {
-	self.becomeActive(TH_UPDATEVISUALS);
+	self.becomeActive(EntTh.UPDATEVISUALS);
 }
 
 fn void Entity.draw(&self) 
 {
 	if(self.hidden() || self.isDead()) return;
 
-	if(!(self.thinkflags & TH_UPDATEVISUALS)) {
+	if(!(self.thinkflags & EntTh.UPDATEVISUALS)) {
 		return;
 	}
-	self.becomeInactive(TH_UPDATEVISUALS);
+	self.becomeInactive(EntTh.UPDATEVISUALS);
 	
 	RLRectangle rect = self.vs.rect;
-	switch (game::CURRENT_UNITS)
+	switch (game::UNITS)
 	{
-		case game::Units.METER:
+		case Units.METER:
 			// position is still in pixels, todo convert to meters 
 			//rect.x = misc::metersToPixels(self.rect.x);
 			//rect.y = misc::metersToPixels(self.rect.y);
 			rect.width  = misc::metersToPixels(self.vs.rect.width);
 			rect.height = misc::metersToPixels(self.vs.rect.height);
-		case game::Units.PIXEL:
+		case Units.PIXEL:
 			rect;  // do nothing already in pixels
 		default:
 			log::error(FILE, "Unsupported units set for Entity rendering.");
@@ -813,7 +819,6 @@ fn void Entity.draw(&self)
 	if(self.vs.hasMaterial())
     {
         // TODO(HM) find how to draw a image on a rounded rectangle!?
-
         RLTexture2D* texture = self.vs.mat.getTexture(MTexture.DIFFUSE);
         Vec2f texture_size = { texture.width, texture.height };
         RLRectangle source = { 0, 0, texture_size.x, texture_size.y };
@@ -826,14 +831,15 @@ fn void Entity.draw(&self)
 		Coverage coverage = self.getCoverage();
         switch //(coverage)
         {
-            case (bool)(coverage & mat::COVERAGE_OPAQUE):
+            case self.coverageSet(Coverage.OPAQUE) && !self.coverageSet(Coverage.PERFORATED):
+            case self.coverageSet(Coverage.OPAQUE) && self.coverageSet(Coverage.PERFORATED):
 				break; // do nothing here
-            case (bool)(coverage & mat::COVERAGE_PERFORATED) && !(bool)(coverage & mat::COVERAGE_TRANSLUCENT):
+            case self.coverageSet(Coverage.PERFORATED) && !self.coverageSet(Coverage.TRANSLUCENT):
                 blending = RLBlendMode.ALPHA;
-            case (bool)(coverage & mat::COVERAGE_TRANSLUCENT) && !(bool)(coverage & mat::COVERAGE_PERFORATED):
+            case self.coverageSet(Coverage.TRANSLUCENT) && !self.coverageSet(Coverage.PERFORATED):
                 blending = RLBlendMode.ALPHA_PREMUL;
-                if(color.a == 255) // if the color is not transparent
-				{
+                if(color.a == 255) unreachable("alpha should not be 255 at this point"); // if the color is not transparent
+				/*{
 					color.a = 128; // half transparent
 					float r = misc::@mapValueRangeToOther(color.r, 0, 255, 0.0f, 1.0f);
 					float g = misc::@mapValueRangeToOther(color.g, 0, 255, 0.0f, 1.0f);
@@ -843,45 +849,42 @@ fn void Entity.draw(&self)
 					color.r = (char)math::floor((r * a) * 255);
 					color.g = (char)math::floor((g * a) * 255);
 					color.b = (char)math::floor((b * a) * 255);
-				}
-			case (bool)(coverage & mat::COVERAGE_TRANSLUCENT) && (bool)(coverage & mat::COVERAGE_PERFORATED):
+				}*/
+			case self.coverageSet(Coverage.TRANSLUCENT) && self.coverageSet(Coverage.PERFORATED):
 				blending = RLBlendMode.CUSTOM_SEPARATE; // use the custom blending mode					
-            case (bool)(coverage & mat::COVERAGE_BAD):
+            case self.coverageSet(Coverage.BAD):
                 log::error(FILE, "Entity material %s has a bad material coverage type.", self.vs.mat.name);
                 unreachable();
         }
 
+		bool blending_on = true;
 		switch (blending)
         {
             case RLBlendMode.ALPHA:
-            case RLBlendMode.ALPHA_PREMUL:
-                rl::@blendMode(blending)
-                {
-                    rl::drawTexturePro(*texture, source, rect, {0, 0}, 0.0f, color);
-                };
+            case RLBlendMode.ALPHA_PREMUL: 
+				break;
 			case RLBlendMode.CUSTOM:
 				rl::setBlendFactors(rl::RL_SRC_ALPHA, rl::RL_ONE_MINUS_SRC_ALPHA, rl::RL_FUNC_ADD);
 				rl::setBlendMode(rl::RLBlendMode.CUSTOM);
-				rl::@blendMode(blending)
-				{
-					// NOTE(HM) center of the texture (rotation/scale point), 
-					// it's relative to destination rectangle dimentions, not the screen dimentions.
-					rl::drawTexturePro(*texture, source, rect, {0, 0}, 0.0f, color);
-				};
 			case RLBlendMode.CUSTOM_SEPARATE:
-				rl::setBlendFactorsSeparate(rl::RL_SRC_ALPHA, rl::RL_ONE_MINUS_SRC_ALPHA, rl::RL_ONE, rl::RL_ONE, rl::RL_FUNC_ADD, rl::RL_MAX);
+				rl::setBlendFactorsSeparate(rl::RL_SRC_ALPHA, rl::RL_SRC_ALPHA, rl::RL_ONE_MINUS_SRC_ALPHA, rl::RL_ONE_MINUS_SRC_ALPHA, rl::RL_FUNC_ADD, rl::RL_MAX);
 				rl::setBlendMode(rl::RLBlendMode.CUSTOM_SEPARATE);
-				rl::@blendMode(blending)
-				{
-				// NOTE(HM) center of the texture (rotation/scale point),
-				// it's relative to destination rectangle dimentions, not the screen dimentions.
-					rl::drawTexturePro(*texture, source, rect, {0, 0}, 0.0f, color);
-				};
-            default: // draw opaque unless the image has invisible pixels...
-                // NOTE(HM) center of the texture (rotation/scale point), 
-                // it's relative to destination rectangle dimentions, not the screen dimentions.
-                rl::drawTexturePro(*texture, source, rect, {0, 0}, 0.0f, color);
+            default: // draw opaque unless the image has invisible pixels already...
+				blending_on = false;
         }
+
+		if(blending_on) {
+			rl::@blendMode(blending)
+			{
+				// NOTE(HM) center of the texture (rotation/scale point), 
+				// it's relative to destination rectangle dimentions, not the screen dimentions.
+				rl::drawTexturePro(*texture, source, rect, {0, 0}, 0.0f, color);
+			};
+		} else { // no blending/Opaque (or perfurated as well)
+			// NOTE(HM) center of the texture (rotation/scale point), 
+            // it's relative to destination rectangle dimentions, not the screen dimentions.
+            rl::drawTexturePro(*texture, source, rect, {0, 0}, 0.0f, color);
+		}
     } 
 	else // draw simple flat shape
 	{
@@ -904,7 +907,7 @@ fn void Entity.draw(&self)
 /*
 fn void Entity.becomeActive(&self, int flags) {
 	
-    if (flags & TH_PHYSICS) {
+    if (flags & EntTh.PHYSICS) {
         //enable physics
 	}
     

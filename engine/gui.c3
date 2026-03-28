@@ -478,11 +478,11 @@ fn void Panel.draw(&self, bool selected = false)
         Coverage coverage = self.mat.coverage;
         switch //
         {
-            case (bool)(coverage & mat::COVERAGE_OPAQUE): 
+            case (bool)(coverage & Coverage.OPAQUE): 
                 break; // do nothing here
-            case (bool)(coverage & mat::COVERAGE_PERFORATED) && (bool)(coverage & ~mat::COVERAGE_TRANSLUCENT):
+            case (bool)(coverage & Coverage.PERFORATED) && (bool)(coverage & ~Coverage.TRANSLUCENT):
                 blending = RLBlendMode.ALPHA;
-            case (bool)(coverage & mat::COVERAGE_TRANSLUCENT) && (bool)(coverage & ~mat::COVERAGE_PERFORATED):
+            case (bool)(coverage & Coverage.TRANSLUCENT) && (bool)(coverage & ~Coverage.PERFORATED):
                 blending = RLBlendMode.ALPHA_PREMUL;
                 if(color.a == 255) // if the color is opaque
 				{
@@ -496,11 +496,11 @@ fn void Panel.draw(&self, bool selected = false)
 					color.g = (char)math::floor((g * a) * 255);
 					color.b = (char)math::floor((b * a) * 255);
 				}
-            case (bool)(coverage & mat::COVERAGE_PERFORATED) && (bool)(coverage & mat::COVERAGE_TRANSLUCENT):
+            case (bool)(coverage & Coverage.PERFORATED) && (bool)(coverage & Coverage.TRANSLUCENT):
                     blending = RLBlendMode.CUSTOM_SEPARATE; // use the custom blending mode
-            /*case (bool)(self.mat.coverage & (mat::COVERAGE_PERFORATED | mat::COVERAGE_TRANSLUCENT)):
+            /*case (bool)(self.mat.coverage & (Coverage.PERFORATED | Coverage.TRANSLUCENT)):
                 blending = RLBlendMode.CUSTOM; // custom blending mode*/
-            case (bool)(coverage & mat::COVERAGE_BAD):
+            case (bool)(coverage & Coverage.BAD):
                 log::error(FILE, "Panel with material %s has a bad material coverage type.", self.mat.name);
                 unreachable();
         }
@@ -1676,8 +1676,9 @@ import engine::gui::guieditor;
 // really knowing that was a option and now changing this is a big refactor 
 // and i'm to lazy to change this, at lest for now...
 // todo change this to use the any list bellow...
-alias ChildrenQueue = List{Widget*};
-//alias ChildrenQueue = List{any};
+alias ChildrenWidgetQueue = List{Widget*};
+alias ChildrenDestopQueue = List{Desktop*};
+//alias ChildrenWidgetQueue = List{any};
 
 struct Desktop (SaveSystemInterface) 
 {
@@ -1710,10 +1711,10 @@ struct Desktop (SaveSystemInterface)
     List{Desktop*} shared_music_stream_desktops; // list of desktops that share the same music stream
     
     // Lists
-    ChildrenQueue selected; // List of selected widgets, used for multi-selection in the editor, and also to keep track of what widgets are currently selected for other purposes like changing their color or properties.
-    ChildrenQueue children;
+    ChildrenWidgetQueue selected; // List of selected widgets, used for multi-selection in the editor, and also to keep track of what widgets are currently selected for other purposes like changing their color or properties.
+    ChildrenWidgetQueue children;
     // todo make a queue for hidden children to better control what to hide and show.
-
+	ChildrenDestopQueue childDesktops;
     Desktop* home; // the home desktop, where we can return to
     Desktop* previous; // for desktop linkage, so we can go back to the previous desktop
     Desktop* next;     // for desktop linkage, so we can go to the next
@@ -1807,7 +1808,7 @@ fn bool Desktop.initFromFile(&self, ZString path, bool cache )
     @param h : "height of the desktop, used only if isFullscreen is false"
     @require rl::isWindowReady() == true
 *>
-fn void Desktop.init(&self, String name, bool isFullscreen = true, int w = 800, int h = 600) @inline 
+fn void Desktop.init(&self, String name, bool isFullscreen = true, int w = 800, int h = 600, bool shouldRegister = false) @inline 
 {
     self.name = string::tformat("Desktop_%s", name);
     self.number = (int)local_manager.desktops.len() + 1;
@@ -1843,15 +1844,16 @@ fn void Desktop.init(&self, String name, bool isFullscreen = true, int w = 800, 
     self.isInteractive = true; // by default the desktop is interactive
     self.show(); 			   // by default the desktop is visible
     
-    Desktop* this = self;
-    local_manager.register(this);
+	if(shouldRegister) {
+        Desktop* this = self;
+        local_manager.register(this);
+	}
 }
 
 fn void Desktop.deinit(&this) @inline 
 {
     this.clear();
     // last clear ourself
-    if(this.tex) this.tex = null;
     local_manager.unregister(this);
 }
 
@@ -1922,7 +1924,11 @@ fn void Desktop.stateChanged(&self, int _time, bool redraw )
 	}*/
 }
 
-fn String Desktop.getName(&self) @inline => self.name;
+fn String Desktop.getName(&self, bool fullname = false) @inline
+{
+	if(fullname) return self.name;
+	return self.name.strip("Desktop_");
+}
 
 fn void Desktop.setColor(&self, RLColor color) @inline 
 { 
@@ -1971,6 +1977,14 @@ fn void Desktop.clear(&self) @inline
         } 
     }
 
+	if(self.tex) self.tex = null;
+	if(self.childDesktops.len()) {
+		foreach(it : self.childDesktops) {
+			it.deinit();
+			it = null;
+		}
+		self.childDesktops.clear();
+	}
     if(self.home     != null) self.home     = null;
     if(self.previous != null) self.previous = null;
     if(self.next     != null) self.next     = null;
@@ -2121,7 +2135,7 @@ fn void Desktop.redraw(&self, int _time)
 
     //r2d::drawCircleV(self.mouse_pos, 5, rl::RED); // debug mouse position
     
-    // draw Desktop content/children
+    // draw Desktop widgets children
     if (self.children.len())
     {
         foreach(child: self.children) 
@@ -2139,6 +2153,15 @@ fn void Desktop.redraw(&self, int _time)
             }
         }
     }
+
+	// TODO(HM) drawing of child windows if they exist
+	// Warning: right now this crashs the game
+	/*if(self.childDesktops.len()) {
+		foreach(child: self.childDesktops) 
+        {
+            child.draw(_time);
+        }
+    }*/
     
     self.debug();
 }
@@ -2287,6 +2310,19 @@ fn void DesktopManager.register(&self, Desktop* _desk) @inline
     }
     
     self.desktops.push(_desk);
+}
+
+<*
+ @param [in] name : "name of desktop to fetch/get"
+*>
+fn Desktop* DesktopManager.get(&self, String name) @inline 
+{
+    foreach(desk : self.desktops) {
+        if(desk.name.strip("Desktop_") == name) {
+            return desk;
+        }
+    }
+    return null;
 }
 
 <*

@@ -808,7 +808,7 @@ $endif
                         if(sort <= old_sort) 
                         {
                             // draw opaque sprites first
-                            if(sprite.mat.flags.has_AlphaTest == false && !(sprite.mat.coverage & mat::COVERAGE_TRANSLUCENT)) 
+                            if(sprite.mat.flags.has_AlphaTest == false && !(sprite.mat.coverage & Coverage.TRANSLUCENT)) 
                             {
                                 sprite.draw();
                             } 
@@ -903,14 +903,24 @@ $if $defined(ENABLE_CAMERA_VIEW):
 			game::onPostGUIDraw(view.w, view.h);
 
 			$if $feature(VIDEO_PLAYBACK_ENABLE):
-			if(game::gpGame.vidCabinet.movies.len()) 
-			{
-				// draw videos from video cabinet library
-				foreach(movie : game::gpGame.vidCabinet.movies)
+				if(game::vidCabinet.movies.len()) 
 				{
-					movie.renderFrame(view.origin, (Vec2f)view.size);
+					// draw videos from video cabinet library
+					foreach(movie : game::vidCabinet.movies)
+					{
+						if(movie.fullscreen) {
+                            //game::gpGame.render.setTargetFPS((uint)movie.framerate);
+							movie.draw(misc::makeRect(VEC2_ZERO, (Vec2f)view.size));
+                            /*if(game::gpGame.fps_unlocked) {
+                                game::gpGame.render.setTargetFPS(game::gpGame.max_fps);
+                            } else {
+                                game::gpGame.render.setTargetFPS(game::gpGame.screen.displayHz);
+                            }*/
+						} else { // use 
+							movie.draw(rl::EMPTY_RECT);
+						}
+					}
 				}
-			}
 			$endif
 		};
 $endif

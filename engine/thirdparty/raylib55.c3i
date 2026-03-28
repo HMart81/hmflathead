@@ -611,12 +611,14 @@ const MATERIAL_MAP_SPECULAR = RLMtlMapIndex.METALNESS;
 // this is so is easy to parse the shader code and find the location
 enum RLShdLocInd : inline CInt (String str)
 {
-    VERTEX_POSITION   {"vertexPosition"},  // RLShader location: vertex attribute: position
-    VERTEX_TEXCOORD01 {"vertexTexCoord1"},  // RLShader location: vertex attribute: texcoord01
-    VERTEX_NORMAL     {"vertexNormal"},  // RLShader location: vertex attribute: normal
-    VERTEX_COLOR      {"vertexColor"},  // RLShader location: vertex attribute: color
-    VERTEX_TANGENT    {"vertexTangent"},  // RLShader location: vertex attribute: tangent
-    VERTEX_TEXCOORD02 {"vertexTexCoord2"},  // RLShader location: vertex attribute: texcoord02
+    // attributs (don't change position of this ones so they match Raylib default shader)
+    VERTEX_POSITION   {"vertexPosition"},  // RLShader location  0: vertex attribute: position
+    VERTEX_TEXCOORD01 {"vertexTexCoord1"},  // RLShader location 1: vertex attribute: texcoord01
+    VERTEX_NORMAL     {"vertexNormal"},  // RLShader location    2: vertex attribute: normal
+    VERTEX_COLOR      {"vertexColor"},  // RLShader location     3: vertex attribute: color
+    VERTEX_TANGENT    {"vertexTangent"},  // RLShader location   4: vertex attribute: tangent
+    VERTEX_TEXCOORD02 {"vertexTexCoord2"},  // RLShader location 5: vertex attribute: texcoord02
+    // uniforms
     MATRIX_MVP        {"mvp"},  // RLShader location: matrix uniform: model-view-projection
     MATRIX_VIEW       {"matView"},  // RLShader location: matrix uniform: view (camera transform)
     MATRIX_PROJECTION {"matProjection"},  // RLShader location: matrix uniform: projection
@@ -640,7 +642,10 @@ enum RLShdLocInd : inline CInt (String str)
     DEPTH0            {"depth0"},  // RLShader location: sampler2d texture: depth map 0
     DEPTH1            {"depth1"},  // RLShader location: sampler2d texture: depth map 1
     DEPTH2            {"depth2"},  // RLShader location: sampler2d texture: depth map 2
-    DEPTH3            {"depth3"}  // RLShader location: sampler2d texture: depth map 3
+    DEPTH3            {"depth3"},  // RLShader location: sampler2d texture: depth map 3
+    TEXTURE0          {"texture0"}, // (texture slot active 0)
+    TEXTURE1          {"texture1"}, // (texture slot active 1)
+    TEXTURE2          {"texture2"}  // (texture slot active 2)
 }
 
 $assert(RLShdLocInd.VERTEX_POSITION.ordinal == 0);
