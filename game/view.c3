@@ -901,27 +901,6 @@ $if $defined(ENABLE_CAMERA_VIEW):
 		rl::@mode2D(view.camera) 
 		{
 			game::onPostGUIDraw(view.w, view.h);
-
-			$if $feature(VIDEO_PLAYBACK_ENABLE):
-				if(game::vidCabinet.movies.len()) 
-				{
-					// draw videos from video cabinet library
-					foreach(movie : game::vidCabinet.movies)
-					{
-						if(movie.fullscreen) {
-                            //game::gpGame.render.setTargetFPS((uint)movie.framerate);
-							movie.draw(misc::makeRect(VEC2_ZERO, (Vec2f)view.size));
-                            /*if(game::gpGame.fps_unlocked) {
-                                game::gpGame.render.setTargetFPS(game::gpGame.max_fps);
-                            } else {
-                                game::gpGame.render.setTargetFPS(game::gpGame.screen.displayHz);
-                            }*/
-						} else { // use 
-							movie.draw(rl::EMPTY_RECT);
-						}
-					}
-				}
-			$endif
 		};
 $endif
 }

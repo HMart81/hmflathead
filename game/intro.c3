@@ -2,6 +2,7 @@ module game::intro;
 
 // region modules
 import std::io;
+import std::math;
 import std::core::mem; // for malloc
 import std::collections::list;
 import game::main;
@@ -13,11 +14,12 @@ import thirdparty::raylib5::rl;
 import engine::logging::log;
 import engine::sys::cvar;
 import engine::sys::render2d::r2d; // 2D rendering
+import engine::sys::videoplay::vid;
 // end_region
 
 // region defines
 alias FrameQueue = List{Frame*};
-const FADE_FRAMES = true; // comment this to disable the fade effect
+//const FADE_FRAMES = true; // comment this to disable the fade effect
 alias pGame = game::gpGame;
 // end_region
 
@@ -41,10 +43,22 @@ fn void register_cvars() @public
 }
 // end_region
 
+constdef FrameKind : inline int 
+{
+	NONE = 0,
+	COLOR,
+	IMAGE,
+	VIDEO
+}
+
 struct Frame @local 
 {
-    RLTexture2D image;
-	struct text {
+    RLTexture2D texture; // @deprecated
+	FrameKind kind; 
+	VidMovie* movie @if($feature(VIDEO_PLAYBACK_ENABLE));
+    int duration;
+	struct text // @deprecated
+	{
 		String msg;
 		RLFont* font;
 		Vec2f pos;
@@ -52,15 +66,13 @@ struct Frame @local
 		float spacing;
 		RLColor color;
 	}
-    //Vec2f pos;
-    //Vec2f size;
     RLRectangle source_rect;
     RLRectangle dest_rect;
-    RLColor color;
-    int fade_in_start_time;
-    int fade_out_start_time;
-    bool fade_in_done;
-    bool fade_out_done;
+    RLColor color; // @deprecated
+    int fade_in_start_time; // @deprecated
+    int fade_out_start_time; // @deprecated
+    bool fade_in_done; // @deprecated
+    bool fade_out_done; // @deprecated
 }
 
 <*
@@ -68,7 +80,25 @@ struct Frame @local
 *>
 fn void deinit_frame(Frame* frame) @local
 {
-	rl::unloadTexture(frame.image);
+	switch
+	{
+		case frame.kind == COLOR:
+            @todo();
+		case frame.kind == IMAGE:
+			if(rl::isTextureValid(frame.texture)) 
+			{
+				rl::unloadTexture(frame.texture);
+			}
+		case frame.kind == VIDEO:
+			$if $feature(VIDEO_PLAYBACK_ENABLE):
+				if(frame.movie != null) {
+					if(frame.movie.is_playing) frame.movie.stop();
+					frame.movie = null;
+				}
+			$endif
+		default: unreachable("Invalid kind of frame for intro animation.");
+	}
+	// now free the frame itself
     mem::free(frame);
     frame = null;
 }
@@ -78,18 +108,21 @@ fn void deinit_frame(Frame* frame) @local
 *>
 fn void draw(Frame* frame) @local
 {
-	if(rl::isTextureValid(frame.image)) 
+	switch
 	{
-		//rl::setBlendFactors(rl::RL_ONE, rl::RL_ONE_MINUS_SRC_ALPHA, rl::RL_FUNC_ADD);
-		//rl::setBlendMode(RLBlendMode.CUSTOM);
-		//rl::@blendMode(RLBlendMode.ALPHA_PREMUL)
-		//{
-			// NOTE(HM) center of the texture (rotation/scale point), 
-			// it's relative to destination rectangle dimentions, not the screen dimentions.
-			rl::drawTexturePro(frame.image, frame.source_rect, frame.dest_rect, {0, 0}, 0.0f, frame.color);
-		//};
-	} else {
-		r2d::@drawRect(frame.dest_rect, frame.color);
+		case frame.kind == COLOR:
+			r2d::@drawRect(frame.dest_rect, frame.color);
+		case frame.kind == IMAGE:
+			if(rl::isTextureValid(frame.texture)) {
+				rl::drawTexturePro(frame.texture, frame.source_rect, frame.dest_rect, {0, 0}, 0.0f, frame.color);
+			}
+		case frame.kind == VIDEO:
+			$if $feature(VIDEO_PLAYBACK_ENABLE):
+				if(frame.movie != null) {
+					frame.movie.draw();
+				}
+			$endif
+		default: unreachable("Invalid kind of frame for intro animation.");
 	}
 
 	if(frame.text.msg != "") {
@@ -111,7 +144,6 @@ fn void draw(Frame* frame) @local
 struct IntroAnimation 
 {
    FrameQueue frames;
-   int epilepsy_time;
    int current_frame_index;
    int full_duration;
    bool should_play;
@@ -124,22 +156,25 @@ struct IntroAnimation
 *>
 fn void makeTexturedFrame(String texture_path, IntroAnimation* anim) @local 
 {
-    int w, h;
+    /*
+	int w, h;
     w = game::gpGame.screen.w;
     h = game::gpGame.screen.h;
     ZString path = game::gpGame.app_base_folder.tconcat(texture_path).zstr_tcopy();
     Frame* frame = mem::new(Frame);
-    frame.image = rl::loadTexture(path);
-    assert(rl::isTextureValid(frame.image));
-    frame.source_rect = {0, 0, frame.image.width, frame.image.height};
+    frame.texture = rl::loadTexture(path);
+    assert(rl::isTextureValid(frame.texture));
+	frame.kind = IMAGE;
+    frame.source_rect = {0, 0, frame.texture.width, frame.texture.height};
 	frame.dest_rect = {0, 0, w, h};
-	rl::setTextureFilter(frame.image, RLTextureFilter.BILINEAR);
-    rl::setTextureWrap(frame.image, RLTextureWrap.CLAMP);
+	rl::setTextureFilter(frame.texture, RLTextureFilter.BILINEAR);
+    rl::setTextureWrap(frame.texture, RLTextureWrap.CLAMP);
     frame.color = rl::WHITE;
     $if($defined(FADE_FRAMES)):
     frame.color.a = 0; // start with a transparent frame for fade in
     $endif
     anim.frames.push(frame);
+	*/
 }
 
 <*
@@ -147,7 +182,8 @@ fn void makeTexturedFrame(String texture_path, IntroAnimation* anim) @local
 *>
 fn void makeTextFrame(IntroAnimation* anim, String message = "undefined", RLColor _color = rl::CTRANSPARENT) @local 
 {
-    int w, h;
+    /*
+	int w, h;
     w = game::gpGame.screen.w;
     h = game::gpGame.screen.h;
     Frame* frame = mem::new(Frame);
@@ -158,9 +194,346 @@ fn void makeTextFrame(IntroAnimation* anim, String message = "undefined", RLColo
     frame.color.a = 0; // start with a transparent frame for fade in
     $endif
     anim.frames.push(frame);
+	*/
 }
 
-fn void drawEpilepsyWarning(int w, int h) @local 
+<*
+    @param [&inout] anim : "animation to push the frame into"
+*>
+fn void makeColorFrame(RLColor _color, IntroAnimation* anim, bool fading = false) @local 
+{
+    /*
+	int w = game::gpGame.screen.w;
+    int h = game::gpGame.screen.h;
+    Frame* frame = mem::new(Frame);
+	frame.dest_rect = {0, 0, w, h};
+    frame.color = _color;
+    if(fading) {
+        $if($defined(FADE_FRAMES)):
+            frame.color.a = 0; // start with a transparent frame for fade in
+        $endif
+    }
+    anim.frames.push(frame);
+	*/
+}
+
+<*
+    @param [&inout] anim : "animation to push the frame into"
+*>
+fn void makeVideoFrame(String video_name, IntroAnimation* anim) @local @if($feature(VIDEO_PLAYBACK_ENABLE))
+{
+    int w = game::gpGame.screen.w;
+    int h = game::gpGame.screen.h;
+	bool failed;
+    Frame* frame = mem::new(Frame);
+	defer if(failed) {
+		log::warning(FILE, "\tCannot create frame video '%s' for intro!", video_name);
+		mem::free(frame);
+		frame = null;
+	}
+	frame.kind  = VIDEO;
+	frame.movie = game::vidCabinet.getMovie(video_name);
+    if(frame.movie == null) failed = true;
+	
+	if(failed) {
+		// do nothing and go on to the defer code
+	} else {
+		if(frame.movie.preparePlayer()) {
+			frame.movie.fullscreen = true;
+			frame.movie.enable();
+			anim.frames.push(frame);
+		} else {
+			log::warning(FILE, "\tFailed to prepare player for frame video '%s' for intro animation!", video_name);
+			failed = true;
+		}
+	}
+}
+
+
+constdef FrmIndex : inline int
+{
+	EPILEPSY = 0,
+	RAY_LOGO,
+	HM_LOGO
+}
+
+fn void initAnimation(IntroAnimation* anim) @local
+{
+	// Warning(HM) make sure to create the frames in the order
+	// of the FrmIndex above!!!!
+	makeVideoFrame("epiwarn", anim);
+	makeVideoFrame("ray_intro", anim);
+	makeVideoFrame("hm_logo", anim);
+    input::makeKeyboardAction("skipIntro", rl::KEY_ESCAPE);
+    input::@makeAction({.name = "skipFrame", .kind = KEYBOARD, .key1 = rl::KEY_SPACE});
+}
+
+fn void deinitAnimation(IntroAnimation* anim) @local
+{
+    foreach(frame : anim.frames) {
+        if(frame) {
+            deinit_frame(frame);
+        }
+    }
+    input::removeAction("skipIntro");
+    input::removeAction("skipFrame");
+}
+
+fn void hide_cursors() @local @inline
+{
+    if(game::game_cursor_visible()) game::hide_game_cursor();
+    if(game::gpGame.screen.state.fullscreen || 
+       game::gpGame.screen.state.borderless) 
+    {
+        if(game::system_cursor_enabled()) game::disable_system_cursor();
+    }
+}
+
+<*
+     /*if(frame.kind != VIDEO) {
+            frame.duration = time_ms + FRAME_TIME;
+        }*/
+
+    @param [&inout] anim : "animation to handle"
+*>
+fn void init_anim_timing(IntroAnimation* anim, int time_ms) @local
+{
+    int old_frame_duration;
+	foreach(frame : anim.frames) {
+        if(frame.kind != VIDEO) {
+            unreachable("non video frames for intro not supported anymore!!!");
+        }
+        if(frame.movie == null) {
+            $if $feature(_DEBUG):
+                unreachable();
+            $else
+                continue; // skip frames with no video
+            $endif
+        }
+
+        frame.duration = time_ms + old_frame_duration + (int)math::ceil(frame.movie.duration * 1000);
+        old_frame_duration = frame.duration;
+        anim.full_duration += frame.duration;
+    }
+    anim.timing_initialized = true;
+}
+
+<*
+    @param [&inout] anim : "animation to handle"
+*>
+fn void play(IntroAnimation* anim) 
+{
+    anim.should_play = true;
+    menu::stop(); // if any menu is up close it
+    setup(anim);
+}
+
+<*
+    @param [&inout] anim : "animation to handle"
+*>
+fn void setup(IntroAnimation* anim) @local 
+{
+    hide_cursors();
+    initAnimation(anim);
+    //log::info(CONSOLE, "intro-setup: %s", game::gpGame.time_ms);
+}
+
+fn void IntroAnimation.stop(&self)
+{
+    self.should_play = false;
+    deinitAnimation(self);
+    game::gpGame.mode = GameMode.NONE;
+     // goes to the main menu;
+    game::disconnect();
+}
+
+fn void IntroAnimation.loop(&self) @inline 
+{
+    if(self.current_frame_index) self.current_frame_index = 0;
+}
+
+fn void IntroAnimation.loop_frame(&self, uint idx) @inline 
+{
+    if(self.current_frame_index != idx) self.current_frame_index = idx;
+}
+
+<*
+    @param [&inout] anim : "animation to update"
+*>
+fn void update(IntroAnimation* anim)
+{
+	if(!anim.should_play) return;
+
+	int current_time = game::gpGame.time_ms;
+
+    // init frames durations has to be done here because it 
+    // requires the current time for each frame
+    if(!anim.timing_initialized) {
+        init_anim_timing(anim, current_time);
+        log::info(CONSOLE, "intro-timing-init: %s", current_time);
+    }
+
+    //  if animation played to the end or we skipped the intro
+    if(current_time >= anim.full_duration || 
+       input::getAction("skipIntro").fnBecameTriggered() || 
+       anim.current_frame_index >= anim.frames.len()) {
+        anim.stop();
+        return;
+    }
+
+    game::gpGame.mode = GameMode.INTRO;
+
+    
+    // if a single frame
+    if(anim.frames.len() == 1) {
+        // go on displaying the same frame for the duration of the animation
+        anim.loop_frame(0);
+    }
+    else // change frame after a time
+    {
+        Frame* current_frame = anim.frames[anim.current_frame_index];
+
+        switch(current_frame.kind)
+        {
+            case IMAGE: // @deprecated...
+                if(current_frame.fade_out_done) {
+                    anim.current_frame_index++;
+                    if(anim.current_frame_index >= anim.frames.len()) {
+                        anim.current_frame_index = 0;
+                        anim.stop();
+                    } else {
+                        // set next frame fade in start time
+                        // index was updated above already
+                        // so idx here already means the next frame index
+                        int idx = anim.current_frame_index;
+                        anim.frames[idx].fade_in_start_time = current_time;
+                    }
+                }
+            case VIDEO:
+                $if $feature(VIDEO_PLAYBACK_ENABLE):
+                    if(current_time > current_frame.duration) {
+                        anim.current_frame_index += 1; // go to next frame
+                        if(anim.current_frame_index >= anim.frames.len()) {
+                            anim.current_frame_index = 0;
+							anim.stop();
+        					return;
+                        }
+                    } else {
+                        // decode the current video frames
+                        if(current_frame.movie != null) {
+                            current_frame.movie.decode();
+                        }
+                    }
+                $endif
+            case COLOR: break;
+            default: unreachable("None or Unrecognized frame kind!!!");
+        }
+    }
+}
+
+<*
+    @param [&inout] anim : "animation to play"
+    @require anim.frames.len() > 0
+*>
+fn void drawAnimation(IntroAnimation* anim) @if(!$defined(FADE_FRAMES))
+{
+	if(!anim.should_play) return;
+
+    int current_time = game::gpGame.time_ms;
+    // current frame
+    Frame* frame = anim.frames[anim.current_frame_index];
+    draw(frame);
+
+    { // debug code
+        rl::drawText(string::tformat_zstr("Frame: %s", frame.movie.name), 50, 100, 16, rl::RED);
+        rl::drawText(string::tformat_zstr("time: %s", current_time), 50, 118, 16, rl::RED);
+        rl::drawText(string::tformat_zstr("frame: %s", anim.current_frame_index), 50, 136, 16, rl::RED);
+        rl::drawText(string::tformat_zstr("frame duration: %s", frame.duration), 50, 154, 16, rl::RED);
+    }
+}
+
+float alpha @local = 0.0f;
+bool should_fade_in @local = false;
+bool should_fade_out @local = false;
+<*
+    @param [&inout] anim : "animation to play"
+    @require anim.frames.len() > 0
+*>
+fn void drawAnimation(IntroAnimation* anim) @if($defined(FADE_FRAMES))
+{
+    int current_time = game::gpGame.time_ms;
+    int w = game::gpGame.screen.w;
+    int h = game::gpGame.screen.h;
+
+    // only if frame is not a video...
+    if(anim.frames[anim.current_frame_index].kind != VIDEO) {
+        // draw a black rect as background to prevent seeing the clear color of the screen
+		r2d::@drawRect({0, 0, w, h}, rl::BLACK);
+	}
+
+    { // draw frames
+        if(anim.frames.len() == 0) return;
+        
+        // current frame
+        Frame* frame = anim.frames[anim.current_frame_index];
+
+        if(frame.kind == IMAGE)
+        {
+            if(!frame.fade_in_done) {
+                alpha = misc::move_toward(alpha, 1.0f, FADE_IN_SPEED);
+                if(alpha > 1.0f) alpha = 1.0f;
+                frame.color.a = (char)(alpha * 255);
+                //frame.color = rl::colorLerp(frame.color, rl::WHITE, 0.05f);
+                //log::info(CONSOLE, "fading IN");
+                //log::info(CONSOLE, "color alpha: %d", frame.color.a);
+                // if fade in is done, mark it as done
+                if(frame.color.a == 255) {
+                    //log::info(CONSOLE, "STOP fading IN");
+                    frame.fade_in_done = true;
+                    frame.fade_out_start_time = current_time + VISIBLE_DURATION;
+                    //should_fade_in = false;
+                }
+            }
+
+            //io::printfn("RLColor = %s", misc::printColor(anim.frames[anim.current_frame_index].image.color));
+        
+            if(frame.fade_in_done && !frame.fade_out_done && current_time >= frame.fade_out_start_time) {
+                alpha = misc::move_toward(alpha, 0.0f, FADE_OUT_SPEED);
+                if(alpha < 0.0f) alpha = 0.0f;
+                frame.color.a = (char)(alpha * 255);
+                if(frame.color.a == 0) {
+                    frame.fade_out_done = true;
+                    alpha = 0.0f;
+                    //should_fade_out = false;
+                }
+            }
+        }
+
+        draw(frame);
+
+        { // debug code
+            rl::drawText(string::tformat_zstr("time: %s", current_time), 50, 100, 16, rl::RED);
+            rl::drawText(string::tformat_zstr("frame: %s", anim.current_frame_index), 50, 118, 16, rl::RED);
+            /*rl::drawText(string::tformat_zstr("frame color: {%s,%s,%s,%s}", 
+            frame.color.r,
+            frame.color.g,
+            frame.color.b,
+            frame.color.a), 
+            50, 134, 16, rl::RED);*/
+            if(frame.kind == IMAGE)
+            {
+                rl::drawText(string::tformat_zstr("frame st time: %s", frame.fade_out_start_time), 50, 150, 16, rl::RED);
+            } else {
+                rl::drawText(string::tformat_zstr("frame duration: %s", frame.duration), 50, 150, 16, rl::RED);
+            }
+        }
+    }
+}
+
+
+
+
+/*fn void drawEpilepsyWarning(int w, int h) @local //@deprecated("use the new mpg video instead")
 {
 	/////////
 	// Title
@@ -243,259 +616,6 @@ fn void drawEpilepsyWarning(int w, int h) @local
 			);
 	};
 }
-
-
-fn void initAnimation(IntroAnimation* anim) @local
-{
-    makeTexturedFrame("images/gui/raylib_intro.png", anim);
-    makeTexturedFrame("images/gui/logo_hm.png", anim);
-    //
-    input::makeKeyboardAction("skipIntro", rl::KEY_ESCAPE);
-    input::@makeAction({.name = "skipFrame", .kind = KEYBOARD, .key1 = rl::KEY_SPACE});
-
-    /*
-    // test unurdered_remove
-    List{int} a;
-    a.reserve(5);
-    a.push(1); a.push(2); a.push(3); a.push(4); a.push(5);
-    log::info("Before unurdered_remove: %s", a);
-    misc::unurdered_remove{int}(&a, 1); // remove the element at index 1 (value 2)
-    log::info("After unurdered_remove: %s", a);*/
-}
-
-fn void deinitAnimation(IntroAnimation* anim) @local
-{
-    foreach(frame : anim.frames) {
-        if(frame) {
-            deinit_frame(frame);
-        }
-    }
-    
-    input::removeAction("skipIntro");
-    input::removeAction("skipFrame");
-}
-
-fn void hide_cursors() @local @inline
-{
-    if(game::game_cursor_visible()) game::hide_game_cursor();
-    if(game::gpGame.screen.state.fullscreen || 
-       game::gpGame.screen.state.borderless) 
-    {
-        if(game::system_cursor_enabled()) game::disable_system_cursor();
-    }
-}
-
-<*
-    @param [&inout] anim : "animation to handle"
-*>
-fn void init_anim_timing(IntroAnimation* anim, int time_ms) @local
-{
-    // full anim duration
-    int frames_count = (int)anim.frames.len();
-    anim.epilepsy_time = time_ms + EPILEPSY_TEXT_DURATION;
-    anim.full_duration = anim.epilepsy_time + (FRAME_TIME * frames_count);
-    // set the next frame to show after the required time
-    //anim.next_frame_time = anim.full_duration - FRAME_TIME;
-    /*foreach(int i, &frame : anim.frames)
-    {
-        if(i == 0) {
-            (*frame).fade_in_start_time  = time_ms;
-        } else {
-            (*frame).fade_in_start_time  = anim.frames[--i].fade_out_start_time + FADE_OUT_TIME;
-        }
-        (*frame).fade_out_start_time = (*frame).fade_in_start_time + FADE_IN_TIME + VISIBLE_DURATION;
-    }*/
-    //anim.frames[0].fade_in_start_time  = time_ms;
-    //anim.frames[0].fade_out_start_time = anim.frames[0].fade_in_start_time + FADE_IN_TIME + VISIBLE_DURATION;
-    anim.timing_initialized = true;
-}
-
-<*
-    @param [&inout] anim : "animation to handle"
-*>
-fn void play(IntroAnimation* anim) 
-{
-    anim.should_play = true;
-    menu::stop(); // if any menu is up close it
-    setup(anim);
-}
-
-<*
-    @param [&inout] anim : "animation to handle"
-*>
-fn void setup(IntroAnimation* anim) @local 
-{
-    hide_cursors();
-    initAnimation(anim);
-    log::info(CONSOLE, "intro-setup: %s", game::gpGame.time_ms);
-}
-
-fn void IntroAnimation.stop(&self)
-{
-    self.should_play = false;
-    deinitAnimation(self);
-    game::gpGame.mode = GameMode.NONE;
-     // restarts from the main menu;
-    game::disconnect();
-}
-
-fn void IntroAnimation.loop(&self) @inline 
-{
-    if(self.current_frame_index) self.current_frame_index = 0;
-}
-
-fn void IntroAnimation.loop_frame(&self, uint idx) @inline 
-{
-    if(self.current_frame_index != idx) self.current_frame_index = idx;
-}
-
-<*
-    @param [&inout] anim : "animation to update"
-*>
-fn void update(IntroAnimation* anim)
-{
-	int current_time = game::gpGame.time_ms;
-
-    if(!anim.timing_initialized) {
-        init_anim_timing(anim, current_time);
-        log::info(CONSOLE, "intro-timing-init: %s", current_time);
-    }
-
-    //  if animation played to the end or we skipped the intro
-    if(current_time >= anim.full_duration || input::getAction("skipIntro").fnBecameTriggered()) {
-        anim.stop();
-        return;
-    }
-
-    game::gpGame.mode = GameMode.INTRO;
-
-    
-    // if a single frame
-    if(anim.frames.len() == 1) {
-        // go on displaying the same frame for the duration of the animation
-        anim.loop_frame(0);
-    }
-    else if(current_time > anim.epilepsy_time) // change frame after a time
-    {
-        Frame* current_frame = anim.frames[anim.current_frame_index];
-
-        // if no more frames to play get out
-        if(anim.current_frame_index >= anim.frames.len()) {
-            anim.stop();
-            return;
-        }
-
-        if(current_frame.fade_out_done) {
-            anim.current_frame_index++;
-            if(anim.current_frame_index >= anim.frames.len()) {
-                anim.current_frame_index = 0;
-                anim.stop();
-            } else {
-                int i = anim.current_frame_index;
-                // this will set only the time, after the first frame is done
-                anim.frames[i].fade_in_start_time = current_time;
-            }
-        }
-    }
-}
-
-fn void drawAnimation(IntroAnimation* anim, int w, int h) @if(!$defined(FADE_FRAMES))
-{
-    if(anim == null) return;
-	if(anim.frames.len() == 0) return;
-
-	// draw a black rect as background to prevent seeing the clear color of the screen
-    r2d::@drawRect({0, 0, w, h}, rl::BLACK);
-
-    int current_time = game::gpGame.time_ms;
-    if(current_time < anim.epilepsy_time) {
-        drawEpilepsyWarning();
-    } else {
-        // draw current frame
-        anim.frames[anim.current_frame_index].draw();
-    }
-
-}
-
-float alpha @local = 0.0f;
-bool should_fade_in @local = false;
-bool should_fade_out @local = false;
-<*
-    @param [&inout] anim : "animation to play"
-    @require anim.frames.len() > 0
-*>
-fn void drawAnimation(IntroAnimation* anim) @if($defined(FADE_FRAMES))
-{
-    int current_time = game::gpGame.time_ms;
-    int w, h;
-    w = game::gpGame.screen.w;
-    h = game::gpGame.screen.h;
-    // draw a black rect as background to prevent seeing the clear color of the screen
-    r2d::@drawRect({0, 0, w, h}, rl::BLACK);
-
-    if(current_time < anim.epilepsy_time) 
-    {
-        drawEpilepsyWarning(w, h);
-    } 
-    else 
-    {
-        if(anim.frames.len() == 0) return;
-        
-        // current frame
-        Frame* frame = anim.frames[anim.current_frame_index];
-
-        /*if(current_time == frame.fade_in_start_time) {
-            should_fade_in = true;
-            //@debug_break(1);
-        }*/
-        
-        /*if(current_time == frame.fade_out_start_time) {
-            should_fade_out = true;
-            //@debug_break(1);
-        }*/
-
-        if(!frame.fade_in_done) {
-            alpha = misc::move_toward(alpha, 1.0f, FADE_IN_SPEED);
-            if(alpha > 1.0f) alpha = 1.0f;
-            frame.color.a = (char)(alpha * 255);
-            //frame.color = rl::colorLerp(frame.color, rl::WHITE, 0.05f);
-            //log::info(CONSOLE, "fading IN");
-            //log::info(CONSOLE, "color alpha: %d", frame.color.a);
-            // if fade in is done, mark it as done
-            if(frame.color.a == 255) {
-                //log::info(CONSOLE, "STOP fading IN");
-                frame.fade_in_done = true;
-                frame.fade_out_start_time = current_time + VISIBLE_DURATION;
-                //should_fade_in = false;
-            }
-        }
-
-        //io::printfn("RLColor = %s", misc::printColor(anim.frames[anim.current_frame_index].image.color));
-        
-        if(frame.fade_in_done && /*should_fade_out &&*/ !frame.fade_out_done && 
-        current_time >= frame.fade_out_start_time) {
-            alpha = misc::move_toward(alpha, 0.0f, FADE_OUT_SPEED);
-            if(alpha < 0.0f) alpha = 0.0f;
-            frame.color.a = (char)(alpha * 255);
-            if(frame.color.a == 0) {
-                frame.fade_out_done = true;
-                alpha = 0.0f;
-                //should_fade_out = false;
-            }
-        }
-
-        draw(frame);
-        /*rl::drawText(string::tformat_zstr("time: %s", current_time), 50, 100, 16, rl::RED);
-        rl::drawText(string::tformat_zstr("frame: %s", anim.current_frame_index), 50, 118, 16, rl::RED);
-        rl::drawText(string::tformat_zstr("frame color: {%s,%s,%s,%s}", 
-        frame.color.r,
-        frame.color.g,
-        frame.color.b,
-        frame.color.a), 
-        50, 134, 16, rl::RED);
-        rl::drawText(string::tformat_zstr("frame st time: %s", frame.fade_out_start_time), 50, 150, 16, rl::RED);
-        */
-    }
-}
+*/
 
 

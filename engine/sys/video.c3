@@ -40,7 +40,8 @@ import thirdparty::plmpeg::plm;
 import engine::sys::framework::platform::platf;
 import game::camview;
 
-const VIDEO_FILE_EXTENSION = ".mpg";
+const EXTENSION_MPG = ".mpg";
+const EXTENSION_MPEG = ".mpeg";
 const VIDEOS_FOLDER_PATH   = "videos"+++platf::PATHSEPERATOR_STR;
 const COLOR_CHANNELS  @local = 3;
 const BYTES_PER_PIXEL @local = COLOR_CHANNELS * Uint8_t.sizeof;
@@ -82,41 +83,65 @@ struct VidMovie @public
 	bool is_ready;
 	bool set_frame_settings;
 	VideoPlayer* plyr; // each movie has its own video player
+	// frame data 
 	VideoFrame frame;
+	int frame_stride;
+	int frame_data_size;
 }
 
 <*
 	Render each frame as a GPU texture unto screen
 	@param [&in] _frame : "frame data to render"
 	@param screen : "screen area where play the frame"
+	@require rl::isImageValid(*_frame) != false
 	@require screen.size != VEC2_ZERO
 *>
 fn void renderFrame(RLImage* _frame, RLRectangle screen) @local
 {
-	//@debug_break(ON);
 	RLTexture2D frame = rl::loadTextureFromImage(*_frame);
-	if(screen == rl::EMPTY_RECT) {
-		screen.size = (Vec2f){_frame.width, _frame.height};
-	}
-	//rl::drawTexture(vid.frame, (int)position.x, (int)position.y, rl::WHITE);
 	rl::drawTexturePro(
 		frame,
 		(RLRectangle){0.0f, 0.0f, (float)frame.width, (float)frame.height},
-		misc::makeRect(screen.pos, screen.size),
-		VEC2_ZERO,
-		0.0f,
-		rl::WHITE
+		misc::makeRect(screen.pos, screen.size), VEC2_ZERO, 0.0f, rl::WHITE
 	);
 }
 
-fn void VidMovie.draw(&self, RLRectangle screen)
+fn void VidMovie.draw(&self, Vec2f position = VEC2_ZERO)
 {
 	if(self.is_ready && self.should_play)
 	{
-		if(rl::isImageValid(self.frame))
-		{
-			renderFrame(&self.frame, screen);
-		}
+		assert(gpGame.render.isWindowReady()!!);
+		Vec2f view_size = {
+			.x = (self.fullscreen) ? gpGame.screen.w : self.frame.width,
+			.y = (self.fullscreen) ? gpGame.screen.h : self.frame.height
+		};
+
+		if(self.fullscreen) if(position != VEC2_ZERO) position = VEC2_ZERO;
+
+		renderFrame(&self.frame, misc::makeRect(position, view_size));
+	}
+}
+
+fn void VidMovie.drawWithRect(&self, RLRectangle rect)
+{
+	if(self.is_ready && self.should_play) {
+		assert(gpGame.render.isWindowReady()!!);
+		// warning this will ignore fullscreen flag
+		renderFrame(&self.frame, rect);
+	}
+}
+
+fn void freeFrameData(VideoFrame* frame, bool clear_all = false) @local 
+{
+	if(!frame.data) return;
+	mem::free(frame.data);
+	frame.data = null;
+
+	if(clear_all) {
+		frame.width   = 0;
+    	frame.height  = 0;
+    	frame.mipmaps = 0;
+    	frame.format  = 0;
 	}
 }
 
@@ -125,38 +150,21 @@ fn void VidMovie.draw(&self, RLRectangle screen)
 *>
 fn void VidMovie.updateFrame(&self, PLMframe *frame)
 {
-	VideoPlayer* mpeg = self.plyr;
-	int w, h;
-	w = mpeg.get_width();
-	h = mpeg.get_height();
-	assert(w > 0 && h > 0);
-	// create image to hold frame data
-	// compute stride
-	int stride = w * BYTES_PER_PIXEL;
-	int dataSize = stride * h;
-	// allocate memory for frame data
-	Uint8_t* fileData = (Uint8_t*)mem::malloc(dataSize);
-    frame.to_rgb(fileData, stride);
+	if(!self.should_play) return;
+	
+	// allocate new memory for each frame data
+	Uint8_t* fileData = (Uint8_t*)mem::malloc(self.frame_data_size);
+    // converte YUV to required RGB data
+    frame.to_rgb(fileData, self.frame_stride);
 
-	// unload previous frame
-	/*if(rl::isImageValid(self.frame)) {
+	// unload previous frame. 
+	// Update(HM) DON'T DO THIS!!! Crash's the game, unloading the image is done in video.clear()
+	/*if (rl::isImageValid(self.frame)) {
 		rl::unloadImage(self.frame);
 	}*/
 
-	if(self.frame.data != null) {
-		mem::free(self.frame.data);
-		self.frame.data = null;
-	}
-
-	//self.frame = rl::loadImageFromMemory(".png", fileData, (CInt)dataSize);
-	self.frame.data = fileData;
-	if(self.set_frame_settings) {
-		self.frame.width   = w;
-		self.frame.height  = h;
-		self.frame.mipmaps = 1;
-		self.frame.format  = RLPixelFormat.UNCOMPRESSED_R8G8B8;
-		self.set_frame_settings = false;
-	}
+	freeFrameData(&self.frame); // free old frame data
+	self.frame.data = fileData; // point to new frame data
 }
 
 <*
@@ -199,6 +207,23 @@ fn bool VidMovie.preparePlayer(&self, bool loop = false, bool audio = false) @no
 			self.duration
 		);
 
+		
+		// was doing this on updateFrame but is better here
+		// has the frames are always the same size and format thoughout the video
+		//if(self.set_frame_settings) {
+			int w = self.plyr.get_width();
+			int h = self.plyr.get_height();
+			self.frame.width   = w;
+			self.frame.height  = h;
+			self.frame.mipmaps = 1;
+			self.frame.format  = RLPixelFormat.UNCOMPRESSED_R8G8B8; // 24bits no alpha (todo support alpha?, HDR?)
+			// compute stride (a single row of pixels or frame width in bytes)
+			self.frame_stride  = w * BYTES_PER_PIXEL;
+			// compute data size (how many rows make the full frame data in bytes)
+			self.frame_data_size = self.frame_stride * h;
+			//self.set_frame_settings = false;
+		//}
+
 		initDecodingSystem(self);
 
 		(loop)  ? self.plyr.set_loop(TRUE) : self.plyr.set_loop(FALSE);
@@ -206,7 +231,7 @@ fn bool VidMovie.preparePlayer(&self, bool loop = false, bool audio = false) @no
 		self.plyr.set_audio_stream(0);
 
 		self.is_ready = true;
-		self.set_frame_settings = true;
+		//self.set_frame_settings = true;
 	}
 
 	return self.is_ready;
@@ -214,10 +239,12 @@ fn bool VidMovie.preparePlayer(&self, bool loop = false, bool audio = false) @no
 
 fn void VidMovie.resetTime(&self, int time = 0) 
 {
+	/*
 	//self.startTime = ( backEnd.viewDef ) ? 1000 * backEnd.viewDef->floatTime : -1;
-	self.startTime = game::gpGame.time_ms;
+	self.startTime = gpGame.time_ms;
 	self.start();
 	//status = FMV_PLAY;
+	*/
 }
 
 fn void VidMovie.decode(&self)
@@ -238,7 +265,6 @@ fn void VidMovie.decode(&self)
 	// Decode
 	if(!self.plyr.has_ended()) {
 		self.plyr.decode(elapsed_time);
-		//self.time_since_last_call += gpGame.time_sec;
 		self.is_playing = true;
 	} else {
 		// Stop playback
@@ -260,7 +286,7 @@ fn void VidMovie.stop(&self) @inline
 fn void VidMovie.enable(&self) @inline => self.start();
 fn void VidMovie.disable(&self) @inline => self.stop();
 
-fn void VidMovie.reset(&self) 
+fn void VidMovie.clear(&self) 
 {
     self.path = "";
     self.name = "";
@@ -276,13 +302,13 @@ fn void VidMovie.reset(&self)
 		self.plyr.destroy();
 		self.plyr = null;
 	}
-    if (rl::isImageValid(self.frame)) {
-        if (self.frame.data != null) {
-            mem::free(self.frame.data);
-            self.frame.data = null;
-        }
+    if (rl::isImageValid(self.frame)) 
+	{
+		freeFrameData(&self.frame, true);
     }
 }
+
+fn void VidMovie.reset(&self) => self.clear();
 
 
 //////////////////////////////////////////// VIDEO CABINET ////////////////////////////////////////////
@@ -336,23 +362,26 @@ fn void? VideoCabinet.registerVideos(&self)
 
     if(fs::makeDirectory_IfNotExist(self.movies_folder)!!)
     {
-        RLFilePathList videos_files = fs::loadDirectoryFiles(self.movies_folder);
+        RLFilePathList files = fs::loadDirectoryFiles(self.movies_folder);
         defer {
-            if(videos_files.count) fs::unloadDirectoryFiles(videos_files);
+            if(files.count) fs::unloadDirectoryFiles(files);
         };
 
-        if(videos_files.count)
+        if(files.count)
         {
-            String path_view = videos_files.paths[0].str_view();
-            for(int i = 0; i < videos_files.count; path_view = videos_files.paths[i++].str_view()) 
+            for(int i = 0; i < files.count; i++)
             {
+				String path_view = files.paths[i].str_view();
                 if(fs::isFile(path_view))
                 {
-                    if(fs::getFileExtension(path_view) == VIDEO_FILE_EXTENSION) {
+					//fs::getFileExtension(path_view)
+                    if(path_view.ends_with(EXTENSION_MPG) || path_view.ends_with(EXTENSION_MPEG)) {
+						String vid_name = fs::getFileNameWithoutExt(path_view);
+						if(self.hasMovie(vid_name)) continue;
                         self.addMovie(
                             mem::new(VidMovie, {
                                 .path = path_view.tcopy(),
-                                .name = fs::getFileNameWithoutExt(path_view).tcopy(),
+                                .name = vid_name.tcopy(),
                                 .modtime = fs::getFileModTime(path_view)
                             })
                         );
@@ -385,15 +414,34 @@ fn VidMovie* VideoCabinet.getMovie(&self, String vid_name)
     return null;
 }
 
+fn void VideoCabinet.update(&self) @inline
+{
+	if(!self.movies.len()) return;
+
+	foreach(movie : self.movies) {
+        // extract a video frame for each video in cabinet library that should play
+        movie.decode();
+    }
+}
+
+fn void VideoCabinet.draw(&self) @inline
+{
+	if(!self.movies.len()) return;
+
+	// update video frame for each video in cabinet library
+	foreach(movie : self.movies) {
+		movie.draw();
+	}
+}
+
 <*
     @param [&inout] vidc : "pointer to the video player"
 *>
 fn void deinitVideoCabinet(VideoCabinet* vidc) @public
 {
-    
     if(vidc.movies.len()) {
         foreach(movie : vidc.movies) {
-            movie.reset();
+            movie.clear();
         }
         vidc.movies.clear();
     }

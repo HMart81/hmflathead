@@ -1,0 +1,9 @@
+some code not used for now but very usefull
+
+// unurdered_remove //
+    List{int} a;
+    a.reserve(5);
+    a.push(1); a.push(2); a.push(3); a.push(4); a.push(5);
+    log::info("Before unurdered_remove: %s", a);
+    misc::unurdered_remove{int}(&a, 1); // remove the element at index 1 (value 2)
+    log::info("After unurdered_remove: %s", a);

@@ -52,8 +52,8 @@ const int NUM_THREADS = 3;
 //Mutex  assetsLoadingMutex;
 //Thread assetsLoadingThread;
 //
-Mutex  introMutex @public;
-Thread introThread;
+//Mutex  introMutex @public;
+//Thread introThread;
 //
 
 const usz GAME_ARENA_PAGE_SIZE = 256 * 1024; // 256 KB

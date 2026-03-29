@@ -1390,9 +1390,9 @@ fn RLImage loadImageSvg(ZString fileNameOrString, CInt width, CInt height) @cnam
 // Load image sequence from file (frames appended to image.data)
 fn RLImage loadImageAnim(ZString fileName, CInt* frames) @cname("LoadImageAnim");
 // Load image sequence from memory buffer
-fn RLImage loadImageAnimFromMemory(ZString fileType, ZString fileData, CInt dataSize, CInt* frames) @cname("LoadImageAnimFromMemory");
+fn RLImage loadImageAnimFromMemory(ZString fileType, CChar* fileData, CInt dataSize, CInt* frames) @cname("LoadImageAnimFromMemory");
 // Load image from memory buffer, fileType refers to extension: i.e. '.png'
-fn RLImage loadImageFromMemory(ZString fileType, char* fileData, CInt dataSize) @cname("LoadImageFromMemory");
+fn RLImage loadImageFromMemory(ZString fileType, CChar* fileData, CInt dataSize) @cname("LoadImageFromMemory");
 // Load image from GPU texture data
 fn RLImage loadImageFromTexture(RLTexture2D texture) @cname("LoadImageFromTexture");
 // Load image from screen buffer and (screenshot)

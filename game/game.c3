@@ -1311,15 +1311,6 @@ fn void onUpdate() @local
             local_game.mouse_window_pos = rl::getMousePosition(); // pixel coordinates, top left origin
         }
 
-		$if $feature(VIDEO_PLAYBACK_ENABLE):
-            if(vidCabinet.movies.len()) {
-                // extract a video frame for each video in cabinet library that should play
-                foreach(movie : vidCabinet.movies) {
-                    movie.decode();
-                }
-            }
-		$endif
-
         if(editor.getBool() && local_game.editor.isOpened()) {
             local_game.editor.update();
         }
@@ -1343,6 +1334,13 @@ $endif
         // } else {
             // io::printfn("NOT ON SCREEN!!!!!");
         // }
+
+        $if $feature(VIDEO_PLAYBACK_ENABLE):
+            if(local_game.mode != INTRO) {
+                // intro does its own video decoding
+                vidCabinet.update();
+            }
+		$endif
         
         local_game.view.update();
         
@@ -1769,6 +1767,13 @@ fn void onPostGUIDraw(int screenWidth, int screenHeight) @public
 
 fn void onGuiDraw(int screenWidth, int screenHeight) @public @inline 
 {
+    // videos playback
+    $if $feature(VIDEO_PLAYBACK_ENABLE):
+        if(local_game.mode != INTRO) {
+            vidCabinet.draw();
+        }
+	$endif
+
     // draw custom gui code
     desk::gpManager.draw(screenWidth, screenHeight);
 
@@ -1804,16 +1809,6 @@ fn void onGuiDraw(int screenWidth, int screenHeight) @public @inline
 	if(local_game.intro.should_play) {
         intro::drawAnimation(&local_game.intro);
     }
-
-    // videos playback (Done inside the player view now in renderPostGuiLayer())
-    /*$if $feature(VIDEO_PLAYBACK_ENABLE):
-        if(vidCabinet.movies.len()) {
-            // update video frame for each video in cabinet library
-            foreach(movie : vidCabinet.movies) {
-                movie.draw();
-            }
-        }
-	$endif*/
 
 	// SAVE MESSAGE
     if(local_game.showSaveMessage && 
@@ -1894,7 +1889,7 @@ fn void onPostBufferSwap() @local @inline {
 //////////////////////////////////////////////////////////////////
 // #region ARGS HANDLING ************************
 
-fn void handle_standalone_cmd(String cmd) @inline 
+fn void handle_standalone_cmd(String cmd)
 {
     // NOTE(HM) changing this cmds values will require a full game restart.
     // special standalone cmds (comands with no values, who's existance is enough to be set)
@@ -1902,6 +1897,8 @@ fn void handle_standalone_cmd(String cmd) @inline
     {
         case "developer":
             developer.set("1");
+        case "skip_intro":
+            intro::skip.setBool(true);
         case "g_log":
             log::g_log.set("true"); 
         case "editor":
@@ -1934,15 +1931,18 @@ macro @isValidInteger(#x) @local
 }
 /*
 NOTE(HM) 
-The first argument in a cmdline, is just the path to the executable, 
-so if there's only one argument, there's no need to run handle_cmdline().
+The first argument in a cmdline, is just the path to the executable,
+So if there's only one argument, there's no need to run handle_cmdline().
 Also cmdline arguments require a full game restart, this may change, 
 if I ever create a developer console...
+NOTE(HM) This above seems to be only true in _DEBUG mode!!!
 */
 fn void handle_cmdline(String[] args)
 {
 	@debug_break(OFF);
-    if(args.len <= 1) return;
+    $if $feature(_DEBUG):
+        if(args.len <= 1) return;
+	$endif
     
     log::info(FILE, "Handling cmd line args: %s\n", args[..]);
 
@@ -1951,9 +1951,9 @@ fn void handle_cmdline(String[] args)
     foreach(arg_index, arg : args)
     {
         // skip first argument, is always the path/name of the executable.
-		// NOTE(HM) This seems to be only true in _DEBUG (-O0) release!!!
+		// NOTE(HM) This seems to be only true in _DEBUG (-O0) mode!!!
 		$if $feature(_DEBUG):
-        	if(arg_index == 0) continue;
+        	if(arg_index == 0 && !arg.starts_with("+")) continue;
 		$endif
         
         // skip the equals sign and or spaces
@@ -1972,7 +1972,7 @@ fn void handle_cmdline(String[] args)
         if(arg.starts_with("+"))
         {
             // previous cmd was not cleared, 
-            // then that means it didn't add no value defined, ~
+            // then that means it didn't add no value defined,
             // so it should be considered a standalone cmd;
             if(cmd_arg != "") {
                 handle_standalone_cmd(cmd_arg);
@@ -1980,7 +1980,16 @@ fn void handle_cmdline(String[] args)
 
             // now update to the new/current cmd
             cmd_arg = arg.trim("+");
-            continue; // skip to the next argument
+
+            bool last_cmd = arg_index == args.len - 1;
+            if(last_cmd) {
+                // if is last cmd then there's value after it
+                // so is a standalone cmd
+                handle_standalone_cmd(cmd_arg);
+                break;
+            } else {
+                continue; // skip to the next argument
+            }; 
         }
         
 		/////////////////////////////////////////////////
@@ -3169,7 +3178,12 @@ $endif
 
 
 	// init intro stuff here
-    // Todo(HM) create real pre loading logo videos?
+    // Todo(HM) create real pre loading logo videos
+	//
+	// NOTE(HM) should I loop the intro right here?
+	// instead of just marking it to do later, like now.
+	// this is because I will create and render stuff behind the
+	// intro video/images and I don't know if I should really do that...   
     //
     // Set the current program mode to the intro mode
     if(intro::skip.getBool() == false) intro::play(&local_game.intro);
@@ -3214,25 +3228,26 @@ $endif
     
     // init the boids system
     $if $defined(BOIDS_ENABLE):
-    local_game.boidManager1.init();
+    	local_game.boidManager1.init();
     $endif
 
-    //  init video player
-	$if $feature(VIDEO_PLAYBACK_ENABLE):
-        if(vidCabinet) { 
-            if(vidCabinet.hasMovie("intro")) {
-                log::info(FILE, "Setting up a test video:");
-                VidMovie* vid1 = vidCabinet.getMovie("intro");
-                if(vid1 != null) {
+    //  init test video
+	$if $feature(VIDEO_PLAYBACK_ENABLE) && $defined(TEST_VIDEO):
+        if(vidCabinet) {
+			String vid_name = "epiwarn";
+            if(vidCabinet.hasMovie(vid_name)) {
+                log::info(FILE, "Setting up test video: '%s'", vid_name);
+                VidMovie* vid1 = vidCabinet.getMovie(vid_name);
+                if(vid1 == null) {
+                    log::warning(FILE, "\tFailed to get test video '%s' from video library!", vid_name);
+                } else {
                     if(vid1.preparePlayer()) {
-                        log::info(FILE, "\tVideo player prepared the video for playback successfully.");
+                        log::info(FILE, "\tPrepared Video player for video '%s' playback, successfully.", vid_name);
                         vid1.fullscreen = true;
 						vid1.enable();
                     } else {
-                        log::warning(FILE, "\tVideo player failed to prepare the video for playback!");
+                        log::warning(FILE, "\tFailed to prepare Video player for video '%s' for playback!", vid_name);
                     }
-                } else {
-                    log::warning(FILE, "\tFailed to get test video from video library!");
                 }
             }
         }
