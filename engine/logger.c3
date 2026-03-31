@@ -34,11 +34,12 @@ import libc;
 import game::main;
 import thirdparty::raylib5::rl;
 import engine::sys::cvar;
+import engine::misc;
+import engine::sys::framework::platform::platf;
 // end_region
 
 // region Cvars
-CVar g_log @public @if($feature(_DEBUG)) = { "g_log", CvarType.BOOL, "1", "turns on loggin for debuggin."};
-CVar g_log @public @if($feature(_RELEASE)) = { "g_log", CvarType.BOOL, "1", "turns on loggin for debuggin."};
+CVar g_log @public = { "g_log", CvarType.BOOL, "1", "turns on loggin for debuggin."};
 
 fn void register_cvars() {
 	cvar::@register(&g_log);
@@ -54,9 +55,9 @@ const ZString APPEND_TO_END    = "a";
 // region defines
 // end_region
 
-enum Where
+constdef Where : inline int
 {
-    FILE,
+    FILE = 1,
     CONSOLE
 }
 const Where FILE @export    = Where.FILE;
@@ -82,19 +83,19 @@ NONE    = Disable logging
     File gfile    @local;    // the file handle itself
 // end_region
 
-fn void setLogLevel(RLTraceLogLevel level) @inline 
+fn void setLogLevel(RLTraceLogLevel level) @MyInline 
 {
 	glevel = level;
 }
 
 // NOTE(HM) controls file and Console logging 
 // plus sets where the log file is saved as well.
-fn void initGlobalLoggingDir() @inline @local
+fn void initGlobalLoggingDir() @MyInline @local
 {
-    gpath = rl::getWorkingDirectory().str_view().tconcat("\\debug.log").zstr_tcopy();
+    gpath = rl::getWorkingDirectory().str_view().tconcat(platf::PATHSEPERATOR_STR+++"debug.log").zstr_tcopy();
 }
 
-fn void init(RLTraceLogLevel level) @inline
+fn void init(RLTraceLogLevel level) @MyInline
 {
 	initGlobalLoggingDir();
 	setLogLevel(level);
@@ -110,7 +111,7 @@ fn void closeLogFile()
 	}
 }
 
-fn String getfilepath() @inline => gpath.str_view();
+fn String getfilepath() @MyInline => gpath.str_view();
 
 
 /*fn void log(Where where, RLTraceLogLevel level, String fmt, args...) @public {

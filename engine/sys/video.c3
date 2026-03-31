@@ -26,7 +26,10 @@
 # 
 *********************************************************************************************************************************************/
 
-// do not use bugs and incomplete :(
+// Incomplete :( plays videos just fine but embeded audio in the videos 
+// is mostly broken particularly stereo sound and I don't know why
+// I tried a bunch of things and even saw a bunch of online toturials
+// but nothing helped. For now I will try play audio seperate from videos...
 module engine::sys::videoplay::vid @private @if($feature(VIDEO_PLAYBACK_ENABLE));
 
 import game::main;
@@ -55,6 +58,12 @@ alias VideoFrame  = RLImage;
 const TRUE @local  = 1;
 const FALSE @local = 0;
 
+//const AUDIO_EMBEDED = 1; // comment to disable
+const AUDIO_SEPERATE = 1; // uncomment to enable or vice versa
+
+// for now all videos will be assumed to be 30fps (even if they are not...)
+//const VIDEO_FRAME_RATE = 30;
+
 faultdef VIDEO_MISSING_FILE,
          VIDEO_LOAD_FAILED,
          VIDEO_OPEN_FAILD,
@@ -69,26 +78,38 @@ struct VidMovie @public
     CLong modtime; // modification time
 
     // this is done at play time
-    float time_since_last_call; // in seconds
+    double time_since_last_call; // in seconds
 
 	// this is set at init time or play time
 	int startTime; // milliseconds
     // video data
     int samplerate; // for audio
     float framerate;
+	int frame_count @if($defined(DEBUG_VIDEO));
     float duration; // in seconds
 	bool is_playing;
-	bool should_play;
+	bool should_play; // sets it to play for later
+	bool started;    // triggers video it now
 	bool fullscreen;
 	bool is_ready;
 	bool set_frame_settings;
+	bool paused;
 	VideoPlayer* plyr; // each movie has its own video player
 	// frame data 
 	VideoFrame frame;
+	RLTexture2D frame_texture;
 	int frame_stride;
 	int frame_data_size;
+
+	// video sound data
+	RLAudioStream audio @if($defined(AUDIO_EMBEDED)); // embeded audio streaming is broken for now :(
+	// seperate audio system
+	RLMusic audio @if($defined(AUDIO_SEPERATE));
+	String track_name @if($defined(AUDIO_SEPERATE));
 }
 
+/*
+// this was causing massive memory leaking....
 <*
 	Render each frame as a GPU texture unto screen
 	@param [&in] _frame : "frame data to render"
@@ -105,10 +126,11 @@ fn void renderFrame(RLImage* _frame, RLRectangle screen) @local
 		misc::makeRect(screen.pos, screen.size), VEC2_ZERO, 0.0f, rl::WHITE
 	);
 }
+*/
 
 fn void VidMovie.draw(&self, Vec2f position = VEC2_ZERO)
 {
-	if(self.is_ready && self.should_play)
+	if(self.is_ready && self.should_play && self.started)
 	{
 		assert(gpGame.render.isWindowReady()!!);
 		Vec2f view_size = {
@@ -118,18 +140,30 @@ fn void VidMovie.draw(&self, Vec2f position = VEC2_ZERO)
 
 		if(self.fullscreen) if(position != VEC2_ZERO) position = VEC2_ZERO;
 
-		renderFrame(&self.frame, misc::makeRect(position, view_size));
+		RLTexture2D* frame = &self.frame_texture;
+		rl::drawTexturePro(
+			*frame,
+			(RLRectangle){0.0f, 0.0f, (float)(*frame).width, (float)(*frame).height},
+			misc::makeRect(position, view_size), VEC2_ZERO, 0.0f, rl::WHITE
+		);
+
+		$if $defined(DEBUG_VIDEO):
+			self.frame_count++;
+			rl::drawText(string::tformat_zstr("Video: fr: %s fc: %s", (int)self.framerate, self.frame_count), 50, 25, 16, rl::RED);
+		$endif
 	}
 }
 
+/*
 fn void VidMovie.drawWithRect(&self, RLRectangle rect)
 {
-	if(self.is_ready && self.should_play) {
+	if(self.is_ready && self.should_play && self.started) {
 		assert(gpGame.render.isWindowReady()!!);
 		// warning this will ignore fullscreen flag
 		renderFrame(&self.frame, rect);
 	}
 }
+*/
 
 fn void freeFrameData(VideoFrame* frame, bool clear_all = false) @local 
 {
@@ -150,21 +184,175 @@ fn void freeFrameData(VideoFrame* frame, bool clear_all = false) @local
 *>
 fn void VidMovie.updateFrame(&self, PLMframe *frame)
 {
-	if(!self.should_play) return;
+	if(!self.is_ready || !self.should_play || !self.started ) return;
 	
-	// allocate new memory for each frame data
-	Uint8_t* fileData = (Uint8_t*)mem::malloc(self.frame_data_size);
     // converte YUV to required RGB data
-    frame.to_rgb(fileData, self.frame_stride);
+    frame.to_rgb(self.frame.data, self.frame_stride);
 
 	// unload previous frame. 
 	// Update(HM) DON'T DO THIS!!! Crash's the game, unloading the image is done in video.clear()
 	/*if (rl::isImageValid(self.frame)) {
 		rl::unloadImage(self.frame);
 	}*/
+	rl::updateTexture(self.frame_texture, self.frame.data);
 
-	freeFrameData(&self.frame); // free old frame data
-	self.frame.data = fileData; // point to new frame data
+	//freeFrameData(&self.frame); // free old frame data
+	//self.frame.data = fileData; // point to new frame data
+}
+
+
+////////////////////////////// AUDIO ///////////////////////////////////////////
+constdef VidAudioMode : inline int
+{
+	NONE = 0,
+	MONO,
+	STEREO
+}
+
+// NOTE(HM) Each audio frame consists of two samples
+// PLM_AUDIO_SAMPLES_PER_FRAME = 1152 always according to lpmpeg library comment
+// then
+// ch1 = [1152 * 4]
+// ch2 = [1152 * 4]
+// then 
+// 1 frame of audio = [ch1|ch2] - interleaved 
+// or (PLM_AUDIO_SAMPLES_PER_FRAME/samplerate) seconds
+// so total frame size = AUDIO_F32 * PLM_AUDIO_SAMPLES_PER_FRAME * 2 channels
+// so given a 30fps video total audio sample size = (samplerate / 30) * frame size;
+//const BUFFER_SIZE @local = 4096;
+const AUDIO_F32 @local = 32;
+const CHANNEL_SIZE_BYTES = float.sizeof * plm::PLM_AUDIO_SAMPLES_PER_FRAME; // size of 1 channel in bytes
+//const CHANNEL_COUNT = VidAudioMode.MONO; // Using mono works for mono tracks but breaks stereo
+const CHANNEL_COUNT = VidAudioMode.STEREO; // Using Stereo for videos, will break mono and stereo!!!! ;(
+const BUFFER_SIZE   = plm::PLM_AUDIO_SAMPLES_PER_FRAME * CHANNEL_COUNT;
+
+<*
+	@param [&in] samples : "pointer to the current plm audio samples to update the video sound"
+*>
+fn void VidMovie.updateAudio(&self, PLMsamples *samples) @MyInline
+{
+	if(!self.should_play && !self.started) return;
+
+	$if $defined(AUDIO_EMBEDED):
+		if (rl::isAudioStreamProcessed(self.audio))
+		{
+			//int size = samples.interleaved.len;
+			rl::updateAudioStream(self.audio, &samples.interleaved[0], BUFFER_SIZE);
+		}
+	$endif
+
+	$if $defined(AUDIO_SEPERATE):
+		if(rl::isMusicValid(self.audio)) rl::updateMusicStream(self.audio);
+	$endif
+}
+
+fn void VidMovie.enableAudio(&self, bool enable = false) @MyInline
+{
+	if(!enable) return;
+	assert(rl::isAudioDeviceReady());
+
+	$if $defined(AUDIO_EMBEDED):
+		self.plyr.set_audio_enabled((enable) ? TRUE : FALSE);
+		self.plyr.set_audio_stream(0);
+
+		if (self.plyr.get_num_audio_streams() > 0) 
+		{
+			// NOTE(HM) This has to be set before loadAudioStream
+			rl::setAudioStreamBufferSizeDefault(BUFFER_SIZE);
+			self.audio = rl::loadAudioStream(self.samplerate, AUDIO_F32, CHANNEL_COUNT);
+			//rl::setAudioStreamVolume(self.audio, 1.0f);
+			//rl::playAudioStream(self.audio);
+			// Adjust the audio lead time according to the audio_spec buffer size
+			self.plyr.set_audio_lead_time((double)BUFFER_SIZE / (double)self.samplerate);
+		}
+	$endif
+
+	$if $defined(AUDIO_SEPERATE):
+		if(self.track_name) {
+			ZString track_path = game::gpGame.app_base_folder.tconcat("music/").tconcat(self.track_name).zstr_tcopy();
+			self.audio = rl::loadMusicStream(track_path);
+		}
+	$endif
+}
+
+fn bool VidMovie.audio_enabled(&self) @if($defined(AUDIO_EMBEDED)) => (self.plyr.get_audio_enabled() == TRUE) ? true : false;
+fn bool VidMovie.audio_valid(&self)   @if($defined(AUDIO_EMBEDED)) => rl::isAudioStreamValid(self.audio);
+fn bool VidMovie.audio_playing(&self) @if($defined(AUDIO_EMBEDED)) => (rl::isAudioStreamPlaying(self.audio) && !self.paused);
+
+fn bool VidMovie.audio_enabled(&self) @if($defined(AUDIO_SEPERATE)) => self.audio_valid();
+fn bool VidMovie.audio_valid(&self)   @if($defined(AUDIO_SEPERATE)) => rl::isMusicValid(self.audio);
+fn bool VidMovie.audio_playing(&self) @if($defined(AUDIO_SEPERATE)) => (rl::isMusicStreamPlaying(self.audio) && !self.paused);
+
+
+fn void VidMovie.audio_play(&self) @MyInline 
+{
+	if(self.audio_enabled() && self.audio_valid()) {
+		if(!self.audio_playing()) {
+			if(self.audio_paused()) {
+				self.audio_resume();
+			} else if(self.audio_stopped()) {
+				$if $defined(AUDIO_EMBEDED):
+					rl::playAudioStream(self.audio);
+				$endif
+				$if $defined(AUDIO_SEPERATE):
+					rl::playMusicStream(self.audio);
+				$endif
+				if(self.paused) self.paused = false;
+			}
+			//log::info(CONSOLE, "starting video %s sound playing at: %s", self.name, gpGame.time_sec);
+		}
+	}
+}
+
+fn void VidMovie.audio_stop(&self) @MyInline
+{
+	if(self.audio_enabled() && self.audio_valid()) {
+		if(self.audio_playing()) {
+			$if $defined(AUDIO_EMBEDED):
+				rl::stopAudioStream(self.audio);
+			$endif
+			$if $defined(AUDIO_SEPERATE):
+				rl::stopMusicStream(self.audio);
+			$endif
+			// right now to simplify things 
+			// you cannot pause the audio seperatly from the video itself
+			// aka if the video is paused audio is paused and vice versa
+			self.paused = true;
+			//log::info(CONSOLE, "Stopped video %s sound playing at: %s", self.name, gpGame.time_sec);
+		}
+	}
+}
+
+fn void VidMovie.audio_pause(&self) @MyInline
+{
+	$if $defined(AUDIO_EMBEDED):
+		rl::pauseAudioStream(self.audio);
+	$endif
+	$if $defined(AUDIO_SEPERATE):
+		rl::pauseMusicStream(self.audio);
+	$endif
+	self.paused = true;
+}
+
+fn void VidMovie.audio_resume(&self) @MyInline
+{
+	$if $defined(AUDIO_EMBEDED):
+		rl::resumeAudioStream(self.audio);
+	$endif
+	$if $defined(AUDIO_SEPERATE):
+		rl::resumeMusicStream(self.audio);
+	$endif
+	self.paused = false;
+}
+
+fn bool VidMovie.audio_paused(&self) @MyInline
+{
+	return (!self.audio_playing() && self.paused);
+}
+
+fn bool VidMovie.audio_stopped(&self) @MyInline
+{
+	return (!self.audio_playing() && !self.paused);
 }
 
 <*
@@ -207,28 +395,37 @@ fn bool VidMovie.preparePlayer(&self, bool loop = false, bool audio = false) @no
 			self.duration
 		);
 
-		
 		// was doing this on updateFrame but is better here
 		// has the frames are always the same size and format thoughout the video
-		//if(self.set_frame_settings) {
-			int w = self.plyr.get_width();
-			int h = self.plyr.get_height();
-			self.frame.width   = w;
-			self.frame.height  = h;
-			self.frame.mipmaps = 1;
-			self.frame.format  = RLPixelFormat.UNCOMPRESSED_R8G8B8; // 24bits no alpha (todo support alpha?, HDR?)
-			// compute stride (a single row of pixels or frame width in bytes)
-			self.frame_stride  = w * BYTES_PER_PIXEL;
-			// compute data size (how many rows make the full frame data in bytes)
-			self.frame_data_size = self.frame_stride * h;
-			//self.set_frame_settings = false;
-		//}
+		int w = self.plyr.get_width();
+		int h = self.plyr.get_height();
+		self.frame.width   = w;
+		self.frame.height  = h;
+		self.frame.mipmaps = 1;
+		self.frame.format  = RLPixelFormat.UNCOMPRESSED_R8G8B8; // 24bits no alpha (todo support alpha?, HDR?)
+		// compute stride (a single row of pixels or frame width in bytes)
+		self.frame_stride  = w * BYTES_PER_PIXEL;
+		// compute data size (how many rows make the full frame data in bytes)
+		self.frame_data_size = self.frame_stride * h;
 
-		initDecodingSystem(self);
+		// allocate memory buffer for frame data
+		// NOTE(HM) do not use C3 memory allocator when manually 
+		// creating memory for Raylib types! 
+		// This is because using the unload functions from Raylib
+		// will not work with C3 mem allocator and will crash the app.
+		// In this particular cases, use the internal Raylib rl::memAlloc.
+		//Uint8_t* fileData = (Uint8_t*)mem::malloc(self.frame_data_size);
+		Uint8_t* fileData = (Uint8_t*)rl::memAlloc(self.frame_data_size);
+		self.frame.data = fileData;
 
-		(loop)  ? self.plyr.set_loop(TRUE) : self.plyr.set_loop(FALSE);
-		(audio) ? self.plyr.set_audio_enabled(TRUE) : self.plyr.set_audio_enabled(FALSE);
-		self.plyr.set_audio_stream(0);
+		self.frame_texture = rl::loadTextureFromImage(self.frame);
+
+		// init video and audio decode callbacks
+		plm::set_video_decode_callback(self.plyr, &on_video, self);
+		plm::set_audio_decode_callback(self.plyr, &on_audio, self);
+
+		self.plyr.set_loop((loop) ? TRUE : FALSE);
+		self.enableAudio(audio);
 
 		self.is_ready = true;
 		//self.set_frame_settings = true;
@@ -247,24 +444,30 @@ fn void VidMovie.resetTime(&self, int time = 0)
 	*/
 }
 
-fn void VidMovie.decode(&self)
+// Todo support video pausing
+const DEBUG_VIDEO = 1;
+fn void VidMovie.update(&self)
 {
-	if(!self.should_play) return;
+	if(!self.should_play || !self.started) return;
 
 	assert(self.is_ready == true);
 
 	// Compute the delta time since the last update, limit max step to 
-	// 1/30th of a second
-	float current_time = gpGame.time_sec;
-	float elapsed_time = current_time - self.time_since_last_call;
-	if (elapsed_time > 1.0f / 30.0f) {
-		elapsed_time = 1.0f / 30.0f;
+	// 1/framerate of a second
+	double current_time = rl::getTime();
+	double elapsed_time = current_time - self.time_since_last_call;
+	if (elapsed_time > (1.0 / (double)self.framerate)) {
+		elapsed_time = (1.0 / (double)self.framerate);
 	}
 	self.time_since_last_call = current_time;
 
 	// Decode
 	if(!self.plyr.has_ended()) {
+		// decode both video and audio samples
 		self.plyr.decode(elapsed_time);
+		$if $defined(DEBUG_VIDEO):
+		self.frame_count++;
+		$endif
 		self.is_playing = true;
 	} else {
 		// Stop playback
@@ -273,39 +476,78 @@ fn void VidMovie.decode(&self)
 	}
 }
 
-fn void VidMovie.start(&self) @inline
+fn void VidMovie.start(&self) @MyInline
 {
-	self.should_play = true;
+	self.started = !self.started;
+    self.audio_play();
 }
 
-fn void VidMovie.stop(&self) @inline
+fn void VidMovie.stop(&self) @MyInline
 {
-	self.should_play = false;
+	self.started = !self.started;
+	self.audio_stop();
 }
 
-fn void VidMovie.enable(&self) @inline => self.start();
-fn void VidMovie.disable(&self) @inline => self.stop();
+// TODO(HM) Right now I can't pause and unpause 
+// a video need to learn how to do that first...
+fn void VidMovie.pause(&self) @MyInline
+{
+	@todo();
+	/*self.paused = true;
+	if(self.audio_enabled() && self.audio_playing()) {
+		self.audio_pause();
+	}*/
+}
+
+fn void VidMovie.resume(&self) @MyInline
+{
+	@todo();
+	/*self.paused = false;
+	if(self.audio_enabled()) {
+		if(self.audio_valid() && !self.audio_playing()) {
+			self.audio_resume();
+		}
+	}*/
+}
+////////////////////////////////////////
+
+fn void VidMovie.enable(&self) @MyInline => self.should_play = true;
+fn void VidMovie.disable(&self) @MyInline => self.should_play = false;
 
 fn void VidMovie.clear(&self) 
 {
     self.path = "";
     self.name = "";
-	self.modtime = 0;
-    self.time_since_last_call = 0.0f;
-    self.samplerate = 0;
-    self.framerate = 0.0f;
-    self.duration = 0.0f;
-	self.is_playing = false;
-	self.should_play = false;
-	self.is_ready = false;
-	if(self.plyr != null) {
+	if(self.plyr != null) 
+	{
+		// everything that needs the plyr has to be cleared here!!
+		$if $defined(AUDIO_EMBEDED):
+			if(self.audio_enabled() && self.audio_valid()) {
+				if(self.audio_playing()) self.audio_stop();
+					rl::unloadAudioStream(self.audio);
+			}
+		$endif
 		self.plyr.destroy();
 		self.plyr = null;
 	}
-    if (rl::isImageValid(self.frame)) 
+
+	// need to manually free the RLImage data myself!??
+	// theory: Maybe is because I used C3 new::malloc instead of Raylib memory allocator? 
+    //freeFrameData(&self.frame, true);
+	// NOTE(HM) Update I was right! After using raylib memAlloc function 
+	// to allocate the buffer to the RLImage I was be able to use unloadImage and unloadTexture!
+	rl::unloadImage(self.frame);
+	if(rl::isTextureValid(self.frame_texture))
 	{
-		freeFrameData(&self.frame, true);
-    }
+		rl::unloadTexture(self.frame_texture);
+	}
+
+	$if $defined(AUDIO_SEPERATE):
+	if(self.audio_enabled() && self.audio_valid()) {
+		if(self.audio_playing()) self.audio_stop();
+		rl::unloadMusicStream(self.audio);
+	}
+	$endif
 }
 
 fn void VidMovie.reset(&self) => self.clear();
@@ -321,12 +563,12 @@ struct VideoCabinet @public
     VideoListPtr movies;
 }
 
-fn void setCabinetMoviesDirectory(VideoCabinet* self, String movies_dir) @local @inline
+fn void setCabinetMoviesDirectory(VideoCabinet* self, String movies_dir) @local @MyInline
 {
     self.movies_folder = movies_dir.tcopy();
 }
 
-fn void initCabinetMoviesDirectory(VideoCabinet* self) @local @inline
+fn void initCabinetMoviesDirectory(VideoCabinet* self) @local @MyInline
 {
 	String videos_path = gpGame.app_base_folder.tconcat(VIDEOS_FOLDER_PATH);
 	/*if(catch excuse = fs::makeDirectory_IfNotExist(videos_path)) {
@@ -351,7 +593,7 @@ fn void? initVideoCabinet(VideoCabinet** vidc) @public
 	}
 }
 
-fn void VideoCabinet.addMovie(&self, VidMovie* movie) @inline
+fn void VideoCabinet.addMovie(&self, VidMovie* movie) @MyInline
 {
 	self.movies.push(movie);
 }
@@ -398,7 +640,7 @@ fn void? VideoCabinet.registerVideos(&self)
     }
 }
 
-fn bool VideoCabinet.hasMovie(&self, String name) @inline
+fn bool VideoCabinet.hasMovie(&self, String name) @MyInline
 {
 	return (self.movies.len() != 0 && self.getMovie(name) != null) ? true : false;
 }
@@ -414,17 +656,15 @@ fn VidMovie* VideoCabinet.getMovie(&self, String vid_name)
     return null;
 }
 
-fn void VideoCabinet.update(&self) @inline
+fn void VideoCabinet.update(&self) @MyInline
 {
 	if(!self.movies.len()) return;
-
 	foreach(movie : self.movies) {
-        // extract a video frame for each video in cabinet library that should play
-        movie.decode();
+        movie.update();
     }
 }
 
-fn void VideoCabinet.draw(&self) @inline
+fn void VideoCabinet.draw(&self) @MyInline
 {
 	if(!self.movies.len()) return;
 
@@ -484,38 +724,6 @@ fn void on_video(VideoPlayer* mpeg, PLMframe *frame, void *user)
 *>
 fn void on_audio(VideoPlayer* mpeg, PLMsamples *samples, void *user) 
 {
-	VidMovie *self = (VidMovie *)user;
-
-	// Hand the decoded samples over to raylib
-	
-	int size = float.sizeof * samples.count * 2; // times two because stereo
-    Buffer* buffer = buffer::create_with_capacity(size);
-    buffer.write((Uint8_t*)&samples.left[0], samples.left.len);
-    buffer.write((Uint8_t*)&samples.right[0], samples.right.len);
-    PLMaudio* audio = plm::audio::create_with_buffer(buffer, 1);
-    RLWave raw = {
-        .frameCount = size,
-        .sampleRate = audio.get_samplerate(),
-        .sampleSize = 32,
-        .channels   = 2,
-        .data = audio.buffer.bytes
-    };
-    if(rl::isWaveValid(raw)) {
-        RLSound snd = rl::loadSoundFromWave(raw);
-        if(rl::isSoundValid(snd)) {
-            rl::playSound(snd);
-        }
-    }
-    audio.destroy();
-    buffer.destroy();
-	//SDL_QueueAudio(self->audio_device, samples->interleaved, size);
-}
-
-<*
-	@param [&in] video : "pointer to the video movie data"
-*>
-fn void initDecodingSystem(VidMovie* video) //@inline
-{
-    plm::set_video_decode_callback(video.plyr, &on_video, video);
-	plm::set_audio_decode_callback(video.plyr, &on_audio, video);
+	VidMovie *video = (VidMovie *)user;
+	video.updateAudio(samples);
 }

@@ -91,13 +91,13 @@ alias VideoDecodeCallback = fn void (PLM_t* self, PLMframe *frame, void *user);
 // The `count` is always PLM_AUDIO_SAMPLES_PER_FRAME and just there for
 // convenience.
 
-const PLM_AUDIO_SAMPLES_PER_FRAME @private = 1152;
-const PLM_AUDIO_SEPARATE_CHANNELS = true;
+const PLM_AUDIO_SAMPLES_PER_FRAME = 1152;
+const PLM_AUDIO_SEPARATE_CHANNELS = false;
 
-struct PLMsamples
+struct PLMsamples @packed
 {
 	double time;
-	uint count;
+	uint count; // is always PLM_AUDIO_SAMPLES_PER_FRAME for one channel
 	float[PLM_AUDIO_SAMPLES_PER_FRAME] left @if(PLM_AUDIO_SEPARATE_CHANNELS == true);
 	float[PLM_AUDIO_SAMPLES_PER_FRAME] right @if(PLM_AUDIO_SEPARATE_CHANNELS == true);
 	float[PLM_AUDIO_SAMPLES_PER_FRAME * 2] interleaved @if(PLM_AUDIO_SEPARATE_CHANNELS != true);

@@ -69,6 +69,9 @@ macro unurdered_remove(List{Typ}* list, usz index) <Typ>
 	(*list).remove_last();
 }
 
+attrdef  @MyInline @if($feature(_RELEASE)) = @inline;
+attrdef  @MyInline @if($feature(_DEBUG));
+
 const ON  @builtin = 1;
 const OFF @builtin = 2;
 macro @debug_break($x /*enable*/) @builtin {

@@ -14,7 +14,7 @@ import thirdparty::raylib5::rl;
 import engine::logging::log;
 import engine::sys::cvar;
 import engine::sys::render2d::r2d; // 2D rendering
-import engine::sys::videoplay::vid;
+import engine::sys::videoplay::vid @public;
 // end_region
 
 // region defines
@@ -200,27 +200,21 @@ fn void makeTextFrame(IntroAnimation* anim, String message = "undefined", RLColo
 <*
     @param [&inout] anim : "animation to push the frame into"
 *>
-fn void makeColorFrame(RLColor _color, IntroAnimation* anim, bool fading = false) @local 
+fn void makeColorFrame(RLColor _color, IntroAnimation* anim) @local 
 {
-    /*
 	int w = game::gpGame.screen.w;
     int h = game::gpGame.screen.h;
     Frame* frame = mem::new(Frame);
 	frame.dest_rect = {0, 0, w, h};
     frame.color = _color;
-    if(fading) {
-        $if($defined(FADE_FRAMES)):
-            frame.color.a = 0; // start with a transparent frame for fade in
-        $endif
-    }
     anim.frames.push(frame);
-	*/
 }
 
 <*
     @param [&inout] anim : "animation to push the frame into"
+	@param _audio : "enable audio for video"
 *>
-fn void makeVideoFrame(String video_name, IntroAnimation* anim) @local @if($feature(VIDEO_PLAYBACK_ENABLE))
+fn void makeVideoFrame(String video_name, IntroAnimation* anim, bool _audio = false) @local @if($feature(VIDEO_PLAYBACK_ENABLE))
 {
     int w = game::gpGame.screen.w;
     int h = game::gpGame.screen.h;
@@ -238,9 +232,12 @@ fn void makeVideoFrame(String video_name, IntroAnimation* anim) @local @if($feat
 	if(failed) {
 		// do nothing and go on to the defer code
 	} else {
-		if(frame.movie.preparePlayer()) {
+		$if $defined(video::AUDIO_SEPERATE):
+		if(_audio) frame.movie.track_name = "mood_02.ogg";
+		$endif
+		if(frame.movie.preparePlayer(audio: _audio)) {
 			frame.movie.fullscreen = true;
-			frame.movie.enable();
+            frame.movie.enable();
 			anim.frames.push(frame);
 		} else {
 			log::warning(FILE, "\tFailed to prepare player for frame video '%s' for intro animation!", video_name);
@@ -262,8 +259,9 @@ fn void initAnimation(IntroAnimation* anim) @local
 	// Warning(HM) make sure to create the frames in the order
 	// of the FrmIndex above!!!!
 	makeVideoFrame("epiwarn", anim);
+	//makeVideoFrame("test_credits", anim, _audio: true);
+	makeVideoFrame("hm_logo", anim, _audio: true);
 	makeVideoFrame("ray_intro", anim);
-	makeVideoFrame("hm_logo", anim);
     input::makeKeyboardAction("skipIntro", rl::KEY_ESCAPE);
     input::@makeAction({.name = "skipFrame", .kind = KEYBOARD, .key1 = rl::KEY_SPACE});
 }
@@ -364,6 +362,9 @@ fn void update(IntroAnimation* anim)
 {
 	if(!anim.should_play) return;
 
+    Frame* current_frame @noinit;
+    game::gpGame.mode = GameMode.INTRO;
+
 	int current_time = game::gpGame.time_ms;
 
     // init frames durations has to be done here because it 
@@ -373,16 +374,29 @@ fn void update(IntroAnimation* anim)
         log::info(CONSOLE, "intro-timing-init: %s", current_time);
     }
 
-    //  if animation played to the end or we skipped the intro
-    if(current_time >= anim.full_duration || 
-       input::getAction("skipIntro").fnBecameTriggered() || 
-       anim.current_frame_index >= anim.frames.len()) {
+    if(current_time >= anim.full_duration || input::getAction("skipIntro").fnBecameTriggered()) {
         anim.stop();
         return;
     }
 
-    game::gpGame.mode = GameMode.INTRO;
+    current_frame = anim.frames[anim.current_frame_index];
 
+    // trigger the first frame
+    if(current_time < current_frame.duration && !current_frame.movie.is_playing) 
+    {
+        current_frame.movie.start();
+    }
+
+    // skip frames
+    if(input::getAction("skipFrame").fnBecameTriggered()) {
+        anim.current_frame_index += 1; // go to next frame
+        current_frame = null;
+        if(anim.current_frame_index >= anim.frames.len()) {
+            anim.current_frame_index = 0;
+            anim.stop();
+            return;
+        }
+    }
     
     // if a single frame
     if(anim.frames.len() == 1) {
@@ -391,7 +405,7 @@ fn void update(IntroAnimation* anim)
     }
     else // change frame after a time
     {
-        Frame* current_frame = anim.frames[anim.current_frame_index];
+        if(!current_frame) current_frame = anim.frames[anim.current_frame_index];
 
         switch(current_frame.kind)
         {
@@ -418,10 +432,12 @@ fn void update(IntroAnimation* anim)
 							anim.stop();
         					return;
                         }
+                        // start the next frames
+                        anim.frames[anim.current_frame_index].movie.start();
                     } else {
-                        // decode the current video frames
+                        // update the current video frames and audio if any
                         if(current_frame.movie != null) {
-                            current_frame.movie.decode();
+                            current_frame.movie.update();
                         }
                     }
                 $endif
@@ -439,6 +455,9 @@ fn void drawAnimation(IntroAnimation* anim) @if(!$defined(FADE_FRAMES))
 {
 	if(!anim.should_play) return;
 
+    // draw a full screen black frame to hide the stuff behind it
+    r2d::drawRectangleRec({0,0,game::gpGame.screen.w, game::gpGame.screen.w}, rl::BLACK);
+
     int current_time = game::gpGame.time_ms;
     // current frame
     Frame* frame = anim.frames[anim.current_frame_index];
@@ -452,10 +471,11 @@ fn void drawAnimation(IntroAnimation* anim) @if(!$defined(FADE_FRAMES))
     }
 }
 
-float alpha @local = 0.0f;
-bool should_fade_in @local = false;
-bool should_fade_out @local = false;
+float alpha @local @if($defined(FADE_FRAMES)) = 0.0f;
+bool should_fade_in @local @if($defined(FADE_FRAMES)) = false;
+bool should_fade_out @local @if($defined(FADE_FRAMES)) = false;
 <*
+	@deprecated
     @param [&inout] anim : "animation to play"
     @require anim.frames.len() > 0
 *>
@@ -531,7 +551,7 @@ fn void drawAnimation(IntroAnimation* anim) @if($defined(FADE_FRAMES))
 }
 
 
-
+// unused but saved code
 
 /*fn void drawEpilepsyWarning(int w, int h) @local //@deprecated("use the new mpg video instead")
 {
