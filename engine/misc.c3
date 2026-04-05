@@ -621,7 +621,8 @@ macro String zstringTostring(x) => x.zstr_view();
 macro String zstringTotempstring(x) => string::tformat(x);
 macro String numbToStr(n) => string::new_format("%s", n);
 
-macro bool String.is_empty(self) {
+macro bool String.is_empty(self)
+{
     if (self.len == 0) {
         return true;
     }
@@ -630,7 +631,8 @@ macro bool String.is_empty(self) {
 
 // NOTE(HM) helper-function that returns true if the character c is a directory separator
 //     on the current platform
-macro bool isDirSeparator( c ) {
+macro bool isDirSeparator( c )
+{
     if ( c == '/' ) {
         return true;
     }
@@ -648,7 +650,8 @@ macro bool isDirSeparator( c ) {
     return false;
 }
 
-fn ZString String.cpy_zpeace(self, int start, int len) {
+fn ZString String.cpy_zpeace(self, int start, int len) @MyInline
+{
     int i = self.len;
     if ( i == 0 || len <= 0 || start >= i ) {
         return "";
@@ -680,7 +683,8 @@ const String[*] FILE_EXTENSIONS_ARRAY = {
     ".ogg"
 };
 
-fn String String.stripExtension(self) {
+fn String String.stripExtension(self)
+{
     bool known_extension = false;
     String needle;
     foreach(String ext : FILE_EXTENSIONS_ARRAY) {
@@ -694,12 +698,13 @@ fn String String.stripExtension(self) {
     if(known_extension) {
         return self.strip_end(needle);
     } else {
-        log::warning(Where.FILE,  "Cannot strip extension is unkown: %s.", needle);
+        log::warning(FILE,  "Cannot strip extension %s of string %s is unkown.", needle, self);
         return self; // do nothing
     }
 }
 
-macro String[] cut_by_newline(str) {
+macro String[] cut_by_newline(str) 
+{
     $switch:
         $case env::POSIX:
             return str.tsplit("\r\n");

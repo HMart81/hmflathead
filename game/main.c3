@@ -78,7 +78,7 @@ fn void pre_InitFunc() @init
     // NOTE(HM) This means the MINIMUM level not the only level that will log
     // anything bellow this level will not log
     // WARNING(HM) MAY BE OVERRIDEN LATER BY THE INI FILE SETTING!!!
-    rl::setTraceLogLevel(RLTraceLogLevel.INFO);
+    rl::setTraceLogLevel(RLTraceLogLevel.WARNING);
     
     // ************* My own logging system ****************
     // RLTraceLogLevel means the MINIMUM log level, 

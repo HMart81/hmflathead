@@ -26,10 +26,20 @@
 # 
 *********************************************************************************************************************************************/
 
-// Incomplete :( plays videos just fine but embeded audio in the videos 
-// is mostly broken particularly stereo sound and I don't know why
-// I tried a bunch of things and even saw a bunch of online toturials
-// but nothing helped. For now I will try play audio seperate from videos...
+// Incomplete :( 
+// Plays videos just fine but embeded audio in the videos, 
+// is mostly broken, particularly stereo sound but mono as issues as well just less
+// and I don't know why. I really tried a bunch of things, even going as far as two 
+// create two mono audio streams, one for the right and left channels but didnt worked.
+// I saw online tutorials like this one 
+// https://github.com/WEREMSOFT/c99-raylib-vide-player/blob/master/src/main.c
+// and
+// https://github.com/phoboslab/pl_mpeg/blob/master/pl_mpeg_player_sdl.c
+// did everything they did for audio, nothing worked.
+// Read online about samples versus audio frames and stuff and did all they said but
+// again nothing helped. Perhaps there's a issue with audio streams and lp_mpeg mp2 sound!
+// Right now for my sanity, I will try play audio seperate from videos, because that seems to work,
+// the issue will be to syncronize those with the video...
 module engine::sys::videoplay::vid @private @if($feature(VIDEO_PLAYBACK_ENABLE));
 
 import game::main;
@@ -42,6 +52,16 @@ import thirdparty::raylib5::rl;
 import thirdparty::plmpeg::plm;
 import engine::sys::framework::platform::platf;
 import game::camview;
+import engine::sys::cvar;
+
+// region cvars
+CVar numSpeakers @public = { "numSpeakers", CvarType.INT, "2", "number of speakers for sound playing" };
+
+fn void register_cvars() @public 
+{
+    cvar::@register(&numSpeakers);
+}
+// end_region
 
 const EXTENSION_MPG = ".mpg";
 const EXTENSION_MPEG = ".mpeg";
@@ -61,7 +81,6 @@ const FALSE @local = 0;
 //const AUDIO_EMBEDED = 1; // comment to disable
 const AUDIO_SEPERATE = 1; // uncomment to enable or vice versa
 
-// for now all videos will be assumed to be 30fps (even if they are not...)
 //const VIDEO_FRAME_RATE = 30;
 
 faultdef VIDEO_MISSING_FILE,
@@ -103,13 +122,15 @@ struct VidMovie @public
 
 	// video sound data
 	RLAudioStream audio @if($defined(AUDIO_EMBEDED)); // embeded audio streaming is broken for now :(
+	PLMsamples *samples @if($defined(AUDIO_EMBEDED));
 	// seperate audio system
 	RLMusic audio @if($defined(AUDIO_SEPERATE));
 	String track_name @if($defined(AUDIO_SEPERATE));
+	float track_delay @if($defined(AUDIO_SEPERATE)); // how late to start the track
 }
 
 /*
-// this was causing massive memory leaking....
+// this was causing massive GPU memory leaking....
 <*
 	Render each frame as a GPU texture unto screen
 	@param [&in] _frame : "frame data to render"
@@ -154,18 +175,20 @@ fn void VidMovie.draw(&self, Vec2f position = VEC2_ZERO)
 	}
 }
 
-/*
-fn void VidMovie.drawWithRect(&self, RLRectangle rect)
+fn void VidMovie.drawWithinRect(&self, RLRectangle rect)
 {
 	if(self.is_ready && self.should_play && self.started) {
 		assert(gpGame.render.isWindowReady()!!);
-		// warning this will ignore fullscreen flag
-		renderFrame(&self.frame, rect);
+		RLTexture2D* frame = &self.frame_texture;
+		rl::drawTexturePro(
+			*frame,
+			(RLRectangle){0.0f, 0.0f, (float)(*frame).width, (float)(*frame).height},
+			rect, VEC2_ZERO, 0.0f, rl::WHITE
+		);
 	}
 }
-*/
 
-fn void freeFrameData(VideoFrame* frame, bool clear_all = false) @local 
+fn void freeFrameData(VideoFrame* frame, bool clear_all = false) @local @deprecated 
 {
 	if(!frame.data) return;
 	mem::free(frame.data);
@@ -182,25 +205,25 @@ fn void freeFrameData(VideoFrame* frame, bool clear_all = false) @local
 <*
 	@param [&in] frame : "pointer to the current plm frame to update the video frame"
 *>
-fn void VidMovie.updateFrame(&self, PLMframe *frame)
+fn void VidMovie.updateFrame(&self, PLMframe *frame) @MyInline
 {
 	if(!self.is_ready || !self.should_play || !self.started ) return;
-	
     // converte YUV to required RGB data
     frame.to_rgb(self.frame.data, self.frame_stride);
-
-	// unload previous frame. 
-	// Update(HM) DON'T DO THIS!!! Crash's the game, unloading the image is done in video.clear()
-	/*if (rl::isImageValid(self.frame)) {
-		rl::unloadImage(self.frame);
-	}*/
 	rl::updateTexture(self.frame_texture, self.frame.data);
-
-	//freeFrameData(&self.frame); // free old frame data
-	//self.frame.data = fileData; // point to new frame data
 }
 
+fn void VidMovie.update_video(&self) @MyInline
+{
+	if(!self.is_ready || !self.should_play || !self.started ) return;
 
+	PLMframe *frame = self.plyr.decode_video();
+    // converte YUV to required RGB data
+    frame.to_rgb(self.frame.data, self.frame_stride);
+	rl::updateTexture(self.frame_texture, self.frame.data);
+}
+
+////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////// AUDIO ///////////////////////////////////////////
 constdef VidAudioMode : inline int
 {
@@ -209,22 +232,20 @@ constdef VidAudioMode : inline int
 	STEREO
 }
 
-// NOTE(HM) Each audio frame consists of two samples
-// PLM_AUDIO_SAMPLES_PER_FRAME = 1152 always according to lpmpeg library comment
-// then
-// ch1 = [1152 * 4]
-// ch2 = [1152 * 4]
-// then 
-// 1 frame of audio = [ch1|ch2] - interleaved 
-// or (PLM_AUDIO_SAMPLES_PER_FRAME/samplerate) seconds
-// so total frame size = AUDIO_F32 * PLM_AUDIO_SAMPLES_PER_FRAME * 2 channels
-// so given a 30fps video total audio sample size = (samplerate / 30) * frame size;
+// PLM_AUDIO_SAMPLES_PER_FRAME = 1152 always, according to lpmpeg library comment...
+// 1 frame of audio in seconds = (PLM_AUDIO_SAMPLES_PER_FRAME/samplerate) 
+// so given a 30fps video total audio samples size = (samplerate / 30) * frame size;
+//
 //const BUFFER_SIZE @local = 4096;
-const AUDIO_F32 @local = 32;
-const CHANNEL_SIZE_BYTES = float.sizeof * plm::PLM_AUDIO_SAMPLES_PER_FRAME; // size of 1 channel in bytes
-//const CHANNEL_COUNT = VidAudioMode.MONO; // Using mono works for mono tracks but breaks stereo
-const CHANNEL_COUNT = VidAudioMode.STEREO; // Using Stereo for videos, will break mono and stereo!!!! ;(
-const BUFFER_SIZE   = plm::PLM_AUDIO_SAMPLES_PER_FRAME * CHANNEL_COUNT;
+const AUDIO_F32 @local = 32; // bits
+//const CHANNEL_COUNT  = VidAudioMode.MONO; // Using mono works for mono tracks but breaks stereo
+const CHANNEL_COUNT    = VidAudioMode.STEREO; // Using Stereo for videos, will break mono and stereo!!!! ;(
+// NOTE(HM) Each audio frame consists of one or two samples
+const SAMPLE_SIZE      = float.sizeof; // 4 bytes
+const AUDIO_FRAME_SIZE = SAMPLE_SIZE * CHANNEL_COUNT; // 1 frame in bytes
+//
+// this is the amount of SAMPLES to save on memory per tick
+const BUFFER_SIZE = plm::PLM_AUDIO_SAMPLES_PER_FRAME;
 
 <*
 	@param [&in] samples : "pointer to the current plm audio samples to update the video sound"
@@ -237,7 +258,29 @@ fn void VidMovie.updateAudio(&self, PLMsamples *samples) @MyInline
 		if (rl::isAudioStreamProcessed(self.audio))
 		{
 			//int size = samples.interleaved.len;
-			rl::updateAudioStream(self.audio, &samples.interleaved[0], BUFFER_SIZE);
+			int size = BUFFER_SIZE;
+			rl::updateAudioStream(self.audio, &samples.interleaved[0], size);
+		}
+	$endif
+
+	$if $defined(AUDIO_SEPERATE):
+		if(gpGame.time_sec > self.track_delay) {
+			if(rl::isMusicValid(self.audio)) rl::updateMusicStream(self.audio);
+		}
+	$endif
+}
+
+fn void VidMovie.update_audio(&self) @MyInline
+{
+	if(!self.should_play && !self.started) return;
+
+	$if $defined(AUDIO_EMBEDED):
+		if (rl::isAudioStreamProcessed(self.audio))
+		{
+			self.samples = self.plyr.decode_audio();
+			//int size = samples.interleaved.len;
+			int size = BUFFER_SIZE;
+			rl::updateAudioStream(self.audio, &self.samples.interleaved[0], size);
 		}
 	$endif
 
@@ -252,7 +295,7 @@ fn void VidMovie.enableAudio(&self, bool enable = false) @MyInline
 	assert(rl::isAudioDeviceReady());
 
 	$if $defined(AUDIO_EMBEDED):
-		self.plyr.set_audio_enabled((enable) ? TRUE : FALSE);
+		self.plyr.set_audio_enabled(TRUE);
 		self.plyr.set_audio_stream(0);
 
 		if (self.plyr.get_num_audio_streams() > 0) 
@@ -271,6 +314,7 @@ fn void VidMovie.enableAudio(&self, bool enable = false) @MyInline
 		if(self.track_name) {
 			ZString track_path = game::gpGame.app_base_folder.tconcat("music/").tconcat(self.track_name).zstr_tcopy();
 			self.audio = rl::loadMusicStream(track_path);
+			self.track_delay = 0.0f; //(float)BUFFER_SIZE / self.samplerate;
 		}
 	$endif
 }
@@ -296,6 +340,7 @@ fn void VidMovie.audio_play(&self) @MyInline
 				$endif
 				$if $defined(AUDIO_SEPERATE):
 					rl::playMusicStream(self.audio);
+					self.track_delay = gpGame.time_sec + ((float)BUFFER_SIZE / self.samplerate) * rl::getFrameTime();
 				$endif
 				if(self.paused) self.paused = false;
 			}
@@ -313,6 +358,7 @@ fn void VidMovie.audio_stop(&self) @MyInline
 			$endif
 			$if $defined(AUDIO_SEPERATE):
 				rl::stopMusicStream(self.audio);
+				self.track_delay = 0.0f;//(float)BUFFER_SIZE / self.samplerate;
 			$endif
 			// right now to simplify things 
 			// you cannot pause the audio seperatly from the video itself
@@ -465,6 +511,8 @@ fn void VidMovie.update(&self)
 	if(!self.plyr.has_ended()) {
 		// decode both video and audio samples
 		self.plyr.decode(elapsed_time);
+		//if(self.plyr.get_time() < (current_time + elapsed_time)) self.update_video();
+		//self.update_audio();
 		$if $defined(DEBUG_VIDEO):
 		self.frame_count++;
 		$endif
@@ -724,6 +772,6 @@ fn void on_video(VideoPlayer* mpeg, PLMframe *frame, void *user)
 *>
 fn void on_audio(VideoPlayer* mpeg, PLMsamples *samples, void *user) 
 {
-	VidMovie *video = (VidMovie *)user;
+	var video @safeinfer = (VidMovie *)user;
 	video.updateAudio(samples);
 }

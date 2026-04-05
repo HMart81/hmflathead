@@ -214,7 +214,7 @@ fn void makeColorFrame(RLColor _color, IntroAnimation* anim) @local
     @param [&inout] anim : "animation to push the frame into"
 	@param _audio : "enable audio for video"
 *>
-fn void makeVideoFrame(String video_name, IntroAnimation* anim, bool _audio = false) @local @if($feature(VIDEO_PLAYBACK_ENABLE))
+fn void makeVideoFrame(String video_name, IntroAnimation* anim, bool _audio = false, String audio_name = "") @local @if($feature(VIDEO_PLAYBACK_ENABLE))
 {
     int w = game::gpGame.screen.w;
     int h = game::gpGame.screen.h;
@@ -232,8 +232,8 @@ fn void makeVideoFrame(String video_name, IntroAnimation* anim, bool _audio = fa
 	if(failed) {
 		// do nothing and go on to the defer code
 	} else {
-		$if $defined(video::AUDIO_SEPERATE):
-		if(_audio) frame.movie.track_name = "mood_02.ogg";
+		$if $defined(vid::AUDIO_SEPERATE):
+		if(_audio) frame.movie.track_name = (audio_name) ? audio_name : "default.mp3";
 		$endif
 		if(frame.movie.preparePlayer(audio: _audio)) {
 			frame.movie.fullscreen = true;
@@ -254,13 +254,15 @@ constdef FrmIndex : inline int
 	HM_LOGO
 }
 
+// Warning(HM) make sure to create the frames in the order
+// of the FrmIndex above!!!!
+// Also audio for videos is broken so don't use it. :(
 fn void initAnimation(IntroAnimation* anim) @local
 {
-	// Warning(HM) make sure to create the frames in the order
-	// of the FrmIndex above!!!!
 	makeVideoFrame("epiwarn", anim);
 	//makeVideoFrame("test_credits", anim, _audio: true);
-	makeVideoFrame("hm_logo", anim, _audio: true);
+	//makeVideoFrame("hm_logo", anim, _audio: true, audio_name: "hm_logo_audio.ogg");
+	makeVideoFrame("hm_logo", anim);
 	makeVideoFrame("ray_intro", anim);
     input::makeKeyboardAction("skipIntro", rl::KEY_ESCAPE);
     input::@makeAction({.name = "skipFrame", .kind = KEYBOARD, .key1 = rl::KEY_SPACE});

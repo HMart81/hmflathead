@@ -287,8 +287,9 @@ fn void register_cvars() @local
 }
 
 fn void register_modulo_cvars() @local {
-    register_cvars(); // main
+    register_cvars(); // game module cvars
     gui::register_cvars();
+	vid::register_cvars();
     intro::register_cvars();
     log::register_cvars();
     ent::register_cvars();
@@ -2321,23 +2322,6 @@ $endif
             }
         }
     }
-
-    // test writting to the register
-    $if $defined(env::WIN32):
-    {
-        // NOTE(HM) this is only for windows, to test if we can write to the registry
-        // and if the user has permissions to do so.
-        String reg_key   = "Software\\HMartSoftware\\unnnamed\\settings\\";
-        String reg_value = "TestValue";
-        String reg_data  = "TestData";
-        
-        if(!win32::writeRegistryValue(reg_key, reg_value, reg_data)) {
-            log::warning(FILE, "Failed to write to registry key: %s", reg_key);
-            //return REGISTRY_WRITE_FAILED~;
-        }
-    }
-    $endif // $if $defined(env::WIN32)
-
     log::info(FILE, "---------------------------------------------\n");
 // #endregion
 
@@ -2408,6 +2392,53 @@ $endif
 
     log::info(FILE, "Settings file loaded: %s", ini_file_path);
     log::info(FILE, "---------------------------------------------\n");
+
+    // test writting to the register
+    $if $defined(env::WIN32):
+    {
+        //log::info(FILE, "Saving registry data:");
+        // NOTE(HM) this is only for windows, to test if we can write to the registry
+        // and if the user has permissions to do so.
+		/*String path;
+		if(win32::getRegistryPath(win32::HKEY_LOCAL_MACHINE, "SOFTWARE\\GitForWindows", "InstallPath", &path)) {
+			log::warning(FILE, "Found path from registry: %s", path);
+		}*/
+		Win32_HKEY? currentUserKey = win32::regOpenCurrentUser(win32::KEY_WRITE | win32::KEY_WOW64_64KEY);
+		if(catch excuse = currentUserKey) {
+			log::warning(FILE, "Unable to open current user key from registry, see if you have required elevated permissions. : excuse > %s", excuse);
+		} else {
+    	    defer win32::regCloseKey(currentUserKey);
+			String sub_key = "Software";
+			Win32_HKEY? root = win32::regOpenKey(currentUserKey, sub_key, win32::KEY_WRITE);
+			if( catch excuse2 = root) {
+				log::warning(FILE, "Failed to open key \"%s\" inside registry 'HKEY_CURRENT_USER' with: excuse > %s", sub_key, excuse2);
+			} else {
+			    defer win32::regCloseKey(root);
+				String reg_key   = "HMartSoftware\\unnnamed\\settings\\";
+				Win32_DWORD sam = win32::KEY_WRITE | win32::KEY_WOW64_64KEY;
+				Win32_HKEY folder_key;
+				bool? rs = win32::regCreateKey(root, reg_key, 0, sam, &folder_key);
+				if(catch excuse3 = rs) {
+					log::warning(FILE, "Failed to create key \"%s\" inside registry 'HKEY_CURRENT_USER/Software' key with: excuse > %s", reg_key, excuse3);
+				} else {
+    			    defer win32::regCloseKey(folder_key);
+                    //log::info(FILE, "Saving required registry data to: \"HKEY_CURRENT_USER\\Software\\HMartSoftware\\unnnamed\\settings\"");
+					// now save values into the path
+                    ;
+                    if(!win32::regSetValue(folder_key, "baseDir", any_make(&local_game.app_base_folder, String.typeid))) {
+                        log::warning(FILE, "failed to write baseDir path to registry.");
+                    }
+                    if(!win32::regSetValue(folder_key, "saveDir", any_make(&local_game.app_save_folder, String.typeid))) {
+                        log::warning(FILE, "failed to write saveDir path to registry.");
+                    }
+				}
+			}
+		}
+    }
+    //log::info(FILE, "Done.")
+    //log::info(FILE, "---------------------------------------------\n")
+    $endif // $if $defined(env::WIN32)
+
 // #endregion Ini file handling
 
     // set game language
@@ -2415,6 +2446,10 @@ $endif
     {
         local_game.langdict.type = settings_file.getString("language");
         assert(local_game.langdict.type != "");
+        $if $defined(env::WIN32):
+            Win32_HKEY k = win32::getGameRegSettingsPath()!;
+            @catch(k.setValue("language", &local_game.langdict.type, String.typeid, close_key: true));
+        $endif
         Path? langs_path = path::temp(local_game.app_base_folder.tconcat("langs\\local.lang"))!;
         if(try local_game.langdict.load(langs_path.str_view())) {
             log::info(FILE, "languages data file loaded sucessfully.\n\t-> %s", langs_path!);
@@ -2529,6 +2564,11 @@ $endif
     }
     
     log::info(FILE,  "Video mode set -> %s", SCREEN_RES[res_index].str);
+
+    $if $defined(env::WIN32):
+        Win32_HKEY k = win32::getGameRegSettingsPath()!;
+        @catch(k.setValue("video_mode", &SCREEN_RES[res_index].str, String.typeid, close_key: true));
+    $endif
 
     log::info(FILE, "---------------------------------------------\n");
     log::info(FILE, "Window settings:");
