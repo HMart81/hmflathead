@@ -179,7 +179,7 @@ fn void Panel.save(&self, SaveFile* file) @dynamic
     svs::writeString(file, self.name);
 	svs::write(file, (void*)&self.flags, PanelFlags.sizeof);
     svs::writeInt(file, self.shape);
-    svs::writeRect(file, self.rect);
+    svs::writeRect{RLRectangle}(file, self.rect);
     svs::writeColor(file, self.color);
     svs::writeColor(file, self.color_selected);
     // cannot save pointers so just save the material name
@@ -196,7 +196,7 @@ fn void Panel.reload(&self, SaveFile* file) @dynamic
 	svs::read(file, (void*)&self.flags, PanelFlags.sizeof);
     svs::readInt(file, &value);
     self.shape = (PanelShape)value;
-    svs::readRect(file, &self.rect);
+    svs::readRect{RLRectangle}(file, &self.rect);
     svs::readColor(file, &self.color);
     svs::readColor(file, &self.color_selected);
     String mat_name;

@@ -38,10 +38,12 @@ import std::collections::list;
 
 // region custom modules
 import game::main;
+import game;
 import thirdparty::raylib5::rl;
 import engine::misc;
 import engine::assets_api::astmng; // asset manager
 import engine::logging::log;
+import engine::sys::render2d::r2d;
 import engine::filesystem::fs; // for file system
 // end_region
 
@@ -308,12 +310,25 @@ fn void	writeTexture2D(SaveFile* savefile, RLTexture2D* tex) {
  @param rect : "the data to save"
  @require savefile != null
 *>
-fn void	writeRect(SaveFile* savefile, RLRectangle rect) {
+fn void	writeRect(SaveFile* savefile, Type rect) <Type>
+{
     writeFloat(savefile, rect.x);
     writeFloat(savefile, rect.y);
     writeFloat(savefile, rect.width);
     writeFloat(savefile, rect.height);
 }
+
+/*
+<*
+ @param [inout] savefile : "the file to write the data to"
+ @param rect : "the data to save"
+ @require savefile != null
+*>
+fn void	writeHMRect(SaveFile* savefile, HMRect rect) @if(game::UNITS == METER)
+{
+    writeRect(savefile, *(RLRectangle*)(&rect));
+}
+*/
 
 <*
  @param [inout] savefile : "the file to write the data to"
@@ -495,7 +510,8 @@ fn void readTexture2D(SaveFile* file, RLTexture2D* tex ) { @todo(); }
  @param [inout] rect : "the adress to place the data into"
  @require savefile != null && rect != null
 *>
-fn void	readRect(SaveFile* savefile, RLRectangle* rect) {
+fn void	readRect(SaveFile* savefile, Type* rect) <Type>
+{
     readFloat(savefile, &rect.x);
     readFloat(savefile, &rect.y);
     readFloat(savefile, &rect.width);

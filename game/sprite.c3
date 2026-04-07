@@ -99,7 +99,7 @@ struct HMSprite (SaveSystemInterface)
     SpriteFlags flags;
 
     //
-    RLRectangle rect; // position and size of the sprite, screen pixel coordinates and meters scale respectively.
+    RLRectangle rect; // position and size of the sprite, pixels scale respectively.
     Bounds bounds; // should be equivalent to the rectangle size
     RLColor color;  // only used when a material is not defined.
 
@@ -113,7 +113,7 @@ fn void HMSprite.save(&self, SaveFile* file) @dynamic
 {
     svs::writeTypeid(file, self.type);
     svs::writeInt(file, (int)self.kind);
-    svs::writeRect(file, self.rect);
+    svs::writeRect{RLRectangle}(file, self.rect);
     svs::writeColor(file, self.color);
     // cannot save pointers so just save the material name
     svs::writeString(file, (self.mat != null) ? self.mat.name : "");
@@ -125,7 +125,7 @@ fn void HMSprite.reload(&self, SaveFile* file) @dynamic
     int kind;
     svs::readInt(file, &kind);
     self.kind = (SpriteKind)kind;//SpriteKind.from_ordinal(kind);
-    svs::readRect(file, &self.rect);
+    svs::readRect{RLRectangle}(file, &self.rect);
     svs::readColor(file, &self.color);
     String mat_name;
     svs::readString(file, &mat_name);

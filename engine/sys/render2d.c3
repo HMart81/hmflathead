@@ -34,9 +34,59 @@ import std::io;
 import engine::misc;
 import engine::filesystem::fs;
 import engine::logging::log;
+import game;
 import game::assets::sprt;
 import game::main;
 import thirdparty::raylib5::rl;
+
+alias HMRect @if(game::UNITS == PIXEL) = RLRectangle;
+union HMRect @if(game::UNITS == METER)
+{
+    struct {
+        float x;  // position x
+        float y;  // position y
+        union {
+			float width;
+			float w;
+		}
+		union {
+        	float height;
+			float h;
+		}
+    }
+    struct {
+        Vec2f pos;
+        Vec2f size;
+    }
+}
+
+fn RLRectangle HMRect.toPixelsRect(&self) @MyInline
+{
+    $if game::UNITS == PIXEL:
+        return *self;
+    $else
+        return {
+            .x = (float)misc::metersToPixels(self.x),
+            .y = (float)misc::metersToPixels(self.y),
+            .w = (float)misc::metersToPixels(self.w),
+            .h = (float)misc::metersToPixels(self.h)
+        };
+    $endif
+}
+
+fn HMRect RLRectangle.toMetersRect(&self) @MyInline
+{
+    $if game::UNITS == PIXEL:
+        return *self;
+    $else
+        return {
+            .x = misc::pixelsToMeters((uint)self.x),
+            .y = misc::pixelsToMeters((uint)self.y),
+            .w = misc::pixelsToMeters((uint)self.w),
+            .h = misc::pixelsToMeters((uint)self.h)
+        };
+    $endif
+}
 
 /*
 struct Render2D
@@ -178,7 +228,22 @@ fn void drawRectangleV(RLVector2 position, RLVector2 size, RLColor color) @inlin
 // Draw a color-filled rectangle
 fn void drawRectangleRec(RLRectangle rec, RLColor color) @inline 
 {
-    rl::drawRectangleRec(rec, color);
+	switch(game::UNITS)
+	{
+        // todo change all RLRectangle here to a meters based HMRect
+        // and just convert to pixels when dealing with Raylib
+		/*case METER:
+			RLRectangle nrec = {
+				.x = misc::metersToPixels(rec.x),
+				.y = misc::metersToPixels(rec.y),
+				.w = misc::metersToPixels(rec.w),
+				.h = misc::metersToPixels(rec.h)
+			};
+			rl::drawRectangleRec(nrec, color);
+		case PIXEL:*/
+		default:
+    		rl::drawRectangleRec(rec, color);
+	}
 }
 
 macro void @drawRect(#rect, color) => drawRectangleRec(#rect, color);

@@ -80,7 +80,7 @@ fn void setAllocator( B2AllocCallback* allocFcn, B2FreeCallback* freeFcn ) @cnam
 fn int  getByteCount() @cname("b2GetByteCount");
 fn void setAssertFcn( B2AssertCallback* assertFcn ) @cname("b2SetAssertFcn");
  
-struct B2Version @compact
+struct B2Version
 {
     int major;
     int minor;
@@ -366,7 +366,6 @@ struct B2QueryFilter @compact
 {
 	/// The collision category bits of this query. Normally you would just set one bit.
 	uint categoryBits;
-
 	/// The collision mask bits. This states the shape categories that this
 	/// query would accept for collision.
 	uint maskBits;
@@ -375,20 +374,16 @@ struct B2QueryFilter @compact
 /// Use this to initialize your query filter
 fn B2QueryFilter defaultQueryFilter() @cname("b2DefaultQueryFilter");
  
-enum B2ShapeType : int
+constdef B2ShapeType : inline int
 {
 	/// A circle with an offset
-	CIRCLE,
-
+	CIRCLE = 0,
 	/// A capsule is an extruded circle
 	CAPSULE,
-
 	/// A line segment
 	SEGMENT,
-
 	/// A convex polygon
 	POLYGON,
-
 	/// A smooth segment owned by a chain shape
 	SMOOTH_SEGMENT
 }
@@ -501,9 +496,9 @@ struct B2Counters @compact
     int[12] colorCounts;
 }
  
-enum B2JointType : int
+constdef B2JointType : inline int
 {
-    DISTANCE,
+    DISTANCE = 0,
     MOTOR,
     MOUSE,
     PRISMATIC,
@@ -1271,9 +1266,9 @@ struct B2TOIInput
     float tMax;             
 }
 
-enum B2TOIState : int
+constdef B2TOIState : inline int
 {
-    UNKNOWN,
+    UNKNOWN = 0,
     FAILED,
     OVERLAPPED,
     HIT,
@@ -1407,7 +1402,7 @@ fn int dynamicTree_GetByteCount( B2DynamicTree* tree ) @cname("b2DynamicTree_Get
 // for now try to use Raylib or C3 math functions
 // region MATH
 
-alias B2Vec2 = float[<2>];
+alias B2Vec2 = Vec2f; //float[<2>];
 
 struct B2CosSin //@packed @align(4)
 {
@@ -1428,7 +1423,7 @@ struct B2Transform //@packed @align(16) @compact
 	B2Rot q;
 }
 
-struct B2Mat22 //@compact
+struct B2Mat22
 {
     B2Vec2 cx, cy;
 }
@@ -1441,8 +1436,8 @@ struct B2AABBox
 
 const B2Vec2 VEC2_ZERO    = { 0.0f, 0.0f };
 const B2Rot  ROT_IDENTITY = { 1.0f, 0.0f };
-const B2Transform TRANSFORM_IDENTITY = { { 0.0f, 0.0f }, { 1.0f, 0.0f } };
-const B2Mat22 MAT22_ZERO  = { { 0.0f, 0.0f }, { 0.0f, 0.0f } };
+const B2Transform TRANSFORM_IDENTITY = { VEC2_ZERO, { 1.0f, 0.0f } };
+const B2Mat22 MAT22_ZERO  = { VEC2_ZERO, VEC2_ZERO };
 
 
 // Compute an approximate arctangent in the range [-pi, pi] This is hand coded for cross platform determinism.

@@ -130,8 +130,14 @@ union RLRectangle
     struct {
         float x;                // RLRectangle top-left corner position x
         float y;                // RLRectangle top-left corner position y
-        float width;            // RLRectangle width
-        float height;           // RLRectangle height
+        union {
+			float width;            // RLRectangle width
+			float w;
+		}
+		union {
+        	float height;           // RLRectangle height
+			float h;
+		}
     }
     struct {
         RLVector2 pos;
@@ -880,7 +886,7 @@ fn void setWindowMinSize(CInt width, CInt height) @cname("SetWindowMinSize");   
 fn void setWindowMaxSize(CInt width, CInt height) @cname("SetWindowMaxSize");               // Set window maximum dimensions (for FLAG_WINDOW_RESIZABLE)
 fn void setWindowSize(CInt width, CInt height) @cname("SetWindowSize");                     // Set window dimensions
 fn void setWindowOpacity(float opacity) @cname("SetWindowOpacity");                       // Set window opacity [0.0f..1.0f] (only PLATFORM_DESKTOP)
-fn void* getWindowHandle() @cname("GetWindowHandle");                                     // Get native window handle
+fn void* getWindowHandle() @cname("GetWindowHandle");   // Get native window handle
 fn CInt getScreenWidth() @cname("GetScreenWidth");                                         // Get current screen width
 fn CInt getScreenHeight() @cname("GetScreenHeight");                                       // Get current screen height
 fn CInt getRenderWidth() @cname("GetRenderWidth");                                         // Get current render width (it considers HiDPI)
@@ -980,8 +986,16 @@ fn RLMatrix getCameraMatrix2D(RLCamera2D camera) @cname("GetCameraMatrix2D");   
 // Timing-related functions
 fn void setTargetFPS(CInt fps) @cname("SetTargetFPS");                                     // Set target FPS (maximum)
 fn CInt getFPS() @cname("GetFPS");                                                          // Get current FPS
-fn float getFrameTime() @cname("GetFrameTime");                                           // Get time in seconds for last frame drawn (delta time)
-fn double getTime() @cname("GetTime");                                                     // Get elapsed time in seconds since InitWindow()
+<*
+	Get time in seconds for last frame drawn (delta time)
+	@require rl::isWindowReady() == true
+*>
+fn float getFrameTime() @cname("GetFrameTime");
+<*
+	Get elapsed time in seconds since InitWindow()
+	@require rl::isWindowReady() == true
+*>
+fn double getTime() @cname("GetTime");
 
 // Custom frame control functions
 // NOTE: Those functions are intended for advance users that want full control over the frame processing

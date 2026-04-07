@@ -51,6 +51,7 @@ import game::actors::ent::plyr; // player
 import engine::filesystem::fs;
 import thirdparty::raylib5::rl;
 import thirdparty::raygui5::rgui;
+import engine::sys::render2d::r2d;
 import thirdparty::raylib5::rmath;
 import game::serialize::svs; // save system
 import game::lowlevel::bounds;
@@ -155,6 +156,10 @@ const Matrix3f VIEW_AXIS_IDENTITY = {
 alias gameptr = game::gpGame;
 
 const int ENABLE_CAMERA_VIEW = 1;
+
+// NOTE(HM) top left corner of screen.
+// (this is contrary to OpenGL that is lower left corner)
+const Vec2f RAYLIB_WORLD_CENTER = {0, 0}; 
 
 typedef RenderTexture @private = inline RLRenderTexture2D;
 alias RenderFunctionCallback = fn void(RenderView* view);
@@ -291,7 +296,8 @@ $endif
 
     // view bounds
 	// calculate top left coorner of the bbox square
-    Vec2f bb_maxc = self.origin + misc::VEC_UP * (float)(self.h / 2) + misc::VEC_LEFT * (float)(self.w / 2);
+    // this is in pixels
+    Vec2f bb_maxc = RAYLIB_WORLD_CENTER; //self.origin + misc::VEC_UP * (float)(self.h / 2) + misc::VEC_LEFT * (float)(self.w / 2);
 	Vec2f bb_minc = {self.w, self.h};
     self.bounds.setRect(misc::makeRect(bb_maxc, bb_minc));
     
@@ -723,6 +729,11 @@ fn void RenderView.drawWorldSpaceCoords(&self) @if($feature(_DEBUG))
 fn void RenderView.drawCameraSpaceCoords(&self) @if($defined(ENABLE_CAMERA_VIEW) && $feature(_DEBUG))
 {
     self.showModelViewAxis();
+
+	// show MINIMUM_SIZE_IN_PIXELS
+	int sz = misc::MINIMUM_SIZE_IN_PIXELS;
+	r2d::@drawRect({500, 100, sz, sz}, rl::PURPLE);
+    rl::drawText("MINIMUM_SIZE_IN_PIXELS", 500, 110, 10, rl::DARKGRAY);
     
     RLColor g = {0, 255, 0, 100};
     RLColor r = {255, 0, 0, 100};

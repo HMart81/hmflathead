@@ -218,6 +218,7 @@ $endif
     log::info(FILE, "---------------------------------------------\n");
 }
 
+// This limits exist because of box2d physics engine
 const MINIMUM_SIZE_IN_METERS = 0.10f; // 10 cm
 const MINIMUM_SIZE_IN_PIXELS = 10; // 10 pixels
 
@@ -261,10 +262,9 @@ macro @metersToPixels($meters)
     it will return the minimum size in meters.
     @param pixels : `the number of pixels to convert`
     @param minimum_size : `the minimum size in meters to return`
-    @require pixels >= 0
     @ensure return >= minimum_size
 *>
-fn float pixelsToMeters(int pixels, float minimum_size = MINIMUM_SIZE_IN_METERS) @inline {
+fn float pixelsToMeters(uint pixels, float minimum_size = MINIMUM_SIZE_IN_METERS) @inline {
     if(pixels <= MINIMUM_SIZE_IN_PIXELS) return minimum_size;
     
     float m = math::abs((float)(pixels / game::DEFAULT_PIXELS_PER_METER));

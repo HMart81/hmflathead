@@ -34,10 +34,6 @@ import engine::sys::render2d::r2d;
 import engine::misc;
 import game::camview;
 
-//fn RLColor hexToColor( int c, float alpha = 1.0f ) @local
-//{
-	//return { (char)(( c >> 16 ) & 0xFF), (char)( ( c >> 8 ) & 0xFF ), (char)( c & 0xFF ), (char)( 0xFF * alpha ) };
-//}
 
 fn RLColor hexToColor(B2HexColor hexValue) @local
 {

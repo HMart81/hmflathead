@@ -108,15 +108,15 @@ constdef Units : inline int @public
 }
 const UNITS @public = Units.METER; // default units are meters
 
-const DEFAULT_UNITS_PER_METER @public @Hardcode  = 1.0f;
-const DEFAULT_PIXELS_PER_METER @public @Hardcode = 100.0f; // 100 pixels per meter
-const DEFAULT_UNITS_PER_PIXEL @public @Hardcode  = DEFAULT_UNITS_PER_METER / DEFAULT_PIXELS_PER_METER; // 0.01 units per pixel
+const float DEFAULT_UNITS_PER_METER @public @Hardcode  = 1.0f;
+const float DEFAULT_PIXELS_PER_METER @public @Hardcode = 100.0f; // 100 pixels per meter
+const float DEFAULT_UNITS_PER_PIXEL @public @Hardcode  = DEFAULT_UNITS_PER_METER / DEFAULT_PIXELS_PER_METER; // 0.01 units per pixel
 
-const String MOUSE_IMAGE_NAME @Hardcode = "pointer.png";
+const String MOUSE_IMAGE_NAME       @Hardcode = "pointer.png";
 const String MOUSE_POINTER_MAT_NAME @Hardcode = "gui/pointer"; // game assets folder
-const GAME_CURSOR_SCALER               @Hardcode = 0.025f;
+const GAME_CURSOR_SCALER            @Hardcode = 0.025f;
 
-const int MAX_ENTITY_COUNT     @public @Hardcode = 1 << 12; //int.max;
+const int MAX_ENTITY_COUNT @public @Hardcode = 1 << 12; //int.max;
 
 const MIN_DISPLAY_HZ_FACTOR @Hardcode = 0.13f; // if the display hz is bellow this factor of the monitor hz, we set it to the minimum
 const MIN_DISPLAY_HZ  @Hardcode = 15;   // minimum display hz
@@ -217,12 +217,11 @@ const int DEFAULT_FONT_SIZE @Hardcode @public = 10;
 const int BIG_FONT_SIZE     @Hardcode @public = 14;
 const int DEFAULT_FONT_TEXT_LINE_SPACING @Hardcode @public = 5;
 
-const PHYS_DEFAULT_SUBSTEPS        = 4;
-const PHYS_DEFAULT_TIMESTEP        = 1.0f / 60.0f; // 60fps @Hardcode
+const PHYS_DEFAULT_SUBSTEPS     = 4;
+const PHYS_DEFAULT_TIMESTEP     = 1.0f / 60.0f; // 60fps @Hardcode
 // world/game gravity info (still not used for anything...)
-const B2Vec2 GRAVITY_VEC           = {0.0f, -10.0f};
-const float GRAVITY_VALUE          = 9.80665f; // meters/sec2
-const Vec2f DEFAULT_WORLD_CENTER   = {0, 0}; // top left coorner of screen (this is contrary to OpenGL that is lower left corner)
+const B2Vec2 GRAVITY_VEC        = {0.0f, -10.0f};
+const float GRAVITY_VALUE       = 9.80665f; // meters/sec2
 //
 
 // Game Info
@@ -2603,13 +2602,23 @@ $endif
         case 1:
             bkend::setWindowFlag(&window_flags, rl::FLAG_FULLSCREEN_MODE);
             local_game.screen.state.fullscreen = true;
+			log::info(FILE, "Game window set to Real/Dedicated Fullscreen mode.");
         case 2:
             bkend::setWindowFlag(&window_flags, rl::FLAG_BORDERLESS_WINDOWED_MODE /*| rl::FLAG_WINDOW_TOPMOST*/);
             local_game.screen.state.borderless = true;
+			log::info(FILE, "Game window set to Borderless fullscreen mode.");
         default: // fullscreen_choice -1 or 0
             local_game.screen.state.window = true;
     }
     
+	// if this ever happens something is very wrong...
+	if(!local_game.screen.state.fullscreen &&
+	   !local_game.screen.state.borderless &&
+	   !local_game.screen.state.window)
+	{
+		unreachable("Game window in unknown state, this should never happen!");
+	}
+
     // DOC(HM) 
     // Multi-sampling AA (ONLY 0 or 4x is supported by Raylib, there's no inbetween)
     if(local_game.screen.state.fullscreen) 
@@ -2656,24 +2665,6 @@ $endif
         )!;
 
         log::info(FILE, "Window initialized successfully.");
-
-        if(local_game.screen.state.fullscreen == true)
-        {
-            log::info(FILE,  "Game window set to Real/Dedicated Fullscreen mode.");
-        }
-        else if(local_game.screen.state.borderless == true)
-        {
-            log::info(FILE,  "Game window set to Borderless fullscreen mode.");
-        }
-        else if(local_game.screen.state.window == true)
-        {
-            log::info(FILE,  "Game window set to Windowed mode.");
-        }
-        else
-        {
-            unreachable("Game window is not set to any known state, this should never happen!");
-            //return WINDOW_INIT_FAILED~;
-        }
     $else
         ZString window_name = string::tformat_zstr("%s version: (%s, %s, %s)", local_game.app_name.zstr_tcopy(), lic::MAX_VERSION, lic::MIN_VERSION, lic::BABY_VERSION);
         //============================== //
@@ -2686,26 +2677,14 @@ $endif
             return WINDOW_INIT_FAILED~;
         } else {
             log::info(FILE, "Window initialized successfully.");
-
-            if(local_game.screen.state.fullscreen == true)
-            {
-                log::info(FILE,  "Game window set to Real/Dedicated Fullscreen mode.");
-            }
-            else if(local_game.screen.state.borderless == true)
-            {
-                log::info(FILE,  "Game window set to Borderless fullscreen mode.");
-            }
-            else if(local_game.screen.state.window == true)
-            {
-                log::info(FILE,  "Game window set to Windowed mode.");
-            }
-            else
-            {
-                unreachable("Game window is not set to any known state, this should never happen!");
-                //return WINDOW_INIT_FAILED~;
-            }
         }
     $endif
+
+	// NOTE(HM) Gameplay timing, is started since initWindow above;
+    local_game.dt       = rl::getFrameTime(); // last frame time (delta time)
+	local_game.time_sec = (float)rl::getTime();
+    local_game.time_ms  = misc::@sec2ms(local_game.time_sec);
+	// end timing initialization
 
     local_game.screen.width_in_meters = misc::pixelsToMeters(screenWidth);
     local_game.screen.height_in_meters = misc::pixelsToMeters(screenHeight);
@@ -2725,9 +2704,6 @@ $if env::WIN32:
 	win32::setThreadAffinityMask(win32::getCurrentThread(), 1);
 $endif
 
-    // NOTE(HM) Gameplay timing, is always counted since initWindow above;
-    local_game.time_sec = (float)rl::getTime();
-    local_game.time_ms  = misc::@sec2ms(local_game.time_sec);
     log::info(FILE, "---------------------------------------------\n");
 
     // init raygui dark style (needs to be done after raylib window is initialized)
@@ -2871,16 +2847,16 @@ $endif
     local_game.view.init(screenWidth, screenHeight);
     log::info(FILE, "---------------------------------------------\n");
 
-//$if $feature(_DEBUG):
+$if $feature(_DEBUG):
     // TODO(HM) On release version quit should only be done from main menu (or alt+f4...).
     // NOTE(HM) This needs to run after initWindow,
-    //          it changes the default exit key (default was ESC key)
+    // it changes the default exit key (default was ESC key)
     //rl::setExitKey(rl::KEY_F10);
-    String key_name = settings_file.getString("quit", "KEY_ESCAPE");
+    String key_name = settings_file.getString("quit", default_value: "KEY_ESCAPE");
     rl::setExitKey(input::getKeyCodeFromStr(key_name));
     log::info(FILE, "Exit key set to: %s", key_name);
     log::info(FILE, "---------------------------------------------\n");
-//$endif
+$endif
 
 // #endregion Window initialization
 
@@ -2891,8 +2867,8 @@ $endif
     B2Version version = box2d::getVersion();
     log::info(FILE, "\tBox2D version: \"%d.%d.%d\"", version.major, version.minor, version.revision);
     
-    // NOTE(HM) This needs to be done before any box2d function requiring units is used!!!
-	box2d::setLengthUnitsPerMeter(DEFAULT_PIXELS_PER_METER);
+    // NOTE(HM) This needs to be done before any box2d function that requiring units to be used!!!
+	box2d::setLengthUnitsPerMeter(DEFAULT_UNITS_PER_METER);
     
     // physics quality and performance options
     local_game.phys_time_step     = PHYS_DEFAULT_TIMESTEP;
@@ -2904,7 +2880,7 @@ $endif
     B2WorldDef physWorld   = box2d::defaultWorldDef();
     //physWorld.gravity      = GRAVITY_VEC;
     // NOTE(HM) Realistic gravity is achieved by multiplying gravity by the length unit.
-	physWorld.gravity[1]    = GRAVITY_VALUE * DEFAULT_PIXELS_PER_METER;
+	physWorld.gravity.y    = GRAVITY_VALUE * DEFAULT_UNITS_PER_METER;
     //
 	local_game.physWorldId = box2d::createWorld(&physWorld);
     if(local_game.physWorldId.isValid()) {
@@ -2916,13 +2892,15 @@ $endif
     
     // create a static ground entity
     B2BodyDef  grd_bodydef = box2d::defaultBodyDef();
-    int screen_half_x      = (int)0.5f * local_game.screen.w;
-    Vec2f pos              = DEFAULT_WORLD_CENTER + misc::VEC_RIGHT * screen_half_x;
+    int screen_half_x      = (int)(local_game.screen.center.x / 2.0f);
+    Vec2f pos              = local_game.screen.center + misc::VEC_RIGHT * screen_half_x;
     pos                   += misc::VEC_DOWN * (0.75f* local_game.screen.h);
-    grd_bodydef.position   = (B2Vec2)pos;//.toVector2();
+    grd_bodydef.position   = pos;
     local_game.phys_grd_bodyid  = box2d::createBody(local_game.physWorldId, &grd_bodydef);
     //
-    local_game.phys_grd_box     = box2d::makeBox(20.0f, 10.0f);
+	// 3 meter lenght by 1 meter high box
+	// 1.5 and 0.5 are used because makeBox requires half units
+    local_game.phys_grd_box     = box2d::makeBox(1.5f, 0.5f);
     B2ShapeDef  grd_shpdef      = box2d::defaultShapeDef();
     box2d::createPolygonShape(local_game.phys_grd_bodyid, &grd_shpdef, &local_game.phys_grd_box);
     
@@ -3632,7 +3610,7 @@ fn void doOneFrame()
                         if(local_game.should_quit) break;
                         
                         // update game timing
-                        local_game.dt       = rl::getFrameTime(); // last frame time
+                        local_game.dt       = rl::getFrameTime(); // last frame time (delta time)
                         local_game.time_sec = (float)rl::getTime();
                         local_game.time_ms  = misc::@sec2ms(local_game.time_sec);
 
