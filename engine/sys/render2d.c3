@@ -28,6 +28,8 @@
 
 // Add fields and methods for 2D rendering
 // For example, you might have a method to draw a rectangle or a sprite
+// todo support diferent backends, right now
+// this is totally dependent on raylib
 module engine::sys::render2d::r2d;
 
 import std::io;
@@ -38,74 +40,6 @@ import game;
 import game::assets::sprt;
 import game::main;
 import thirdparty::raylib5::rl;
-
-alias HMRect @if(game::UNITS == PIXEL) = RLRectangle;
-union HMRect @if(game::UNITS == METER)
-{
-    struct {
-        float x;  // position x
-        float y;  // position y
-        union {
-			float width;
-			float w;
-		}
-		union {
-        	float height;
-			float h;
-		}
-    }
-    struct {
-        Vec2f pos;
-        Vec2f size;
-    }
-}
-
-fn RLRectangle HMRect.toPixelsRect(&self) @MyInline
-{
-    $if game::UNITS == PIXEL:
-        return *self;
-    $else
-        return {
-            .x = (float)misc::metersToPixels(self.x),
-            .y = (float)misc::metersToPixels(self.y),
-            .w = (float)misc::metersToPixels(self.w),
-            .h = (float)misc::metersToPixels(self.h)
-        };
-    $endif
-}
-
-fn HMRect RLRectangle.toMetersRect(&self) @MyInline
-{
-    $if game::UNITS == PIXEL:
-        return *self;
-    $else
-        return {
-            .x = misc::pixelsToMeters((uint)self.x),
-            .y = misc::pixelsToMeters((uint)self.y),
-            .w = misc::pixelsToMeters((uint)self.w),
-            .h = misc::pixelsToMeters((uint)self.h)
-        };
-    $endif
-}
-
-/*
-struct Render2D
-{
-    
-}
-
-fn void Render2D.init()
-{
-    // Initialization code for 2D rendering
-    io::printfn("Render2D initialized");
-}
-
-fn void Render2D.deinit()
-{
-    // Deinitialization code for 2D rendering
-    io::printfn("Render2D deinitialized");
-}
-*/
 
 fn void drawPixel(int posX, int posY, RLColor color) @inline 
 {

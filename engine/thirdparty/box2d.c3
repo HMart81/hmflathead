@@ -27,7 +27,7 @@
 *********************************************************************************************************************************************/
 
 // box2d implementation file
-module engine::physics::box2d @export;
+module engine::physics::box2d @export @if($feature(PHYSICS_BOX2D));
 
 import thirdparty::raylib5::rl;
 import engine::sys::render2d::r2d;

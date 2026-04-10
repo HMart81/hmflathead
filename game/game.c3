@@ -217,11 +217,11 @@ const int DEFAULT_FONT_SIZE @Hardcode @public = 10;
 const int BIG_FONT_SIZE     @Hardcode @public = 14;
 const int DEFAULT_FONT_TEXT_LINE_SPACING @Hardcode @public = 5;
 
-const PHYS_DEFAULT_SUBSTEPS     = 4;
-const PHYS_DEFAULT_TIMESTEP     = 1.0f / 60.0f; // 60fps @Hardcode
+const PHYS_DEFAULT_SUBSTEPS @if($feature(PHYSICS_BOX2D)) = 4;
+const PHYS_DEFAULT_TIMESTEP @if($feature(PHYSICS_BOX2D)) = 1.0f / 60.0f; // 60fps @Hardcode
 // world/game gravity info (still not used for anything...)
-const B2Vec2 GRAVITY_VEC        = {0.0f, -10.0f};
-const float GRAVITY_VALUE       = 9.80665f; // meters/sec2
+const B2Vec2 GRAVITY_VEC    @if($feature(PHYSICS_BOX2D)) = {0.0f, -10.0f};
+const float GRAVITY_VALUE   @if($feature(PHYSICS_BOX2D)) = 9.80665f; // meters/sec2
 //
 
 // Game Info
@@ -432,14 +432,14 @@ struct Game (SaveSystemInterface/*, IGame*/) @local
     MaterialDataBase mtrDB;
     
     // physics engine world
-    B2WorldId physWorldId;
-    bool pause_phys_simulation;
-    float phys_time_step;
-    int phys_substep_count; // simulation quality;
-    B2DebugDraw phys_debug;
+    B2WorldId physWorldId @if($feature(PHYSICS_BOX2D));
+    bool pause_phys_simulation @if($feature(PHYSICS_BOX2D));
+    float phys_time_step @if($feature(PHYSICS_BOX2D));
+    int phys_substep_count @if($feature(PHYSICS_BOX2D)); // simulation quality;
+    B2DebugDraw phys_debug @if($feature(PHYSICS_BOX2D));
     
-    B2BodyId    phys_grd_bodyid;
-    B2Polygon   phys_grd_box;
+    B2BodyId    phys_grd_bodyid @if($feature(PHYSICS_BOX2D));
+    B2Polygon   phys_grd_box @if($feature(PHYSICS_BOX2D));
     //
     
     String app_name;
@@ -1119,9 +1119,11 @@ fn void gameHandleGeneralControls() @local
         //local_game.msgbox_showing = true;
     //}
     
+	$if $feature(PHYSICS_BOX2D):
     if (rl::isKeyPressed(rl::KEY_P)) {
         local_game.pause_phys_simulation = !local_game.pause_phys_simulation;
     }
+	$endif
 
     if(input::Action* toggle_editor = input::getAction("toggle_editor")) {
         if(toggle_editor.fnBecameTriggered() && (local_game.mode != STARTING && local_game.mode != INTRO)) {
@@ -1316,10 +1318,12 @@ fn void onUpdate() @local
         }
         
         // physics engine
+		$if $feature(PHYSICS_BOX2D):
         if(local_game.pause_phys_simulation == false && rl::isWindowFocused()) {
 			//float deltaTime = rl::getFrameTime();
 			local_game.physWorldId.step(local_game.phys_time_step, local_game.phys_substep_count);
         }
+		$endif
         //
 
 $if $defined(SCRIPT_ENGINE):
@@ -2466,26 +2470,16 @@ $endif
     // NOTE(HM) this will override the default log level set before in pre_InitFunc()
     if(settings_file.getBool("log")! == true)
     {
-		RLTraceLogLevel log_level;
-		bool default_set;
-        String log_mode = settings_file.getString("log_level");
-        switch(log_mode)
-        {
-            case "info":  log_level = RLTraceLogLevel.INFO;
-            case "warn":  log_level = RLTraceLogLevel.WARNING;
-            case "error": log_level = RLTraceLogLevel.ERROR;
-            case "fatal": log_level = RLTraceLogLevel.FATAL;
-            default:
-			{
-                log_level = RLTraceLogLevel.WARNING;
-				default_set = true;
-			}
-        }
-		log::setLogLevel(log_level);
-		if(default_set) {
-			log::warning(FILE, "Unknown logging option '%s' setting to default WARNING level.", log_mode);
-		} else {
-			log::info(FILE, "Logging set to: %s\n", RLTraceLogLevel.names[log_level]);
+		RLTraceLogLevel level = log::getLevelFromString(settings_file.getString("log_level"));
+		if(log::getLogLevel() != level)
+		{
+			log::info(FILE, "Ini file overriding prior Logging level!");
+			log::info(FILE, "\t- prior level was '%s' new level will be: '%s'", 
+			log::levelToString(log::getLogLevel()), 
+			log::levelToString(level));
+
+			log::setLogLevel(level);
+			log::info(FILE, "Logging set to: %s\n", log::levelToString(level));
 		}
     }
     else if(settings_file.getBool("log")! == false)
@@ -2665,6 +2659,8 @@ $endif
         )!;
 
         log::info(FILE, "Window initialized successfully.");
+        log::info(FILE, "Graphics API: OpenGL%s context.", rlgl::getVersion());
+		log::info(FILE, "---------------------------------------------\n");
     $else
         ZString window_name = string::tformat_zstr("%s version: (%s, %s, %s)", local_game.app_name.zstr_tcopy(), lic::MAX_VERSION, lic::MIN_VERSION, lic::BABY_VERSION);
         //============================== //
@@ -2677,6 +2673,9 @@ $endif
             return WINDOW_INIT_FAILED~;
         } else {
             log::info(FILE, "Window initialized successfully.");
+			log::info(FILE, "---------------------------------------------\n");
+            log::info(FILE, "OpenGL '%s' context set.", rlgl::getVersion());
+			log::info(FILE, "---------------------------------------------\n");
         }
     $endif
 
@@ -2861,6 +2860,7 @@ $endif
 // #endregion Window initialization
 
 // #region physics engine
+$if $feature(PHYSICS_BOX2D):
     log::info(FILE, "Starting Physics Engine:");
     log::info(FILE, "---------------------------------------------");
     // TODO(HM) refactor this into a physics engine module that wraps box2d?
@@ -2907,6 +2907,7 @@ $endif
     box2d::initDebugDraw(&local_game.phys_debug, &local_game.view);
 
     log::info(FILE, "---------------------------------------------\n");
+$endif
 // #endregion physics engine
     
 // #region AUDIO DEVICE initialization
@@ -3342,13 +3343,14 @@ $if $feature(LUA_ENABLE):
 $endif
 
     // close physics engine
+	$if $feature(PHYSICS_BOX2D):
     box2d::deinitDebugDraw(&local_game.phys_debug);
     if(local_game.physWorldId.isValid()) {
         log::info(FILE, "Destroying physics engine.");
         box2d::destroyWorld(local_game.physWorldId);
         log::info(FILE, "Done.");
     }
-    //
+    $endif
 
 	$if $feature(VIDEO_PLAYBACK_ENABLE):
 	log::info(FILE, "Deinitializing Video Player:");

@@ -512,25 +512,25 @@ macro Vec2f Matrix3f.multiply(&self, Vec2f v) {
 
 // region box2d non exported functions
 /// Make a rotation using an angle in radians
-fn B2Rot makeRot(float radians) @inline
+fn B2Rot makeRot(float radians) @inline @if($feature(PHYSICS_BOX2D))
 {
 	B2CosSin cs = box2d::computeCosSin( radians );
 	return (B2Rot){ cs.cosine, cs.sine };
 }
 
-fn B2Vec2 mulAdd( B2Vec2 a, float s, B2Vec2 b ) @inline
+fn B2Vec2 mulAdd( B2Vec2 a, float s, B2Vec2 b ) @inline @if($feature(PHYSICS_BOX2D))
 {
 	return (B2Vec2){ a[0] + s * b[0], a[1] + s * b[1] };
 }
 
 /// Get the angle in radians in the range [-pi, pi]
-fn float rot_GetAngle( B2Rot q ) => box2d::atan2( q.s, q.c );
+fn float rot_GetAngle( B2Rot q ) @if($feature(PHYSICS_BOX2D)) => box2d::atan2( q.s, q.c );
 
 /// Get the x-axis
-fn B2Vec2 rot_GetXAxis( B2Rot q ) => (B2Vec2) { q.c, q.s };
+fn B2Vec2 rot_GetXAxis( B2Rot q ) @if($feature(PHYSICS_BOX2D)) => (B2Vec2) { q.c, q.s };
 
 /// Get the y-axis
-fn B2Vec2 rot_GetYAxis( B2Rot q ) => (B2Vec2) { -q.s, q.c };
+fn B2Vec2 rot_GetYAxis( B2Rot q ) @if($feature(PHYSICS_BOX2D)) => (B2Vec2) { -q.s, q.c };
 // end_region
 
 

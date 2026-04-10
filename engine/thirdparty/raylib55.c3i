@@ -9,10 +9,18 @@ const float RAD2DEG = 180.0f / PI;
 const ZString VERSION = "5.5";
 
 macro CInt glsl_version() {
-$if env::WIN32 || env::LINUX: //$defined(PLATFORM_DESKTOP):
+$if env::WIN32 || env::LINUX: //raylib most have been compiled with PLATFORM_DESKTOP
     return 330;
 $else   // PLATFORM_ANDROID, PLATFORM_WEB
     return 100;
+$endif
+}
+
+macro String glsl_version_str() {
+$if env::WIN32 || env::LINUX: //raylib most have been compiled with PLATFORM_DESKTOP
+    return "3.3";
+$else   // PLATFORM_ANDROID, PLATFORM_WEB
+    return "1.0";
 $endif
 }
 
@@ -887,8 +895,17 @@ fn void setWindowMaxSize(CInt width, CInt height) @cname("SetWindowMaxSize");   
 fn void setWindowSize(CInt width, CInt height) @cname("SetWindowSize");                     // Set window dimensions
 fn void setWindowOpacity(float opacity) @cname("SetWindowOpacity");                       // Set window opacity [0.0f..1.0f] (only PLATFORM_DESKTOP)
 fn void* getWindowHandle() @cname("GetWindowHandle");   // Get native window handle
-fn CInt getScreenWidth() @cname("GetScreenWidth");                                         // Get current screen width
-fn CInt getScreenHeight() @cname("GetScreenHeight");                                       // Get current screen height
+<*
+	Get current screen width
+	@require rl::isWindowReady() == true
+*>
+fn CInt getScreenWidth() @cname("GetScreenWidth");
+<*
+	Get current screen height
+	@require rl::isWindowReady() == true
+*>
+fn CInt getScreenHeight() @cname("GetScreenHeight");
+
 fn CInt getRenderWidth() @cname("GetRenderWidth");                                         // Get current render width (it considers HiDPI)
 fn CInt getRenderHeight() @cname("GetRenderHeight");                                       // Get current render height (it considers HiDPI)
 fn CInt getMonitorCount() @cname("GetMonitorCount");                                       // Get number of connected monitors
@@ -973,13 +990,30 @@ fn void RLShader.setValueTexture(self, CInt locIndex, RLTexture2D texture) @cnam
 fn void RLShader.unload(self) @cname("UnloadShader");                                // Unload shader from GPU memory (VRAM)
 
 // Screen-space-related functions
-//#define GetMouseRay GetScreenToWorldRay     // Compatibility hack for previous raylib versions
-fn RLRay getScreenToWorldRay(RLVector2 mousePosition, RLCamera camera) @cname("GetScreenToWorldRay"); // Get a ray trace from mouse position
-fn RLRay getScreenToWorldRayEx(RLVector2 position, RLCamera camera, CInt width, CInt height) @cname("GetScreenToWorldRayEx"); // Get a ray trace from screen position (i.e mouse) in a viewport
-fn RLVector2 getWorldToScreen(RLVector3 position, RLCamera camera) @cname("GetWorldToScreen"); // Get the screen space position for a 3d world space position
+<*
+	Get a ray trace from mouse position
+	@require rl::isWindowReady() == true
+*>
+fn RLRay getScreenToWorldRay(RLVector2 mousePosition, RLCamera camera) @cname("GetScreenToWorldRay");
+<*
+	Get a ray trace from screen position (i.e mouse) in a viewport
+	@require rl::isWindowReady() == true
+*>
+fn RLRay getScreenToWorldRayEx(RLVector2 position, RLCamera camera, CInt width, CInt height) @cname("GetScreenToWorldRayEx");
+/*
+	Get the screen space position for a 3d world space position
+	This makes no sence in 2D mode, as both world and screen space, are the same...
+	//@require rl::isWindowReady() == true
+*/
+fn RLVector2 getWorldToScreen(RLVector3 position, RLCamera camera) @cname("GetWorldToScreen");
 fn RLVector2 getWorldToScreenEx(RLVector3 position, RLCamera camera, CInt width, CInt height) @cname("GetWorldToScreenEx"); // Get size position for a 3d world space position
 fn RLVector2 getWorldToScreen2D(RLVector2 position, RLCamera2D camera) @cname("GetWorldToScreen2D"); // Get the screen space position for a 2d camera world space position
-fn RLVector2 getScreenToWorld2D(RLVector2 position, RLCamera2D camera) @cname("GetScreenToWorld2D"); // Get the world space position for a 2d camera screen space position
+<*
+	Get the world space position for a 2d camera screen space position
+	@require rl::isWindowReady() == true
+*>
+fn RLVector2 getScreenToWorld2D(RLVector2 position, RLCamera2D camera) @cname("GetScreenToWorld2D");
+
 fn RLMatrix getCameraMatrix(RLCamera camera) @cname("GetCameraMatrix");                            // Get camera transform matrix (view matrix)
 fn RLMatrix getCameraMatrix2D(RLCamera2D camera) @cname("GetCameraMatrix2D");                 // Get camera 2d transform matrix
 

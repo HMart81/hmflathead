@@ -106,7 +106,7 @@ struct Entity (SaveSystemInterface)
     Entity* parent;
 	TargetList targets; // list of other entities that are targets for this entity, activated in certain situations
     // physics
-    B2BodyId physics;
+    B2BodyId physics @if($feature(PHYSICS_BOX2D));
     //
 	Move_Dir move_dir; // mostly used for the player entity
 	//
@@ -201,6 +201,7 @@ $endif
     self.setBounds(bb);
     
     // physics
+	$if $feature(PHYSICS_BOX2D):
     // define the body
     B2BodyDef bodyDef   = box2d::defaultBodyDef();
     bodyDef.type        = box2d::STATIC;
@@ -243,7 +244,7 @@ $endif
     shapeDef.density          = 1.0f;
     shapeDef.friction         = 0.3f;
 	box2d::createPolygonShape(self.physics, &shapeDef, &dynamicBox);
-    //
+	$endif
     
 	self.born(); // set the entity as alive, so it can be used
 	self.updateVisuals();
@@ -325,7 +326,11 @@ fn void Entity.setPositionV(&self, Vec2f newpos) @inline
 
 fn Vec2f Entity.getPosition(&self) @inline
 {
+	$if $feature(PHYSICS_BOX2D):
 	return self.physics.getPosition();
+	$else
+	return {}; // todo
+	$endif
 }
 
 fn void Entity.setBounds(&self, Bounds bb) @inline {
@@ -752,6 +757,7 @@ fn void Entity.becomeActive(&self, int flags)
 
 
 fn void Entity.move(&self) {
+	$if $feature(PHYSICS_BOX2D):
     // update visuals based on physics movement
     // && box2d::body_GetType(self.physics) == box2d::DYNAMIC
     if(((Vec2f)self.physics.getLinearVelocity()).length() > 0.0f ) {
@@ -760,6 +766,7 @@ fn void Entity.move(&self) {
         self.updateBoundsPos(new_pos);
 		self.updateVisuals();
     }
+	$endif
 }
 
 fn void Entity.think(&self, float dt) // update in other engines

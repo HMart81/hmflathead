@@ -605,7 +605,7 @@ fn void RenderView.updateBounds(&self)
     };
 }
 
-fn B2AABBox RenderView.fromBoundsToPhysicsAABB(&self)
+fn B2AABBox RenderView.fromBoundsToPhysicsAABB(&self) @if($feature(PHYSICS_BOX2D))
 {
 	B2AABBox bb;
 	bb.lowerBound = self.bounds.minc; //rl::getScreenToWorld2D( { 0.0f, (float)self.h }, self.camera ).arr;
@@ -862,9 +862,11 @@ $endif
         // physics debug drawing
         // NOTE(HM) this is done here because I want it to draw
         // before/behind the gui and other debug stuff at the same time as the game entities.
-        if(game::db_drawPhysics.getBool()) {
-            game::gpGame.physWorldId.debugDraw(&game::gpGame.phys_debug);
-        }
+        $if $feature(PHYSICS_BOX2D):
+			if(game::db_drawPhysics.getBool()) {
+				game::gpGame.physWorldId.debugDraw(&game::gpGame.phys_debug);
+			}
+		$endif
 
 $if $defined(ENABLE_CAMERA_VIEW):
         rl::endMode2D();

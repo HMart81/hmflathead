@@ -88,6 +88,28 @@ fn void setLogLevel(RLTraceLogLevel level) @MyInline
 	glevel = level;
 }
 
+fn RLTraceLogLevel getLogLevel() @MyInline => (RLTraceLogLevel)glevel;
+
+<*
+	Get the log level id as a String for easy printing
+	@param level : "level to print" 
+	@require level >= 0 && level <= RLTraceLogLevel.values.len
+*>
+fn String levelToString(RLTraceLogLevel level) => RLTraceLogLevel.names[level];
+
+<*
+	Get the log level from a String
+	@param [in] str : "the supposed level name"
+	@require str.len > 0
+*>
+fn RLTraceLogLevel getLevelFromString(String str) @MyInline {
+	foreach(i, _str : RLTraceLogLevel.names) {
+		if(_str == str) return RLTraceLogLevel.values[i];
+	}
+
+	return RLTraceLogLevel.INFO;
+}
+
 // NOTE(HM) controls file and Console logging 
 // plus sets where the log file is saved as well.
 fn void initGlobalLoggingDir() @MyInline @local

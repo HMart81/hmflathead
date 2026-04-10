@@ -127,8 +127,9 @@ fn void Player.init(&self, Vec2f origin, RLColor color, int id)
     self.setBounds(bb);
     
     // physics
+	$if $feature(PHYSICS_BOX2D):
     // define the body
-    B2BodyDef bodyDef   = box2d::defaultBodyDef();
+    B2BodyDef bodyDef   @if($feature(PHYSICS_BOX2D)) = box2d::defaultBodyDef();
     bodyDef.type        = box2d::KINEMATIC;
     bodyDef.position    = origin;
     // create the body
@@ -142,6 +143,7 @@ fn void Player.init(&self, Vec2f origin, RLColor color, int id)
     shapeDef.friction   = 0.3f;
 	box2d::createPolygonShape(self.physics, &shapeDef, &playerBox);
     //
+	$endif
     
     self.born();
     self.updateVisuals();

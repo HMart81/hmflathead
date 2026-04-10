@@ -63,7 +63,7 @@
 */
 
 // box2d include file
-module engine::physics::box2d;
+module engine::physics::box2d @if($feature(PHYSICS_BOX2D));
 
 import std::math::vector; // c3 math for Vec2f
 import engine::misc; // for Exported tag
