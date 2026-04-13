@@ -100,7 +100,7 @@ fn void GUIPElement.init(&self)
     self.type = GUIPElement.typeid;
     self.color = rl::WHITE; // default color is white
     self.transform.scale = {1.0f, 1.0f}; // sets translation and rotation to the same value.
-    self.transform.matrix = math::MATRIX4F_IDENTITY;
+    self.transform.matrix = matrix::IDENTITY4;
 }
 
 fn GUIPElement* createElement(String _name = "<noname>") {
@@ -109,7 +109,7 @@ fn GUIPElement* createElement(String _name = "<noname>") {
         .name = _name,
         .color = rl::WHITE,
         .transform.scale = {1.0f, 1.0f},
-        .transform.matrix = math::MATRIX4F_IDENTITY
+        .transform.matrix = matrix::IDENTITY4
     });
 }
 

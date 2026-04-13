@@ -55,18 +55,15 @@ struct XmlReaderImpl @local {
 	usz readHead;
 	usz writeHead;
 	char[] buffer;
-	Allocator allocator;
 	XmlDoc* doc;
 	XmlNodeList nodesBeingParsed;
 	XmlAttribute* attributeBeingParsed;
 }
 
-fn XmlReader* new_reader(XmlDoc* doc, Allocator allocator = allocator::heap()) {
-	XmlReaderImpl* reader = allocator::new(allocator, XmlReaderImpl);
+fn XmlReader* new_reader(XmlDoc* doc) {
+	XmlReaderImpl* reader = alloc::new(mem, XmlReaderImpl);
 	reader.doc = doc;
-	//reader.buffer = allocator::new_array(allocator, char, 2048);
-	reader.buffer = allocator::new_array(allocator, char, doc.contents_size);
-	reader.allocator = allocator;
+	reader.buffer = alloc::new_array(mem, char, doc.contents_size);
 	reader.state = BEGIN_READ_TAG;
 	return (XmlReader*)reader;
 }
@@ -78,8 +75,8 @@ fn void XmlReader.free(&this) {
 	self.readHead = 0;
 	self.writeHead = 0;
 	self.nodesBeingParsed.free();
-	allocator::free(self.allocator, self.buffer);
-	allocator::free(self.allocator, self);
+	alloc::free(mem, self.buffer);
+	alloc::free(mem, self);
 }
 
 fn void XmlReader.read(&this, char[] slice) {
@@ -175,17 +172,8 @@ fn void XmlReaderImpl.end_read_tag(&self, char c) {
 	}
 }
 
-fn XmlNode* XmlReaderImpl.create_node(&self) {
-	XmlNode* node = allocator::new(self.allocator, XmlNode);
-	node.allocator = self.allocator;
-	return node;
-}
-
-fn XmlAttribute* XmlReaderImpl.create_attribute(&self) {
-	XmlAttribute* attribute = allocator::new(self.allocator, XmlAttribute);
-	attribute.allocator = self.allocator;
-	return attribute;
-}
+fn XmlNode* XmlReaderImpl.create_node(&self) => alloc::new(mem, XmlNode);
+fn XmlAttribute* XmlReaderImpl.create_attribute(&self) => alloc::new(mem, XmlAttribute);
 
 fn void XmlReaderImpl.read_tag_name(&self, char c) {
 	if (c == '/' || c == '>' || /*c == ' '*/ascii::is_space(c)) {
@@ -248,7 +236,7 @@ fn void XmlReaderImpl.begin_read_attribute_value(&self, char c) {
 
 fn String XmlReaderImpl.copy_write_buffer(&self) {
 	usz strLength = self.writeHead;
-	char[] strValue = allocator::new_array(self.allocator, char, strLength);
+	char[] strValue = alloc::new_array(mem, char, strLength);
 	strValue[..] = self.buffer[:strLength];
 	return (String)strValue;
 }
@@ -278,8 +266,8 @@ fn void XmlReaderImpl.read_text_node(&self, char c) {
         bool emptyText   = textValue.trim().len == 0;
 		if (!emptyText && self.writeHead > 0) {
 			XmlNode* textNode = self.create_node();
-			textNode.name = string::format(self.allocator, "%s", TEXT_NODE_NAME);
-			textNode.value = textValue.copy(self.allocator); //self.copy_write_buffer();
+			textNode.name = string::format(mem, "%s", TEXT_NODE_NAME);
+			textNode.value = textValue.copy(mem); //self.copy_write_buffer();
 			XmlNode* nodeBeingParsed = self.peek_node();
 			nodeBeingParsed.children.push(textNode);
 		}

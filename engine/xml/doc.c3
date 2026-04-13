@@ -30,44 +30,44 @@ module thirdparty::library::xml;
 
 import std::io;
 import std::collections;
+import std::core::mem::alloc;
 
 alias XmlAttributeList = List{XmlAttribute*};
 alias XmlNodeList      = List{XmlNode*};
 
 faultdef ATTRIBUTE_NOT_FOUND;
 
-struct XmlAttribute {
+struct XmlAttribute 
+{
 	String name;
 	String value;
-	Allocator allocator;
 }
 
-struct XmlNode {
+struct XmlNode 
+{
 	String name;
 	String value;
 	XmlAttributeList attributes;
 	XmlNodeList children;
-	Allocator allocator;
 }
 
-struct XmlDoc {
-	Allocator allocator;
+struct XmlDoc 
+{
 	XmlNode* rootNode;
     usz contents_size;
 }
 
-fn XmlDoc*? read_file(File file, Allocator allocator = allocator::mem) {
+fn XmlDoc*? read_file(File file) {
 	usz contents_size = file.seek(0, Seek.END)!;
 	file.seek(0, Seek.SET)!; // return to the start
 	//char[] buff = allocator::new_array(allocator, char, 2048);
-	char[] buff = allocator::new_array(allocator, char, contents_size);
-	defer allocator::free(allocator, buff);
+	char[] buff = alloc::new_array(mem, char, contents_size);
+	defer alloc::free(mem, buff);
 
-	XmlDoc* doc   = allocator::new(allocator, XmlDoc);
-	doc.allocator = allocator;
+	XmlDoc* doc   = mem::new(XmlDoc);
     doc.contents_size = contents_size;
 
-	XmlReader* reader = new_reader(doc, allocator);
+	XmlReader* reader = new_reader(doc);
 	defer reader.free();
 
 	while (!file.eof()) {
@@ -83,16 +83,11 @@ fn XmlDoc*? read_file(File file, Allocator allocator = allocator::mem) {
 }
 
 fn void XmlDoc.free(&self) {
-	if (!self.allocator) return;
 	self.rootNode.free();
-	allocator::free(self.allocator, self);
+	alloc::free(mem, self);
 }
 
 fn void XmlNode.free(&node) {
-	if (node.allocator == null) {
-		return;
-	}
-
 	// NOTE(Zee): Does it make sense for the node to free its own children?
 	foreach(child : node.children) {
 		child.free();
@@ -104,21 +99,18 @@ fn void XmlNode.free(&node) {
 
 	node.children.free();
 	node.attributes.free();
-	node.name.free(node.allocator);
-	node.value.free(node.allocator);
+	node.name.free(mem);
+	node.value.free(mem);
 
 	// TODO: Free Name and Value
-	allocator::free(node.allocator, node);
+	alloc::free(mem, node);
 }
 
 fn void XmlAttribute.free(&self) {
-	if (self.allocator == null) {
-		return;
-	}
-	self.name.free(self.allocator);
-	self.value.free(self.allocator);
+	self.name.free(mem);
+	self.value.free(mem);
 	// TODO: Free Name and Value;
-	allocator::free(self.allocator, self);
+	alloc::free(mem, self);
 }
 
 fn void XmlDoc.find_nodes_by_tag_name(&self, char[] type, XmlNodeList* cache) {

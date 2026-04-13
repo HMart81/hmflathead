@@ -155,7 +155,7 @@ const Matrix3f VIEW_AXIS_IDENTITY = {
 
 alias gameptr = game::gpGame;
 
-const int ENABLE_CAMERA_VIEW = 1;
+const int ENABLE_CAMERA_VIEW @public = 1;
 
 // NOTE(HM) top left corner of screen.
 // (this is contrary to OpenGL that is lower left corner)
@@ -248,7 +248,8 @@ fn void RenderView.init(&self, int screenWidth, int screenHeight) @inline
 
     self.grayscale.loadPPShader("grayscale");
     
-    self.size = { screenWidth, screenHeight };
+    self.w = screenWidth;
+	self.h = screenHeight;
     
 $if $defined(ENABLE_CAMERA_VIEW):
     // middle of the screen is the origin
@@ -291,7 +292,6 @@ $if ($defined(ENABLE_CAMERA3D_VIEW)):
     */
     self.camera.fovy = fov_y;    
     self.camera.projection = rl::CAMERA_ORTHOGRAPHIC;
-
 $endif
 
     // view bounds

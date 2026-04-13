@@ -2063,7 +2063,7 @@ fn void Desktop.update(&self)
     if(self.hidden() && self.active == false) return;
 
     self.mouse_pos = rl::getMousePosition(); //- self.getPosition();
-    self.mouse_is_moving = rl::getMouseDelta().sq_magnitude() >= 1; // this will be zero if the mouse is not moving, and greater than zero if it is moving
+    self.mouse_is_moving = rl::getMouseDelta().length_sq() >= 1; // this will be zero if the mouse is not moving, and greater than zero if it is moving
 
     self.keyboardInput_enabled = !self.mouse_is_moving && rl::getCharPressed() != 0;
 

@@ -28,14 +28,11 @@
 
 module game::lowlevel::bounds;
 
+import std::io;
 import std::math;
 import engine::misc;
 import engine::sys::cvar;
 import thirdparty::raylib5::rl;
-
-const float	INFINITY = 1e30f;
-
-const VEC2_ZERO @local = (Vec2f){0.0f, 0.0f};
 
 CVar db_showBounds = { "db_showBounds", CvarType.BOOL, "1", "displays used bounding box's on screen for debug"};
 
@@ -43,10 +40,15 @@ fn void register_cvars() {
     cvar::@register(&db_showBounds);
 }
 
-struct Bounds @packed
+struct Bounds (Printable) @packed 
 {
     Vec2f maxc;
     Vec2f minc;
+}
+
+fn usz? Bounds.to_format(&self, Formatter* f) @dynamic 
+{
+    return f.printf(`Bounds { .maxc = %s, .minc = %s, }`, self.maxc, self.minc);
 }
 
 <*
@@ -209,10 +211,8 @@ fn void Bounds.pequals(&self, Bounds* other) @operator(+=)
 
 fn void Bounds.setRect(&self, RLRectangle rect) @inline 
 {
-    float w = rect.size.x;
-    float h = rect.size.y;
     self.maxc = rect.pos;
-    self.minc = self.maxc + misc::VEC_RIGHT * w + misc::VEC_DOWN * h;
+    self.minc = self.maxc + misc::VEC_RIGHT * rect.w + misc::VEC_DOWN * rect.h;
 }
 
 <*
@@ -235,8 +235,8 @@ fn bool Bounds.compare2(&self, Bounds* a ) @operator(!=)
 
 fn void Bounds.clear(&self) @inline 
 {
-	self.maxc.x = self.maxc.y = INFINITY;
-	self.minc.x = self.minc.y = -INFINITY;
+	self.maxc.x = self.maxc.y = misc::INFINITY;
+	self.minc.x = self.minc.y = -misc::INFINITY;
 }
 
 fn void Bounds.zero(&self) @inline 

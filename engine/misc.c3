@@ -60,6 +60,8 @@ const Vec2f VEC_DOWN  = {0.0f,  1.0f};
 const Vec2f VEC_LEFT  = {-1.0f, 0.0f};
 const Vec2f VEC_RIGHT = {1.0f,  0.0f};
 
+const float	INFINITY = 1e30f;
+
 macro unurdered_remove(List{Typ}* list, usz index) <Typ>
 {
 	if(index >= (*list).len()) return; // out of bounds check
@@ -77,6 +79,7 @@ const OFF @builtin = 2;
 macro @debug_break($x /*enable*/) @builtin {
     $if $x == ON:
     //asm("int3"); // x86/64 only
+	io::printf("[CLEAN] BREAKPOINT triggered in %s at line: %s", $$FILE, $$LINE);
     breakpoint();
     $else
     io::printfn("[CLEAN] Disabled BREAKPOINT in %s at line: %s", $$FILE, $$LINE);
@@ -228,7 +231,8 @@ const MINIMUM_SIZE_IN_PIXELS = 10; // 10 pixels
     @param meters : `the number of meters to convert`
     @ensure return >= MINIMUM_SIZE_IN_PIXELS
 *>
-fn int metersToPixels(float meters) @inline {
+fn int metersToPixels(float meters) @inline
+{
     if(meters <= MINIMUM_SIZE_IN_METERS) {
         return MINIMUM_SIZE_IN_PIXELS;
     }
@@ -242,7 +246,7 @@ fn int metersToPixels(float meters) @inline {
     }
 }
 
-macro @metersToPixels($meters) 
+macro @metersToPixels($meters)
 {
     if($meters <= MINIMUM_SIZE_IN_METERS) {
         return MINIMUM_SIZE_IN_PIXELS;
@@ -264,7 +268,8 @@ macro @metersToPixels($meters)
     @param minimum_size : `the minimum size in meters to return`
     @ensure return >= minimum_size
 *>
-fn float pixelsToMeters(uint pixels, float minimum_size = MINIMUM_SIZE_IN_METERS) @inline {
+fn float pixelsToMeters(uint pixels, float minimum_size = MINIMUM_SIZE_IN_METERS) @inline
+{
     if(pixels <= MINIMUM_SIZE_IN_PIXELS) return minimum_size;
     
     float m = math::abs((float)(pixels / game::DEFAULT_PIXELS_PER_METER));
@@ -283,7 +288,7 @@ fn float pixelsToMeters(uint pixels, float minimum_size = MINIMUM_SIZE_IN_METERS
     @require units >= 0
     @ensure return >= minimum_size
 *>
-fn float unitsToMeters(int units, float minimum_size = MINIMUM_SIZE_IN_METERS) @inline 
+fn float unitsToMeters(int units, float minimum_size = MINIMUM_SIZE_IN_METERS) @inline
 {
     if(fgetDiff(game::DEFAULT_UNITS_PER_METER, 1.0f) < 0.0001f) {
         return units; // if the units are equal to the default meter scale starting at 1.0f, just return the units
@@ -543,7 +548,7 @@ macro Vec2f RLRectangle.getScreenPos(self) => worldToScreen(self.getPosition());
 // the camera is never moved around, as world coords and camera coords
 // are very similar only the center/origin changed.
 // UNTESTED!!!!!!!!!!!!!!!!!!!!!
-fn Vec2f RLRectangle.getPosCameraCoords(&self) @if ($defined(view::ENABLE_CAMERA_VIEW))
+fn Vec2f RLRectangle.getPosCameraCoords(&self) @if ($defined(camview::ENABLE_CAMERA_VIEW))
 {
     Vec2f world_origin   = {0, 0};
     Vec2f cam_org        = game::gpGame.view.camera.target;
@@ -833,9 +838,6 @@ fn bool ZString.has_spaces(self, int* out_count) @inline {
 
 
 // region MISC
-fn Vec2f dir_mul(plyr::Move_Dir d, float a) @inline @nodiscard {
-    return (Vec2f) { d.vec.x * a, d.vec.y * a };
-}
 
 <*
     @param [&inout] mat : "RLMatrix to scale"

@@ -42,6 +42,7 @@ import engine::physics::box2d;
 import engine::misc;
 import thirdparty::raylib5::rl;
 import thirdparty::tracy;
+import engine::logging::log;
 // end_region
 
 // player speed is defined in how many pixels it travels in one second
@@ -50,16 +51,26 @@ import thirdparty::tracy;
 // 0.1 pixels to meter = 1 pixel;
 
 const float PLAYER_DEFAULT_MOV_SPEED      = 1.0f; // 1 unit / sec
-const float PLAYER_DEFAULT_SIZE_X_METER   = 0.50f; // (minimum size is 10 cm)
-const float PLAYER_DEFAULT_SIZE_Y_METER   = 2.0f;
 
-enum Move_Dir : int (Vec2i vec, String id)
+const float PLAYER_DEFAULT_SIZE_X @if(game::UNITS == Units.METER) = 0.50f; // 45 cm  (minimum size is 10 cm)
+const float PLAYER_DEFAULT_SIZE_Y @if(game::UNITS == Units.METER) = 2.0f;  // 1  m
+//
+const float PLAYER_DEFAULT_SIZE_X @if(game::UNITS == Units.PIXEL) = 45; // px  (minimum size is 10 px)
+const float PLAYER_DEFAULT_SIZE_Y @if(game::UNITS == Units.PIXEL) = 100;  // px
+
+
+enum Move_Dir : int (Vec2i dir, String str)
 {
-    DIR_NONE  {{ 0,  0},  "none"},
-    DIR_UP    {{ 0, -1},    "up"},
-    DIR_DOWN  {{ 0,  1},  "down"},
-    DIR_LEFT  {{-1,  0},  "left"},
-    DIR_RIGHT {{ 1,  0}, "right"}
+    NONE  {{ 0,  0},  "none"},
+    UP    {{ 0, -1},    "up"},
+    DOWN  {{ 0,  1},  "down"},
+    LEFT  {{-1,  0},  "left"},
+    RIGHT {{ 1,  0}, "right"}
+}
+
+fn Vec2f Move_Dir.mul(self, float a ) @operator(*)
+{
+	return { self.dir.x * a, self.dir.y * a };
 }
 
 // Save here any info the player should take into other levels 
@@ -94,12 +105,12 @@ struct Player (SaveSystemInterface)
 
 fn void Player.save(&self, SaveFile* file) @dynamic {
     self.super.save(file);
-// todo
+	@todo();
 }
 
 fn void Player.reload(&self, SaveFile* file) @dynamic {
     self.super.reload(file);
-// todo
+	@todo();
 }
 
 // WARNING(HM) Player.init() will shadow (aka override) Entity.init()
@@ -108,16 +119,12 @@ fn void Player.init(&self, Vec2f origin, RLColor color, int id)
     self.type     = Player.typeid;
     self.id       = id;
     self.name     = string::tformat("player%d", id).tcopy();
-    self.move_dir = DIR_NONE;
+    self.move_dir = NONE;
     
     // TODO(HM) makes this position editable...
-    if(origin == {0, 0}) {
-        self.setPositionV(game::getScreenCenterPos());
-    } else {
-        self.setPositionV(origin);
-    }
+  	self.setPositionV(origin);
     
-    self.setSize(PLAYER_DEFAULT_SIZE_X_METER, PLAYER_DEFAULT_SIZE_Y_METER);
+    self.setSize(PLAYER_DEFAULT_SIZE_X, PLAYER_DEFAULT_SIZE_Y);
     self.vs.color = color;
 
     // set entity Bounds
@@ -177,19 +184,20 @@ fn void Player.updateInteraction(&self, float dt)
 {
     float speed   = PLAYER_DEFAULT_MOV_SPEED;
     
-    self.move_dir = Move_Dir.DIR_NONE;
-    
+	// when the player is not pressing a key set move diretion to none
+    self.move_dir = Move_Dir.NONE;
+
     if(rl::isKeyDown(rl::KEY_RIGHT)) {
-        self.move_dir = Move_Dir.DIR_RIGHT;
+        self.move_dir = Move_Dir.RIGHT;
     }
     if(rl::isKeyDown(rl::KEY_LEFT)) {
-        self.move_dir = Move_Dir.DIR_LEFT;
+        self.move_dir = Move_Dir.LEFT;
     }
     if(rl::isKeyDown(rl::KEY_UP)) {
-        self.move_dir = Move_Dir.DIR_UP;
+        self.move_dir = Move_Dir.UP;
     }
     if(rl::isKeyDown(rl::KEY_DOWN)) {
-        self.move_dir = Move_Dir.DIR_DOWN;
+        self.move_dir = Move_Dir.DOWN;
     }
     
     // Run
@@ -208,8 +216,7 @@ fn void Player.updateInteraction(&self, float dt)
 
 fn void Player.move(&self, float speed) @inline
 {
-    Vec2f new_origin = self.getPosition() + misc::dir_mul(self.move_dir, speed);
-    self.setPositionV(new_origin);
+    self.setPositionV(self.getPosition() + self.move_dir * speed);
     self.updateVisuals();
 }
 
@@ -241,10 +248,13 @@ fn void Player.think(&self, float dt /*delta_time*/)
         
 }
 
-fn Player* makePlayer(int id = 0, Vec2f position = {0, 0}, RLColor color = rl::WHITE) @inline
+fn Player* makePlayer(int id, Vec2f position = {0, 0}, RLColor color = rl::WHITE) @MyInline
 {
+	Vec2f pos = position;
+	if(pos == misc::VEC2_ZERO) pos = game::gpGame.screen.center;
+	log::info(CONSOLE, "Player pos = %s", pos);
     Player* player = mem::new(Player);
-    player.init(position, color, id);
+    player.init(pos, color, id);
     return player;
 }
 

@@ -98,15 +98,15 @@ const SCRIPT_ENGINE = true; // use the new script engine
    1 unit = 1 meter = 100 pixels
    
    NOTE(HM): 
-   Minimum scale for physics objects is 10 units (10 cm), this is a hard limit 
+   Minimum scale for physics objects is 0.10f units (10 cm), this is a hard limit 
    imposed by box2d physics engine.
 */
 constdef Units : inline int @public
 {
 	METER = 1,
-	PIXEL
+	PIXEL,
 }
-const UNITS @public = Units.METER; // default units are meters
+const UNITS @public = Units.PIXEL; // default units are pixels (one day change this to meters...)
 
 const float DEFAULT_UNITS_PER_METER @public @Hardcode  = 1.0f;
 const float DEFAULT_PIXELS_PER_METER @public @Hardcode = 100.0f; // 100 pixels per meter
@@ -404,17 +404,15 @@ struct Game (SaveSystemInterface/*, IGame*/) @local
         int id; // monitor id (index + 1)
         int  w;
         int  h;
-        float width_in_meters;
-        float height_in_meters;
         Vec2f center;
 
         struct state {
             bool window;
             bool fullscreen;
             bool borderless;
+            bool vsync_hint;
         }
 
-        bool vsync_hint;
         int  displayHz;
         int  multiSamples; // MSAA
     }
@@ -1028,8 +1026,8 @@ fn void init_game_cursor() @inline
     local_game.mouse_cursor.initV(
         pos: {0,0}, // position in pixel units
         size: {
-            0.45f, // width in game units
-            0.45f  // height in game units
+            42, // width
+            42  // height
         },
         color: rl::WHITE,
         kind: SpriteKind.CURSOR,
@@ -1063,13 +1061,21 @@ fn void update_game_cursor(int screen_w, int screen_h) @public
     //
     
     // update position
-    //local_game.mouse_cursor.setPositionV({x, y});
-    local_game.mouse_cursor.setPositionV(rl::getWorldToScreen2D({x, y}, local_game.view.camera));
+    local_game.mouse_cursor.setPositionV({x, y});
+    //local_game.mouse_cursor.setPositionV(rl::getWorldToScreen2D({x, y}, local_game.view.camera));
     
     // update size
     // TODO do a better mouse cursor size dependent on screen size!!
     float cursor_h = local_game.mouse_cursor.getSizeY();
-    float desired_cursor_size = math::floor((GAME_CURSOR_SCALER * misc::pixelsToMeters(screen_h)));
+    float desired_cursor_size;
+    // now change coordinates depending on set uints
+    if(UNITS == Units.METER) {
+        desired_cursor_size = math::floor(GAME_CURSOR_SCALER * misc::pixelsToMeters(screen_h));
+    }
+    else if(UNITS == Units.PIXEL) {
+        desired_cursor_size = math::floor(GAME_CURSOR_SCALER * screen_h);
+    }
+
     if(cursor_h > desired_cursor_size) {
         set_game_cursor_size(desired_cursor_size, desired_cursor_size);
     }
@@ -1085,13 +1091,14 @@ fn void draw_game_cursor() @local @inline
     if(game_cursor_visible()) 
     {
         hide_system_cursor(); // hide operating system cursor
-        foreach(sprite : local_game.sprites) 
+        /*foreach(sprite : local_game.sprites) 
         {
             if(sprite.kind == SpriteKind.CURSOR) 
             {
                 sprite.draw();
             }
-        }
+        }*/
+		local_game.mouse_cursor.draw();
     }
 }
 
@@ -1125,15 +1132,11 @@ fn void gameHandleGeneralControls() @local
     }
 	$endif
 
-    if(input::Action* toggle_editor = input::getAction("toggle_editor")) {
-        if(toggle_editor.fnBecameTriggered() && (local_game.mode != STARTING && local_game.mode != INTRO)) {
-            if(editor.getBool()) 
-            {
-                if(local_game.editor.isOpened()) {
-                    local_game.editor.close();
-                } else {
-                    local_game.editor.open();
-                }
+    if(input::getAction("toggle_editor").fnBecameTriggered()) {
+        if((local_game.mode != STARTING && local_game.mode != INTRO)) {
+            if(editor.getBool() == true) {
+				Editor* ed = &local_game.editor;
+                (ed.isOpened()) ? ed.close() : ed.open();
             }
         }
     }
@@ -1309,7 +1312,7 @@ fn void onUpdate() @local
         
         gameHandleGeneralControls();
 
-        if(rl::getMouseDelta().sq_magnitude() > 0) {
+        if(rl::getMouseDelta().length_sq() > 0) {
             local_game.mouse_window_pos = rl::getMousePosition(); // pixel coordinates, top left origin
         }
 
@@ -2134,6 +2137,7 @@ fn void handle_cmdline(String[] args)
 fn void print_game_version() @local @inline 
 {
     log::info(FILE, "---------------------------------------------");
+    log::info(FILE, "ENGINE_VERSION: %s", lic::ENGINE_VERSION);
     log::info(FILE, "Game Version: %s", lic::@game_version());
     log::info(FILE, "---------------------------------------------\n");
 }
@@ -2571,7 +2575,7 @@ $endif
     {
         //window_flags |= (int)rl::FLAG_VSYNC_HINT;
         bkend::setWindowFlag(&window_flags, rl::FLAG_VSYNC_HINT);
-        local_game.screen.vsync_hint = true;
+        local_game.screen.state.vsync_hint = true;
         log::info(FILE, "VSync **hint** enabled. (may not apply)");
     }
     
@@ -2648,8 +2652,8 @@ $endif
     
     //===============================//
     //========= Init Window ======== //
+    String window_name = string::tformat("%s version: (%s, %s, %s)", local_game.app_name, lic::MAX_VERSION, lic::MIN_VERSION, lic::BABY_VERSION);
     $if $feature(BACKEND_RAYLIB) || $feature(BACKEND_RGFW):
-        String window_name = string::tformat("%s version: (%s, %s, %s)", local_game.app_name, lic::MAX_VERSION, lic::MIN_VERSION, lic::BABY_VERSION);
        
         WindowHandle window = local_game.render.createWindow(
             title: window_name,
@@ -2662,9 +2666,8 @@ $endif
         log::info(FILE, "Graphics API: OpenGL%s context.", rlgl::getVersion());
 		log::info(FILE, "---------------------------------------------\n");
     $else
-        ZString window_name = string::tformat_zstr("%s version: (%s, %s, %s)", local_game.app_name.zstr_tcopy(), lic::MAX_VERSION, lic::MIN_VERSION, lic::BABY_VERSION);
         //============================== //
-        rl::initWindow(screenWidth, screenHeight, window_name);
+        rl::initWindow(screenWidth, screenHeight, window_name.zstr_tcopy());
         //============================== //
         
         if(rl::isWindowReady() == false) 
@@ -2685,8 +2688,6 @@ $endif
     local_game.time_ms  = misc::@sec2ms(local_game.time_sec);
 	// end timing initialization
 
-    local_game.screen.width_in_meters = misc::pixelsToMeters(screenWidth);
-    local_game.screen.height_in_meters = misc::pixelsToMeters(screenHeight);
     local_game.screen.center = {screenWidth/2.0f,screenHeight/2.0f};
 
     // rlgl init
@@ -3213,7 +3214,7 @@ $endif
     // but right now, I don't have a concept of a "level" or game World.
     // TODO(HM) when possible make a dedicated spawn point entity for the player.
     log::info(FILE,  "** Creating test player. **");
-    local_game.main_player = plyr::makePlayer(id: 1, color: rl::BLUE);
+    local_game.main_player = plyr::makePlayer(id: 1, color: rl::PURPLE);
     // NOTE(HM) The first entity is always the main player1
     local_game.entityList.push((Entity*)local_game.main_player);
     log::info(FILE,  "** Done **.");
@@ -3227,8 +3228,9 @@ $endif
     log::info(FILE,  "** Creating test entities. **");
     for(int i = 1; i <= 2; i++) 
     {
-        $if $defined(view::ENABLE_CAMERA_VIEW):
+        $if $defined(camview::ENABLE_CAMERA_VIEW):
             Vec2f origin = local_game.view.origin;
+            @debug_break(OFF);
         $else
             Vec2f origin;
         $endif

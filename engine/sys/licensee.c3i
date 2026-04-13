@@ -59,7 +59,7 @@ const SOURCE_CODE_BASE_FOLDER = "src"+++platf::PATHSEPERATOR_STR;
 
 // Savegame Version
 // Update when you can no longer maintain compatibility with previous savegames
-// NOTE: a seperate core savegame version and game savegame version could be useful
+// NOTE: a seperate core save version and game save version could be useful
 const SAVEGAME_VERSION = 1;
 
 // editor info

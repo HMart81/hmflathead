@@ -68,25 +68,33 @@ constdef EntTh : inline int
 	PHYSICS // for the future...
 }
 
-const MIN_VISUAL_SIZE_VALUE         @Hardcode = 1;     // pixel
-const MIN_PHYSICS_SIZE_VALUE        @Hardcode = 0.10f; // 10 cm;
-const Vec2i MIN_ENTITY_VISUAL_SIZE  = {MIN_VISUAL_SIZE_VALUE, MIN_VISUAL_SIZE_VALUE};
-const Vec2f MIN_ENTITY_PHYSICS_SIZE = {MIN_PHYSICS_SIZE_VALUE, MIN_PHYSICS_SIZE_VALUE};
+const MIN_VISUAL_SIZE_VALUE @if(game::UNITS == Units.PIXEL) @Hardcode = 1;
+const MIN_VISUAL_SIZE_VALUE @if(game::UNITS == Units.METER) @Hardcode = 0.10f; // 10 cm
 
-const float ENTITY_DEFAULT_SIZE_X_METER   = 0.45f; // 45 cm  (minimum size is 10 cm)
-const float ENTITY_DEFAULT_SIZE_Y_METER   = 1.0f;  // 1  m
+const MIN_PHYSICS_SIZE_VALUE @if($feature(PHYSICS_BOX2D) && game::UNITS == Units.METER) @Hardcode = MIN_VISUAL_SIZE_VALUE;
+const Vec2f MIN_ENTITY_PHYSICS_SIZE @if($feature(PHYSICS_BOX2D)) = {MIN_PHYSICS_SIZE_VALUE, MIN_PHYSICS_SIZE_VALUE};
+
+const Vec2i MIN_ENTITY_VISUAL_SIZE  = {MIN_VISUAL_SIZE_VALUE, MIN_VISUAL_SIZE_VALUE};
+
+const float ENTITY_DEFAULT_SIZE_X @if(game::UNITS == Units.METER) = 0.45f; // 45 cm  (minimum size is 10 cm)
+const float ENTITY_DEFAULT_SIZE_Y @if(game::UNITS == Units.METER) = 1.0f;  // 1  m
+//
+const float ENTITY_DEFAULT_SIZE_X @if(game::UNITS == Units.PIXEL) = 45; // px  (minimum size is 10 px)
+const float ENTITY_DEFAULT_SIZE_Y @if(game::UNITS == Units.PIXEL) = 100;  // px
 
 // Target list is a list of other entities that are activated by this entity in certain situations.
 alias TargetList = List{Entity*}; // list of entities that are targets for this entity
 
 // WORK_IN_PROGRESS!!
-const EventDef EV_ENTITY_GET_NAME @if($defined(event::ENABLE_EVENTS)) = {"getName", "p", "s"}; 
-const EventDef EV_ENTITY_GET_ID @if($defined(event::ENABLE_EVENTS)) = {"getID", "p", "i"};
+const EventDef EV_ENTITY_GET_NAME @if($defined(event::ENABLE_EVENTS)) @local = {"getName", "p", "s"}; 
+const EventDef EV_ENTITY_GET_ID @if($defined(event::ENABLE_EVENTS)) @local = {"getID", "p", "i"};
 
 const EventFunc[*] ENTITY_EVENTS @if($defined(event::ENABLE_EVENTS)) = {
 	{&EV_ENTITY_GET_NAME, &ent::event_getName},
 	{&EV_ENTITY_GET_ID, &ent::event_getID},
 };
+/////////////////////////
+
 
 struct EntityFlags
 {
@@ -158,7 +166,7 @@ fn void Entity.init(&self, String aname, Vec2f origin, RLColor color = rl::WHITE
 	if(self.shouldSkip(aname)) return;
 	
 	self.type = Entity.typeid;
-	self.move_dir = DIR_NONE;
+	self.move_dir = NONE;
 	
 	usz entity_count = game::gpGame.entityList.len();
 	/*if( entity_count == 0 ) {
@@ -182,16 +190,14 @@ $if $feature(_DEBUG):
 $endif
     
 	//
-	float x_meters = game::gpGame.screen.width_in_meters;
-	float y_meters = game::gpGame.screen.height_in_meters;
-    self.vs.initV(
-    origin, 
+	//float x_meters = game::gpGame.screen.width_in_meters;
+	//float y_meters = game::gpGame.screen.height_in_meters;
+	// visuals
+    self.vs.initV( origin, 
 	{ // entity visual size
-		ENTITY_DEFAULT_SIZE_X_METER,
-		ENTITY_DEFAULT_SIZE_Y_METER
-	},
-    color
-    );
+		ENTITY_DEFAULT_SIZE_X,
+		ENTITY_DEFAULT_SIZE_Y
+	}, color);
     //
     
     // set entity Bounds
@@ -329,7 +335,7 @@ fn Vec2f Entity.getPosition(&self) @inline
 	$if $feature(PHYSICS_BOX2D):
 	return self.physics.getPosition();
 	$else
-	return {}; // todo
+	return self.vs.getPosition();
 	$endif
 }
 
@@ -479,7 +485,7 @@ fn Entity* Entity.find_other_in_radius(self, float radius )
 		
 		Vec2f other_org = self.getPosition() - other.getPosition();
 		
-		if (other_org.sq_magnitude() <= r2 ) {
+		if (other_org.length_sq() <= r2 ) {
 			return other;
 		}
 	}
@@ -519,7 +525,7 @@ fn Entity* findradius(Entity *startent, Vec2f* org, float rad )
 		
 		Vec2f other_org = (*org) - startent.getPosition();
 		
-		float distance = other_org.sq_magnitude();
+		float distance = other_org.length_sq();
 		
 		if ( distance <= r2 )
 		{
@@ -807,23 +813,12 @@ fn void Entity.draw(&self)
 	self.becomeInactive(EntTh.UPDATEVISUALS);
 	
 	RLRectangle rect = self.vs.rect;
-	switch (game::UNITS)
-	{
-		case Units.METER:
-			// position is still in pixels, todo convert to meters 
-			//rect.x = misc::metersToPixels(self.rect.x);
-			//rect.y = misc::metersToPixels(self.rect.y);
-			rect.width  = misc::metersToPixels(self.vs.rect.width);
-			rect.height = misc::metersToPixels(self.vs.rect.height);
-		case Units.PIXEL:
-			rect;  // do nothing already in pixels
-		default:
-			log::error(FILE, "Unsupported units set for Entity rendering.");
-			unreachable();
-	}
 
 	//
-	if(self.vs.hasMaterial())
+	// TODO rethink this, I should maybe reuse the sprite draw code
+	// not override it here!!!
+	self.vs.draw();
+	/*if(self.vs.hasMaterial())
     {
         // TODO(HM) find how to draw a image on a rounded rectangle!?
         RLTexture2D* texture = self.vs.mat.getTexture(MTexture.DIFFUSE);
@@ -860,7 +855,7 @@ fn void Entity.draw(&self)
 			case self.coverageSet(Coverage.TRANSLUCENT) && self.coverageSet(Coverage.PERFORATED):
 				blending = RLBlendMode.CUSTOM_SEPARATE; // use the custom blending mode					
             case self.coverageSet(Coverage.BAD):
-                log::error(FILE, "Entity material %s has a bad material coverage type.", self.vs.mat.name);
+                log::error(FILE, "Entity %s has a bad material coverage type.", self.vs.mat.name);
                 unreachable();
         }
 
@@ -896,7 +891,7 @@ fn void Entity.draw(&self)
 	else // draw simple flat shape
 	{
 		rl::drawRectangleRec(rect, self.vs.color);
-	}
+	}*/
 
 	if(ent_debugBounds.getBool())
 	{

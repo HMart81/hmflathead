@@ -177,31 +177,23 @@ fn void HMSprite.resetPosAndSize(&self) @inline
     @param color : "the color of the sprite"
     @param kind : "the kind of sprite"
     @param material_name : "the material name to use for the sprite"
-    @param allocator : "the allocator to use for the sprite allocation"
-    @require allocator != null
     @ensure return != null
 *>
-fn HMSprite* create(float x, float y, float w, float h, RLColor color = rl::WHITE, SpriteKind kind = GENERIC, String material_name = "", Allocator allocator) @inline 
+fn HMSprite* create(float x, float y, float w, float h, RLColor color = rl::WHITE, SpriteKind kind = GENERIC, String material_name = "") @inline 
 {
-    HMSprite* sprite = allocator::new(allocator, HMSprite);
+    HMSprite* sprite = mem::new(HMSprite);
     sprite.init(x, y, w, h, color, kind, material_name);
     return sprite;
 }
 
-<*
-    Removes a sprite instance
-    @param [&in] sprite : "the sprite to remove"
-    @param allocator : "the allocator to use for the sprite deallocation"
-    @require allocator != null
-*>
-fn void remove(HMSprite* sprite, Allocator allocator) @inline 
+fn void remove(HMSprite* sprite) @inline 
 {
-    if(sprite) allocator::free(allocator, sprite);
+    if(sprite) mem::free(sprite);
 }
 
 fn HMSprite* HMSprite.clone(&self) @inline 
 {
-   return sprite::create(self.rect.x, self.rect.y, self.rect.width, self.rect.height, self.color, self.kind, (self.mat != null) ? self.mat.name : "", &game::gameArena);
+   return sprite::create(self.rect.x, self.rect.y, self.rect.width, self.rect.height, self.color, self.kind, (self.mat != null) ? self.mat.name : "");
 }
 
 fn void HMSprite.deinit(&self) @inline 
@@ -326,14 +318,14 @@ fn float HMSprite.getSizeY(&self) @inline @nodiscard
 }
 
 // in screen pixel coordinates
-fn Vec2i HMSprite.getSizeInPixels(&self) @inline @nodiscard
+/*fn Vec2i HMSprite.getSizeInPixels(&self) @inline @nodiscard
 {
 	if(game::UNITS == Units.PIXEL) return (Vec2i)self.rect.size;
 	// else
     int w = misc::metersToPixels(self.rect.width);
     int h = misc::metersToPixels(self.rect.height);
     return (Vec2i){ w, h };
-}
+}*/
 
 fn void HMSprite.setKind(&self, int kind) @inline => self.kind = kindFrom(kind);
 
@@ -527,19 +519,6 @@ fn void HMSprite.draw(&self)  @inline
         if(self.flags.isHidden) return;
 
         RLRectangle rect = self.rect;
-        switch (game::UNITS)
-        {
-            case Units.METER:
-                //rect.x = misc::metersToPixels(self.rect.x);
-                //rect.y = misc::metersToPixels(self.rect.y);
-                rect.width  = misc::metersToPixels(self.rect.width);
-                rect.height = misc::metersToPixels(self.rect.height);
-            case Units.PIXEL:
-                rect;  // do nothing already in pixels
-            default:
-                log::error(FILE, "Unsupported size units set for HMSprite rendering.", self.kind);
-                unreachable();
-        }
         
         $if $defined(DEBUG_SPRITES):
             r2d::drawRectangleLinesEx(rect, 1.0f, rl::RED);

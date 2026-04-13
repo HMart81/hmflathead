@@ -156,9 +156,9 @@ struct AutoComplete @local
 
 AutoComplete globalAutoComplete @local;
 
-enum EditorKind @local
+constdef EditorKind : int @local
 {
-    MAIN_EDITOR,
+    MAIN_EDITOR = 1,
     MATERIAL_EDITOR,
     GUI_EDITOR,
     SCENE_EDITOR,
@@ -444,11 +444,14 @@ fn void Editor.setUndockable(&self) @inline
 //    If the 2D camera view is changed in any way besides moving in x and y
 //    like if the camera is zoomed or the camera is rotated, this will break.
 //    it will require conversion from world space coordinates to camera space.
+<*
+	@require  game::gpGame.view.camera.zoom == 1.0f
+*>
 fn bool Editor.isMouseOver(&self)
 {
     if (self.isVisible() == false) return false;
 
-    // gets windows mouse position...
+    // gets mouse position in pixel coordinates...
     Vec2f mouseWorldPos = rl::getMousePosition();
 
     Vec2f mouse_rect_size = game::getGameCursorSize() * 0.5f; // half the size of the game cursor
@@ -506,7 +509,7 @@ fn void Editor.draw(&self, int screenWidth, int screenHeight)
 fn void drawMainEditor(Editor* editor) @inline
 {
     // TODO(HM): Implement the main editor drawing logic.
-    io::printfn("Drawing main editor...");
+    //io::printfn("Drawing main editor...");
 
     // draw the background
     rl::drawRectangleRec(editor.main_window, editor.background_color);
@@ -867,6 +870,10 @@ $endif
 *>
 fn void drawOpenEditorBorder(Editor* editor) @inline
 {
+	if (editor.isActive() == false || editor.isVisible() == false || editor.isOpened() == false) {
+        return;
+    }
+
     switch(editor.kind) {
         case EditorKind.MAIN_EDITOR:
             editor.border_color = &EDITOR_BORDER_COLORS[0]; // white
