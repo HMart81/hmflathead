@@ -181,7 +181,7 @@ const ScreenRes[*] SCREEN_RES = {
 const usz DEFAULT_SCREEN_INDEX     = 9;
 const ScreenRes DEFAULT_SCREEN_REZ = SCREEN_RES[DEFAULT_SCREEN_INDEX];
 
-fn bool resValuesSafe(int w_value, int h_value) @inline @nodiscard 
+fn bool resValuesSafe(int w_value, int h_value) @MyInline @nodiscard 
 {
     if(w_value < SCREEN_RES[0].w || w_value > SCREEN_RES[SCREEN_RES.len - 1].w) return false;
     if(h_value < SCREEN_RES[0].h || h_value > SCREEN_RES[SCREEN_RES.len - 1].h) return false;
@@ -189,7 +189,7 @@ fn bool resValuesSafe(int w_value, int h_value) @inline @nodiscard
     return true;
 }
 
-fn int getResolutionIndexFromValues(int w, int h) @local @inline @nodiscard
+fn int getResolutionIndexFromValues(int w, int h) @local @MyInline @nodiscard
 {
     if(resValuesSafe(w, h))
     {
@@ -244,24 +244,22 @@ alias asstManager    @public= astmng::assetManager;
 // #endregion Alias
 
 // #region Cvars
-CVar developer      @public = { "developer"     , CvarType.BOOL,   "0",     "enables developer mode"};
-CVar editor         @public = { "editor"        , CvarType.BOOL,   "0",     "enables the game editor (requires developer mode)"};
-CVar r_mode         @public = { "r_mode"        , CvarType.INT,    "-1",    "index of window resolution [0 to 32], -1 = ini file setting"};
-CVar r_showFPS      @public = { "r_showFPS"     , CvarType.BOOL,   "1",     "draws framerate on screen"};
-CVar r_noSplashPic  @public = { "r_noSplashPic" , CvarType.BOOL,   "1",     "disables the splash image at game start"};
-CVar r_fullscreen   @public = { "r_fullscreen"  , CvarType.INT,    "-1",    "screen mode 0 = window, 1 = borderless, 2 = dedicated, -1 = ini file setting"};
-CVar r_fps_unlocked @public = { "r_unlockFps"   , CvarType.BOOL,   "false", "sets if the fps is unlocked (true) or locked to the monitor refresh rate (false)"};
-CVar r_max_fps      @public = { "r_max_fps"     , CvarType.INT,    "-1",    "sets the maximum fps when fps is unlocked, -1 = monitor refresh rate"};
-CVar fs_base        @public = { "fs_base"       , CvarType.STRING, "data",  "default game base folder"};
-CVar fs_mod_name    @public = { "fs_mod_name"   , CvarType.STRING, "",      "folder name of mod to run"};
-CVar fs_mod_base    @public = { "fs_mod_base"   , CvarType.STRING, "",      "folder name for custom database of running mod"};
-CVar db_drawPhysics @public = { "db_drawPhysics", CvarType.BOOL,   "1",     "show debug visualization for world physics" };
-CVar s_noaudio      @public = { "s_noaudio"     , CvarType.BOOL,   "0",     "disables all audio"};
-CVar fl_help        @public = { "help"          , CvarType.BOOL,   "0",     "shows help message"};
-CVar dbg_stats      @public = { "dbg_stats"     , CvarType.BOOL,   "0",     "shows various debug things on screen"};
-CVar skip_config    @public = { "skip_config"   , CvarType.BOOL,   "1",     "skips the configuarator at game start" };
-// TODO(HM) disable editor cvar, when not used anymore
-//CVar r_window_resizable @public = { "r_window_resizable", CvarType.BOOL,  "0",   "makes window resizable, window mode only."};
+CVar developer      @public = { "developer"     , CvFlag.BOOL | CvFlag.TOOL | CvFlag.CHEAT,   "0",     "enables developer mode"};
+CVar editor         @public = { "editor"        , CvFlag.BOOL | CvFlag.TOOL,   "0",     "enables the game editor (requires developer mode)"};
+CVar r_mode         @public = { "r_mode"        , CvFlag.INT | CvFlag.ARCHIVE,    "-1",    "index of window resolution [0 to 32], -1 = ini file setting"};
+CVar r_showFPS      @public = { "r_showFPS"     , CvFlag.BOOL | CvFlag.ARCHIVE,   "1",     "draws framerate on screen"};
+CVar r_noSplashPic  @public = { "r_noSplashPic" , CvFlag.BOOL | CvFlag.ARCHIVE,   "0",     "disables the splash image at game start"};
+CVar r_fullscreen   @public = { "r_fullscreen"  , CvFlag.INT | CvFlag.ARCHIVE,    "-1",    "screen mode 0 = window, 1 = borderless, 2 = dedicated, -1 = ini file setting"};
+CVar r_fps_unlocked @public = { "r_unlockFps"   , CvFlag.BOOL | CvFlag.ARCHIVE,   "false", "sets if the fps is unlocked (true) or locked to the monitor refresh rate (false)"};
+CVar r_max_fps      @public = { "r_max_fps"     , CvFlag.INT | CvFlag.ARCHIVE,    "-1",    "sets the maximum fps when fps is unlocked, -1 = monitor refresh rate"};
+CVar fs_base        @public = { "fs_base"       , CvFlag.STRING | CvFlag.ARCHIVE, "data",  "default game base folder"};
+CVar fs_mod_name    @public = { "fs_mod_name"   , CvFlag.STRING | CvFlag.ARCHIVE, "",      "folder name of mod to run"};
+CVar fs_mod_base    @public = { "fs_mod_base"   , CvFlag.STRING | CvFlag.ARCHIVE, "",      "folder name for custom database of running mod"};
+CVar db_drawPhysics @public = { "db_drawPhysics", CvFlag.BOOL | CvFlag.TOOL,   "1",     "show debug visualization for world physics" };
+CVar s_noaudio      @public = { "s_noaudio"     , CvFlag.BOOL | CvFlag.ARCHIVE | CvFlag.SOUND,   "0",     "disables all audio"};
+CVar fl_help        @public = { "help"          , CvFlag.BOOL | CvFlag.TOOL,   "0",     "shows help message"};
+CVar dbg_stats      @public = { "dbg_stats"     , CvFlag.BOOL | CvFlag.TOOL,   "0",     "shows various debug things on screen"};
+CVar skip_config    @public = { "skip_config"   , CvFlag.BOOL | CvFlag.TOOL,   "1",     "skips the configuarator at game start" };
 
 fn void register_cvars() @local 
 {
@@ -281,8 +279,6 @@ fn void register_cvars() @local
     cvar::@register(&fl_help);
     cvar::@register(&dbg_stats);
 	cvar::@register(&skip_config);
-    
-    //if(cvar::cvars.len()) foreach(cv: cvar::cvars) {log::info(Where.CONSOLE, cv.name);}
 }
 
 fn void register_modulo_cvars() @local {
@@ -331,7 +327,7 @@ struct Game (SaveSystemInterface/*, IGame*/) @local
     bool msgbox_showing;
     bool is_modded_game; // is the game running a mod?
     
-    ConfigFile settings_file; // game settings file data, used to get or save game settings
+    ConfigFile settings_data; // game settings file data, used to get or save game settings
     
     IntroAnimation intro;
     
@@ -393,7 +389,8 @@ struct Game (SaveSystemInterface/*, IGame*/) @local
     HMSprite mouse_cursor;
     Vec2f mouse_window_pos; // raylib coordinates origin top left
     
-    Player* main_player;
+    Player* player1;
+    Player* player2;
     PersistentInfo playerPersistentInfo; // to save any info that the player carries along for each level
     RenderView view;
 
@@ -490,8 +487,10 @@ VideoCabinet* vidCabinet @public @if($feature(VIDEO_PLAYBACK_ENABLE));
 // end
 
 
-fn void Game.freeGameEntities(&self) @inline {
-    if(int count = (int)self.entityList.len()) {
+fn void Game.freeGameEntities(&self) @MyInline 
+{
+    if(int count = (int)self.entityList.len()) 
+    {
         foreach(&it: self.entityList) if(it) (*it).kill();
         self.entityList.free();
         log::info(FILE, "['%s'] Entities were cleared!", count);
@@ -605,25 +604,26 @@ fn void Game.reload(&self, SaveFile* file) @dynamic {
 <*
  @require(self.entityList.len() >= 1)
 *>
-fn Player* Game.getLocalPlayer(&self) @inline {
-    return (Player*)self.entityList[0];
+fn Player* Game.getLocalPlayer(&self, int id = 1) @MyInline {
+    int idx = id - 1;
+    return (Player*)self.entityList[idx];
 }
 
-fn RLShader getDefaultShaderCopy() @inline @public {
+fn RLShader getDefaultShaderCopy() @MyInline @public {
     return local_game.default_shader;
 }
 
-fn RLShader* getDefaultShader() @inline @public {
+fn RLShader* getDefaultShader() @MyInline @public {
     return &local_game.default_shader;
 }
 
-fn RLShader* getCurrentGlobalShader() @inline @public {
+fn RLShader* getCurrentGlobalShader() @MyInline @public {
     return local_game.current_global_shader;
 }
 
-fn Vec2f getScreenCenterPos() @inline @public => local_game.screen.center;
+fn Vec2f getScreenCenterPos() @MyInline @public => local_game.screen.center;
 
-fn Vec2i getScreenCenterPosI() @inline @public 
+fn Vec2i getScreenCenterPosI() @MyInline @public 
 {
     return {local_game.render.getScreenWidth() / 2, 
             local_game.render.getScreenHeight() / 2};
@@ -701,7 +701,7 @@ fn void MessageBox.init(&self, int type) {
     register_messagebox(self);
 }
 
-fn void MessageBox.updateSize(&self) @inline {
+fn void MessageBox.updateSize(&self) @MyInline {
     if(self.text_len > self.box.width) self.box.width = self.text_len + DEFAULT_MESSAGE_BOX_MARGIN;
 }
 
@@ -780,21 +780,21 @@ fn void drawMsgBox(int w, int h) @public
 
 
 /*
-fn void Game.updateScreenSize(&self, int rez_index) @inline @deprecated {
+fn void Game.updateScreenSize(&self, int rez_index) @MyInline @deprecated {
     self.screen.w = SCREEN_RES[rez_index].w;
     self.screen.h = SCREEN_RES[rez_index].h;
     rl::setWindowSize(self.screen.w,  self.screen.h);
 }
 */
 
-fn void Game.initFonts(&self) /*@inline*/ {
+fn void Game.initFonts(&self) /*@MyInline*/ {
     self.candara_font       = asstManager.getFont("candara.fnt");
     self.candara_light_font = asstManager.getFont("candara_light.fnt");
     self.lucida_font        = asstManager.getFont("lucida.fnt");
     self.trojan_pro_font    = asstManager.getFont("trojan_pro.fnt");
 }
 
-fn void Game.clearFonts(&self) @inline {
+fn void Game.clearFonts(&self) @MyInline {
     // we dont unload the fonts here, because they are unloaded by the asset manager
     //rl::unloadFont(self.candara_font);
     self.candara_font       = null;
@@ -890,26 +890,27 @@ fn void? Game.loadSettingsFile(&self)
         log::warning(FILE, "Settings file not found, creating default settings file at: %s", settings_path);
         File data = ini::create_default_settings_fileEx(settings_path)!!;
         defer data.close()!!;
-        if(!local_game.settings_file.loadEx(data, settings_path)) {
+        if(!local_game.settings_data.loadEx(data, settings_path)) {
             log::fatal(FILE, "Failed to load settings file at: %s", settings_path);
             return ini::FAILED_READ_FILE~;
         }
         // set default settings
-        ini::setBool(&local_game.settings_file, "video", "fullscreen", false);
-        ini::setInt(&local_game.settings_file, "video", "resolution_width", SCREEN_RES[DEFAULT_SCREEN_INDEX].w);
-        ini::setInt(&local_game.settings_file, "video", "resolution_height", SCREEN_RES[DEFAULT_SCREEN_INDEX].h);
-        ini::setInt(&local_game.settings_file, "video", "vsync", 1);
-        ini::setInt(&local_game.settings_file, "audio", "master_volume", 100);
-        ini::setInt(&local_game.settings_file, "audio", "music_volume", 80);
-        ini::setInt(&local_game.settings_file, "audio", "sfx_volume", 80);
+        ini::setBool(&local_game.settings_data, "video", "fullscreen", false);
+        ini::setInt(&local_game.settings_data, "video", "resolution_width", SCREEN_RES[DEFAULT_SCREEN_INDEX].w);
+        ini::setInt(&local_game.settings_data, "video", "resolution_height", SCREEN_RES[DEFAULT_SCREEN_INDEX].h);
+        ini::setInt(&local_game.settings_data, "video", "vsync", 1);
+        ini::setInt(&local_game.settings_data, "audio", "master_volume", 100);
+        ini::setInt(&local_game.settings_data, "audio", "music_volume", 80);
+        ini::setInt(&local_game.settings_data, "audio", "sfx_volume", 80);
         // save file
-        if(!ini::saveConfigFile(&local_game.settings_file)) {
+        bool? sucess = ini::saveConfigFile(&local_game.settings_data);
+		if(catch excuse = sucess) { 
             log::fatal(FILE, "Failed to save default settings file at: %s", settings_path);
-            return ini::FAILED_OPEN_FILE~;
+            return excuse~;
         }
     }
     // load settings file
-    bool? settings_load_sucess = local_game.settings_file.load(settings_path, false);
+    bool? settings_load_sucess = local_game.settings_data.load(settings_path, false);
     if(catch excuse = settings_load_sucess) {
         log::warning(FILE, "Failed to load %s file with excuse: %s", settings_path, excuse);
         return excuse~;
@@ -939,7 +940,10 @@ $endif
         self.current_global_shader = null;
     }
     
-    if(self.main_player) self.main_player = null;
+    // player data is freed a few lines above on self.freeGameEntities()
+    // here is just clearing the pointers
+    if(self.player1) self.player1 = null;
+    if(self.player2) self.player2 = null;
     
     if(usz count = self.sprites.len()) {
         foreach(&it: self.sprites) if(it) (*it).deinit();
@@ -977,24 +981,24 @@ fn ESCReply Game.handleESC(&self, Desktop** gui ) @dynamic
 
 // #region System OS Cursor
 
-fn void enable_system_cursor() @inline @public
+fn void enable_system_cursor() @MyInline @public
 {
     rl::enableCursor();
     local_game.system_cursor_enabled = true;
 }
 
-fn void disable_system_cursor() @inline @public
+fn void disable_system_cursor() @MyInline @public
 {
     rl::disableCursor();
     local_game.system_cursor_enabled = false;
 }
 
-fn bool system_cursor_enabled() @public @inline 
+fn bool system_cursor_enabled() @public @MyInline 
 {
     return local_game.system_cursor_enabled;
 }
 
-fn bool system_cursor_disabled() @public @inline 
+fn bool system_cursor_disabled() @public @MyInline 
 {
     return !system_cursor_enabled();
 }
@@ -1012,7 +1016,7 @@ fn void hide_system_cursor() @public {
     rl::hideCursor();
 }
 
-fn bool system_cursor_visible() @public @inline {
+fn bool system_cursor_visible() @public @MyInline {
     return !rl::isCursorHidden();
 }
 
@@ -1021,7 +1025,7 @@ fn bool system_cursor_visible() @public @inline {
 ///////////////////////////////////////
 // #region Game Custom Cursor functions
 
-fn void init_game_cursor() @inline
+fn void init_game_cursor() @MyInline
 {
     local_game.mouse_cursor.initV(
         pos: {0,0}, // position in pixel units
@@ -1036,15 +1040,15 @@ fn void init_game_cursor() @inline
 }
 
 // is this really needed now that i have a asset manager? 
-fn void deinit_game_cursor() @inline {
+fn void deinit_game_cursor() @MyInline {
     hide_game_cursor();
 }
 
-fn void set_game_cursor_size(float w, float h) @inline {
+fn void set_game_cursor_size(float w, float h) @MyInline {
     local_game.mouse_cursor.setSize(w, h);
 }
 
-fn Vec2f getGameCursorSize() @public @inline => local_game.mouse_cursor.getSize();
+fn Vec2f getGameCursorSize() @public @MyInline => local_game.mouse_cursor.getSize();
 
 fn void update_game_cursor(int screen_w, int screen_h) @public 
 {
@@ -1081,12 +1085,12 @@ fn void update_game_cursor(int screen_w, int screen_h) @public
     }
 }
 
-fn void show_game_cursor() @public @inline 
+fn void show_game_cursor() @public @MyInline 
 {
     if(local_game.mouse_cursor.hidden()) local_game.mouse_cursor.show();
 }
 
-fn void draw_game_cursor() @local @inline
+fn void draw_game_cursor() @local @MyInline
 {
     if(game_cursor_visible()) 
     {
@@ -1103,15 +1107,15 @@ fn void draw_game_cursor() @local @inline
 }
 
 // NOTE(HM) only hides the cursor doesn't disable it, will still move regardless of visibility.
-fn void hide_game_cursor() @public @inline {
+fn void hide_game_cursor() @public @MyInline {
     if(game_cursor_visible()) local_game.mouse_cursor.hide();
 }
 
-fn bool game_cursor_visible() @public @inline {
+fn bool game_cursor_visible() @public @MyInline {
     return !local_game.mouse_cursor.hidden();
 }
 
-fn bool game_cursor_hidden() @public @inline {
+fn bool game_cursor_hidden() @public @MyInline {
     return !game_cursor_visible();
 }
 
@@ -1506,7 +1510,7 @@ fn void gameReset() @local
     @todo("reset game state");
 }
 
-fn void drawGameVersion(Vec2i at_pos) @inline @local
+fn void drawGameVersion(Vec2i at_pos) @MyInline @local
 {
     // draw game version
     const RLColor COLOR @Hardcode = {127, 127, 255, 255};
@@ -1658,10 +1662,9 @@ fn void onDraw(int screenWidth, int screenHeight) @local
         local_game.view.renderFrameBuffersObjects();
         
         // Main Basic rendering
-        //rl::beginDrawing();
-        rl::@drawing() 
+        rl::@drawing(clear_color: {0x18, 0x18, 0x18, 0xFF})
         {
-            local_game.render.setBackGroundColor({0x18, 0x18, 0x18, 0xFF});
+            //local_game.render.setBackGroundColor({0x18, 0x18, 0x18, 0xFF});
             //rl::clearBackground(*(RLColor*)&&((uint[1]){ 0x181818FF }));
 
             // 2) render the view FBO's rendered above into the back buffer
@@ -1768,11 +1771,27 @@ fn void onPostGUIDraw(int screenWidth, int screenHeight) @public
         //r2d::drawDebugPoint(local_game.mouse_window_pos, rl::RED);
     }
 
+
+    // draw entities bounds
+    if(ent::debugBounds.getBool() && local_game.mode == EDITOR || local_game.mode == PLAYING)
+	{
+        if(local_game.entityList.len())
+        {
+            foreach(ent : local_game.entityList)
+            {
+                bool ent_out_of_view = !local_game.view.bounds.intersectsOther(&ent.vs.bounds);
+                if(!ent_out_of_view && !ent.hidden()) {
+                    ent.vs.bounds.debugDraw();
+                }
+            }
+        }
+	}
+
     // draw game cursor sprite
     draw_game_cursor();
 }
 
-fn void onGuiDraw(int screenWidth, int screenHeight) @public @inline 
+fn void onGuiDraw(int screenWidth, int screenHeight) @public @MyInline 
 {
     // videos playback
     $if $feature(VIDEO_PLAYBACK_ENABLE):
@@ -1883,7 +1902,7 @@ fn void onGuiDraw(int screenWidth, int screenHeight) @public @inline
 	//
 }
 
-fn void onPostBufferSwap() @local @inline {
+fn void onPostBufferSwap() @local @MyInline {
     // NOTE(HM) Any extra rendering code here 
     // draws after the raylib frame buffer is swapped/updated
     //example:
@@ -2134,7 +2153,7 @@ fn void handle_cmdline(String[] args)
     }
 }
 
-fn void print_game_version() @local @inline 
+fn void print_game_version() @local @MyInline 
 {
     log::info(FILE, "---------------------------------------------");
     log::info(FILE, "ENGINE_VERSION: %s", lic::ENGINE_VERSION);
@@ -2193,12 +2212,12 @@ $endif
     log::info(FILE, "---------------------------------------------");
     String app_exe_path = (*args)[0];
     
+	///////////////////////////
     // Set the game name
     local_game.app_name = lic::GAME_NAME;
-    if(local_game.app_name != "")
-    {
-        if(lic::GAME_SUB_NAME.len > 0)
-        {
+    if(local_game.app_name.len > 0) {
+        if(lic::GAME_SUB_NAME.len > 0) {
+            local_game.app_name = local_game.app_name.tconcat("_");
             local_game.app_name = local_game.app_name.tconcat(lic::GAME_SUB_NAME);
         }
     } else {
@@ -2206,66 +2225,75 @@ $endif
         local_game.app_name = fs::getFileNameWithoutExt(app_exe_path).tconcat("_app");
     }
     
-    // Detect and Setup the work directory folder,
-    // NOTE(HM) app_exe_path has the working dir encoded on it, but also includes the exe name, 
-    //          rl::getWorkingDirectory() removes the name and gets the required path.
-    // This also saves original work dir, in case a mod is being used.
+	//////////////////////////////////////////////
+    // Detect and Setup the work directory folder (aka where the .exe file is)
+    // In case a mod is being used, use this to get the original game work dir.
     local_game.app_default_workdir = fs::getWorkingDirectory();
-    if(fs::directoryExists(local_game.app_default_workdir))
-    {
+    if(fs::directoryExists(local_game.app_default_workdir)) {
         log::info(FILE, "\tWorking from default Dir: %s", local_game.app_default_workdir);
     } else { 
         return INVALID_WORK_DIR~; // will this ever happen?
     }
-    // Detect and Setup the base folder where required game assets/data live.
-    local_game.app_default_base_folder = local_game.app_default_workdir.tconcat(fs_base.getString()).tconcat(platf::PATHSEPERATOR_STR);
+
+	/////////////////////////////////////////////////////////////////////////
+    // Detect and Setup the base folder, where all required game assets/data live.
+	String base_folder = local_game.app_default_workdir.tconcat(fs_base.getString());
+	if(!base_folder.ends_with(platf::PATHSEPERATOR_STR)) {
+		base_folder = base_folder.tconcat(platf::PATHSEPERATOR_STR);
+	}
+    local_game.app_default_base_folder = base_folder.tcopy();
     
+	//////////////////////////////////////////////
+	// define the generic work dir and base folder
     local_game.app_work_dir    = local_game.app_default_workdir;
     local_game.app_base_folder = local_game.app_default_base_folder;
     
+	///////////////////////////////////////////////
     // NOTE(HM) support for mods.
-    // WARNING(HM) This needs more testing...
-    bool using_mod     = fs_mod_name.getString().len > 0;
+    // WARNING(HM) This needs way more testing...
+	const MODS_DIR = "mods";
+	String mod_name = fs_mod_name.getString();
+    bool using_mod  = mod_name.len > 0;
     local_game.is_modded_game = using_mod;
     if(using_mod)
     {
-        String mods_dir, mod_name, mod_work_dir, mod_base_folder;
+        String mods_dir = local_game.app_default_workdir.tconcat(MODS_DIR);
+
         bool mod_handling_failed;
+        String mod_work_dir, mod_base_folder;
 
-        mod_name = fs_mod_name.getString();
-        if(mod_name.len <= 2) {
-            log::warning(FILE, "mod name: \"%s\" seems to be very small are you sure that is correct?", mod_name);
-        }
-
-        mods_dir = local_game.app_default_workdir.tconcat("mods");
-        if(fs::directoryExists(mods_dir)) // look inside
+        if(fs::directoryExists(mods_dir)) // look inside mods folder for the desired mod folder
         {
-            mod_work_dir = mods_dir.tconcat(platf::PATHSEPERATOR_STR).tconcat(mod_name).tconcat(platf::PATHSEPERATOR_STR);
-            // make sure mod work dir exists as well
-            if(fs::directoryExists(mod_work_dir))
-            {
-                // set the game work dir to the mod work dir
-                local_game.app_work_dir = mod_work_dir;
-                // now set the game base dir for the mod base dir
-                mod_base_folder = mod_work_dir.tconcat(fs_mod_base.getString()).tconcat(platf::PATHSEPERATOR_STR);
-                // also make sure the mod base dir exists
-                if(fs::directoryExists(mod_base_folder))
-                {
-                    local_game.app_base_folder = mod_base_folder;
-                } else { 
-                    log::warning(FILE, "base directory for mod \"%s\" is missing cannot run mod!", mod_name);
-                    mod_handling_failed = true;
-                }
-            } else { 
-                log::warning(FILE, "Work directory for mod \"%s\" is missing cannot run mod!", mod_name);
-                mod_handling_failed = true;
-            }
+			mod_handling_failed = true; // this gets changed bellow if all is well
+
+			// first check if mod folder name is valid
+			if(mod_name.len <= 2) {
+				log::warning(FILE, "mod name: \"%s\" seems to be very small are you sure that is correct?", mod_name);
+			} else {
+				mod_work_dir = mods_dir.tconcat(platf::PATHSEPERATOR_STR).tconcat(mod_name).tconcat(platf::PATHSEPERATOR_STR);
+				// if mod work dir exists
+				if(fs::directoryExists(mod_work_dir)) {
+					// set the generic work dir, to the mod work dir, instead of the original game work dir.
+					local_game.app_work_dir = mod_work_dir;
+					// also make sure the mod base dir exists
+					mod_base_folder = mod_work_dir.tconcat(fs_mod_base.getString()).tconcat(platf::PATHSEPERATOR_STR);
+					if(fs::directoryExists(mod_base_folder)) {
+						// now set the generic game base dir for the mod base dir as well
+						local_game.app_base_folder = mod_base_folder;
+						mod_handling_failed = false;
+					} else { 
+						log::warning(FILE, "base directory for mod \"%s\" is missing cannot run mod!", mod_name);
+					}
+				} else { 
+					log::warning(FILE, "Work directory for mod \"%s\" is missing cannot run mod!", mod_name);
+				}
+			}
         } else {
             log::warning(FILE, "Mod %s has to be run from inside folder \"mods\" but none was found at: %s", mod_name, local_game.app_default_workdir);
             mod_handling_failed = true;
         }
 
-        if(mod_handling_failed)
+        if(mod_handling_failed) // make sure we return to valid original game folders
         {
             log::warning(FILE, "Mod handling failed, using default work dir: %s", local_game.app_default_workdir);
             local_game.app_work_dir    = local_game.app_default_workdir;
@@ -2273,9 +2301,9 @@ $endif
         }
     }
     
-    // make sure required work dir exists
-    if(fs::directoryExists(local_game.app_work_dir)) 
-    {
+	/////////////////////////////////////////
+    // make sure required work dir exists, if not halt the game
+    if(fs::directoryExists(local_game.app_work_dir)) {
         if(local_game.app_work_dir != local_game.app_default_workdir) 
         {
             log::info(FILE,  "\tWorking now from Dir: %s", local_game.app_work_dir);
@@ -2284,13 +2312,13 @@ $endif
         return INVALID_WORK_DIR~;
     }
     
-    // make sure required base folder exists
-    if(fs::directoryExists(local_game.app_base_folder)) 
-    {
+	/////////////////////////////////////////
+    // make sure required base folder exists, else halt the game
+    if(fs::directoryExists(local_game.app_base_folder)) {
         log::info(FILE,  "\tBase Dir set to: %s", local_game.app_base_folder);
     } 
-    else
-    {
+	else 
+	{
         if(local_game.is_modded_game) 
         {
             log::error(FILE,`Required base folder inside %s not found!\n
@@ -2306,20 +2334,19 @@ $endif
         return NO_DATA_FOLDER~;
     }
     
+	//////////////////////////////////////////////////
     // get the home folder to save necessary game data
-    local_game.app_save_folder = win32::getSystemSpecialPath(win32::PERSONAL_FOLDER_MY_GAMES);
+	local_game.app_save_folder = win32::getSystemSpecialPath()!;
+	$if env::WIN32:
     if(local_game.app_save_folder.len > 0)
     {
-        // NOTE(HM) append the desired final folder 
-        // and look in the OS user save directory, to see if folder is already there 
-        // if not create it.
+        // NOTE(HM)
+        // Look in the user saving directory, if save folder is already there if not create it.
         local_game.app_save_folder = local_game.app_save_folder.tconcat(platf::PATHSEPERATOR_STR).tconcat(local_game.app_name);
         if(fs::directoryExists(local_game.app_save_folder)) 
         {
             log::info(FILE, "\tUser Save folder set to: %s", local_game.app_save_folder);
         } else { // create it
-            //Path? save_path = path::temp_new(save_folder)!;
-            //bool? sucess    = path::mkdir(save_path);
             bool? sucess    = fs::makeDirectory_IfNotExist(local_game.app_save_folder);
             if(catch excuse = sucess) 
             {
@@ -2329,11 +2356,15 @@ $endif
             }
         }
     }
+	$else
+		local_game.app_save_folder = local_game.app_save_folder.tconcat(platf::PATHSEPERATOR_STR).tconcat("saves");
+	$endif
     log::info(FILE, "---------------------------------------------\n");
 // #endregion
 
 ////////////////////////////////////////////////////
-    // show splash screen
+    // if enabled, show a splash screen. Btw this delays the game start for a few seconds
+	// so not sure if really something I want to have, but is here for others if they want it.
     if(r_noSplashPic.getBool() == false) showSplashScreenImage();
 ////////////////////////////////////////////////////
 
@@ -2345,8 +2376,7 @@ $endif
     // window flags
     RLConfigFlag window_flags; // special windows flags for the rl window handling
     
-    // support modern high dpi monitors (replaces the need for manual use of GetWindowScaleDPI() functionality)
-    //window_flags |= (int)rl::FLAG_WINDOW_HIGHDPI;
+    // support for high dpi monitors (replaces the need for manual use of GetWindowScaleDPI() functionality)
     bkend::setWindowFlag(&window_flags, rl::FLAG_WINDOW_HIGHDPI);
     
     // TODO(HM)
@@ -2365,16 +2395,15 @@ $endif
         ini::create_default_settings_file(ini_file_path);
     }
     
-    // load the settings file
-    ConfigFile* settings_file = &local_game.settings_file;
-    bool? settings_load_sucess = settings_file.load(ini_file_path, false);
-    //ConfigFile*? settings_file = ini::load(ini_file_path, false); //ini::load(SETTINGS_FILE_NAME);
+    // load the settings file data into RAM
+    bool? settings_load_sucess = local_game.settings_data.load(ini_file_path, false);
+    //ConfigFile*? settings_data = ini::load(ini_file_path, false); //ini::load(SETTINGS_FILE_NAME);
     if( catch excuse = settings_load_sucess) {
         log::warning(FILE, "Failed to load %s file with excuse: %s", ini_file_path, excuse);
-        settings_file = null;
         return excuse~;
     }
-    //defer if(settings_load_sucess) ini::unload(&settings_file);
+	ConfigFile* settings_data = &local_game.settings_data;
+    //defer if(settings_load_sucess) ini::unload(&settings_data);
 
     @off() 
     {
@@ -2397,7 +2426,7 @@ $endif
         // !json
     };
 
-    log::info(FILE, "Settings file loaded: %s", ini_file_path);
+    log::info(FILE, "Settings file data loaded into RAM with sucess: %s", ini_file_path);
     log::info(FILE, "---------------------------------------------\n");
 
     // test writting to the register
@@ -2449,10 +2478,10 @@ $endif
 // #endregion Ini file handling
 
     // set game language
-    if(settings_file.hasSection("game")) 
+    if(settings_data.hasSection("game")) 
     {
-        local_game.langdict.type = settings_file.getString("language");
-        assert(local_game.langdict.type != "");
+        local_game.langdict.type = settings_data.getString("language");
+        assert(local_game.langdict.type.len > 0);
         $if $defined(env::WIN32):
             Win32_HKEY k = win32::getGameRegSettingsPath()!;
             @catch(k.setValue("language", &local_game.langdict.type, String.typeid, close_key: true));
@@ -2465,16 +2494,16 @@ $endif
             unreachable("failed to load languages data file: %s!!", langs_path!);
         }
     } else {
-        //settings_file.addSection(settings_file.createSection("game"));
-        //settings_file.addToSection("game", mem::new(IniCMD, {"language", "pt"}));
+        //settings_data.addSection(settings_data.createSection("game"));
+        //settings_data.addToSection("game", mem::new(IniCMD, {"language", "pt"}));
         unreachable("invalid ini file, required [game] section was not found!!");
     }
 
     // change logging level
     // NOTE(HM) this will override the default log level set before in pre_InitFunc()
-    if(settings_file.getBool("log")! == true)
+    if(settings_data.getBool("log")! == true)
     {
-		RLTraceLogLevel level = log::getLevelFromString(settings_file.getString("log_level"));
+		RLTraceLogLevel level = log::getLevelFromString(settings_data.getString("log_level"));
 		if(log::getLogLevel() != level)
 		{
 			log::info(FILE, "Ini file overriding prior Logging level!");
@@ -2486,7 +2515,7 @@ $endif
 			log::info(FILE, "Logging set to: %s\n", log::levelToString(level));
 		}
     }
-    else if(settings_file.getBool("log")! == false)
+    else if(settings_data.getBool("log")! == false)
     {
         log::setLogLevel(RLTraceLogLevel.NONE);
         log::info(FILE, "Logging disabled.");
@@ -2524,15 +2553,15 @@ $endif
     else
     {
         // DOC(HM) '!' at the expression end, is the same as doing:
-        // int? res_index  = settings_file.getInt("r_mode");
+        // int? res_index  = settings_data.getInt("r_mode");
         // if(catch excuse = res_index ) { return excuse; }
 
-        if(settings_file.getInt("r_mode")! == -1)
+        if(settings_data.getInt("r_mode")! == -1)
         {
             int w_value, h_value;
             // use ini defined custom resolutions
-            if(try value =  settings_file.getInt("r_custom_width"))  w_value = value;
-            if(try value =  settings_file.getInt("r_custom_heigth")) h_value = value;
+            if(try value =  settings_data.getInt("r_custom_width"))  w_value = value;
+            if(try value =  settings_data.getInt("r_custom_heigth")) h_value = value;
             
             // see if the custom resolution exists in the list of resolutions
             // NOTE(HM) if the custom resolution is not found, it will return -1
@@ -2571,7 +2600,7 @@ $endif
     log::info(FILE, "Window settings:");
     log::info(FILE, "---------------------------------------------");
     // Vertical sync (this is a hint so may or may not apply...)
-    if(try settings_file.getBool("vsync")) 
+    if(try settings_data.getBool("vsync")) 
     {
         //window_flags |= (int)rl::FLAG_VSYNC_HINT;
         bkend::setWindowFlag(&window_flags, rl::FLAG_VSYNC_HINT);
@@ -2582,7 +2611,7 @@ $endif
     // NOTE(HM) cvar r_fullscreen has top priority
     int fullscreen_choice = r_fullscreen.getInt();
     // NOTE(HM) if cvar was not set, see if the config file is overriding the value
-    if(fullscreen_choice == -1) fullscreen_choice = settings_file.getInt("r_fullscreen")!;
+    if(fullscreen_choice == -1) fullscreen_choice = settings_data.getInt("r_fullscreen")!;
     // prevent under or overflow
     if(fullscreen_choice < -1 || fullscreen_choice > 2) 
     {
@@ -2621,7 +2650,7 @@ $endif
     // Multi-sampling AA (ONLY 0 or 4x is supported by Raylib, there's no inbetween)
     if(local_game.screen.state.fullscreen) 
     {
-        if(try msaa_samples = settings_file.getInt("msaa")) 
+        if(try msaa_samples = settings_data.getInt("msaa")) 
         {
             if(msaa_samples > 0) 
             {
@@ -2634,7 +2663,7 @@ $endif
     
     // NOTE(HM) Decided to disable the ability to resize the window to simplify things
     // if(local_game.screen.state.window) {
-        // if(try settings_file.getBoolValue("r_window_resizable")) {
+        // if(try settings_data.getBoolValue("r_window_resizable")) {
             // window_flags |= rl::FLAG_WINDOW_RESIZABLE;
             // local_game.screen.state.resizable = true;
         // }
@@ -2852,7 +2881,7 @@ $if $feature(_DEBUG):
     // NOTE(HM) This needs to run after initWindow,
     // it changes the default exit key (default was ESC key)
     //rl::setExitKey(rl::KEY_F10);
-    String key_name = settings_file.getString("quit", default_value: "KEY_ESCAPE");
+    String key_name = settings_data.getString("quit", default_value: "KEY_ESCAPE");
     rl::setExitKey(input::getKeyCodeFromStr(key_name));
     log::info(FILE, "Exit key set to: %s", key_name);
     log::info(FILE, "---------------------------------------------\n");
@@ -3189,7 +3218,7 @@ $endif
     //}
     
 // #region Test game stuff
-    createGameInputActions(settings_file);
+    createGameInputActions(settings_data);
 
     if(fl_help.getBool())
     {
@@ -3214,9 +3243,13 @@ $endif
     // but right now, I don't have a concept of a "level" or game World.
     // TODO(HM) when possible make a dedicated spawn point entity for the player.
     log::info(FILE,  "** Creating test player. **");
-    local_game.main_player = plyr::makePlayer(id: 1, color: rl::PURPLE);
-    // NOTE(HM) The first entity is always the main player1
-    local_game.entityList.push((Entity*)local_game.main_player);
+    local_game.player1 = plyr::makePlayer(id: 1, color: rl::RED);
+    local_game.player1.setMaterial("figure");
+    local_game.player2 = plyr::makePlayer(id: 2, color: rl::BLUE);
+    local_game.player2.setMaterial("figure");
+    // NOTE(HM) The first entities are always the players
+    local_game.entityList.push((Entity*)local_game.player1);
+    local_game.entityList.push((Entity*)local_game.player2);
     log::info(FILE,  "** Done **.");
     
     // local_game.particleSpawner1.init({
@@ -3284,6 +3317,20 @@ $endif
 
 fn void onExit()
 {
+	// save cvars to config data file (settings file below)
+	/*foreach(cv : cvar::cvars) {
+		if(cv.flags & CvFlag.ARCHIVE) cv.archive();
+	}*/
+
+    //
+    /*if(local_game.settings_data.isModified())
+    {
+        // save the settings file
+        log::info(FILE, "Saving settings file: %s", local_game.settings_data.path);
+        @catch(local_game.settings_data.save());
+    }*/
+    ini::unload(&local_game.settings_data);
+
     log::info(FILE,  "Game shutdown starting.");
     deinit_game_cursor();
     // make sure to release all assets last, so you don't try to release a asset that is already released.
@@ -3368,18 +3415,6 @@ $endif
     local_game.langdict.destroy();
 
     //
-    if(local_game.settings_file.isModified())
-    {
-        // save the settings file
-        log::info(FILE, "Saving settings file: %s", local_game.settings_file.path);
-        if(local_game.settings_file.save()) {
-            log::info(FILE, "Settings file saved successfully.");
-        } else {
-            log::warning(FILE, "Failed to save settings file.");
-        }
-    }
-    ini::unload(&local_game.settings_file);
-    //
     // debug_lines
     if(misc::g_debugLines.len())
     {
@@ -3418,7 +3453,7 @@ $endif
     log::closeLogFile();
 }
 
-fn void clear_game_singletons() @inline {
+fn void clear_game_singletons() @MyInline {
     gpGame = null; // clear pointer to game singleton
     //
     input::gpManager.free();
@@ -3548,10 +3583,10 @@ fn void loadGame()
 }
 
 <*
- @param [in] settings_file : "the ini file to read the game input actions from."
- @require settings_file != null
+ @param [in] settings_data : "the ini file to read the game input actions from."
+ @require settings_data != null
 *>
-fn void createGameInputActions(ConfigFile* settings_file) @inline @local
+fn void createGameInputActions(ConfigFile* settings_data) @MyInline @local
 {
     defer input::listActions();
 
@@ -3562,14 +3597,14 @@ fn void createGameInputActions(ConfigFile* settings_file) @inline @local
 $endif
 
 $if !$feature(_DEBUG):
-    //input::makeKeyboardAction("quit", input::getKeyCodeFromStr(settings_file.getString("quit")), rl::KEY_NULL, (ActionCallBack)&input::quitGame);
+    //input::makeKeyboardAction("quit", input::getKeyCodeFromStr(settings_data.getString("quit")), rl::KEY_NULL, (ActionCallBack)&input::quitGame);
 	input::@makeAction({.name = "quit", .kind = KEYBOARD, 
-		.key1 = input::getKeyCodeFromStr(settings_file.getString("quit")), 
+		.key1 = input::getKeyCodeFromStr(settings_data.getString("quit")), 
 		.func = (ActionCallBack)&quitGame});
 $endif
 
-    input::makeKeyboardAction("quicksave", input::getKeyCodeFromStr(settings_file.getString("quicksave")), rl::KEY_NULL, (ActionCallBack)&saveGame);
-    input::makeKeyboardAction("quickload", input::getKeyCodeFromStr(settings_file.getString("quickload")), rl::KEY_NULL, (ActionCallBack)&loadGame);
+    input::makeKeyboardAction("quicksave", input::getKeyCodeFromStr(settings_data.getString("quicksave")), rl::KEY_NULL, (ActionCallBack)&saveGame);
+    input::makeKeyboardAction("quickload", input::getKeyCodeFromStr(settings_data.getString("quickload")), rl::KEY_NULL, (ActionCallBack)&loadGame);
     
     input::makeKeyboardAction("particles", rl::KEY_INSERT);
 
@@ -3585,7 +3620,7 @@ $endif
 
 ////////////////////////////////// GAME LOOP ////////////////////////////////////////////////////////////////
 
-fn void quitGame() @inline @public {
+fn void quitGame() @MyInline @public {
     local_game.should_quit = true;
 }
 
@@ -3702,25 +3737,24 @@ fn void disconnect() @public
 
 // you can change the splash screen image. 
 // Make sure your image is sized to 600 x 200 pixels
+// NOTE(HM) This opens a raylib window 
+// with no borders and the size of the image
+// then closes it again after a time, perhaps 
+// I should reuse it for the full game later?
 fn void showSplashScreenImage()
 {
     int flags @noinit;
-    // NOTE(HM) this function is not used right now
-    // because I want to show a video intro instead of a static image.
-    // But you can use it if you want to show a static image.
     String splash_path = local_game.app_base_folder.tconcat("images/splash.bmp");
     if(fs::fileExists(splash_path)) 
     {
+		// create a CPU and RAM based image
         RLImage splash_img = rl::loadImage(splash_path.zstr_tcopy());
         if(splash_img.data != null)
         {
             if(splash_img.width != 600 && splash_img.height != 200) 
             {
-                $if $feature(_DEBUG):
-                    unreachable("Splash image size is not 600x200 pixels!");
-                $else
-                    log::warning(FILE, "Splash image size is not 600x200 pixels, got %dx%d", splash_img.width, splash_img.height);
-                $endif
+                log::warning(FILE, "Splash image sizs is not desired 600x200 pixels but %dx%d", splash_img.width, splash_img.height);
+                log::warning(FILE, "\t-displaying it at desired 600x200 may distort the image...");
             }
             flags = 0;
             flags |= (int)rl::FLAG_WINDOW_UNDECORATED;
@@ -3728,24 +3762,19 @@ fn void showSplashScreenImage()
             rl::setConfigFlags((RLConfigFlag)flags);
             rl::initWindow(600, 200, "");
             rl::setWindowMonitor(0); // set to first monitor
-            rl::setTargetFPS(24); // set to 24 fps
+            rl::setTargetFPS(24); // set to 24 fps ("cinematic")
+			// now load the image into the GPU for display
             RLTexture2D texture = rl::loadTextureFromImage(splash_img);
             float time_start = (float)rl::getTime();
-            // show the image for X seconds
-            while(!rl::windowShouldClose()) 
+            // create the game loop and show the image for the desired seconds
+			float show_time = 2.0f;
+        	while(!rl::windowShouldClose())
             {
-                if(((float)rl::getTime() - time_start) > 2.0f) break;
-                // draw
-                rl::beginDrawing();
-                rl::clearBackground(rl::RAYWHITE);
-                rl::drawTexture(texture, (600 - texture.width)/2, (200 - texture.height)/2, rl::WHITE);
-                rl::endDrawing();
+                if(((float)rl::getTime() - time_start) > show_time) break;
+                rl::@drawing() {
+                	rl::drawTexture(texture, (600 - texture.width)/2, (200 - texture.height)/2, rl::WHITE);
+				};
             }
-            //rl::beginDrawing();
-            //rl::drawTexture(texture, (local_game.screen.w - texture.width)/2, (local_game.screen.h - texture.height)/2, rl::WHITE);
-            // wait some time to let the user see the logo
-            //rl::waitTime(5000); // wait 2 seconds
-            //rl::endDrawing();
             rl::unloadImage(splash_img);
             rl::unloadTexture(texture);
             rl::clearWindowState((int)rl::FLAG_WINDOW_UNDECORATED);
@@ -3771,7 +3800,7 @@ bool show_settings_window @public = true;
   Shown before game start for user to configure some options
   @param [&in] ctx : "The current MicroUI context."
  *> 
-fn void settings_window(MU_Context* ctx) //@inline
+fn void settings_window(MU_Context* ctx) //@MyInline
 {
     // TODO(HM) FINISH THIS LATER!!! 
     // - show a image/logo at the top of the window
@@ -3896,8 +3925,6 @@ $if $feature(MICROUI_ENABLE):
 
         rl::@drawing()
         {
-            rl::clearBackground(rl::RAYWHITE);
-
             mu::@render(mu_ctx)
             {
                 mu_ctx.run(&settings_window);

@@ -34,7 +34,7 @@ import engine::misc;
 import engine::sys::cvar;
 import thirdparty::raylib5::rl;
 
-CVar db_showBounds = { "db_showBounds", CvarType.BOOL, "1", "displays used bounding box's on screen for debug"};
+CVar db_showBounds = { "db_showBounds", CvFlag.BOOL, "1", "displays used bounding box's on screen for debug"};
 
 fn void register_cvars() {
     cvar::@register(&db_showBounds);
@@ -63,6 +63,12 @@ fn Bounds Bounds.fromRect(&self, RLRectangle* rect) @inline {
 }
 
 fn void Bounds.debugDraw(self) {
+	// Right now the bounds size are in pixels
+	rl::drawCircle((int)self.maxc.x, (int)self.maxc.y, 2.0f, rl::SKYBLUE);
+	rl::drawCircle((int)self.minc.x, (int)self.minc.y, 2.0f, rl::SKYBLUE);
+	/*Vec2f size = self.bounds.minc - self.bounds.maxc;
+	RLRectangle r = {rect.x, rect.y, size.x, size.y};
+	rl::drawRectangleLinesEx(r, 1.0f, rl::YELLOW);*/
     Vec2f size = self.minc - self.maxc;
     rl::drawRectangleLinesEx(misc::makeRect(self.maxc, {size.x, size.y}), 2.5f, rl::YELLOW);
 }

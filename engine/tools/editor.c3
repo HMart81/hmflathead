@@ -129,13 +129,16 @@ import engine::sys::cvar;
 //import engine::tools::editor::anchor;
 import thirdparty::raylib5::rl;
 import thirdparty::raygui5::rgui;
+import engine::filesystem::fs::win32;
+import std::os::win32;
+import engine::logging::log;
 import game::main;
 
 const CInt CONSOLE_FONT_SIZE @local = 12;
 const CInt CONSOLE_MAX_LINES @local = 1000;
 const CInt CONSOLE_INPUT_MAX_LINE_LENGTH @local = 1024;
 
-CVar con_debug @public = { "con_debug", CvarType.BOOL, "0", "enables console debugging mode"};
+CVar con_debug @public = { "con_debug", CvFlag.BOOL|CvFlag.TOOL, "0", "enables console debugging mode"};
 
 fn void register_cvars() @public @inline
 {
@@ -156,7 +159,7 @@ struct AutoComplete @local
 
 AutoComplete globalAutoComplete @local;
 
-constdef EditorKind : int @local
+constdef EditorKind : inline int @local
 {
     MAIN_EDITOR = 1,
     MATERIAL_EDITOR,
@@ -237,12 +240,12 @@ fn void Editor.initDefaults(&self) @inline
 
     float scr_width = (float)rl::getScreenWidth();
     float scr_height = (float)rl::getScreenHeight();
-    float x, y, w, h;
-    x = 0.25f * scr_width;
-    y = 0.05f * scr_height;
-    w = scr_width / 2.0f;
-    h = scr_height / 2.0f;
-    self.main_window = { x, y, w, h };
+    self.main_window = {
+        .x = 0.25f * scr_width,
+        .y = 0.05f * scr_height,
+        .w = scr_width / 2.0f,
+        .h = scr_height / 2.0f
+    };
 
     self.con_input_edit_mode = true; // the console input is in edit mode by default
     self.listView_Active = 1; // the active item in the list view of the console history
@@ -280,7 +283,7 @@ fn EditorKind Editor.getOpenKind(&self) => self.kind;
 
 fn void Editor.close(&self) @inline
 {
-    if (!self.flags.is_opened) {
+    if (!self.isOpened()) {
         return;
     }
     self.flags.is_opened = false;
@@ -289,10 +292,11 @@ fn void Editor.close(&self) @inline
 }
 
 
-fn void Editor.setfocus(&self, bool choice) @inline
+fn bool Editor.setfocus(&self, bool choice) @inline
 {
     self.flags.is_focused = choice;
     (choice) ? rgui::setState(STATE_FOCUSED) : rgui::setState(STATE_NORMAL);
+    return choice;
 }
 
 fn bool Editor.focused(&self) => self.flags.is_focused;
@@ -468,9 +472,7 @@ fn void Editor.update(&self) @inline
         return;
     }
 
-    self.setfocus(self.isMouseOver());
-
-    if (self.focused()) 
+    if (self.setfocus(self.isMouseOver()))
     {
         if(game::game_cursor_visible()) game::hide_game_cursor();
         if(!game::system_cursor_visible()) game::show_system_cursor();
@@ -492,13 +494,13 @@ fn void Editor.draw(&self, int screenWidth, int screenHeight)
 
     switch(self.kind) 
     {
-        case EditorKind.MAIN_EDITOR:      drawMainEditor(self);
-        case EditorKind.MATERIAL_EDITOR:  drawMaterialEditor(self);
-        case EditorKind.GUI_EDITOR:       drawGuiEditor(self);
-        case EditorKind.SCENE_EDITOR:     drawSceneEditor(self);
-        case EditorKind.ANIMATION_EDITOR: drawAnimationEditor(self);
-        case EditorKind.SOUND_EDITOR:     drawSoundEditor(self);
-        case EditorKind.SCRIPT_EDITOR:    drawScriptEditor(self);
+        case MAIN_EDITOR:      drawMainEditor(self);
+        case MATERIAL_EDITOR:  drawMaterialEditor(self);
+        case GUI_EDITOR:       drawGuiEditor(self);
+        case SCENE_EDITOR:     drawSceneEditor(self);
+        case ANIMATION_EDITOR: drawAnimationEditor(self);
+        case SOUND_EDITOR:     drawSoundEditor(self);
+        case SCRIPT_EDITOR:    drawScriptEditor(self);
     }
 }
 
@@ -515,14 +517,14 @@ fn void drawMainEditor(Editor* editor) @inline
     rl::drawRectangleRec(editor.main_window, editor.background_color);
 
     // draw the main editor window
-    if(rgui::windowBox(editor.main_window, "Editor")) {
-        editor.close();
-    }
+    bool closed = rgui::windowBox(editor.main_window, "Editor");
+    if(closed) editor.close();
+
     // draw the main editor tool bar
     drawEditorMainToolBar(editor);
     // draw the main editor console
     drawEditorConsole(editor);
-
+	// draw color border
     drawOpenEditorBorder(editor);
 }
 
@@ -939,11 +941,23 @@ macro @button(Vec2f pos, Vec2f size, ZString text, ButtonfuncCallback callback =
 }
 // #endregion DRAWING HELPERS
 
-
+//////////////////////////////////////////////////////////////
 // #region EDITOR BUTTONS CALLBACKS
+//////////////////////////////////////////////////////////////
 fn void openFolderButtonCallback(void* data) @inline @local
 {
     io::printfn("Open folder button pressed.");
+    // NOTE(HM) doesn't work causes a unaligned acess error
+    $if $defined(env::WIN32):
+    Win32_LPCSTR path = (Win32_LPCSTR)&game::gpGame.app_base_folder.zstr_tcopy()[0];
+    Win32_LPCSTR operation = (Win32_LPCSTR)&string::tformat_zstr("%s", "explore")[0];
+    // To open a folder = ShellExecute(handle, "open", <fully_qualified_path_to_folder>, NULL, NULL, SW_SHOWNORMAL);
+    // To explore a folder = ShellExecute(handle, "explore", <fully_qualified_path_to_folder>, NULL, NULL, SW_SHOWNORMAL);
+    /*if(*(Win32_INT*)win32::shellExecuteA(null, "open", "explorer.exe", (Win32_LPCSTR)game::gpGame.app_base_folder.zstr_tcopy(), null, win32::Sw.SHOWNORMAL.ordinal) < 32) {
+        log::warning(FILE, "Editor: Unable to open base folder to explore.");
+    }*/
+    win32::shellExecuteA(null, operation, path, null, null, win32::Sw.SHOWNORMAL.ordinal);
+    $endif
 }
 
 fn void saveButtonCallback(void* data) @inline @local

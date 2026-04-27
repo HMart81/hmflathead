@@ -188,6 +188,45 @@ macro @getLayer($name) @local
     return null;
 }
 
+// HDR FBO's for testing @delete
+fn RenderTexture loadHDR_RenderTexture(int width, int height) @local // todo put this in a seperate raylib55.c3 the c3i files cannot have function bodies
+{
+    RenderTexture target;
+
+    target.id = rlgl::loadFramebuffer(); // Load an empty framebuffer
+
+    if (target.id > 0)
+    {
+        rlgl::enableFramebuffer(target.id);
+
+        // Create color texture (default to RGBA)
+        target.texture.id = rlgl::loadTexture(null, width, height, RLPixelFormat.UNCOMPRESSED_R32G32B32A32, 1);
+        target.texture.width = width;
+        target.texture.height = height;
+        target.texture.format = RLPixelFormat.UNCOMPRESSED_R32G32B32A32;
+        target.texture.mipmaps = 1;
+
+        // Create depth renderbuffer/texture
+        target.depth.id = rlgl::loadTextureDepth(width, height, true);
+        target.depth.width = width;
+        target.depth.height = height;
+        target.depth.format = 19;       //DEPTH_COMPONENT_24BIT?
+        target.depth.mipmaps = 1;
+
+        // Attach color texture and depth renderbuffer/texture to FBO
+        rlgl::framebufferAttach(target.id, target.texture.id, rlgl::RL_ATTACHMENT_COLOR_CHANNEL0, rlgl::RL_ATTACHMENT_TEXTURE2D, 0);
+        rlgl::framebufferAttach(target.id, target.depth.id, rlgl::RL_ATTACHMENT_DEPTH, rlgl::RL_ATTACHMENT_RENDERBUFFER, 0);
+
+        // Check if fbo is complete with attachments (valid)
+        if (rlgl::framebufferComplete(target.id)) log::info(FILE, "FBO: [ID %i] Framebuffer object created successfully", target.id);
+
+        rlgl::disableFramebuffer();
+    }
+    else { log::warning(FILE, "FBO: Framebuffer object can not be created"); }
+
+    return target;
+}
+
 <*
 	Initializes the view layer with the given render texture.
 
@@ -195,9 +234,22 @@ macro @getLayer($name) @local
 	@param height : "the y height of the render texture to use for this view layer"
 	@require width >= 32 && height >= 32
 *>
-fn void initViewLayer(ViewLayer* layer, int width, int height) @local @inline
+fn void initViewLayer(ViewLayer* layer, int width, int height, bool hdr = false) @local @inline
 {
-	layer.data = (RenderTexture)rl::loadRenderTexture(width, height);
+	if(hdr) {
+		layer.data = loadHDR_RenderTexture(width, height);
+	} else { 
+		layer.data = (RenderTexture)rl::loadRenderTexture(width, height);
+	}
+}
+
+fn RenderTexture initFrameBufferLayer(int width, int height, bool hdr = false) @local @inline
+{
+	if(hdr) {
+		return loadHDR_RenderTexture(width, height);
+	} else { 
+		return (RenderTexture)rl::loadRenderTexture(width, height);
+	}
 }
 
 struct RenderView (SaveSystemInterface)
@@ -239,7 +291,7 @@ fn void RenderView.reload(&self, SaveFile* file) @dynamic {
 fn void RenderView.init(&self, int screenWidth, int screenHeight) @inline 
 {
     // @testing...
-    foreach(&layer : layers) layer.data = (RenderTexture)rl::loadRenderTexture(screenWidth, screenHeight);
+    foreach(&layer : layers) layer.data = initFrameBufferLayer(screenWidth, screenHeight, hdr: true); //(RenderTexture)rl::loadRenderTexture(screenWidth, screenHeight);
    
     //
     // NOTE(HM) used to point to the main render layer to be used for shaders and such if necessary
@@ -728,6 +780,8 @@ fn void RenderView.drawWorldSpaceCoords(&self) @if($feature(_DEBUG))
 
 fn void RenderView.drawCameraSpaceCoords(&self) @if($defined(ENABLE_CAMERA_VIEW) && $feature(_DEBUG))
 {
+	if(game::gpGame.editor.isOpened() || game::gpGame.mode == GameMode.EDITOR) return;
+
     self.showModelViewAxis();
 
 	// show MINIMUM_SIZE_IN_PIXELS
@@ -843,7 +897,7 @@ $endif
         {
             foreach(ent : game::gpGame.entityList) 
             {
-                bool ent_out_of_view = !view.bounds.intersectsOther(&ent.bounds);
+                bool ent_out_of_view = !view.bounds.intersectsOther(&ent.vs.bounds);
                 if(ent_out_of_view) {
                     ent.hide();
                 } else if(ent.hidden()) { 

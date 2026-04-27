@@ -473,10 +473,39 @@ fn Path? newPath(String _path)
 }
 // #endregion
 
+fn bool isFileLink(String asPath)
+{
+	$if env::POSIX:
+		return (posix::chdir(asPath.zstr_tcopy()) & posix::DT_LNK) ? true : false;
+	$else
+		return win32::is_symblink(asPath);
+	$endif
+}
 
 
+macro openBrowserWindow ( String asURL )
+{
+	$switch:
+		$case env::WIN32:
+			win32::shellExecuteA(null, "open", (ichar*)&asURL.zstr_tcopy()[0], null, null, Sw.SHOWNORMAL.ordinal );
+		$case env::LINUX:
+			String asTemp = "./openurl.sh ".tconcat(asURL);
+			system(asTemp.zstr_tcopy());
+		$case env::MACOS:
+			String asTemp = "open ".tconcat(asURL);
+			system(asTemp.zstr_tcopy());
+	$endswitch
+}
 
-
+// NOTE(HM) in windows "Special Path" is the MyDocuments folder in Linux is the HOME folder...
+fn String? getSystemSpecialPath()
+{
+$if env::WIN32:
+    return win32::getSystemSpecialPath()!;
+$else
+    return env::get_home_dir(tmem)!;
+$endif
+}
 
 
 //////////////////////////////////////////////////////////////////////
@@ -487,9 +516,6 @@ import std::io;
 import std::os::env, std::os::win32;
 import engine::logging::log;
 import engine::misc;
-
-// region WIN32 (Windows)
-const PERSONAL_FOLDER_MY_GAMES = 0;
 
 enum HResult : int (Win32_HRESULT val, String disc) @local {
     S_OK           {(Win32_HRESULT)0x00000000, "Operation successful"},
@@ -541,12 +567,10 @@ fn String OSversionInfo.to_constant_string(&self) @dynamic
 
 //--------------------------------------------------------
 
-alias Win32_REFKNOWNFOLDERID = Win32_GUID;
-const Win32_REFKNOWNFOLDERID  HOME_FOLDER = {0x4c5c32ff, 0xbb9d, 0x43b0, {0xb5, 0xb4, 0x2d, 0x72, 0xe5, 0x4e, 0xaa, 0xa4}};
-alias FOLDERID_SAVEDGAMES = HOME_FOLDER;
+//const Win32_KNOWNFOLDERID  HOME_FOLDER = {0x4c5c32ff, 0xbb9d, 0x43b0, {0xb5, 0xb4, 0x2d, 0x72, 0xe5, 0x4e, 0xaa, 0xa4}};
 // NOTE(HM): I made this before realizing that shGetKnownFolderPath was already defined in std file shell32.c3 win32 module
 // i'm letting this be because it works in a tad different way (using our own HResult enum type)
-extern fn HResult getKnownFolderPath(Win32_REFKNOWNFOLDERID rfid, Win32_DWORD dwFlags, Win32_HANDLE hToken /*null*/, Win32_PWSTR *ppszPath /*out*/) @cname("SHGetKnownFolderPath") @if(env::WIN32);
+extern fn HResult getKnownFolderPath(Win32_KNOWNFOLDERID rfid, Win32_DWORD dwFlags, Win32_HANDLE hToken /*null*/, Win32_PWSTR *ppszPath /*out*/) @cname("SHGetKnownFolderPath") @if(env::WIN32);
 
 //extern fn bool isWindowsVistaOrGreater() @cname("IsWindowsVistaOrGreater");
 extern fn int getVersion(OSversionInfoPrt lpVersionInformation) @cname("RtlGetVersion");
@@ -638,7 +662,9 @@ const Win32_DWORD64 REG_QWORD         = 0x0000000b;  // registry value type for 
 faultdef ERROR_REGISTRY_KEY_CREATION_FAILED,
          ERROR_REGISTRY_KEY_OPEN_FAILED,
          ERROR_REGISTRY_KEY_SET_VALUE_FAILED,
-         ERROR_REGISTRY_KEY_CLOSING_FAILED;
+         ERROR_REGISTRY_KEY_CLOSING_FAILED,
+         ERROR_SPECIAL_PATH_QUERY_FAILED,
+         ERROR_UNSUPPORTED_WINDOWS_OS;
 
 
 /*
@@ -959,16 +985,14 @@ if (RegOpenKeyEx(HKEY_LOCAL_MACHINE, "SOFTWARE\\WOW6432Node\\Microsoft\\Microsof
 ////
 
 
-// NOTE(HM) in windows "Special Path" is the MyDocuments folder in Linux is the HOME folder...
-fn String getSystemSpecialPath(int pathType)
+fn String? getSystemSpecialPath(Win32_KNOWNFOLDERID pathType = win32::FOLDERID_SAVED_GAMES)
 {
-$if $defined(env::WIN32):
     OSversionInfo osinfo;
     if(win32::getVersion(&osinfo) == 0) {
         if (osinfo.dwMajorVersion >=6)
         {
             Win32_PWSTR path;
-            HResult result = getKnownFolderPath(FOLDERID_SAVEDGAMES, KNOWN_FOLDER_FLAG_CREATE, null, &path);
+            HResult result = getKnownFolderPath(pathType, KNOWN_FOLDER_FLAG_CREATE, null, &path);
             if (result == S_OK) 
             {
                 WString wpath = (WString)path;
@@ -977,20 +1001,62 @@ $if $defined(env::WIN32):
                 return result.disc;
             }
         } else {
-            unreachable("unsupported Windows OS detected!");
+            return ERROR_UNSUPPORTED_WINDOWS_OS~;
         }
     } else {
-        unreachable("failed to get windows version data");
+        return ERROR_SPECIAL_PATH_QUERY_FAILED~;
     }
-$else
-    switch (pathType)
-    {
-    case PERSONAL_FOLDER_MY_GAMES:
-        // ZString home = libc::getenv("HOME");
-        // return home.str_view();
-        return env::get_home_dir(tmem)!;
-    default:
-        return "";
+}
+
+enum Sw : (String desc) @public
+{
+	HIDE {"Hides the window and activates another window"},
+	SHOWNORMAL {"Activates and displays a window. If the window is minimized, maximized, or arranged, the system restores it to its original size and position. An application should specify this flag when displaying the window for the first time."},
+	SHOWMINIMIZED {"Activates the window and displays it as a minimized window"},
+	SHOWMAXIMIZED {"Activates the window and displays it as a maximized window"},
+	SHOWNOACTIVATE {"Displays a window in its most recent size and position. This value is similar to SW_SHOWNORMAL, except that the window is not activated"},
+	SHOW {"Activates the window and displays it in its current size and position"},
+	MINIMIZE {"Minimizes the specified window and activates the next top-level window in the Z order"},
+	SHOWMINNOACTIVE {"Displays the window as a minimized window. This value is similar to SW_SHOWMINIMIZED, except the window is not activated"},
+	SHOWNA {"Displays the window in its current size and position. This value is similar to SW_SHOW, except that the window is not activated"},
+	RESTORE {"Activates and displays the window. If the window is minimized, maximized, or arranged, the system restores it to its original size and position. An application should specify this flag when restoring a minimized window"},
+	SHOWDEFAULT {"Sets the show state based on the SW_ value specified in the STARTUPINFO structure passed to the CreateProcess function by the program that started the application"},
+	FORCEMINIMIZE {"force window to be minimized"}
+}
+const SW_NORMAL = Sw.SHOWNORMAL;
+const SW_MAXIMIZE = Sw.SHOWMAXIMIZED;
+<*
+  @param [in] hwnd : "optional"
+  @param [in] lpOperation : "optional"
+  @param [in] lpFile : "mandatory"
+  @param [in]  lpParameters : "optional"
+  @param [in]  lpDirectory : "optional"
+  @param nShowCmd : "in, mandatory"
+*>
+extern fn Win32_HINSTANCE shellExecuteA(
+  Win32_HWND   hwnd,
+  Win32_LPCSTR lpOperation,
+  Win32_LPCSTR lpFile,
+  Win32_LPCSTR lpParameters,
+  Win32_LPCSTR lpDirectory,
+  Win32_INT    nShowCmd
+) @cname("ShellExecuteA");
+
+<*
+  @param [in] lpFileName : "mandatory, The name of the file or directory"
+  @require lpFileName != ""
+*>
+extern fn Win32_DWORD getFileAttributesA(Win32_LPCSTR lpFileName) @cname("GetFileAttributesA");
+
+const FILE_ATTRIBUTE_REPARSE_POINT = 0x00000400;
+const INVALID_FILE_ATTRIBUTES = 0xFFFF_FFFF_FFFF_FFFF;
+fn bool is_symblink(String path_or_file) @inline
+{
+    Win32_DWORD result = getFileAttributesA((ichar*)&path_or_file.zstr_tcopy()[0]);
+    if (result != INVALID_FILE_ATTRIBUTES) {
+        return (result & FILE_ATTRIBUTE_REPARSE_POINT) ? true : false;
+    } else {
+        log::warning(FILE, "failed to get file attributes to query for symbolic link status.");
+        return false;
     }
-$endif
 }

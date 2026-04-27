@@ -87,6 +87,7 @@ struct SpriteFlags
     bool isHidden;
     //bool should_hide;
     bool isActive; // if the sprite is active or not
+	bool scaled; // if the sprite was scaled
 }
 
 struct HMSprite (SaveSystemInterface)
@@ -232,6 +233,7 @@ fn HMSprite* HMSprite.scale(&self, float w_scaler, float h_scaler) @inline
 {
     self.rect.width  *= w_scaler;
     self.rect.height *= h_scaler;
+	self.flags.scaled = true;
     return self;
 }
 
@@ -255,48 +257,40 @@ fn HMSprite* HMSprite.setSize(&self, float w, float h) @inline
     
     self.rect.width  = w;
     self.rect.height = h;
+	self.flags.scaled = true;
     return self;
 }
 
 // overrides the size of the sprite
 fn HMSprite* HMSprite.setSizeV(&self, Vec2f size) @inline 
 {
-    if(misc::fgetDiff(size.x, 0.0f) <= 0.05f && misc::fgetDiff(size.y, 0.0f) <= 0.05f) {
-        size.x = size.y = MIN_SPRIT_SIZE;
-    }
-    
-    self.rect.width  = size.x;
-    self.rect.height = size.y;
-    return self;
+    return self.setSize(size.x, size.y);
 }
 
 // overrides the size of the sprite
 fn HMSprite* HMSprite.setSizeX(&self, float w) @inline 
 {
-    self.rect.width = w;
-    return self;
+    return self.setSize(w, self.rect.h);
 }
 
 // overrides the size of the sprite
 fn HMSprite* HMSprite.setSizeY(&self, float h) @inline 
 {
-    self.rect.height = h;
-    return self;
+    return self.setSize(self.rect.w, h);
 }
 
 fn HMSprite* HMSprite.addToSize(&self, float w, float h) @inline 
 {
     self.rect.width  += w;
     self.rect.height += h;
+	self.flags.scaled = true;
     return self;
 }
 
 // overrides the size of the sprite
 fn HMSprite* HMSprite.addToSizeV(&self, Vec2f size) @inline 
 {
-    self.rect.width  += size.x;
-    self.rect.height += size.y;
-    return self;
+    return self.addToSize(size.x, size.y);
 }
 
 // in meter coordinates
@@ -317,6 +311,15 @@ fn float HMSprite.getSizeY(&self) @inline @nodiscard
     return self.rect.getSize().y;
 }
 
+fn void HMSprite.updateBounds(&self, Vec2f translation) @inline
+{
+    self.bounds.translate(translation);
+	if(self.flags.scaled) self.bounds.setRect(self.rect);
+	self.flags.scaled = false;
+    // bb.maxc = origin;
+    // bb.minc = bb.maxc + misc::VEC_RIGHT * self.vs.rect.width + misc::VEC_DOWN * self.vs.rect.height;
+    // self.setBounds(bb);
+}
 // in screen pixel coordinates
 /*fn Vec2i HMSprite.getSizeInPixels(&self) @inline @nodiscard
 {
@@ -520,9 +523,9 @@ fn void HMSprite.draw(&self)  @inline
 
         RLRectangle rect = self.rect;
         
-        $if $defined(DEBUG_SPRITES):
-            r2d::drawRectangleLinesEx(rect, 1.0f, rl::RED);
-        $endif
+        //$if $defined(DEBUG_SPRITES):
+            //r2d::drawRectangleLinesEx(rect, 1.0f, rl::RED);
+        //$endif
         
         if(self.hasMaterial())
         {

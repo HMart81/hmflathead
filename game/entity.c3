@@ -50,13 +50,13 @@ import thirdparty::wren; // wren scripting engine
 // end_region
 
 // region cvars
-CVar ent_debugBounds @if($feature(_DEBUG)) = { "ent_debugBounds", CvarType.BOOL, "1", "show debug visualization for entity bounding box" };
-CVar ent_debugBounds @if($feature(_RELEASE)) = { "ent_debugBounds", CvarType.BOOL, "0", "show debug visualization for entity bounding box" };
+CVar debugBounds @if($feature(_DEBUG)) = { "ent_debugBounds", CvFlag.BOOL | CvFlag.TOOL, "1", "show debug visualization for entity bounding box" };
+CVar debugBounds @if($feature(_RELEASE)) = { "ent_debugBounds", CvFlag.BOOL | CvFlag.TOOL, "0", "show debug visualization for entity bounding box" };
 
 // NOTE(HM) this is called in main.c3
 fn void register_cvars() @inline 
 {
-    cvar::@register(&ent_debugBounds);
+    cvar::@register(&debugBounds);
 }
 // end_region
 
@@ -108,7 +108,6 @@ struct Entity (SaveSystemInterface)
 	typeid type;
 	String name;
     //
-    Bounds bounds;
     HMSprite vs;
     //
     Entity* parent;
@@ -322,7 +321,11 @@ fn void Entity.unbind(&self)
 
 fn void Entity.setPosition(&self, float x, float y) @inline
 {
-	self.vs.setPosition(x, y);
+	Vec2f old_pos = self.getPosition();
+	Vec2f new_pos = {x,y};
+	Vec2f translation = -(old_pos - new_pos);
+	self.vs.setPositionV(new_pos);
+	self.vs.updateBounds(translation);
 }
 
 fn void Entity.setPositionV(&self, Vec2f newpos) @inline
@@ -340,24 +343,15 @@ fn Vec2f Entity.getPosition(&self) @inline
 }
 
 fn void Entity.setBounds(&self, Bounds bb) @inline {
-    self.bounds = {
+    self.vs.bounds = {
         .minc = bb.minc,
         .maxc = bb.maxc
     };
 }
 
-fn Vec2f Entity.getMinc(&self, Bounds bb) => self.bounds.minc;
+fn Vec2f Entity.getMinc(&self, Bounds bb) => self.vs.bounds.minc;
 
-fn Vec2f Entity.getMaxc(&self, Bounds bb) => self.bounds.maxc;
-
-fn void Entity.updateBoundsPos(&self, Vec2f pos) @inline
-{
-    self.bounds.translate(pos);
-    // Bounds bb;
-    // bb.maxc = origin;
-    // bb.minc = bb.maxc + misc::VEC_RIGHT * self.vs.rect.width + misc::VEC_DOWN * self.vs.rect.height;
-    // self.setBounds(bb);
-}
+fn Vec2f Entity.getMaxc(&self, Bounds bb) => self.vs.bounds.maxc;
 
 // fn void Entity.rotate2D(&self, float angle) @inline
 // {
@@ -596,32 +590,25 @@ fn void Entity.born(&self) @inline
 
 fn void Entity.kill(&self) 
 {
-//self.mGame = null; // make sure we don't accidently kill the game singleton!!
-	//io::printfn("Killing Entity '%s'!!!", self.name);
-    io::printfn("%s%s'%s'!!!%s", ansi::color_rgb(255, 0, 0), "Killing Entity ", self.name, Ansi.RESET);
+    log::info(CONSOLE, "%s%s'%s'!!!%s", ansi::color_rgb(255, 0, 0), "Killing Entity ", self.name, Ansi.RESET);
     self.hide();
 
+	// activate targets on death
 	if(self.targets.len() > 0) 
 	{
-		// TODO(HM) activate the targets, if they are not already activated
-		foreach(Entity* target : self.targets) 
+		// activate our targets, if they are not already activated
+		foreach(target : self.targets)
 		{
-			if(target.isAlive()) {
-				if(target.notOnActiveList()) {
-					target.setActive(true);
-				}
+			if(target.isAlive() && target.notOnActiveList()) {
+				target.setActive(true);
 			} else { 
 				target.born(); // revive the target entity
 			}
 		}
-	}
 
-	// free the targets list so we don't have dangling pointers
-	// clear the targets list, but not free the entities themselves
-	if(self.targets.len() > 0) {	
-		// foreach(Entity* target : self.targets) {
-		// 	mem::free(target);
-		// }
+		// then free the targets list we don't need it anymore
+		// clear the targets list, but not free the entities themselves
+		// that is done elsewhere
 		self.targets.clear();
 	}
 
@@ -769,10 +756,13 @@ fn void Entity.move(&self) {
     if(((Vec2f)self.physics.getLinearVelocity()).length() > 0.0f ) {
         Vec2f new_pos = self.physics.getPosition();
         self.setPositionV(new_pos);
-        self.updateBoundsPos(new_pos);
+		Vec2f translation = 
+        self.updateBounds(new_pos);
 		self.updateVisuals();
     }
 	$endif
+
+	// todo movement not based on Box2D physics but inhouse one
 }
 
 fn void Entity.think(&self, float dt) // update in other engines
@@ -785,14 +775,14 @@ fn void Entity.think(&self, float dt) // update in other engines
 				self.move();
 				
 				if(bounds::db_showBounds.getBool()) {
-					self.bounds.debugDraw();
+					self.vs.bounds.debugDraw();
 				}
 			};
 		$else
 			self.move();
 			
 			if(bounds::db_showBounds.getBool()) {
-				self.bounds.debugDraw();
+				self.vs.bounds.debugDraw();
 			}
 		$endif
     }
@@ -893,17 +883,6 @@ fn void Entity.draw(&self)
 		rl::drawRectangleRec(rect, self.vs.color);
 	}*/
 
-	if(ent_debugBounds.getBool())
-	{
-		// TODO(HM) need to change Bounds sizes to meters and then here convert back to pixels
-		// to draw the bounds in the correct size
-		// Right now the bounds are in pixels, so we can draw them directly
-		rl::drawCircle((int)self.bounds.maxc.x, (int)self.bounds.maxc.y, 2.0f, rl::SKYBLUE);
-		rl::drawCircle((int)self.bounds.minc.x, (int)self.bounds.minc.y, 2.0f, rl::SKYBLUE);
-		Vec2f size = self.bounds.minc - self.bounds.maxc;
-		RLRectangle r = {rect.x, rect.y, size.x, size.y};
-		rl::drawRectangleLinesEx(r, 1.0f, rl::YELLOW);
-	}
 }
 
 /*

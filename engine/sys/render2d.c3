@@ -162,25 +162,15 @@ fn void drawRectangleV(RLVector2 position, RLVector2 size, RLColor color) @inlin
 // Draw a color-filled rectangle
 fn void drawRectangleRec(RLRectangle rec, RLColor color) @inline 
 {
-	switch(game::UNITS)
-	{
-        // todo change all RLRectangle here to a meters based HMRect
-        // and just convert to pixels when dealing with Raylib
-		/*case METER:
-			RLRectangle nrec = {
-				.x = misc::metersToPixels(rec.x),
-				.y = misc::metersToPixels(rec.y),
-				.w = misc::metersToPixels(rec.w),
-				.h = misc::metersToPixels(rec.h)
-			};
-			rl::drawRectangleRec(nrec, color);
-		case PIXEL:*/
-		default:
-    		rl::drawRectangleRec(rec, color);
-	}
+	rl::drawRectangleRec(rec, color);
+}
+macro void @drawRect(#rect, color) => drawRectangleRec(#rect, color);
+
+macro drawSquare(Vec2f pos, int size, RLColor color)
+{
+	drawRectangleV(pos,(Vec2f){size, size},color);
 }
 
-macro void @drawRect(#rect, color) => drawRectangleRec(#rect, color);
 
 // Draw a color-filled rectangle with pro parameters
 fn void drawRectanglePro(RLRectangle rec, RLVector2 origin, float rotation, RLColor color) @inline 

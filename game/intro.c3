@@ -35,7 +35,7 @@ const FONT_SPACING     = 3.0f;
 // end_region
 
 // region cvars
-CVar skip @public = { "skip_intro", CvarType.BOOL, "0", "skip displaying the intro" };
+CVar skip @public = { "skip_intro", CvFlag.BOOL, "0", "skip displaying the intro" };
 
 fn void register_cvars() @public 
 {

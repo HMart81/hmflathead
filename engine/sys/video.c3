@@ -55,7 +55,7 @@ import game::camview;
 import engine::sys::cvar;
 
 // region cvars
-CVar numSpeakers @public = { "numSpeakers", CvarType.INT, "2", "number of speakers for sound playing" };
+CVar numSpeakers @public = { "numSpeakers", CvFlag.INT, "2", "number of speakers for sound playing" };
 
 fn void register_cvars() @public 
 {

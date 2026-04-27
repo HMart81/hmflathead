@@ -44,31 +44,48 @@ import engine::sys::cvar;
 import engine::logging::log;
 // end_region
 
+/*
+	- my confile file follows a normal ini file syntax -
+
+	- Only single line comments are supported and start with ';'
+	- A section is put within '[' and ']'  
+		ex:. [section_name]
+	- You can have two level sections
+		ex:. [section_name.second_level]
+		cmds are linked to the second level section
+		but you get them by calling the first section name.
+	- Cmds follow the KEY = VAL system (Pair)
+	- Only four types are supported for now
+		Booleans (true, false)
+		Integer number
+		Floating point numbers
+		Strings 
+
+*/
+
 const String SETTINGS_FILE_NAME  @Hardcode = "user.ini";
 
 // default safe settings
 const String SAFE_SETTINGS @Hardcode = `
 [video]
 maxFPS          = 120
-; vsync is just a hint and may not apply, depends on window mode you'r in.
-; window mode, borderless fullscreen and native fullscreen, equal 0, 1 and 2 values respectively.
+; vsync is just a hint and may not apply, depends on window mode you're in.
+; window mode and borderless fullscreen (r_fullscreen = 0 and r_fullscreen = 2)
 ; do not support vsync.
 vsync           = true
-; r_mode is the index into the screen resolution array, r_mode = -1 means use custum values. 
-r_mode          = 4
-r_custom_width  = 800
-r_custom_heigth = 600
+r_mode          = -1
+r_custom_width  = 1600
+r_custom_heigth = 900
 r_fullscreen    = 0
-; only works in window mode
-;r_window_resizable = true (doesn't work anymore...)
 ; msaa only supports 0 or 4 as values
-; msaa also depends on window mode you'r in
-; window and borderless fullscreen (r_fullscreen = 0 and r_fullscreen = 1)
-; do not support msaa.
-msaa            = 4
+; msaa also depends on window mode you're in,
+; window and borderless fullscreen do not support msaa.
+msaa 			= 4
 gamma           = 1.0
 brightness      = 1.0
 
+[game]
+language = "pt"
 
 ; action = key name
 [keys]
@@ -80,6 +97,20 @@ quit       = "KEY_F10"
 editor     = "KEY_F1"
 quicksave  = "KEY_F5"
 quickload  = "KEY_F9"
+
+[paths]
+path0="base"
+path1="base/models"
+path2="base/textures"
+path3="base/sounds"
+
+[developer]
+log=true
+; warn, info, error, fatal
+log_level="warn"
+
+[engine.options]
+debugMessaging=false
 `;
 
 alias INIFile = io::File;
@@ -114,11 +145,11 @@ faultdef MISSING_FILE_PATH,
          INVALID_TOKEN;
 
 
-enum ParseLineType : char  {
-    NAME,
+/*constdef ParseLineType : inline char  {
+    NAME = 1,
     COMMAND,
     COMMENT
-}
+}*/
 
 // data types
 const int BOOLEAN @private = 1;
@@ -127,16 +158,18 @@ const int FLOAT   @private = 3;
 const int STRING  @private = 4;
 
 // syntax main characters
-const String COMMENT_CHAR       @local = ";";
-const String SECTION_NAME_START @local = "[";
-const String SECTION_NAME_END   @local = "]";
-const String ASSIGNMENT_CHAR    @local = "=";
-const String SPACE_CHAR         @local = " ";
-const String LINK_CHAR          @local = ".";
-const char   LINK_CHAR_C        @local = '.';
-const String EMPTY_STR          @local = "";
-const String STR_CHAR           @local = "\"";
-const String NEWLINE_CHAR       @local = "\n";
+constdef Token : inline String @local 
+{
+    EMPTY         = "",
+    COMMENT       = ";",
+    SECTION_START = "[",
+    SECTION_END   = "]",
+    ASSIGNMENT    = "=",
+    SPACE         = " ",
+    DOT           = ".",
+    QUOTE         = "\"",
+    NEWLINE       = "\n"
+}
 
 
 alias ListIniSectionPrts @local = List{IniSection*};
@@ -155,8 +188,12 @@ struct Config_Flags @local  // flags used to store config file state
 *>
 struct ConfigFile {
     String path; // the path to the config file
-    ListIniSectionPrts sections;
+    ListIniSectionPrts sections; // all the sections that makeup the ini file
     Config_Flags flags; // if the config file has been modified since it was loaded
+}
+
+fn bool ConfigFile.isValid(&self) @inline {
+    return (self.path.len > 0 && self.sections.len() > 0);
 }
 
 <*
@@ -173,7 +210,7 @@ fn void ConfigFile.register(&self, IniSection* section) @inline {
 fn IniSection* ConfigFile.createSection(&self, String name) @nodiscard
 {
     if(self.hasSection(name)) {
-        log::warning(FILE, "Section %s already exists in config file %s.", name, self.path);
+        log::warning(FILE, "Ignoring creation of Section %s, because already exists in config file %s.", name, self.path);
         return self.getSection(name);
     }
 
@@ -183,11 +220,11 @@ fn IniSection* ConfigFile.createSection(&self, String name) @nodiscard
     return section;
 }
 
-<*
+/*<*
     @UNTESTED
     @param [&in] section : "the new section to save into the file"
 *>
-fn void ConfigFile.addSection(&self, IniSection* section) @inline 
+fn void ConfigFile.addSectionTofile(&self, IniSection* section) @inline 
 {
     if(self.hasSection(section.name)) {
         log::warning(FILE, "Cant add section %s already exists in config file %s.", section.name, self.path);
@@ -222,6 +259,7 @@ fn void ConfigFile.addSection(&self, IniSection* section) @inline
         $endif
     }
 }
+*/
 
 <*
   @param [in] name : " name of the new section to get"
@@ -246,7 +284,7 @@ fn IniSection* ConfigFile.getSection(&self, String name)
 *>
 fn bool ConfigFile.hasSection(&self, String name)
 {
-    foreach(section : self.sections) {
+    /*foreach(section : self.sections) {
         if(section.name == name) {
             return true;
         } else if(section.isLinked()) { // first section name didn't match see if it's child is the one
@@ -254,8 +292,10 @@ fn bool ConfigFile.hasSection(&self, String name)
                 return true;
             }
         }
-    }
-    return false;
+    }*/
+	if(self.getSection(name) == null) return false;
+	// else
+    return true;
 }
 
 <*
@@ -274,7 +314,6 @@ fn void ConfigFile.addToSectionByName(&self, String name, IniCMD* cmd)
             section.register(cmd); // register the cmd to the current section cmds
         }
         self.markModified(); // mark the config as modified
-        return;
     }
 }
 
@@ -496,53 +535,16 @@ fn String ConfigFile.getString(&self, String key, String default_value = "")
     return default_value;
 }
 
-fn bool ConfigFile.hasValue(&self, String key)
+fn bool ConfigFile.hasCmd(&self, String key)
 {
     ListIniCMDPrts* cmds;
 
-    foreach(section : self.sections)
-    {
-        // if the section is linked, we need to use the child section cmds
-        if(section.isLinked()) {
-            cmds = &section.next.cmds; // use the child section cmds
-        } else {
-            cmds = &section.cmds; // use the current section cmds
-        }
-
-        foreach(inicmd : *cmds) 
-        {
-            if(inicmd.cmd.first == key) 
-            {
-                return true;
-            }
-        }
+    foreach(section : self.sections) {
+        if(section.hasCmd(key)) return true;
     }
-    
     return false;
 }
 
-fn bool ConfigFile.sectionHasValue(&self, String section_name, String key)
-{
-    IniSection* section = self.getSection(section_name);
-    if(section == null) return false; // section not found
-
-    ListIniCMDPrts* cmds;
-    if(section.isLinked()) {
-        cmds = &section.next.cmds; // use the child section cmds
-    } else {
-        cmds = &section.cmds; // use the current section cmds
-    }
-
-    foreach(inicmd : *cmds) 
-    {
-        if(inicmd.cmd.first == key) 
-        {
-            return true;
-        }
-    }
-    
-    return false;
-}
 ///////////
 
 <*
@@ -662,13 +664,13 @@ fn void ConfigFile.setFloat(&self, String key, float value)
 fn void ConfigFile.setString(&self, String key, String value)
 {
     if(value == "") {
-        self.setValue(key, EMPTY_STR);
+        self.setValue(key, Token.EMPTY);
         return;
     }
     
     // make sure the value is a valid string
-    if(!value.starts_with(STR_CHAR) || !value.ends_with(STR_CHAR)) {
-        value = STR_CHAR.tconcat(value).tconcat(STR_CHAR);
+    if(!value.starts_with(Token.QUOTE) || !value.ends_with(Token.QUOTE)) {
+        value = Token.QUOTE.tconcat(value).tconcat(Token.QUOTE);
     }
     self.setValue(key, value);
 }
@@ -724,9 +726,63 @@ fn void IniSection.freeChild(&self) @inline {
     mem::free(self.next);
 }
 
+fn bool IniSection.hasCmd(&self, String key)
+{
+    ListIniCMDPrts* cmds;
+    if(self.isLinked()) 
+    {
+        cmds = &self.next.cmds; // use the child section cmds
+    } else {
+        cmds = &self.cmds; // use the current section cmds
+    }
+
+    foreach(it : cmds) {
+        if(it.cmd.first == key) {
+            return true;
+        }
+    }
+    
+    return false;
+}
+
+<*
+    Gets a cmd from a ini section
+    @param [in] key : "cmd name"
+*>
+fn IniCMD* IniSection.getCmd(&self, String key)
+{
+    ListIniCMDPrts* cmds;
+    if(self.isLinked()) 
+    {
+        cmds = &self.next.cmds; // use the child section cmds
+    } else {
+        cmds = &self.cmds; // use the current section cmds
+    }
+
+    foreach(it : cmds) {
+        if(it.cmd.first == key) {
+            return it;
+        }
+    }
+    
+    return null;
+}
+
 struct IniCMD {
     int type;
     IniCmdData cmd;
+}
+
+<*
+    DOC returns the index in the string where the comment starts
+    @param [in] val : "new value to write"
+    @param [&inout] file : "pointer to config where was written"
+    @require val.len > 0
+*>
+fn void IniCMD.setValue(&self, String val, ConfigFile* file) @inline @deprecated("use ConfigFile.setValue() instead")
+{
+    self.cmd.second = val.tcopy(); // update the value
+    file.markModified(); // mark the config as modified
 }
 
 <*
@@ -790,19 +846,19 @@ fn ConfigFile*? parse_file(String[] lines) @local
     
     foreach(line : lines) {
         if(line == "") continue;
-        if(line.starts_with(COMMENT_CHAR)) continue; // to next line
+        if(line.starts_with(Token.COMMENT)) continue; // to next line
         
         //
         bool has_comment = detect_comment_char_in_line(line) != -1;
         if(has_comment) {
             // split line by the comment char
-            String[] split = line.tsplit(COMMENT_CHAR);
+            String[] split = line.tsplit(Token.COMMENT);
             // now clean the start and end of line ignoring the comment section
             split[0] = split[0].trim();
             line = split[0].tcopy();
         }
         
-        if(line.starts_with(SECTION_NAME_START)) {
+        if(line.starts_with(Token.SECTION_START)) {
             parse_section_name(line, file_data);
         } else {
             parse_section_cmd(line, file_data);
@@ -822,10 +878,10 @@ fn ConfigFile*? parse_file(String[] lines) @local
 *>
 fn void parse_section_name(String line, ConfigFile* file) @local 
 {
-    String section_name = line.strip(SECTION_NAME_START).strip_end(SECTION_NAME_END); //trim("[]");
-    if(section_name.contains(LINK_CHAR))
+    String section_name = line.strip(Token.SECTION_START).strip_end(Token.SECTION_END); //trim("[]");
+    if(section_name.contains(Token.DOT))
     {
-        String[] split = section_name.tsplit(LINK_CHAR);
+        String[] split = section_name.tsplit(Token.DOT);
         // WARNING(HM) 
         // child sections (section_parent.section_child) unlike 
         //  the parent section ARE NOT registered in the main file sections list, 
@@ -869,22 +925,22 @@ fn void parse_section_name(String line, ConfigFile* file) @local
 *>
 fn void parse_section_cmd(String line, ConfigFile* file) @local
 {
-    String[] tokens = line.tsplit(ASSIGNMENT_CHAR);
+    String[] tokens = line.tsplit(Token.ASSIGNMENT);
 
     IniCmdData cmd_data = { .first = tokens[0].trim(), .second = tokens[1].trim() };
-    assert(cmd_data.first != EMPTY_STR);
+    assert(cmd_data.first != Token.EMPTY);
 
     // this shouldn't happen but just in case... 
     // if we think we are writting C/C++ or C3 code
     // and put a semicolon at the end of the line...
-    if(cmd_data.second.ends_with(COMMENT_CHAR)) {
-        cmd_data.second = cmd_data.second.strip_end(COMMENT_CHAR);
+    if(cmd_data.second.ends_with(Token.COMMENT)) {
+        cmd_data.second = cmd_data.second.strip_end(Token.COMMENT);
     }
 
-    if(cmd_data.second.contains(LINK_CHAR) && cmd_data.second.len > 1) 
+    if(cmd_data.second.contains(Token.DOT) && cmd_data.second.len > 1) 
     {
         // see if is a float of form '1.'
-        usz dot_index = cmd_data.second.index_of_char(LINK_CHAR_C)!!;
+        usz dot_index = cmd_data.second.index_of_char('.')!!;
         // if the dot is the last char in the string, we need to add a zero at the end
         if((dot_index + 1) == cmd_data.second.len) 
         {
@@ -922,7 +978,7 @@ fn void parse_section_cmd(String line, ConfigFile* file) @local
     DOC Get the type of a cmd value from its string representation
 
     @param [in] value : "the cmd data to set the type"
-    @require value != EMPTY_STR
+    @require value != Token.EMPTY
 *>
 fn int get_cmd_type_from_value(String value) @inline @local
 {
@@ -930,14 +986,14 @@ fn int get_cmd_type_from_value(String value) @inline @local
        return BOOLEAN;
     }
     
-    if(value.starts_with(STR_CHAR) && value.ends_with(STR_CHAR)) {
+    if(value.starts_with(Token.QUOTE) && value.ends_with(Token.QUOTE)) {
         return STRING;
-    } else if(value.starts_with(STR_CHAR) || value.ends_with(STR_CHAR)) {
+    } else if(value.starts_with(Token.QUOTE) || value.ends_with(Token.QUOTE)) {
         io::printfn("cmdline: Malformed value string \"%s\", it should be within \'\"\' quotations.", value);
         unreachable();
     }
     
-    if(value.contains(LINK_CHAR)) return FLOAT;
+    if(value.contains(Token.DOT)) return FLOAT;
 
      // default type is integer
     return INT;
@@ -951,7 +1007,7 @@ fn int get_cmd_type_from_value(String value) @inline @local
 *>
 fn ConfigFile*? load(String filepath, bool isrelative = true) 
 {
-    if(filepath == EMPTY_STR) {
+    if(filepath == Token.EMPTY) {
         return MISSING_FILE_PATH~;
     }
     
@@ -990,20 +1046,20 @@ fn bool? ConfigFile.load(&self, String filepath, bool isrelative = true)
     foreach(line : lines)
     {
         if(line.is_empty()) continue;
-        if(line.starts_with(COMMENT_CHAR)) continue; // to next line
+        if(line.starts_with(Token.COMMENT)) continue; // to next line
         
         //
         bool has_comment_at_the_end = detect_comment_char_in_line(line) != -1;
         if(has_comment_at_the_end) {
             // split line by the comment char
-            String[] split = line.tsplit(COMMENT_CHAR);
+            String[] split = line.tsplit(Token.COMMENT);
             // now clean the start and end of line ignoring the comment section
             split[0] = split[0].trim();
             line = split[0].tcopy();
         }
         
         // now handle the line data
-        if(line.starts_with(SECTION_NAME_START)) 
+        if(line.starts_with(Token.SECTION_START)) 
         {
             parse_section_name(line, self);
         } else {
@@ -1039,24 +1095,24 @@ fn bool ConfigFile.loadEx(&self, File data, String filepath)
 	foreach(&line : lines)
     {
 		(*line) = line.trim();
-		(*line) = line.treplace(SPACE_CHAR, EMPTY_STR);
+		(*line) = line.treplace(Token.SPACE, Token.EMPTY);
 	}
     
     foreach(line : lines)
     {
         if(line.is_empty()) continue;
-        if(line.starts_with(COMMENT_CHAR)) continue; // to next line
+        if(line.starts_with(Token.COMMENT)) continue; // to next line
         
         //
         bool has_comment_at_the_end = detect_comment_char_in_line(line) != -1;
         if(has_comment_at_the_end) {
             // split line by the comment char
-            String[] split = line.tsplit(COMMENT_CHAR);
+            String[] split = line.tsplit(Token.COMMENT);
             line = split[0].tcopy();
         }
         
         // now handle the line data
-        if(line.starts_with(SECTION_NAME_START)) 
+        if(line.starts_with(Token.SECTION_START)) 
         {
             parse_section_name(line, self);
         } else {
@@ -1072,65 +1128,97 @@ fn bool ConfigFile.loadEx(&self, File data, String filepath)
  *
   @param [&inout] cfg : "pointer to the config file data structure to save"
  *>
-fn bool saveConfigFile(ConfigFile* cfg)
+fn bool? saveConfigFile(ConfigFile* cfg)
 {
-	return cfg.save();
+	return cfg.save()!;
 }
 
-fn bool ConfigFile.save(&self, String filename = SETTINGS_FILE_NAME)
+<*
+    @param [&inout] file : "file to save data in"
+    @param [&in] section : "section data to save"
+    @require section.name.len > 0
+*>
+fn void? writeSectionName(INIFile* file, IniSection* section) @local @MyInline
+{
+	file.write(Token.NEWLINE)!;
+	file.write(Token.SECTION_START)!;
+        file.write(section.name)!;
+        if(section.isLinked()) {
+            file.write(Token.DOT)!;
+            file.write(section.next.name)!;
+        }
+    file.write(Token.SECTION_END+++Token.NEWLINE)!;
+}
+
+
+<*
+    @param [&inout] file : "file to save data in"
+    @param [&in] section : "section data to save"
+*>
+fn void? writeSectionCmds(INIFile* file, IniSection* section) @local @MyInline
+{
+    ListIniCMDPrts cmds;
+	if(section.isLinked()) {
+        cmds = section.next.cmds;
+    } else {
+        cmds = section.cmds;
+    }
+
+    foreach(it : cmds) 
+    {
+        if(it.cmd.first.is_empty()) continue; // skip empty cmds
+		bool print_quotes;
+        if(it.type == STRING) {
+            if(it.cmd.second.starts_with(Token.QUOTE)) {
+				if(!isValidString(it.cmd.second, it.cmd.first)) {
+					it.cmd.second = it.cmd.second.tconcat(Token.QUOTE);
+				}
+			} else {
+				print_quotes = true;
+			}
+        }
+        file.write(it.cmd.first)!;
+        file.write(Token.SPACE+++Token.ASSIGNMENT+++Token.SPACE)!;
+		if(print_quotes) file.write(Token.QUOTE)!;
+        file.write(it.cmd.second)!;
+		if(print_quotes) file.write(Token.QUOTE)!;
+        file.write(Token.NEWLINE)!;
+    }
+}
+
+<*
+    Save the config data in memory to the file
+    //@require self.path.len > 0 : "The config file path must be set before saving the config file."
+*>
+fn bool? ConfigFile.save(&self)
 {
     if(self.isModified() == false) return true; // nothing to save, the file is not modified
 
-    //String filepath = game.app_base_folder.tconcat(filename);
-    assert(self.path.len > 0, "The config file path must be set before saving the config file.");
-    String filepath = self.path;
-
-    INIFile? file_data = (INIFile)file::open(self.path, "wt");
-    if(catch excuse = file_data) {
-        log::warning(Where.FILE, "Failed to open config file: %s to write with excuse: %s", filepath, excuse);
-        return false;
+    String filepath;
+    if(self.path.len) {
+        filepath = self.path;
+    } else {
+        filepath = game.app_base_folder.tconcat(SETTINGS_FILE_NAME);
     }
-    defer (void)file_data.close();
 
-	uint section_count = (uint)self.sections.len();
-	for (uint s = 0; s < section_count; s++)
+    INIFile? file_data = (INIFile)file::open(self.path, "a+");
+    if(catch excuse = file_data) {
+        log::warning(FILE, "Failed to open file: %s to write configuration data with excuse: %s", filepath, excuse);
+        return excuse~;
+    }
+    defer file_data.close()!!;
+
+	foreach(section : self.sections)
 	{
-		IniSection *section = self.sections[s];
-		if (section.name.is_empty()) continue; // skip empty sections
-        //
-        @catch(file_data.write(SECTION_NAME_START));
-        @catch(file_data.write(section.name));
-        if(section.isLinked()) {
-            @catch(file_data.write(LINK_CHAR));
-            @catch(file_data.write(section.next.name));
+		if (section.name.is_empty()) {
+            log::warning(FILE, "While writting config data to file, found a empty section name, that shouldn't happen.");
+            log::warning(FILE, "\tskipping invalid section name, but please solve the issue!");
+            continue; // skip empty sections if any exist
         }
-        @catch(file_data.write(SECTION_NAME_END+++NEWLINE_CHAR));
+        
+        writeSectionName(&file_data, section)!;
 
-        if(section.isLinked()) {
-            foreach(cmd : section.next.cmds) 
-            {
-                if(cmd.cmd.first.is_empty()) continue; // skip empty cmds
-                if(cmd.type == STRING) {
-                    test_isValidString(cmd.cmd.second, cmd.cmd.first);
-                }
-                @catch(file_data.write(cmd.cmd.first));
-                @catch(file_data.write(SPACE_CHAR+++ASSIGNMENT_CHAR+++SPACE_CHAR/*" = "*/));
-                @catch(file_data.write(cmd.cmd.second));
-                @catch(file_data.write(NEWLINE_CHAR));
-            }
-        } else {
-            foreach(cmd : section.cmds) 
-            {
-                if(cmd.cmd.first.is_empty()) continue; // skip empty cmds
-                if(cmd.type == STRING) {
-                    test_isValidString(cmd.cmd.second, cmd.cmd.first);
-                }
-                @catch(file_data.write(cmd.cmd.first));
-                @catch(file_data.write(SPACE_CHAR+++ASSIGNMENT_CHAR+++SPACE_CHAR));
-                @catch(file_data.write(cmd.cmd.second));
-                @catch(file_data.write(NEWLINE_CHAR));
-            }
-        }
+        writeSectionCmds(&file_data, section)!;
 	}
 
 	return true;
@@ -1162,22 +1250,22 @@ fn void ConfigFile.reload(&self)
     @param [in] id : "the cmd id the string is assigned to"
     @require value.len >= 2 : "The string value must be at least 2 characters long"
 *>
-fn void test_isValidString(String value, String id) @local
+fn bool isValidString(String value, String id) @local
 {
-    if(value.ends_with(STR_CHAR)) return; // all is well do nothing
+    if(value.ends_with(Token.QUOTE)) return true; // all is well do nothing
     
     if(value.ends_with("\0"))
     {
         char* ch = value[:value.len - 2];
         if(*ch != '"') {
             io::printfn("cmdline: Malformed <string> \"%s\" assigned to \"%s\", it should start and end with \'\"\'.",*ch, id);
-            // unreachable calls should be put AFTER code that you expect to run!
-            unreachable();
+            return false;
         }
     } else {
         io::printfn("cmdline: Malformed value <string> assigned to \"%s\", it should start and end with \'\"\'.", id);
-        unreachable();
+		return false;
     }
+	return true;
 }
 
 <*
@@ -1186,12 +1274,12 @@ fn void test_isValidString(String value, String id) @local
 fn void unload(ConfigFile* inifile) 
 {
     if(inifile == null) {
-        io::printfn("ConfigFile: trying to unload passed file but it was empty, ignoring it.");
+        log::warning(FILE, "ConfigFile: trying to unload a null config file, ignoring it.");
         return; // nothing to unload
     }
 
     if(inifile.path.len) {
-        inifile.path = EMPTY_STR; // clear the path
+        inifile.path = Token.EMPTY; // clear the path
     }
 
     if(inifile.sections.len()) 
@@ -1286,13 +1374,13 @@ fn bool? populate(ConfigFile* file_data, String path) @deprecated {
             
             if(line.len == 0) continue;
             
-            if(line.starts_with(COMMENT_CHAR)) continue; // ignore comments
+            if(line.starts_with(Token.COMMENT)) continue; // ignore comments
             
             // found a section name
-            if(line.starts_with(SECTION_NAME_START))
+            if(line.starts_with(Token.SECTION_START))
             {
                 section      = mem::new(IniSection);
-                section.name = (*line).strip(SECTION_NAME_START).strip_end(SECTION_NAME_END).tcopy();
+                section.name = (*line).strip(Token.SECTION_START).strip_end(Token.SECTION_END).tcopy();
                 current_editing_section_name = &section.name;
                 continue;
             }
@@ -1304,14 +1392,14 @@ fn bool? populate(ConfigFile* file_data, String path) @deprecated {
                 String cmd_id;
                 String cmd_value;
                 
-                String[] tokens = (*line).tsplit(SPACE_CHAR);
+                String[] tokens = (*line).tsplit(Token.SPACE);
                 
                 // Get cmd ID and value
                 foreach(int i, String token : tokens) 
                 {
                     token = token.trim(); // cleans the token
                     
-                    if(token.len == 0 || token == ASSIGNMENT_CHAR) continue;
+                    if(token.len == 0 || token == Token.ASSIGNMENT) continue;
                     
                     // cmd_id should be always the first token in the array
                     if(i == 0) { 
@@ -1322,7 +1410,7 @@ fn bool? populate(ConfigFile* file_data, String path) @deprecated {
                     // data is always the token after the '='
                     cmd_value = token;
                     
-                    if(cmd_value == EMPTY_STR) {
+                    if(cmd_value == Token.EMPTY) {
                         unreachable();
                     }
                     
@@ -1330,7 +1418,7 @@ fn bool? populate(ConfigFile* file_data, String path) @deprecated {
                 }
                 
                 // Set what value type it is
-                bool cmd_value_not_empty = cmd_value != EMPTY_STR;
+                bool cmd_value_not_empty = cmd_value != Token.EMPTY;
                 if(cmd_value_not_empty) 
                 {
                     // Data is always a int unless overriden bellow
@@ -1339,9 +1427,9 @@ fn bool? populate(ConfigFile* file_data, String path) @deprecated {
                     if(cmd_value == "true" || cmd_value == "no") {
                         cmd_type = BOOLEAN;
                     }
-                    else if(cmd_value.starts_with(STR_CHAR)) {
+                    else if(cmd_value.starts_with(Token.QUOTE)) {
                         cmd_type = STRING;
-                        if(cmd_value.ends_with(STR_CHAR)) {
+                        if(cmd_value.ends_with(Token.QUOTE)) {
                             // go on
                         } else {
                             io::printfn("cmdline: Malformed value <string> assigned to \"%s\", it should end with a comma \".", cmd_id);

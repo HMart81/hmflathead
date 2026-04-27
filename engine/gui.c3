@@ -63,14 +63,15 @@ import engine::sys::render2d::r2d; // 2D rendering
 // end_region
 
 // region cvars
-CVar ui_debugDraw @public = { "ui_debugDraw", CvarType.BOOL, "0", "show debug visualization for gui development, 0, 1, true, false" };
-CVar ui_editGui   @public = { "ui_editGui", CvarType.BOOL, "0", "turn on gui editing functionality for gui development, 0, 1, true, false" };
-
+CVar ui_debugDraw   @public = { "ui_debugDraw",   CvFlag.BOOL, "0", "show debug visualization for gui development, 0, 1, true, false" };
+CVar ui_editGui     @public = { "ui_editGui",     CvFlag.BOOL, "0", "turn on gui editing functionality for gui development, 0, 1, true, false" };
+CVar ui_showAnchors @public = { "ui_showAnchors", CvFlag.BOOL, "0", "toggles the view of the anchor points on each gui widget, requires ui_debugDraw to be on as well." };
 
 fn void register_cvars() @public 
 {
     cvar::@register(&ui_debugDraw);
     cvar::@register(&ui_editGui);
+    cvar::@register(&ui_showAnchors);
 }
 // end_region
 
@@ -95,12 +96,11 @@ const uint HORIZONTAL_DIR = 1;
 const uint VERTICAL_DIR   = 2;
 // #endregion
 
-/*
 typedef GuiAnchor = inline Vec2f;
 
-enum GuiAnchorType : const inline int
+constdef AnchorType : inline int
 {
-    TOP_LEFT,
+    TOP_LEFT = 0,
     TOP_CENTER,
     TOP_RIGHT,
     CENTER_LEFT,
@@ -110,37 +110,6 @@ enum GuiAnchorType : const inline int
     BOTTOM_CENTER,
     BOTTOM_RIGHT
 }
-
-
-fn Vec2f getAnchorVecPosFrom(GuiAnchorType type, RenderView view) @inline 
-{
-    float half_w = view.w / 2.0f;
-    float half_h = view.h / 2.0f;
-    Vec2f result = view.origin;
-    switch (type)
-    {
-        case TOP_LEFT:       
-            return result += (misc::VEC_UP * half_h) + (misc::VEC_LEFT * half_w);
-        case TOP_CENTER:     
-            return result += (misc::VEC_UP * half_h);
-        case TOP_RIGHT:      
-            return result += (misc::VEC_UP * half_h) + (misc::VEC_RIGHT * half_w);
-        case CENTER_LEFT:    
-            return result += (misc::VEC_LEFT * half_w);
-        case CENTER:         
-            return result;
-        case CENTER_RIGHT:
-            return result += (misc::VEC_RIGHT * half_w);
-        case BOTTOM_LEFT:
-            return result += (misc::VEC_DOWN * half_h) + (misc::VEC_LEFT * half_w);
-        case BOTTOM_CENTER:
-            return result += (misc::VEC_DOWN * half_h);
-        case BOTTOM_RIGHT:
-            return result += (misc::VEC_DOWN * half_h) + (misc::VEC_RIGHT * half_w);
-        default: unreachable();
-    }
-}
-*/
 
 constdef PanelShape : inline int
 {
@@ -168,6 +137,7 @@ struct Panel (SaveSystemInterface, Printable)
     PanelFlags flags;
     PanelShape shape; // default is BOX
     RLRectangle  rect; // x, y, width, height
+	List{GuiAnchor} anchor;
     RLColor      color; // material color overrides this color
     RLColor      color_selected; // for gui editor functionality
     HMaterial* mat;
@@ -211,10 +181,68 @@ fn usz? Panel.to_format(&self, Formatter* f) @dynamic
     }`, self.id, self.name, self.shape, self.rect.x, self.rect.y, self.rect.width, self.rect.height, self.color.r, self.color.g, self.color.b, self.color.a, (self.mat != null) ? self.mat.name : "null");
 }
 
+<*
+	@require self.rect != rl::EMPTY_RECT
+*>
+fn void Panel.initAchors(&self) @inline
+{
+    // init the anchors to attach stuff in guis
+	RLRectangle rect = self.rect;
+	GuiAnchor[AnchorType.values.len] anchors;
+	anchors[AnchorType.TOP_LEFT]    = {0, 0};
+    anchors[AnchorType.TOP_CENTER]  = {rect.w / 2, 0};
+    anchors[AnchorType.TOP_RIGHT]   = {rect.w, 0};
+    anchors[AnchorType.CENTER_LEFT] = {0, rect.h / 2};
+    anchors[AnchorType.CENTER]      = {rect.w / 2, rect.h / 2};
+    anchors[AnchorType.CENTER_RIGHT]  = {rect.w, rect.h / 2};
+    anchors[AnchorType.BOTTOM_LEFT]   = {0, rect.h};
+    anchors[AnchorType.BOTTOM_CENTER] = {rect.w / 2, rect.h};
+    anchors[AnchorType.BOTTOM_RIGHT]  = {rect.w, rect.h};
+	self.anchor.reserve(AnchorType.values.len);
+	self.anchor.init_with_array(mem, anchors[..]);
+}
+
+fn void Panel.updateAchors(&self, Vec2f new_size) @inline
+{
+	if(new_size == VEC2_ZERO) return;
+
+    // init the anchors to attach stuff in guis
+    self.anchor[AnchorType.TOP_CENTER]  = {new_size.x / 2, 0};
+    self.anchor[AnchorType.TOP_RIGHT]   = {new_size.x, 0};
+    self.anchor[AnchorType.CENTER_LEFT] = {0, new_size.y / 2};
+    self.anchor[AnchorType.CENTER]      = {new_size.x / 2,new_size.y / 2};
+    self.anchor[AnchorType.CENTER_RIGHT]  = {new_size.x, new_size.y / 2};
+    self.anchor[AnchorType.BOTTOM_LEFT]   = {0, new_size.y};
+    self.anchor[AnchorType.BOTTOM_CENTER] = {new_size.x / 2, new_size.y};
+    self.anchor[AnchorType.BOTTOM_RIGHT]  = {new_size.x, new_size.y};
+}
+
+<*
+	Display a Panel anchor points
+	@param [&in] panel : "the panel to show the anchors for"
+*>
+fn void drawAchors(Panel* panel) @inline
+{
+    if(!ui_showAnchors.getBool()) return;
+
+	Vec2f origin = panel.rect.pos;
+	//r2d::drawSquare(origin ,8, rl::BLACK);
+	r2d::drawSquare(origin + panel.anchor[AnchorType.TOP_LEFT],     4, rl::RED);
+    r2d::drawSquare(origin + panel.anchor[AnchorType.TOP_CENTER],   4, rl::GREEN);
+    r2d::drawSquare(origin + panel.anchor[AnchorType.TOP_RIGHT],    4, rl::BLUE);
+    r2d::drawSquare(origin + panel.anchor[AnchorType.CENTER_LEFT],  4, rl::MAROON);
+    r2d::drawSquare(origin + panel.anchor[AnchorType.CENTER],       4, rl::LIME); 
+    r2d::drawSquare(origin + panel.anchor[AnchorType.CENTER_RIGHT], 4, rl::SKYBLUE);
+    r2d::drawSquare(origin + panel.anchor[AnchorType.BOTTOM_LEFT],  4, rl::VIOLET); 
+    r2d::drawSquare(origin + panel.anchor[AnchorType.BOTTOM_CENTER],4, rl::ORANGE);
+    r2d::drawSquare(origin + panel.anchor[AnchorType.BOTTOM_RIGHT], 4, rl::MAGENTA);
+}
+
 fn void Panel.initRec(&self, RLRectangle rect, RLColor color) @inline
 {
     self.rect  = rect;
     self.color = color;
+	self.initAchors();
 }
 
 fn void Panel.initV(&self, Vec2f pos, Vec2f size, RLColor color) @inline
@@ -230,6 +258,7 @@ fn void Panel.init(&self) @inline
 fn void Panel.deinit(&self) @inline 
 { 
     if(self.mat) self.mat = null;
+    self.anchor.clear();
 }
 
 fn void Panel.setShape(&self, PanelShape shape) @inline => self.shape = shape;
@@ -289,12 +318,14 @@ fn void Panel.scaleNormalized(&self, float w_scaler, float h_scaler) @inline
 }
 
 <*
-    Sets the size of the Panel, units is in pixels.
+    Sets the size of the Panel, 
+    units is in pixels.
 *>
 fn void Panel.setSize(&self, float w, float h) @inline 
 {
     self.rect.width  = w;
     self.rect.height = h;
+	self.updateAchors({w, h});
 }
 
 <*
@@ -1473,7 +1504,7 @@ fn WidgetCheckBox* createCheckBox(String label) @inline
 }
 
 //////////////////////////////////// CONTAINER //////////////////////////////////////
-module engine::gui::container::cont;
+module engine::gui::container::cont; //@unfinished
 
 import thirdparty::raylib5::rl;
 import engine::gui::desktop::desk;
@@ -2267,9 +2298,12 @@ fn void Desktop.debug(&self)
                     ((child.rect.x * 100) / scr_w), ((child.rect.y * 100) / scr_h)).zstr_tcopy(),
                     (int)dbg_text_pos.x, (int)dbg_text_pos.y, 9, rl::RED
                );
-               // draw widget center
-               r2d::drawCircle((int)child.rect.x, (int)child.rect.y, 2.0f, rl::SKYBLUE);
+               if(!gui::ui_showAnchors.getBool()) {
+                    // draw widget center point
+                    r2d::drawCircle((int)child.rect.x, (int)child.rect.y, 2.0f, rl::SKYBLUE);
+               }
                r2d::drawRectangleLinesEx(child.rect, 1.5f, rl::RED);
+               gui::drawAchors(child);
             }
         }
     }

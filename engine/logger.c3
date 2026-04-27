@@ -39,7 +39,7 @@ import engine::sys::framework::platform::platf;
 // end_region
 
 // region Cvars
-CVar g_log @public = { "g_log", CvarType.BOOL, "1", "turns on loggin for debuggin."};
+CVar g_log @public = { "g_log", CvFlag.BOOL, "1", "turns on loggin for debuggin."};
 
 fn void register_cvars() {
 	cvar::@register(&g_log);

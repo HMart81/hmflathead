@@ -47,6 +47,7 @@ import engine::misc;
 import engine::logging::log;
 import thirdparty::raylib5::rl;
 import game::main;
+import game::files::ini;
 // #endregion
 
 // #region defines
@@ -57,59 +58,37 @@ alias CvarList = List{CVar*};
 //const int PRINT_CVAR_SETTING = 1;
 // end_region
 
-// cvar flags
-/*const int FLAG_ALL				= -1;		// all flags
-const int FLAG_BOOL				= @bit(0);	// variable is a boolean
-const int FLAG_INTEGER			= @bit(1);	// variable is an integer
-const int FLAG_FLOAT			= @bit(2);	// variable is a float
-const int FLAG_SYSTEM			= @bit(3);	// system variable
-const int FLAG_RENDERER			= @bit(4);	// renderer variable
-const int FLAG_SOUND			= @bit(5);	// sound variable
-const int FLAG_GUI				= @bit(6);	// gui variable
-const int FLAG_GAME				= @bit(7);	// game variable
-const int FLAG_TOOL				= @bit(8);	// tool variable
-const int FLAG_STRING			= @bit(9);	// variable is a string
-const int FLAG_SERVERINFO		= @bit(10);	// sent from servers, available to menu
-const int FLAG_NETWORKSYNC		= @bit(11);	// cvar is synced from the server to clients
-const int FLAG_STATIC			= @bit(12);	// statically declared, not user created
-const int FLAG_CHEAT			= @bit(13);	// variable is considered a cheat
-const int FLAG_NOCHEAT			= @bit(14);	// variable is not considered a cheat
-const int FLAG_INIT				= @bit(15);	// can only be set from the command-line
-const int FLAG_ROM				= @bit(16);	// display only, cannot be set by user at all
-const int FLAG_ARCHIVE			= @bit(17);	// set to cause it to be saved to a config file
-const int FLAG_MODIFIED			= @bit(18);	// set when the variable is modified
-*/
-
-// todo(HM) replace this with the cvar flags
-constdef CvarType : inline char
+// cvar flags (some are unnused...)
+constdef CvFlag : inline uint
 {
-    NONE = 0,
-    BOOL,
-    INT,
-    FLOAT,
-    STRING
-}
-
-fn String typeToString(CvarType type) @local @inline 
-{
-    switch(type) {
-        case FLOAT:   return "float";  
-        case INT:     return "int";    
-        case BOOL:    return "boolean";
-        case STRING:  return "string"; 
-        case NONE: 
-        default:               return "unknown";
-    }
+	BOOL		= @bit(0),	// variable is a boolean
+	INT			= @bit(1),	// variable is an integer
+	FLOAT		= @bit(2),	// variable is a float
+	STRING		= @bit(3),	// system variable
+	RENDERER	= @bit(4),	// renderer variable
+	SOUND		= @bit(5),	// sound variable
+	GUI			= @bit(6),	// gui variable
+	GAME		= @bit(7),	// game variable
+	TOOL		= @bit(8),	// tool variable
+	SYSTEM		= @bit(9),	// system variable
+	SERVERINFO	= @bit(10),	// sent from servers, available to menu
+	NETWORKSYNC	= @bit(11),	// cvar is synced from the server to clients
+	STATIC		= @bit(12),	// statically declared, not user created
+	CHEAT		= @bit(13),	// variable is considered a cheat
+	NOCHEAT		= @bit(14),	// variable is not considered a cheat
+	INIT		= @bit(15),	// can only be set from the command-line
+	ROM			= @bit(16),	// display only, cannot be set by user at all
+	ARCHIVE		= @bit(17),	// set to cause it to be saved to a config file
+	MODIFIED	= @bit(18)	// set when the variable is modified
 }
 
 struct CVar
 {
-    String   name;
-    CvarType type;
-    //int      flags; // flags for the cvar (not used yet)
-    String   value;
+    String  name;
+    uint    flags;
+    String  value;
     //String   resetvalue; // resetting will change to this value (not used yet)
-    String   description;
+    String  description;
     //float valueMin; // min value for the cvar (not used yet)
     //float valueMax; // max value for the cvar (not used yet)
 
@@ -140,6 +119,97 @@ $if $feature(_DEBUG):
 $endif
 }
 
+/*
+<*
+	@param [&inout] cfg : "config file data to save the cvars in"
+	@require cfg.path.len > 0
+*>
+fn bool? saveCvarsToIniFile(ConfigFile* cfg) 
+{
+	String filepath = cfg.path;
+
+	File? file_data = (File)file::open(filepath, "r+");
+	if(catch excuse = file_data) {
+		log::warning(FILE, "Failed to open file: %s to save cvars data with excuse: %s", filepath, excuse);
+		return excuse~;
+	}
+	defer file_data.close()!!;
+
+	foreach(it : cvars) 
+	{
+		String section_type;
+		switch
+		{
+			case it.flags & CvFlag.RENDERER:   section_type = "Renderer";
+			case it.flags & CvFlag.SYSTEM:     section_type = "System";
+			case it.flags & CvFlag.SOUND:      section_type = "Sound";
+			case it.flags & CvFlag.TOOL:       section_type = "Tool";
+			case it.flags & CvFlag.GAME:       section_type = "Game";
+			case it.flags & CvFlag.GUI:        section_type = "Gui";
+			case it.flags & CvFlag.SERVERINFO: section_type = "Server";
+			default: section_type = "Undefined";
+		}
+		if(cfg.hasSection(section_type)) {
+			cfg.addToSection(cfg.getSection(section_type), mem::tnew(IniCMD, {
+				switch
+				{
+					case it.flags & CvFlag.BOOL:   .type = CvFlag.BOOL,
+					case it.flags & CvFlag.INT:    .type = CvFlag.INT,
+					case it.flags & CvFlag.FLOAT:  .type = CvFlag.FLOAT,
+					case it.flags & CvFlag.STRING: .type = CvFlag.STRING,
+					default: unreachable(),
+				}
+				.first  = it.name,
+				.second = it.value
+			}));
+		}
+		// write cvar 
+		file.write(Token.NEWLINE)!;
+		file.write(Token.SECTION_START)!;
+			file.write(section.name)!;
+			if(section.isLinked()) {
+				file.write(Token.DOT)!;
+				file.write(section.next.name)!;
+			}
+		file.write(Token.SECTION_END+++Token.NEWLINE)!;
+	}
+}*/
+
+<*
+	@ensure return != 0
+*>
+fn int CVar.getBasicType(&self) @MyInline
+{
+    switch
+    {
+        case (bool)(self.flags & CvFlag.BOOL):   return 1;
+        case (bool)(self.flags & CvFlag.INT):    return 2;	
+        case (bool)(self.flags & CvFlag.FLOAT):  return 3;
+        case (bool)(self.flags & CvFlag.STRING): return 4;
+        default: return 0;
+    }
+}
+
+fn void printflags(int flags) @inline @local
+{
+    int count;
+    foreach(flag : CvFlag.values) {
+		if(flags & flag) {
+			count++;
+		}
+	}
+
+	foreach(i, flag : CvFlag.values) {
+		if(flags & flag) {
+			io::printf("%s", CvFlag.names[i]);
+			if(count) {
+				io::printf(" %c ", '|');
+                count -= 1;
+			}
+		}
+	}
+}
+
 fn void printCvars() @inline
 {
     if(cvars.len() == 0) {
@@ -149,9 +219,9 @@ fn void printCvars() @inline
 
     io::printfn("\n============== CONSOLE/FLAGS VARS =====================");
     foreach(cv: cvars) {
-        io::printfn("%s : %s", cv.name, typeToString(cv.type));
+        io::printf("%s :", cv.name); printflags(cv.flags);
         io::printfn("\t - desc: %s", cv.description);
-        io::printfn("\t - default: %s", (cv.type != CvarType.BOOL) ? cv.value : misc::bool2str(cv.value == "1"));
+        io::printfn("\t - default: %s", (!(cv.flags & CvFlag.BOOL)) ? cv.value : misc::bool2str(cv.value == "1"));
         //io::printfn("--------------------------------------------------------");
     }
     io::printfn("Total cvars: %d", cvars.len());
@@ -173,7 +243,7 @@ fn void printCvars() @inline
 // Always use one of the following initializers.
 macro CVar.init(&self, String name, String value, int flags, String description, ArgCompletionCallback valueCompletion = null ) {
     self.name  = name;
-    self.type  = CvarType.NONE;
+    self.flags  = CvFlag.NONE;
     self.value = value.copy(mem);
     //self.resetvalue = ""; // not used yet
     self.description = description.copy(mem);
@@ -188,7 +258,7 @@ macro CVar.init(&self, String name, String value, int flags, String description,
 }
 macro CVar.initMinMax( String name, String value, int flags, const String description, float valueMin, float valueMax, ArgCompletionCallback valueCompletion = null ) {
     self.name  = name;
-    self.type  = CvarType.NONE;
+    self.flags  = CvFlag.NONE;
     self.value = value.copy(mem);
     //self.resetvalue = ""; // not used yet
     self.description = description.copy(mem);
@@ -203,7 +273,7 @@ macro CVar.initMinMax( String name, String value, int flags, const String descri
 }
 macro CVar.initWithStrings( String name, String value, int flags, String description, String[] valueStrings, ArgCompletionCallback valueCompletion = null ) {
     self.name  = name;
-    self.type  = CvarType.NONE;
+    self.flags  = CvFlag.NONE;
     self.value = value.copy(mem);
     //self.resetvalue = ""; // not used yet
     self.description = description.copy(mem);
@@ -233,8 +303,8 @@ macro CVar.initWithStrings( String name, String value, int flags, String descrip
 
 fn bool CVar.getBool(&self, bool default_value = false) @inline @nodiscard
 {
-    if(self.type != CvarType.BOOL) {
-        log::warning(Where.FILE, "Trying to get boolean value from CVar: %s but it is not a bool: %s->%d", self.name, $$FUNC, $$LINE);
+    if(!(self.flags & CvFlag.BOOL)) {
+        log::warning(FILE, "Trying to get boolean value from CVar: %s but it is not a bool: %s->%d", self.name, $$FUNC, $$LINE);
         return default_value;
     }
     
@@ -247,7 +317,7 @@ fn bool CVar.getBool(&self, bool default_value = false) @inline @nodiscard
     // from here we expect a valid char value
     char? value = self.value.to_uchar();
     if(catch excuse = value) {
-        log::error(Where.FILE, "CVar: %s fault '%s' :: %s->%d", self.name, excuse, $$FUNC, $$LINE);
+        log::error(FILE, "CVar: %s fault '%s' :: %s->%d", self.name, excuse, $$FUNC, $$LINE);
         return default_value;
     }
     
@@ -276,7 +346,7 @@ fn float CVar.getfloat(&self, float default_value = 0.0f) @inline @nodiscard
 
 fn String CVar.getString(&self, String default_value = "") @inline @nodiscard 
 {
-    if(self.type != CvarType.STRING) {
+    if(!(self.flags & CvFlag.STRING)) {
         log::warning(FILE, "CVar: %s was not defined as a string: %s->%d", self.name, $$FUNC, $$LINE);
         return default_value;
     }
@@ -289,7 +359,7 @@ fn CVar* CVar.set(&self, String value) @inline
 {
     self.value = value.tcopy();
 $if $feature(_DEBUG):
-    if(self.type == CvarType.BOOL) {
+    if(self.flags & CvFlag.BOOL) {
         log::info(CONSOLE, "CVar %s was set to %s.", self.name, (self.value == "1" || self.value == "true") ? "true" : "false");
     } else {
         log::info(CONSOLE, "CVar %s was set to value %s.", self.name, value);
@@ -301,7 +371,7 @@ $endif
 fn CVar* CVar.setBool(&self, bool value) @inline
 {
 $if $feature(_DEBUG):
-    if(self.type != CvarType.BOOL) {
+    if(!(self.flags & CvFlag.BOOL)) {
         log::fatal(FILE, "Trying to set non bool CVar %s to bool value %s.", self.name, (self.value) ? "true" : "false");
     }
 $endif
@@ -309,34 +379,44 @@ $endif
     return self;
 }
 
+<*
+    Archive console variables into the config file
+    @require game::gpGame.settings_data.isValid()
+*>
 fn void CVar.archive(&self)
 {
-	@todo();
-	/*
-	// make sure we have the pre-loaded settings file
-	if(game::gpGame.settings_file.path == "") {
-		game::gpGame.loadSettingsFile();
-	}
+	// don't archive console variables that are not marked to be so.
+	if(!(self.flags & CvFlag.ARCHIVE)) return;
 
-	ConfigFile* settings_file = &game::gpGame.settings_file;
-	if(settings_file.hasSection("Cvars")) {
-		IniSection* section = settings_file.getSection("Cvars");
-		IniCMD* cd  = mem::new(IniCMD);
-    	cd.type     = (int)self.type;
-    	cd.cmd      = (IniCmdData){self.name, self.value};
-		settings_file.addToSection(&section, cd);
-	} else {
-		IniSection* section = settings_file.createSection("Cvars");
-		settings_file.addSection(&section);
-	}
+	IniSection* section;
+	ConfigFile* settings_data = &game::gpGame.settings_data;
 
-    foreach( cvar : cvars ) {
-        if ( cvar.name == name ) {
-            return cvar;
-        }
+    String sec_name = "Cvars";
+    switch {
+        case (bool)(self.flags & CvFlag.SYSTEM):   sec_name = "System";
+        case (bool)(self.flags & CvFlag.RENDERER): sec_name = "Renderer";
+        case (bool)(self.flags & CvFlag.SOUND):    sec_name = "Sound";
+        case (bool)(self.flags & CvFlag.GUI):      sec_name = "Gui";
+        case (bool)(self.flags & CvFlag.GAME):     sec_name = "Game";
+        case (bool)(self.flags & CvFlag.TOOL):     sec_name = "Tool";
+        default: break;
     }
-	return null;
-	*/
+	if(settings_data.hasSection(sec_name)) {
+		section = settings_data.getSection(sec_name);
+	} else {
+		section = settings_data.createSection(sec_name);
+	}
+	assert(section != null);
+
+    if(section.hasCmd(self.name)) {
+        // just update cmd value;
+        settings_data.setValue(self.name, self.value);
+    } else {
+        settings_data.addToSection(section, mem::new(IniCMD, {
+            .type = self.getBasicType(),
+            .cmd  = {self.name, self.value}
+        }));
+    }
 }
 
 fn CVar* findCvar( String name ) @local @inline 
@@ -432,7 +512,7 @@ fn void argCompletion( String cmdString, CvarCompletionCallback callback ) {
 
 /*fn void CVar.init(&self, String name, CvarType _type, String value, String description) {
     self.name  = name;
-    self.type  = _type;
+    self.flags  = _type;
     self.value = value;
     self.description = description;
     @register(self);

@@ -2131,15 +2131,36 @@ fn void detachAudioMixedProcessor(AudioCallback processor) @cname("DetachAudioMi
 //----------------------------------------------------------------------------------
 
 /**
- * Setup canvas (framebuffer) to start drawing, then calls [block].
+ * Start drawing canvas (framebuffer) and calls [block]
+ * does swap buffers and updates key events as well.
  * Drawing will end after [block] has finished.
  */
-macro void @drawing(;@body)
+macro void @drawing(RLColor clear_color = rl::RAYWHITE;@body)
 {
-  beginDrawing();
-  defer endDrawing();
-  @body();
+	beginDrawing();
+	rl::clearBackground(clear_color);
+	defer endDrawing();
+	@body();
 }
+
+// Warning(HMN) do not use...
+// doesn't work correctly, because 
+// I'm not allowed to use, break and continue in the macro body loop this way...
+// What to be honest, fk sucks and makes me dislike c3 a little more, 
+// how draconic and unfriendly (like rust) it sometimes feels.
+// I mean break and continue, should work just fine here!!
+// The compilar is just not letting me do it, because 
+// "if I put the @body() outside the while loop, it would break."
+// And why would I do that!? I know what I'm doing in this case! bah...
+// Leaving this here just for doc reasons, so if later 
+// I forget and have the desire to make this macro again, I'm reminded of this situation...  
+/*macro void @window_loop(;@body)
+{
+	while(!windowShouldClose()) 
+	{
+		@body();
+	}
+}*/
 
 /**
  * Setup 2D mode with custom camera to start 2D Mode, then calls [block].
@@ -2198,13 +2219,22 @@ macro void @blendMode(RLBlendMode mode;@body)
     @body();
 }
 
-/**
- * Setup scissor mode then calls [block].
- * scissor mode will end after [block] has finished.
- */
-macro void @scissorMode(CInt x, CInt y, CInt width, CInt height ;@body)
+<* 
+	Setup scissor mode then calls [block].
+ 	scissor mode will end after [block] has finished.
+*>
+macro void @scissorMode(CInt x, CInt y, CInt width, CInt height; @body)
 {
   beginScissorMode(x, y, width, height);
+  defer endScissorMode();
+  @body();
+}
+
+// cuts the data on screen by a rectangle area
+// good to make text fall within a area
+macro void @clipModeRect(RLRectangle rect; @body)
+{
+  beginScissorMode(rect.x, rect.y, rect.w, rect.h);
   defer endScissorMode();
   @body();
 }
@@ -2389,7 +2419,9 @@ module thirdparty::raylib5::rl::rlgl; // rlgl.h
 
 import thirdparty::raylib5::rl;
 
-typedef FramebufferAttachType = int;
+typedef FBOId = inline uint;
+
+typedef FramebufferAttachType = inline int;
 
 const FramebufferAttachType RL_ATTACHMENT_COLOR_CHANNEL0 = 0;       // Framebuffer attachment type: color 0
 const FramebufferAttachType RL_ATTACHMENT_COLOR_CHANNEL1 = 1;       // Framebuffer attachment type: color 1
@@ -2402,7 +2434,7 @@ const FramebufferAttachType RL_ATTACHMENT_COLOR_CHANNEL7 = 7;       // Framebuff
 const FramebufferAttachType RL_ATTACHMENT_DEPTH = 100;              // Framebuffer attachment type: depth
 const FramebufferAttachType RL_ATTACHMENT_STENCIL = 200;            // Framebuffer attachment type: stencil
 
-typedef FramebufferAttachTextureType = int;
+typedef FramebufferAttachTextureType = inline int;
 
 const FramebufferAttachTextureType RL_ATTACHMENT_CUBEMAP_POSITIVE_X = 0;   // Framebuffer texture attachment type: cubemap, +X side
 const FramebufferAttachTextureType RL_ATTACHMENT_CUBEMAP_NEGATIVE_X = 1;   // Framebuffer texture attachment type: cubemap, -X side
@@ -2515,18 +2547,23 @@ fn void enableTextureCubemap(CUInt id) @cname("rlEnableTextureCubemap");     // 
 fn void disableTextureCubemap() @cname("rlDisableTextureCubemap");           // Disable texture cubemap
 fn void textureParameters(CUInt id, CInt param, CInt value) @cname("rlTextureParameters"); // Set texture parameters (filter, wrap)
 fn void cubemapParameters(CUInt id, CInt param, CInt value) @cname("rlCubemapParameters"); // Set cubemap parameters (filter, wrap)
+fn uint loadTextureDepth(int width, int height, bool useRenderBuffer) @cname("rlLoadTextureDepth");
 
 // RLShader state
 fn void enableShader(CUInt id) @cname("rlEnableShader"); // Enable shader program
 fn void disableShader() @cname("rlDisableShader"); // Disable shader program
 
 // Framebuffer state
+fn uint loadFramebuffer() @cname("rlLoadFramebuffer");
+fn void unloadFramebuffer(uint id) @cname("rlUnloadFramebuffer");
 fn void enableFramebuffer(CUInt id) @cname("rlEnableFramebuffer");        // Enable render texture (fbo)
 fn void disableFramebuffer() @cname("rlDisableFramebuffer");                  // Disable render texture (fbo), return to default framebuffer
 fn CUInt getActiveFramebuffer() @cname("rlGetActiveFramebuffer");        // Get the currently active render texture (fbo), 0 for default framebuffer
 fn void activeDrawBuffers(CInt count) @cname("rlActiveDrawBuffers");              // Activate multiple draw color buffers
 fn void blitFramebuffer(CInt srcX, CInt srcY, CInt srcWidth, CInt srcHeight, CInt dstX, CInt dstY, CInt dstWidth, CInt dstHeight, CInt bufferMask) @cname("rlBlitFramebuffer"); // Blit active framebuffer to main framebuffer
 fn void bindFramebuffer(CUInt target, CUInt framebuffer) @cname("rlBindFramebuffer"); // Bind framebuffer (FBO)
+fn bool framebufferComplete(uint id) @cname("rlFramebufferComplete");
+fn void framebufferAttach(uint fboId, uint texId, int attachType, int texType, int mipLevel) @cname("rlFramebufferAttach");
 
 // General render state
 fn void enableColorBlend() @cname("rlEnableColorBlend");                    // Enable color blending
@@ -2580,9 +2617,10 @@ fn CInt getFramebufferHeight() @cname("rlGetFramebufferHeight");                
 
 fn CUInt getTextureIdDefault() @cname("rlGetTextureIdDefault");         // Get default texture id
 fn CUInt getShaderIdDefault() @cname("rlGetShaderIdDefault");          // Get default shader id
-fn CInt *getShaderLocsDefault() @cname("");                // Get default shader locations
+fn CInt *getShaderLocsDefault() @cname("rlGetShaderLocsDefault");                // Get default shader locations
 
 // Render batch management
+fn FBOId loadTexture(void*data, int width, int height, int format, int mipmapCount) @cname("rlLoadTexture");
 // NOTE: rlgl provides a default render batch to behave like OpenGL 1.1 immediate mode
 // but this render batch API is exposed in case of custom batches are required
 fn void setTexture(CUInt id) @cname("rlSetTexture");               // Set current texture for render batch and check buffers limits

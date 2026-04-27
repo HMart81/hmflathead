@@ -216,7 +216,8 @@ fn void Player.updateInteraction(&self, float dt)
 
 fn void Player.move(&self, float speed) @inline
 {
-    self.setPositionV(self.getPosition() + self.move_dir * speed);
+	Vec2f new_pos = self.getPosition() + self.move_dir * speed;
+    self.setPositionV(new_pos);
     self.updateVisuals();
 }
 

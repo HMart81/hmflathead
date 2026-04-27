@@ -50,8 +50,8 @@ import engine::sys::render2d::r2d; // 2D rendering
 
 // region cvars
 /*
-CVar ui_debugDraw @public = { "ui_debugDraw", CvarType.BOOL, "0", "show debug visualization for gui development, 0, 1, true, false" };
-CVar ui_editGui   @public = { "ui_editGui", CvarType.BOOL, "0", "turn on gui editing functionality for gui development, 0, 1, true, false" };
+CVar ui_debugDraw @public = { "ui_debugDraw", CvFlag.BOOL, "0", "show debug visualization for gui development, 0, 1, true, false" };
+CVar ui_editGui   @public = { "ui_editGui", CvFlag.BOOL, "0", "turn on gui editing functionality for gui development, 0, 1, true, false" };
 
 
 fn void register_cvars() @public 
