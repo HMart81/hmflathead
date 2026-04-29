@@ -148,7 +148,7 @@ fn void HMSprite.init(&self, float x, float y, float w, float h, RLColor color =
     self.setSize(w,h);
     // now set the Bounds
     self.bounds.fromRect(&self.rect);
-    self.setMaterial(material_name);
+    if(material_name) self.setMaterial(material_name);
     self.activate(); // activate the sprite by default
     self.register();
 }
@@ -387,19 +387,21 @@ fn bool HMSprite.isValid(&self) @inline
     return false;
 }
 
+<*
+	@param [in] material_name : "name of material"
+	@require material_name.len > 0
+*>
 fn HMSprite* HMSprite.setMaterial(&self, String material_name) @inline
 {
-
-    if(material_name) 
+	self.mat = mtrmng::getMaterial(material_name);
+    /*if(material_name) 
     {
         self.mat = mtrmng::getMaterial(material_name);
         if(self.mat == null || rl::isTextureValid(*self.mat.getTexture(MTexture.DIFFUSE)) == false) {
             log::error(Where.FILE, "Unnable to set HMSprite material '%s'.\n", material_name);
             unreachable("Unnable to set HMSprite material.");
         }
-    } else {
-        self.mat = mtrmng::getMaterial("default_material");
-    }
+    }*/
 
     return self;
 }

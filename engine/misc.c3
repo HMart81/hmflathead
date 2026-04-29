@@ -48,6 +48,7 @@ alias Vec3f  = float[<3>];
 alias Vec4f  = float[<4>];
 alias Vec2i  = int[<2>];
 alias Vec3i  = int[<3>];
+alias Vec4i  = int[<4>];
 
 macro String bool2str(bool b) => b ? "true" : "false";
 
@@ -477,7 +478,11 @@ macro Vec2f screenToWorld(spos) => rl::getScreenToWorld2D(wpos, game::gpGame.cam
 
 // region vec2 extensions
 const VEC2_ZERO @builtin = (Vec2f){0.0f, 0.0f};
-const IVEC2_ZERO @builtin = (Vec2f){0, 0};
+const VEC2I_ZERO @builtin = (Vec2i){0, 0};
+const VEC3_ZERO @builtin = (Vec3f){0.0f, 0.0f, 0.0f};
+const VEC3I_ZERO @builtin = (Vec3i){0, 0, 0};
+const VEC4_ZERO @builtin = (Vec4f){0.0f, 0.0f, 0.0f, 0.0f};
+const VEC4I_ZERO @builtin = (Vec4i){0, 0, 0, 0};
 fn void Vec2f.scale(&self, float x, float y) @inline {
     (*self) = { self.x * x, self.y * y };
 }

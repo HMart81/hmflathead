@@ -132,6 +132,14 @@ macro bool RLColor.neql(&self, RLColor other) @operator(!=)
              self.a != other.a );
 }
 
+macro bool RLColor.isValid(&self)
+{
+    return ( self.r <= 255 &&
+             self.g <= 255 &&
+             self.b <= 255 &&
+             self.a <= 255 );
+}
+
 // RLRectangle, 4 components
 union RLRectangle
 {
@@ -696,7 +704,7 @@ They are defined inside raylib/src/config.h
 // RLShader uniform data type
 constdef RLShdUniTyp : inline CInt
 {
-    FLOAT,           // RLShader uniform type: float
+    FLOAT = 0,       // RLShader uniform type: float
     VEC2,            // RLShader uniform type: vec2 (2 float)
     VEC3,            // RLShader uniform type: vec3 (3 float)
     VEC4,            // RLShader uniform type: vec4 (4 float)
@@ -708,9 +716,9 @@ constdef RLShdUniTyp : inline CInt
 }
 
 // RLShader attribute data types
-enum RLShdrAttrbDatTyp : CInt
+constdef RLShdAttrbTyp : inline CInt
 {
-    FLOAT,            // RLShader attribute type: float
+    FLOAT = 0,            // RLShader attribute type: float
     VEC2,             // RLShader attribute type: vec2 (2 float)
     VEC3,             // RLShader attribute type: vec3 (3 float)
     VEC4              // RLShader attribute type: vec4 (4 float)
@@ -2536,8 +2544,8 @@ fn void enableVertexBufferElement(CUInt id) @cname("rlEnableVertexBufferElement"
 fn void disableVertexBufferElement() @cname("rlDisableVertexBufferElement");          // Disable vertex buffer element (VBO element)
 fn void enableVertexAttribute(CUInt index) @cname("rlEnableVertexAttribute"); // Enable vertex attribute index
 fn void disableVertexAttribute(CUInt index) @cname("rlDisableVertexAttribute"); // Disable vertex attribute index
-fn void enableStatePointer(RLShdrAttrbDatTyp vertexAttribType, void *buffer) @cname("rlEnableStatePointer"); // Enable attribute state pointer
-fn void disableStatePointer(RLShdrAttrbDatTyp vertexAttribType) @cname("rlDisableStatePointer"); // Disable attribute state pointer
+fn void enableStatePointer(RLShdAttrbTyp vertexAttribType, void *buffer) @cname("rlEnableStatePointer"); // Enable attribute state pointer
+fn void disableStatePointer(RLShdAttrbTyp vertexAttribType) @cname("rlDisableStatePointer"); // Disable attribute state pointer
 
 // Textures state
 fn void activeTextureSlot(CInt slot) @cname("rlActiveTextureSlot");  // Select and active a texture slot

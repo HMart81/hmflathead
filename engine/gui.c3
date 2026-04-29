@@ -113,7 +113,7 @@ constdef AnchorType : inline int
 
 constdef PanelShape : inline int
 {
-    BOX,
+    BOX = 0,
     ROUNDED_BOX // with rounded corners (unused right now)
 }
 
@@ -125,22 +125,22 @@ struct PanelFlags
     // but in the future we could have a system where they are seperate, 
     // you have a widget marked in focus but the mouse pointer not ontop of it.  
     bool inFocus;
-    bool capture; // used to know if the panel is capturing mouse input
+    bool isCaptured; // used to know if the panel is capturing mouse input
     bool isDestroyed; // used to mark panels that are being destroyed
     bool showBounds; // used to debug the panel bounds
 }
 
 struct Panel (SaveSystemInterface, Printable)
 {
-    int id;  // used to uniquily identify each panel
-    String name;
-    PanelFlags flags;
-    PanelShape shape; // default is BOX
-    RLRectangle  rect; // x, y, width, height
+    int             id;  // used to uniquily identify each panel
+    String          name;
+    PanelFlags      flags;
+    PanelShape      shape; // default is BOX
+    RLRectangle     rect; // x, y, width, height
 	List{GuiAnchor} anchor;
-    RLColor      color; // material color overrides this color
-    RLColor      color_selected; // for gui editor functionality
-    HMaterial* mat;
+    RLColor         color; // material color overrides this color
+    RLColor         color_selected; // for gui editor functionality
+    HMaterial*      mat;
 }
 
 fn void Panel.save(&self, SaveFile* file) @dynamic 
@@ -189,11 +189,11 @@ fn void Panel.initAchors(&self) @inline
     // init the anchors to attach stuff in guis
 	RLRectangle rect = self.rect;
 	GuiAnchor[AnchorType.values.len] anchors;
-	anchors[AnchorType.TOP_LEFT]    = {0, 0};
-    anchors[AnchorType.TOP_CENTER]  = {rect.w / 2, 0};
-    anchors[AnchorType.TOP_RIGHT]   = {rect.w, 0};
-    anchors[AnchorType.CENTER_LEFT] = {0, rect.h / 2};
-    anchors[AnchorType.CENTER]      = {rect.w / 2, rect.h / 2};
+	anchors[AnchorType.TOP_LEFT]      = {0, 0};
+    anchors[AnchorType.TOP_CENTER]    = {rect.w / 2, 0};
+    anchors[AnchorType.TOP_RIGHT]     = {rect.w, 0};
+    anchors[AnchorType.CENTER_LEFT]   = {0, rect.h / 2};
+    anchors[AnchorType.CENTER]        = {rect.w / 2, rect.h / 2};
     anchors[AnchorType.CENTER_RIGHT]  = {rect.w, rect.h / 2};
     anchors[AnchorType.BOTTOM_LEFT]   = {0, rect.h};
     anchors[AnchorType.BOTTOM_CENTER] = {rect.w / 2, rect.h};
@@ -320,9 +320,15 @@ fn void Panel.scaleNormalized(&self, float w_scaler, float h_scaler) @inline
 <*
     Sets the size of the Panel, 
     units is in pixels.
+
+	@param w : "size for x coordinate"
+    @param h : "size for y coordinate"
 *>
 fn void Panel.setSize(&self, float w, float h) @inline 
 {
+	if(w < MIN_PANEL_SIZE || h < MIN_PANEL_SIZE) {
+		log::warning(FILE, "One or both size values of panel '%s', were set to bellow the minimum.", self.name);
+	}
     self.rect.width  = w;
     self.rect.height = h;
 	self.updateAchors({w, h});
@@ -378,10 +384,12 @@ fn void Panel.addToPositionV(&self, Vec2f pos) @inline => self.addToPosition(pos
     gets current position of the Panel, vector units is in pixels.
 *>
 fn Vec2f Panel.getPosition(&self) @inline => { self.rect.x, self.rect.y };
+
 <*
     gets current X position of the Panel, units is in pixels.
 *>
 fn float Panel.getX(&self) => self.rect.x;
+
 <*
     gets current Y position of the Panel, units is in pixels.
 *>

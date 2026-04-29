@@ -34,6 +34,7 @@ import game::main;
 import thirdparty::raylib5::rl;
 import engine::filesystem::fs;
 import engine::logging::log;
+import engine::misc;
 
 /*
 NOTE(HM) 
@@ -105,56 +106,135 @@ const String GLOBAL_SHADER_INCLUDE = `
 const INCLUDE_DIRECTIVE @local = "#include";
 const SHADER_HOME_PATH  @local = "shaders/";
 
-/*
-constdef GLPrgrmType : inline uint
+struct HMShader 
 {
-	INVALID = 0,
-	VERTEX,
-	FRAGMENT
+    inline RLShader data;
+    String name;
 }
 
-constdef GLPrgrm : inline uint
+faultdef SHD_LOAD_ERROR, 
+         SHD_UNKNOWN_LOCATION;
+
+<*
+    loads a shader file data into RAM
+    @param [in] sdname : "name of the shader to load inside the shaders folder, loads both vs and fs if present"
+    @require sdname.len > 0
+*>
+fn HMShader? loadHMShader(String sdname) @nodiscard
 {
-	INVALID = 0,
-	VPROG_DEFAULT,
-	FPROG_DEFAULT,
-	VPROG_BASIC,
-	FPROG_BASIC,
-	FPROG_GRAYSCALE,
-	VPROG_QUAD,
-	VPROG_RED,
-	FPROG_RED,
-	PROG_USER
+    String path = game::gpGame.app_base_folder.tconcat(SHADER_HOME_PATH).tconcat(sdname);
+    HMShader result;
+    result.name = sdname;
+    result.data = loadShader(path.tconcat(".vs"), path.tconcat(".fs"));
+    if(rl::isShaderValid(result.data)) {
+        log::info(FILE, "shader '%s' id [%d] loaded sucessfuly.", sdname, result.data.id);
+        return result;
+    } else {
+        log::warning(FILE, "failed to load shader '%s'", sdname);
+        return SHD_LOAD_ERROR~;
+    }
 }
 
-struct ProgDef
+<*
+    frees the memory of a given shader
+    @param [&inout] shader : "shader to unload"
+    @require shader != null
+*>
+fn void unloadHMShader(HMShader* shader)
 {
-	uint	target;
-	uint	ident;
-	String	name;
+    unloadShader(&(*shader).data);
 }
 
-const int MAX_GLPROGS @local = 200;
 
-// a single file can have both a vertex program and a fragment program
-const ProgDef[MAX_GLPROGS] PROGRAMS = {
-	{ GLPrgrmType.VERTEX, GLPrgrm.VPROG_DEFAULT, "default.vs" },
-	{ GLPrgrmType.FRAGMENT, GLPrgrm.FPROG_DEFAULT, "default.fs" },
-	{ GLPrgrmType.VERTEX, GLPrgrm.VPROG_BASIC, "basic.vs" },
-	{ GLPrgrmType.FRAGMENT, GLPrgrm.FPROG_BASIC, "basic.fs" },
-	{ GLPrgrmType.VERTEX, VPROG_BUMPY_ENVIRONMENT, "bumpyEnvironment.vfp" },
-	{ GLPrgrmType.FRAGMENT, FPROG_BUMPY_ENVIRONMENT, "bumpyEnvironment.vfp" },
-	{ GLPrgrmType.VERTEX, VPROG_AMBIENT, "ambientLight.vfp" },
-	{ GLPrgrmType.FRAGMENT, FPROG_AMBIENT, "ambientLight.vfp" },
-	{ GLPrgrmType.VERTEX, VPROG_STENCIL_SHADOW, "shadow.vp" },
-	{ GLPrgrmType.VERTEX, VPROG_ENVIRONMENT, "environment.vfp" },
-	{ GLPrgrmType.FRAGMENT, FPROG_ENVIRONMENT, "environment.vfp" },
-	{ GLPrgrmType.VERTEX, VPROG_GLASSWARP, "arbVP_glasswarp.txt" },
-	{ GLPrgrmType.FRAGMENT, FPROG_GLASSWARP, "arbFP_glasswarp.txt" },
+const uint SHD_UNIFORM   = 1;
+const uint SHD_ATTRIBUTE = 2;
 
-	// additional programs can be dynamically specified in materials
-};
-*/
+<*
+    gets the location of a shader variable from GPU VRAM
+    handles both uniforms and attributes.
+    @param type : "variable type, SHD_UNIFORM or SHD_ATTRIBUTE"
+    @param [in] name : "variable name defined inside the passed shader"
+    @param [inout] shader : "the shader to get the variable from"
+    @require shader != null
+    @require type == SHD_UNIFORM || type == SHD_ATTRIBUTE
+*>
+fn CInt? getShaderLocation(uint type, String name, HMShader* shader) {
+    switch
+    {
+        case type == SHD_UNIFORM: return rl::getShaderLocation((*shader).data, name.zstr_tcopy());
+        case type == SHD_ATTRIBUTE: return rl::getShaderLocationAttrib((*shader).data, name.zstr_tcopy());
+        default: return SHD_UNKNOWN_LOCATION~;
+    }
+}
+
+<*
+    sets or updates the value of a uniform variable in GPU VRAM
+
+    @param locIndex : "the uniform loc to update"
+    @param [in] value : "the any value to set"
+    @param [inout] shader : "the shader to update the variable in"
+    @require shader != null && value != null
+    @require rl::isShaderValid((*shader).data)
+    @require locIndex >= 0
+*>
+fn void setShaderValue(CInt locIndex, void*value, HMShader* shader) <Type>
+{
+    switch (Type.typeid)
+    {
+        case float.typeid:
+            shader.data.setValue(locIndex, value, RLShdUniTyp.FLOAT);
+        case int.typeid:
+            shader.data.setValue(locIndex, value, RLShdUniTyp.INT);
+        case Vec2f.typeid:
+            shader.data.setValueV(locIndex, value, RLShdUniTyp.FLOAT, 2);
+        case Vec2i.typeid:
+            shader.data.setValueV(locIndex, value, RLShdUniTyp.INT, 2);
+        case Vec3f.typeid:
+            shader.data.setValueV(locIndex, value, RLShdUniTyp.FLOAT, 3);
+        case Vec3i.typeid:
+            shader.data.setValueV(locIndex, value, RLShdUniTyp.INT, 3);
+        case Vec4f.typeid:
+           shader.data.setValueV(locIndex, value, RLShdUniTyp.FLOAT, 4);
+        case Vec4i.typeid:
+            shader.data.setValueV(locIndex, value, RLShdUniTyp.INT, 4);
+        case RLTexture2D.typeid:
+            shader.data.setValueTexture(locIndex, *(RLTexture2D*)value);
+        case RLMatrix.typeid:
+           shader.data.setValueMatrix(locIndex, *(RLMatrix*)value);
+        default:
+            log::warning(FILE, "Unknown uniform type passed to shader: %d", shader.name);
+    }
+}
+/*fn void setShaderValue(CInt locIndex, any value, HMShader* shader) 
+{
+    switch (value.type)
+    {
+        case float.typeid:
+            shader.data.setValue(locIndex, value.ptr, RLShdUniTyp.FLOAT);
+        case int.typeid:
+            shader.data.setValue(locIndex, value.ptr, RLShdUniTyp.INT);
+        case Vec2f.typeid:
+            shader.data.setValueV(locIndex, value.ptr, RLShdUniTyp.FLOAT, 2);
+        case Vec2i.typeid:
+            shader.data.setValueV(locIndex, value.ptr, RLShdUniTyp.INT, 2);
+        case Vec3f.typeid:
+            shader.data.setValueV(locIndex, value.ptr, RLShdUniTyp.FLOAT, 3);
+        case Vec3i.typeid:
+            shader.data.setValueV(locIndex, value.ptr, RLShdUniTyp.INT, 3);
+        case Vec4f.typeid:
+           shader.data.setValueV(locIndex, value.ptr, RLShdUniTyp.FLOAT, 4);
+        case Vec4i.typeid:
+            shader.data.setValueV(locIndex, value.ptr, RLShdUniTyp.INT, 4);
+        case RLTexture2D.typeid:
+            shader.data.setValueTexture(locIndex, *value.ptr);
+        case RLMatrix.typeid:
+           shader.data.setValueMatrix(locIndex, *value.ptr);
+        default:
+            unreachable("Unknown uniform value passed to shader: %d", shader.name);
+    }
+}*/
+
+
 
 <*
     This function replaces a special include directive in shader code for costum global code
@@ -343,15 +423,15 @@ struct UniformVal <Type>
 	Type *data;
 }
 
-fn void RLShader.setUniformValue(&self, UniformVal{Type} value) <Type> //@inline 
+/*fn void RLShader.setUniformValue(&self, UniformVal{Type} value) <Type> //@inline 
 {
-	assert(rl::isShaderValid(self));
+	assert(rl::isShaderValid(*self));
     int locIndex = self.getUniformLocation(value.name.zstr_tcopy());
     assert(locIndex >= 0, "RLShader uniform location not found: %s", value.name);
 
     // NOTE(HM) this is used to set a shader uniform value
     // if the shader is invalid it will do nothing
-    if(rl::isShaderValid(self)) {      
+    if(rl::isShaderValid(*self)) {      
 		switch OUTER : (Type)
 		{
 			case float.typeid:
@@ -360,15 +440,15 @@ fn void RLShader.setUniformValue(&self, UniformVal{Type} value) <Type> //@inline
         		rl::setShaderValue(self, locIndex, (void*)value.data, RLShdUniTyp.INT);
 			case Vec2f.typeid:
         		rl::setShaderValue(self, locIndex, (void*)value.data, RLShdUniTyp.VEC2);
-			case IVec2f.typeid:
+			case Vec2i.typeid:
         		rl::setShaderValue(self, locIndex, (void*)value.data, RLShdUniTyp.IVEC2);
 			case Vec3f.typeid:
         		rl::setShaderValue(self, locIndex, (void*)value.data, RLShdUniTyp.VEC3);
-			case IVec3f.typeid:
+			case Vec3i.typeid:
         		rl::setShaderValue(self, locIndex, (void*)value.data, RLShdUniTyp.IVEC3);
 			case Vec4f.typeid:
         		rl::setShaderValue(self, locIndex, (void*)value.data, RLShdUniTyp.VEC4);
-			case IVec4f.typeid:
+			case Vec4i.typeid:
         		rl::setShaderValue(self, locIndex, (void*)value.data, RLShdUniTyp.IVEC4);
 			case RLTexture2D.typeid:
         		rl::setShaderValueTexture(self, locIndex, *value.data, RLShdUniTyp.SAMPLER2D);
@@ -381,11 +461,11 @@ fn void RLShader.setUniformValue(&self, UniformVal{Type} value) <Type> //@inline
 					case float.typeid:       type = RLShdUniTyp.FLOAT;
 					case int.typeid:         type = RLShdUniTyp.INT;
 					case Vec2f.typeid:       type = RLShdUniTyp.VEC2;
-					case IVec2f.typeid:      type = RLShdUniTyp.IVEC2;
+					case Vec2i.typeid:      type = RLShdUniTyp.IVEC2;
 					case Vec3f.typeid:       type = RLShdUniTyp.VEC3;
-					case IVec3f.typeid:      type = RLShdUniTyp.IVEC3;
+					case Vec3i.typeid:      type = RLShdUniTyp.IVEC3;
 					case Vec4f.typeid:       type = RLShdUniTyp.VEC4;
-					case IVec4f.typeid:      type = RLShdUniTyp.IVEC4;
+					case Vec4i.typeid:      type = RLShdUniTyp.IVEC4;
 					case RLTexture2D.typeid: type = RLShdUniTyp.SAMPLER2D;
 					default: nextcase OUTER: default;
 				}
@@ -397,6 +477,7 @@ fn void RLShader.setUniformValue(&self, UniformVal{Type} value) <Type> //@inline
         log::warning(FILE, "Trying to set a value to a invalid shader: got id-> %d" (self.id >= 0) ? self.id : -1 );
     }
 }
+*/
 
 fn void RLShader.setUniformIntValue(self, String uniform_name, int value) //@inline 
 {

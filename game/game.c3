@@ -423,9 +423,7 @@ struct Game (SaveSystemInterface/*, IGame*/) @local
 
     // BoidManager
     BoidManager boidManager1 @if($defined(BOIDS_ENABLE));
-    
-    MaterialDataBase mtrDB;
-    
+        
     // physics engine world
     B2WorldId physWorldId @if($feature(PHYSICS_BOX2D));
     bool pause_phys_simulation @if($feature(PHYSICS_BOX2D));
@@ -920,7 +918,8 @@ fn void? Game.loadSettingsFile(&self)
 fn void Game.unload(&self) {
     self.clearFonts();
     // clear material database
-    self.mtrDB.clear();
+    mtrmng::mtrDB.clear();
+	//
     self.freeGameEntities();
     self.unloadDefaultAssets();
 
@@ -2979,9 +2978,9 @@ $endif
     
     // new material testing
     // load all material files from the material folder
-    mtrmng::loadMaterialFilesTo(&local_game.mtrDB)!!;
-    local_game.mtrDB.listMTRs();
-    local_game.mtrDB.data[0].printMaterials();
+    mtrmng::loadMaterialFiles()!!;
+    mtrmng::mtrDB.listMTRs();
+    mtrmng::mtrDB.data[0].printMaterials();
     //mtr::RLMaterial default_mat;
     //default_mat.load(local_game.app_base_folder.tconcat("images/default.mtr"));
     //defer default_mat.free();

@@ -131,9 +131,8 @@ TODO(HM) potencial new future material file and stage system in XML format:
 
 <MTR version="1.0" generator="hmflathead mtrgen v0.1">
     <library_materials>
-        <material name="images/textures/brick" path="materials/images/textures/brick.mtr" />
         <material name="images/textures/figure">
-            <comments>This is a figure texture material</comments>
+            <comment>This is a figure texture material</comment>
             <editor_image path="images/textures/figure_preview.png" />
             <-- fallback material used when this main material is unsupported -->
             <fallback_material name="images/textures/brick" />
@@ -145,10 +144,16 @@ TODO(HM) potencial new future material file and stage system in XML format:
                 flags="alpha_test, no_shadows"
             />
             <library_stages>
+                <stage type="diffuse" blend_mode="add">
+                    <map path="images/textures/fig_glow.png" />
+                </stage>
+                <stage type="diffuse" blend_mode="multiply">
+                    <map path="images/textures/fig_ao.png" />
+                </stage>
                 <stage type="diffuse" blend_mode="blend">
                     <map path="images/textures/figure.png" />
                     <-- local parameters, affect only this stage -->
-                    <parms alpha="0.5" wrap_s="repeat" wrap_t="repeat" />
+                    <parms alpha="0.5" wrap_h="repeat" wrap_v="repeat" />
                 </stage>
                 <stage type="normal">
                     <map path="images/textures/figure_normal.png" />
@@ -338,7 +343,8 @@ struct HMaterial  (SaveSystemInterface) @public
     int contentes;
     Flags flags;
 
-    RLShader shader; // shader used by this material, if any
+    //RLShader shader; // shader used by this material, if any
+	HMShader shader;
     
     // TODO(HM) support more than one diffuse map stage, etc.
     // for more complex materials.
@@ -429,7 +435,7 @@ fn void HMaterial.print(self)
 
 fn void HMaterial.setShader(&self, RLShader shader) @inline
 {
-    self.shader = shader;
+    //self.shader = shader;
 }
 
 fn void HMaterial.setCoverage(&self, Coverage cv)
@@ -467,7 +473,7 @@ fn bool HMaterial.coverageSet(self, Coverage cv) @inline => (bool)(self.coverage
 fn void HMaterial.copy(&self, HMaterial* other)
 {
     /*if(other == null) {
-        log::error(Where.FILE, "Cannot copy material from null pointer!");
+        log::error(FILE, "Cannot copy material from null pointer!");
         return;
     }*/
     
@@ -554,6 +560,7 @@ fn String HMaterial.defaultDefinition(self) @inline
 	return string::format(mem, "%s", matdef);
 }
 
+/*
 <*
     @param [&in] node : "current node we are parsing"
 *>
@@ -576,7 +583,7 @@ fn void HMaterial.parse_node_atributes(&self, XmlNode* node)
             log::warning(CONSOLE, "Unnused attribute '%s' found in node '%s' of material '%s' in file '%s'!", atrb.name, node.name, self.name, self.mtrfile.path);
        }
     }
-}
+}*/
 
 <*
     @param [&in] stage_node : "xml node we are currently parsing"
@@ -587,12 +594,12 @@ fn void HMaterial.parse_stage(&self, XmlNode* stage_node)
 {
     String stage_type = stage_node.getAttribute(NodeAttrib.TYPE).value;
     if(stage_type.is_empty()) {
-        log::error(Where.FILE, "RLMaterial '%s' in file '%s' has a stage node without a type attribute!", self.name, self.mtrfile.path);
+        log::error(FILE, "RLMaterial '%s' in file '%s' has a stage node without a type attribute!", self.name, self.mtrfile.path);
         return;
     }
     // NOTE(HM) we only support diffuse stage for now, so we will just ignore the rest
     if(stage_type != Node.MStageType.DIFFUSE.str) {
-        log::warning(Where.FILE, "RLMaterial '%s' in file '%s' has a stage node of type '%s', which is not supported yet! Skipping it.", self.name, self.mtrfile.path, stage_type);
+        log::warning(FILE, "RLMaterial '%s' in file '%s' has a stage node of type '%s', which is not supported yet! Skipping it.", self.name, self.mtrfile.path, stage_type);
         return;
     }
 
@@ -634,7 +641,7 @@ fn void HMaterial.parse_stage(&self, XmlNode* stage_node)
             self.parse_sound(stage_node);
             return; // we are done here, no need to parse the rest of the stage node
         default:
-            log::error(Where.FILE, "Invalid stage node '%s' found in material '%s' in file '%s'!", stage_node.name, self.name, self.mtrfile.path);
+            log::error(FILE, "Invalid stage node '%s' found in material '%s' in file '%s'!", stage_node.name, self.name, self.mtrfile.path);
     }
 
     foreach(child: stage_node.children)
@@ -679,7 +686,7 @@ fn void HMaterial.parse_stage(&self, XmlNode* stage_node)
 
                 stage.loadTexture(texture_path);
                 $if $feature(_DEBUG):
-                    log::info(Where.FILE, "Loaded '%s' texture '%s' for material '%s' in file '%s'", stage.kind.str, texture_path, self.name, self.mtrfile.path);
+                    log::info(FILE, "Loaded '%s' texture '%s' for material '%s' in file '%s'", stage.kind, texture_path, self.name, self.mtrfile.path);
                 $endif
             case mtr::isXmlNode(child, Node.KEYWORD):
                 self.parse_keyword(child, stage);
@@ -704,72 +711,39 @@ fn void HMaterial.parse_maps(&self, XmlNode* maps_node)
         switch(node.name)
         {
             case Node.ALBEDO:
+                MatStage* stage = self.getStage(MStageType.DIFFUSE);
                 foreach(child: node.children)
                 {
                     if(child == null) continue;
-
                     switch 
                     {
                         case mtr::isXmlNode(child, Node.MAP):
                             // path is relative to the game base folder
                             String relative_texture_path = child.getText();
                             if(relative_texture_path.extractFileBaseByCopy() == "default.png") {
-                                self.getStage(MStageType.DIFFUSE).tex = game::gpGame.default_texture;
+                                (*stage).tex = game::gpGame.default_texture;
                             } else {
-                                self.getStage(MStageType.DIFFUSE).loadTexture(relative_texture_path);
+                                (*stage).loadTexture(relative_texture_path);
                                 $if $feature(_DEBUG):
-                                    log::info(Where.FILE, "Loaded texture '%s' for material '%s' in file '%s'", relative_texture_path, self.name, self.mtrfile.path);
+                                    log::info(FILE, "Loaded texture '%s' for material '%s' in file '%s'", relative_texture_path, self.name, self.mtrfile.path);
                                 $endif
                             }
                         case mtr::isXmlNode(child, Node.BLEND):
                             // NOTE(HM) this is a blend map, we will use it to blend two textures together
                             // TODO(HM) implement this
-                            self.parse_blend(child, self.getStage(MStageType.DIFFUSE));
-                            //log::warning(Where.FILE, "Blend is not implemented yet! Skipping node '%s' in material '%s' in file '%s'", child.name, self.name, self.mtrfile.path);
+                            self.parse_blend(child, stage);
+                            //log::warning(FILE, "Blend is not implemented yet! Skipping node '%s' in material '%s' in file '%s'", child.name, self.name, self.mtrfile.path);
                         case mtr::isXmlNode(child, Node.COLOR):
-                            self.getStage(MStageType.DIFFUSE).color = mtr::xmlStrColorToColor(child.getText());
+                            (*stage).color = mtr::xmlStrColorToColor(child.getText());
                         case mtr::isXmlNode(child, Node.KEYWORD):
                             self.parse_keyword(child);
-                            // if(child.hasAttributes()) 
-                            // {
-                            //     self.getStage(MStageType.DIFFUSE).register_args(child);
-                            //     self.getStage(MStageType.DIFFUSE).handle_args(child, self);
-                            // }
                         default:
                             unreachable("Invalid node: %s child for material node %s.", child.name, node.name);
                     }
                 }
-            case Node.VIDEO_MAP: break;
-                /*if(node.hasAttributes())
-                {
-                   parse_node_atributes(node, self, file);
-                }*/
-            case Node.NORMAL: break;
-                // foreach(child: node.children)
-                // {
-                    // if(child == null) continue;
-                    // if(child.isNode(Node.MAP))
-                    // {
-                        // self.normal.tex = astmng::assetManager.getTexture(child.value);
-                    // }
-                    // if(child.isNode(Node.ARGS) || child.hasAttributes()) {
-                        // get_material_map_atributes_data(&self.normal, child);
-                        // parse_material_map_args(&self.normal, child, self, mtr_data);
-                    // }
-                // }
-            case Node.SPECULAR: break;
-                // foreach(child: node.children)
-                // {
-                    // if(child == null) continue;
-                    // if(child.isNode(Node.MAP))
-                    // {
-                        // self.spec.tex = astmng::assetManager.getTexture(child.value);
-                    // }
-                    // if(child.isNode(Node.ARGS) || child.hasAttributes()) {
-                        // get_material_map_atributes_data(&self.spec, child);
-                        // parse_material_map_args(&self.spec, child, self, mtr_data);
-                    // }
-                // }
+            case Node.VIDEO_MAP: break; // todo
+            case Node.NORMAL: break; // todo
+            case Node.SPECULAR: break; // todo
             default:
                unreachable("invalid material maps node found!!");
         }
@@ -792,7 +766,7 @@ fn void HMaterial.parse_keyword(&self, XmlNode* node)
 {
     String keyword = node.getText();
     if(keyword.is_empty()) {
-        log::warning(Where.FILE, "RLMaterial '%s' in file '%s' has a empty keyword node!", self.name, self.mtrfile.path);
+        log::warning(FILE, "Material '%s' in file '%s' has a empty keyword node!", self.name, self.mtrfile.path);
         return;
     }
 
@@ -809,34 +783,42 @@ fn void HMaterial.parse_keyword(&self, XmlNode* node)
         // perhaps we should use a more robust parser in the future?
         // for now, we will just split the string and use the first part as the key and the second part as the value
         String[] data = keyword.tsplit("=");
-        assert(data.len > 0, "Invalid keyword '%s' found in material '%s' in file '%s'!", keyword, self.name, self.mtrfile.path);
-        assert(data[0].len > 0, "Invalid keyword '%s' found in material '%s' in file '%s'! Value before = is empty!", keyword, self.name, self.mtrfile.path);
-        assert(data[1].len > 0, "Invalid keyword '%s' found in material '%s' in file '%s'! Value after = is empty!", keyword, self.name, self.mtrfile.path);
-        arg.first = data[0].tcopy();
-        arg.second = data[1].tcopy();
-    }
-    else
-    {
-        // else, just use the keyword as the key and an empty string as the value
+        String cmd    = data[0];
+        String value  = data[1];
+        if(data.len == 0 || cmd.len == 0 || value.len == 0) {
+            log::warning(FILE, "Invalid keyword '%s' found in material '%s' in file '%s'!", keyword, self.name, self.mtrfile.path);
+            return;
+        } else {
+            assert(data.len > 0, "Invalid keyword '%s' found in material '%s' in file '%s'!", keyword, self.name, self.mtrfile.path);
+            assert(cmd.len > 0, "Invalid keyword '%s' found in material '%s' in file '%s'! Value before = is empty!", keyword, self.name, self.mtrfile.path);
+            assert(value.len > 0, "Invalid keyword '%s' found in material '%s' in file '%s'! Value after = is empty!", keyword, self.name, self.mtrfile.path);
+            arg.first  = cmd.tcopy();
+            arg.second = value.tcopy();
+        }
+    } 
+    else {
+        // just use the keyword as the key and an empty string as the value
         arg.first = keyword.tcopy();
-        //arg.second = "";
     }
 
     switch (arg.first)
     {
-        case NodeKeyword.TRANSLUCENT.str:
+        case NodeKeyword.TRANSLUCENT:
             self.setCoverage(Coverage.TRANSLUCENT);
 			// todo control translucency value
 			// right now is hardcoded at 0.5
 			// pre-multiplied alpha
-			RLColor color = self.getStage(MStageType.DIFFUSE).color;
-            self.getStage(MStageType.DIFFUSE).color = rl::colorAlpha(color, 0.5f);
-        case NodeKeyword.ALPHA.str:
+            MatStage* stage = self.getStage(MStageType.DIFFUSE);
+			RLColor prev_color = stage.color;
+            // update color
+            (*stage).color = rl::colorAlpha(prev_color, 0.5f);
+        case NodeKeyword.ALPHA:
             self.setCoverage(Coverage.PERFORATED);
             float alpha = misc::clamp01f(arg.second.to_float()!!);
 			alpha = misc::clamp01f(alpha);
-			RLColor color = self.getStage(MStageType.DIFFUSE).color;
-			self.getStage(MStageType.DIFFUSE).color = rl::colorAlpha(color, alpha);
+            MatStage* stage = self.getStage(MStageType.DIFFUSE);
+			RLColor color   = stage.color;
+			(*stage).color  = rl::colorAlpha(color, alpha);
 			/*RLImage image = rl::loadImageFromTexture(self.getStage(MStageType.DIFFUSE).tex);
 			RLColor* color = rl::loadImageColors(image);
             // multiply texture alpha by the material alpha
@@ -847,10 +829,10 @@ fn void HMaterial.parse_keyword(&self, XmlNode* node)
 			rl::updateTexture(self.getStage(MStageType.DIFFUSE).tex, image.data);
 			*/
             self.flags.has_AlphaTest = true;
-        case NodeKeyword.SORT.str:
+        case NodeKeyword.SORT:
             self.sort = arg.second.to_uint()!!;
-        case NodeKeyword.CLAMP.str:
-        case NodeKeyword.ALPHAZEROCLAMP.str:
+        case NodeKeyword.CLAMP:
+        case NodeKeyword.ALPHAZEROCLAMP:
         case NodeKeyword.TILE_H:
         case NodeKeyword.TILE_V:
         case NodeKeyword.SCROLL_X:
@@ -859,7 +841,7 @@ fn void HMaterial.parse_keyword(&self, XmlNode* node)
         case NodeKeyword.TRANSLATE_Y:
             @todo();
         default:
-            log::warning(Where.FILE, "Unknown keyword '%s' found in material '%s' in file '%s'!", keyword, self.name, self.mtrfile.path);
+            log::warning(FILE, "Unknown keyword '%s' found in material '%s' in file '%s'!", keyword, self.name, self.mtrfile.path);
     }
 }
 
@@ -868,7 +850,7 @@ fn void HMaterial.parse_keyword(&self, XmlNode* node)
 *>
 fn void HMaterial.parse_sound(&self, XmlNode* node) @inline
 {
-   self.parse_node_atributes(node);
+   //self.parse_node_atributes(node);
             
    // TODO make sound shaders
    //self.sound = astmng::assetManager.getSound(sound_shader_name);
@@ -899,7 +881,7 @@ fn int HMaterial.nameToSrcBlendMode(&self, String name )
         case "gl_src_alpha_saturate": return rl::RL_SRC_ALPHA_SATURATE;
     }
 
-	log::warning(Where.FILE, "unknown blend mode '%s' in material '%s'", name, self.name);
+	log::warning(FILE, "unknown blend mode '%s' in material '%s'", name, self.name);
 	self.flags.has_defaulted = true;
 
 	return rl::RL_ONE;
@@ -928,7 +910,7 @@ fn int HMaterial.nameToDstBlendMode(&self, String name )
         case "gl_one_minus_src_color": return rl::RL_ONE_MINUS_SRC_COLOR;
     }
 
-	log::warning(Where.FILE, "unknown blend mode '%s' in material '%s'", name, self.name);
+	log::warning(FILE, "unknown blend mode '%s' in material '%s'", name, self.name);
 	self.flags.has_defaulted = true;
 
 	return rl::RL_ONE;
@@ -999,125 +981,97 @@ constdef ShaderLayoutLocation : inline int
     VERTEX_TEXCOORD02,  // layout location: 5
 }
 
-struct ShaderVertexAttribute @local
-{
-    ShaderLayoutLocation loc; // layout location of the attribute set in the material
-    RLShdrAttrbDatTyp type; // type of the attribute
-}
-
-struct ShaderUniform @local
-{
-    String id; // name of the uniform
-    RLShdUniTyp type; // type of the uniform
-}
-
 <*
     @param [&in] child : "node to get data from"
-    @param [&inout] shader : "shader to set the vertex attribute for"
 *>
-fn void HMaterial.parse_vertex_attribute(&self, XmlNode* child, RLShader* shader)
+fn void HMaterial.parse_vertex_attribute(&self, XmlNode* child)
 {
-    // NOTE(HM) this is a node that defines a vertex attribute for the shader
+    // NOTE(HM) this is a material node that defines a vertex attribute for the shader
     // it should have attributes like type, location and value
     if(child.hasAttributes())
     {
-        ShaderVertexAttribute attrb;
-        foreach NODE: (atrb : child.attributes)
+        foreach OUTER : (atrb : child.attributes)
         {
+			CInt type, loc, value;
             switch(atrb.name)
             {
                 case NodeAttrib.TYPE:
                     switch(atrb.value)
                     {
-                        case "float":
-                            attrb.type = RLShdrAttrbDatTyp.FLOAT;
-                        case "vec2":
-                            attrb.type = RLShdrAttrbDatTyp.VEC2;
-                        case "vec3":
-                            attrb.type = RLShdrAttrbDatTyp.VEC3;
-                        case "vec4":
-                            attrb.type = RLShdrAttrbDatTyp.VEC4;
-                        default:
-                            log::error(Where.FILE, "Invalid type '%s' for attribute '%s' in node '%s' of material '%s' in file '%s'!", 
-                                atrb.value, atrb.name, child.name, self.name, self.mtrfile.path);
-                            break NODE; // continue to the next node
-                    }
-                case NodeAttrib.LOCATION:
-                    int loc = atrb.value.to_int()!!;
-                    attrb.loc = (ShaderLayoutLocation)loc; //ShaderLayoutLocation.from_ordinal(loc);
-                    if(loc < 0 || loc >= 6) 
-                    {
-                        log::error(Where.FILE, "Invalid value '%d' for attribute '%s' in node '%s' of material '%s' in file '%s'!", 
-                                loc, atrb.name, child.name, self.name, self.mtrfile.path);
-                        break NODE; // continue to the next node
-                    }
-                case NodeAttrib.VALUE:
-                    if(atrb.value == "-1") break NODE; // -1 means no value, skip all
-                    // else
-                    /*
-                    String attrb_id;
-                    switch(attrb.loc)
-                    {
-                        case VERTEX_POSITION:   attrb_id = RLShdLocInd.VERTEX_POSITION.str;
-                        case VERTEX_TEXCOORD01: attrb_id = RLShdLocInd.VERTEX_TEXCOORD01.str;
-                        case VERTEX_NORMAL:     attrb_id = RLShdLocInd.VERTEX_NORMAL.str;
-                        case VERTEX_COLOR:      attrb_id = RLShdLocInd.VERTEX_COLOR.str;
-                        case VERTEX_TANGENT:    attrb_id = RLShdLocInd.VERTEX_TANGENT.str;
-                        case VERTEX_TEXCOORD02: attrb_id = RLShdLocInd.VERTEX_TEXCOORD02.str;
-                        default:
-                            log::error(Where.FILE, "Invalid stage index '%d' for attribute '%s' in node '%s' of material '%s' in file '%s'!", 
-                                loc, atrb.name, node.name, self.name, self.mtrfile.path);
-                            continue NODE; // continue to the next node
-                    }
-
-                    shader.locs[loc] = shader.getAttributeLocation(attrb_id);
-                    */
-
-                    int loc = attrb.loc;
-                    switch(attrb.type)
-                    {
-                        case RLShdrAttrbDatTyp.FLOAT:
-                            float f = atrb.value.to_float()!!;
-                            if(f == 0.0f) {
-                                log::error(FILE, "Invalid value '%s' for attribute '%s' in node '%s' of material '%s' in file '%s'!", 
-                                    atrb.value, atrb.name, child.name, self.name, self.mtrfile.path);
-                                break NODE; // continue to the next node
-                            }
-                            shader.setValue(loc, (void*)&f, RLShdrAttrbDatTyp.FLOAT.ordinal);
-                        case RLShdrAttrbDatTyp.VEC2:
-                            Vec2f vec2 = getVector2FromString(atrb.value);
-                            if(vec2.x == 0.0f && vec2.y == 0.0f) {
-                                log::error(FILE, "Invalid value '%s' for attribute '%s' in node '%s' of material '%s' in file '%s'!", 
-                                    atrb.value, atrb.name, child.name, self.name, self.mtrfile.path);
-                                break NODE; // continue to the next node
-                            }
-                            float[*] arr = {vec2.x, vec2.y};
-                            shader.setValueV(loc, (void*)&arr, RLShdrAttrbDatTyp.VEC2.ordinal, 1);
-                        case RLShdrAttrbDatTyp.VEC3:
-                            Vec3f vec3 = getVector3FromString(atrb.value);
-                            if(vec3.x == 0.0f && vec3.y == 0.0f && vec3.z == 0.0f) {
-                                log::error(FILE, "Invalid value '%s' for attribute '%s' in node '%s' of material '%s' in file '%s'!", 
-                                    atrb.value, atrb.name, child.name, self.name, self.mtrfile.path);
-                                break NODE; // continue to the next node
-                            }
-                            float[*] arr = {vec3.x, vec3.y, vec3.z};
-                            shader.setValueV(loc, (void*)&arr, RLShdrAttrbDatTyp.VEC3.ordinal, 1);
-                        case RLShdrAttrbDatTyp.VEC4:
-                            Vec4f vec4 = getVector4FromString(atrb.value);
-                            if(vec4.x == 0.0f && vec4.y == 0.0f && vec4.z == 0.0f && vec4.w == 0.0f) {
-                                log::error(FILE, "Invalid value '%s' for attribute '%s' in node '%s' of material '%s' in file '%s'!", 
-                                    atrb.value, atrb.name, child.name, self.name, self.mtrfile.path);
-                                break NODE; // continue to the next node
-                            }
-                            float[*] arr = {vec4.x, vec4.y, vec4.z, vec4.w};
-                            shader.setValueV(loc, (void*)&arr, RLShdrAttrbDatTyp.VEC4.ordinal, 1);
+                        case "float": type = RLShdAttrbTyp.FLOAT;
+                        case "vec2":  type = RLShdAttrbTyp.VEC2;
+                        case "vec3":  type = RLShdAttrbTyp.VEC3;
+                        case "vec4":  type = RLShdAttrbTyp.VEC4;
                         default:
                             log::error(FILE, "Invalid type '%s' for attribute '%s' in node '%s' of material '%s' in file '%s'!", 
                                 atrb.value, atrb.name, child.name, self.name, self.mtrfile.path);
-                            break NODE; // continue to the next node
+                            break OUTER; // continue to the next node
+                    }
+                case NodeAttrib.LOCATION:
+                    CInt? loc_val = atrb.value.to_int();
+					if(catch excuse = loc_val)
+                    {
+                        log::error(FILE, "failed to convert string to int for attribute '%s' in node '%s' of material '%s' in file '%s'!", 
+                                atrb.name, child.name, self.name, self.mtrfile.path);
+						log::error(FILE, "\t - excuse = '%s'", excuse);
+                        break OUTER; // continue to the next node
+                    }
+					loc = loc_val;
+                    if(loc < 0 || loc >= 6) 
+                    {
+                        log::error(FILE, "Invalid loc '%d' for attribute '%s' in node '%s' of material '%s' in file '%s'!", 
+                                loc, atrb.name, child.name, self.name, self.mtrfile.path);
+                        break OUTER; // continue to the next node
+                    }
+                case NodeAttrib.VALUE:
+                    if(atrb.value == "-1") break OUTER; // -1 means no value to set, use shader default
+
+                    switch(type)
+                    {
+                        case RLShdAttrbTyp.FLOAT:
+                            float? f = atrb.value.to_float();
+							if(catch excuse = f)
+							{
+								log::error(FILE, "failed to convert string to float for attribute '%s' in node '%s' of material '%s' in file '%s'!", 
+										atrb.name, child.name, self.name, self.mtrfile.path);
+								log::error(FILE, "\t - excuse = '%s'", excuse);
+								break OUTER; // continue to the next node
+							}
+							glsl::setShaderValue{float}(loc, (void*)&f, &self.shader);
+                        case RLShdAttrbTyp.VEC2:
+                            Vec2f _vec2 = getVector2FromString(atrb.value);
+							if(_vec2 == VEC2_ZERO)
+							{
+								log::warning(FILE, "setting attribute '%s' of node '%s' of material '%s' in file '%s'! to a VEC2_ZERO.", 
+										atrb.name, child.name, self.name, self.mtrfile.path);
+								break OUTER; // continue to the next node
+							}
+                            glsl::setShaderValue{Vec2f}(loc, (void*)&_vec2[0], &self.shader);
+                        case RLShdAttrbTyp.VEC3:
+                            Vec3f vec3 = getVector3FromString(atrb.value);
+							if(vec3 == VEC3_ZERO)
+							{
+								log::warning(FILE, "setting attribute '%s' of node '%s' of material '%s' in file '%s'! to a VEC3_ZERO.", 
+										atrb.name, child.name, self.name, self.mtrfile.path);
+								break OUTER; // continue to the next node
+							}
+                            glsl::setShaderValue{Vec3f}(loc, (void*)&vec3[0], &self.shader);
+                        case RLShdAttrbTyp.VEC4:
+                            Vec4f vec4 = getVector4FromString(atrb.value);
+							if(vec4 == VEC4_ZERO)
+							{
+								log::warning(FILE, "setting attribute '%s' of node '%s' of material '%s' in file '%s'! to a VEC4_ZERO.", 
+										atrb.name, child.name, self.name, self.mtrfile.path);
+								break OUTER; // continue to the next node
+							}
+                            glsl::setShaderValue{Vec4f}(loc, (void*)&vec4[0], &self.shader);
+                        default:
+                            log::error(FILE, "Unknown or not handled type '%s' for attribute '%s' in node '%s' of material '%s' in file '%s'!", 
+                                atrb.value, atrb.name, child.name, self.name, self.mtrfile.path);
+                            break OUTER; // continue to the next node
                     }
                 default:
-                    log::warning(CONSOLE, "Unnused attribute '%s' found in node '%s' of material '%s' in file '%s'!", atrb.name, child.name, self.name, self.mtrfile.path);
+                    log::warning(FILE, "Unnused attribute '%s' found in node '%s' of material '%s' in file '%s'!", atrb.name, child.name, self.name, self.mtrfile.path);
             }
         }
     }
@@ -1129,79 +1083,86 @@ fn void HMaterial.parse_vertex_attribute(&self, XmlNode* child, RLShader* shader
 
 <*
     @param [&in] child : "node to get data from"
-    @param [&inout] shader : "shader to set the uniform for"
 *>
-fn void HMaterial.parse_uniform(&self, XmlNode* child, RLShader* shader)
+fn void HMaterial.parse_uniform(&self, XmlNode* child)
 {
     if(child.hasAttributes())
     {
-        ShaderUniform uniform;
         foreach NODE: (atrb : child.attributes)
         {
+        	String id, value;
+			CInt type;
             switch(atrb.name)
             {
                 case NodeAttrib.ID:
-                    uniform.id = atrb.value.tcopy();
+                    id = atrb.value.tcopy();
                 case NodeAttrib.TYPE:
                     switch(atrb.value)
                     {
-                        case "float": break; // NOTE(HM) this zero so is set to float by default
+                        case "float": break; // NOTE(HM) zero type is float by default
                             //uniform.type = RLShdUniTyp.FLOAT;
                         case "vec2":
-                            uniform.type = RLShdUniTyp.VEC2;
+                            type = RLShdUniTyp.VEC2;
                         case "vec3":
-                            uniform.type = RLShdUniTyp.VEC3;
+                            type = RLShdUniTyp.VEC3;
                         case "vec4":
-                            uniform.type = RLShdUniTyp.VEC4;
+                            type = RLShdUniTyp.VEC4;
                         case "sampler2D":
-                            uniform.type = RLShdUniTyp.SAMPLER2D;
+                            type = RLShdUniTyp.SAMPLER2D;
                         default:
-                            log::error(Where.FILE, "Invalid type '%s' for uniform '%s' in node '%s' of material '%s' in file '%s'!", 
+                            log::error(FILE, "Invalid type '%s' for uniform '%s' in node '%s' of material '%s' in file '%s'!", 
                                 atrb.value, atrb.name, child.name, self.name, self.mtrfile.path);
                             break NODE; // continue to the next node
                     }
                 case NodeAttrib.VALUE:
                     if(atrb.value == "-1") break NODE; // continue to the next node
                     // else
-                    int loc = shader.getUniformLocation(uniform.id.zstr_tcopy());
-                    switch(uniform.type)
+					CInt? loc = glsl::getShaderLocation(glsl::SHD_UNIFORM, id, &self.shader);
+                    if(catch excuse = loc) {
+						log::error(FILE, "Invalid loc '%s' for uniform '%s' in node '%s' of material '%s' in file '%s'!", 
+                                atrb.value, atrb.name, child.name, self.name, self.mtrfile.path);
+						log::error(FILE, "\t - excuse = '%s'", excuse);
+                        break NODE; // continue to the next node
+					}
+
+                    switch(type)
                     {
                         case RLShdUniTyp.FLOAT:
                             float f = atrb.value.to_float()!!;
-                            shader.setValue(loc, (void*)&f, RLShdUniTyp.FLOAT);
+							glsl::setShaderValue{float}(loc, (void*)&f, &self.shader);
                         case RLShdUniTyp.VEC2:
-                            Vec2f vec2 = getVector2FromString(atrb.value);
-                            shader.setValueV(loc, (void*)&&((float[2]){vec2.x, vec2.y}), RLShdUniTyp.VEC2, 1);
+                            Vec2f _vec2 = getVector2FromString(atrb.value);
+							glsl::setShaderValue{Vec2f}(loc, (void*)&_vec2[0], &self.shader);
                         case RLShdUniTyp.VEC3:
                             Vec3f vec3 = getVector3FromString(atrb.value);
-                            shader.setValueV(loc, (void*)&&((float[3]){vec3.x, vec3.y, vec3.z}), RLShdUniTyp.VEC3, 1);
+							glsl::setShaderValue{Vec3f}(loc, (void*)&vec3[0], &self.shader);
                         case RLShdUniTyp.VEC4:
                             Vec4f vec4 = getVector4FromString(atrb.value);
-                            shader.setValueV(loc, (void*)&&((float[4]){vec4.x, vec4.y, vec4.z, vec4.w}), RLShdUniTyp.VEC4, 1);
+							glsl::setShaderValue{Vec4f}(loc, (void*)&vec4[0], &self.shader);
                         case RLShdUniTyp.SAMPLER2D:
-                            RLTexture2D tex = *astmng::assetManager.getTexture(atrb.value);
-                            if(!rl::isTextureValid(tex)) {
-                                log::error(Where.FILE, "Failed to load texture '%s' for sampler2D uniform '%s' in node '%s' of material '%s' in file '%s'!", 
-                                    atrb.value, uniform.id, child.name,
+                            RLTexture2D* tex = astmng::assetManager.getTexture(atrb.value);
+                            if(tex == null || !rl::isTextureValid(*tex)) {
+                                log::error(FILE, "Failed to get texture '%s' for sampler2D uniform '%s' in node '%s' of material '%s' in file '%s'!", 
+                                    atrb.value, id, child.name,
                                     self.name, self.mtrfile.path);
                                 break NODE; // continue to the next node
                             }
-                            shader.setValueTexture(loc, tex);
+							glsl::setShaderValue{RLTexture2D}(loc, (void*)tex, &self.shader);
                         default:
-                            log::error(Where.FILE, "Invalid value '%s' for uniform '%s' in node '%s' of material '%s' in file '%s'!", 
-                                atrb.value, uniform.id, child.name, self.name, self.mtrfile.path);
+                            log::error(FILE, "Invalid value '%s' for uniform '%s' in node '%s' of material '%s' in file '%s'!", 
+                                atrb.value, id, child.name, self.name, self.mtrfile.path);
                             break NODE; // continue to the next node
                 }
                 default:
-                    log::error(Where.FILE, "Invalid shader uniform type '%s' for uniform '%s' in node '%s' of material '%s' in file '%s'!", 
-                                uniform.type, uniform.id, child.name, self.name, self.mtrfile.path);
+                    log::error(FILE, "Invalid shader uniform type '%s' for uniform '%s' in node '%s' of material '%s' in file '%s'!", 
+                                type, id, child.name, self.name, self.mtrfile.path);
                     break NODE; // continue to the next node
             }
         }
     }
     else
     {
-        log::warning(Where.FILE, "shader uniform node '%s' in material '%s' in file '%s' has no attributes!", child.name, self.name, self.mtrfile.path);
+        log::warning(FILE, "shader uniform node '%s' in material '%s' in file '%s' has no attributes!", child.name, self.name, self.mtrfile.path);
     }
 }
 
@@ -1210,9 +1171,48 @@ fn void HMaterial.parse_uniform(&self, XmlNode* child, RLShader* shader)
 *>
 fn void HMaterial.parse_shader(&self, XmlNode* node)
 {
+    String shader_name = (String)node.getAttribute("name").value;
+    if(shader_name.is_empty()) {
+        log::warning(FILE, "RLMaterial '%s' in file '%s' has a shader node but no name for it defined!", self.name, self.mtrfile.path);
+        return;
+    }
+
+	HMShader? shader = glsl::loadHMShader(shader_name);
+    if (catch excuse = shader)
+    {
+		log::error(FILE, "Failed to load shader '%s' for material '%s' in file '%s'!", shader_name, self.name, self.mtrfile.path);
+        unreachable("Excuse found: %s", excuse);
+    }
+
+	self.shader = shader;
+
+	$if $feature(_DEBUG):
+    	log::info(FILE, "Using shader '%s' for material '%s' in file '%s'", shader_name, self.name, self.mtrfile.path);
+    $endif
+
+	// now parse the shader arguments if any
+	if(node.children.len() > 0)
+	{
+		foreach(child: node.children)
+		{
+			switch
+			{
+				case child.name == Node.VERTEX_ATTRIBUTE:
+					self.parse_vertex_attribute(child);
+				case child.name == Node.UNIFORM:
+					self.parse_uniform(child);
+				default:
+					log::warning(FILE, "Unnused shader node '%s' found in material '%s' in file '%s'!", child.name, self.name, self.mtrfile.path);
+			}
+		}
+	}
+}
+/*
+fn void HMaterial.parse_shader(&self, XmlNode* node)
+{
     String shader_path = (String)node.getAttribute(NodeAttrib.PATH).value;
     if(shader_path.is_empty()) {
-        log::warning(Where.FILE, "RLMaterial '%s' in file '%s' has a shader node but no path for it defined!", self.name, self.mtrfile.path);
+        log::warning(FILE, "RLMaterial '%s' in file '%s' has a shader node but no path for it defined!", self.name, self.mtrfile.path);
         return;
     }
 
@@ -1224,7 +1224,7 @@ fn void HMaterial.parse_shader(&self, XmlNode* node)
     {
         shader = *shader_found; // use the shader from the asset manager
         $if $feature(_DEBUG):
-            log::info(Where.FILE, "Using shader '%s' for material '%s' in file '%s'", shader_name, self.name, self.mtrfile.path);
+            log::info(FILE, "Using shader '%s' for material '%s' in file '%s'", shader_name, self.name, self.mtrfile.path);
         $endif
     }
     else
@@ -1235,7 +1235,7 @@ fn void HMaterial.parse_shader(&self, XmlNode* node)
     }
 
     if(!shader.isValid()) {
-        log::error(Where.FILE, "Failed to load shader '%s' for material '%s' in file '%s'!", shader_path, self.name, self.mtrfile.path);
+        log::error(FILE, "Failed to load shader '%s' for material '%s' in file '%s'!", shader_path, self.name, self.mtrfile.path);
         return;
     }
 
@@ -1252,13 +1252,14 @@ fn void HMaterial.parse_shader(&self, XmlNode* node)
                 case child.name == Node.UNIFORM.str:
                     self.parse_uniform(child, &shader);
                 default:
-                    log::warning(Where.FILE, "Unnused shader node '%s' found in material '%s' in file '%s'!", child.name, self.name, self.mtrfile.path);
+                    log::warning(FILE, "Unnused shader node '%s' found in material '%s' in file '%s'!", child.name, self.name, self.mtrfile.path);
             }
         }
     }
 
     self.setShader(shader);
 }
+*/
 
 fn Vec2f getVector2FromString(String str) @inline @local
 {
@@ -1378,66 +1379,68 @@ faultdef MTR_INVALID_PATH,
 	     MTR_MISSING;
 
 // NOTE(HM) This represents every usefull node in the mtr xml file 
-enum Node : int (inline String str) @public
+constdef Node : inline String @public
 {
-    ROOT             {"MTR"},
-    TEXT             {"#text"},
-    MATERIAL         {"MATERIAL"},
-    COMMENT          {"comments"},
-    MAPS             {"maps"},
-    MAP              {"map"},
-    BLEND            {"blend"}, // used for blending two textures together
-    VIDEO_MAP        {"video_map"},
-    KEYWORD          {"keyword"}, // global or stage keywords
-    COLOR            {"color"},
-    ALBEDO           {"albedo"},
-    NORMAL           {"normal"},
-    SPECULAR         {"specular"},
-    SOUND            {"sound"},
-    SHADER           {"shader"},
-    VERTEX_ATTRIBUTE {"vertex_attribute"},
-    UNIFORM          {"uniform"}
+    ROOT             = "MTR",
+    TEXT             = "#text",
+    MATERIAL         = "MATERIAL",
+    COMMENT          = "comments",
+    MAPS             = "maps",
+    MAP              = "map",
+    BLEND            = "blend", // used for blending two textures together
+    VIDEO_MAP        = "video_map",
+    KEYWORD          = "keyword", // global or stage keywords
+    COLOR            = "color",
+    ALBEDO           = "albedo",
+    NORMAL           = "normal",
+    SPECULAR         = "specular",
+    SOUND            = "sound",
+    SHADER           = "shader",
+    VERTEX_ATTRIBUTE = "vertex_attribute",
+    UNIFORM          = "uniform"
 }
 
 <*
     @param [&in] node : "node to compare the name"
 *>
-fn bool isXmlNode(XmlNode* node, Node kind) @inline @public => (node.name == kind.str) ? true : false;
+fn bool isXmlNode(XmlNode* node, Node kind) @inline @public => (node.name == kind) ? true : false;
 
-enum NodeKeyword : int (inline String str) @public
+constdef NodeKeyword : inline String @public
 {
     // general
-    TRANSLUCENT    {"translucent"},
-    CLAMP          {"clamp"},
-    ALPHAZEROCLAMP {"alphazeroclamp"},   // prevents the alpha channel of this material from tiling by forcing 100% opacity outside normalized UV coordinates
-    SORT           {"sort"},             // used to sort materials by their sort value, lower values are rendered first
-    ALPHA          {"alpha"},
-    TILE_H         {"tileH"},
-    TILE_V         {"tileV"},
-    SCROLL_X       {"scrollX"},
-    SCROLL_Y       {"scrollY"},
-    TRANSLATE_X    {"translateX"},
-    TRANSLATE_Y    {"translateY"},
+    TRANSLUCENT    = "translucent",
+    CLAMP          = "clamp",
+    ALPHAZEROCLAMP = "alphazeroclamp",   // prevents the alpha channel of this material from tiling by forcing 100% opacity outside normalized UV coordinates
+    SORT           = "sort",             // used to sort materials by their sort value, lower values are rendered first
+    ALPHA          = "alpha",
+    TILE_H         = "tileH",
+    TILE_V         = "tileV",
+    SCROLL_X       = "scrollX",
+    SCROLL_Y       = "scrollY",
+    TRANSLATE_X    = "translateX",
+    TRANSLATE_Y    = "translateY"
 }
 
 // NOTE(HM) This represents the atributes assigned to a xml node
-enum NodeAttrib : int (inline String str) @public
+constdef NodeAttrib : inline String @public
 {
     // general
-    NAME        {"name"},
-    VERSION     {"version"},
-    PATH        {"path"},
-    KIND        {"kind"},
-    BLEND_MODE  {"mode"}, // used for blending modes in the material
+    NAME       = "name",
+    VERSION    = "version",
+    PATH       = "path",
+    KIND       = "kind",
+    BLEND_MODE = "mode", // used for blending modes in the material
 
     // shader specific
-    LOCATION    {"loc"}, // shader location for the attribute
-    VALUE       {"value"}, // used for vertex attributes and uniforms
-    TYPE        {"type"}, // used for vertex attributes and uniforms
-    ID          {"id"}, // used for uniforms
+    LOCATION   = "loc", // shader location for the attribute
+    VALUE      = "value", // used for vertex attributes and uniforms
+    TYPE       = "type", // used for vertex attributes and uniforms
+    ID         = "id", // used for uniforms
 }
 
-// NOTE(HM) This is the data structure represents a material file, it contains a list of materials and their data
+// NOTE(HM) This is the data structure IN RAM 
+// that represents a material file, 
+// contains a list of materials and their data
 struct MTRFile @public
 {
     String path;        // path to the mtr file on disk.
@@ -1466,7 +1469,7 @@ fn void MTRFile.unload(&self) @inline
 fn void MTRFile.register(&self, HMaterial* mat) @inline
 {
     if(self.mats.len() >= MAX_MATERIALS_PER_FILE) {
-        log::error(Where.FILE, "Maximum number of materials per mtr file reached (%d), cannot register material '%s' in file '%s'.", MAX_MATERIALS_PER_FILE, mat.name, self.path);
+        log::warning(FILE, "Cannot register material '%s' in file '%s', maximum value of (%d) materials per file, reached.", mat.name, self.path, MAX_MATERIALS_PER_FILE);
         return;
     }
     self.mats.push(mat);
@@ -1479,10 +1482,8 @@ fn HMaterial* MTRFile.findMaterial(&self, String name) @inline
 	foreach(mat: self.mats) {
 		if(mat.name == name) return mat;
 	}
-    
 	return null;
 }
-
 
 fn void MTRFile.printMaterials(&self) @inline
 {
@@ -1504,7 +1505,7 @@ fn bool? MTRFile.load(&self, File file) @inline
     
     if(catch excuse = doc)
     {
-       log::warning(Where.FILE, " Failed to load/open MTR xml file [%s] with excuse: %s", self.path, excuse);
+       log::warning(FILE, "Failed to load MTR file [%s] with excuse: %s", self.path, excuse);
        return MTR_LOAD_ERROR~;
     }
     
@@ -1516,24 +1517,24 @@ fn bool? MTRFile.load(&self, File file) @inline
 *>
 fn bool? MTRFile.parse(&self, XmlDoc* doc)
 {
-    bool invalid_mtr = doc.rootNode.name != Node.ROOT.str;
+    bool invalid_mtr = doc.rootNode.name != Node.ROOT;
     if(invalid_mtr)
     {
-       log::error(Where.FILE, " Malformed material data file '%s', root node expected to be 'MTR' but is '%s' instead.", self.path, doc.rootNode.name);
+       log::error(FILE, "Malformed material data file '%s', root node expected to be 'MTR' but is '%s' instead.", self.path, doc.rootNode.name);
        return MTR_MALFORMED_FILE~;
     }
 
     String? version = (String)doc.rootNode.getAttribute(NodeAttrib.VERSION).value;
     if (catch excuse = version)
     {
-        log::error(Where.FILE, "Failed to get material version attribute in %s with excuse: %s\n", self.path, excuse);
+        log::error(FILE, "Failed to get material data file version attribute in %s with excuse: %s\n", self.path, excuse);
         return false;
     }
     // else got version, so check if it matches the current version
     // TODO(HM) handle version changes.
     if(version != MTR_VERSION_STRING)
     {
-        log::error(Where.FILE, " Invalid material data file '%s', version expected to be '%s' but is '%s' instead.", self.path, MTR_VERSION_STRING, version);
+        log::error(FILE, "Invalid version for material data file '%s', expected to be '%s' but is '%s' instead.", self.path, MTR_VERSION_STRING, version);
         return MTR_VERSION_MISMATCH~;
     }
 
@@ -1546,7 +1547,7 @@ fn bool? MTRFile.parse(&self, XmlDoc* doc)
         $if $feature(_DEBUG):
             if(node == null) 
             {
-                log::error(Where.FILE, "Null node found in mtr file '%s', skipping it.", self.path);
+                log::error(FILE, "A null node was found in mtr file '%s'!!", self.path);
                 return MTR_MATERIAL_PARSING_ERROR~;
             }
         $endif
@@ -1556,28 +1557,28 @@ fn bool? MTRFile.parse(&self, XmlDoc* doc)
             // Skip any text nodes assigned to the root node (shouldn't happen now though).
             // Text nodes are handled further by the material parser, so we don't need to handle them here.
             case isXmlNode(node, Node.TEXT):
-                log::error(Where.FILE, "Unexpected 'TEXT' node found in body of MTR '%s'! Text = '%s' ", fs::getFileNameWithoutExt(self.path), node.value);
-                // This was caused by a bug in the xml reader code (not very easy to solve but I worked around it). 
-                // The xml reader, treats any end char '>', as always being followed by a Text "node", 
-                //  (free text between a '>' and a '<'), so in some situations, it created empty text nodes, 
-                //  like when after a '>' char, came the start char '<' of another node, 
-                //  but you add in between them, empty characters (space, new line), but even so 
-                //  the xml reader, still considered those as valid "text". 
-                // Because the xml reader, reads character by character, is not easy to solve this, 
-                //  so it will create a text node, regardless if is empty or not.  
-                // The workaround, was to test for empty text nodes and just don't register them, in the xml doc file.
+                log::error(FILE, "Unexpected 'TEXT' node found in body of MTR '%s'! Text = '%s' ", fs::getFileNameWithoutExt(self.path), node.value);
+                // DOC(HM) This was caused by a bug in the xml reader code (not very easy to solve so I worked around it). 
+                // The xml reader I use, treats any node end char '>', as always being followed by a Text "node", 
+                //  (simple text between '>' and '<' chars), so in a few situations, IT CREATED EMPTY TEXT NODES, 
+                //  like when between those chars, there was empty charactes, space, new line and tab, 
+                //  or after end '>' char immidiately came the start char '<' of another node. The xml reader, 
+                //  still considered those as valid "text". 
+                // This xml reader reads character by character so I didn't saw a easier way to solve this, 
+                //  but to let it create those empty text nodes and just don't register them at 
+                //  the end of the chain in the xml doc file data.
                 return MTR_MATERIAL_PARSING_ERROR~;
                 //
-            case mtr::isXmlNode(node, Node.MATERIAL):
+            case isXmlNode(node, Node.MATERIAL):
                 HMaterial* mat = self.parse_material(node);
                 if(mat) {
                     self.register(mat);
                 } else {
-                    log::error(Where.FILE, "Failed to parse material node '%s' in mtr file '%s'", node.name, self.path);
+                    log::error(FILE, "Failed to parse material node '%s' in mtr file '%s'", node.name, self.path);
                     return MTR_MATERIAL_PARSING_ERROR~;
                 }
             default:
-                log::warning(Where.FILE, " Unexpected node in mtr file '%s', expected <MATERIAL> found <%s>", self.path, node.name);
+                log::warning(FILE, "Unexpected node in mtr file '%s', inside '%s' expected <%s> found <%s>", self.path, Node.ROOT, Node.MATERIAL, node.name);
                 $if $feature(_DEBUG):
                     return MTR_MATERIAL_PARSING_ERROR~;
                 $else
@@ -1589,66 +1590,57 @@ fn bool? MTRFile.parse(&self, XmlDoc* doc)
     return true;
 }
 
-// @Performance This will probably be very slow with many mtr files 
-// and material definitions...
-// TODO(HM) make this faster by using a hash table
-fn bool check_material_existance(String name, MTRFile* mtr_file = null) @inline @public
-{
-    // first check if the material name already exists in the current passed mtr file
-    if(mtr_file != null) if(mtr_file.findMaterial(name) != null) return true;
-
-    // else check for it in the global material database
-    // NOTE(HM) this is a slow operation, so use it with caution
-    MaterialDataBase* mtr_db = &game::gpGame.mtrDB;
-    foreach(mtr: mtr_db.data) {
-        if(mtr.findMaterial(name) != null) return true;
-    }
-    
-    return false;
-}
 
 <*
     @param [&in] in_node : "material node we are currently parsing"
 *>
 fn HMaterial* MTRFile.parse_material(&self, XmlNode* in_node)
 {
-    // create the material structure to save the parsed data into
+    // create the material structure in RAM to save the parsed data into
     HMaterial* mat = mem::new(HMaterial);
     mat.init();
     
+    bool early_out;
+    defer {
+        if(early_out) {
+            mat.free();
+            mem::free(mat);
+        }
+    }
     // first get material name
     String? mat_name = (String)in_node.getAttribute(NodeAttrib.NAME).value;
     if (catch excuse = mat_name)
     {
-        log::error(Where.FILE, "Failed to get material name attribute in %s with excuse: %s\n", self.path, excuse);
-        mat.free();
-        mem::free(mat);
+        log::error(FILE, "Failed to get the name of a material inside mtr '%s' with excuse: %s\n", self.path, excuse);
+        early_out = true;
         return null;
     }
     
     if (mat_name.is_empty())
     {
-        log::error(Where.FILE, "material with empty or no name in %s\n", self.path);
-        mat.free();
-        mem::free(mat);
+        log::error(FILE, "material with empty or no name inside mtr '%s'\n", self.path);
+        early_out = true;
         return null;
     }
 
     // check if the material name already exists in the database
-    if(check_material_existance(mat_name, self) == true)
+    if(mtrmng::check_material_existance(mat_name, self) == true)
     {
-        log::warning(Where.FILE, "material with name '%s' already exists in %s\n", mat_name, self.path);
-        mat.free();
-        mem::free(mat);
+        log::warning(FILE, "material with name '%s' already exists in mtr database\n", mat_name);
+        early_out = true;
         return null;
     }
     
-    // else everything should be fine from here, so keep parsing this material data
-    mat.name = mat_name.tcopy();
+    // else everything should be fine from here, 
+    // so keep parsing the material data
+    mat.name    = mat_name.tcopy();
     mat.mtrfile = self; // set the material file pointer to this mtr file
     
-    // parse extra material attributes if any
-    mat.parse_node_atributes(in_node);
+    // after the name atribbute parse any extras if any exist
+    if(in_node.attributes.len() > 2) {
+        //mat.parse_node_atributes(in_node);
+        log::warning(FILE, "A material should only have a 'name' attribute but more were defined for material '%s' in file '%s'!", mat.name, self.path);
+    }
 
     /////////////////////////////////////////////
     // NOTE(HM) this is the main part of the material parsing, where we parse all the child nodes of the material node
@@ -1657,13 +1649,13 @@ fn HMaterial* MTRFile.parse_material(&self, XmlNode* in_node)
     {
        // just in case...
        if(node == null) {
-            log::warning(Where.FILE, "Null child node found for material '%s', skipping it.", mat.name);
+            log::warning(FILE, "Null child node found for material '%s', skipping it.", mat.name);
             continue;
        }
 
        switch(node.name)
        {
-            case Node.TEXT.str:
+            case Node.TEXT:
                 // NOTE(HM) free text nodes are not supported here, so we just skip them
                 /*
                 <MATERIAL name="somename">
@@ -1676,24 +1668,24 @@ fn HMaterial* MTRFile.parse_material(&self, XmlNode* in_node)
                 </maps>
                 </MATERIAL>
                 */
-                log::warning(Where.FILE, "Unexpected text node found in material '%s'! Text = '%s' ", mat.name, node.value);
+                log::warning(FILE, "Unexpected text node found in material '%s'! Text = '%s' ", mat.name, node.value);
                 continue;
-            case Node.COMMENT.str: 
+            case Node.COMMENT: 
                 mat.parse_comment(node);
-            case Node.KEYWORD.str: 
+            case Node.KEYWORD: 
                 mat.parse_keyword(node);
-            /*case Node.STAGE.str: // TODO(HM) this should be used in the future to use individual stage nodes, but is disabled for now
+            /*case Node.STAGE: // TODO(HM) this should be used in the future to use individual stage nodes, but is disabled for now
                 mat.parse_stage(node);
                 continue;*/
-            case Node.MAPS.str:  // TODO(HM) deprecate this in the future
-                /*log::warning(Where.FILE, "Deprecated node '%s' found in material '%s', use '%s' instead.", 
-                    node.name, mat.name, Node.STAGE.str);*/
+            case Node.MAPS:  // TODO(HM) deprecate this in the future
+                /*log::warning(FILE, "Deprecated node '%s' found in material '%s', use '%s' instead.", 
+                    node.name, mat.name, Node.STAGE);*/
                 mat.parse_maps(node);
                 continue;
-            case Node.SHADER.str:
+            case Node.SHADER:
                 mat.parse_shader(node);
                 continue;
-            case Node.SOUND.str: 
+            case Node.SOUND: 
                 mat.parse_sound(node);
                 continue;
        }
@@ -1707,39 +1699,84 @@ fn HMaterial* MTRFile.parse_material(&self, XmlNode* in_node)
 //////////////////
 // #region private
 //////////////////
-
+<*
+    Converts a xml normalized <color>1 1 1 1</color> node
+    into a 0 to 255 low dynamic range raylib RLColor.
+    @param [in] _value : "xml color value"
+    @require _value.len > 0 && _value.len <= 7 && _value.count(" ") == 3
+    @ensure result.isValid()
+*>
 fn RLColor xmlStrColorToColor(String _value) @public
 {
-    String[] chars = _value.tsplit(" ");
-    assert(chars.len == 4);
-    
     RLColor result;
-    
-    char? value;
+    String[] chars = _value.tsplit(" ");
 
-    value = chars[0].to_uchar();
-    if(catch excuse = value) {
-        result.r = 255;
+    bool is_all_ones;
+    char* c;
+    int i;
+    do {
+        if(i > 3) break;
+        c = chars[i];
+        if(c == "1") {is_all_ones = true;}
+        else {is_all_ones = false;}
+        i++;
+    } while(c);
+
+    bool is_normalized_color = (_value.contains_char('.') || is_all_ones);
+
+    if(is_normalized_color) 
+    {
+        float? value = chars[0].to_float();
+        if(catch excuse = value) {
+            result.r = 255;
+        } else {
+            result.r = (char)misc::@mapValueRangeToOther(value, 0.0f, 1.0f, 0, 255);
+        }
+        value = chars[1].to_float();
+        if(catch excuse = value) {
+            result.g = 255;
+        } else {
+            result.g = (char)misc::@mapValueRangeToOther(value, 0.0f, 1.0f, 0, 255);
+        }
+        value = chars[2].to_float();
+        if(catch excuse = value) {
+            result.b = 255;
+        } else {
+            result.b = (char)misc::@mapValueRangeToOther(value, 0.0f, 1.0f, 0, 255);
+        }
+        value = chars[3].to_float();
+        if(catch excuse = value) {
+            result.a = 255;
+        } else {
+            result.a = (char)misc::@mapValueRangeToOther(value, 0.0f, 1.0f, 0, 255);
+        }
     } else {
-        result.r = (value <= 255) ? value : 255;
-    }
-    value = chars[1].to_uchar();
-    if(catch excuse = value) {
-        result.g = 255;
-    } else {
-        result.g = (value <= 255) ? value : 255;
-    }
-    value = chars[2].to_uchar();
-    if(catch excuse = value) {
-        result.b = 255;
-    } else {
-        result.b = (value <= 255) ? value : 255;
-    }
-    value = chars[3].to_uchar();
-    if(catch excuse = value) {
-        result.a = 255;
-    } else {
-        result.a = (value <= 255) ? value : 255;
+        char? value;
+
+        value = chars[0].to_uchar();
+        if(catch excuse = value) {
+            result.r = 255;
+        } else {
+            result.r = (value <= 255) ? value : 255;
+        }
+        value = chars[1].to_uchar();
+        if(catch excuse = value) {
+            result.g = 255;
+        } else {
+            result.g = (value <= 255) ? value : 255;
+        }
+        value = chars[2].to_uchar();
+        if(catch excuse = value) {
+            result.b = 255;
+        } else {
+            result.b = (value <= 255) ? value : 255;
+        }
+        value = chars[3].to_uchar();
+        if(catch excuse = value) {
+            result.a = 255;
+        } else {
+            result.a = (value <= 255) ? value : 255;
+        }
     }
     
     return result;
@@ -1766,13 +1803,6 @@ import thirdparty::raylib5::rl;
 import thirdparty::library::xml;
 // end_region
 
-alias MTR_FileList = List{MTRFile*};
-
-struct MaterialDataBase @public
-{
-    MTR_FileList data;
-}
-
 faultdef INVALID_PATH_STRING,
 	     MALFORMED_MTR_FILE,
 	     UNKNOWN_FOLDER,
@@ -1782,149 +1812,15 @@ faultdef INVALID_PATH_STRING,
 	     MTR_RETRIVAL_ERROR,
 	     MISSING_MTR;
 
+alias MTR_fileList = List{MTRFile*};
 
-<*
-    @param search_path : "where to look for the mtr files"
-    @param [inout] database : "the database where to register the mtr files"
-    @require database != null && search_path.len >= 2
-*>
-fn void? load_mtr_files(String search_path, MaterialDataBase* database) @local
+struct MaterialDataBase @public
 {
-	PathList? paths = path::ls(tmem, path::temp(search_path));
-	if(catch excuse = paths) {
-		log::warning(Where.FILE,  "Unable get mtr files paths from folder: %s with excuse: %s", search_path, excuse);
-		return FOLDER_SCAN_ERROR~;
-	}
-	
-	foreach(path: paths)
-	{
-		String asset_path = search_path.tconcat(path.str_view());
-        
-        if(!fs::isFile(asset_path)) continue;
-        
-		{ // else try to load mtr files
-			String file_name = fs::getFileNameWithoutExt(asset_path);
-			// NOTE(HM) ignore default assets those are handled elsewhere
-            // plus there's no default mtr...
-			if (file_name == "default") 
-            {
-                log::warning(Where.FILE, " unexpected '%s' file name found inside material folder.", file_name);
-				continue; // to next file
-			}
-			
-			if(fs::getFileExtension(asset_path) != ".mtr") 
-            {
-                log::warning(Where.FILE, " unexpected file type '%s' found inside material folder.", file_name);
-				continue; // to next file
-			}
-			
-            //****
-			// from here should be a mtr file
-            //****
-
-            if(file::get_size(asset_path)! < 10) // TODO(HM) make this a constant
-            {
-                log::warning(Where.FILE, " mtr file [%s] is too small to be valid, skipping it.", asset_path);
-                continue; // to next file
-            }
-            
-            // we have a valid size file, so now try to open it
-
-            File? file = fs::openFile(asset_path, "r");
-            defer file.close()!!;
-            
-            if(catch excuse = file) 
-            {
-               log::warning(Where.FILE, " Failed to open mtr file [%s] with excuse: %s", asset_path, excuse);
-               // DOC(HM) I need to always return from a catch or the excuse will not unwrap,
-               // causing variable shadow error, preventing me from using excuse again bellow.
-               continue; // to next file
-            }
-
-            // we could open it, so now try to load and save it's data
-            MTRFile* mtr_file = mem::new(MTRFile);
-            mtr_file.path = asset_path;
-            
-            if(catch excuse = mtr_file.load(file))
-            {
-                log::warning(Where.FILE, " Failed to load [%s]", asset_path);
-                mem::free(mtr_file);
-                continue; // to next file
-            }
-			
-            // every thing was fine, so save the mtr file, in material files database
-            _register(database, mtr_file);
-		}
-        
-		//continue to next file
-	}
+    MTR_fileList data;
 }
 
-<*
-    @param [inout] db : "material file data base"
-    @require game::gpGame.app_base_folder.len > 0
-*>
-fn void? loadMaterialFilesTo(MaterialDataBase* db) @inline @public
-{
-    String material_folder = game::gpGame.app_base_folder.tconcat("materials").tconcat("\\");
-	load_mtr_files(material_folder, db)!!;
-
-    // see if we have a default material file, if not create one
-    if(mtrmng::getMaterial("default_material") == null)
-    {
-        // TODO(HM) Makes this use the default material definition
-        // from the HMaterial.defaultDefinition() function
-        log::error(Where.FILE, "Default material not found in mtr database, creating one...");
-        HMaterial* default_material = mem::new(HMaterial);
-        default_material.init();
-        default_material.name = "default_material";
-        default_material.getStage(MStageType.DIFFUSE).tex = game::gpGame.default_texture;
-        default_material.getStage(MStageType.DIFFUSE).color = rl::WHITE;
-        db.data[0].register(default_material);
-    }
-}
-
-<*
-    Performance: This will probably be very slow with many materials...
-
-    @param [in] material_name : "name of the material to search for"
-    @require material_name.len > 0
-    @require game::gpGame.mtrDB.data.len() > 0
-*>
-fn HMaterial* getMaterial(String material_name) @public
-{
-    HMaterial* mat;
-    uint index;
-
-    uint count = (uint)game::gpGame.mtrDB.data.len();
-    if(count == 0) {
-        log::error(Where.FILE, "No material files loaded in the game, cannot get material '%s'", material_name);
-		// todo return a required default material
-        return null;
-    }
-
-    do { // @Performance This is a linear search, so it will be slow with many materials.
-        // NOTE(HM): This is done this way because findMaterial() from MTRFile returns null 
-        // if the material is not found in the mtr data, so while we have materials in the data base
-        // we need to keep looking through all of them.
-        mat = game::gpGame.mtrDB.data[index++].findMaterial(material_name);
-    } while(mat == null && index < count);
-
-    // just for testing purposes
-    if(mat != null) {
-	    assert(rl::isTextureValid(*mat.getTexture(mat::MTexture.DIFFUSE)));
-    }
-    
-	return mat;
-}
-
-<*
-	@param [&in] db : "the material database to register the mtr file in"
-	@param [&inout] mtr : "the mtr file to register"
-*>
-fn void _register(MaterialDataBase* db, MTRFile* mtr) @local @inline {
-	db.data.push(mtr);
-}
+MaterialDataBase local_material_db;
+MaterialDataBase* mtrDB @public = &local_material_db;
 
 fn void MaterialDataBase.listMTRs(&self)
 {
@@ -1955,3 +1851,193 @@ fn void MaterialDataBase.clear(&self) @inline
 		self.data.free();
 	}
 }
+
+<*
+    @param search_path : "where to look for the mtr files"
+    @param [inout] database : "the database where to register the mtr files"
+    @require database != null && search_path.len >= 2
+*>
+fn void? load_mtr_files(String search_path, MaterialDataBase* database = mtrDB) @local
+{
+	PathList? paths = path::ls(tmem, path::temp(search_path));
+	if(catch excuse = paths) {
+		log::warning(FILE,  "Unable get mtr files paths from folder: %s with excuse: %s", search_path, excuse);
+		return FOLDER_SCAN_ERROR~;
+	}
+	
+	foreach(path: paths)
+	{
+		String asset_path = search_path.tconcat(path.str_view());
+        
+        if(!fs::isFile(asset_path)) continue;
+        
+		{ // else try to load mtr files
+			String file_name = fs::getFileNameWithoutExt(asset_path);
+			// NOTE(HM) ignore default assets those are handled elsewhere
+            // plus there's no default mtr...
+			if (file_name == "default") 
+            {
+                log::warning(FILE, " unexpected '%s' file name found inside material folder.", file_name);
+				continue; // to next file
+			}
+			
+			if(fs::getFileExtension(asset_path) != ".mtr") 
+            {
+                log::warning(FILE, " unexpected file type '%s' found inside material folder.", file_name);
+				continue; // to next file
+			}
+			
+            //****
+			// from here should be a mtr file
+            //****
+
+            if(file::get_size(asset_path)! < 10) // TODO(HM) make this a constant
+            {
+                log::warning(FILE, " mtr file [%s] is too small to be valid, skipping it.", asset_path);
+                continue; // to next file
+            }
+            
+            // we have a valid size file, so now try to open it
+
+            File? file = fs::openFile(asset_path, "r");
+            defer file.close()!!;
+            
+            if(catch excuse = file) 
+            {
+               log::warning(FILE, " Failed to open mtr file [%s] with excuse: %s", asset_path, excuse);
+               // DOC(HM) I need to always return from a catch or the excuse will not unwrap,
+               // causing variable shadow error, preventing me from using excuse again bellow.
+               continue; // to next file
+            }
+
+            // we could open it, so now try to load and save it's data
+            MTRFile* mtr_file = mem::new(MTRFile);
+            mtr_file.path = asset_path;
+            
+            if(catch excuse = mtr_file.load(file))
+            {
+                log::warning(FILE, " Failed to load [%s]", asset_path);
+                mem::free(mtr_file);
+                continue; // to next file
+            }
+			
+            // every thing was fine, so save the mtr file, in material files database
+            _register(database, mtr_file);
+		}
+        
+		//continue to next file
+	}
+}
+
+<*
+    @require game::gpGame.app_base_folder.len > 0
+*>
+fn void? loadMaterialFiles() @inline @public
+{
+    String material_folder = game::gpGame.app_base_folder.tconcat("materials").tconcat("\\");
+	load_mtr_files(material_folder)!!;
+
+    // see if we have a default material file, if not create one
+    if(mtrmng::getMaterial("default_material") == null)
+    {
+        // TODO(HM) Makes this use the default material definition
+        // from the HMaterial.defaultDefinition() function
+        log::error(FILE, "Default material not found in mtr database, creating one...");
+        HMaterial* default_material = mem::new(HMaterial);
+        default_material.init();
+        default_material.name = "default_material";
+        default_material.getStage(MStageType.DIFFUSE).tex = game::gpGame.default_texture;
+        default_material.getStage(MStageType.DIFFUSE).color = rl::WHITE;
+        local_material_db.data[0].register(default_material);
+    }
+}
+
+<*
+    Performance: This will probably be very slow with many materials...
+
+    @param [in] material_name : "name of the material to search for"
+    @require material_name.len > 0
+    @require local_material_db.data.len() > 0
+*>
+fn HMaterial* getMaterial(String material_name) @public
+{
+    HMaterial* mat;
+    if(local_material_db.hasMaterial(material_name, null, &mat)) {
+        if(mat) return mat;
+    } else {
+        mat = getMaterial("default_material");
+        if(mat) return mat;
+        unreachable("Failed to get default_material!!!");
+    }
+
+    /*uint count = (uint)local_material_db.data.len();
+    if(count == 0) {
+        log::error(FILE, "No material files loaded in the game, cannot get material '%s'", material_name);
+		// todo return a required default material
+        return null;
+    }
+
+    do { 
+        // @Performance This is a linear search, 
+        // so it will be slow with many materials.
+        // NOTE(HM): This is done this way because findMaterial() for each MTRFile, 
+        // returns null if the material was not found, so while we have mtr's in the data base
+        // we need to keep looking through all of them.
+        mat = local_material_db.data[index++].findMaterial(material_name);
+    } while(mat == null && index < count);
+
+    // just for testing purposes
+    if(mat != null) {
+	    assert(rl::isTextureValid(*mat.getTexture(mat::MTexture.DIFFUSE)));
+    }
+	return mat;
+    */
+	return null;
+}
+
+
+<*
+    check for material existance in this material library
+    @param [in] name : "name of the material"
+    @require name.len > 0
+*>
+fn bool MaterialDataBase.hasMaterial(&self, String name, uint* mtr_index = null, HMaterial** out_mat = null) @MyInline 
+{
+    HMaterial* mat;
+    foreach(i, mtr: self.data) {
+        mat = mtr.findMaterial(name);
+        if(mat != null) {
+            if(mtr_index) (*mtr_index) = (uint)i;
+            if(out_mat) (*out_mat) = mat;
+            mat = null;
+            return true;
+        }
+    }
+    return false;
+}
+
+<*
+    /*Performance*/ This will probably be very slow with many mtr files and material definitions...
+    TODO(HM) make this faster by using a hash table
+    @param [in] name : "name of the material"
+    @param [in] mtr_file : "optional materials file to look into first"
+    @require name.len > 0
+*>
+fn bool check_material_existance(String name, MTRFile* mtr_file = null) @inline @public
+{
+    // first check if the material name already exists in the current passed mtr file
+    if(mtr_file) if(mtr_file.findMaterial(name) != null) return true;
+
+    // else check for it in the global material database
+    // NOTE(HM) this is a slow operation, so use it with caution
+    return local_material_db.hasMaterial(name);
+}
+
+<*
+	@param [&in] db : "the material database to register the mtr file in"
+	@param [&inout] mtr : "the mtr file to register"
+*>
+fn void _register(MaterialDataBase* db, MTRFile* mtr) @local @inline {
+	db.data.push(mtr);
+}
+
