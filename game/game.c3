@@ -43,7 +43,7 @@ import engine::input;
 import engine::tokanizer::tok; // tokanizer
 import engine::filesystem::fs;
 import engine::telemetry::telem;
-import engine::gui, engine::gui::desktop::desk;
+import engine::gui, engine::gui::window::uiwin;
 import game::gui::menu;
 import game::intro;
 import engine::assets_api::astmng; // asset manager
@@ -334,8 +334,8 @@ struct Game (SaveSystemInterface/*, IGame*/) @local
     LANGData langdict; // handles the games languages
 
     // menus
-    Desktop* guiActive; // to handle all guis
-    Desktop* main_menu;
+    UIWindow* guiActive; // to handle all guis
+    UIWindow* main_menu;
     // new immediate mode gui
     IMUI_Context test_ui;
     bool show_test_tool_frame;
@@ -801,6 +801,16 @@ fn void Game.clearFonts(&self) @MyInline {
     self.trojan_pro_font    = null;
 }
 
+fn RLFont* Game.getfont(&self, String font_name) /*@MyInline*/ {
+	switch(font_name)
+	{
+    	case "candara.fnt":       return self.candara_font;      
+    	case "candara_light.fnt": return self.candara_light_font;
+    	case "lucida.fnt":        return self.lucida_font;       
+    	case "trojan_pro.fnt":    return self.trojan_pro_font;   
+		default: unreachable();
+	}
+}
 
 fn void? Game.loadDefaultAssets(&self) 
 {
@@ -965,7 +975,7 @@ enum ESCReply : char {
 	GUI		// set an explicit GUI
 }
 
-fn ESCReply Game.handleESC(&self, Desktop** gui ) @dynamic
+fn ESCReply Game.handleESC(&self, UIWindow** gui ) @dynamic
 {
 	Player* player = self.getLocalPlayer();
 	if ( player ) {
@@ -1158,7 +1168,7 @@ fn void gameHandleGeneralControls() @local
     if (!local_game.guiActive && rl::isKeyPressed(rl::KEY_ESCAPE) &&
         !rl::isKeyDown(rl::KEY_LEFT_SHIFT) && !rl::isKeyDown(rl::KEY_RIGHT_SHIFT)) 
     {
-		Desktop* gui;
+		UIWindow* gui;
         ESCReply op = local_game.handleESC( &gui );
         if(op == ESCReply.GUI) {
             menu::setGUI(gui);
@@ -1337,7 +1347,7 @@ $if $defined(SCRIPT_ENGINE):
 $endif
         
         // updates all fullscreen menus state like the main menu
-        desk::gpManager.update();
+        uiwin::gpManager.update(local_game.time_ms);
         
         // if(rl::isCursorOnScreen()) {
             // io::printfn("on screen id: %s", rl::getCurrentMonitor());
@@ -1800,7 +1810,7 @@ fn void onGuiDraw(int screenWidth, int screenHeight) @public @MyInline
 	$endif
 
     // draw custom gui code
-    desk::gpManager.draw(screenWidth, screenHeight);
+    uiwin::gpManager.draw(screenWidth, screenHeight);
 
     $if $feature(MICROUI_ENABLE):
         // process microui panels/frames
@@ -1972,25 +1982,26 @@ fn void handle_cmdline(String[] args)
     log::info(FILE, "Handling cmd line args: %s\n", args[..]);
 
     String cmd_arg;
+	bool cmd_is_standalone;
+	bool is_value;
 
     foreach(arg_index, arg : args)
     {
-        // skip first argument, is always the path/name of the executable.
-		// NOTE(HM) This seems to be only true in _DEBUG (-O0) mode!!!
 		$if $feature(_DEBUG):
+        	// skip first argument.
+			// NOTE(HM) in _DEBUG (-O0) mode is always the path/name of the executable.
         	if(arg_index == 0 && !arg.starts_with("+")) continue;
 		$endif
         
         // skip the equals sign and or spaces
         if(arg == "=" || arg == " ") continue;
         
-        bool cmd_is_standalone, 
-             arg_is_number, 
+        bool arg_is_number, 
              arg_is_string, 
              invalid_value_arg,
              single_char_value;
         
-        single_char_value = arg.len == 1;
+        single_char_value = (arg.len == 1);
 
 		/////////////////////
         // start of a COMMAND
@@ -2008,13 +2019,14 @@ fn void handle_cmdline(String[] args)
 
             bool last_cmd = arg_index == args.len - 1;
             if(last_cmd) {
-                // if is last cmd then there's value after it
+                // if is last cmd then there's 
+				// no value after it
                 // so is a standalone cmd
                 handle_standalone_cmd(cmd_arg);
                 break;
             } else {
                 continue; // skip to the next argument
-            }; 
+            };
         }
         
 		/////////////////////////////////////////////////
@@ -2152,10 +2164,251 @@ fn void handle_cmdline(String[] args)
     }
 }
 
-fn void print_game_version() @local @MyInline 
+fn void handle_cmdline_new(String[] args)
+{
+	@debug_break(OFF);
+    $if $feature(_DEBUG):
+        if(args.len <= 1) return;
+	$endif
+    
+    log::info(FILE, "Handling cmd line args: %s\n", args[..]);
+
+    String cmd_arg;
+	// standalone cmds are thought as if they are booleans
+	// their existance is enough to enable stuff
+	bool cmd_is_standalone;
+	bool arg_is_value;
+
+    foreach(arg_index, arg : args)
+    {
+		$if $feature(_DEBUG):
+        	// skip first argument.
+			// NOTE(HM) in _DEBUG (-O0) mode is always the path/name of the executable.
+        	if(arg_index == 0 && !arg.starts_with("+")) continue;
+		$endif
+        
+        // skip the equals sign and or spaces
+        if(arg == "=" || arg == " ") continue;
+
+		/////////////////////
+        // Argument is a COMMAND
+        if(arg.starts_with("+"))
+        {
+			cmd_arg = arg.trim("+");
+			arg_is_value = false;
+
+			// look ahead to see what arg is next
+			int i = (int)arg_index;
+            String next = args[i + 1];
+
+            if( next == "=" ) {
+                arg_is_value = true;
+                // cmd has value defined so just
+                continue; // to next argument
+            }
+            
+            if(next.starts_with("+")) {
+                cmd_is_standalone = true;
+            }
+            else if( next == " " ) 
+            {
+                if(arg_index < (args.len - 1)) // not last cmd
+                {
+                    do {
+                        next = args[i++];
+                    } while(next == " ");
+                    //
+                    if(next == "+")  {
+                        cmd_is_standalone = true;
+                    } else { // we will look later if is a valid value...
+                        arg_is_value = true;
+                        continue; // to next argument
+                    }
+                }
+                else // last cmd
+                {
+                    cmd_is_standalone = true;
+                }
+            }
+            else { // we will look later if is a valid value...
+                arg_is_value = true;
+                continue; // to next argument
+            }
+        }
+
+		if(!arg_is_value && !cmd_is_standalone) continue;
+        
+		/////////////////////////////////////////////////
+        // from here should be a value assigned to a cmd
+		// or a standalone cmd with no value (a boolean by nature)
+        bool arg_is_number, arg_is_float, single_char_value;
+		int ivalue;
+		float fvalue;
+
+		if(arg_is_value)
+		{
+            single_char_value = (arg.len == 1);
+			arg_is_number = true;
+
+			switch // what value is it?
+			{
+                case ascii::is_alpha(arg[0]): // is a letter
+					nextcase default;
+				case ascii::is_digit(arg[0]):
+					if(single_char_value) break;
+					// else is a bigger integer number, 
+                    // need to see if is a valid one
+					if(!@isValidInteger(arg)) nextcase default;
+				case arg.starts_with("-"): // negative numbers
+					if(single_char_value) nextcase default;
+					if(!@isValidInteger(arg)) nextcase default;
+				case arg.starts_with("\""):
+					if(!single_char_value && arg.ends_with("\"")) {
+						arg_is_number = false; // is a string
+						break;
+					} else {
+						nextcase default;
+					}
+				default:
+					log::warning(FILE, "invalid value '%s' assigned to cmd '%s'.", arg, cmd_arg);
+					cmd_arg = ""; // clear cmd to ignore it in next pass
+					continue;
+			}
+			
+			if(arg_is_number) // what type of number is it?
+			{
+				if(single_char_value) {
+                    // is obviously a integer so nothing to do, go on.
+                } 
+                else // is a big number, see if is a float or something else
+                { 
+					int dot_count = (int)arg.count(".");
+                    if(dot_count == 1) {
+						arg_is_float = true;
+					} 
+                    else if(dot_count > 1) 
+                    {
+                        log::warning(FILE, "cmd %s float value in cmdline has invalid number of '.' seperator, one was expected got '%d'.", cmd_arg, dot_count);
+                        cmd_arg = "";
+                        continue; // skip bad cmd
+                    }
+                    else if(arg_is_number) 
+                    {
+                        bool error_found;
+                        foreach(c : arg) { 
+                            if (ascii::is_digit(c) == false) {
+                                log::warning(FILE, "cmd %s value in cmdline has one or more comma ',' seperators.\n   -That is not supported for numbers, for float's please use dot instead.", cmd_arg, arg);
+                                cmd_arg = "";
+                                error_found = true;
+                                break;
+                            }
+                        }
+                        
+                        if(error_found) continue; // skip bad cmd
+                    }
+				}
+				
+				// NOTE(HM) unfortunatly c3 at the time of this code didn't support this...
+				// if(try value = (arg_is_float) ? arg.to_float() : arg.to_int())
+				if(arg_is_float)
+				{
+					if(try value = arg.to_float()) {
+						fvalue = value;
+					} else {
+						log::warning(FILE, "Unnable to convert value \"%s\" of cmdline cmd \"%s\" to float value!", arg, cmd_arg);
+						cmd_arg = "";
+						continue; // skip bad cmd
+					}
+				} 
+				else if(try value = arg.to_int())
+				{
+					ivalue = value;
+				} else {
+					log::warning(FILE, "Unnable to convert value \"%s\" of cmdline cmd \"%s\" to int value!", arg, cmd_arg);
+					cmd_arg = "";
+					continue; // skip bad cmd
+				}
+			}
+		}
+
+		// NOTE(HM) changing this cmds values will require a full game restart.
+		switch(cmd_arg)
+		{
+			case "developer":
+            	developer.setBool(true);
+			case "skip_intro":
+				intro::skip.setBool(true);
+			case "g_log":
+				log::g_log.setBool(true);
+			case "editor":
+				editor.setBool(true);
+			case "window": nextcase;
+			case "w":      nextcase;
+			case "win":
+				int value = r_fullscreen.getInt();
+				if(value > 0) {
+					r_fullscreen.set("0");
+					log::warning(FILE, "cmdline arg '%s' is overriding r_fullscreen cvar value.", cmd_arg); 
+				}
+			case "g_log":
+				$if $feature(_DEBUG):
+					if(!(bool)(log::g_log.flags & CvFlag.INT)) unreachable();
+				$endif
+				if(ivalue >= 1) {
+					if(ivalue <= 4) {
+						log::g_log.set(arg);
+					} else { // clamp it
+						log::g_log.set("4");
+					}
+				} else {
+					log::g_log.set("0");
+				} 
+			case "r_mode":
+				if(ivalue >= 0 && ivalue <= SCREEN_RES.len - 1) 
+				{
+					r_mode.set(arg);
+				} else {nextcase default;}
+			case "r_fullscreen":
+				if(ivalue == -1 || ivalue >= 0 && ivalue <= 2) {
+					r_fullscreen.set(arg);
+				} 
+				else {nextcase default;}
+			case "fs_base":
+				fs_base.set(arg);
+			case "fs_mod_name":
+				fs_mod_name.set(arg);
+			case "fs_mod_base":
+				fs_mod_base.set(arg);
+			default:
+				log::warning(FILE, "cmdline arg '%s' did nothing by some error or is still not handled.", cmd_arg, arg);
+		}
+
+		// after dealing with a cmd clear it
+        cmd_arg = "";
+
+		if(cmd_is_standalone) 
+		{
+			bool last_cmd = arg_index == args.len - 1;
+			if(last_cmd) {
+				break; // get out
+			} else {
+				cmd_is_standalone = false;
+				continue; // to the next argument
+			};
+        }
+    }
+}
+
+fn void print_engine_version() @local @inline 
 {
     log::info(FILE, "---------------------------------------------");
     log::info(FILE, "ENGINE_VERSION: %s", lic::ENGINE_VERSION);
+    log::info(FILE, "---------------------------------------------\n");
+}
+
+fn void print_game_version() @local @inline 
+{
+    log::info(FILE, "---------------------------------------------");
     log::info(FILE, "Game Version: %s", lic::@game_version());
     log::info(FILE, "---------------------------------------------\n");
 }
@@ -2168,6 +2421,7 @@ fn void? onStart(String[]* args)
 {
     local_game.mode = STARTING;
 
+    print_engine_version();
     print_game_version();
     
     // Handle cmdline arguments if any.
@@ -2184,7 +2438,9 @@ $if $feature(TSODING_FLAG):
         return GAME_START_FAILED~;
     }
 $else
-    handle_cmdline(*args);
+    //handle_cmdline(*args);
+	// needs more testing
+    handle_cmdline_new(*args);
 $endif
      // NOTE(HM) 
     // This will save cvars in a global array for later looping through if needed
@@ -3458,8 +3714,8 @@ fn void clear_game_singletons() @MyInline {
     input::gpManager.free();
     input::gpManager = null;
     //
-    desk::gpManager.free();
-    desk::gpManager = null;
+    uiwin::gpManager.free();
+    uiwin::gpManager = null;
     log::info(FILE,  "**done**");
 }
 

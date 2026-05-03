@@ -145,7 +145,6 @@ fn void unloadHMShader(HMShader* shader)
     unloadShader(&(*shader).data);
 }
 
-
 const uint SHD_UNIFORM   = 1;
 const uint SHD_ATTRIBUTE = 2;
 

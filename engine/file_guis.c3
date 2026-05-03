@@ -32,6 +32,7 @@
 // this is user interface file format inspired in part by idTech4 .gui files 
 // Bethesda I have no intention of monitizing this engine so please don't sue me...
 // ******************************************************************************
+/* disabled
 module engine::dictionary::gui @private;
 
 // region imports

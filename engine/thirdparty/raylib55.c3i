@@ -929,7 +929,7 @@ fn RLVector2 getWindowPosition() @cname("GetWindowPosition");                   
 fn RLVector2 getWindowScaleDPI() @cname("GetWindowScaleDPI");                               // Get window scale DPI factor ex: (1.0f, 1.0f) for 100% scale, (2.0f, 2.0f) for 200% scale, etc.
 /*
 Note(HM) GetWindowScaleDPI() function is only useful, if we want to manage DPI scale manually instead of in an automated way. 
-(so the size of text and UI of our raylib application matches the rest of the desktop environment's text and UI sizes)
+(so the size of text and UI of our raylib application matches the rest of the window environment's text and UI sizes)
 If FLAG_WINDOW_HIGHDPI is enabled, that's up to the backend to automatically rescale the size of the window's content 
 to match the DPI scale of the display.
 */

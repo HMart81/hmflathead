@@ -773,19 +773,16 @@ fn void Entity.think(&self, float dt) // update in other engines
 			tracy::@zoneN("Entity.think", 1)
 			{
 				self.move();
-				
-				if(bounds::db_showBounds.getBool()) {
-					self.vs.bounds.debugDraw();
-				}
 			};
 		$else
 			self.move();
-			
-			if(bounds::db_showBounds.getBool()) {
-				self.vs.bounds.debugDraw();
-			}
 		$endif
+
     }
+	
+	if(bounds::db_showBounds.getBool()) {
+		self.vs.bounds.debugDraw();
+	}
 }
 
 fn void Entity.updateVisuals(&self) 

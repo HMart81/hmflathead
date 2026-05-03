@@ -177,7 +177,7 @@ fn void HMSprite.resetPosAndSize(&self) @inline
     @param h : "the height in world units (meters)"
     @param color : "the color of the sprite"
     @param kind : "the kind of sprite"
-    @param material_name : "the material name to use for the sprite"
+    @param [in] material_name : "the material name to use for the sprite"
     @ensure return != null
 *>
 fn HMSprite* create(float x, float y, float w, float h, RLColor color = rl::WHITE, SpriteKind kind = GENERIC, String material_name = "") @inline 
@@ -187,6 +187,19 @@ fn HMSprite* create(float x, float y, float w, float h, RLColor color = rl::WHIT
     return sprite;
 }
 
+<*
+    Creates a new sprite instance
+    @param rect : "position and size in pixel units (world units)"
+    @param color : "the color of the sprite"
+    @param kind : "the kind of sprite"
+    @param [in] material_name : "the material name to use for the sprite"
+    @ensure return != null
+*>
+fn HMSprite* createRec(RLRectangle rect, RLColor color = rl::WHITE, SpriteKind kind = GENERIC, String material_name = "") @inline 
+{
+    return create(rect.x, rect.y, rect.w, rect.h, color, kind, material_name);
+}
+
 fn void remove(HMSprite* sprite) @inline 
 {
     if(sprite) mem::free(sprite);
@@ -194,7 +207,7 @@ fn void remove(HMSprite* sprite) @inline
 
 fn HMSprite* HMSprite.clone(&self) @inline 
 {
-   return sprite::create(self.rect.x, self.rect.y, self.rect.width, self.rect.height, self.color, self.kind, (self.mat != null) ? self.mat.name : "");
+   return create(self.rect.x, self.rect.y, self.rect.width, self.rect.height, self.color, self.kind, (self.mat != null) ? self.mat.name : "");
 }
 
 fn void HMSprite.deinit(&self) @inline 
@@ -224,8 +237,8 @@ fn bool HMSprite.nequalcoverage(&self, Coverage coverage) //@operator(!=)
 
 // WARNING(HM) setSize and scale are diferent things!!!
 <*
- @param w_scaler : "amout of scaling for width 0 to INF"
- @param h_scaler : "amout of scaling for height 0 to INF"
+ @param w_scaler : "amout of scaling for width, 0.0f to INF"
+ @param h_scaler : "amout of scaling for height, 0.0f to INF"
  @require w_scaler >= 0.0f
  @require h_scaler >= 0.0f
 *>
@@ -233,6 +246,10 @@ fn HMSprite* HMSprite.scale(&self, float w_scaler, float h_scaler) @inline
 {
     self.rect.width  *= w_scaler;
     self.rect.height *= h_scaler;
+    if(misc::fgetDiff(self.rect.width, 0.0f) <= 0.05f && 
+       misc::fgetDiff(self.rect.height, 0.0f) <= 0.05f) {
+        log::warning(FILE, "scaled a sprite to a very tiny size!");
+    }
 	self.flags.scaled = true;
     return self;
 }

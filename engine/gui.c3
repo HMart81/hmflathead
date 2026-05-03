@@ -75,16 +75,6 @@ fn void register_cvars() @public
 }
 // end_region
 
-
-///////////////////////////////////////////////////////////////////////////
-/*                                PANEL
-
-    NOTE(HM) simple data structure representing a square or image, 
-    used for background images or single color rectangles.
-	I wanted to use Rectangle as name but it was already taken by raylib...
-*/
-///////////////////////////////////////////////////////////////////////////
-
 // #region constants
 //const bool PANEL_PROFILE = true;
 const bool DEBUG_PANELS   = true;
@@ -130,6 +120,15 @@ struct PanelFlags
     bool showBounds; // used to debug the panel bounds
 }
 
+///////////////////////////////////////////////////////////////////////////
+/*                                PANEL
+
+    NOTE(HM) simple data structure representing a square or image, 
+    used for background images or single color rectangles.
+	I wanted to use Rectangle as name but it was already taken by raylib...
+*/
+///////////////////////////////////////////////////////////////////////////
+
 struct Panel (SaveSystemInterface, Printable)
 {
     int             id;  // used to uniquily identify each panel
@@ -138,7 +137,7 @@ struct Panel (SaveSystemInterface, Printable)
     PanelShape      shape; // default is BOX
     RLRectangle     rect; // x, y, width, height
 	List{GuiAnchor} anchor;
-    RLColor         color; // material color overrides this color
+    RLColor 		color; // current color, material color overrides this color
     RLColor         color_selected; // for gui editor functionality
     HMaterial*      mat;
 }
@@ -511,7 +510,7 @@ fn void Panel.draw(&self, bool selected = false)
         RLRectangle source = { 0, 0, texture_size.x, texture_size.y };
         RLRectangle* dist = &self.rect;
 
-        RLColor color = (selected) ? self.color_selected : self.color; //self.mat.getStage(mat::STAGE_DIFFUSE).color;
+        RLColor color = (selected) ? self.color_selected : self.color;
 
         RLBlendMode blending = -1;
         Coverage coverage = self.mat.coverage;
@@ -695,9 +694,9 @@ interface WidgetInterface
     fn void draw();
     fn bool isWithinScreenBounds() @optional;
     fn bool isInWidget(int x, int y) @optional;
-    fn void addTo(Desktop*);
+    fn void addTo(UIWindow*);
     //fn void addToFrame(Frame*) @optional;
-    fn Desktop* getDesktop();
+    fn UIWindow* getParentWindow();
     fn void bindTo(Widget* other);
     fn bool bound();
     fn void unbind();
@@ -706,9 +705,9 @@ interface WidgetInterface
     fn void link(Widget* other);
     fn bool isLinked();
     fn void unlink();
-    fn bool hasParentDesktop() @optional;
-    fn void setParentDesktop(Desktop*) @optional;
-    fn void releaseParentDesktop() @optional;
+    fn bool hasParentUIWindow() @optional;
+    fn void setParentUIWindow(UIWindow*) @optional;
+    fn void releaseParentUIWindow() @optional;
     fn void connect(WidgetCallback) @optional;
 
     fn void setColor(rl::RLColor);
@@ -736,7 +735,7 @@ struct Widget (WidgetInterface)
     // for binding (one single binding for now, but in the future we could have multiple bindings)
     struct parent 
     {
-        Desktop* desktop;
+        UIWindow* window;
         Widget* other;
     }
     // for linking
@@ -764,7 +763,7 @@ fn void Widget.deinit(&self) @dynamic
 {
     self.unlink();
     self.unbind();
-    if(self.hasParentDesktop()) self.releaseParentDesktop();
+    if(self.hasParentUIWindow()) self.releaseParentUIWindow();
     self.super.deinit();
 }
 
@@ -814,8 +813,8 @@ fn RLColor selected_color_anim(Widget* wgt) @inline @local
 {
     if(!wgt) return {0, 0, 0, 1};
     
-    assert(wgt.parent.desktop != null);
-    int time = wgt.parent.desktop.time;
+    assert(wgt.parent.window != null);
+    int time = wgt.parent.window.time;
     int flicker_milliseconds = 200;
     
     RLColor color;
@@ -979,40 +978,40 @@ fn bool Widget.isInWidget(&self, int x, int y) @dynamic
 }
 
 <*
- @param [in] desktop : "parent desktop"
- @require desktop != null
+ @param [in] window : "parent window"
+ @require window != null
 *>
-fn void Widget.addTo(&self, Desktop* desktop) @dynamic 
+fn void Widget.addTo(&self, UIWindow* window) @dynamic 
 {
-    //self.parent.desktop = desktop;
-    self.setParentDesktop(desktop);
+    //self.parent.window = window;
+    self.setParentUIWindow(window);
     // todo change this to activate logic like the panel system...
-    if (self.parent.desktop.isInteractive) {
+    if (self.parent.window.isInteractive) {
         self.activate();
     }
 
-    self.super.id = (int)self.parent.desktop.children.len() + 1;
+    self.super.id = (int)self.parent.window.childWidgets.len() + 1;
     
-    // concatenate with desktop name
+    // concatenate with window name
     if (self.super.id < 10) {
-        self.super.name = string::tformat("%s_%s%d", self.parent.desktop.name, self.super.name.tconcat("0"), self.super.id);
+        self.super.name = string::tformat("%s_%s%d", self.parent.window.name, self.super.name.tconcat("0"), self.super.id);
         if (self.bound()) {
-            self.super.name = string::tformat("%s_%s_%s%d", self.parent.desktop.name, self.parent.other.super.name, self.super.name.tconcat("0"), self.super.id);
+            self.super.name = string::tformat("%s_%s_%s%d", self.parent.window.name, self.parent.other.super.name, self.super.name.tconcat("0"), self.super.id);
         }
     } else {
-      self.super.name = string::tformat("%s_%s%d", self.parent.desktop.name, self.super.name, self.super.id);
+      self.super.name = string::tformat("%s_%s%d", self.parent.window.name, self.super.name, self.super.id);
       if (self.bound()) {
-          self.super.name = string::tformat("%s_%s_%s%d", self.parent.desktop.name, self.parent.other.super.name, self.super.name, self.super.id);
+          self.super.name = string::tformat("%s_%s_%s%d", self.parent.window.name, self.parent.other.super.name, self.super.name, self.super.id);
       }
     }
     
-    self.parent.desktop.addChild(self);
+    addChild{Widget}(self.parent.window, self);
 }
 
 <*
  @ensure return != null
 *>
-fn Desktop* Widget.getDesktop(&self) @dynamic => self.parent.desktop;
+fn UIWindow* Widget.getParentWindow(&self) @dynamic => self.parent.window;
 
 <*
  @param [in] other : "parent widget"
@@ -1075,19 +1074,19 @@ fn void Widget.unlink(&self) @inline @dynamic
     if (self.isLinked()) self.next = null;
 }
 
-fn bool Widget.hasParentDesktop(&self) @inline @dynamic
+fn bool Widget.hasParentUIWindow(&self) @inline @dynamic
 {
-    return (self.parent.desktop != null) ? true : false;
+    return (self.parent.window != null) ? true : false;
 }
 
-fn void Widget.setParentDesktop(&self, Desktop* desktop) @inline @dynamic
+fn void Widget.setParentUIWindow(&self, UIWindow* window) @inline @dynamic
 {
-    self.parent.desktop = desktop;
+    self.parent.window = window;
 }
 
-fn void Widget.releaseParentDesktop(&self) @inline @dynamic
+fn void Widget.releaseParentUIWindow(&self) @inline @dynamic
 {
-    self.parent.desktop = null;
+    self.parent.window = null;
 }
 
 fn void Widget.setColor(&self, RLColor color) @dynamic 
@@ -1270,11 +1269,11 @@ fn WidgetText* createLabel(String text, RLFont* font, int font_size, RLColor tex
 	@param font : "font to use for the label, can be null"
 	@param font_size : "font size to use for the label, must be greater than 0 to be applied"
 	@param text_color : "color of the text"
-	@param desk : "desktop to add the label to"
-	@require desk != null
+	@param uiwin : "window to add the label to"
+	@require uiwin != null
 	@require label != null
 *>
-fn void init_label(WidgetText* label, String text, RLFont* font, int font_size, RLColor text_color, Desktop* desk) @inline 
+fn void init_label(WidgetText* label, String text, RLFont* font, int font_size, RLColor text_color, UIWindow* uiwin) @inline 
 {
 	label.init();
 	label.name = label.name.tconcat(text);
@@ -1289,7 +1288,7 @@ fn void init_label(WidgetText* label, String text, RLFont* font, int font_size, 
 	// labels shouldn't be interactive (to save perf...)
 	label.deactivate();
 	label.show();
-	label.addTo(desk);
+	label.addTo(uiwin);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1515,7 +1514,7 @@ fn WidgetCheckBox* createCheckBox(String label) @inline
 module engine::gui::container::cont; //@unfinished
 
 import thirdparty::raylib5::rl;
-import engine::gui::desktop::desk;
+import engine::gui::window::uiwin;
 import engine::misc;
 import std::collections::list;
 
@@ -1552,10 +1551,10 @@ struct WidgetContainer
     ContainerQueue children;
 }
 
-macro WidgetContainer.@container(&self, Desktop* desk, ContainerParams params; @body(self)) 
+macro WidgetContainer.@container(&self, UIWindow* uiwin, ContainerParams params; @body(self)) 
 {
     self.init(params);
-    desk.addChild(self);
+    uiwin.addChild(self);
     @body(self);
 }
 
@@ -1678,7 +1677,7 @@ fn void WidgetContainer.register(&self, any child) @inline
 }
 
 //////////////////////////////////// DESKTOP //////////////////////////////////////
-module engine::gui::desktop::desk;
+module engine::gui::window::uiwin;
 
 import thirdparty::raylib5::rl;
 import engine::misc;
@@ -1694,36 +1693,32 @@ import engine::gui::guieditor;
 /*
     NOTE(HM) 
     
-    A Desktop can be thought like a OS desktop, a place 
-        where you put all icons, buttons and windows.
+    A UIWindow marked as window can be thought like a OS window, a place 
+    where you put all icons, buttons and windows.
     Is where the entire GUI construct lives.
     
     BASIC GUI creation process:
     
-    - Create a Desktop
-        Desktop main_menu;
-    - init the Desktop
-        main_menu.ini(...);
+    - Create a UIWindow
+        UIWindow main_menu;
+    - init the UIWindow
+    - if it should be the main window mark it as so
+        main_menu.ini(... isDesktop: yes);
     - create any widgets
         WidgetButton main_menu_button;
-    - init the Widget and add it to Desktop
+    - init the Widget and add it to UIWindow
         main_menu_button.init();
         main_menu_button.addTo(&main_menu);
 */
 
-// This should have been done using a list of 'any' types but I did this before
-// really knowing that was a option and now changing this is a big refactor 
-// and i'm to lazy to change this, at lest for now...
-// todo change this to use the any list bellow...
 alias ChildrenWidgetQueue = List{Widget*};
-alias ChildrenDestopQueue = List{Desktop*};
-//alias ChildrenWidgetQueue = List{any};
+alias ChildrenUIWindowQueue = List{UIWindow*};
 
-struct Desktop (SaveSystemInterface) 
+struct UIWindow (SaveSystemInterface) 
 {
     // id
     String name;
-    int number; // used to uniquily identify each desktop
+    int number; // used to uniquily identify each window
     
     // visuals
     RLRectangle rect;
@@ -1734,169 +1729,95 @@ struct Desktop (SaveSystemInterface)
     
     // flags
     bool isInteractive;
+    bool isDesktop;
     bool visible;
     bool active;
     bool loading; // when eventually we load guis from a file
-    bool keyboardInput_enabled; // if true, the desktop will receive keyboard input, otherwise it will ignore it
+    bool keyboardInput_enabled; // if true, the window will receive keyboard input, otherwise it will ignore it
     bool mouse_is_moving; // to detect mouse movement and implement hover effects
     //
-    // to handle timing while the desktop is open/active
+    // to handle timing while the window is open/active
     int time; // milliseconds
 
-    // mouse position relative to the desktop
+    // mouse position relative to the window
     Vec2f mouse_pos;
 
-    RLMusic music_stream; // any music stream that we may want to attach to a desktop
-    List{Desktop*} shared_music_stream_desktops; // list of desktops that share the same music stream
+    RLMusic music_stream; // any music stream that we may want to attach to a window
+    List{UIWindow*} shared_music_stream_desktops; // list of windows that share the same music stream
     
     // Lists
     ChildrenWidgetQueue selected; // List of selected widgets, used for multi-selection in the editor, and also to keep track of what widgets are currently selected for other purposes like changing their color or properties.
-    ChildrenWidgetQueue children;
-    // todo make a queue for hidden children to better control what to hide and show.
-	ChildrenDestopQueue childDesktops;
-    Desktop* home; // the home desktop, where we can return to
-    Desktop* previous; // for desktop linkage, so we can go back to the previous desktop
-    Desktop* next;     // for desktop linkage, so we can go to the next
+    ChildrenWidgetQueue childWidgets;
+    // todo make a queue for hidden childWidgets to better control what to hide and show.
+    ChildrenUIWindowQueue childWindows;
+    UIWindow* home; // the home window, where we can return to
+    UIWindow* previous; // for window linkage, so we can go back to the previous window
+    UIWindow* next;     // for window linkage, so we can go to the next
 }
 
-fn void Desktop.save(&self, SaveFile* file) @dynamic {
+fn void UIWindow.save(&self, SaveFile* file) @dynamic {
 // todo
 }
 
-fn void Desktop.reload(&self, SaveFile* file) @dynamic {
+fn void UIWindow.reload(&self, SaveFile* file) @dynamic {
 // todo
 }
 
-// todo init this from a file
-fn bool Desktop.initFromFile(&self, ZString path, bool cache ) 
-{
-	$if $feature(_DEBUG):
-    	@todo();
-	$else
-		return false;
-	$endif
-    //return false;
-/*
-
-	if ( !path.len ) {
-		// FIXME: Memory leak!!
-		return false;
-	}
-
-	self.loading = true;
-    
-	source = qpath;
-	state.Set( "text", "Test Text!" );
-
-	idParser src( LEXFL_NOFATALERRORS | LEXFL_NOSTRINGCONCAT | LEXFL_ALLOWMULTICHARLITERALS | LEXFL_ALLOWBACKSLASHSTRINGCONCAT );
-
-	//Load the timestamp so reload guis will work correctly
-	fileSystem->ReadFile(qpath, NULL, &timeStamp);
-
-	src.LoadFile( qpath );
-
-	if ( src.IsLoaded() ) {
-		idToken token;
-		while( src.ReadToken( &token ) ) {
-			if ( idStr::Icmp( token, "windowDef" ) == 0 ) {
-				desktop->SetDC( &uiManagerLocal.dc );
-				if ( desktop->Parse( &src, rebuild ) ) {
-					desktop->SetFlag( WIN_DESKTOP );
-					desktop->FixupParms();
-				}
-				continue;
-			}
-		}
-
-		state.Set( "name", qpath );
-	} else {
-		desktop->SetDC( &uiManagerLocal.dc );
-		desktop->SetFlag( WIN_DESKTOP );
-		desktop->name = "Desktop";
-		desktop->text = va( "Invalid GUI: %s", qpath );
-		desktop->rect = idRectangle( 0.0f, 0.0f, 640.0f, 480.0f );
-		desktop->drawRect = desktop->rect;
-		desktop->foreColor = idVec4( 1.0f, 1.0f, 1.0f, 1.0f );
-		desktop->backColor = idVec4( 0.0f, 0.0f, 0.0f, 1.0f );
-		desktop->SetupFromState();
-		common->Warning( "Couldn't load gui: '%s'", qpath );
-		loading = false;
-		return false;
-	}
-
-	interactive = desktop->Interactive();
-
-	if ( uiManagerLocal.guis.Find( this ) == NULL ) {
-		uiManagerLocal.guis.Append( this );
-	}
-
-*/
-	//self.loading = false;
-	//return true;
-}
-
+const UIWIN_NAME_PREFIX = "UIWindow_";
 <*
-    Initializes the desktop with the given name, fullscreen mode, and size.
-    If fullscreen is true, the desktop will cover the entire screen.
-    If fullscreen is false, the desktop will be initialized with the given width and height.
-    The desktop will be registered with the local manager.
+    Initializes the window with the given name.
+    if is marked as desktop, the window will cover the entire screen.
+    else the window will be initialized with the given width and height.
+    Then it will be registered with the local window manager.
     
-    @param name : "name of the desktop"
-    @param isFullscreen : "if true, the desktop will cover the entire screen"
-    @param w : "width of the desktop, used only if isFullscreen is false"
-    @param h : "height of the desktop, used only if isFullscreen is false"
+    @param name : "name of the window"
+    @param isDesktop : "if true, the window will cover the entire screen"
+    @param w : "width of the window, used only if isDesktop is false"
+    @param h : "height of the window, used only if isDesktop is false"
     @require rl::isWindowReady() == true
 *>
-fn void Desktop.init(&self, String name, bool isFullscreen = true, int w = 800, int h = 600, bool shouldRegister = false) @inline 
+fn void UIWindow.init(&self, String name, bool isDesktop = false, int w = 800, int h = 600, bool shouldRegister = false) @inline 
 {
-    self.name = string::tformat("Desktop_%s", name);
-    self.number = (int)local_manager.desktops.len() + 1;
+    self.name = string::tformat("%s%s", UIWIN_NAME_PREFIX, name);
+    self.number = (int)local_manager.windows.len() + 1;
     //
     //
-    if(isFullscreen)
-    {
+    RLRectangle rect;
+    if(isDesktop) {
+        self.isDesktop = isDesktop;
 		assert(game::gpGame.screen.w > 0 && game::gpGame.screen.h > 0, 
-			"Desktop.init: Cannot initialize fullscreen desktop when screen width or height is zero."
+			"UIWindow.init: Cannot set window desktop to fullscreen because screen width or height is zero!!"
 		);
-        self.rect = { // @hardcode
-            .x      = 0,
-            .y      = 0, 
-            .width  = game::gpGame.screen.w,
-            .height = game::gpGame.screen.h,
-        };
-    } 
-    else 
-    {
-        self.rect = { // @hardcode
-            .x      = 0,
-            .y      = 0, 
-            .width  = w,
-            .height = h,
-        };
+        rect.w = game::gpGame.screen.w;
+        rect.h = game::gpGame.screen.h;
+    } else {
+        rect.w = w;
+        rect.h = h;
     }
+    self.rect = rect;
     
     self.color = rl::WHITE;
     //
-	//NOTE(HM) by default the desktop is not active when created
-	//self.active = false; // in this language bools are set false by default
+	//NOTE(HM) by default the window is not active when created
+	//self.active = false; // in this language bools are false by default
 	//
-    self.isInteractive = true; // by default the desktop is interactive
-    self.show(); 			   // by default the desktop is visible
+    self.isInteractive = true; // by default the window is interactive
+    self.show(); 			   // by default the window is visible
     
 	if(shouldRegister) {
-        Desktop* this = self;
+        UIWindow* this = self;
         local_manager.register(this);
 	}
 }
 
-fn void Desktop.deinit(&this) @inline 
+fn void UIWindow.deinit(&this) @inline 
 {
     this.clear();
     // last clear ourself
     local_manager.unregister(this);
 }
 
-fn void Desktop.setFocus(&self, bool focus) @inline 
+fn void UIWindow.setFocus(&self, bool focus) @inline 
 {
     if (focus) {
         if(!self.active) self.activate();
@@ -1905,47 +1826,47 @@ fn void Desktop.setFocus(&self, bool focus) @inline
     }
 }
 
-fn void Desktop.setPosition(&self, float x, float y) @inline 
+fn void UIWindow.setPosition(&self, float x, float y) @inline 
 {
     self.rect.x = x;
     self.rect.y = y;
 }
 
-fn void Desktop.setPositionV(&self, Vec2f pos) @inline 
+fn void UIWindow.setPositionV(&self, Vec2f pos) @inline 
 {
     self.rect.x = pos.x;
     self.rect.y = pos.y;
 }
 
-fn Vec2f Desktop.getPosition(&self) @inline 
+fn Vec2f UIWindow.getPosition(&self) @inline 
 {
     return {self.rect.x, self.rect.y};
 }
 
-fn void Desktop.setSize(&self, float w, float h) @inline 
+fn void UIWindow.setSize(&self, float w, float h) @inline 
 {
     self.rect.width  = w;
     self.rect.height = h;
 }
 
-fn Vec2f Desktop.getSize(&self) @inline 
+fn Vec2f UIWindow.getSize(&self) @inline 
 {
     return {self.rect.width, self.rect.height};
 }
 
-fn void Desktop.activate(&self, bool activate = true, int _time = game::gpGame.time_ms) @inline 
+fn void UIWindow.activate(&self, bool activate = true, int _time = game::gpGame.time_ms) @inline 
 {
 	self.time   = _time;
 	self.active = activate;
 }
 
-fn void Desktop.deactivate(&self, int _time = game::gpGame.time_ms) @inline 
+fn void UIWindow.deactivate(&self, int _time = game::gpGame.time_ms) @inline 
 {
     self.activate(false, _time);
 }
 
-// used when the desktop state changes like some widget is added/removed or modified in some ways.
-fn void Desktop.stateChanged(&self, int _time, bool redraw ) 
+// used when the window state changes like some widget is added/removed or modified in some ways.
+fn void UIWindow.stateChanged(&self, int _time, bool redraw ) 
 {
 	self.time = _time;
 	if (redraw) {
@@ -1955,32 +1876,51 @@ fn void Desktop.stateChanged(&self, int _time, bool redraw )
 		interactive = false;
 	}
 	else {
-		if (desktop) {
-			interactive = desktop->Interactive();
+		if (window) {
+			interactive = window->Interactive();
 		} else {
 			interactive = false;
 		}
 	}*/
 }
 
-fn String Desktop.getName(&self, bool fullname = false) @inline
+fn String UIWindow.getName(&self, bool fullname = false) @inline
 {
 	if(fullname) return self.name;
-	return self.name.strip("Desktop_");
+	return self.name.strip(UIWIN_NAME_PREFIX);
 }
 
-fn void Desktop.setColor(&self, RLColor color) @inline 
+fn void UIWindow.setColor(&self, RLColor color) @inline 
 { 
 	self.color = color;
 	self.stateChanged(game::gpGame.time_ms, true);
 }
 
-// delete all down to the basic desktop
-fn void Desktop.clear(&self) @inline
+fn void UIWindow.setBackgroundTexture(&self, String image_path) @inline {
+	// TODO(HM) instead of loading textures one by one at material 
+	// parsing, instead just load all textures into RAM and create a data base
+	// then just find the texture in the data base using a special getter/manager
+	// similar to how materials are handled..
+	//self.tex = texMang::findTexture(image_path);
+
+	// or better something like this
+	// load all images/textures on disk to RLImage in normal RAM and create a data base
+	// then just use the image to create a RLTexture on GPU VRAM at usage time
+	// this sounds more efficient
+
+	// note because how materials are done now 
+	// this texture may be loaded in VRAM already by a material... :(
+	// but I need to go through all materials to try get it
+	// faster to load it again, but I need to rethink all this material system now...
+	self.tex = &&r2d::loadTexture(image_path);
+}
+
+// delete all down to the basic window
+fn void UIWindow.clear(&self) @inline
 {
-    if (self.children.len()) 
+    if (self.childWidgets.len()) 
     {
-        foreach(child: self.children) 
+        foreach(child: self.childWidgets) 
         {
             switch (child.kind) 
             {
@@ -1998,14 +1938,14 @@ fn void Desktop.clear(&self) @inline
     {
         if(self.shared_music_stream_desktops.first()!! == self) 
         {
-            // if the first desktop in the list is the same as self, then we can unload the music stream
+            // if the first window in the list is the same as self, then we can unload the music stream
             if(rl::isMusicValid(self.music_stream)) 
             {
                 // todo fade out the music stream
                 //if(rl::isMusicStreamPlaying(self.music_stream)) rl::stopMusicStream(self.music_stream);
                 rl::unloadMusicStream(self.music_stream);
 
-                // then just zero the data for the rest of the desktop's and clear the shared music desktops list.
+                // then just zero the data for the rest of the window's and clear the shared music windows list.
                 for(int i = 1; i < self.shared_music_stream_desktops.len(); i++)
                 {
                     (*self.shared_music_stream_desktops[i]).music_stream = {};
@@ -2017,31 +1957,31 @@ fn void Desktop.clear(&self) @inline
     }
 
 	if(self.tex) self.tex = null;
-	if(self.childDesktops.len()) {
-		foreach(it : self.childDesktops) {
+	if(self.childWindows.len()) {
+		foreach(it : self.childWindows) {
 			it.deinit();
 			it = null;
 		}
-		self.childDesktops.clear();
+		self.childWindows.clear();
 	}
     if(self.home     != null) self.home     = null;
     if(self.previous != null) self.previous = null;
     if(self.next     != null) self.next     = null;
 }
 
-fn bool Desktop.hidden(&self) @inline => !self.visible;
+fn bool UIWindow.hidden(&self) @inline => !self.visible;
 
-fn void Desktop.hide(&self) 
+fn void UIWindow.hide(&self) 
 {
     if(self.hidden()) return;
     
     self.visible = false;
 
-    // hide children
+    // hide childWidgets
     
-    if (self.children.len()) 
+    if (self.childWidgets.len()) 
     {
-        foreach(child: self.children) 
+        foreach(child: self.childWidgets) 
         {
            switch (child.kind) 
            {
@@ -2060,7 +2000,7 @@ fn void Desktop.hide(&self)
     }
 }
 
-fn void Desktop.show(&self) 
+fn void UIWindow.show(&self) 
 {
     if(!self.hidden()) return;
     
@@ -2068,8 +2008,8 @@ fn void Desktop.show(&self)
     
     // todo find a way to only show certain children not all
     
-    if (self.children.len()) {
-        foreach(child: self.children) {
+    if (self.childWidgets.len()) {
+        foreach(child: self.childWidgets) {
             switch (child.kind) {
                 case gui::KIND_BUTTON:
                     ((WidgetButton*)child).show(); 
@@ -2086,7 +2026,7 @@ fn void Desktop.show(&self)
     }
 }
 
-fn void Desktop.drawCursor(&self) @inline
+fn void UIWindow.drawCursor(&self) @inline
 {
     if(game::gpGame.editor.isOpened()) return;
     
@@ -2097,18 +2037,20 @@ fn void Desktop.drawCursor(&self) @inline
 	}
 }
 
-fn void Desktop.update(&self) 
+fn void UIWindow.update(&self, int _time) 
 {
     if(self.hidden() && self.active == false) return;
+
+    self.time = _time; // update gui time
 
     self.mouse_pos = rl::getMousePosition(); //- self.getPosition();
     self.mouse_is_moving = rl::getMouseDelta().length_sq() >= 1; // this will be zero if the mouse is not moving, and greater than zero if it is moving
 
     self.keyboardInput_enabled = !self.mouse_is_moving && rl::getCharPressed() != 0;
 
-    if (self.children.len())
+    if (self.childWidgets.len())
     {
-        foreach(child: self.children)
+        foreach(child: self.childWidgets)
         {
             switch (child.kind)
             {
@@ -2150,7 +2092,7 @@ fn void Desktop.update(&self)
     }
 }
 
-fn void Desktop.redraw(&self, int _time)  
+fn void UIWindow.redraw(&self, int _time)  
 {
     if(self.hidden()) return;
     
@@ -2162,7 +2104,7 @@ fn void Desktop.redraw(&self, int _time)
 		self.time = _time;
 	}
     
-    // draw Desktop background
+    // draw UIWindow background
     if(self.tex) {
         assert(rl::isTextureValid(*self.tex));
         rl::drawTexture(*self.tex, (int)self.rect.x, (int)self.rect.y, self.color);
@@ -2174,10 +2116,10 @@ fn void Desktop.redraw(&self, int _time)
 
     //r2d::drawCircleV(self.mouse_pos, 5, rl::RED); // debug mouse position
     
-    // draw Desktop widgets children
-    if (self.children.len())
+    // draw UIWindow widgets childWidgets
+    if (self.childWidgets.len())
     {
-        foreach(child: self.children) 
+        foreach(child: self.childWidgets) 
         {
            switch (child.kind) 
            {
@@ -2195,8 +2137,8 @@ fn void Desktop.redraw(&self, int _time)
 
 	// TODO(HM) drawing of child windows if they exist
 	// Warning: right now this crashs the game
-	/*if(self.childDesktops.len()) {
-		foreach(child: self.childDesktops) 
+	/*if(self.childWindows.len()) {
+		foreach(child: self.childWindows) 
         {
             child.draw(_time);
         }
@@ -2205,49 +2147,67 @@ fn void Desktop.redraw(&self, int _time)
     self.debug();
 }
 
-<*
-    Draws this desktop, but only if is the currently active GUI in the game,
-    if not draws the other active desktop instead.
-    This is a function that should be called from the main game loop.
-    
-    @param self : "the current desktop instance"
-    @param time : "the current time in milliseconds"    
-*>
-fn void Desktop.draw(&self, int time) {
-    Desktop* guiActive = game::gpGame.guiActive;
+/*
+    Draws this window, but only if is the currently active GUI in the game,
+    if not draws the other active window instead.
+    This is a function that should be called from the main game loop.   
+*/
+fn void UIWindow.draw(&this) {
+    UIWindow* guiActive = game::gpGame.guiActive;
 
-    if ( guiActive ) {
-		guiActive.redraw(time);
+    if ( guiActive == this ) {
+		guiActive.redraw(this.time);
 	}
 }
 
-fn void Desktop.addChild(&self, Widget* child) @inline 
+macro UIWindow.getDesktop(&self)
 {
-    self.children.push(child);
+    if(self.isDesktop) return self;
+    foreach(uiwin : local_manager.windows) {
+        if(uiwin.isDesktop && uiwin.childWindows.len()) 
+        { // see if this window is part of this desktop
+            foreach(it : uiwin.childWindows) {
+                if(it.name == self.name) {
+                    return uiwin; // this is our parent window
+                }
+            }
+        }
+    }
 }
 
-macro Desktop.@addChild(&self, Widget* child; @body(self)) 
+fn void addChild(UIWindow* w, void* child) <Type>
 {
-    self.addChild(child);
-    @body(self);
+    switch(Type.typeid)
+    {
+        case Widget.typeid: 
+            w.childWidgets.push((Widget*)child);
+        case UIWindow.typeid: 
+            w.childWindows.push((UIWindow*)child);
+        default: unreachable();
+    }
 }
 
-macro Desktop.@addChildren(&self; @body(self))
+fn Widget* UIWindow.getChildWidget(&self, int id)
 {
-    @body(self);
-}
-
-macro Desktop.getChild(&self, int id) 
-{
-    Widget* child = self.children[id];
+    Widget* child = self.childWidgets[id];
     if (child == null) {
-        log::warning(CONSOLE, "Cannot get child %d from %s because is null.", id, self.super.name);
+        log::warning(FILE, "Cannot get child widget %d from %s because return was null.", id, self.name);
         return null;
     }
     return child;
 }
 
-fn void Desktop.debug(&self) 
+fn UIWindow* UIWindow.getChildWindow(&self, int id)
+{
+    UIWindow* child = self.childWindows[id];
+    if (child == null) {
+        log::warning(FILE, "Cannot get child window %d from %s because return was null.", id, self.name);
+        return null;
+    }
+    return child;
+}
+
+fn void UIWindow.debug(&self) 
 {
     if(gui::ui_debugDraw.getBool())
     {
@@ -2291,11 +2251,11 @@ fn void Desktop.debug(&self)
         String time = string::tformat("GUI TIME: \"%s\"", self.time);
         rl::drawText(time.zstr_tcopy(), (int)dbg_text_pos.x, (int)dbg_text_pos.y, 9, rl::RED);
         
-        // draw the children BBox
-        // now handle our children
-        if (self.children.len()) 
+        // draw the childWidgets BBox
+        // now handle our childWidgets
+        if (self.childWidgets.len()) 
         {
-            foreach(child: self.children)
+            foreach(child: self.childWidgets)
             {
                if(child.selected) continue;
                
@@ -2317,7 +2277,8 @@ fn void Desktop.debug(&self)
     }
 }
 
-//////////////////////////////////// DESKTOP MANAGER //////////////////////////////////////
+//#region window_manager
+////////////////////////////////// WINDOW MANAGER //////////////////////////////////////
 
 constdef GUIMode : inline int
 {
@@ -2325,65 +2286,63 @@ constdef GUIMode : inline int
     EDITOR
 }
 
-alias DesktopList = List{Desktop*};
+alias UIWindowList = List{UIWindow*};
 
 // NOTE(HM) TODO(HM) Rename to MenuOS?
-// Every user GUI should have at lest one Desktop,
+// Every user GUI should have at lest one UIWindow,
 // is a data structure to put everything that makes up a user GUI inside.
-struct DesktopManager 
+struct UIWindowManager 
 {
-    DesktopList desktops;
+    UIWindowList windows;
     GUIMode mode;
 }
 
-DesktopManager local_manager @local;
-DesktopManager* gpManager = &local_manager;
+UIWindowManager local_manager @local;
+UIWindowManager* gpManager = &local_manager;
 
 <*
- @param [&in] _desk : "the desktop to register"
+ @param [&in] _uiwin : "the window to register"
 *>
-fn void DesktopManager.register(&self, Desktop* _desk) @inline 
+fn void UIWindowManager.register(&self, UIWindow* _uiwin) @inline 
 {
-    foreach(desk : self.desktops) {
-        if(desk.name == _desk.name) {
-            log::warning(Where.CONSOLE, "Cannot register \"%s\" because is already registered.", desk.name);
+    foreach(uiwin : self.windows) {
+        if(uiwin.name == _uiwin.name) {
+            log::warning(FILE, "Cannot register \"%s\" because is already registered.", uiwin.name);
             return;
         }
     }
-    
-    self.desktops.push(_desk);
+    self.windows.push(_uiwin);
 }
 
 <*
- @param [in] name : "name of desktop to fetch/get"
+ @param [in] name : "name of window to fetch/get"
 *>
-fn Desktop* DesktopManager.get(&self, String name) @inline 
+fn UIWindow* UIWindowManager.get(&self, String name) @inline 
 {
-    foreach(desk : self.desktops) {
-        if(desk.name.strip("Desktop_") == name) {
-            return desk;
+    foreach(uiwin : self.windows) {
+        if(uiwin.name.strip(UIWIN_NAME_PREFIX) == name) {
+            return uiwin;
         }
     }
     return null;
 }
 
 <*
- @param [&inout] _desk : "the desktop to remove"
+ @param [&inout] _uiwin : "the window to remove"
 *>
-fn void DesktopManager.unregister(&self, Desktop* _desk) @inline 
+fn void UIWindowManager.unregister(&self, UIWindow* _uiwin) @inline 
 {
-    foreach(desk : self.desktops) {
-        if(desk.name == _desk.name) {
-            self.desktops.remove_item(desk);
-            desk = null;
+    foreach(uiwin : self.windows) {
+        if(uiwin.name == _uiwin.name) {
+            self.windows.remove_item(uiwin);
+            uiwin = null;
             return;
         }
     }
 }
 
-fn void DesktopManager.update(&self) 
+fn void UIWindowManager.update(&self, int _time) 
 {
-
     /*if(ui_editGui.getBool()) {
         // enable edit mode
         if(self.mode != EDITOR) self.editor(true);
@@ -2391,56 +2350,61 @@ fn void DesktopManager.update(&self)
         // disable edit mode
        if(self.mode == EDITOR) self.editor(false);
     }*/
-    self.editor(gui::ui_editGui.getBool());
+    self.enable_editor_mode(gui::ui_editGui.getBool());
 
-    usz desktop_count = self.desktops.len();
-    if(desktop_count >= 1) {
-        foreach(desk: self.desktops) {
-            if(desk.active) {
-                desk.update();
+    usz wind_count = self.windows.len();
+    if(wind_count >= 1) 
+    {
+        foreach(uiwin: self.windows) 
+        {
+            if(uiwin.active) 
+            {
+                uiwin.update(_time);
                 if(self.mode == EDITOR && !game::gpGame.editor.focused()) {
                     // put something here
                 }
 
                 if(gui::ui_editGui.getBool()) {
-                    guieditor::update(desk);
+                    guieditor::update(uiwin);
                 }
             }
         }
     }
 }
 
-fn void DesktopManager.draw(&self, int screenWidth, int screenHeight) @inline 
+fn void UIWindowManager.draw(&self, int screenWidth, int screenHeight) @inline 
 {
-
-    usz desktop_count = self.desktops.len();
-    if(desktop_count >= 1) {
-        foreach(desk: self.desktops) {
-            desk.draw(game::gpGame.time_ms);
+    usz windows_count = self.windows.len();
+    if(windows_count >= 1) 
+    {
+        foreach(uiwin: self.windows) 
+        {
+            uiwin.draw();
             
             if(self.mode == EDITOR && !game::gpGame.editor.isOpened()) {
-                //drawGuiEditor(desk); TODO(HM) draw this through the new editor
+                //drawGuiEditor(uiwin); TODO(HM) draw this through the new editor
             }
 
             if(gui::ui_editGui.getBool()) {
                 // draw the gui editor
-                guieditor::draw(desk);
+                guieditor::draw(uiwin);
             }
         }
     }
 }
 
-fn void DesktopManager.free(&self) 
+fn void UIWindowManager.free(&self) 
 {
-    if(self.desktops.len()) foreach(desk: self.desktops) desk.deinit();
-    
-    self.desktops.free();
+    if(self.windows.len()) foreach(uiwin: self.windows) uiwin.deinit();
+    self.windows.free();
 }
 
-fn void DesktopManager.editor(&self, bool choice = false) 
+fn void UIWindowManager.enable_editor_mode(&self, bool choice = false) 
 {
     self.mode = (choice) ? EDITOR : NORMAL;
 }
+
+//#endregion window_manager
 
 module engine::gui::immediate::imui;
 
@@ -2705,7 +2669,7 @@ fn bool doButton(IMUI_Context* ctx, String name, String label, Vec2f pos)
 module engine::gui::guieditor;
 
 import thirdparty::raylib5::rl;
-import engine::gui::desktop::desk;
+import engine::gui::window::uiwin;
 import thirdparty::raygui5::rgui;
 import engine::logging::log;
 import game::main;
@@ -2745,7 +2709,7 @@ fn void enable_widget_debug()  @local @inline => gui::ui_debugDraw.set("1");
 fn void disable_widget_debug() @local @inline => gui::ui_debugDraw.set("0");
 fn bool is_widget_debug_on()   @local @inline => gui::ui_debugDraw.getBool();
 
-fn bool enabled() @inline => desk::gpManager.mode == EDITOR;
+fn bool enabled() @inline => uiwin::gpManager.mode == EDITOR;
 fn bool as_focus() @inline {
     return (enabled() && game.editor.focused());
 }
@@ -2769,11 +2733,11 @@ fn void move_selected(Widget* wgt)
     }
 }
 
-fn void update(Desktop* mng) 
+fn void update(UIWindow* mng) 
 {
     if(!mng || enabled() == false) return;
     
-    foreach(wgt : mng.children) 
+    foreach(wgt : mng.childWidgets) 
     {
         if(wgt.selected) {
             if(rl::isKeyPressed(rl::KEY_ESCAPE)) {
@@ -2785,7 +2749,7 @@ fn void update(Desktop* mng)
     }
 }
 
-fn void draw(Desktop* mng) 
+fn void draw(UIWindow* mng) 
 {
     if(!mng || enabled() == false) return;
     

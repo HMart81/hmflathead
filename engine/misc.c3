@@ -573,7 +573,7 @@ macro RLRectangle @recFromVecs(#vec1, #vec2) => (RLRectangle) {#vec1.x, #vec1.y,
 // region RLTexture stuff
 // WARNING(HM) Raylib doesn't support .tga's with RLE compression...
 
-fn bool rl::RLTexture2D.isInvalid(&self) @inline {
+fn bool RLTexture2D.isInvalid(&self) @inline {
     if(self.id      == 0 &&  // OpenGL texture id
        self.width   == 0 &&  // RLTexture base width
        self.height  == 0 &&  // RLTexture base height
@@ -582,7 +582,6 @@ fn bool rl::RLTexture2D.isInvalid(&self) @inline {
       {
         return true;
       }
-        
     return false;
 }
 // end_region

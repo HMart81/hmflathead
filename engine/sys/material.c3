@@ -2034,6 +2034,23 @@ fn bool check_material_existance(String name, MTRFile* mtr_file = null) @inline 
 }
 
 <*
+    /*Performance*/ This will probably be very slow with many mtr files and material definitions...
+    TODO(HM) make this faster by using a hash table
+    @param [in] name : "name of the material"
+    @require name.len > 0
+*>
+fn RLTexture2D* getTextureFromLoadedMaterials(String name) @inline @public
+{
+	// todo
+    /*foreach(mtr: local_material_db.data) {
+        if(mat.name == name.removeExtension()) {
+			return mtr.getTexture(DIFFUSE);
+        }
+    }*/
+	return null;
+}
+
+<*
 	@param [&in] db : "the material database to register the mtr file in"
 	@param [&inout] mtr : "the mtr file to register"
 *>

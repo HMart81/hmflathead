@@ -52,7 +52,7 @@ import engine::logging::log;
 // region defines
 //alias assetManager = astmng::assetManager @private;
 //alias WidgetQueue  = List{Widget*};
-//alias DesktopList  = List{Action*};
+//alias UIWindowList  = List{Action*};
 alias ActionQueue    = List{Action*};
 alias ActionCallBack = fn void(args...);
 // end_region

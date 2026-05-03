@@ -33,21 +33,21 @@ module game::gui::menu;
 /*
     GUI creation process:
 
-    - Create a Desktop
-    	Desktop main_menu;
-    - init the Desktop
+    - Create a UIWindow
+    	UIWindow main_menu;
+    - init the UIWindow
     	main_menu.ini(...);
     - create any children panels/widgets
     	WidgetButton main_menu_button;
-    - init the Widget and add it to Desktop
+    - init the Widget and add it to UIWindow
     	main_menu_button.init();
     	main_menu_button.addTo(&main_menu);
 
     or
 
-    - Create a Desktop
-    	Desktop menu;
-    - init the Desktop
+    - Create a UIWindow
+    	UIWindow menu;
+    - init the UIWindow
     	menu.ini(...);
 	- add children using the addChildren block
 		menu.@addChildren() 
@@ -84,14 +84,14 @@ alias gpGame @local = game::gpGame;
 const SCREEN_TOP_CORNER = (Vec2f) {0.0f, 0.0f}; // In Raylib the top-left corner is (0,0), is different from OpenGL where the bottom-left corner is (0,0)
 // end_region
 
-fn Desktop* getActiveMenu() @local @inline 
+fn UIWindow* getActiveMenu() @local @inline 
 {
 	return game::gpGame.guiActive;
 }
 
-fn void setGUI(Desktop* menu) 
+fn void setGUI(UIWindow* menu) 
 {
-    Desktop* guiActive;
+    UIWindow* guiActive;
 
     // if the menu is set to null, deactivate the current menu
 	if (menu == null) 
@@ -137,7 +137,7 @@ fn void setGUI(Desktop* menu)
     guiActive.setFocus(true);
 }
 
-fn void start(Desktop* gui) 
+fn void start(UIWindow* gui) 
 {
     // if already started
 	if ( getActiveMenu() == gui ) {
@@ -160,7 +160,7 @@ fn void start(Desktop* gui)
 	//console->Close();
 }
 
-fn void stop(Desktop* guiActive = getActiveMenu()) 
+fn void stop(UIWindow* guiActive = getActiveMenu()) 
 {
 	// clear mapSpawned
 	//UnloadMap();
@@ -211,7 +211,7 @@ fn void exit()
     @param [&in] bdef : "button callbacks definition struct pointer"
     @ensure return != null : "pointer to the created checkbox"
 *>
-fn WidgetCheckBox* Desktop.create_menu_checkbox(&self, String text, MenuButtonDef* bdef) @inline 
+fn WidgetCheckBox* UIWindow.create_menu_checkbox(&self, String text, MenuButtonDef* bdef) @inline 
 {
     WidgetCheckBox* checkbox = gui::createCheckBox("Checkbox 1");
     checkbox.setColor(rl::DARKGRAY);
@@ -238,15 +238,15 @@ fn WidgetCheckBox* Desktop.create_menu_checkbox(&self, String text, MenuButtonDe
 	@param [in] name : "checkbox name"
 	@param [in] label : "checkbox label text"
 	@param [&in] bdef : "button callbacks definition struct pointer"
-	@param [&inout] desk : "desktop to add the checkbox to"
+	@param [&inout] uiwin : "window to add the checkbox to"
 *>
-fn void init_checkbox(WidgetCheckBox* chk, String name, String label, MenuButtonDef* bdef, Desktop* desk) 
+fn void init_checkbox(WidgetCheckBox* chk, String name, String label, MenuButtonDef* bdef, UIWindow* uiwin) 
 {
 	chk.init();
 	chk.setName(name);
 	chk.setLabel(label);
     chk.setColor(rl::DARKGRAY);
-    chk.addTo(desk);
+    chk.addTo(uiwin);
     // set the checkbox properties
     chk.onOver        = bdef.cbs[CallBack.OVER]; // &button_onOver;
     chk.onStopOver    = bdef.cbs[CallBack.STOP_OVER]; // &button_onStopOver;
@@ -260,11 +260,11 @@ fn void init_checkbox(WidgetCheckBox* chk, String name, String label, MenuButton
     if(chk.onLoad) chk.onLoad(chk);
 }
 
-fn WidgetText* Desktop.create_menu_label(&self, String text, RLFont* font, int font_size, RLColor color) @inline 
+fn WidgetText* UIWindow.create_menu_label(&self, String text, RLFont* font, int font_size, RLColor color) @inline 
 {
     WidgetText* label = gui::createLabel(text, font, font_size, color);
-    Desktop* desktop = self;
-    label.addTo(desktop);
+    UIWindow* window = self;
+    label.addTo(window);
     return label;
 }
 
@@ -297,7 +297,7 @@ struct MenuButtonDef
     @param [&in] bdef : "button cbs definition struct pointer"
     @ensure return != null : "pointer to the created button"
 *>
-macro WidgetButton* Desktop.create_menu_button(&self, Vec2f pos, String text, MenuButtonDef* bdef) @local 
+macro WidgetButton* UIWindow.create_menu_button(&self, Vec2f pos, String text, MenuButtonDef* bdef) @local 
 {
     WidgetButton* button = gui::createButton();
     button.addTo(self);
@@ -345,7 +345,7 @@ constdef Desk : inline int @local
 	EXTRA
 }
 
-fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
+fn UIWindow* mainMenuCreate(int screenWidth, int screenHeight)
 {
     // Menu creation
     Vec2f screen_center       = game::gpGame.view.origin; //(Vec2f) {(float)screenWidth/2.0f, (float)screenHeight / 2.0f};
@@ -353,19 +353,19 @@ fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
     float screen_half_height  = screen_center.y;
     Vec2f screen_top_center   = {screen_half_width, 0.0f};
 
-    Desktop* desk_main = mem::new(Desktop);
-    desk_main.init("MainMenu", shouldRegister: true);
+    UIWindow* desk_main = mem::new(UIWindow);
+    desk_main.init("MainMenu", isDesktop: true, shouldRegister: true);
     desk_main.setColor(rl::DARKGRAY);
-	// TODO(HM) change the concept of child desktops
+	// TODO(HM) change the concept of child windows
 	// to something like child windows, because right now
-	// I can only have one desktop open at the time...
-	// So when opening the child desktop the parent gets hidden...
-	// Need to find a way to have a desktop with more windows/pages.
-	desk_main.childDesktops.reserve(Desk.len);
-	// create options desk
-	desk_main.childDesktops.insert_at(Desk.OPTIONS, mem::new(Desktop));
-    Desktop* desk_options = desk_main.childDesktops.get(Desk.OPTIONS);
-    desk_options.init("OptionsMenu", isFullscreen: false, shouldRegister: true);
+	// I can only have one window open at the time...
+	// So when opening the child window the parent gets hidden...
+	// Need to find a way to have a window with more windows/pages.
+	desk_main.childWindows.reserve(Desk.len);
+	// create options uiwin
+	desk_main.childWindows.insert_at(Desk.OPTIONS, mem::new(UIWindow));
+    UIWindow* desk_options = desk_main.childWindows.get(Desk.OPTIONS);
+    desk_options.init("OptionsMenu", shouldRegister: true);
     Vec2f desk_options_center = screen_center - desk_options.getSize() / 2.0f; 
     desk_options.setPositionV({
         desk_options_center.x,
@@ -378,10 +378,10 @@ fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
     desk_options.home = desk_main;
     desk_options.previous = desk_main;
 
-	// create extra desk
-	desk_main.childDesktops.insert_at(Desk.EXTRA, mem::new(Desktop));
-    Desktop* desk_extra = desk_main.childDesktops.get(Desk.EXTRA);
-    desk_extra.init("ExtraMenu", isFullscreen: false, shouldRegister: true);
+	// create extra uiwin
+	desk_main.childWindows.insert_at(Desk.EXTRA, mem::new(UIWindow));
+    UIWindow* desk_extra = desk_main.childWindows.get(Desk.EXTRA);
+    desk_extra.init("ExtraMenu", shouldRegister: true);
     desk_extra.setPositionV({
         desk_options_center.x,
         desk_options_center.y
@@ -402,7 +402,7 @@ fn Desktop* mainMenuCreate(int screenWidth, int screenHeight)
         unreachable("music stream not valid: %s", music_path);
     }
     desk_options.music_stream = desk_main.music_stream; // share the same music stream
-    // add the desktops to the shared music stream list
+    // add the windows to the shared music stream list
     desk_main.shared_music_stream_desktops.push(desk_main);
     desk_main.shared_music_stream_desktops.push(desk_options);
 
@@ -750,11 +750,11 @@ fn void options_button_onPress(any widget)
 fn void options_button_onSinglePress(any widget) 
 {
     button_onSinglePress(widget);
-    Desktop* active_menu = getActiveMenu();
+    UIWindow* active_menu = getActiveMenu();
 	if(active_menu.getName() == "MainMenu")
     {
-        //Desktop* next_menu = desk::gpManager.get("MainMenu");
-        Desktop* next_menu = active_menu.childDesktops.get(Desk.OPTIONS);
+        //UIWindow* next_menu = uiwin::gpManager.get("MainMenu");
+        UIWindow* next_menu = active_menu.childWindows.get(Desk.OPTIONS);
         if(next_menu != null)
         {
             stop(active_menu); // clear the current menu
@@ -763,7 +763,7 @@ fn void options_button_onSinglePress(any widget)
     }
     /*if(active_menu) 
     {
-        Desktop* next_menu = active_menu.next;
+        UIWindow* next_menu = active_menu.next;
         if(next_menu != null)
         {
             stop(active_menu); // clear the current menu
@@ -774,8 +774,8 @@ fn void options_button_onSinglePress(any widget)
     //log::info(Where.CONSOLE, "Pressed Count = %s.", ((WidgetButton*)widget).press_count);
     // TODO(HM) 
     //  Need to create a options menu
-    //  I have two options, one create a new Desktop
-    //  or two reuse the main menu desktop and create a overlay "window"
+    //  I have two options, one create a new UIWindow
+    //  or two reuse the main menu window and create a overlay "window"
     //  thou for the overlay I will have to handle overlaping widgets...
     //gui::setGui();
 }
@@ -783,15 +783,15 @@ fn void options_button_onSinglePress(any widget)
 fn void back_button_options_onPress(any widget) 
 {
     button_onPress(widget);
-    Desktop* active_menu = getActiveMenu();
+    UIWindow* active_menu = getActiveMenu();
 	if(active_menu) {
-        Desktop* next_menu;
+        UIWindow* next_menu;
 		switch(active_menu.getName())
 		{
 			case "MainMenu": break; 
 			case "OptionsMenu":
 			case "ExtraMenu":
-				next_menu = desk::gpManager.get("MainMenu");
+				next_menu = uiwin::gpManager.get("MainMenu");
 			default: unreachable();
 		}
         if(next_menu != null)
@@ -801,7 +801,7 @@ fn void back_button_options_onPress(any widget)
         }
     }
     /*if(active_menu && active_menu.previous != null) {
-        Desktop* next_menu = active_menu.previous;
+        UIWindow* next_menu = active_menu.previous;
         if(next_menu != null)
         {
             stop(active_menu); // clear the current menu

@@ -863,7 +863,7 @@ RLAPI void rlLoadDrawQuad(void);     // Load and draw a quad
     #define GL_GLEXT_PROTOTYPES
     #include <GLES2/gl2ext.h>           // OpenGL ES 2.0 extensions library
 #elif defined(GRAPHICS_API_OPENGL_ES2)
-    // NOTE: OpenGL ES 2.0 can be enabled on Desktop platforms,
+    // NOTE: OpenGL ES 2.0 can be enabled on UIWindow platforms,
     // in that case, functions are loaded from a custom glad for OpenGL ES 2.0
     #if defined(PLATFORM_DESKTOP_GLFW) || defined(PLATFORM_DESKTOP_SDL)
         #define GLAD_GLES2_IMPLEMENTATION
