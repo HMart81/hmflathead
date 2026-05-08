@@ -35,7 +35,7 @@ import std::math;
 import std::collections::list;
 import game::lowlevel::bounds;
 //import game::projectiles::ammo;
-import game::serialize::svs; // save system
+import engine::serialize::svs; // save system
 import game::main;
 //import game::actors::ent;
 import engine::physics::box2d;
@@ -328,7 +328,7 @@ import std::core::mem; // for malloc/new
 import std::math;
 import std::collections::list;
 import engine::misc;
-import game::serialize::svs; // save system
+import engine::serialize::svs; // save system
 import game::main;
 //import ent;
 import thirdparty::raylib5::rl;

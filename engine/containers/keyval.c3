@@ -26,7 +26,7 @@
 # 
 *********************************************************************************************************************************************/
 
-module engine::collections::keyval;
+module engine::collections::kv;
 
 struct KeyVal <Key, Val>
 {
@@ -45,14 +45,15 @@ fn bool KeyVal.nequl(&self, KeyVal kv ) @operator(!=)
 }
 
 
-
+/*
 /*
 ===============================================================================
 	Dynamic Array module
 	Does not allocate memory until the first item is added.
 
 	NOTE: // Inspired by PhillipTrudeau code while making the Silent Hill 2 editor
-		  // (update) c3 lib already has a dynamic array implementation... List...
+		  // (update) c3 lib already has a dynamic array implementation called... 
+		  // List...
 ===============================================================================
 */
 module engine::collections::dynamic_array::dyarr;

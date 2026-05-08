@@ -35,7 +35,7 @@ import std::io;
 import std::collections::list;
 import game::main; // for file logging or console logging
 import engine::misc;
-import game::serialize::svs;
+import engine::serialize::svs;
 import engine::sys::cvar;
 import engine::logging::log;
 import engine::filesystem::fs;

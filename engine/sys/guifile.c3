@@ -35,7 +35,7 @@ import engine::misc;
 import engine::sys::framework::glsl;
 import std::io, std::math;
 import game::material::mtr;
-import game::serialize::svs;
+import engine::serialize::svs;
 import game::material::manager::mtrmng;
 import engine::logging::log;
 import engine::filesystem::fs;

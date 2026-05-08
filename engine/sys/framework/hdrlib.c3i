@@ -38,21 +38,28 @@ import std::collections;
 import thirdparty::library::xml;
 import engine::logging::log;
 
-// in HDR10 only 10bits of color matter the rest are ignored
-// so the extra 6bits will be ignored and always zero :(
+// WARNING(HM) This colors are wastfull and only needed for very
+// limited cases like HDR sky colors or special light colors
+// for everything else like texture tinting norml RLColor 8bit colors should be used!!!
+// yes even in HDR.
+
+// HDR10 only uses 10bits of color the rest are ignored
+// so the extra 6bits, of each channel will be ignored and always zero :(
 // unless someone in the future has a 16bits HDR monitor and wants to 
 // use larger values...
 // NOTE(HM) you can have negative colors in HDR
-bitstruct HMColor : long
+bitstruct HDRColor : long
 {
-	// HDR 16-bit color (because you can't have 10bits ones...)
+	// HDR 16-bit color (you can use negative numbers)
     short r : 0..15;  // red value
     short g : 16..31; // green value
     short b : 32..47; // blue value
-    short a : 48..63; // alpha will always be 0...255
+	// 
+    short a : 48..63; // alpha is a ushort always from 0...255 only, 
+	// makes no sense to have negative alpha or larger values
 }
 
-macro bool HMColor.eql(&self, HMColor other) @operator(==)
+macro bool HDRColor.eql(&self, HDRColor other) @operator(==)
 {
     return ( self.r == other.r &&
              self.g == other.g &&
@@ -60,7 +67,7 @@ macro bool HMColor.eql(&self, HMColor other) @operator(==)
              self.a == other.a );
 }
 
-macro bool HMColor.neql(&self, HMColor other) @operator(!=)
+macro bool HDRColor.neql(&self, HDRColor other) @operator(!=)
 {
     return ( self.r != other.r ||
              self.g != other.g ||
@@ -68,42 +75,25 @@ macro bool HMColor.neql(&self, HMColor other) @operator(!=)
              self.a != other.a );
 }
 
-/*macro @hexToHDRColor($hexValue)
+macro @hexToHDRColor($hexValue)
 {
   var rgbColor = HDRColors.WHITE;
   rgbColor.r = (short)(($hexValue >> 16) & 0x400); // Extract the RR byte
   rgbColor.g = (short)(($hexValue >> 8) & 0x400);  // Extract the GG byte
   rgbColor.b = (short)(($hexValue) & 0x400);       // Extract the BB byte
   return rgbColor;
-}*/
+}
 
-enum HDRColors :  (inline HMColor clr)
+// HDR 16-bit hex color (you can use negative numbers)
+constdef HDRColors : inline long
 {
-	TRANSPARENT  {{ 0, 0, 0, 0 }},
 	// pure colors
-	BLACK        {{ 0, 0, 0, 1024 }},         // Black
-	GRAY         {{ 512, 512, 512, 1024 }},   // Gray
-	WHITE        {{ 1024, 1024, 1024, 1024 }},   // White
-	RED          {{ 1024, 0, 0, 1024 }},     // Red
-	GREEN        {{ 0, 1024, 0, 1024 }},      // Green
-	BLUE         {{ 0, 0, 1024, 1024 }},     // Blue
-	///
-	LIGHTGRAY    {{ 400, 400, 400, 1024 }},   // Light Gray
-	DARKGRAY     {{ 130, 130, 130, 1024 }},   // Dark Gray
-	YELLOW       {{ 253, 249, 0, 1024 }},     // Yellow
-	GOLD         {{ 1024, 203, 0, 1024 }},     // Gold
-	ORANGE       {{ 1024, 161, 0, 1024 }},     // Orange
-	PINK         {{ 1024, 109, 194, 1024 }},   // Pink
-	MAROON       {{ 190, 33, 55, 1024 }},     // Maroon
-	LIME         {{ 0, 158, 47, 1024 }},      // Lime
-	DARKGREEN    {{ 0, 117, 44, 1024 }},      // Dark Green
-	SKYBLUE      {{ 102, 191, 1024, 1024 }},   // Sky Blue
-	DARKBLUE     {{ 0, 82, 172, 1024 }},      // Dark Blue
-	PURPLE       {{ 200, 122, 1024, 1024 }},   // Purple
-	VIOLET       {{ 135, 60, 190, 1024 }},    // Violet
-	DARKPURPLE   {{ 112, 31, 126, 1024 }},    // Dark Purple
-	BEIGE        {{ 211, 176, 131, 1024 }},   // Beige
-	BROWN        {{ 127, 106, 79, 1024 }},    // Brown
-	DARKBROWN    {{ 76, 63, 47, 1024 }},      // Dark Brown
-	MAGENTA      {{ 1024, 0, 1024, 1024 }},     // Magenta
+	WHITE        = (long)0x0400_0400_0400_00FF,
+	GRAY         = (long)0x0200_0200_0200_00FF,
+	BLACK        = (long)0x0000_0000_0000_00FF,
+	RED          = (long)0x0400_0000_0000_00FF,
+	GREEN        = (long)0x0000_0400_0000_00FF,
+	BLUE         = (long)0x0000_0000_0400_00FF,
+	// non pure colors
+	DEEP_BLACK   = (long)0xFC00_FC00_FC00_00FF
 }

@@ -61,7 +61,7 @@ import thirdparty::angel; // AngelScript engine
 //
 import game::assets::sprite;
 //import game::assets::part; // particles
-import game::serialize::svs; // save system
+import engine::serialize::svs; // save system
 import game::logic::timer;
 import engine::tools::editor;
 import engine::logging::log;

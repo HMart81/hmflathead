@@ -35,7 +35,7 @@ import engine::misc;
 import engine::sys::framework::glsl;
 import std::io, std::math;
 import game::material::mtr;
-import game::serialize::svs;
+import engine::serialize::svs;
 import game::material::manager::mtrmng;
 import engine::logging::log;
 import engine::filesystem::fs;
@@ -1350,7 +1350,7 @@ import game::material::mat;
 import std::io, std::math;
 import game::main; // for file logging or console logging
 import engine::misc;
-import game::serialize::svs;
+import engine::serialize::svs;
 import game::material::manager::mtrmng;
 import engine::logging::log;
 import engine::filesystem::fs;
@@ -1378,19 +1378,21 @@ faultdef MTR_INVALID_PATH,
 	     MTR_RETRIVAL_ERROR,
 	     MTR_MISSING;
 
-// NOTE(HM) This represents every usefull node in the mtr xml file 
+// NOTE(HM) This represents every used xml node in the mtr file 
 constdef Node : inline String @public
 {
-    ROOT             = "MTR",
-    TEXT             = "#text",
+	// high case
+    ROOT             = "MTR",  // root of the mtr file, all material data is defined inside this root
     MATERIAL         = "MATERIAL",
+	// lower case
+    TEXT             = "#text",
     COMMENT          = "comments",
     MAPS             = "maps",
     MAP              = "map",
-    BLEND            = "blend", // used for blending two textures together
-    VIDEO_MAP        = "video_map",
-    KEYWORD          = "keyword", // global or stage keywords
-    COLOR            = "color",
+    BLEND            = "blend", // used for blending two or more textures together
+    VIDEO_MAP        = "video_map", // to play videos on materials @todo
+    KEYWORD          = "keyword", // used for globals or stages keywords
+    COLOR            = "color",    // used for colors, seperated by comma and normalized float values from 0 to 1 (1.0, 1.0, 1.0, 1.0) or 8bit (255, 255, 255, 255)
     ALBEDO           = "albedo",
     NORMAL           = "normal",
     SPECULAR         = "specular",
@@ -1700,6 +1702,7 @@ fn HMaterial* MTRFile.parse_material(&self, XmlNode* in_node)
 // #region private
 //////////////////
 <*
+	@Untested
     Converts a xml normalized <color>1 1 1 1</color> node
     into a 0 to 255 low dynamic range raylib RLColor.
     @param [in] _value : "xml color value"
@@ -1709,9 +1712,25 @@ fn HMaterial* MTRFile.parse_material(&self, XmlNode* in_node)
 fn RLColor xmlStrColorToColor(String _value) @public
 {
     RLColor result;
-    String[] chars = _value.tsplit(" ");
+	String data = _value;
+	bool has_comma, is8Bit;
+	has_comma = data.contains(",");
+	if(data.contains_char('.')) {
+		assert(data.count(".") == 4);
+	} else {
+		is8Bit = true; // assuming is 8 bits if no dot is not used...
+	}
 
-    bool is_all_ones;
+	String[] chars;
+	if(has_comma) // remove spaces
+	{
+		data.remove_spaces();
+		chars = data.tsplit(",");
+	} else { // seperate by the spaces
+		chars = data.tsplit(" ");
+	}
+
+    /*bool is_all_ones;
     char* c;
     int i;
     do {
@@ -1720,13 +1739,26 @@ fn RLColor xmlStrColorToColor(String _value) @public
         if(c == "1") {is_all_ones = true;}
         else {is_all_ones = false;}
         i++;
-    } while(c);
+    } while(c);*/
 
-    bool is_normalized_color = (_value.contains_char('.') || is_all_ones);
+    //bool is_normalized_color = (_value.contains_char('.') || is_all_ones);
+    bool is_normalized_color = !is8Bit;
 
+	char[4] values;
     if(is_normalized_color) 
     {
-        float? value = chars[0].to_float();
+		foreach(i, d : chars) {
+			float? value = d.to_float();
+			if(catch excuse = value) {
+				values[i] = 255;
+				$if $feature(_DEBUG):
+					unreachable(string::tformat("excuse = %s",excuse));
+				$endif
+			} else {
+				values[i] = (char)misc::@mapValueRangeToOther(value, 0.0f, 1.0f, 0, 255);
+			}
+		}
+        /*float? value = chars[0].to_float();
         if(catch excuse = value) {
             result.r = 255;
         } else {
@@ -1749,8 +1781,22 @@ fn RLColor xmlStrColorToColor(String _value) @public
             result.a = 255;
         } else {
             result.a = (char)misc::@mapValueRangeToOther(value, 0.0f, 1.0f, 0, 255);
-        }
+        }*/
     } else {
+		assert(is8Bit);
+		foreach(i, d : chars) {
+			char? value = d.to_uchar();
+			if(catch excuse = value) {
+				values[i] = 255;
+				$if $feature(_DEBUG):
+					unreachable(string::tformat("excuse = %s",excuse));
+				$endif
+			} else {
+				// clamp color value
+				values[i] = (value <= 255) ? value : 255;
+			}
+		}
+		/*
         char? value;
 
         value = chars[0].to_uchar();
@@ -1777,8 +1823,13 @@ fn RLColor xmlStrColorToColor(String _value) @public
         } else {
             result.a = (value <= 255) ? value : 255;
         }
+		*/
     }
     
+	result.r = values[0];
+	result.g = values[1];
+	result.b = values[2];
+	result.a = values[3];
     return result;
 }
 

@@ -53,7 +53,7 @@ import thirdparty::raylib5::rl;
 import thirdparty::raygui5::rgui;
 import engine::sys::render2d::r2d;
 import thirdparty::raylib5::rmath;
-import game::serialize::svs; // save system
+import engine::serialize::svs; // save system
 import game::lowlevel::bounds;
 import game::material::mat;
 import engine::logging::log;

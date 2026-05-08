@@ -40,7 +40,7 @@ import thirdparty::tracy;  // profiling
 import engine::misc;
 import game::assets::sprite;
 import game::material::mat; // material system
-import game::serialize::svs; // save system
+import engine::serialize::svs; // save system
 import engine::sys::cvar;
 import game::lowlevel::bounds;
 import engine::physics::box2d;

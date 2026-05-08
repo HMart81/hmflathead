@@ -18,7 +18,9 @@ const PATHSEPERATOR_CHAR @if(env::POSIX) = '/';
 const NULL @if(!$defined(NULL)) = ((void *)0);
 macro int @bit($num) @if(!$defined(@bit)) => ( 1 << $num );
 
-const MAX_STRING_CHARS = 1024;		// max length of a string
+const MAX_STRING_CHARS = 1024; // max length of a string
+const MAX_PATH_CHARS @if(env::WIN32) = 260;	   // max length of a path including drive letter
+const MAX_PATH_CHARS @if(env::POSIX) = 4096;   // max length of a path
 
 // maximum world size
 const MAX_WORLD_COORD = ( 128 * 1024 );

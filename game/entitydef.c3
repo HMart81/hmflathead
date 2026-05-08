@@ -317,7 +317,7 @@ import game::entitydef::mat;
 import std::io, std::math;
 import game::main; // for file logging or console logging
 import engine::misc;
-import game::serialize::svs;
+import engine::serialize::svs;
 import game::entitydef::manager::mtrmng;
 import engine::logging::log;
 import engine::filesystem::fs;

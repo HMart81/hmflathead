@@ -55,7 +55,7 @@ import engine::logging::log;
 import game::main;
 import game::camview;
 import game::actors::ent;
-import game::serialize::svs; // save system
+import engine::serialize::svs; // save system
 import engine::sys::cvar;
 import thirdparty::raylib5::rl;
 import thirdparty::raygui5::rgui;
@@ -63,9 +63,9 @@ import engine::sys::render2d::r2d; // 2D rendering
 // end_region
 
 // region cvars
-CVar ui_debugDraw   @public = { "ui_debugDraw",   CvFlag.BOOL, "0", "show debug visualization for gui development, 0, 1, true, false" };
+CVar ui_debugDraw   @public = { "ui_debugDraw",   CvFlag.BOOL, "1", "show debug visualization for gui development, 0, 1, true, false" };
 CVar ui_editGui     @public = { "ui_editGui",     CvFlag.BOOL, "0", "turn on gui editing functionality for gui development, 0, 1, true, false" };
-CVar ui_showAnchors @public = { "ui_showAnchors", CvFlag.BOOL, "0", "toggles the view of the anchor points on each gui widget, requires ui_debugDraw to be on as well." };
+CVar ui_showAnchors @public = { "ui_showAnchors", CvFlag.BOOL, "1", "toggles the view of the anchor points on each gui widget, requires ui_debugDraw to be on as well." };
 
 fn void register_cvars() @public 
 {
@@ -180,13 +180,17 @@ fn usz? Panel.to_format(&self, Formatter* f) @dynamic
     }`, self.id, self.name, self.shape, self.rect.x, self.rect.y, self.rect.width, self.rect.height, self.color.r, self.color.g, self.color.b, self.color.a, (self.mat != null) ? self.mat.name : "null");
 }
 
+/* #region Anchors */
+
 <*
-	@require self.rect != rl::EMPTY_RECT
+	init anchor points
+	@param [&in] obj : "to init the anchors for"
+	@require obj.rect != rl::EMPTY_RECT
 *>
-fn void Panel.initAchors(&self) @inline
+fn void initAnchors(Type* obj) <Type>
 {
     // init the anchors to attach stuff in guis
-	RLRectangle rect = self.rect;
+	RLRectangle rect = obj.rect;
 	GuiAnchor[AnchorType.values.len] anchors;
 	anchors[AnchorType.TOP_LEFT]      = {0, 0};
     anchors[AnchorType.TOP_CENTER]    = {rect.w / 2, 0};
@@ -197,51 +201,68 @@ fn void Panel.initAchors(&self) @inline
     anchors[AnchorType.BOTTOM_LEFT]   = {0, rect.h};
     anchors[AnchorType.BOTTOM_CENTER] = {rect.w / 2, rect.h};
     anchors[AnchorType.BOTTOM_RIGHT]  = {rect.w, rect.h};
-	self.anchor.reserve(AnchorType.values.len);
-	self.anchor.init_with_array(mem, anchors[..]);
-}
-
-fn void Panel.updateAchors(&self, Vec2f new_size) @inline
-{
-	if(new_size == VEC2_ZERO) return;
-
-    // init the anchors to attach stuff in guis
-    self.anchor[AnchorType.TOP_CENTER]  = {new_size.x / 2, 0};
-    self.anchor[AnchorType.TOP_RIGHT]   = {new_size.x, 0};
-    self.anchor[AnchorType.CENTER_LEFT] = {0, new_size.y / 2};
-    self.anchor[AnchorType.CENTER]      = {new_size.x / 2,new_size.y / 2};
-    self.anchor[AnchorType.CENTER_RIGHT]  = {new_size.x, new_size.y / 2};
-    self.anchor[AnchorType.BOTTOM_LEFT]   = {0, new_size.y};
-    self.anchor[AnchorType.BOTTOM_CENTER] = {new_size.x / 2, new_size.y};
-    self.anchor[AnchorType.BOTTOM_RIGHT]  = {new_size.x, new_size.y};
+	obj.anchor.reserve(AnchorType.values.len);
+	obj.anchor.init_with_array(mem, anchors[..]);
 }
 
 <*
-	Display a Panel anchor points
-	@param [&in] panel : "the panel to show the anchors for"
+	update anchor points for obj
+	@param [&in] obj : "to update the anchors for"
+	@require obj.rect != rl::EMPTY_RECT
 *>
-fn void drawAchors(Panel* panel) @inline
+fn void updateAnchors(Type* obj, Vec2f new_size) <Type>
+{
+	if(new_size == VEC2_ZERO) return;
+
+    obj.anchor[AnchorType.TOP_CENTER]    = {new_size.x / 2, 0};
+    obj.anchor[AnchorType.TOP_RIGHT]     = {new_size.x, 0};
+    obj.anchor[AnchorType.CENTER_LEFT]   = {0, new_size.y / 2};
+    obj.anchor[AnchorType.CENTER]        = {new_size.x / 2,new_size.y / 2};
+    obj.anchor[AnchorType.CENTER_RIGHT]  = {new_size.x, new_size.y / 2};
+    obj.anchor[AnchorType.BOTTOM_LEFT]   = {0, new_size.y};
+    obj.anchor[AnchorType.BOTTOM_CENTER] = {new_size.x / 2, new_size.y};
+    obj.anchor[AnchorType.BOTTOM_RIGHT]  = {new_size.x, new_size.y};
+}
+
+<*
+	Display anchor points
+	@param [&in] obj : "to show the anchors for"
+*>
+fn void drawAnchors(Type* obj) <Type>
 {
     if(!ui_showAnchors.getBool()) return;
 
-	Vec2f origin = panel.rect.pos;
+	Vec2f origin = obj.rect.pos;
 	//r2d::drawSquare(origin ,8, rl::BLACK);
-	r2d::drawSquare(origin + panel.anchor[AnchorType.TOP_LEFT],     4, rl::RED);
-    r2d::drawSquare(origin + panel.anchor[AnchorType.TOP_CENTER],   4, rl::GREEN);
-    r2d::drawSquare(origin + panel.anchor[AnchorType.TOP_RIGHT],    4, rl::BLUE);
-    r2d::drawSquare(origin + panel.anchor[AnchorType.CENTER_LEFT],  4, rl::MAROON);
-    r2d::drawSquare(origin + panel.anchor[AnchorType.CENTER],       4, rl::LIME); 
-    r2d::drawSquare(origin + panel.anchor[AnchorType.CENTER_RIGHT], 4, rl::SKYBLUE);
-    r2d::drawSquare(origin + panel.anchor[AnchorType.BOTTOM_LEFT],  4, rl::VIOLET); 
-    r2d::drawSquare(origin + panel.anchor[AnchorType.BOTTOM_CENTER],4, rl::ORANGE);
-    r2d::drawSquare(origin + panel.anchor[AnchorType.BOTTOM_RIGHT], 4, rl::MAGENTA);
+	r2d::drawSquare(origin + obj.anchor[AnchorType.TOP_LEFT],     4, rl::RED);
+    r2d::drawSquare(origin + obj.anchor[AnchorType.TOP_CENTER],   4, rl::GREEN);
+    r2d::drawSquare(origin + obj.anchor[AnchorType.TOP_RIGHT],    4, rl::BLUE);
+    r2d::drawSquare(origin + obj.anchor[AnchorType.CENTER_LEFT],  4, rl::MAROON);
+    r2d::drawSquare(origin + obj.anchor[AnchorType.CENTER],       4, rl::LIME); 
+    r2d::drawSquare(origin + obj.anchor[AnchorType.CENTER_RIGHT], 4, rl::SKYBLUE);
+    r2d::drawSquare(origin + obj.anchor[AnchorType.BOTTOM_LEFT],  4, rl::VIOLET); 
+    r2d::drawSquare(origin + obj.anchor[AnchorType.BOTTOM_CENTER],4, rl::ORANGE);
+    r2d::drawSquare(origin + obj.anchor[AnchorType.BOTTOM_RIGHT], 4, rl::MAGENTA);
 }
+
+<*
+	get anchor point for gui obj
+	@param [&in] obj : "to get the anchor for"
+	@param idx : "index of anchor to get"
+	@require idx >= 0 && idx < AnchorType.values.len
+*>
+fn Vec2f getAnchor(Type* obj, int idx) <Type>
+{
+	return obj.anchor[idx];
+}
+
+/* #endregion Anchors */
 
 fn void Panel.initRec(&self, RLRectangle rect, RLColor color) @inline
 {
     self.rect  = rect;
     self.color = color;
-	self.initAchors();
+	initAnchors{Panel}(self);
 }
 
 fn void Panel.initV(&self, Vec2f pos, Vec2f size, RLColor color) @inline
@@ -330,7 +351,7 @@ fn void Panel.setSize(&self, float w, float h) @inline
 	}
     self.rect.width  = w;
     self.rect.height = h;
-	self.updateAchors({w, h});
+	updateAnchors{Panel}(self, {w, h});
 }
 
 <*
@@ -977,6 +998,11 @@ fn bool Widget.isInWidget(&self, int x, int y) @dynamic
     return rl::checkCollisionPointRec(point, self.rect) ? true : false;
 }
 
+fn Vec2f Widget.getAnchor(&self, int idx) @inline 
+{
+    return getAnchor{Panel}(&self.super, idx);
+}
+
 <*
  @param [in] window : "parent window"
  @require window != null
@@ -1005,7 +1031,7 @@ fn void Widget.addTo(&self, UIWindow* window) @dynamic
       }
     }
     
-    addChild{Widget}(self.parent.window, self);
+    self.parent.window.addChildWidget(self);
 }
 
 <*
@@ -1511,7 +1537,7 @@ fn WidgetCheckBox* createCheckBox(String label) @inline
 }
 
 //////////////////////////////////// CONTAINER //////////////////////////////////////
-module engine::gui::container::cont; //@unfinished
+module engine::gui::container::cont; //@UNFINISHED !!!
 
 import thirdparty::raylib5::rl;
 import engine::gui::window::uiwin;
@@ -1682,7 +1708,7 @@ module engine::gui::window::uiwin;
 import thirdparty::raylib5::rl;
 import engine::misc;
 import game::main;
-import game::serialize::svs;
+import engine::serialize::svs;
 import std::collections::list;
 import engine::logging::log;
 import engine::sys::render2d::r2d;
@@ -1732,6 +1758,7 @@ struct UIWindow (SaveSystemInterface)
     bool isDesktop;
     bool visible;
     bool active;
+	bool selected; // for editor stuff
     bool loading; // when eventually we load guis from a file
     bool keyboardInput_enabled; // if true, the window will receive keyboard input, otherwise it will ignore it
     bool mouse_is_moving; // to detect mouse movement and implement hover effects
@@ -1741,12 +1768,13 @@ struct UIWindow (SaveSystemInterface)
 
     // mouse position relative to the window
     Vec2f mouse_pos;
+	List{GuiAnchor} anchor;
 
     RLMusic music_stream; // any music stream that we may want to attach to a window
     List{UIWindow*} shared_music_stream_desktops; // list of windows that share the same music stream
     
     // Lists
-    ChildrenWidgetQueue selected; // List of selected widgets, used for multi-selection in the editor, and also to keep track of what widgets are currently selected for other purposes like changing their color or properties.
+    //ChildrenWidgetQueue selected; // List of selected widgets, used for multi-selection in the editor, and also to keep track of what widgets are currently selected for other purposes like changing their color or properties.
     ChildrenWidgetQueue childWidgets;
     // todo make a queue for hidden childWidgets to better control what to hide and show.
     ChildrenUIWindowQueue childWindows;
@@ -1776,7 +1804,7 @@ const UIWIN_NAME_PREFIX = "UIWindow_";
     @param h : "height of the window, used only if isDesktop is false"
     @require rl::isWindowReady() == true
 *>
-fn void UIWindow.init(&self, String name, bool isDesktop = false, int w = 800, int h = 600, bool shouldRegister = false) @inline 
+fn void UIWindow.init(&self, String name, bool isDesktop = false, int w = 800, int h = 600, bool shouldRegister = true) @inline 
 {
     self.name = string::tformat("%s%s", UIWIN_NAME_PREFIX, name);
     self.number = (int)local_manager.windows.len() + 1;
@@ -1795,6 +1823,8 @@ fn void UIWindow.init(&self, String name, bool isDesktop = false, int w = 800, i
         rect.h = h;
     }
     self.rect = rect;
+
+	initAnchors{UIWindow}(self);
     
     self.color = rl::WHITE;
     //
@@ -1809,6 +1839,63 @@ fn void UIWindow.init(&self, String name, bool isDesktop = false, int w = 800, i
         local_manager.register(this);
 	}
 }
+
+// delete all down to the basic window
+fn void UIWindow.clear(&self) @inline
+{
+    if (self.childWidgets.len()) 
+    {
+        foreach(child: self.childWidgets) 
+        {
+            switch (child.kind) 
+            {
+                case gui::KIND_BUTTON:
+                    ((WidgetButton*)child).deinit(); 
+                case gui::KIND_TEXT:
+                    ((WidgetText*)child).deinit(); 
+                default:
+                    child.deinit();
+            }
+        }
+    }
+
+	self.anchor.clear();
+
+    if(self.shared_music_stream_desktops.len()) 
+    {
+        if(self.shared_music_stream_desktops.first()!! == self) 
+        {
+            // if the first window in the list is the same as self, then we can unload the music stream
+            if(rl::isMusicValid(self.music_stream)) 
+            {
+                // todo fade out the music stream
+                //if(rl::isMusicStreamPlaying(self.music_stream)) rl::stopMusicStream(self.music_stream);
+                rl::unloadMusicStream(self.music_stream);
+
+                // then just zero the data for the rest of the window's and clear the shared music windows list.
+                for(int i = 1; i < self.shared_music_stream_desktops.len(); i++)
+                {
+                    (*self.shared_music_stream_desktops[i]).music_stream = {};
+                }
+
+                self.shared_music_stream_desktops.clear();
+            }
+        } 
+    }
+
+	if(self.tex) self.tex = null;
+	if(self.childWindows.len()) {
+		foreach(it : self.childWindows) {
+			it.deinit();
+			it = null;
+		}
+		self.childWindows.clear();
+	}
+    if(self.home     != null) self.home     = null;
+    if(self.previous != null) self.previous = null;
+    if(self.next     != null) self.next     = null;
+}
+
 
 fn void UIWindow.deinit(&this) @inline 
 {
@@ -1830,12 +1917,14 @@ fn void UIWindow.setPosition(&self, float x, float y) @inline
 {
     self.rect.x = x;
     self.rect.y = y;
+    self.stateChanged(game::gpGame.time_ms, true);
 }
 
 fn void UIWindow.setPositionV(&self, Vec2f pos) @inline 
 {
     self.rect.x = pos.x;
     self.rect.y = pos.y;
+    self.stateChanged(game::gpGame.time_ms, true);
 }
 
 fn Vec2f UIWindow.getPosition(&self) @inline 
@@ -1847,6 +1936,7 @@ fn void UIWindow.setSize(&self, float w, float h) @inline
 {
     self.rect.width  = w;
     self.rect.height = h;
+    self.stateChanged(game::gpGame.time_ms, true);
 }
 
 fn Vec2f UIWindow.getSize(&self) @inline 
@@ -1872,6 +1962,7 @@ fn void UIWindow.stateChanged(&self, int _time, bool redraw )
 	if (redraw) {
 		self.redraw(_time);
 	}
+	updateAnchors{UIWindow}(self, self.rect.size);
 	/*if ( state.GetBool( "noninteractive" ) ) {
 		interactive = false;
 	}
@@ -1913,60 +2004,6 @@ fn void UIWindow.setBackgroundTexture(&self, String image_path) @inline {
 	// but I need to go through all materials to try get it
 	// faster to load it again, but I need to rethink all this material system now...
 	self.tex = &&r2d::loadTexture(image_path);
-}
-
-// delete all down to the basic window
-fn void UIWindow.clear(&self) @inline
-{
-    if (self.childWidgets.len()) 
-    {
-        foreach(child: self.childWidgets) 
-        {
-            switch (child.kind) 
-            {
-                case gui::KIND_BUTTON:
-                    ((WidgetButton*)child).deinit(); 
-                case gui::KIND_TEXT:
-                    ((WidgetText*)child).deinit(); 
-                default:
-                    child.deinit();
-            }
-        }
-    }
-
-    if(self.shared_music_stream_desktops.len()) 
-    {
-        if(self.shared_music_stream_desktops.first()!! == self) 
-        {
-            // if the first window in the list is the same as self, then we can unload the music stream
-            if(rl::isMusicValid(self.music_stream)) 
-            {
-                // todo fade out the music stream
-                //if(rl::isMusicStreamPlaying(self.music_stream)) rl::stopMusicStream(self.music_stream);
-                rl::unloadMusicStream(self.music_stream);
-
-                // then just zero the data for the rest of the window's and clear the shared music windows list.
-                for(int i = 1; i < self.shared_music_stream_desktops.len(); i++)
-                {
-                    (*self.shared_music_stream_desktops[i]).music_stream = {};
-                }
-
-                self.shared_music_stream_desktops.clear();
-            }
-        } 
-    }
-
-	if(self.tex) self.tex = null;
-	if(self.childWindows.len()) {
-		foreach(it : self.childWindows) {
-			it.deinit();
-			it = null;
-		}
-		self.childWindows.clear();
-	}
-    if(self.home     != null) self.home     = null;
-    if(self.previous != null) self.previous = null;
-    if(self.next     != null) self.next     = null;
 }
 
 fn bool UIWindow.hidden(&self) @inline => !self.visible;
@@ -2165,105 +2202,144 @@ macro UIWindow.getDesktop(&self)
     if(self.isDesktop) return self;
     foreach(uiwin : local_manager.windows) {
         if(uiwin.isDesktop && uiwin.childWindows.len()) 
-        { // see if this window is part of this desktop
-            foreach(it : uiwin.childWindows) {
-                if(it.name == self.name) {
-                    return uiwin; // this is our parent window
+        { // see if this window is a child of the found desktop
+            foreach(child : uiwin.childWindows) {
+                if(child.name == self.name) {
+                    return uiwin; // this is our parent desktop so return it
                 }
             }
         }
     }
 }
 
-fn void addChild(UIWindow* w, void* child) <Type>
+// set how many child windows are inside this other window (imagined as "pages")
+fn void UIWindow.setPageCount(&self, int count) => self.childWindows.reserve(count);
+
+<*
+    @param [&in] child : "child to register/add to the window"
+    @param  idx : "index where to put the child, if -1 this is ignored"
+*>
+fn void UIWindow.addChildWidget(&self, Widget* child, isz idx = -1 )
 {
-    switch(Type.typeid)
-    {
-        case Widget.typeid: 
-            w.childWidgets.push((Widget*)child);
-        case UIWindow.typeid: 
-            w.childWindows.push((UIWindow*)child);
-        default: unreachable();
+    if(idx >= 0) {
+        self.childWidgets.insert_at(idx, child);
+    } else {
+        self.childWidgets.push(child);
     }
 }
 
-fn Widget* UIWindow.getChildWidget(&self, int id)
+<*
+    @param [&inout] child : "child to register/add to the window"
+    @param  idx : "index where to put the child, if -1 this is ignored"
+*>
+fn UIWindow* UIWindow.addChildWindow(&self, UIWindow* child, isz idx = -1 )
 {
-    Widget* child = self.childWidgets[id];
-    if (child == null) {
-        log::warning(FILE, "Cannot get child widget %d from %s because return was null.", id, self.name);
-        return null;
-    }
-    return child;
-}
-
-fn UIWindow* UIWindow.getChildWindow(&self, int id)
-{
-    UIWindow* child = self.childWindows[id];
-    if (child == null) {
-        log::warning(FILE, "Cannot get child window %d from %s because return was null.", id, self.name);
-        return null;
+    if(idx >= 0) {
+        self.childWindows.insert_at(idx, child);
+    } else {
+        self.childWindows.push(child);
     }
     return child;
 }
 
-fn void UIWindow.debug(&self) 
+<*
+    @param idx : "index of the child widget to get"
+    @ensure return != null
+*>
+fn Widget* UIWindow.getChildWidget(&self, int idx) @nodiscard
+{
+    return self.childWidgets.get(idx);
+}
+
+<*
+    @param idx : "index of the child window to get"
+    @ensure return != null
+*>
+fn UIWindow* UIWindow.getChildWindow(&self, int idx) @nodiscard
+{
+    return self.childWindows.get(idx);
+}
+
+
+/////////////////////////////////////// DEBUG STUFF ///////////////////////
+/////
+macro UIWindow.debugDrawBorder(&self) @local
+{
+	if(self.isDesktop) {
+		r2d::drawRectangleLinesEx(self.rect, 2.0f, rl::RED);
+	} else{
+		r2d::drawRectangleLinesEx(self.rect, 1.5f, rl::YELLOW);
+	}
+}
+
+macro UIWindow.debugDrawName(&self) @local
+{
+	Vec2f pos = getAnchor{UIWindow}(self, AnchorType.TOP_LEFT);
+	pos += misc::VEC_RIGHT * 50;
+    pos += misc::VEC_DOWN * 50;
+	ZString wind_name = string::tformat("GUI: \"%s\"", self.name).zstr_tcopy();
+	if(self.isDesktop) {
+        rl::drawText(wind_name, (int)pos.x, (int)pos.y, 9, rl::RED);
+	} else{
+        rl::drawText(wind_name, (int)pos.x, (int)pos.y, 9, rl::BLACK);
+	}
+}
+
+macro UIWindow.debugDrawWindTime(&self) @local
+{
+	ZString time = string::tformat("GUI TIME: \"%s\"", self.time).zstr_tcopy();
+	Vec2f pos = getAnchor{UIWindow}(self, AnchorType.TOP_LEFT);
+	pos += misc::VEC_RIGHT * 50;
+    pos += misc::VEC_DOWN * 100;
+	if(self.isDesktop) {
+    	rl::drawText(time, (int)pos.x, (int)pos.y, 9, rl::RED);
+	} else{
+    	rl::drawText(time, (int)pos.x, (int)pos.y, 9, rl::BLACK);
+	}
+}
+
+macro UIWindow.debugDrawCoords(&self) @local
+{
+	float rect_x = self.rect.x;
+	float rect_y = self.rect.y;
+	float rect_w = self.rect.w;
+	float rect_h = self.rect.h;
+	Vec2f pos = getAnchor{UIWindow}(self, AnchorType.TOP_LEFT);
+	pos += misc::VEC_RIGHT * 50;
+    pos += misc::VEC_DOWN * 150;
+	rl::drawText(
+		string::tformat("(w:%dpx, h:%dpx) : (w:%d%%, h:%d%%)", rect_x, rect_y, 
+		((rect_x * 100) / rect_w), ((rect_y * 100) / rect_h)).zstr_tcopy(),
+		(int)pos.x, (int)pos.y, 9, rl::RED
+	);
+}
+
+fn void UIWindow.debug(&self, bool showHidden = true) 
 {
     if(gui::ui_debugDraw.getBool())
     {
-        int scr_w, scr_h;
-        float lineThick  = 1.0f;
-        scr_w = game::gpGame.screen.w;
-        scr_h = game::gpGame.screen.h;
-/*
-        Vec2f w_startPos; // = {0, 0};
-        Vec2f h_startPos; // = {0, 0};
-        // draw a background grid
-        for(int i = 0; i < scr_w; i++) {
-            for(int j = 0; j < scr_h; j++) {
-                rl::drawLineEx( 
-                    h_startPos, 
-                    (h_startPos + misc::VEC_RIGHT * scr_w), 
-                    lineThick, rl::GRAY
-                );
-                float h_line_seperation = (0.05f * scr_w);
-                h_startPos += (Vec2f){h_line_seperation, 0};
-            }
-            rl::drawLineEx(
-                w_startPos, 
-                (w_startPos + misc::VEC_DOWN * scr_h), 
-                lineThick, rl::GRAY
-            );
-            float w_line_seperation = (0.05f * scr_h);
-            w_startPos += (Vec2f){0, w_line_seperation};
-        }
-*/
-        // draw a react around the destop area itself
-        r2d::drawRectangleLinesEx(self.rect, 2.0f, rl::RED);
-        // show destop name
-        Vec2f dbg_text_pos;
-        dbg_text_pos += misc::VEC_RIGHT * (0.10f * scr_w);
-        dbg_text_pos += misc::VEC_DOWN * (0.05f * scr_h);
-        String desktop_name = string::tformat("GUI: \"%s\"", self.name);
-        rl::drawText(desktop_name.zstr_tcopy(), (int)dbg_text_pos.x, (int)dbg_text_pos.y, 9, rl::RED);
-        // show destop time
-        dbg_text_pos += misc::VEC_DOWN * (0.025f * scr_h);
-        String time = string::tformat("GUI TIME: \"%s\"", self.time);
-        rl::drawText(time.zstr_tcopy(), (int)dbg_text_pos.x, (int)dbg_text_pos.y, 9, rl::RED);
-        
+        float lineThick    = 1.0f;
+        // show desktop window border in a diferent color
+		self.debugDrawBorder();
+        // show the Window name
+		self.debugDrawName();
+        // draw window time
+        self.debugDrawWindTime();
+        // window size
+		self.debugDrawCoords();
+
         // draw the childWidgets BBox
-        // now handle our childWidgets
         if (self.childWidgets.len()) 
         {
             foreach(child: self.childWidgets)
             {
                if(child.selected) continue;
-               
+               Vec2f dbg_text_pos = getAnchor{Widget}(child, AnchorType.TOP_LEFT);
                dbg_text_pos = {child.rect.x, child.rect.y};
                dbg_text_pos += misc::VEC_UP * (0.30f * child.rect.height); 
                rl::drawText(
                     string::tformat("(w:%dpx, h:%dpx) : (w:%d%%, h:%d%%)", child.rect.x, child.rect.y, 
-                    ((child.rect.x * 100) / scr_w), ((child.rect.y * 100) / scr_h)).zstr_tcopy(),
+                    ((child.rect.x * 100) / self.rect.w), ((child.rect.y * 100) / self.rect.h)).zstr_tcopy(),
                     (int)dbg_text_pos.x, (int)dbg_text_pos.y, 9, rl::RED
                );
                if(!gui::ui_showAnchors.getBool()) {
@@ -2271,7 +2347,20 @@ fn void UIWindow.debug(&self)
                     r2d::drawCircle((int)child.rect.x, (int)child.rect.y, 2.0f, rl::SKYBLUE);
                }
                r2d::drawRectangleLinesEx(child.rect, 1.5f, rl::RED);
-               gui::drawAchors(child);
+               gui::drawAnchors{Widget}(child);
+            }
+        }
+
+		// draw the childWindows BBox (will show even hidden windows)
+        if (self.childWindows.len()) 
+        {
+            foreach(child: self.childWindows)
+            {
+               if(child.selected) continue;
+			   child.debugDrawBorder();
+			   self.debugDrawName();
+			   self.debugDrawWindTime();
+               gui::drawAnchors{UIWindow}(child);
             }
         }
     }
@@ -2674,7 +2763,7 @@ import thirdparty::raygui5::rgui;
 import engine::logging::log;
 import game::main;
 import engine::misc;
-//import game::serialize::svs;
+//import engine::serialize::svs;
 //import std::collections::list;
 
 alias game = game::gpGame;

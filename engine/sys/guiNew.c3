@@ -41,7 +41,7 @@ import engine::logging::log;
 import game::main;
 import game::camview;
 import game::actors::ent;
-import game::serialize::svs; // save system
+import engine::serialize::svs; // save system
 import engine::sys::cvar;
 import thirdparty::raylib5::rl;
 import thirdparty::raygui5::rgui;
@@ -1685,7 +1685,7 @@ module engine::gui::window::uiwin;
 import thirdparty::raylib5::rl;
 import engine::misc;
 import game::main;
-import game::serialize::svs;
+import engine::serialize::svs;
 import std::collections::list;
 import engine::logging::log;
 import engine::sys::render2d::r2d;
@@ -2377,7 +2377,7 @@ import thirdparty::raygui5::rgui;
 import engine::logging::log;
 import game::main;
 import engine::misc;
-//import game::serialize::svs;
+//import engine::serialize::svs;
 //import std::collections::list;
 
 alias game = game::gpGame;

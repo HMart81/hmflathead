@@ -39,7 +39,7 @@ import std::io;
 // region custom imports
 import thirdparty::raylib5::rl;
 import engine::misc;
-import game::serialize::svs; // save system
+import engine::serialize::svs; // save system
 // end
 
 struct Timer (SaveSystemInterface) {

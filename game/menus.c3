@@ -203,7 +203,8 @@ fn void exit()
 
 
 //////////////////////////////////////////////////////////////////
-//////////////////////// region MAIN MENU ////////////////////////
+/* #region MAIN MENU */
+
 <*
     Create a checkbox for the menu
 
@@ -339,11 +340,11 @@ macro WidgetButton* UIWindow.create_menu_button(&self, Vec2f pos, String text, M
     return button;
 }
 
-constdef Desk : inline int @local
-{
-	OPTIONS = 0,
-	EXTRA
-}
+
+// Main Meny extra windows
+const MAINMENU_OPTIONS = 0;
+const MAINMENU_EXTRA   = 1;
+const MAINMENU_PAGE_COUNT = 2; // update this is more consts are define above this
 
 fn UIWindow* mainMenuCreate(int screenWidth, int screenHeight)
 {
@@ -354,40 +355,38 @@ fn UIWindow* mainMenuCreate(int screenWidth, int screenHeight)
     Vec2f screen_top_center   = {screen_half_width, 0.0f};
 
     UIWindow* desk_main = mem::new(UIWindow);
-    desk_main.init("MainMenu", isDesktop: true, shouldRegister: true);
+    desk_main.init("MainMenu", isDesktop: true);
     desk_main.setColor(rl::DARKGRAY);
-	// TODO(HM) change the concept of child windows
-	// to something like child windows, because right now
-	// I can only have one window open at the time...
-	// So when opening the child window the parent gets hidden...
-	// Need to find a way to have a window with more windows/pages.
-	desk_main.childWindows.reserve(Desk.len);
-	// create options uiwin
-	desk_main.childWindows.insert_at(Desk.OPTIONS, mem::new(UIWindow));
-    UIWindow* desk_options = desk_main.childWindows.get(Desk.OPTIONS);
-    desk_options.init("OptionsMenu", shouldRegister: true);
-    Vec2f desk_options_center = screen_center - desk_options.getSize() / 2.0f; 
-    desk_options.setPositionV({
+	desk_main.setPageCount(MAINMENU_PAGE_COUNT);
+	// create window options
+    UIWindow* window_options = desk_main.addChildWindow(mem::new(UIWindow), MAINMENU_OPTIONS);
+    //UIWindow* window_options = desk_main.getChildWindow(MAINMENU_OPTIONS);
+    window_options.init("OptionsMenu");
+    Vec2f desk_options_center = screen_center - window_options.getSize() / 2.0f; 
+    window_options.setPositionV({
         desk_options_center.x,
         desk_options_center.y
         });
-    desk_options.setColor(rl::GRAY);
-    desk_options.hide();
+    window_options.setColor(rl::GRAY);
+    window_options.hide();
     // link the menus
-    desk_main.next = desk_options;
-    desk_options.home = desk_main;
-    desk_options.previous = desk_main;
+	// TODO change this to a virtual machine of states
+	// or a particular menu current state
+	// like case OPTIONS_OPEN: we are seeing the options page
+	// or even UIWindow* current_page = &desk_main;
+    desk_main.next = window_options;
+    window_options.home = desk_main;
+    window_options.previous = desk_main;
 
-	// create extra uiwin
-	desk_main.childWindows.insert_at(Desk.EXTRA, mem::new(UIWindow));
-    UIWindow* desk_extra = desk_main.childWindows.get(Desk.EXTRA);
-    desk_extra.init("ExtraMenu", shouldRegister: true);
-    desk_extra.setPositionV({
+	// create window extra
+    UIWindow* window_extra = desk_main.addChildWindow(mem::new(UIWindow), MAINMENU_EXTRA);
+    window_extra.init("ExtraMenu");
+    window_extra.setPositionV({
         desk_options_center.x,
         desk_options_center.y
         });
-    desk_extra.setColor(rl::GRAY);
-    desk_extra.hide();
+    window_extra.setColor(rl::GRAY);
+    window_extra.hide();
     
 
     String music_path = game::gpGame.app_base_folder.tconcat("music\\main_menu\\Swallow.ogg");
@@ -401,10 +400,10 @@ fn UIWindow* mainMenuCreate(int screenWidth, int screenHeight)
     if(!rl::isMusicValid(desk_main.music_stream)) {
         unreachable("music stream not valid: %s", music_path);
     }
-    desk_options.music_stream = desk_main.music_stream; // share the same music stream
+    window_options.music_stream = desk_main.music_stream; // share the same music stream
     // add the windows to the shared music stream list
     desk_main.shared_music_stream_desktops.push(desk_main);
-    desk_main.shared_music_stream_desktops.push(desk_options);
+    desk_main.shared_music_stream_desktops.push(window_options);
 
     rl::setMusicVolume(desk_main.music_stream, 1.0f);
 
@@ -517,12 +516,12 @@ fn UIWindow* mainMenuCreate(int screenWidth, int screenHeight)
     btn_def.cbs[CallBack.PRESS]        = null; //&checkbox1_onPress;
     btn_def.cbs[CallBack.SINGLE_PRESS] = &checkbox1_onSinglePress;
 
-    //WidgetCheckBox* checkbox1 = desk_options.create_menu_checkbox("Checkbox 1", &btn_def);
+    //WidgetCheckBox* checkbox1 = window_options.create_menu_checkbox("Checkbox 1", &btn_def);
     WidgetCheckBox* checkbox1 = mem::new(WidgetCheckBox);
-	init_checkbox(checkbox1, "checkbox1", "no Sound", &btn_def, desk_options);
-    offset = desk_options.getPosition();
-    offset += misc::VEC_RIGHT * (desk_options.getSize().x / 2);
-    offset += misc::VEC_DOWN * (0.20f * desk_options.getSize().y);
+	init_checkbox(checkbox1, "checkbox1", "no Sound", &btn_def, window_options);
+    offset = window_options.getPosition();
+    offset += misc::VEC_RIGHT * (window_options.getSize().x / 2);
+    offset += misc::VEC_DOWN * (0.20f * window_options.getSize().y);
     checkbox1.setPositionV(offset);
     //checkbox1.setPositionV(desk_options_center);
     //************
@@ -531,24 +530,24 @@ fn UIWindow* mainMenuCreate(int screenWidth, int screenHeight)
     btn_def.cbs[CallBack.PRESS]        = &back_button_options_onPress;
     btn_def.cbs[CallBack.SINGLE_PRESS] = &back_button_options_onSinglePress;
     
-    offset = desk_options.getPosition();
-    offset += misc::VEC_RIGHT * (0.10f * (desk_options.getSize().x / 2));
-    offset += misc::VEC_DOWN * desk_options.getSize().y;
+    offset = window_options.getPosition();
+    offset += misc::VEC_RIGHT * (0.10f * (window_options.getSize().x / 2));
+    offset += misc::VEC_DOWN * window_options.getSize().y;
     offset.y -= button_height + (0.5f * button_height);
     btn_string = gpGame.langdict.getString("4");
-    desk_options.create_menu_button(offset, btn_string/*"BACK"*/, &btn_def);
+    window_options.create_menu_button(offset, btn_string/*"BACK"*/, &btn_def);
 // end_region widgets
     
     return desk_main;
 }
 
+ /* #endregion Main Menu */
 
 
 
 
-
-
-// #region  ################ Button callbacks ##########################
+////////////////////////////////////////////////////////////////////////
+/* #region  ################ Button callbacks ########################## */
 
 // generic button callbacks
 fn void button_onLoad(any widget) 
@@ -753,8 +752,7 @@ fn void options_button_onSinglePress(any widget)
     UIWindow* active_menu = getActiveMenu();
 	if(active_menu.getName() == "MainMenu")
     {
-        //UIWindow* next_menu = uiwin::gpManager.get("MainMenu");
-        UIWindow* next_menu = active_menu.childWindows.get(Desk.OPTIONS);
+        UIWindow* next_menu = active_menu.getChildWindow(MAINMENU_OPTIONS);
         if(next_menu != null)
         {
             stop(active_menu); // clear the current menu
@@ -843,6 +841,6 @@ fn void checkbox1_onSinglePress(any widget)
         unreachable("widget %s is not a valid button!", ((Widget*)widget.ptr).name);
     }
 }
-// end_region Main Menu
 
-// end_region
+/* #endregion button callbacks */
+ 
