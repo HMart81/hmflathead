@@ -37,7 +37,7 @@ module engine::dictionary::gui @private;
 
 // region imports
 import libc;
-import std::io, std::ascii;
+import std::io, std::core::ascii;
 import engine::tokanizer::tok;
 // end_region
 

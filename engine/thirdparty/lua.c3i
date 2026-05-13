@@ -71,7 +71,7 @@ const SIGNATURE =	"\x1bLua";
 /* option for multiple returns in 'lua_pcall' and 'lua_call' */
 const MULTI_RET =	-1;
 
-const EXTRASPACE = (void*).sizeof; // space for userdata in LuaState
+const EXTRASPACE = @sizeof((void*)); // space for userdata in LuaState
 
 const I_MAXSTACK = 1000000;
 /*
@@ -215,9 +215,9 @@ alias KFunction = fn int(LUAState *state, int status, KContext ctx);
 /*
 ** Type for functions that read/write blocks when loading/dumping Lua chunks
 */
-alias LUAReader = fn ZString (LUAState *state, void *ud, usz *sz);
+alias LUAReader = fn ZString (LUAState *state, void *ud, usz *_sz);
 
-alias LUAWriter = fn int (LUAState *state, void *p, usz sz, void *ud);
+alias LUAWriter = fn int (LUAState *state, void *p, usz _sz, void *ud);
 
 /*
 ** Type for memory-allocation functions
@@ -432,7 +432,7 @@ extern fn int LUAState.rawgeti(&self, int idx, Integer n) @cname("lua_rawgeti");
 extern fn int LUAState.rawgetp(&self, int idx, void *p) @cname("lua_rawgetp");
 
 extern fn void  LUAState.createtable(&self, int narr, int nrec) @cname("lua_createtable");
-extern fn void* LUAState.newuserdatauv(&self, usz sz, int nuvalue) @cname("lua_newuserdatauv");
+extern fn void* LUAState.newuserdatauv(&self, usz _sz, int nuvalue) @cname("lua_newuserdatauv");
 extern fn int   LUAState.getmetatable(&self, int objindex) @cname("lua_getmetatable");
 extern fn int  LUAState.getiuservalue(&self, int idx, int n) @cname("lua_getiuservalue");
 

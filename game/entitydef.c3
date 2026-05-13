@@ -40,7 +40,7 @@ import engine::assets_api::astmng; // asset manager
 import engine::sys::render2d::r2d;
 import thirdparty::raylib5::rl;
 import thirdparty::library::xml;
-import std::collections::list, std::collections::tuple;
+import std::collections::list, std::collections::pair;
 // end_region
 
 /*
@@ -324,7 +324,7 @@ import engine::filesystem::fs;
 import engine::assets_api::astmng; // asset manager
 import thirdparty::raylib5::rl;
 import thirdparty::library::xml;
-import std::collections::list, std::collections::tuple;
+import std::collections::list, std::collections::pair;
 // end_region
 
 const DEF_VERSION_STRING = "1.0.0"; // the version of the file format
@@ -618,25 +618,25 @@ fn RLColor xmlStrColorToColor(String _value) @public
     
     char? value;
 
-    value = chars[0].to_uchar();
+    value = chars[0].to_char();
     if(catch excuse = value) {
         result.r = 255;
     } else {
         result.r = (value <= 255) ? value : 255;
     }
-    value = chars[1].to_uchar();
+    value = chars[1].to_char();
     if(catch excuse = value) {
         result.g = 255;
     } else {
         result.g = (value <= 255) ? value : 255;
     }
-    value = chars[2].to_uchar();
+    value = chars[2].to_char();
     if(catch excuse = value) {
         result.b = 255;
     } else {
         result.b = (value <= 255) ? value : 255;
     }
-    value = chars[3].to_uchar();
+    value = chars[3].to_char();
     if(catch excuse = value) {
         result.a = 255;
     } else {
@@ -660,7 +660,7 @@ import game::main; // for file logging or console logging
 import engine::misc;
 import game::entitydef::mtr, game::entitydef::mat;
 import engine::logging::log;
-import std::collections::list, std::collections::tuple;
+import std::collections::list, std::collections::pair;
 import engine::assets_api::astmng; // asset manager
 import engine::filesystem::fs;
 import thirdparty::raylib5::rl;

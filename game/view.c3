@@ -210,7 +210,7 @@ fn RenderTexture loadHDR_RenderTexture(int width, int height) @local // todo put
         target.depth.id = rlgl::loadTextureDepth(width, height, true);
         target.depth.width = width;
         target.depth.height = height;
-        target.depth.format = 19;       //DEPTH_COMPONENT_24BIT?
+        target.depth.format = (RLPixelFormat)19;       //DEPTH_COMPONENT_24BIT?
         target.depth.mipmaps = 1;
 
         // Attach color texture and depth renderbuffer/texture to FBO
@@ -484,7 +484,7 @@ fn void moveScreenShots()
     
     // count how many shots are in the work directory (where the .exe is...)
     RLFilePathList files = fs::loadDirectoryFilesEx(game::gpGame.app_work_dir, ".png", scanSubdirs: false);
-    for(int i = 0; i < files.count; i++) {
+    for(int i = 0; i < (int)files.count; i++) {
         // move the images to the screenshot folder
         String file_shot_path = ((ZString)files.paths[i]).str_view();
         char[] shot_data = file::load_temp(file_shot_path)!!;
@@ -785,8 +785,8 @@ fn void RenderView.drawCameraSpaceCoords(&self) @if($defined(ENABLE_CAMERA_VIEW)
     self.showModelViewAxis();
 
 	// show MINIMUM_SIZE_IN_PIXELS
-	int sz = misc::MINIMUM_SIZE_IN_PIXELS;
-	r2d::@drawRect({500, 100, sz, sz}, rl::PURPLE);
+	int sz_ = misc::MINIMUM_SIZE_IN_PIXELS;
+	r2d::@drawRect({500, 100, sz_, sz_}, rl::PURPLE);
     rl::drawText("MINIMUM_SIZE_IN_PIXELS", 500, 110, 10, rl::DARKGRAY);
     
     RLColor g = {0, 255, 0, 100};
@@ -869,7 +869,7 @@ $endif
                 } else {
                     if(sprite.hasMaterial())
                     {
-                        int sort = sprite.mat.sort;
+                        int sort = (int)sprite.mat.sort;
                         if(sort <= old_sort) 
                         {
                             // draw opaque sprites first
@@ -1043,7 +1043,7 @@ fn void HMPostProcess.unload(&self)
 fn int getPostProcessIdxFromName(String _name) @inline 
 {
     foreach(it : pplist) {
-        if(it.name == _name) return it.id;
+        if(it.name == _name) return (int)it.id;
     }
     return -1;
 }
@@ -1060,7 +1060,7 @@ fn HMPostProcess* getPostProcessFromName(String _name) @inline
         io::printf("failed to find post process shader %s.", _name);
         return null;
     }
-    return getPostProcessFromID(indice);
+    return getPostProcessFromID((uint)indice);
 }
 
 fn void HMPostProcess.update(&self) {

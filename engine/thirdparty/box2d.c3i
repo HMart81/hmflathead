@@ -1318,7 +1318,7 @@ fn B2Manifold collideChainSegmentAndCapsule( B2ChainSegment* segmentA, B2Transfo
 fn B2Manifold collideChainSegmentAndPolygon( B2ChainSegment* segmentA, B2Transform xfA, B2Polygon* polygonB, B2Transform xfB, B2DistanceCache* cache ) @cname("b2CollideChainSegmentAndPolygon");
 
 const DEFAULT_CATEGORY_BITS = 1;
-const DEFAULT_MASK_BITS     = ulong.max; //( UINT64_MAX )
+const DEFAULT_MASK_BITS     = ulong::max; //( UINT64_MAX )
 
 struct B2TreeNode
 {

@@ -43,7 +43,7 @@ import engine::assets_api::astmng; // asset manager
 import engine::sys::render2d::r2d;
 import thirdparty::raylib5::rl;
 import thirdparty::library::xml;
-import std::collections::list, std::collections::tuple;
+import std::collections::list, std::collections::pair;
 // end_region
 
 /*
@@ -321,7 +321,7 @@ constdef Contents : inline int
     PLACEHOLDER16	    = misc::@bit(30),
     PLACEHOLDER17	    = misc::@bit(31),
 }
-$assert Contents.sizeof <= 32;
+$assert Contents::size <= 32;
 
 bitstruct Flags : char
 {
@@ -348,7 +348,7 @@ struct HMaterial  (SaveSystemInterface) @public
     
     // TODO(HM) support more than one diffuse map stage, etc.
     // for more complex materials.
-    MatStage[MStageType.len] maps;
+    MatStage[MStageType::len] maps;
     
     // NOTE(HM) Perhaps this should be a string with the mtr path in it, 
     // not a pointer to some data in memory, that could be freed anytime...
@@ -488,7 +488,7 @@ fn void HMaterial.copy(&self, HMaterial* other)
     self.shader = other.shader; // NOTE(HM) this will copy the shader id, not the shader itself, so it is safe to do this
     self.mtrfile = other.mtrfile; // NOTE(HM) this will copy the pointer, not the data itself, so it is safe to do this
     // copy the material stages
-    for (int index = 0; index < MStageType.len; index++)
+    for (int index = 0; index < MStageType::len; index++)
     {
         MatStage* stage = self.getStage((MStageType)index);
         MatStage* other_stage = other.getStage((MStageType)index);
@@ -506,7 +506,7 @@ fn void HMaterial.copy(&self, HMaterial* other)
 
 <*
  @param index : "stage index to get the necessary texture data." 
- @require index >= 0 && index < MStageType.len
+ @require index >= 0 && index < MStageType::len
 *>
 fn MatStage* HMaterial.getStage(&self, MStageType index) @inline
 {
@@ -517,7 +517,7 @@ fn MatStage* HMaterial.getStage(&self, MStageType index) @inline
     Usage: Gets the RLTexture2D for the given stage type
 
     @param type : "stage type to get the necessary texture data." 
-    @require type >= 0 && type < MTexture.len
+    @require type >= 0 && type < MTexture::len
     @param isPBR : "if true, will get the PBR texture, otherwise will get the standard texture"
 *>
 fn RLTexture2D* HMaterial.getTexture(&self, MTexture type, bool isPBR = false)
@@ -1326,12 +1326,12 @@ fn RLColor getColorFromString(String str) @inline @local
     }
 
     if(slice.len == 1) {
-        char value = slice[0].to_uchar()!!;
+        char value = slice[0].to_char()!!;
         return {value, value, value, 255}; // use the same value for r, g, b and full alpha
     } else if(slice.len == 3) {
-        return {slice[0].to_uchar()!!, slice[1].to_uchar()!!, slice[2].to_uchar()!!, 255}; // full alpha
+        return {slice[0].to_char()!!, slice[1].to_char()!!, slice[2].to_char()!!, 255}; // full alpha
     } else if(slice.len == 4) {
-        return {slice[0].to_uchar()!!, slice[1].to_uchar()!!, slice[2].to_uchar()!!, slice[3].to_uchar()!!};
+        return {slice[0].to_char()!!, slice[1].to_char()!!, slice[2].to_char()!!, slice[3].to_char()!!};
     }
 
     return rl::WHITE; // default color
@@ -1357,7 +1357,7 @@ import engine::filesystem::fs;
 import engine::assets_api::astmng; // asset manager
 import thirdparty::raylib5::rl;
 import thirdparty::library::xml;
-import std::collections::list, std::collections::tuple;
+import std::collections::list, std::collections::pair;
 // end_region
 
 const MTR_VERSION_STRING = "1.0.0"; // the version of the mtr file format
@@ -1785,7 +1785,7 @@ fn RLColor xmlStrColorToColor(String _value) @public
     } else {
 		assert(is8Bit);
 		foreach(i, d : chars) {
-			char? value = d.to_uchar();
+			char? value = d.to_char();
 			if(catch excuse = value) {
 				values[i] = 255;
 				$if $feature(_DEBUG):
@@ -1799,25 +1799,25 @@ fn RLColor xmlStrColorToColor(String _value) @public
 		/*
         char? value;
 
-        value = chars[0].to_uchar();
+        value = chars[0].to_char();
         if(catch excuse = value) {
             result.r = 255;
         } else {
             result.r = (value <= 255) ? value : 255;
         }
-        value = chars[1].to_uchar();
+        value = chars[1].to_char();
         if(catch excuse = value) {
             result.g = 255;
         } else {
             result.g = (value <= 255) ? value : 255;
         }
-        value = chars[2].to_uchar();
+        value = chars[2].to_char();
         if(catch excuse = value) {
             result.b = 255;
         } else {
             result.b = (value <= 255) ? value : 255;
         }
-        value = chars[3].to_uchar();
+        value = chars[3].to_char();
         if(catch excuse = value) {
             result.a = 255;
         } else {
@@ -1847,7 +1847,7 @@ import game::main; // for file logging or console logging
 import engine::misc;
 import game::material::mtr, game::material::mat;
 import engine::logging::log;
-import std::collections::list, std::collections::tuple;
+import std::collections::list, std::collections::pair;
 import engine::assets_api::astmng; // asset manager
 import engine::filesystem::fs;
 import thirdparty::raylib5::rl;
@@ -1880,7 +1880,7 @@ fn void MaterialDataBase.listMTRs(&self)
         {
             log::info(CONSOLE, "[MATERIAL FILES]");
             foreach(mtr: self.data) {
-                String trimmed_path = "...\\".tconcat(mtr.path.strip(game::gpGame.app_base_folder));
+                String trimmed_path = "...\\".tconcat(mtr.path.strip_start(game::gpGame.app_base_folder));
                 io::printfn("%s\t-> \"%s\"%s", ansi::color_rgb(171, 218, 217), trimmed_path, Ansi.RESET);
             }
         }
@@ -1910,7 +1910,7 @@ fn void MaterialDataBase.clear(&self) @inline
 *>
 fn void? load_mtr_files(String search_path, MaterialDataBase* database = mtrDB) @local
 {
-	PathList? paths = path::ls(tmem, path::temp(search_path));
+	PathList? paths = path::ls(tmem, path::tnew(search_path));
 	if(catch excuse = paths) {
 		log::warning(FILE,  "Unable get mtr files paths from folder: %s with excuse: %s", search_path, excuse);
 		return FOLDER_SCAN_ERROR~;
@@ -1918,7 +1918,7 @@ fn void? load_mtr_files(String search_path, MaterialDataBase* database = mtrDB) 
 	
 	foreach(path: paths)
 	{
-		String asset_path = search_path.tconcat(path.str_view());
+		String asset_path = search_path.tconcat(path);
         
         if(!fs::isFile(asset_path)) continue;
         

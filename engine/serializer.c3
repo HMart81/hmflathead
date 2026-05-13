@@ -122,8 +122,8 @@ fn SaveFile? open(String filepath, int file_version = SAVE_FILE_VERSION)
 
     SaveFile file_data;
 
-	$foreach $menber : $typeof(file_data).membersof:
- 		$if $menber.tagof("version") != SAVE_FILE_VERSION:
+	$foreach $menber : $Typeof(file_data)::members:
+ 		$if $menber.get_tag("version") != SAVE_FILE_VERSION:
 			log::warning(CONSOLE, "SaveFile member %s is not compatible with version %d. Please update the save file version.", $menber.nameof, SAVE_FILE_VERSION);
 			return VERSION_MISMATCH~;
 		$endif
@@ -151,8 +151,8 @@ fn SaveFile? make_new(String filepath, int file_version = SAVE_FILE_VERSION) {
         return FAILED_OPEN_FILE~;
     } else {
         SaveFile file_data;
-		$foreach $menber : $typeof(file_data).membersof:
-			$if $menber.tagof("version") != SAVE_FILE_VERSION:
+		$foreach $menber : $Typeof(file_data)::members:
+			$if $menber.get_tag("version") != SAVE_FILE_VERSION:
 				log::warning(Where.CONSOLE, "SaveFile member %s is not compatible with version %d. Please update the save file version.", $menber.nameof, SAVE_FILE_VERSION);
 				return VERSION_MISMATCH~;
 			$endif
@@ -189,21 +189,21 @@ fn void	write(SaveFile* savefile, void* buffer, int bytes_len ) {
  @require savefile != null
 *>
 fn void	writeUInt(SaveFile* savefile, uint value ) {
-    write(savefile, &value, uint.sizeof);
+    write(savefile, &value, uint::size);
 }
 <*
  @param [inout] savefile : "the file to write the data to"
  @require savefile != null
 *>
 fn void	writeInt(SaveFile* savefile, int value ) {
-    write(savefile, &value, int.sizeof);
+    write(savefile, &value, int::size);
 }
 <*
  @param [inout] savefile : "the file to write the data to"
  @require savefile != null
 *>
 fn void	writeShort(SaveFile* savefile, short value ) {
-    write(savefile, &value, short.sizeof);
+    write(savefile, &value, short::size);
 }
 <*
  @param [inout] savefile : "the file to write the data to"
@@ -228,14 +228,14 @@ fn void	writeNull(SaveFile* savefile) {
  @require savefile != null && value >= -128 && value <= 127
 *>
 fn void	writeIChar(SaveFile* savefile, ichar value ) {
-   write(savefile, &value, ichar.sizeof);
+   write(savefile, &value, ichar::size);
 }
 <*
  @param [inout] savefile : "the file to write the data to"
  @require savefile != null
 *>
 fn void	writeFloat(SaveFile* savefile, float value ) {
-    write(savefile, &value, float.sizeof);
+    write(savefile, &value, float::size);
 }
 <*
  @param [inout] savefile : "the file to write the data to"
@@ -265,7 +265,7 @@ fn void	writeZString(SaveFile* savefile, ZString str) {
  @param [&inout] savefile : "the file to write the data to"
 *>
 fn void	writeTypeid(SaveFile* savefile, typeid type) {
-   write(savefile, &type, typeid.sizeof);
+   write(savefile, &type, typeid::size);
 }
 
 <*
@@ -353,8 +353,8 @@ fn void	writeShader(SaveFile* savefile, RLShader* shd) {
         return;
     }
     
-    writeInt(savefile, shd.id);
-    for(int i = 0; i < RLShdLocInd.values.len; i++) {
+    writeInt(savefile, (int)shd.id);
+    for(int i = 0; i < RLShdLocInd::values.len; i++) {
         writeInt(savefile, shd.locs[i]);
     }
 }
@@ -424,28 +424,28 @@ fn void read(SaveFile* savefile, void *buffer, usz bytes_len) {
 }
 
 fn void readInt(SaveFile* file, int* value) {
-    read(file, (void*)value, int.sizeof);
+    read(file, (void*)value, int::size);
 }
 
 fn void readShort(SaveFile* file, short* value) {
-    read(file, (void*)value, short.sizeof);
+    read(file, (void*)value, short::size);
 }
 
 fn void readChar(SaveFile* file, char* value) {
-    read(file, (void*)value, char.sizeof);
+    read(file, (void*)value, char::size);
 }
 
 fn void readIChar(SaveFile* file, ichar* value) {
-    read(file, (void*)value, ichar.sizeof);
+    read(file, (void*)value, ichar::size);
 }
 
 fn void readFloat(SaveFile* file, float* value) {
-    read(file, (void*)value, float.sizeof);
+    read(file, (void*)value, float::size);
 }
 
 fn void readBool(SaveFile* file, bool* value) {
     char result;
-    read(file, (void*)&result, char.sizeof);
+    read(file, (void*)&result, char::size);
     if(result >= (char)1) {
         *value = true; 
     } else {
@@ -464,7 +464,7 @@ fn void readString(SaveFile* savefile, String* string) {
         log::warning(Where.CONSOLE, "failed to read data from file %s! : %s:%s", savefile.path, $$FUNC, $$LINE);
         return;
     }*/
-	usz? bytesRead = savefile.file.read(buffer[..]);
+	sz? bytesRead = savefile.file.read(buffer[..]);
     if(catch excuse = bytesRead) {
         log::warning(Where.CONSOLE, "failed to read data from file %s! with excuse %s : %s:%s", savefile.path, excuse, $$FUNC, $$LINE);
         return;
@@ -486,7 +486,7 @@ fn void readZString(SaveFile* savefile, ZString* string) {
  @param [&inout] savefile : "the file to read the data from"
 *>
 fn void	readTypeid(SaveFile* savefile, typeid* type) {
-    read(savefile, (void*)type, typeid.sizeof);
+    read(savefile, (void*)type, typeid::size);
 }
 
 <*
@@ -948,7 +948,7 @@ fn void SaveGame.close(&self) @dynamic {
 fn void SaveGame.callSave(&self, any cls) @dynamic {
     // if this is a type with a inline struct
     // call the inline class save function as well
-	if ( cls.ptr.membersof[1].nameof == "super" ) {
+	if ( cls.ptr::members[1].nameof == "super" ) {
 		cls.ptr.super;
 		if ( cls->super->Save == cls->Save ) {
 			// don't call save on this inheritance level since the function was called in the super class

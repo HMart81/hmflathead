@@ -74,6 +74,7 @@ import engine::misc;
 import engine::logging::log;
 import engine::filesystem::fs;
 import thirdparty::raylib5::rl;
+import engine::sys::framework::language::lang;
 // end_region
 
 // region alias
@@ -287,7 +288,7 @@ struct MenuButtonDef
     RLColor label_color;
     WidgetTextAlign label_align;
     //WidgetCallback[MAX_CALLBACK_PTRS] callbacks;
-    WidgetCallback[CallBack.len] cbs;
+    WidgetCallback[CallBack::len] cbs;
 }
 
 <*
@@ -298,7 +299,7 @@ struct MenuButtonDef
     @param [&in] bdef : "button cbs definition struct pointer"
     @ensure return != null : "pointer to the created button"
 *>
-macro WidgetButton* UIWindow.create_menu_button(&self, Vec2f pos, String text, MenuButtonDef* bdef) @local 
+macro WidgetButton* UIWindow.create_menu_button(&self, Vec2f pos, String text, MenuButtonDef* bdef) 
 {
     WidgetButton* button = gui::createButton();
     button.addTo(self);
@@ -427,8 +428,8 @@ fn UIWindow* mainMenuCreate(int screenWidth, int screenHeight)
         .border_between = {2, rl::GREEN }
     }; WidgetContainer* pct )
     {
-        //pct.register(any_make(create_menu_label({200, 200}, "test", 12, rl::GRAY, desk_main), WidgetText.typeid));
-        //pct.register(any_make(create_menu_label({200, 200}, "test2", 12, rl::GRAY, desk_main), WidgetText.typeid));
+        //pct.register(any_make(create_menu_label({200, 200}, "test", 12, rl::GRAY, desk_main), WidgetText));
+        //pct.register(any_make(create_menu_label({200, 200}, "test2", 12, rl::GRAY, desk_main), WidgetText));
     };
     */
 
@@ -483,7 +484,7 @@ fn UIWindow* mainMenuCreate(int screenWidth, int screenHeight)
     offset += misc::VEC_RIGHT * screen_half_width;
     offset -= {button_width / 2.0f, 0.0f};
     offset += misc::VEC_DOWN * (screenHeight / button_height) * 10;
-    String btn_string = gpGame.langdict.getString("0");
+    String btn_string = lang::dict.getString("0");
     desk_main.create_menu_button(offset, btn_string/*"START"*/, &btn_def);
 
     //************
@@ -494,7 +495,7 @@ fn UIWindow* mainMenuCreate(int screenWidth, int screenHeight)
     
     offset += misc::VEC_DOWN * button_height;
     offset.y += 0.5f * button_height;
-    btn_string = gpGame.langdict.getString("1");
+    btn_string = lang::dict.getString("1");
     desk_main.create_menu_button(offset, btn_string/*"QUIT"*/, &btn_def);
     
     //************
@@ -505,7 +506,7 @@ fn UIWindow* mainMenuCreate(int screenWidth, int screenHeight)
     
     offset += misc::VEC_DOWN * button_height;
     offset.y += 0.5f * button_height;
-    btn_string = gpGame.langdict.getString("3");
+    btn_string = lang::dict.getString("3");
     desk_main.create_menu_button(offset, btn_string/*"OPTIONS"*/, &btn_def);
     // end_region BUTTONS
 
@@ -534,7 +535,7 @@ fn UIWindow* mainMenuCreate(int screenWidth, int screenHeight)
     offset += misc::VEC_RIGHT * (0.10f * (window_options.getSize().x / 2));
     offset += misc::VEC_DOWN * window_options.getSize().y;
     offset.y -= button_height + (0.5f * button_height);
-    btn_string = gpGame.langdict.getString("4");
+    btn_string = lang::dict.getString("4");
     window_options.create_menu_button(offset, btn_string/*"BACK"*/, &btn_def);
 // end_region widgets
     
@@ -555,12 +556,12 @@ fn void button_onLoad(any widget)
     assert(widget.ptr != null);
     switch (widget.type)
     {
-        case WidgetButton.typeid:
+        case WidgetButton:
         {
             WidgetButton* self = (WidgetButton*)widget.ptr;
             log::info(CONSOLE, "WidgetButton '%s' loaded.", self.name);
         }
-        case WidgetCheckBox.typeid:
+        case WidgetCheckBox:
         {
             WidgetCheckBox* self = (WidgetCheckBox*)widget.ptr;
             log::info(CONSOLE, "WidgetCheckBox '%s' loaded.", self.name);
@@ -579,21 +580,21 @@ fn void button_onOver(any widget/*Widget* widget*/)
     assert(widget.ptr != null);
     switch (widget.type)
     {
-        case WidgetButton.typeid:
+        case WidgetButton:
         {
             WidgetButton* self = (WidgetButton*)widget.ptr;
             if(self.active_visible_infocus() && self.asFocus()) {
                 self.setColor(rl::RED);
             }
         }
-        case WidgetCheckBox.typeid:
+        case WidgetCheckBox:
         {
             WidgetCheckBox* self = (WidgetCheckBox*)widget.ptr;
             if(self.active_visible_infocus() && self.asFocus()) {
                 self.setColor(rl::RED);
             }
         }
-        case WidgetText.typeid:
+        case WidgetText:
         {
             WidgetText* self = (WidgetText*)widget.ptr;
             if(self.active_visible_infocus() && self.asFocus()) {
@@ -623,7 +624,7 @@ fn void button_onOver(any widget/*Widget* widget*/)
 fn void button_onStopOver(/*Widget* widget*/ any widget) 
 {
     assert(widget.ptr != null);
-    if(widget.type == WidgetButton.typeid) {
+    if(widget.type == WidgetButton) {
         WidgetButton* self = (WidgetButton*)widget.ptr;
         if(self.color != self.default_color) self.setColor(self.default_color);
         return;
@@ -638,7 +639,7 @@ fn void button_onStopOver(/*Widget* widget*/ any widget)
 fn void button_onRelease(/*Widget* widget*/ any widget) 
 {
     assert(widget.ptr != null);
-    if(widget.type == WidgetButton.typeid) {
+    if(widget.type == WidgetButton) {
         WidgetButton* self = (WidgetButton*)widget.ptr;
         if (self.active_visible_infocus() && self.asFocus()) {
             self.setColor(self.default_color);
@@ -666,7 +667,7 @@ fn void button_onRelease(/*Widget* widget*/ any widget)
 fn void button_onPress(/*Widget* widget*/ any widget) 
 {
     assert(widget.ptr != null);
-    if(widget.type == WidgetButton.typeid) {
+    if(widget.type == WidgetButton) {
         WidgetButton* self = (WidgetButton*)widget.ptr;
         if (self.active() == false || self.asFocus() == false) return;
         if (self.pressed == false) {
@@ -703,7 +704,7 @@ fn void button_onPress(/*Widget* widget*/ any widget)
 *>
 fn void button_onSinglePress(any widget) 
 {
-    if(widget.type == WidgetButton.typeid) 
+    if(widget.type == WidgetButton) 
     {
         WidgetButton* self = (WidgetButton*)widget.ptr;
         if (self.active() == false || self.asFocus() == false) return;
@@ -822,7 +823,7 @@ fn void checkbox1_onPress(any widget)
 fn void checkbox1_onSinglePress(any widget) 
 {
     assert(widget.ptr != null);
-    if(widget.type == WidgetButton.typeid)
+    if(widget.type == WidgetButton)
     {
         WidgetCheckBox* this = (WidgetCheckBox*)widget.ptr;
         this.setChecked(!this.checked);

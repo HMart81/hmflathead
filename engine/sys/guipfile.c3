@@ -36,7 +36,7 @@ import engine::filesystem::fs;
 import engine::logging::log;
 import engine::misc;
 import game::main;
-import std::ascii;
+import std::core::ascii;
 
 // ******************************************************************************
 // NOTE(HM) This module handles the loading and parsing of .guip files
@@ -97,7 +97,7 @@ struct GUIPElement
 
 fn void GUIPElement.init(&self)
 {
-    self.type = GUIPElement.typeid;
+    self.type = GUIPElement;
     self.color = rl::WHITE; // default color is white
     self.transform.scale = {1.0f, 1.0f}; // sets translation and rotation to the same value.
     self.transform.matrix = matrix::IDENTITY4;
@@ -105,7 +105,7 @@ fn void GUIPElement.init(&self)
 
 fn GUIPElement* createElement(String _name = "<noname>") {
     return mem::new(GUIPElement, {
-        .type = GUIPElement.typeid,
+        .type = GUIPElement,
         .name = _name,
         .color = rl::WHITE,
         .transform.scale = {1.0f, 1.0f},
@@ -123,7 +123,7 @@ struct GUIPElement_Group
 fn void GUIPElement_Group.init(&self)
 {
     self.super.init();
-    self.type = GUIPElement_Group.typeid;
+    self.type = GUIPElement_Group;
 }
 
 fn void GUIPElement_Group.register(&self, GUIPElement* elem)
@@ -141,7 +141,7 @@ struct GUIPElement_Rect
 fn void GUIPElement_Rect.init(&self)
 {
     self.super.init();
-    self.type = GUIPElement_Rect.typeid;
+    self.type = GUIPElement_Rect;
 }
 
 struct GUIPElement_Path
@@ -154,7 +154,7 @@ struct GUIPElement_Path
 fn void GUIPElement_Path.init(&self)
 {
     self.super.init();
-    self.type = GUIPElement_Path.typeid;
+    self.type = GUIPElement_Path;
 }
 
 struct GUIPElement_Ellipse
@@ -165,7 +165,7 @@ struct GUIPElement_Ellipse
 fn void GUIPElement_Ellipse.init(&self)
 {
     self.super.init();
-    self.type = GUIPElement_Ellipse.typeid;
+    self.type = GUIPElement_Ellipse;
 }
 
 struct GUIPElement_Image
@@ -179,7 +179,7 @@ struct GUIPElement_Image
 fn void GUIPElement_Image.init(&self)
 {
     self.super.init();
-    self.type = GUIPElement_Image.typeid;
+    self.type = GUIPElement_Image;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////

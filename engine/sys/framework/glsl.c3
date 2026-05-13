@@ -178,27 +178,27 @@ fn CInt? getShaderLocation(uint type, String name, HMShader* shader) {
 *>
 fn void setShaderValue(CInt locIndex, void*value, HMShader* shader) <Type>
 {
-    switch (Type.typeid)
+    switch (Type)
     {
-        case float.typeid:
+        case float:
             shader.data.setValue(locIndex, value, RLShdUniTyp.FLOAT);
-        case int.typeid:
+        case int:
             shader.data.setValue(locIndex, value, RLShdUniTyp.INT);
-        case Vec2f.typeid:
+        case Vec2f:
             shader.data.setValueV(locIndex, value, RLShdUniTyp.FLOAT, 2);
-        case Vec2i.typeid:
+        case Vec2i:
             shader.data.setValueV(locIndex, value, RLShdUniTyp.INT, 2);
-        case Vec3f.typeid:
+        case Vec3f:
             shader.data.setValueV(locIndex, value, RLShdUniTyp.FLOAT, 3);
-        case Vec3i.typeid:
+        case Vec3i:
             shader.data.setValueV(locIndex, value, RLShdUniTyp.INT, 3);
-        case Vec4f.typeid:
+        case Vec4f:
            shader.data.setValueV(locIndex, value, RLShdUniTyp.FLOAT, 4);
-        case Vec4i.typeid:
+        case Vec4i:
             shader.data.setValueV(locIndex, value, RLShdUniTyp.INT, 4);
-        case RLTexture2D.typeid:
+        case RLTexture2D:
             shader.data.setValueTexture(locIndex, *(RLTexture2D*)value);
-        case RLMatrix.typeid:
+        case RLMatrix:
            shader.data.setValueMatrix(locIndex, *(RLMatrix*)value);
         default:
             log::warning(FILE, "Unknown uniform type passed to shader: %d", shader.name);
@@ -208,25 +208,25 @@ fn void setShaderValue(CInt locIndex, void*value, HMShader* shader) <Type>
 {
     switch (value.type)
     {
-        case float.typeid:
+        case float:
             shader.data.setValue(locIndex, value.ptr, RLShdUniTyp.FLOAT);
-        case int.typeid:
+        case int:
             shader.data.setValue(locIndex, value.ptr, RLShdUniTyp.INT);
-        case Vec2f.typeid:
+        case Vec2f:
             shader.data.setValueV(locIndex, value.ptr, RLShdUniTyp.FLOAT, 2);
-        case Vec2i.typeid:
+        case Vec2i:
             shader.data.setValueV(locIndex, value.ptr, RLShdUniTyp.INT, 2);
-        case Vec3f.typeid:
+        case Vec3f:
             shader.data.setValueV(locIndex, value.ptr, RLShdUniTyp.FLOAT, 3);
-        case Vec3i.typeid:
+        case Vec3i:
             shader.data.setValueV(locIndex, value.ptr, RLShdUniTyp.INT, 3);
-        case Vec4f.typeid:
+        case Vec4f:
            shader.data.setValueV(locIndex, value.ptr, RLShdUniTyp.FLOAT, 4);
-        case Vec4i.typeid:
+        case Vec4i:
             shader.data.setValueV(locIndex, value.ptr, RLShdUniTyp.INT, 4);
-        case RLTexture2D.typeid:
+        case RLTexture2D:
             shader.data.setValueTexture(locIndex, *value.ptr);
-        case RLMatrix.typeid:
+        case RLMatrix:
            shader.data.setValueMatrix(locIndex, *value.ptr);
         default:
             unreachable("Unknown uniform value passed to shader: %d", shader.name);
@@ -433,39 +433,39 @@ struct UniformVal <Type>
     if(rl::isShaderValid(*self)) {      
 		switch OUTER : (Type)
 		{
-			case float.typeid:
+			case float:
         		rl::setShaderValue(self, locIndex, (void*)value.data, RLShdUniTyp.FLOAT);
-			case int.typeid:
+			case int:
         		rl::setShaderValue(self, locIndex, (void*)value.data, RLShdUniTyp.INT);
-			case Vec2f.typeid:
+			case Vec2f:
         		rl::setShaderValue(self, locIndex, (void*)value.data, RLShdUniTyp.VEC2);
-			case Vec2i.typeid:
+			case Vec2i:
         		rl::setShaderValue(self, locIndex, (void*)value.data, RLShdUniTyp.IVEC2);
-			case Vec3f.typeid:
+			case Vec3f:
         		rl::setShaderValue(self, locIndex, (void*)value.data, RLShdUniTyp.VEC3);
-			case Vec3i.typeid:
+			case Vec3i:
         		rl::setShaderValue(self, locIndex, (void*)value.data, RLShdUniTyp.IVEC3);
-			case Vec4f.typeid:
+			case Vec4f:
         		rl::setShaderValue(self, locIndex, (void*)value.data, RLShdUniTyp.VEC4);
-			case Vec4i.typeid:
+			case Vec4i:
         		rl::setShaderValue(self, locIndex, (void*)value.data, RLShdUniTyp.IVEC4);
-			case RLTexture2D.typeid:
+			case RLTexture2D:
         		rl::setShaderValueTexture(self, locIndex, *value.data, RLShdUniTyp.SAMPLER2D);
-			case RLMatrix.typeid:
+			case RLMatrix:
 				rl::setShaderValueMatrix(self, locIndex, *value.data);
-			case any[].typeid:
+			case any[]:
 				RLShdUniTyp type;
 				switch INNER : (value.data.type)
 				{
-					case float.typeid:       type = RLShdUniTyp.FLOAT;
-					case int.typeid:         type = RLShdUniTyp.INT;
-					case Vec2f.typeid:       type = RLShdUniTyp.VEC2;
-					case Vec2i.typeid:      type = RLShdUniTyp.IVEC2;
-					case Vec3f.typeid:       type = RLShdUniTyp.VEC3;
-					case Vec3i.typeid:      type = RLShdUniTyp.IVEC3;
-					case Vec4f.typeid:       type = RLShdUniTyp.VEC4;
-					case Vec4i.typeid:      type = RLShdUniTyp.IVEC4;
-					case RLTexture2D.typeid: type = RLShdUniTyp.SAMPLER2D;
+					case float:       type = RLShdUniTyp.FLOAT;
+					case int:         type = RLShdUniTyp.INT;
+					case Vec2f:       type = RLShdUniTyp.VEC2;
+					case Vec2i:      type = RLShdUniTyp.IVEC2;
+					case Vec3f:       type = RLShdUniTyp.VEC3;
+					case Vec3i:      type = RLShdUniTyp.IVEC3;
+					case Vec4f:       type = RLShdUniTyp.VEC4;
+					case Vec4i:      type = RLShdUniTyp.IVEC4;
+					case RLTexture2D: type = RLShdUniTyp.SAMPLER2D;
 					default: nextcase OUTER: default;
 				}
 				rl::setShaderValueV(self, locIndex, (void*)value.data.ptr, type);

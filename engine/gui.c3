@@ -80,7 +80,6 @@ fn void register_cvars() @public
 const bool DEBUG_PANELS   = true;
 const int  MIN_PANEL_SIZE = 32;
 
-const RLColor INVISIBLE_COLOR @local = {0, 0, 0, 0};
 // mostly for the panel texture inversion ability
 const uint HORIZONTAL_DIR = 1;
 const uint VERTICAL_DIR   = 2;
@@ -146,7 +145,7 @@ fn void Panel.save(&self, SaveFile* file) @dynamic
 {
     svs::writeInt(file, self.id);
     svs::writeString(file, self.name);
-	svs::write(file, (void*)&self.flags, PanelFlags.sizeof);
+	svs::write(file, (void*)&self.flags, PanelFlags::size);
     svs::writeInt(file, self.shape);
     svs::writeRect{RLRectangle}(file, self.rect);
     svs::writeColor(file, self.color);
@@ -162,7 +161,7 @@ fn void Panel.reload(&self, SaveFile* file) @dynamic
     svs::readInt(file, &value);
 	self.id = value;
 	svs::readString(file, &self.name);
-	svs::read(file, (void*)&self.flags, PanelFlags.sizeof);
+	svs::read(file, (void*)&self.flags, PanelFlags::size);
     svs::readInt(file, &value);
     self.shape = (PanelShape)value;
     svs::readRect{RLRectangle}(file, &self.rect);
@@ -173,7 +172,7 @@ fn void Panel.reload(&self, SaveFile* file) @dynamic
     if(mat_name != "") self.mat = mtrmng::getMaterial(mat_name);
 }
 
-fn usz? Panel.to_format(&self, Formatter* f) @dynamic 
+fn sz? Panel.to_format(&self, Formatter* f) @dynamic 
 {
     return f.printf(`Panel { 
     "id" = %s,\n"name" = %s,\n"shape" = %s,\n"rect" = { x: %s, y: %s, width: %s, height: %s  },\n"color" = { r: %s, g: %s, b: %s, a: %s  },\n"material" = %s 
@@ -191,7 +190,7 @@ fn void initAnchors(Type* obj) <Type>
 {
     // init the anchors to attach stuff in guis
 	RLRectangle rect = obj.rect;
-	GuiAnchor[AnchorType.values.len] anchors;
+	GuiAnchor[AnchorType::values.len] anchors;
 	anchors[AnchorType.TOP_LEFT]      = {0, 0};
     anchors[AnchorType.TOP_CENTER]    = {rect.w / 2, 0};
     anchors[AnchorType.TOP_RIGHT]     = {rect.w, 0};
@@ -201,7 +200,7 @@ fn void initAnchors(Type* obj) <Type>
     anchors[AnchorType.BOTTOM_LEFT]   = {0, rect.h};
     anchors[AnchorType.BOTTOM_CENTER] = {rect.w / 2, rect.h};
     anchors[AnchorType.BOTTOM_RIGHT]  = {rect.w, rect.h};
-	obj.anchor.reserve(AnchorType.values.len);
+	obj.anchor.reserve(AnchorType::values.len);
 	obj.anchor.init_with_array(mem, anchors[..]);
 }
 
@@ -249,7 +248,7 @@ fn void drawAnchors(Type* obj) <Type>
 	get anchor point for gui obj
 	@param [&in] obj : "to get the anchor for"
 	@param idx : "index of anchor to get"
-	@require idx >= 0 && idx < AnchorType.values.len
+	@require idx >= 0 && idx < AnchorType::values.len
 *>
 fn Vec2f getAnchor(Type* obj, int idx) <Type>
 {
@@ -533,7 +532,7 @@ fn void Panel.draw(&self, bool selected = false)
 
         RLColor color = (selected) ? self.color_selected : self.color;
 
-        RLBlendMode blending = -1;
+        RLBlendMode blending = (RLBlendMode)-1;
         Coverage coverage = self.mat.coverage;
         switch //
         {
@@ -990,7 +989,7 @@ fn bool Widget.isWithinScreenBounds(&self) @dynamic
     return rl::checkCollisionRecs(screen_bounds, self.rect) ? true : false;
 }
 
-fn bool Widget.isInWidget(&self, int x, int y) @dynamic
+fn bool Widget.isWithinCoords(&self, int x, int y) @dynamic
 {
     if (self.hidden()) return false;
 
@@ -1159,7 +1158,7 @@ fn void WidgetText.init(&self) //@inline
     self.super.init(KIND_TEXT);
     self.super.hide(); // don't show the square shape
     self.super.name = "TextLabel"; // @hardcode
-    self.setColor(INVISIBLE_COLOR); // invisible color for the panel shape
+    self.setColor(rl::CTRANSPARENT); // invisible color for the panel shape
     self.spacing    = 2.0f; //@hardcode, todo make this int a cvar
     self.font_size  = 20; //@hardcode
     self.setDefaultColor(rl::WHITE); //@hardcode
@@ -1328,19 +1327,19 @@ struct WidgetButton
     // extends Widget (super/base class)
     inline Widget super;
     
-    // panel already has a color variable
-    // but this is the default color, used when the button color changes and we want to reset it
-    // to the default color.
+    // super (panel) already includes a color variable/member
+    // but this is the default color, used when the button color changes 
+	// and we want to reset it to the default color.
     RLColor default_color;
+    int press_count;
     bool pressed;
     bool activated;
-    RLSound* interaction_sound;
-    //bool sound_played;
     bool reset;
-    int press_count;
+    //bool sound_played;
+    RLSound* interaction_sound;
 }
 
-fn void WidgetButton.init(&self, int kind = KIND_BUTTON) //@inline 
+fn void WidgetButton.init(&self, int kind = KIND_BUTTON) @inline
 {
     self.super.init(kind);
     self.super.name = "Button";
@@ -1365,6 +1364,10 @@ fn void WidgetButton.setDefaultColor(&self, RLColor color) @inline
     self.setColor(color);
 }
 
+<*
+	Set the interaction sound for a button
+	@param [&in] sound : "sound to point to"
+*>
 fn void WidgetButton.setSound(&self, RLSound* sound) @inline 
 {
     self.interaction_sound = sound;
@@ -1381,12 +1384,58 @@ fn void WidgetButton.manage_interactions(&self)
 {
     if (self.active() == false) return;
 	
-	typeid type = WidgetButton.typeid;
+	typeid type = WidgetButton;
 	any widget  = any_make(self, type);
 
+	if(self.asFocus() == false) {
+        if (self.onStopOver) { 
+            self.onStopOver(widget);
+        }
+		return;
+    }
+
+	@off() 
+	{
+		switch
+		{
+			case (rl::isKeyPressed(rl::KEY_RIGHT) && !rl::isKeyPressedRepeat(rl::KEY_RIGHT)):
+			case (rl::isKeyPressed(rl::KEY_LEFT) && !rl::isKeyPressedRepeat(rl::KEY_LEFT)):    
+			case (rl::isKeyPressed(rl::KEY_DOWN) && !rl::isKeyPressedRepeat(rl::KEY_DOWN)):    
+			case (rl::isKeyPressed(rl::KEY_UP) && !rl::isKeyPressedRepeat(rl::KEY_UP)):
+				log::info(CONSOLE, "Pressed: %s", input::getKeyboardKeyName((RLKeyboardKey)rl::getKeyPressed()));    
+				if (self.selected) 
+				{
+					self.deselect();
+					ChildrenWidgetQueue* others = &self.getParentWindow().childWidgets;
+					if (others.len()) 
+					{
+						foreach(i, child: others) 
+						{
+							if(child.id == self.id + 1) {
+								child.select();
+								break;
+							} else {
+								if(i == others.len() - 1) { // wrap around
+									others.@item_at(0).select();
+									break;
+								}
+								continue;
+							}
+						}
+					}
+				}
+		}
+	};
+
     //game::log::info(Where.CONSOLE, "Gui: I'm over button: %s", self.super.name);
-    if (self.asFocus() && self.selected == false)
+	bool btn_selected = (self.selected) ? true : false;
+	bool btn_not_selected = !btn_selected;
+
+    if (btn_not_selected)
     {
+		bool mouse_is_moving = self.getParentWindow().mouse_is_moving;
+
+		// if mouse hovering function callback exists call it
         if(self.onOver) self.onOver(widget);
 
         // Todo(HM) support keyboard/gamepad navigation to buttons
@@ -1424,11 +1473,11 @@ fn void WidgetButton.manage_interactions(&self)
                 }
             }
         }
-    } else {
-        if (self.onStopOver) { 
-            self.onStopOver(widget);
-        }
     }
+	else if(btn_selected)
+	{
+		// todo something here when a botton is selected
+	}
 }
 
 fn void WidgetButton.update(&self)
@@ -1665,11 +1714,11 @@ fn void WidgetContainer.update(&self)
 
         switch (child.type)
         {
-            case WidgetButton.typeid:
+            case WidgetButton:
                 anycast(child, WidgetButton)!!.update();
-            case WidgetText.typeid:
+            case WidgetText:
                 anycast(child, WidgetText)!!.update();
-            case WidgetContainer.typeid: // container inside another
+            case WidgetContainer: // container inside another
                 anycast(child, WidgetContainer)!!.update();
             default:
                 unreachable("unkown gui widget typeid");
@@ -1684,11 +1733,11 @@ fn void WidgetContainer.draw(&self)
     foreach(child : self.children) {
         switch (child.type)
         {
-            case WidgetButton.typeid:
+            case WidgetButton:
                 anycast(child, WidgetButton)!!.draw();
-            case WidgetText.typeid:
+            case WidgetText:
                 anycast(child, WidgetText)!!.draw();
-            case WidgetContainer.typeid: // container inside another
+            case WidgetContainer: // container inside another
                 anycast(child, WidgetContainer)!!.draw();
             default:
                 unreachable("unkown gui widget typeid");
@@ -1978,7 +2027,7 @@ fn void UIWindow.stateChanged(&self, int _time, bool redraw )
 fn String UIWindow.getName(&self, bool fullname = false) @inline
 {
 	if(fullname) return self.name;
-	return self.name.strip(UIWIN_NAME_PREFIX);
+	return self.name.strip_start(UIWIN_NAME_PREFIX);
 }
 
 fn void UIWindow.setColor(&self, RLColor color) @inline 
@@ -1987,22 +2036,24 @@ fn void UIWindow.setColor(&self, RLColor color) @inline
 	self.stateChanged(game::gpGame.time_ms, true);
 }
 
-fn void UIWindow.setBackgroundTexture(&self, String image_path) @inline {
-	// TODO(HM) instead of loading textures one by one at material 
-	// parsing, instead just load all textures into RAM and create a data base
-	// then just find the texture in the data base using a special getter/manager
-	// similar to how materials are handled..
+fn void UIWindow.setBackgroundTexture(&self, String image_path) @inline 
+{
+	// TODO(HM) instead of loading textures one by one at material parsing
+	// just load all textures before into RAM and create a data base
+	// then just find the texture in the data base by pointing to it, 
+	// perhaps using a special getter/manager similar to how materials are handled..
 	//self.tex = texMang::findTexture(image_path);
 
-	// or better something like this
-	// load all images/textures on disk to RLImage in normal RAM and create a data base
-	// then just use the image to create a RLTexture on GPU VRAM at usage time
-	// this sounds more efficient
+	// or better, something like this,
+	// load all images/textures on disk, but as RLImage's in normal RAM and create a data base
+	// then just use the image to create a RLTexture on GPU VRAM, at usage time,
+	// not 100% sure but this sounds more efficient...
 
-	// note because how materials are done now 
-	// this texture may be loaded in VRAM already by a material... :(
-	// but I need to go through all materials to try get it
-	// faster to load it again, but I need to rethink all this material system now...
+	// Note, because of how materials are handled now, 
+	// this texture may be loaded/exist in VRAM already by a previous material... :(
+	// but in that case, I would need to go through all materials data base to try get it
+	// imo is faster to just load it again, 
+	// but I do need to rethink all this material system now... TODO
 	self.tex = &&r2d::loadTexture(image_path);
 }
 
@@ -2219,7 +2270,7 @@ fn void UIWindow.setPageCount(&self, int count) => self.childWindows.reserve(cou
     @param [&in] child : "child to register/add to the window"
     @param  idx : "index where to put the child, if -1 this is ignored"
 *>
-fn void UIWindow.addChildWidget(&self, Widget* child, isz idx = -1 )
+fn void UIWindow.addChildWidget(&self, Widget* child, int idx = -1 )
 {
     if(idx >= 0) {
         self.childWidgets.insert_at(idx, child);
@@ -2232,7 +2283,7 @@ fn void UIWindow.addChildWidget(&self, Widget* child, isz idx = -1 )
     @param [&inout] child : "child to register/add to the window"
     @param  idx : "index where to put the child, if -1 this is ignored"
 *>
-fn UIWindow* UIWindow.addChildWindow(&self, UIWindow* child, isz idx = -1 )
+fn UIWindow* UIWindow.addChildWindow(&self, UIWindow* child, int idx = -1 )
 {
     if(idx >= 0) {
         self.childWindows.insert_at(idx, child);
@@ -2263,7 +2314,7 @@ fn UIWindow* UIWindow.getChildWindow(&self, int idx) @nodiscard
 
 /////////////////////////////////////// DEBUG STUFF ///////////////////////
 /////
-macro UIWindow.debugDrawBorder(&self) @local
+macro UIWindow.debugDrawBorder(&self)
 {
 	if(self.isDesktop) {
 		r2d::drawRectangleLinesEx(self.rect, 2.0f, rl::RED);
@@ -2272,7 +2323,7 @@ macro UIWindow.debugDrawBorder(&self) @local
 	}
 }
 
-macro UIWindow.debugDrawName(&self) @local
+macro UIWindow.debugDrawName(&self)
 {
 	Vec2f pos = getAnchor{UIWindow}(self, AnchorType.TOP_LEFT);
 	pos += misc::VEC_RIGHT * 50;
@@ -2285,7 +2336,7 @@ macro UIWindow.debugDrawName(&self) @local
 	}
 }
 
-macro UIWindow.debugDrawWindTime(&self) @local
+macro UIWindow.debugDrawWindTime(&self)
 {
 	ZString time = string::tformat("GUI TIME: \"%s\"", self.time).zstr_tcopy();
 	Vec2f pos = getAnchor{UIWindow}(self, AnchorType.TOP_LEFT);
@@ -2298,7 +2349,7 @@ macro UIWindow.debugDrawWindTime(&self) @local
 	}
 }
 
-macro UIWindow.debugDrawCoords(&self) @local
+macro UIWindow.debugDrawCoords(&self)
 {
 	float rect_x = self.rect.x;
 	float rect_y = self.rect.y;
@@ -2409,7 +2460,7 @@ fn void UIWindowManager.register(&self, UIWindow* _uiwin) @inline
 fn UIWindow* UIWindowManager.get(&self, String name) @inline 
 {
     foreach(uiwin : self.windows) {
-        if(uiwin.name.strip(UIWIN_NAME_PREFIX) == name) {
+        if(uiwin.name.strip_start(UIWIN_NAME_PREFIX) == name) {
             return uiwin;
         }
     }
@@ -2441,7 +2492,7 @@ fn void UIWindowManager.update(&self, int _time)
     }*/
     self.enable_editor_mode(gui::ui_editGui.getBool());
 
-    usz wind_count = self.windows.len();
+    sz wind_count = self.windows.len();
     if(wind_count >= 1) 
     {
         foreach(uiwin: self.windows) 
@@ -2463,7 +2514,7 @@ fn void UIWindowManager.update(&self, int _time)
 
 fn void UIWindowManager.draw(&self, int screenWidth, int screenHeight) @inline 
 {
-    usz windows_count = self.windows.len();
+    sz windows_count = self.windows.len();
     if(windows_count >= 1) 
     {
         foreach(uiwin: self.windows) 
@@ -2559,9 +2610,7 @@ const IMUI_Style[*] IMUI_STYLES = {
     }
 };
 
-<*
-	@ensure return != null
-*>
+
 fn IMUI_Style* getStyle(IMUI_KINDs kind) @inline @nodiscard {
 	foreach(&style : IMUI_STYLES){
 		if(style.kind == kind) return style;

@@ -39,9 +39,9 @@ fn bool KeyVal.equl(&self, KeyVal kv ) @operator(==)
     return (self.key == kv.key && self.value == kv.value);
 }
 
-fn bool KeyVal.nequl(&self, KeyVal kv ) @operator(!=)
+fn bool KeyVal.less_than(&self, KeyVal kv ) @operator(<)
 {
-    return (self.key == kv.key && self.value == kv.value);
+    return (self.key < kv.key && self.value < kv.value);
 }
 
 
@@ -112,7 +112,7 @@ fn DyArray DyArray.copy(&self) <Type>
 	DyArray result;
 	if (self.count) {
 		result.amortize(self.count);
-		mem::copy(result.data, self.data, self.count * Type.sizeof);
+		mem::copy(result.data, self.data, self.count * Type::size);
 	}
 	result.count = self.count;
 	return result;
@@ -124,7 +124,7 @@ fn DyArray DyArray.move(&self) <Type>
 	DyArray result;
 	if (self.count) {
 		result.amortize(self.count);
-		mem::move(result.data, self.data, self.count * Type.sizeof);
+		mem::move(result.data, self.data, self.count * Type::size);
 	}
 	result.count = self.count;
 	self = {};
@@ -151,7 +151,7 @@ fn Type* DyArray.insert(&self, int index, Type value = {}) <Type>
 {
 	assert(@array_invariants(self) == true && index < self.count);
 	self.amortize(self.count + 1);
-	mem::move(self.data[index + 1], self.data[index], (self.count - index - 1) * Type.sizeof);
+	mem::move(self.data[index + 1], self.data[index], (self.count - index - 1) * Type::size);
 	self.count++;
 	self.data[index] = value;
 	return &self.data[index];
@@ -167,7 +167,7 @@ fn void DyArray.remove(&self, int index)
 fn void DyArray.remove_ordered(&self, int index, int how_many = 1) <Type>
 {
 	assert(@array_invariants(self) == true && index < self.count);
-	mem::move(self.data[index], self.data[index + 1], (self.count - index - 1) * Type.sizeof);
+	mem::move(self.data[index], self.data[index + 1], (self.count - index - 1) * Type::size);
 	self.count -= how_many;
 }
 

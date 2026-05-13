@@ -34,7 +34,7 @@ import engine::filesystem::fs;
 import engine::logging::log;
 import engine::misc;
 import game::main;
-import std::ascii;
+import std::core::ascii;
 
 /* DOC(HM)
 
@@ -72,71 +72,71 @@ faultdef MALFORMED_SVG_FILE,
 fn bool is(XmlNode* node, String name) @inline @local => (node.name == name) ? true : false;
 
 // NOTE(HM) acording to Zeal Doc this is mostly complete (minus deprecated elements)
-enum ElemID : (inline String name)
+constdef ElemID : inline String
 {
-    INVALID             {""},     // not really a real svg element just used to mark invalid elements
-    ANIMATE             {"animate"},
-    ANIMATEMOTION       {"animateMotion"},
-    ANIMATETRANSFORM    {"animateTransform"},
-    CIRCLE              {"circle"},
-    CLIPPATH            {"clipPath"},
-    DEFS                {"defs"},
-    DESC                {"desc"},
-    ELLIPSE             {"ellipse"},
-    FEBLEND             {"feBlend"},
-    FECOLORMATRIX       {"feColorMatrix"},
-    FECOMPONENTTRANSFER {"feComponentTransfer"},
-    FECOMPOSITE         {"feComposite"},
-    FECONVOLVEMATRIX    {"feConvolveMatrix"},
-    FEDIFFUSELIGHTING   {"feDiffuseLighting"},
-    FEDISPLACEMENTMAP   {"feDisplacementMap"},
-    FEDISTANTLIGHT      {"feDistantLight"},
-    FEDROPSHADOW        {"feDropShadow"},
-    FEFLOOD             {"feFlood"},
-    FEFUNCA             {"feFuncA"},
-    FEFUNCB             {"feFuncB"},
-    FEFUNCG             {"feFuncG"},
-    FEFUNCR             {"feFuncR"},
-    FEGAUSSIANBLUR      {"feGaussianBlur"},
-    FEIMAGE             {"feImage"},
-    FEMERGE             {"feMerge"},
-    FEMERGENODE         {"feMergeNode"},
-    FEMORPHOLOGY        {"feMorphology"},
-    FEOFFSET            {"feOffset"},
-    FEPOINTLIGHT        {"fePointLight"},
-    FESPECULARLIGHTING  {"feSpecularLighting"},
-    FESPOTLIGHT         {"feSpotLight"},
-    FETILE              {"feTile"},
-    FETURBULENCE        {"feTurbulence"},
-    FILTER              {"filter"},
-    FOREIGNOBJECT       {"foreignObject"},
-    G                   {"g"},
-    IMAGE               {"image"},
-    LINE                {"line"},
-    LINEARGRADIENT      {"linearGradient"},
-    MARKER              {"marker"},
-    MASK                {"mask"},
-    METADATA            {"metadata"},
-    MPATH               {"mpath"},
-    PATH                {"path"},
-    PATTERN             {"pattern"},
-    POLYGON             {"polygon"},
-    POLYLINE            {"polyline"},
-    RADIALGRADIENT      {"radialGradient"},
-    RECT                {"rect"},
-    SCRIPT              {"script"},
-    SET                 {"set"},
-    STOP                {"stop"},
-    STYLE               {"style"},
-    SVG                 {"svg"},   // this is the root element of the svg file
-    SWITCH              {"switch"},
-    SYMBOL              {"symbol"},
-    TEXT                {"text"},
-    TEXTPATH            {"textPath"},
-    TITLE               {"title"},
-    TSPAN               {"tspan"},
-    USE                 {"use"},
-    VIEW                {"view"},
+    INVALID             = "",     // not really a real svg element just used to mark invalid elements
+    ANIMATE             = "animate",
+    ANIMATEMOTION       = "animateMotion",
+    ANIMATETRANSFORM    = "animateTransform",
+    CIRCLE              = "circle",
+    CLIPPATH            = "clipPath",
+    DEFS                = "defs",
+    DESC                = "desc",
+    ELLIPSE             = "ellipse",
+    FEBLEND             = "feBlend",
+    FECOLORMATRIX       = "feColorMatrix",
+    FECOMPONENTTRANSFER = "feComponentTransfer",
+    FECOMPOSITE         = "feComposite",
+    FECONVOLVEMATRIX    = "feConvolveMatrix",
+    FEDIFFUSELIGHTING   = "feDiffuseLighting",
+    FEDISPLACEMENTMAP   = "feDisplacementMap",
+    FEDISTANTLIGHT      = "feDistantLight",
+    FEDROPSHADOW        = "feDropShadow",
+    FEFLOOD             = "feFlood",
+    FEFUNCA             = "feFuncA",
+    FEFUNCB             = "feFuncB",
+    FEFUNCG             = "feFuncG",
+    FEFUNCR             = "feFuncR",
+    FEGAUSSIANBLUR      = "feGaussianBlur",
+    FEIMAGE             = "feImage",
+    FEMERGE             = "feMerge",
+    FEMERGENODE         = "feMergeNode",
+    FEMORPHOLOGY        = "feMorphology",
+    FEOFFSET            = "feOffset",
+    FEPOINTLIGHT        = "fePointLight",
+    FESPECULARLIGHTING  = "feSpecularLighting",
+    FESPOTLIGHT         = "feSpotLight",
+    FETILE              = "feTile",
+    FETURBULENCE        = "feTurbulence",
+    FILTER              = "filter",
+    FOREIGNOBJECT       = "foreignObject",
+    G                   = "g",
+    IMAGE               = "image",
+    LINE                = "line",
+    LINEARGRADIENT      = "linearGradient",
+    MARKER              = "marker",
+    MASK                = "mask",
+    METADATA            = "metadata",
+    MPATH               = "mpath",
+    PATH                = "path",
+    PATTERN             = "pattern",
+    POLYGON             = "polygon",
+    POLYLINE            = "polyline",
+    RADIALGRADIENT      = "radialGradient",
+    RECT                = "rect",
+    SCRIPT              = "script",
+    SET                 = "set",
+    STOP                = "stop",
+    STYLE               = "style",
+    SVG                 = "svg",   // this is the root element of the svg file
+    SWITCH              = "switch",
+    SYMBOL              = "symbol",
+    TEXT                = "text",
+    TEXTPATH            = "textPath",
+    TITLE               = "title",
+    TSPAN               = "tspan",
+    USE                 = "use",
+    VIEW                = "view",
 }
 
 
@@ -375,7 +375,7 @@ fn bool? SVGData.load(&self)
 *>
 fn bool parse_svg(SVGData* self, SVGFile* doc) @local
 {
-    bool invalid_svg = (doc.rootNode.name == "" && doc.rootNode.name != ElemID.SVG.name);
+    bool invalid_svg = (doc.rootNode.name == "" && doc.rootNode.name != ElemID.SVG);
     if(invalid_svg)
     {
        log::error(Where.FILE, " Invalid svg file '%s', root element should be 'svg' but is '%s' instead.", self.path, doc.rootNode.name);
@@ -402,9 +402,9 @@ fn bool parse_svg(SVGData* self, SVGFile* doc) @local
 fn void register_SVGElemNode_data(SVGElemNode* svgElemNode, SVGData* svgfile) 
 {
     SVGElement* elem = mem::new(SVGElement);
-    foreach (elemID : ElemID.values)
+    foreach (elemID : ElemID::values)
     {
-        if(svgElemNode.name == elemID.name)
+        if(svgElemNode.name == elemID)
         {
             elem.id.kind = elemID;
             break;
@@ -450,12 +450,12 @@ fn void get_node_Attributes(XmlNode* node, SVGData* svgfile, SVGElement* inElem 
 }
 */
 
-enum TransfType : char (inline String str)
+constdef TransfType : inline String
 {
-    NONE      {"none"},
-    ROTATE    {"rotate"},
-    TRANSLATE {"translate"},
-    SCALE     {"scale"}
+    NONE      = "none",
+    ROTATE    = "rotate",
+    TRANSLATE = "translate",
+    SCALE     = "scale"
 }
 
 <*
@@ -495,7 +495,7 @@ fn void parse_attribute_data(SVGElemNodeAttribute* inAtrb, SVGElement* elem, SVG
 {
     bool should_register = true;
     SVGAttribute* new_atrb = mem::new(SVGAttribute);
-    foreach (atrbID : AttrID.values)
+    foreach (atrbID : AttrID::values)
     {
         if(inAtrb.name == atrbID.name)
         {
@@ -1222,11 +1222,11 @@ struct ManagerObj
 // to finish conversion
 fn f32 attibuteDataToFloat(ZString value, ZString* remainder) {
     int len = value.len;
-    ZString buffer = (ZString)mem::malloc(len * char.sizeof + 1);
+    ZString buffer = (ZString)mem::malloc(len * char::size + 1);
     defer{
         mem::free(buffer);
     };
-    libc::strncpy(buffer, value, len * char.sizeof + 1);
+    libc::strncpy(buffer, value, len * char::size + 1);
 
     String result;
     ZString at;
@@ -1251,7 +1251,7 @@ fn f32 attibuteDataToFloat(ZString value, ZString* remainder) {
 fn String getScaleType(ZString str)
 {
     int len     = str.len;
-    int size    = len * char.sizeof + 1;
+    int size    = len * char::size + 1;
 
     ZString buffer = (ZString)mem::malloc(size);
     defer{
@@ -2269,7 +2269,7 @@ fn SVG_D_Path* SVG_ParsePathData(const String& path_string) {
                         buffer.Push(*it);
                         if (*it == 'z' || *it == 'Z') break;
                     }
-                    //std::libc::strncpy(buffer, token.text, std::strlen(token.text) * char.sizeof);
+                    //std::libc::strncpy(buffer, token.text, std::strlen(token.text) * char::size);
 
                     //ZString at = buffer;
                     //hm::Advance(&at, 1); // skip the letter
@@ -2559,7 +2559,7 @@ fn void SVG_ParsePathData(const String& path_string, SVG_D_Path& path)
                         buffer.Push(*it);
                         if (*it == 'z' || *it == 'Z') break;
                     }
-                    //std::libc::strncpy(buffer, token.text, std::strlen(token.text) * char.sizeof);
+                    //std::libc::strncpy(buffer, token.text, std::strlen(token.text) * char::size);
 
                     //ZString at = buffer;
                     //hm::Advance(&at, 1); // skip the letter
@@ -2924,7 +2924,7 @@ fn bool SVG_ParsePathData(const tStringVec& paths_vec, SVG_RAW_DATA& svgout) {
                             buffer.Push(*it);
                             if (*it == 'z' || *it == 'Z') break;
                         }
-                        //std::libc::strncpy(buffer, token.text, std::strlen(token.text) * char.sizeof);
+                        //std::libc::strncpy(buffer, token.text, std::strlen(token.text) * char::size);
 
                         //ZString at = buffer;
                         //hm::Advance(&at, 1); // skip the letter
@@ -3089,13 +3089,13 @@ fn bool SVG_ParsePathDataString(String& path_data, XMLElement& elem, ZString fil
     Fori(i, path_data) {
         if (it == 'z' || it == 'Z') {
             if (first) {
-                paths.push_back(path_data.substr(0, ((&path_data.at(i) - &path_data.at(0)) + 1) * char.sizeof));
+                paths.push_back(path_data.substr(0, ((&path_data.at(i) - &path_data.at(0)) + 1) * char::size));
                 last_char_addres = &it;
                 first = 0;
                 old_index = i;
             }
             else {
-                paths.push_back(path_data.substr(old_index + 1, ((&it - last_char_addres) + 1) * char.sizeof));
+                paths.push_back(path_data.substr(old_index + 1, ((&it - last_char_addres) + 1) * char::size));
                 last_char_addres = &it;
                 old_index = i;
             }
@@ -3138,8 +3138,8 @@ fn bool SVG_ParsePathDataString(String& path_data, XMLElement& elem, ZString fil
 ///////////////////
 
 inline fn void SVG_Set_RootTransformData(SVG_RAW_DATA& svg, ZString transform) {
-    auto* buffer = (ZString)mem::malloc(strlen(transform) * char.sizeof + 1);
-    libc::strncpy(buffer, transform, strlen(transform) * char.sizeof + 1);
+    auto* buffer = (ZString)mem::malloc(strlen(transform) * char::size + 1);
+    libc::strncpy(buffer, transform, strlen(transform) * char::size + 1);
     defer{
         mem::free(buffer);
     };
@@ -3398,13 +3398,13 @@ fn bool ParseSVG(ZString filepath, SVG_RAW_DATA& svg, cSystem* mpSystem) {
                 Fori(i, path_data) {
                     if (it == 'z' || it == 'Z') {
                         if (first) {
-                            paths.push_back(path_data.substr(0, ((&path_data.at(i) - &path_data.at(0)) + 1) * char.sizeof));
+                            paths.push_back(path_data.substr(0, ((&path_data.at(i) - &path_data.at(0)) + 1) * char::size));
                             last_char_addres = &it;
                             first = 0;
                             old_index = i;
                         }
                         else {
-                            paths.push_back(path_data.substr(old_index + 1, ((&it - last_char_addres) + 1) * char.sizeof));
+                            paths.push_back(path_data.substr(old_index + 1, ((&it - last_char_addres) + 1) * char::size));
                             last_char_addres = &it;
                             old_index = i;
                         }

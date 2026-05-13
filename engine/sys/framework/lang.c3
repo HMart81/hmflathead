@@ -28,7 +28,7 @@
 
 //////////////////// Localization/Languages stuff /////////////////
 
-module engine::sys::framework::language::lang;
+module engine::sys::framework::language::lang @private;
 
 import std::io;
 import game::main;
@@ -49,38 +49,47 @@ typedef LANGFile = inline XmlDoc;
 //typedef LANGNode = inline XmlNode;
 //typedef LANGAttribute = inline XmlAttribute;
 
-alias StringsList = List{StringPair*};
+alias StringsList = List{LangStr*};
 alias LanguageList = List{Language*};
 
-struct Language 
+struct LangStr
+{
+    String id;
+    String data;
+}
+
+struct Language
 {
     String type;
     StringsList strings;
 }
 
-struct LANGData
+struct LANGData @public
 {
     String path;  // full path to the lang file
-    String type;  // current set language
     LanguageList languages;
 }
+
+LANGData dict @public; // Saves all the games languages data
+
+
 
 fn String LANGData.getString(&self, String id) 
 {
     foreach(lang : self.languages) 
     {
-        if(lang.type != self.type) continue;
+        if(lang.type != game::gpGame.language) continue;
 
         foreach(str : lang.strings) 
         {
-            if(str.first == id) return str.second;
+            if(str.id == id) return str.data;
         }
     }
 
     return "<failed>";
 }
 
-fn void LANGData.destroy(&self) 
+fn void LANGData.destroy(&self)
 {
     if(self.languages.len())
     {
@@ -98,6 +107,7 @@ fn void LANGData.destroy(&self)
 
 <*
     @param [in] _path : "path to the language file"
+    @require _path.len > 0
 *>
 fn bool? LANGData.load(&self, String _path)
 {
@@ -106,14 +116,14 @@ fn bool? LANGData.load(&self, String _path)
     // check if the file exists
     if(fs::fileExists(self.path)) 
     {
-        File file = fs::openFile(self.path)!;
-        defer file.close()!!;
-        if(file.file == null) {
+        File file_ = fs::openFile(self.path)!;
+        defer file_.close()!!;
+        if(file_.file == null) {
             log::error(FILE, "Failed to open language file '%s'", self.path);
             return LANG_LOAD_ERROR~;
         }
 
-        LANGFile* lang_file = (LANGFile*)xml::read_file(file)!;
+        LANGFile* lang_file = (LANGFile*)xml::read_file(file_)!;
         defer lang_file.free();
         if(lang_file == null) {
             log::error(FILE, "Failed to read language file '%s'", self.path);
@@ -132,18 +142,19 @@ fn bool? LANGData.load(&self, String _path)
 
 
 <*
+    @param [&inout] _dict : "the language database file to save data in"
     @param [&in] doc : "the language file/document to parse"
 *>
-fn bool _parse_lang(LANGData* self, LANGFile* doc) @local
+fn bool _parse_lang(LANGData* _dict, LANGFile* doc) @local
 {
     if(doc.rootNode.name != "LANG")
     {
-       log::error(FILE, " Invalid language file '%s', root element should be 'LANG' but is '%s' instead.", self.path, doc.rootNode.name);
+       log::error(FILE, " Invalid language file '%s', root element should be 'LANG' but is '%s' instead.", _dict.path, doc.rootNode.name);
        return false;
     }
 
     if(doc.rootNode.children.len() == 0) {
-        log::error(FILE, " Required strings in language file '%s' not found!", self.path);
+        log::error(FILE, " Required strings in language file '%s' not found!", _dict.path);
         return false;
     }
 
@@ -161,15 +172,15 @@ fn bool _parse_lang(LANGData* self, LANGFile* doc) @local
                     unreachable("invalid string node found in language file");
                 }
                 new_lang.strings.push(
-                    mem::new(StringPair, {
-                        .first  = str_node.attributes[0].value.tcopy(), 
-                        .second = str_node.attributes[1].value.tcopy()
+                    mem::new(LangStr, {
+                        .id  = str_node.attributes[0].value.tcopy(), 
+                        .data = str_node.attributes[1].value.tcopy()
                     })
                 );
             }
-            self.languages.push(new_lang);
+            _dict.languages.push(new_lang);
         } else {
-            log::error(FILE, " Invalid language file '%s', expected 'language' node found '%s' instead.", self.path, node.name);
+            log::error(FILE, " Invalid language file '%s', expected 'language' node found '%s' instead.", _dict.path, node.name);
             return false;
         }
     }

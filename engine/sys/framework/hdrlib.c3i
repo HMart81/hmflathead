@@ -67,12 +67,12 @@ macro bool HDRColor.eql(&self, HDRColor other) @operator(==)
              self.a == other.a );
 }
 
-macro bool HDRColor.neql(&self, HDRColor other) @operator(!=)
+macro bool HDRColor.less_than(&self, HDRColor other) @operator(<)
 {
-    return ( self.r != other.r ||
-             self.g != other.g ||
-             self.b != other.b ||
-             self.a != other.a );
+    return ( self.r < other.r ||
+             self.g < other.g ||
+             self.b < other.b ||
+             self.a < other.a );
 }
 
 macro @hexToHDRColor($hexValue)

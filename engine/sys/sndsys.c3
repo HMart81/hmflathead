@@ -105,23 +105,23 @@ struct SoundWorld
 	// placeholder for future sound world data
 }
 
-fn void SoundWorld.addMusic(&self, Asset{RLMusic}* music_asset) @extern("addMusic")
+fn void SoundWorld.addMusic(&self, Asset{RLMusic}* music_asset) @cname("addMusic")
 {
 	self.music.push(music_asset);
 }
 
-fn void SoundWorld.addSound(&self, Asset{RLSound}* sound_asset) @extern("addSound")
+fn void SoundWorld.addSound(&self, Asset{RLSound}* sound_asset) @cname("addSound")
 {
 	self.sounds.push(sound_asset);
 }
 
-fn void SoundWorld.addWave(&self, SSWave* wave_ptr) @extern("addWave")
+fn void SoundWorld.addWave(&self, SSWave* wave_ptr) @cname("addWave")
 {
 	self.waves.push(wave_ptr);
 }
 
 // getters
-fn Asset{RLMusic}* SoundWorld.getMusicByName(&self, String music) @nodiscard @extern("getMusicByName")
+fn Asset{RLMusic}* SoundWorld.getMusicByName(&self, String music) @nodiscard @cname("getMusicByName")
 {
 	foreach(music_asset : self.music) {
 		if(music_asset.name == music) {
@@ -131,7 +131,7 @@ fn Asset{RLMusic}* SoundWorld.getMusicByName(&self, String music) @nodiscard @ex
 	return null;
 }
 
-fn Asset{RLSound}* SoundWorld.getSoundByName(&self, String sound) @nodiscard @extern("getSoundByName")
+fn Asset{RLSound}* SoundWorld.getSoundByName(&self, String sound) @nodiscard @cname("getSoundByName")
 {
 	foreach(sound_asset : self.sounds) {
 		if(sound_asset.name == sound) {
@@ -141,7 +141,7 @@ fn Asset{RLSound}* SoundWorld.getSoundByName(&self, String sound) @nodiscard @ex
 	return null;
 }
 
-fn RLWave* SoundWorld.getWaveByName(&self, String wave_name) @nodiscard @extern("getWaveByName")
+fn RLWave* SoundWorld.getWaveByName(&self, String wave_name) @nodiscard @cname("getWaveByName")
 {
 	foreach(wave_ptr : self.waves) {
 		if(wave_ptr.name == wave_name) {
@@ -151,17 +151,17 @@ fn RLWave* SoundWorld.getWaveByName(&self, String wave_name) @nodiscard @extern(
 	return null;
 }
 
-fn void SoundWorld.removeMusic(&self, Asset{RLMusic}* music_asset) @extern("removeMusic")
+fn void SoundWorld.removeMusic(&self, Asset{RLMusic}* music_asset) @cname("removeMusic")
 {
 	self.music.remove_item(music_asset);
 }
 
-fn void SoundWorld.removeSound(&self, Asset{RLSound}* sound_asset) @extern("removeSound")
+fn void SoundWorld.removeSound(&self, Asset{RLSound}* sound_asset) @cname("removeSound")
 {
 	self.sounds.remove_item(sound_asset);
 }
 
-fn void SoundWorld.removeWave(&self, SSWave* wave_ptr) @extern("removeWave")
+fn void SoundWorld.removeWave(&self, SSWave* wave_ptr) @cname("removeWave")
 {
 	wave_ptr.name = ""; // clear name for safety
 	rl::unloadWave(wave_ptr.super); // unload the wave data
@@ -169,29 +169,29 @@ fn void SoundWorld.removeWave(&self, SSWave* wave_ptr) @extern("removeWave")
 	self.waves.remove_item(wave_ptr);
 }
 
-fn void SoundWorld.clearMusic(&self) @extern("clearMusic")
+fn void SoundWorld.clearMusic(&self) @cname("clearMusic")
 {
 	self.music.clear();
 }
 
-fn void SoundWorld.clearSounds(&self) @extern("clearSounds")
+fn void SoundWorld.clearSounds(&self) @cname("clearSounds")
 {
 	self.sounds.clear();
 }
 
-fn void SoundWorld.clearWaves(&self) @extern("clearWaves")
+fn void SoundWorld.clearWaves(&self) @cname("clearWaves")
 {
 	self.waves.clear();
 }
 
-fn void SoundWorld.clearAll(&self) @extern("clearAll")
+fn void SoundWorld.clearAll(&self) @cname("clearAll")
 {
 	self.music.clear();
 	self.sounds.clear();
 	self.waves.clear();
 }
 
-fn void SoundWorld.playMusic(&self, Asset{RLMusic}* music_asset) @extern("playMusic")
+fn void SoundWorld.playMusic(&self, Asset{RLMusic}* music_asset) @cname("playMusic")
 {
 	if(rl::isMusicValid(music_asset.data)) {
 		if(!rl::isMusicStreamPlaying(music_asset.data)) {
@@ -200,7 +200,7 @@ fn void SoundWorld.playMusic(&self, Asset{RLMusic}* music_asset) @extern("playMu
 	}
 }
 
-fn void SoundWorld.playMusicByName(&self, String music_name) @extern("playMusicByName")
+fn void SoundWorld.playMusicByName(&self, String music_name) @cname("playMusicByName")
 {
 	foreach(music_asset : self.music) {
 		if(music_asset.name == music_name) {
@@ -210,21 +210,21 @@ fn void SoundWorld.playMusicByName(&self, String music_name) @extern("playMusicB
 	}
 }
 
-fn void SoundWorld.resumeMusic(&self, Asset{RLMusic}* music_asset) @extern("resumeMusic")
+fn void SoundWorld.resumeMusic(&self, Asset{RLMusic}* music_asset) @cname("resumeMusic")
 {
 	if(!rl::isMusicStreamPlaying(music_asset.data)) {
 		rl::resumeMusicStream(music_asset.data);
 	}
 }
 
-fn void SoundWorld.pauseMusic(&self, Asset{RLMusic}* music_asset) @extern("pauseMusic")
+fn void SoundWorld.pauseMusic(&self, Asset{RLMusic}* music_asset) @cname("pauseMusic")
 {
 	if(rl::isMusicStreamPlaying(music_asset.data)) {
 		rl::pauseMusicStream(music_asset.data);
 	}
 }
 
-fn void SoundWorld.stopMusic(&self, Asset{RLMusic}* music_asset) @extern("stopMusic")
+fn void SoundWorld.stopMusic(&self, Asset{RLMusic}* music_asset) @cname("stopMusic")
 {
 	if(rl::isMusicStreamPlaying(music_asset.data)) {
 		rl::stopMusicStream(music_asset.data);
@@ -237,19 +237,19 @@ fn void SoundWorld.stopMusic(&self, Asset{RLMusic}* music_asset) @extern("stopMu
 <*
  @param [&in] sw : "sound world to register"
 *>
-fn void registerSoundWorld(SoundWorld* sw) @extern("registerSoundWorld")
+fn void registerSoundWorld(SoundWorld* sw) @cname("registerSoundWorld")
 {
 	sound_worlds.push(sw);
 }
 
-fn SoundWorld* createSoundWorld(String name) @extern("createSoundWorld")
+fn SoundWorld* createSoundWorld(String name) @cname("createSoundWorld")
 {
 	SoundWorld* sw = mem::new(SoundWorld);
 	sw.name = name.tcopy();
 	return sw;
 }
 
-fn void destroySoundWorld(SoundWorld* sw) @extern("destroySoundWorld")
+fn void destroySoundWorld(SoundWorld* sw) @cname("destroySoundWorld")
 {
 	// unload all music
 	foreach(music_asset : sw.music) {
@@ -275,7 +275,7 @@ fn void destroySoundWorld(SoundWorld* sw) @extern("destroySoundWorld")
 	mem::free(sw);
 }
 
-fn void updateSoundWorld(SoundWorld* sw) @extern("updateSoundWorld")
+fn void updateSoundWorld(SoundWorld* sw) @cname("updateSoundWorld")
 {
 	// update all music streams
 	foreach(music_asset : sw.music) {
@@ -284,7 +284,7 @@ fn void updateSoundWorld(SoundWorld* sw) @extern("updateSoundWorld")
 	// no need to update sounds or waves
 }
 
-fn void silenceSoundWorld(SoundWorld* sw) @extern("silenceSoundWorld")
+fn void silenceSoundWorld(SoundWorld* sw) @cname("silenceSoundWorld")
 {
 	// stop all music streams
 	foreach(music_asset : sw.music) {
@@ -297,7 +297,7 @@ fn void silenceSoundWorld(SoundWorld* sw) @extern("silenceSoundWorld")
 	// no need to stop waves
 }
 
-fn void silenceSoundWorldByName(String name) @extern("silenceSoundWorldByName")
+fn void silenceSoundWorldByName(String name) @cname("silenceSoundWorldByName")
 {
 	foreach(sw : sound_worlds) {
 		if(sw.name == name) {

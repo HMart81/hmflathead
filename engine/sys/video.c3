@@ -67,7 +67,7 @@ const EXTENSION_MPG = ".mpg";
 const EXTENSION_MPEG = ".mpeg";
 const VIDEOS_FOLDER_PATH   = "videos"+++platf::PATHSEPERATOR_STR;
 const COLOR_CHANNELS  @local = 3;
-const BYTES_PER_PIXEL @local = COLOR_CHANNELS * Uint8_t.sizeof;
+const BYTES_PER_PIXEL @local = COLOR_CHANNELS * Uint8_t::size;
 
 alias gpGame = game::gpGame;
 
@@ -241,7 +241,7 @@ const AUDIO_F32 @local = 32; // bits
 //const CHANNEL_COUNT  = VidAudioMode.MONO; // Using mono works for mono tracks but breaks stereo
 const CHANNEL_COUNT    = VidAudioMode.STEREO; // Using Stereo for videos, will break mono and stereo!!!! ;(
 // NOTE(HM) Each audio frame consists of one or two samples
-const SAMPLE_SIZE      = float.sizeof; // 4 bytes
+const SAMPLE_SIZE      = float::size; // 4 bytes
 const AUDIO_FRAME_SIZE = SAMPLE_SIZE * CHANNEL_COUNT; // 1 frame in bytes
 //
 // this is the amount of SAMPLES to save on memory per tick
@@ -659,7 +659,7 @@ fn void? VideoCabinet.registerVideos(&self)
 
         if(files.count)
         {
-            for(int i = 0; i < files.count; i++)
+            for(int i = 0; i < (int)files.count; i++)
             {
 				String path_view = files.paths[i].str_view();
                 if(fs::isFile(path_view))

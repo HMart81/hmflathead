@@ -269,8 +269,8 @@ fn String* InternalCVar.copyValueStrings(self, String* strings ) {
 		totalLength += strings[i].len() + 1;
 	}
 
-	String* ptr = (String *) mem::alloc( ( i + 1 ) * ZString.sizeof + totalLength );
-	ZString str = (ZString) (((char *)ptr) + ( i + 1 ) * ZString.sizeof );
+	String* ptr = (String *) mem::alloc( ( i + 1 ) * ZString::size + totalLength );
+	ZString str = (ZString) (((char *)ptr) + ( i + 1 ) * ZString::size );
 
 	for ( i = 0; strings[i] != null; i++ ) {
 		ptr[i] = str;

@@ -30,7 +30,7 @@ module game::files::ini;
 
 // region C3 imports
 import std::io;
-import std::ascii;
+import std::core::ascii;
 import std::io::file;
 import std::collections::list, std::collections::pair;
 // end_region
@@ -241,7 +241,7 @@ fn void ConfigFile.addSectionTofile(&self, IniSection* section) @inline
     usz len = (usz)fs::getFileSize(self.path);
     if(len) 
     {
-        char* buffer = (char*)mem::malloc( len * char.sizeof);
+        char* buffer = (char*)mem::malloc( len * char::size);
         defer mem::free(buffer);
         
         file::load_buffer(self.path, buffer[:len])!!;
@@ -878,7 +878,7 @@ fn ConfigFile*? parse_file(String[] lines) @local
 *>
 fn void parse_section_name(String line, ConfigFile* file) @local 
 {
-    String section_name = line.strip(Token.SECTION_START).strip_end(Token.SECTION_END); //trim("[]");
+    String section_name = line.strip_start(Token.SECTION_START).strip_end(Token.SECTION_END); //trim("[]");
     if(section_name.contains(Token.DOT))
     {
         String[] split = section_name.tsplit(Token.DOT);
@@ -940,7 +940,7 @@ fn void parse_section_cmd(String line, ConfigFile* file) @local
     if(cmd_data.second.contains(Token.DOT) && cmd_data.second.len > 1) 
     {
         // see if is a float of form '1.'
-        usz dot_index = cmd_data.second.index_of_char('.')!!;
+        sz dot_index = cmd_data.second.index_of_char('.')!!;
         // if the dot is the last char in the string, we need to add a zero at the end
         if((dot_index + 1) == cmd_data.second.len) 
         {
@@ -1081,7 +1081,7 @@ fn bool? ConfigFile.load(&self, String filepath, bool isrelative = true)
 fn bool ConfigFile.loadEx(&self, File data, String filepath) 
 {
 	char[] buffer;
-	usz? read_cout = data.read(buffer);
+	sz? read_cout = data.read(buffer);
 	if(catch excuse = read_cout) {
         log::warning(FILE,  "Unable to read file %s with excuse: %s", filepath, excuse);
         return false;
@@ -1237,7 +1237,7 @@ fn void ConfigFile.reload(&self)
     unload(self);
     
     // assign the new data to the current config
-    mem::copy(self, new_data, ConfigFile.sizeof);
+    mem::copy(self, new_data, ConfigFile::size);
     //*self = *new_data;
     
     // free the new data
@@ -1380,7 +1380,7 @@ fn bool? populate(ConfigFile* file_data, String path) @deprecated {
             if(line.starts_with(Token.SECTION_START))
             {
                 section      = mem::new(IniSection);
-                section.name = (*line).strip(Token.SECTION_START).strip_end(Token.SECTION_END).tcopy();
+                section.name = (*line).strip_start(Token.SECTION_START).strip_end(Token.SECTION_END).tcopy();
                 current_editing_section_name = &section.name;
                 continue;
             }

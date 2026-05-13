@@ -116,7 +116,7 @@ fn void Player.reload(&self, SaveFile* file) @dynamic {
 // WARNING(HM) Player.init() will shadow (aka override) Entity.init()
 fn void Player.init(&self, Vec2f origin, RLColor color, int id)
 {
-    self.type     = Player.typeid;
+    self.type     = Player;
     self.id       = id;
     self.name     = string::tformat("player%d", id).tcopy();
     self.move_dir = NONE;
@@ -266,6 +266,7 @@ import std::collections::list;
 
 alias InputActionCallback = fn void(void*... args);
 alias ActionsList         = List{InputAction*};
+alias RLKeyboardKey = int;
 struct InputAction 
 {
     String name;
@@ -360,7 +361,7 @@ struct Projectile
 
 fn Projectile* create(Vec2f origin, Vec2f size = {40, 40}, int lifetime = 5000, AmmoKind type = BULLET) {
     Projectile* projectile  = mem::new(Projectile);
-    projectile._typeid      = Projectile.typeid;
+    projectile._typeid      = Projectile;
     projectile.kind         = type;
     projectile.rec          = {origin.x, origin.y, size.x, size.y};
     projectile.move_speed   = DEFAULT_PROJECTILE_SPEED; // @hardcode

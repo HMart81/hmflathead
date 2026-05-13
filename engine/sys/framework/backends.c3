@@ -125,7 +125,7 @@ fn uint BackendRender.getFPS(&self) @dynamic
 
 fn void BackendRender.setMainMonitor(&self, uint monitor_index = 0) @dynamic
 {
-	assert(monitor_index < self.getMonitorCount());
+	assert(monitor_index < (uint)self.getMonitorCount());
     rl::setWindowMonitor((int)monitor_index);
 }
 

@@ -46,7 +46,7 @@ struct Bounds (Printable) @packed
     Vec2f minc;
 }
 
-fn usz? Bounds.to_format(&self, Formatter* f) @dynamic 
+fn sz? Bounds.to_format(&self, Formatter* f) @dynamic 
 {
     return f.printf(`Bounds { .maxc = %s, .minc = %s, }`, self.maxc, self.minc);
 }
@@ -234,9 +234,13 @@ fn bool Bounds.compare(&self, Bounds* a ) @operator(==)
     @param [in] a : "other bounds to compare too"
     @require a != null
 *>
-fn bool Bounds.compare2(&self, Bounds* a ) @operator(!=)
+fn bool Bounds.less_than(&self, Bounds* a ) @operator(<)
 {
-    return (self.minc != a.minc && self.maxc != a.maxc);
+    return (self.minc.x < a.minc.x &&
+			self.minc.y < a.minc.y &&
+			self.maxc.x < a.maxc.x &&
+			self.maxc.y < a.maxc.y
+			);
 }
 
 fn void Bounds.clear(&self) @inline 

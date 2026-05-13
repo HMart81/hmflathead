@@ -32,7 +32,7 @@ module engine::tokanizer::tok;
 
 // region imports
 import libc;
-import std::io, std::ascii;
+import std::io, std::core::ascii;
 // end_region
 
 fn void advance(char** str, int count)  @inline
@@ -57,7 +57,7 @@ fn bool isWhiteSpace(char c)  @inline
 	aka 0 to 127
     
 	@require ascii::is_alnum(c) : "Expected a number or symbol"
-	@require c <= ichar.max : "Expected valid ASCII value from 0 to 127"
+	@require c <= ichar::max : "Expected valid ASCII value from 0 to 127"
 *>
 fn int charToInt(char c)  @inline
 {
@@ -114,7 +114,7 @@ fn bool expectToken(char token, String str, int cur_index)  @inline
 fn int count_spaces(String str)  @inline
 {
 	int result;
-    foreach(c : str) { if(ascii::is_space_m(c)) result++; }
+    foreach(c : str) { if(ascii::is_space(c)) result++; }
     return result;
 }
 

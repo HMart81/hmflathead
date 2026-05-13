@@ -166,7 +166,7 @@ macro @on($a = 0; @body) @builtin
   @param #b : `end index`
   @param [&in] arr : `array to iterate`
   @require arr.len > 0
-  @require types::is_intlike($typeof($a)) && types::is_intlike($typeof(#b))
+  @require types::is_intlike($Typeof($a)) && types::is_intlike($Typeof(#b))
   @require $a >= 0 && #b < arr.len
  *>
 macro @forange($a, #b, arr; @body(x, y)) @builtin
@@ -821,6 +821,9 @@ fn bool String.has_spaces(&self) @inline {
     // else
     return false;
 }
+
+fn String String.strip_start(self, String prefix) @inline => self.strip_prefix(prefix);
+fn String String.strip_end(self, String suffix) @inline => self.strip_suffix(suffix);
 // #endregion String custom extensions
 
 // #region raw strings/ZString utils
@@ -855,12 +858,12 @@ fn void axis_scale(Matrix2f* mat, Vec2f vec) @inline {
 
 macro @printstruct(value)
 {
-    var $Type = $typeof(value);
+    var $Type = $Typeof(value);
     $if $Type.kindof != STRUCT:
         io::print(value);
     $else
         io::print("{\n");
-        $foreach $i, $member : $Type.membersof:
+        $foreach $i, $member : $Type::members:
             $if $i > 0:
                 io::print(",\n");
             $endif
@@ -913,11 +916,11 @@ macro int fmin_to_sec(int minutes)
 }
 
 <*
-  @require type <= uint.max : "ulong most be within uint size"
+  @require type <= uint::max : "ulong most be within uint size"
 *>
 fn uint safeTruncateU64(ulong type) @inline => (uint)type;
 <*
-  @require type <= int.max : "long most be within int size"
+  @require type <= int::max : "long most be within int size"
 *>
 fn int safeTruncateS64(long type) @inline => (int)type;
 
@@ -946,8 +949,8 @@ fn long roundDoubleToLong(double value) @inline {
 
 fn uint countDigits(uint numb) @inline @nodiscard
 { 
-	uint result = (uint)(roundFloatToInt((float)math::log(numb, 10)) + 1u);
-	return result;
+	int result = (roundFloatToInt((float)math::log(numb, 10)) + 1);
+	return (uint)result;
 }
 
 <*
@@ -962,12 +965,12 @@ macro @safeRoundCast(#value, $Type) => ($Type)libc::rint(#value);
 
 macro @mapValueRangeToOther(#x, $in_min, $in_max, $out_min, $out_max)
 {
-    return ($typeof(#x))(#x - $in_min) * ($out_max - $out_min) / ($in_max - $in_min) + $out_min;
+    return ($Typeof(#x))(#x - $in_min) * ($out_max - $out_min) / ($in_max - $in_min) + $out_min;
 }
 
 // macro @mapValueRangeToOtherX(#x, #in_min, #in_max, #out_min, #out_max)
 // {
-    // return ($typeof(#x))(#x - #in_min) * (#out_max - #out_min) / (#in_max - #in_min) + #out_min;
+    // return ($Typeof(#x))(#x - #in_min) * (#out_max - #out_min) / (#in_max - #in_min) + #out_min;
 // }
 
 macro clamp01f(x) => math::clamp((float)x, 0.0f, 1.0f);
@@ -988,9 +991,9 @@ fn float clampfBinormalMapToRange(float x, float min, float max) @inline @nodisc
 }
 
 <*
-	Reverts a integer from 0 to uint.max 
+	Reverts a integer from 0 to uint::max 
 	@param num : "number to reverse like 1234 into 4321"
-	@require num <= uint.max
+	@require num <= uint::max
 *>
 fn uint reverse_digits(uint num) @inline
 {

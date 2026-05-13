@@ -31,6 +31,7 @@ module engine::filesystem::fs;
 
 // region modules
 import std::os;
+import libc;
 import game::main;
 import std::io, std::io::path;
 import std::collections::list;
@@ -41,6 +42,14 @@ import engine::logging::log;
 faultdef FS_FAILED_SAVE_DATA,
          FS_FAILED_MAKE_DIR,
          FS_FAILED_CHANGE_DIR;
+
+const Time_t FILE_NOT_FOUND_TIMESTAMP = 0xFFFFFFFF;
+const int MAX_PURE_PAKS = 128;
+// HM: https://www.gnu.org/software/libc/manual/html_node/Limits-for-Files.html says
+//     that FILENAME_MAX can be *really* big on some systems and thus is not suitable
+//     for buffer lengths. So limit it to prevent stack overflow/out of memory issues
+const int MAX_OSPATH = (libc::FILENAME_MAX < 32000) ? libc::FILENAME_MAX : 32000;
+
 
 // modes for OpenFileByMode. used as bit mask internally
 alias FileMode @local = String;
@@ -61,7 +70,7 @@ struct FileList (Printable) @private
 	StringList	list;
 }
 
-fn usz? FileList.to_format(&self, Formatter* f) @dynamic
+fn sz? FileList.to_format(&self, Formatter* f) @dynamic
 {
     return f.printf("FileList(basePath: '%s', numFiles: %d)", self.basePath, self.getNumFiles());
 }
@@ -85,6 +94,17 @@ fn String FileList.getFile(&self, uint index ) => self.list[index];
 *>
 fn StringList*	FileList.getList(&self) => &self.list;
 
+fn FileList*? listDirectoryFiles(String dirPath) @inline {
+    FileList* dirList = mem::new(FileList, {.basePath = dirPath});
+	PathList ls = path::ls(tmem, path::tnew(dirPath)!)!;
+	foreach(pt : ls) {
+		if(path::is_dir(pt)) dirList.list.push(pt.tcopy(tmem)); // c3 library bug tcopy shouldn't need tmem
+	}
+	return dirList;
+}
+
+fn PathList? listDirectoryPaths(String dirPath) => path::ls(mem, path::tnew(dirPath)!)!;
+
 struct ModList 
 {
 	StringList	mods;
@@ -107,6 +127,11 @@ fn String ModList.getMod(&self, uint index ) => self.mods[index];
 *>
 fn String ModList.getDescription(&self, uint index ) => self.descriptions[index];
 
+
+//////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////
+
+
 // region Files management functions
 struct EntireFile @local {
     usz contents_size;
@@ -127,9 +152,9 @@ fn String? readEntireFileX(String filepath)
     
     if(data.file != null)
     {
-        _file.contents_size = data.seek(0, Seek.END)!;
-        data.seek(0, SET)!; // return to the start
-        _file.contents = mem::calloc(char.sizeof * _file.contents_size);
+        _file.contents_size = (usz)data.size()!;
+        data.seek(0, FROM_START)!; // return to the start
+        _file.contents = mem::calloc(char::size * (sz)_file.contents_size);
         char[] buffer = ((char*)_file.contents)[:_file.contents_size];
         data.read(buffer[:_file.contents_size])!;
         return ((String)buffer).tcopy();
@@ -241,7 +266,7 @@ fn bool isFileExtension(String fileName, ZString ext) @inline {
 // Get file size in bytes
 fn uint getFileSize(String fileName) @inline {
     CInt result = rl::getFileLength(fileName.zstr_tcopy());
-    return (result) ? result : 0u;
+    return (result) ? (uint)result : 0u;
 }
 // Get string view of extension for a filename (includes dot: '.png')
 fn String getFileExtension(String fileName) @inline {
@@ -370,7 +395,7 @@ fn void do_move(String from, String dest, String fileExtensions = "") @local
             // load all files with the given extension in the main directory
             int i, file_count;
             RLFilePathList files = loadDirectoryFilesEx(from, fileext, scanSubdirs: false);
-            file_count = files.count;
+            file_count = (int)files.count;
             assert(file_count >= 1);
             do { // move the files to the subdirectory
                 String file_path = ((ZString)files.paths[i]).str_view();
@@ -404,7 +429,7 @@ fn void do_move(String from, String dest, String fileExtensions = "") @local
     } else {
         // load all files in the original directory
         RLFilePathList files = fs::loadDirectoryFiles(from);
-        for(int i = 0; i < files.count; i++) 
+        for(int i = 0; i < (int)files.count; i++) 
         {
             // now move the files to the subdirectory
             String file_path = ((ZString)files.paths[i]).str_view();
@@ -459,18 +484,7 @@ fn void moveFiles(String from, String to, String fileExtensions = "")
 // end_region
 
 // #region Path
-fn Path? newPath(String _path) 
-{
-    $if $defined(env::WIN32):
-        return path::temp(_path, PathEnv.WIN32);
-    $else
-        $if $defined(env::POSIX):
-            return path::temp(_path, PathEnv.POSIX);
-        $endif
-
-        return path::temp(_path); // default enviroment whatever it is
-    $endif
-}
+fn Path? newPath(String _path) => path::new(mem, _path);
 // #endregion
 
 fn bool isFileLink(String asPath)
@@ -608,7 +622,7 @@ getSystemRAM - returns amount of physical memory in MB
 fn int getSystemRAM() 
 {
 	MemoryStatus statex;
-	statex.dwLength = MemoryStatus.sizeof;
+	statex.dwLength = MemoryStatus::size;
 	globalMemoryStatusEx(&statex);
 	int physRam = (int)(statex.ullTotalPhys / ( 1024 * 1024 ));
 	// HACK: For some reason, ullTotalPhys is sometimes off by a meg or two, so we round up to the nearest 16 megs
@@ -744,7 +758,7 @@ fn bool? regCreateKey(Win32_HKEY key, String sub_key, Win32_DWORD options,
 {
     // remove start and end trailing slashs for paths 
     // aparently those are not supported!
-    if(sub_key.starts_with("\\")) sub_key = sub_key.strip("\\");
+    if(sub_key.starts_with("\\")) sub_key = sub_key.strip_start("\\");
     if(sub_key.ends_with("\\")) sub_key = sub_key.strip_end("\\");
     Win32_LSTATUS status = regCreateKeyEx(key, (Win32_LPCSTR)sub_key.zstr_tcopy(), 0, null, options, desired, securityAttributes, result, disposition);
     if (status == ERROR_SUCCESS) {
@@ -771,9 +785,9 @@ fn Win32_LSTATUS regSetValue(Win32_HKEY key, String valueName, any value)
 {
     switch(value.type)
     {
-        case Win32_DWORD.typeid:
-            return regSetValueExA(key, (Win32_LPCSTR)valueName.zstr_tcopy(), 0, REG_DWORD, (Win32_BYTE*)value.ptr, Win32_DWORD.sizeof);
-        case String.typeid:
+        case Win32_DWORD:
+            return regSetValueExA(key, (Win32_LPCSTR)valueName.zstr_tcopy(), 0, REG_DWORD, (Win32_BYTE*)value.ptr, Win32_DWORD::size);
+        case String:
             var str @safeinfer = (String*)value.ptr;
             Win32_BYTE* dt = &(*str)[0];
             var dt_len @safeinfer = (Win32_DWORD)(*str).zstr_tcopy().len();
@@ -846,7 +860,7 @@ fn void? setRegistryDwordValue(Win32_HKEY key, String setting, uint value) @publ
     // Set the value in the registry key
     /*Win32_DWORD32 dwType, dwSize;
     dwType = REG_DWORD; // type of the value to be set
-    dwSize = Win32_DWORD32.sizeof; // size of the Win32_DWORD unsigned 32bits value
+    dwSize = Win32_DWORD32::size; // size of the Win32_DWORD unsigned 32bits value
     if(regSetValue(key, (Win32_LPCSTR)setting.zstr_tcopy(), 0, dwType, (Win32_BYTE*)&value, dwSize) == ERROR_SUCCESS) return;
     // else return an error
     return ERROR_REGISTRY_KEY_SET_VALUE_FAILED~;*/
@@ -1044,7 +1058,7 @@ extern fn Win32_HINSTANCE shellExecuteA(
 
 <*
   @param [in] lpFileName : "mandatory, The name of the file or directory"
-  @require lpFileName != ""
+  @require lpFileName != (Win32_LPCSTR)""
 *>
 extern fn Win32_DWORD getFileAttributesA(Win32_LPCSTR lpFileName) @cname("GetFileAttributesA");
 

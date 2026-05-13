@@ -69,7 +69,7 @@ fn void pre_InitFunc() @init
     io::printfn("*******************************************\\\n");
     
     //uint value = misc::megaBytes2Bytes(1024);
-    //memory_pool = (usz*)rl::memAlloc( value * uint.sizeof);
+    //memory_pool = (usz*)rl::memAlloc( value * uint::size);
     gameArena.init(mem, GAME_ARENA_PAGE_SIZE);
     
     // Controls raylib console logging

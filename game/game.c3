@@ -35,7 +35,7 @@ import main;
 import std::io, std::thread, std::os;
 import std::time;
 import std::math;
-import std::ascii;
+import std::core::ascii;
 import std::math::complex;
 import std::core::mem; // for malloc/new
 import std::collections::list, std::collections::map, std::collections::pair;
@@ -116,7 +116,7 @@ const String MOUSE_IMAGE_NAME       @Hardcode = "pointer.png";
 const String MOUSE_POINTER_MAT_NAME @Hardcode = "gui/pointer"; // game assets folder
 const GAME_CURSOR_SCALER            @Hardcode = 0.025f;
 
-const int MAX_ENTITY_COUNT @public @Hardcode = 1 << 12; //int.max;
+const int MAX_ENTITY_COUNT @public @Hardcode = 1 << 12; //int::max;
 
 const MIN_DISPLAY_HZ_FACTOR @Hardcode = 0.13f; // if the display hz is bellow this factor of the monitor hz, we set it to the minimum
 const MIN_DISPLAY_HZ  @Hardcode = 15;   // minimum display hz
@@ -331,7 +331,7 @@ struct Game (SaveSystemInterface/*, IGame*/) @local
     
     IntroAnimation intro;
     
-    LANGData langdict; // handles the games languages
+	String language;  // current set language
 
     // menus
     UIWindow* guiActive; // to handle all guis
@@ -526,9 +526,9 @@ fn void Game.save(&self, SaveFile* file) @dynamic {
     self.playerPersistentInfo.save(file); // to save any info that the player carries along for each level
     self.view.save(file);
     
-    svs::write(file, &self.screen, $sizeof(self.screen));
-    svs::write(file, &self.entityList, $sizeof(self.entityList));
-    svs::write(file, &self.sprites, $sizeof(self.sprites));
+    svs::write(file, &self.screen, $Typeof(self.screen)::size);
+    svs::write(file, &self.entityList, $Typeof(self.entityList)::size);
+    svs::write(file, &self.sprites, $Typeof(self.sprites)::size);
 
     $if $defined(BOIDS_ENABLE):
     self.boidManager1.save(file);
@@ -954,7 +954,7 @@ $endif
     if(self.player1) self.player1 = null;
     if(self.player2) self.player2 = null;
     
-    if(usz count = self.sprites.len()) {
+    if(sz count = self.sprites.len()) {
         foreach(&it: self.sprites) if(it) (*it).deinit();
         self.sprites.free();
         log::info(FILE, "['%s'] sprites were cleared!", count);
@@ -1083,7 +1083,7 @@ fn void update_game_cursor(int screen_w, int screen_h) @public
     float desired_cursor_size;
     // now change coordinates depending on set uints
     if(UNITS == Units.METER) {
-        desired_cursor_size = math::floor(GAME_CURSOR_SCALER * misc::pixelsToMeters(screen_h));
+        desired_cursor_size = math::floor(GAME_CURSOR_SCALER * misc::pixelsToMeters((uint)screen_h));
     }
     else if(UNITS == Units.PIXEL) {
         desired_cursor_size = math::floor(GAME_CURSOR_SCALER * screen_h);
@@ -1299,7 +1299,7 @@ fn void onUpdate() @local
     tracy::@zoneN("gameUpdate", CHOICE)
     {
         // make game run at lower rate in case window loses focus
-        int runningHz = local_game.render.getFPS();
+        int runningHz = (int)local_game.render.getFPS();
         int max_fps   = local_game.max_fps;
         if(max_fps <= 0) {
             max_fps = math::clamp(local_game.max_fps, MIN_DISPLAY_HZ, local_game.screen.displayHz);
@@ -1434,16 +1434,16 @@ $endif
                 {
                     if(ent.isDead())
                     {
-                        usz i = local_game.entityList.index_of(ent)!!;
-                        usz old_size = local_game.entityList.len();
+                        sz i = local_game.entityList.index_of(ent)!!;
+                        sz old_size = local_game.entityList.len();
                         local_game.entityList.remove_at(i);
-                        usz new_size = old_size - 1;
+                        sz new_size = old_size - 1;
                         if(new_size == 0) {
                             log::info(FILE, "All entities were destroyed!");
                         } else {
                             log::info(FILE, "Entity '%s' was removed from the game! Remaining entities: %d", ent.name, new_size);
                         }
-                        local_game.entityList._update_size_change(old_size, new_size);
+                        local_game.entityList.compact();
                     }
                     local_game.entitiesToRemove.remove_at(local_game.entitiesToRemove.index_of(ent)!!);
                 }
@@ -1466,7 +1466,7 @@ $endif
                     continue;
                 }
 
-                if(ent.type == Player.typeid) 
+                if(ent.type == Player) 
                 {
                     assert(ent != null);
                     // Need to cast Entity* to Player* to call player think not Entity think...
@@ -1497,7 +1497,7 @@ $endif
 
             foreach(i, box : messageBoxs) {
                 if(box.shouldRemove && !box.isVisible) {
-                    messageBoxsIndecesToRemove.push(i);
+                    messageBoxsIndecesToRemove.push((ulong)i);
                 } else if(box.shouldRemove && box.isVisible) {
                     log::warning(CONSOLE, "Message box set to remove but still visible!!!");
                     unreachable();
@@ -1506,7 +1506,7 @@ $endif
 
             if(messageBoxsIndecesToRemove.len()) {
                 foreach(i : messageBoxsIndecesToRemove) {
-                    messageBoxs.remove_at(i);
+                    messageBoxs.remove_at((long)i);
                 }
             }
         }
@@ -2716,10 +2716,10 @@ $endif
                     //log::info(FILE, "Saving required registry data to: \"HKEY_CURRENT_USER\\Software\\HMartSoftware\\unnnamed\\settings\"");
 					// now save values into the path
                     ;
-                    if(!win32::regSetValue(folder_key, "baseDir", any_make(&local_game.app_base_folder, String.typeid))) {
+                    if(!win32::regSetValue(folder_key, "baseDir", any_make(&local_game.app_base_folder, String))) {
                         log::warning(FILE, "failed to write baseDir path to registry.");
                     }
-                    if(!win32::regSetValue(folder_key, "saveDir", any_make(&local_game.app_save_folder, String.typeid))) {
+                    if(!win32::regSetValue(folder_key, "saveDir", any_make(&local_game.app_save_folder, String))) {
                         log::warning(FILE, "failed to write saveDir path to registry.");
                     }
 				}
@@ -2735,14 +2735,14 @@ $endif
     // set game language
     if(settings_data.hasSection("game")) 
     {
-        local_game.langdict.type = settings_data.getString("language");
-        assert(local_game.langdict.type.len > 0);
+        local_game.language = settings_data.getString("language");
+        assert(local_game.language.len > 0);
         $if $defined(env::WIN32):
             Win32_HKEY k = win32::getGameRegSettingsPath()!;
-            @catch(k.setValue("language", &local_game.langdict.type, String.typeid, close_key: true));
+            @catch(k.setValue("language", &local_game.language, String, close_key: true));
         $endif
-        Path? langs_path = path::temp(local_game.app_base_folder.tconcat("langs\\local.lang"))!;
-        if(try local_game.langdict.load(langs_path.str_view())) {
+        Path? langs_path = path::tnew(local_game.app_base_folder.tconcat("langs\\local.lang"))!;
+        if(try lang::dict.load(langs_path)) {
             log::info(FILE, "languages data file loaded sucessfully.\n\t-> %s", langs_path!);
             log::info(FILE, "---------------------------------------------\n");
         } else {
@@ -2848,7 +2848,7 @@ $endif
 
     $if $defined(env::WIN32):
         Win32_HKEY k = win32::getGameRegSettingsPath()!;
-        @catch(k.setValue("video_mode", &SCREEN_RES[res_index].str, String.typeid, close_key: true));
+        @catch(k.setValue("video_mode", &SCREEN_RES[res_index].str, String, close_key: true));
     $endif
 
     log::info(FILE, "---------------------------------------------\n");
@@ -3028,9 +3028,9 @@ $endif
                 int w,h;
                 Vec2f mpos;
                 $if $feature(BACKEND_RAYLIB) || $feature(BACKEND_RGFW):
-                    w = local_game.render.getMonitorPhysicalWidth(i);
-                    h = local_game.render.getMonitorPhysicalHeight(i);
-                    mpos = local_game.render.getMonitorPosition(i);
+                    w = local_game.render.getMonitorPhysicalWidth((uint)i);
+                    h = local_game.render.getMonitorPhysicalHeight((uint)i);
+                    mpos = local_game.render.getMonitorPosition((uint)i);
                 $else
                     w = rl::getMonitorPhysicalWidth(i);
                     h = rl::getMonitorPhysicalHeight(i);
@@ -3054,9 +3054,9 @@ $endif
             local_game.screen.index = displayIndex;
             local_game.screen.id    = displayIndex + 1;
             $if $feature(BACKEND_RAYLIB) || $feature(BACKEND_RGFW):
-                local_game.render.setMainMonitor(local_game.screen.index);
+                local_game.render.setMainMonitor((uint)local_game.screen.index);
             $else
-                rl::setWindowMonitor(local_game.screen.index);
+                rl::setWindowMonitor((uint)local_game.screen.index);
             $endif
         }
     }
@@ -3066,9 +3066,9 @@ $endif
     // @Todo 
     // Support user setting frame rate on main menu?
     $if $feature(BACKEND_RAYLIB) || $feature(BACKEND_RGFW):
-        local_game.screen.displayHz = local_game.render.getMonitorRefreshRate(local_game.screen.index);
+        local_game.screen.displayHz = local_game.render.getMonitorRefreshRate((uint)local_game.screen.index);
     $else
-        local_game.screen.displayHz = rl::getMonitorRefreshRate(local_game.screen.index);
+        local_game.screen.displayHz = rl::getMonitorRefreshRate((uint)local_game.screen.index);
     $endif
 
     local_game.fps_unlocked = r_fps_unlocked.getBool();
@@ -3667,7 +3667,7 @@ $endif
     rl::closeAudioDevice();
 
     // clear language dictionair
-    local_game.langdict.destroy();
+    lang::dict.destroy();
 
     //
     // debug_lines
@@ -3762,7 +3762,7 @@ fn void loadGame()
     if(files.count >= 2) 
     {
         CLong prev_modtime;
-        for(int i = 0; i < files.count; i++)
+        for(int i = 0; i < (int)files.count; i++)
         {
             ZString file_path = (ZString)files.paths[i];
             if (fs::isDirectory(file_path.str_view())) continue;
@@ -3771,7 +3771,7 @@ fn void loadGame()
             
             if(modtime > prev_modtime) {
                 prev_modtime = modtime;
-                file_index = i;
+                file_index = (uint)i;
             }
         }
     }
@@ -3880,7 +3880,7 @@ fn void quitGame() @MyInline @public {
 }
 
 fn void waitFrame(int msec = misc::sec2ms(1.0f / local_game.screen.displayHz)) @local {
-    ulong sleep_time = (ulong)(msec);
+    long sleep_time = (long)(msec);
     //ulong sleep_time = (ulong)(misc::sec2ms(1.0f / local_game.screen.displayHz) - local_game.dt);
     //log::info(CONSOLE, "Sleeping for %d ms to cap framerate to %d hz", sleep_time, local_game.screen.displayHz);
     thread::sleep_ms(sleep_time);

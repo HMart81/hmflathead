@@ -30,7 +30,7 @@ module thirdparty::library::xml @private;
 
 import std::core;
 import std::io;
-import std::ascii;
+import std::core::ascii;
 
 //const char[] TEXT_NODE_NAME = "#text";
 const String TEXT_NODE_NAME = "#text";
@@ -63,7 +63,7 @@ struct XmlReaderImpl @local {
 fn XmlReader* new_reader(XmlDoc* doc) {
 	XmlReaderImpl* reader = alloc::new(mem, XmlReaderImpl);
 	reader.doc = doc;
-	reader.buffer = alloc::new_array(mem, char, doc.contents_size);
+	reader.buffer = alloc::new_array(mem, char, (sz)doc.contents_size);
 	reader.state = BEGIN_READ_TAG;
 	return (XmlReader*)reader;
 }
@@ -236,7 +236,7 @@ fn void XmlReaderImpl.begin_read_attribute_value(&self, char c) {
 
 fn String XmlReaderImpl.copy_write_buffer(&self) {
 	usz strLength = self.writeHead;
-	char[] strValue = alloc::new_array(mem, char, strLength);
+	char[] strValue = alloc::new_array(mem, char, (sz)strLength);
 	strValue[..] = self.buffer[:strLength];
 	return (String)strValue;
 }

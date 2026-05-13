@@ -216,7 +216,7 @@ fn void UIRectangle.save(&self, SaveFile* file) @dynamic
     /*
     svs::writeString(file, self.name);
     svs::writeInt(file, self.id);
-	svs::write(file, (void*)&self.flags, UIFlags.sizeof);
+	svs::write(file, (void*)&self.flags, UIFlags::size);
     svs::writeRect(file, self.quad);
     svs::writeColor(file, self.color);
     svs::writeColor(file, self.color_selected);
@@ -234,7 +234,7 @@ fn void UIRectangle.reload(&self, SaveFile* file) @dynamic
 	svs::readString(file, &self.name);
     svs::readInt(file, &value);
 	self.id = value;
-	svs::read(file, (void*)&self.flags, UIFlags.sizeof);
+	svs::read(file, (void*)&self.flags, UIFlags::size);
     svs::readRect(file, &self.quad);
     svs::readColor(file, &self.color);
     svs::readColor(file, &self.color_selected);
@@ -244,7 +244,7 @@ fn void UIRectangle.reload(&self, SaveFile* file) @dynamic
     */
 }
 
-fn usz? UIRectangle.to_format(&self, Formatter* f) @dynamic 
+fn sz? UIRectangle.to_format(&self, Formatter* f) @dynamic 
 {
     $if $feature(_DEBUG):
     	@todo();
@@ -647,7 +647,7 @@ fn void UIRectangle.draw(&self, bool selected = false)
 
 fn UIRectangle* createRectangle(String name, int id) @public @inline @nodiscard
 {
-	UIRectangle* rect = (UIRectangle*)mem::malloc(UIRectangle.sizeof);
+	UIRectangle* rect = (UIRectangle*)mem::malloc(UIRectangle::size);
 	rect.init();
 	rect.name = name.tcopy();
 	return rect;

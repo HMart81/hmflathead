@@ -194,13 +194,13 @@ fn bool MU_Rect.equal(&self, MU_Rect other) @operator(==)
   );
 }
 
-fn bool MU_Rect.nequal(&self, MU_Rect other) @operator(!=)
+fn bool MU_Rect.nequal(&self, MU_Rect other) @operator(<)
 {
   return (
-      self.x != other.x &&
-      self.y != other.y &&
-      self.w != other.w &&
-      self.h != other.h
+      self.x < other.x &&
+      self.y < other.y &&
+      self.w < other.w &&
+      self.h < other.h
     );
 }
 
@@ -228,11 +228,11 @@ fn bool MU_PoolItem.equal(&self, MU_PoolItem other) @operator(==)
   );
 }
 
-fn bool MU_PoolItem.nequal(&self, MU_PoolItem other) @operator(!=)
+fn bool MU_PoolItem.nequal(&self, MU_PoolItem other) @operator(<)
 {
   return ( 
-    self.id          != other.id &&
-    self.last_update != other.last_update
+    self.id          < other.id &&
+    self.last_update < other.last_update
   );
 }
 
@@ -249,11 +249,11 @@ fn bool MU_BaseCommand.equal(&self, MU_BaseCommand other) @operator(==)
   );
 }
 
-fn bool MU_BaseCommand.nequal(&self, MU_BaseCommand other) @operator(!=)
+fn bool MU_BaseCommand.lessthan(&self, MU_BaseCommand other) @operator(<)
 {
   return ( 
-    self.type != other.type &&
-    self.size != other.size
+    self.type < other.type &&
+    self.size < other.size
   );
 }
 
@@ -480,8 +480,8 @@ fn void unregister_open_window(String _name) @local
 
 macro bool MU_Context.@make_window(&self, $title, #rect; @body) 
 {
-  $assert($typeof($title).typeid == String.typeid);
-  $assert($typeof(#rect).typeid == MU_Rect.typeid);
+  $assert($Typeof($title) == String);
+  $assert($Typeof(#rect) == MU_Rect);
 
   if (self.begin_window($title, #rect)) {
     register_open_window($title.tcopy()); // Register the window as open
@@ -1013,7 +1013,7 @@ fn void MU_Context.forward_mouse_input(MU_Context* ctx)
 // This struct stores a mapping from a raylib key enum to the equivalent mui enum
 struct KeyMapping @local @compact
 {
-    RLKeyboardKey rl;
+    int rl;
     MU_Key mu;
 }
 

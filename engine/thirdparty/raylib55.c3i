@@ -124,12 +124,12 @@ macro bool RLColor.eql(&self, RLColor other) @operator(==)
              self.a == other.a );
 }
 
-macro bool RLColor.neql(&self, RLColor other) @operator(!=)
+macro bool RLColor.lesth(&self, RLColor other) @operator(<)
 {
-    return ( self.r != other.r ||
-             self.g != other.g ||
-             self.b != other.b ||
-             self.a != other.a );
+    return ( self.r < other.r ||
+             self.g < other.g ||
+             self.b < other.b ||
+             self.a < other.a );
 }
 
 macro bool RLColor.isValid(&self)
@@ -166,9 +166,9 @@ macro bool RLRectangle.eql(&self, RLRectangle other) @operator(==)
     return (self.pos == other.pos && self.size == other.size);
 }
 
-macro bool RLRectangle.neql(&self, RLRectangle other) @operator(!=)
+macro bool RLRectangle.lesth(&self, RLRectangle other) @operator(<)
 {
-    return (self.pos != other.pos || self.size != other.size);
+    return (self.pos < other.pos || self.size < other.size);
 }
 
 //macro RLVector2 RLRectangle.getPosition(&self)  => { self.x, self.y }; // in world coords
@@ -186,7 +186,7 @@ struct RLImage
     CInt width;             // RLImage base width
     CInt height;            // RLImage base height
     CInt mipmaps;           // Mipmap levels, 1 by default
-    RLPixelFormat format;     // Data format (RLPixelFormat type)
+    int format;     // Data format (RLPixelFormat type)
 }
 
 // RLTexture, tex data stored in GPU memory (VRAM)
@@ -213,13 +213,13 @@ macro bool RLTexture.eql(&self, RLTexture other) @operator(==)
            self.format == other.format);
 }
 
-macro bool RLTexture.neql(&self, RLTexture other) @operator(!=)
+macro bool RLTexture.lesth(&self, RLTexture other) @operator(<)
 {
-    return (bool)(self.id != other.id ||
-           self.width != other.width ||
-           self.height != other.height ||
-           self.mipmaps != other.mipmaps ||
-           self.format != other.format);
+    return (bool)(self.id < other.id ||
+               self.width < other.width ||
+              self.height < other.height ||
+             self.mipmaps < other.mipmaps ||
+              self.format < other.format);
 }
 
 // RLTexture2D, same as RLTexture
@@ -334,9 +334,9 @@ macro bool RLShader.equal(&self, RLShader other) @operator(==)
     return (bool)(self.id == other.id && self.locs == other.locs);
 }
 
-macro bool RLShader.nequal(&self, RLShader other) @operator(!=)
+macro bool RLShader.nequal(&self, RLShader other) @operator(<)
 {
-    return (bool)(self.id != other.id || self.locs != other.locs);
+    return (bool)(self.id < other.id || self.locs < other.locs);
 }
 
 macro bool RLShader.isValid(&self) => isShaderValid(*self);
@@ -631,7 +631,7 @@ const MATERIAL_MAP_SPECULAR = RLMtlMapIndex.METALNESS;
 // RLShader location index
 // NOTE: str is the identifier you should write in your glsl shader code!
 // this is so is easy to parse the shader code and find the location
-enum RLShdLocInd : inline CInt (String str)
+enum RLShdLocInd : CInt (String str)
 {
     // attributs (don't change position of this ones so they match Raylib default shader)
     VERTEX_POSITION   {"vertexPosition"},  // RLShader location  0: vertex attribute: position
@@ -726,7 +726,7 @@ constdef RLShdAttrbTyp : inline CInt
 
 // Pixel formats
 // NOTE: Support depends on OpenGL version and platform
-constdef RLPixelFormat : inline CInt
+constdef RLPixelFormat : inline int
 {
 	NONE = 0,
     UNCOMPRESSED_GRAYSCALE,     // 8 bit per pixel (no alpha)
@@ -1174,22 +1174,22 @@ fn void playAutomationEvent(RLAutomationEvent event) @cname("PlayAutomationEvent
 // Input-related functions: keyboard
 // Check if a key has been pressed once
 // NOTE(HM) has issues when pressing and releasing a key very fast
-fn bool isKeyPressed(RLKeyboardKey key) @cname("IsKeyPressed");
+fn bool isKeyPressed(CInt key) @cname("IsKeyPressed");
 //
 // Check if a key has been pressed again (Only PLATFORM_DESKTOP)
-fn bool isKeyPressedRepeat(RLKeyboardKey key) @cname("IsKeyPressedRepeat");
+fn bool isKeyPressedRepeat(CInt key) @cname("IsKeyPressedRepeat");
 // Check if a key is being pressed
-fn bool isKeyDown(RLKeyboardKey key) @cname("IsKeyDown");
+fn bool isKeyDown(CInt key) @cname("IsKeyDown");
 // Check if a key has been released once
-fn bool isKeyReleased(RLKeyboardKey key) @cname("IsKeyReleased");
+fn bool isKeyReleased(CInt key) @cname("IsKeyReleased");
 // Check if a key is NOT being pressed
-fn bool isKeyUp(RLKeyboardKey key) @cname("IsKeyUp");
+fn bool isKeyUp(CInt key) @cname("IsKeyUp");
 // Get key pressed (keycode), call it multiple times for keys queued, returns 0 when the queue is empty
 fn CInt getKeyPressed() @cname("GetKeyPressed");
 // Get char pressed (unicode), call it multiple times for chars queued, returns 0 when the queue is empty
 fn CInt getCharPressed() @cname("GetCharPressed");
 // Set a custom key to exit program (default is ESC)
-fn void setExitKey(RLKeyboardKey key) @cname("SetExitKey");
+fn void setExitKey(CInt key) @cname("SetExitKey");
 
 // Input-related functions: gamepads
 // Check if a gamepad is available
@@ -1260,11 +1260,11 @@ fn CInt getTouchPointCount() @cname("GetTouchPointCount");
 // Gestures and Touch Handling Functions (Module: rgestures)
 //------------------------------------------------------------------------------------
 // Enable a set of gestures using flags
-fn void setGesturesEnabled(RLGesture flags) @cname("SetGesturesEnabled");
+fn void setGesturesEnabled(CInt flags) @cname("SetGesturesEnabled");
 // Check if a gesture have been detected
-fn bool isGestureDetected(RLGesture gesture) @cname("IsGestureDetected");
+fn bool isGestureDetected(CInt gesture) @cname("IsGestureDetected");
 // Get latest detected gesture
-fn RLGesture getGestureDetected() @cname("GetGestureDetected");
+fn CInt getGestureDetected() @cname("GetGestureDetected");
 // Get gesture hold time in seconds
 fn float getGestureHoldDuration() @cname("GetGestureHoldDuration");
 // Get gesture drag vector
@@ -2287,138 +2287,134 @@ const RLConfigFlag FLAG_INTERLACED_HINT    = 0x00010000;   // Set to try enablin
 // Keyboard keys (US keyboard layout)
 // NOTE: Use GetKeyPressed() to allow redefining
 // required keys for alternative layouts
-
-typedef RLKeyboardKey = CInt;
-
-const RLKeyboardKey KEY_NULL            = 0;        // Key: NULL; used for no key pressed
+const CInt KEY_NULL            = 0;        // Key: NULL; used for no key pressed
 // Alphanumeric keys
-const RLKeyboardKey KEY_APOSTROPHE      = 39;       // Key: '
-const RLKeyboardKey KEY_COMMA           = 44;       // Key: ;
-const RLKeyboardKey KEY_MINUS           = 45;       // Key: -
-const RLKeyboardKey KEY_PERIOD          = 46;       // Key: .
-const RLKeyboardKey KEY_SLASH           = 47;       // Key: /
-const RLKeyboardKey KEY_ZERO            = 48;       // Key: 0
-const RLKeyboardKey KEY_ONE             = 49;       // Key: 1
-const RLKeyboardKey KEY_TWO             = 50;       // Key: 2
-const RLKeyboardKey KEY_THREE           = 51;       // Key: 3
-const RLKeyboardKey KEY_FOUR            = 52;       // Key: 4
-const RLKeyboardKey KEY_FIVE            = 53;       // Key: 5
-const RLKeyboardKey KEY_SIX             = 54;       // Key: 6
-const RLKeyboardKey KEY_SEVEN           = 55;       // Key: 7
-const RLKeyboardKey KEY_EIGHT           = 56;       // Key: 8
-const RLKeyboardKey KEY_NINE            = 57;       // Key: 9
-const RLKeyboardKey KEY_SEMICOLON       = 59;       // Key: ;
-const RLKeyboardKey KEY_EQUAL           = 61;       // Key: =
-const RLKeyboardKey KEY_A               = 65;       // Key: A | a
-const RLKeyboardKey KEY_B               = 66;       // Key: B | b
-const RLKeyboardKey KEY_C               = 67;       // Key: C | c
-const RLKeyboardKey KEY_D               = 68;       // Key: D | d
-const RLKeyboardKey KEY_E               = 69;       // Key: E | e
-const RLKeyboardKey KEY_F               = 70;       // Key: F | f
-const RLKeyboardKey KEY_G               = 71;       // Key: G | g
-const RLKeyboardKey KEY_H               = 72;       // Key: H | h
-const RLKeyboardKey KEY_I               = 73;       // Key: I | i
-const RLKeyboardKey KEY_J               = 74;       // Key: J | j
-const RLKeyboardKey KEY_K               = 75;       // Key: K | k
-const RLKeyboardKey KEY_L               = 76;       // Key: L | l
-const RLKeyboardKey KEY_M               = 77;       // Key: M | m
-const RLKeyboardKey KEY_N               = 78;       // Key: N | n
-const RLKeyboardKey KEY_O               = 79;       // Key: O | o
-const RLKeyboardKey KEY_P               = 80;       // Key: P | p
-const RLKeyboardKey KEY_Q               = 81;       // Key: Q | q
-const RLKeyboardKey KEY_R               = 82;       // Key: R | r
-const RLKeyboardKey KEY_S               = 83;       // Key: S | s
-const RLKeyboardKey KEY_T               = 84;       // Key: T | t
-const RLKeyboardKey KEY_U               = 85;       // Key: U | u
-const RLKeyboardKey KEY_V               = 86;       // Key: V | v
-const RLKeyboardKey KEY_W               = 87;       // Key: W | w
-const RLKeyboardKey KEY_X               = 88;       // Key: X | x
-const RLKeyboardKey KEY_Y               = 89;       // Key: Y | y
-const RLKeyboardKey KEY_Z               = 90;       // Key: Z | z
-const RLKeyboardKey KEY_LEFT_BRACKET    = 91;       // Key: [
-const RLKeyboardKey KEY_BACKSLASH       = 92;       // Key: '\'
-const RLKeyboardKey KEY_RIGHT_BRACKET   = 93;       // Key: ]
-const RLKeyboardKey KEY_GRAVE           = 96;       // Key: `
+const CInt KEY_APOSTROPHE      = 39;       // Key: '
+const CInt KEY_COMMA           = 44;       // Key: ;
+const CInt KEY_MINUS           = 45;       // Key: -
+const CInt KEY_PERIOD          = 46;       // Key: .
+const CInt KEY_SLASH           = 47;       // Key: /
+const CInt KEY_ZERO            = 48;       // Key: 0
+const CInt KEY_ONE             = 49;       // Key: 1
+const CInt KEY_TWO             = 50;       // Key: 2
+const CInt KEY_THREE           = 51;       // Key: 3
+const CInt KEY_FOUR            = 52;       // Key: 4
+const CInt KEY_FIVE            = 53;       // Key: 5
+const CInt KEY_SIX             = 54;       // Key: 6
+const CInt KEY_SEVEN           = 55;       // Key: 7
+const CInt KEY_EIGHT           = 56;       // Key: 8
+const CInt KEY_NINE            = 57;       // Key: 9
+const CInt KEY_SEMICOLON       = 59;       // Key: ;
+const CInt KEY_EQUAL           = 61;       // Key: =
+const CInt KEY_A               = 65;       // Key: A | a
+const CInt KEY_B               = 66;       // Key: B | b
+const CInt KEY_C               = 67;       // Key: C | c
+const CInt KEY_D               = 68;       // Key: D | d
+const CInt KEY_E               = 69;       // Key: E | e
+const CInt KEY_F               = 70;       // Key: F | f
+const CInt KEY_G               = 71;       // Key: G | g
+const CInt KEY_H               = 72;       // Key: H | h
+const CInt KEY_I               = 73;       // Key: I | i
+const CInt KEY_J               = 74;       // Key: J | j
+const CInt KEY_K               = 75;       // Key: K | k
+const CInt KEY_L               = 76;       // Key: L | l
+const CInt KEY_M               = 77;       // Key: M | m
+const CInt KEY_N               = 78;       // Key: N | n
+const CInt KEY_O               = 79;       // Key: O | o
+const CInt KEY_P               = 80;       // Key: P | p
+const CInt KEY_Q               = 81;       // Key: Q | q
+const CInt KEY_R               = 82;       // Key: R | r
+const CInt KEY_S               = 83;       // Key: S | s
+const CInt KEY_T               = 84;       // Key: T | t
+const CInt KEY_U               = 85;       // Key: U | u
+const CInt KEY_V               = 86;       // Key: V | v
+const CInt KEY_W               = 87;       // Key: W | w
+const CInt KEY_X               = 88;       // Key: X | x
+const CInt KEY_Y               = 89;       // Key: Y | y
+const CInt KEY_Z               = 90;       // Key: Z | z
+const CInt KEY_LEFT_BRACKET    = 91;       // Key: [
+const CInt KEY_BACKSLASH       = 92;       // Key: '\'
+const CInt KEY_RIGHT_BRACKET   = 93;       // Key: ]
+const CInt KEY_GRAVE           = 96;       // Key: `
 // Function keys
-const RLKeyboardKey KEY_SPACE           = 32;       // Key: Space
-const RLKeyboardKey KEY_ESCAPE          = 256;      // Key: Esc
-const RLKeyboardKey KEY_ENTER           = 257;      // Key: Enter
-const RLKeyboardKey KEY_TAB             = 258;      // Key: Tab
-const RLKeyboardKey KEY_BACKSPACE       = 259;      // Key: Backspace
-const RLKeyboardKey KEY_INSERT          = 260;      // Key: Ins
-const RLKeyboardKey KEY_DELETE          = 261;      // Key: Del
-const RLKeyboardKey KEY_RIGHT           = 262;      // Key: Cursor right
-const RLKeyboardKey KEY_LEFT            = 263;      // Key: Cursor left
-const RLKeyboardKey KEY_DOWN            = 264;      // Key: Cursor down
-const RLKeyboardKey KEY_UP              = 265;      // Key: Cursor up
-const RLKeyboardKey KEY_PAGE_UP         = 266;      // Key: Page up
-const RLKeyboardKey KEY_PAGE_DOWN       = 267;      // Key: Page down
-const RLKeyboardKey KEY_HOME            = 268;      // Key: Home
-const RLKeyboardKey KEY_END             = 269;      // Key: End
-const RLKeyboardKey KEY_CAPS_LOCK       = 280;      // Key: Caps lock
-const RLKeyboardKey KEY_SCROLL_LOCK     = 281;      // Key: Scroll down
-const RLKeyboardKey KEY_NUM_LOCK        = 282;      // Key: Num lock
-const RLKeyboardKey KEY_PRINT_SCREEN    = 283;      // Key: Print screen
-const RLKeyboardKey KEY_PAUSE           = 284;      // Key: Pause
-const RLKeyboardKey KEY_F1              = 290;      // Key: F1
-const RLKeyboardKey KEY_F2              = 291;      // Key: F2
-const RLKeyboardKey KEY_F3              = 292;      // Key: F3
-const RLKeyboardKey KEY_F4              = 293;      // Key: F4
-const RLKeyboardKey KEY_F5              = 294;      // Key: F5
-const RLKeyboardKey KEY_F6              = 295;      // Key: F6
-const RLKeyboardKey KEY_F7              = 296;      // Key: F7
-const RLKeyboardKey KEY_F8              = 297;      // Key: F8
-const RLKeyboardKey KEY_F9              = 298;      // Key: F9
-const RLKeyboardKey KEY_F10             = 299;      // Key: F10
-const RLKeyboardKey KEY_F11             = 300;      // Key: F11
-const RLKeyboardKey KEY_F12             = 301;      // Key: F12
-const RLKeyboardKey KEY_LEFT_SHIFT      = 340;      // Key: Shift left
-const RLKeyboardKey KEY_LEFT_CONTROL    = 341;      // Key: Control left
-const RLKeyboardKey KEY_LEFT_ALT        = 342;      // Key: Alt left
-const RLKeyboardKey KEY_LEFT_SUPER      = 343;      // Key: Super left
-const RLKeyboardKey KEY_RIGHT_SHIFT     = 344;      // Key: Shift right
-const RLKeyboardKey KEY_RIGHT_CONTROL   = 345;      // Key: Control right
-const RLKeyboardKey KEY_RIGHT_ALT       = 346;      // Key: Alt right
-const RLKeyboardKey KEY_RIGHT_SUPER     = 347;      // Key: Super right
-const RLKeyboardKey KEY_KB_MENU         = 348;      // Key: KB menu
+const CInt KEY_SPACE           = 32;       // Key: Space
+const CInt KEY_ESCAPE          = 256;      // Key: Esc
+const CInt KEY_ENTER           = 257;      // Key: Enter
+const CInt KEY_TAB             = 258;      // Key: Tab
+const CInt KEY_BACKSPACE       = 259;      // Key: Backspace
+const CInt KEY_INSERT          = 260;      // Key: Ins
+const CInt KEY_DELETE          = 261;      // Key: Del
+const CInt KEY_RIGHT           = 262;      // Key: Cursor right
+const CInt KEY_LEFT            = 263;      // Key: Cursor left
+const CInt KEY_DOWN            = 264;      // Key: Cursor down
+const CInt KEY_UP              = 265;      // Key: Cursor up
+const CInt KEY_PAGE_UP         = 266;      // Key: Page up
+const CInt KEY_PAGE_DOWN       = 267;      // Key: Page down
+const CInt KEY_HOME            = 268;      // Key: Home
+const CInt KEY_END             = 269;      // Key: End
+const CInt KEY_CAPS_LOCK       = 280;      // Key: Caps lock
+const CInt KEY_SCROLL_LOCK     = 281;      // Key: Scroll down
+const CInt KEY_NUM_LOCK        = 282;      // Key: Num lock
+const CInt KEY_PRINT_SCREEN    = 283;      // Key: Print screen
+const CInt KEY_PAUSE           = 284;      // Key: Pause
+const CInt KEY_F1              = 290;      // Key: F1
+const CInt KEY_F2              = 291;      // Key: F2
+const CInt KEY_F3              = 292;      // Key: F3
+const CInt KEY_F4              = 293;      // Key: F4
+const CInt KEY_F5              = 294;      // Key: F5
+const CInt KEY_F6              = 295;      // Key: F6
+const CInt KEY_F7              = 296;      // Key: F7
+const CInt KEY_F8              = 297;      // Key: F8
+const CInt KEY_F9              = 298;      // Key: F9
+const CInt KEY_F10             = 299;      // Key: F10
+const CInt KEY_F11             = 300;      // Key: F11
+const CInt KEY_F12             = 301;      // Key: F12
+const CInt KEY_LEFT_SHIFT      = 340;      // Key: Shift left
+const CInt KEY_LEFT_CONTROL    = 341;      // Key: Control left
+const CInt KEY_LEFT_ALT        = 342;      // Key: Alt left
+const CInt KEY_LEFT_SUPER      = 343;      // Key: Super left
+const CInt KEY_RIGHT_SHIFT     = 344;      // Key: Shift right
+const CInt KEY_RIGHT_CONTROL   = 345;      // Key: Control right
+const CInt KEY_RIGHT_ALT       = 346;      // Key: Alt right
+const CInt KEY_RIGHT_SUPER     = 347;      // Key: Super right
+const CInt KEY_KB_MENU         = 348;      // Key: KB menu
 // Keypad keys
-const RLKeyboardKey KEY_KP_0            = 320;      // Key: Keypad 0
-const RLKeyboardKey KEY_KP_1            = 321;      // Key: Keypad 1
-const RLKeyboardKey KEY_KP_2            = 322;      // Key: Keypad 2
-const RLKeyboardKey KEY_KP_3            = 323;      // Key: Keypad 3
-const RLKeyboardKey KEY_KP_4            = 324;      // Key: Keypad 4
-const RLKeyboardKey KEY_KP_5            = 325;      // Key: Keypad 5
-const RLKeyboardKey KEY_KP_6            = 326;      // Key: Keypad 6
-const RLKeyboardKey KEY_KP_7            = 327;      // Key: Keypad 7
-const RLKeyboardKey KEY_KP_8            = 328;      // Key: Keypad 8
-const RLKeyboardKey KEY_KP_9            = 329;      // Key: Keypad 9
-const RLKeyboardKey KEY_KP_DECIMAL      = 330;      // Key: Keypad .
-const RLKeyboardKey KEY_KP_DIVIDE       = 331;      // Key: Keypad /
-const RLKeyboardKey KEY_KP_MULTIPLY     = 332;      // Key: Keypad *
-const RLKeyboardKey KEY_KP_SUBTRACT     = 333;      // Key: Keypad -
-const RLKeyboardKey KEY_KP_ADD          = 334;      // Key: Keypad +
-const RLKeyboardKey KEY_KP_ENTER        = 335;      // Key: Keypad Enter
-const RLKeyboardKey KEY_KP_EQUAL        = 336;      // Key: Keypad =
+const CInt KEY_KP_0            = 320;      // Key: Keypad 0
+const CInt KEY_KP_1            = 321;      // Key: Keypad 1
+const CInt KEY_KP_2            = 322;      // Key: Keypad 2
+const CInt KEY_KP_3            = 323;      // Key: Keypad 3
+const CInt KEY_KP_4            = 324;      // Key: Keypad 4
+const CInt KEY_KP_5            = 325;      // Key: Keypad 5
+const CInt KEY_KP_6            = 326;      // Key: Keypad 6
+const CInt KEY_KP_7            = 327;      // Key: Keypad 7
+const CInt KEY_KP_8            = 328;      // Key: Keypad 8
+const CInt KEY_KP_9            = 329;      // Key: Keypad 9
+const CInt KEY_KP_DECIMAL      = 330;      // Key: Keypad .
+const CInt KEY_KP_DIVIDE       = 331;      // Key: Keypad /
+const CInt KEY_KP_MULTIPLY     = 332;      // Key: Keypad *
+const CInt KEY_KP_SUBTRACT     = 333;      // Key: Keypad -
+const CInt KEY_KP_ADD          = 334;      // Key: Keypad +
+const CInt KEY_KP_ENTER        = 335;      // Key: Keypad Enter
+const CInt KEY_KP_EQUAL        = 336;      // Key: Keypad =
 // Android key buttons
-const RLKeyboardKey KEY_BACK            = 4;        // Key: Android back button
-const RLKeyboardKey KEY_MENU            = 82;       // Key: Android menu button
-const RLKeyboardKey KEY_VOLUME_UP       = 24;       // Key: Android volume up button
-const RLKeyboardKey KEY_VOLUME_DOWN     = 25;       // Key: Android volume down button
+const CInt KEY_BACK            = 4;        // Key: Android back button
+const CInt KEY_MENU            = 82;       // Key: Android menu button
+const CInt KEY_VOLUME_UP       = 24;       // Key: Android volume up button
+const CInt KEY_VOLUME_DOWN     = 25;       // Key: Android volume down button
 
-typedef RLGesture = CInt;
 // RLGesture
 // NOTE: It could be used as flags to enable only some gestures
-const RLGesture GESTURE_NONE        = 0;      // No gesture
-const RLGesture GESTURE_TAP         = 1;        // Tap gesture
-const RLGesture GESTURE_DOUBLETAP   = 2;        // Double tap gesture
-const RLGesture GESTURE_HOLD        = 4;        // Hold gesture
-const RLGesture GESTURE_DRAG        = 8;        // Drag gesture
-const RLGesture GESTURE_SWIPE_RIGHT = 16;       // Swipe right gesture
-const RLGesture GESTURE_SWIPE_LEFT  = 32;       // Swipe left gesture
-const RLGesture GESTURE_SWIPE_UP    = 64;       // Swipe up gesture
-const RLGesture GESTURE_SWIPE_DOWN  = 128;      // Swipe down gesture
-const RLGesture GESTURE_PINCH_IN    = 256;      // Pinch in gesture
-const RLGesture GESTURE_PINCH_OUT   = 512;      // Pinch out gesture
+const CInt GESTURE_NONE        = 0;      // No gesture
+const CInt GESTURE_TAP         = 1;        // Tap gesture
+const CInt GESTURE_DOUBLETAP   = 2;        // Double tap gesture
+const CInt GESTURE_HOLD        = 4;        // Hold gesture
+const CInt GESTURE_DRAG        = 8;        // Drag gesture
+const CInt GESTURE_SWIPE_RIGHT = 16;       // Swipe right gesture
+const CInt GESTURE_SWIPE_LEFT  = 32;       // Swipe left gesture
+const CInt GESTURE_SWIPE_UP    = 64;       // Swipe up gesture
+const CInt GESTURE_SWIPE_DOWN  = 128;      // Swipe down gesture
+const CInt GESTURE_PINCH_IN    = 256;      // Pinch in gesture
+const CInt GESTURE_PINCH_OUT   = 512;      // Pinch out gesture
 
 // NOTE(HM) right now, rlgl module is somewhat broken 
 // some funcs don't seem to work and others crash the application, 
@@ -2429,29 +2425,28 @@ import thirdparty::raylib5::rl;
 
 typedef FBOId = inline uint;
 
-typedef FramebufferAttachType = inline int;
+//typedef FramebufferAttachType = inline int;
+const int RL_ATTACHMENT_COLOR_CHANNEL0 = 0;       // Framebuffer attachment type: color 0
+const int RL_ATTACHMENT_COLOR_CHANNEL1 = 1;       // Framebuffer attachment type: color 1
+const int RL_ATTACHMENT_COLOR_CHANNEL2 = 2;       // Framebuffer attachment type: color 2
+const int RL_ATTACHMENT_COLOR_CHANNEL3 = 3;       // Framebuffer attachment type: color 3
+const int RL_ATTACHMENT_COLOR_CHANNEL4 = 4;       // Framebuffer attachment type: color 4
+const int RL_ATTACHMENT_COLOR_CHANNEL5 = 5;       // Framebuffer attachment type: color 5
+const int RL_ATTACHMENT_COLOR_CHANNEL6 = 6;       // Framebuffer attachment type: color 6
+const int RL_ATTACHMENT_COLOR_CHANNEL7 = 7;       // Framebuffer attachment type: color 7
+const int RL_ATTACHMENT_DEPTH = 100;              // Framebuffer attachment type: depth
+const int RL_ATTACHMENT_STENCIL = 200;            // Framebuffer attachment type: stencil
 
-const FramebufferAttachType RL_ATTACHMENT_COLOR_CHANNEL0 = 0;       // Framebuffer attachment type: color 0
-const FramebufferAttachType RL_ATTACHMENT_COLOR_CHANNEL1 = 1;       // Framebuffer attachment type: color 1
-const FramebufferAttachType RL_ATTACHMENT_COLOR_CHANNEL2 = 2;       // Framebuffer attachment type: color 2
-const FramebufferAttachType RL_ATTACHMENT_COLOR_CHANNEL3 = 3;       // Framebuffer attachment type: color 3
-const FramebufferAttachType RL_ATTACHMENT_COLOR_CHANNEL4 = 4;       // Framebuffer attachment type: color 4
-const FramebufferAttachType RL_ATTACHMENT_COLOR_CHANNEL5 = 5;       // Framebuffer attachment type: color 5
-const FramebufferAttachType RL_ATTACHMENT_COLOR_CHANNEL6 = 6;       // Framebuffer attachment type: color 6
-const FramebufferAttachType RL_ATTACHMENT_COLOR_CHANNEL7 = 7;       // Framebuffer attachment type: color 7
-const FramebufferAttachType RL_ATTACHMENT_DEPTH = 100;              // Framebuffer attachment type: depth
-const FramebufferAttachType RL_ATTACHMENT_STENCIL = 200;            // Framebuffer attachment type: stencil
 
-typedef FramebufferAttachTextureType = inline int;
-
-const FramebufferAttachTextureType RL_ATTACHMENT_CUBEMAP_POSITIVE_X = 0;   // Framebuffer texture attachment type: cubemap, +X side
-const FramebufferAttachTextureType RL_ATTACHMENT_CUBEMAP_NEGATIVE_X = 1;   // Framebuffer texture attachment type: cubemap, -X side
-const FramebufferAttachTextureType RL_ATTACHMENT_CUBEMAP_POSITIVE_Y = 2;   // Framebuffer texture attachment type: cubemap, +Y side
-const FramebufferAttachTextureType RL_ATTACHMENT_CUBEMAP_NEGATIVE_Y = 3;   // Framebuffer texture attachment type: cubemap, -Y side
-const FramebufferAttachTextureType RL_ATTACHMENT_CUBEMAP_POSITIVE_Z = 4;   // Framebuffer texture attachment type: cubemap, +Z side
-const FramebufferAttachTextureType RL_ATTACHMENT_CUBEMAP_NEGATIVE_Z = 5;   // Framebuffer texture attachment type: cubemap, -Z side
-const FramebufferAttachTextureType RL_ATTACHMENT_TEXTURE2D = 100;          // Framebuffer texture attachment type: texture2d
-const FramebufferAttachTextureType RL_ATTACHMENT_RENDERBUFFER = 200;       // Framebuffer texture attachment type: renderbuffer
+//FramebufferAttachTextureType
+const int RL_ATTACHMENT_CUBEMAP_POSITIVE_X = 0;   // Framebuffer texture attachment type: cubemap, +X side
+const int RL_ATTACHMENT_CUBEMAP_NEGATIVE_X = 1;   // Framebuffer texture attachment type: cubemap, -X side
+const int RL_ATTACHMENT_CUBEMAP_POSITIVE_Y = 2;   // Framebuffer texture attachment type: cubemap, +Y side
+const int RL_ATTACHMENT_CUBEMAP_NEGATIVE_Y = 3;   // Framebuffer texture attachment type: cubemap, -Y side
+const int RL_ATTACHMENT_CUBEMAP_POSITIVE_Z = 4;   // Framebuffer texture attachment type: cubemap, +Z side
+const int RL_ATTACHMENT_CUBEMAP_NEGATIVE_Z = 5;   // Framebuffer texture attachment type: cubemap, -Z side
+const int RL_ATTACHMENT_TEXTURE2D = 100;          // Framebuffer texture attachment type: texture2d
+const int RL_ATTACHMENT_RENDERBUFFER = 200;       // Framebuffer texture attachment type: renderbuffer
 
 const RL_LINES     = 0x0001;    // GL_LINES
 const RL_TRIANGLES = 0x0004;    // GL_TRIANGLES

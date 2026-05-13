@@ -572,7 +572,7 @@ fn void load()
     // NOTE: Compressed font image data (DEFLATE), it requires DecompressData() function
     int darkFontDataSize = 0;
     char *data = rl::decompressData(&DARK_FONT_DATA, DARK_STYLE_FONT_ATLAS_COMP_SIZE, &darkFontDataSize);
-    RLImage imFont = { data, 512, 256, 1, UNCOMPRESSED_GRAY_ALPHA };
+    RLImage imFont = { data, 512, 256, 1, RLPixelFormat.UNCOMPRESSED_GRAY_ALPHA };
 
     RLFont font = {.baseSize = 16, .glyphCount = DARK_FONT_GLYPHS.len};
 

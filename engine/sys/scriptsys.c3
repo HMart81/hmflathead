@@ -228,14 +228,14 @@ fn void ScriptEngine.registerScripts(&self, String script_folder) @dynamic
             if(catch excuse = script_path) 
             {
                 log::warning(Where.FILE,"Failed to load script %s inside %s with excuse: %s", 
-                                fs::getFileNameWithoutExt(script_path.path_string), SCRIPT_FOLDER_PATH, excuse)!!;
+                                fs::getFileNameWithoutExt(script_path), SCRIPT_FOLDER_PATH, excuse)!!;
                 continue;
             }
 
             if(path::is_file(script_path)) {
                 self.createScript(script_path);
             } else {
-                self.registerScripts(script_path.path_string); // Warning(HM) recursion
+                self.registerScripts(script_path); // Warning(HM) recursion
             }
         }
     } else {
@@ -256,21 +256,21 @@ fn void ScriptEngine.reloadScripts(&self, String script_folder) @dynamic
             if(catch excuse = script_path) 
             {
                 log::warning(Where.FILE,"Failed to reload script %s inside %s with excuse: %s", 
-                                fs::getFileNameWithoutExt(script_path.path_string), SCRIPT_FOLDER_PATH, excuse)!!;
+                                fs::getFileNameWithoutExt(script_path), SCRIPT_FOLDER_PATH, excuse)!!;
                 continue;
             }
 
             if(path::is_file(script_path)) 
             {
-                String file_path = script_path.path_string;
+                String file_path = script_path;
                 Script* script = self.getScript(fs::getFileNameWithoutExt(file_path));
                 if(script) 
                 {
-                    CLong file_mod_time = fs::getFileModTime(file_path); //fs::getFileSize(script_path.path_string);
+                    CLong file_mod_time = fs::getFileModTime(file_path); //fs::getFileSize(script_path);
                     bool mismatch = file_mod_time != script.modtime;
                     if(mismatch) // reload script
                     {
-                        script.data = fs::fileLoadEntireText(script_path.path_string).zstr_tcopy();
+                        script.data = fs::fileLoadEntireText(script_path).zstr_tcopy();
                         script.modtime = file_mod_time;
                         log::info(Where.FILE, "Reloaded script %s", script.name);
                     }
@@ -278,7 +278,7 @@ fn void ScriptEngine.reloadScripts(&self, String script_folder) @dynamic
                 }
                 continue;
             } else {
-                self.reloadScripts(script_path.path_string); // Warning(HM) recursion
+                self.reloadScripts(script_path); // Warning(HM) recursion
             }
         }
     } else {
@@ -315,7 +315,7 @@ fn void ScriptEngine.fileWatcher(&self) @dynamic
 fn void ScriptEngine.createScript(&this, Path script_path) @dynamic
 {   
     Script* new_script = mem::new(Script);
-    new_script.init(script_path.path_string);
+    new_script.init(script_path);
     new_script.linkTo(this);
     this.scripts.push(new_script);
 }
@@ -424,16 +424,16 @@ fn WrenLoadModuleResult myLoadModule(String name, String path) @local
             if(catch excuse = script_path) 
             {
                 log::warning(Where.FILE,"Failed to get path for script %s inside %s with excuse: %s", 
-                                fs::getFileNameWithoutExt(script_path.path_string), SCRIPT_FOLDER_PATH, excuse)!!;
+                                fs::getFileNameWithoutExt(script_path), SCRIPT_FOLDER_PATH, excuse)!!;
                 continue;
             }
 
             if(path::is_file(script_path))
             {
-                String found_name = fs::getFileNameWithoutExt(script_path.path_string);
+                String found_name = fs::getFileNameWithoutExt(script_path);
                 if(found_name.len && found_name == name)
                 {
-                    String _module_import_data = fs::fileLoadEntireText(script_path.path_string);
+                    String _module_import_data = fs::fileLoadEntireText(script_path);
                     if(result.source != null) {
                         //for example, if we used malloc to allocate
                         //our source string, we use free to release it.
@@ -443,7 +443,7 @@ fn WrenLoadModuleResult myLoadModule(String name, String path) @local
                     break;
                 }
             } else {
-                String new_folder = script_path.path_string;
+                String new_folder = script_path;
                 result = myLoadModule(name, new_folder); // Warning(HM) recursion
                 if(result.source.len()) break;
             }
@@ -587,7 +587,7 @@ fn WrenForeignMethodFn bindForeignMethod(WrenVM* vm, ZString script_name, ZStrin
 *>
 fn void wren_class_vec2(WrenVM* vm)
 {
-    Vec2f* vec = (Vec2f*)vm.setSlotNewForeign(0, 0, Vec2f.sizeof);
+    Vec2f* vec = (Vec2f*)vm.setSlotNewForeign(0, 0, Vec2f::size);
     vm.ensureSlots(3); // slot 0 is the caller (and return slot), slot 1 and 2 are the fn arguments slots
     double a = vm.getSlotDouble(1);
     double b = vm.getSlotDouble(2);
@@ -843,14 +843,14 @@ fn void ScriptEngine.registerScripts(&self, String script_folder) @dynamic
             if(catch excuse = script_path) 
             {
                 log::warning(Where.FILE,"Failed to load script %s inside %s with excuse: %s", 
-                                fs::getFileNameWithoutExt(script_path.path_string), SCRIPT_FOLDER_PATH, excuse)!!;
+                                fs::getFileNameWithoutExt(script_path), SCRIPT_FOLDER_PATH, excuse)!!;
                 continue;
             }
 
             if(path::is_file(script_path)) {
                 self.createScript(script_path);
             } else {
-                self.registerScripts(script_path.path_string); // Warning(HM) recursion
+                self.registerScripts(script_path); // Warning(HM) recursion
             }
         }
     } else {
@@ -871,21 +871,21 @@ fn void ScriptEngine.reloadScripts(&self, String script_folder) @dynamic
             if(catch excuse = script_path) 
             {
                 log::warning(Where.FILE,"Failed to reload script %s inside %s with excuse: %s", 
-                                fs::getFileNameWithoutExt(script_path.path_string), SCRIPT_FOLDER_PATH, excuse)!!;
+                                fs::getFileNameWithoutExt(script_path), SCRIPT_FOLDER_PATH, excuse)!!;
                 continue;
             }
 
             if(path::is_file(script_path)) 
             {
-                String file_path = script_path.path_string;
+                String file_path = script_path;
                 Script* script = self.getScript(fs::getFileNameWithoutExt(file_path));
                 if(script) 
                 {
-                    CLong file_mod_time = fs::getFileModTime(file_path); //fs::getFileSize(script_path.path_string);
+                    CLong file_mod_time = fs::getFileModTime(file_path); //fs::getFileSize(script_path);
                     bool mismatch = file_mod_time != script.modtime;
                     if(mismatch) // reload script
                     {
-                        script.data = fs::fileLoadEntireText(script_path.path_string).zstr_tcopy();
+                        script.data = fs::fileLoadEntireText(script_path).zstr_tcopy();
                         script.modtime = file_mod_time;
                         log::info(Where.FILE, "Reloaded script %s", script.name);
                     }
@@ -893,7 +893,7 @@ fn void ScriptEngine.reloadScripts(&self, String script_folder) @dynamic
                 }
                 continue;
             } else {
-                self.reloadScripts(script_path.path_string); // Warning(HM) recursion
+                self.reloadScripts(script_path); // Warning(HM) recursion
             }
         }
     } else {
@@ -930,7 +930,7 @@ fn void ScriptEngine.fileWatcher(&self) @dynamic
 fn void ScriptEngine.createScript(&this, Path script_path) @dynamic
 {   
     Script* new_script = mem::new(Script);
-    new_script.init(script_path.path_string);
+    new_script.init(script_path);
     new_script.linkTo(this);
     this.scripts.push(new_script);
 }
@@ -1145,14 +1145,14 @@ fn void ScriptEngine.registerScripts(&self, String script_folder) @dynamic
             if(catch excuse = script_path) 
             {
                 log::warning(Where.FILE,"Failed to load script %s inside %s with excuse: %s", 
-                                fs::getFileNameWithoutExt(script_path.path_string), SCRIPT_FOLDER_PATH, excuse)!!;
+                                fs::getFileNameWithoutExt(script_path), SCRIPT_FOLDER_PATH, excuse)!!;
                 continue;
             }
 
             if(path::is_file(script_path)) {
                 self.createScript(script_path);
             } else {
-                self.registerScripts(script_path.path_string); // Warning(HM) recursion
+                self.registerScripts(script_path); // Warning(HM) recursion
             }
         }
     } else {
@@ -1173,21 +1173,21 @@ fn void ScriptEngine.reloadScripts(&self, String script_folder) @dynamic
             if(catch excuse = script_path) 
             {
                 log::warning(Where.FILE,"Failed to reload script %s inside %s with excuse: %s", 
-                                fs::getFileNameWithoutExt(script_path.path_string), SCRIPT_FOLDER_PATH, excuse)!!;
+                                fs::getFileNameWithoutExt(script_path), SCRIPT_FOLDER_PATH, excuse)!!;
                 continue;
             }
 
             if(path::is_file(script_path)) 
             {
-                String file_path = script_path.path_string;
+                String file_path = script_path;
                 Script* script = self.getScript(fs::getFileNameWithoutExt(file_path));
                 if(script) 
                 {
-                    CLong file_mod_time = fs::getFileModTime(file_path); //fs::getFileSize(script_path.path_string);
+                    CLong file_mod_time = fs::getFileModTime(file_path); //fs::getFileSize(script_path);
                     bool mismatch = file_mod_time != script.modtime;
                     if(mismatch) // reload script
                     {
-                        script.data = fs::fileLoadEntireText(script_path.path_string).zstr_tcopy();
+                        script.data = fs::fileLoadEntireText(script_path).zstr_tcopy();
                         script.modtime = file_mod_time;
                         log::info(Where.FILE, "Reloaded script %s", script.name);
                     }
@@ -1195,7 +1195,7 @@ fn void ScriptEngine.reloadScripts(&self, String script_folder) @dynamic
                 }
                 continue;
             } else {
-                self.reloadScripts(script_path.path_string); // Warning(HM) recursion
+                self.reloadScripts(script_path); // Warning(HM) recursion
             }
         }
     } else {
@@ -1232,7 +1232,7 @@ fn void ScriptEngine.fileWatcher(&self) @dynamic
 fn void ScriptEngine.createScript(&this, Path script_path) @dynamic
 {   
     Script* new_script = mem::new(Script);
-    new_script.init(script_path.path_string);
+    new_script.init(script_path);
     new_script.linkTo(this);
     this.scripts.push(new_script);
 }
@@ -1436,7 +1436,7 @@ fn void ScriptEngine.init(&self) @dynamic
     log::info(FILE, "- Language(%s) - Version(%s)", SCRIPT_LANGUAGE, SCRIPT_LANG_VERSION);
     log::info(FILE, "-----------Registering Scripts -----------------\n");
         self.registerScripts(game::gpGame.app_base_folder.tconcat(SCRIPT_FOLDER_PATH));
-        usz scpt_count = self.scripts.len();
+        sz scpt_count = self.scripts.len();
         log::info(FILE, "\t- '%d' %s registered.", scpt_count, (scpt_count > 1) ? "scripts" : "script");
     log::info(FILE, "Script Engine initialized!");
     log::info(FILE, "---------------------------------------------\n");
@@ -1465,20 +1465,20 @@ fn void ScriptEngine.registerScripts(&self, String script_folder) @dynamic
 
     if(scriptlist.count >= 1) 
     {
-        for(int i = 0; i < scriptlist.count; i++) 
+        for(int i = 0; i < (int)scriptlist.count; i++) 
         {
             Path? script_path = fs::newPath(scriptlist.paths[i].str_view());
             if(catch excuse = script_path) 
             {
                 log::warning(Where.FILE,"Failed to load script %s inside %s with excuse: %s", 
-                                fs::getFileNameWithoutExt(script_path.path_string), SCRIPT_FOLDER_PATH, excuse)!!;
+                                fs::getFileNameWithoutExt(script_path), SCRIPT_FOLDER_PATH, excuse)!!;
                 continue;
             }
 
             if(path::is_file(script_path)) {
                 self.createScript(script_path);
             } else {
-                self.registerScripts(script_path.path_string); // Warning(HM) recursion
+                self.registerScripts(script_path); // Warning(HM) recursion
             }
         }
     } else {
@@ -1493,27 +1493,27 @@ fn void ScriptEngine.reloadScripts(&self, String script_folder) @dynamic
 
     if(scriptlist.count >= 1) 
     {
-        for(int i = 0; i < scriptlist.count; i++) 
+        for(int i = 0; i < (int)scriptlist.count; i++) 
         {
             Path? script_path = fs::newPath(scriptlist.paths[i].str_view());
             if(catch excuse = script_path) 
             {
                 log::warning(Where.FILE,"Failed to reload script %s inside %s with excuse: %s", 
-                                fs::getFileNameWithoutExt(script_path.path_string), SCRIPT_FOLDER_PATH, excuse)!!;
+                                fs::getFileNameWithoutExt(script_path), SCRIPT_FOLDER_PATH, excuse)!!;
                 continue;
             }
 
             if(path::is_file(script_path)) 
             {
-                String file_path = script_path.path_string;
+                String file_path = script_path;
                 Script* script = self.getScript(fs::getFileNameWithoutExt(file_path));
                 if(script) 
                 {
-                    CLong file_mod_time = fs::getFileModTime(file_path); //fs::getFileSize(script_path.path_string);
+                    CLong file_mod_time = fs::getFileModTime(file_path); //fs::getFileSize(script_path);
                     bool mismatch = file_mod_time != script.modtime;
                     if(mismatch) // reload script
                     {
-                        script.data = fs::fileLoadEntireText(script_path.path_string).zstr_tcopy();
+                        script.data = fs::fileLoadEntireText(script_path).zstr_tcopy();
                         script.modtime = file_mod_time;
                         log::info(Where.FILE, "Reloaded script %s", script.name);
                     }
@@ -1521,7 +1521,7 @@ fn void ScriptEngine.reloadScripts(&self, String script_folder) @dynamic
                 }
                 continue;
             } else {
-                self.reloadScripts(script_path.path_string); // Warning(HM) recursion
+                self.reloadScripts(script_path); // Warning(HM) recursion
             }
         }
     } else {
@@ -1572,7 +1572,7 @@ fn void ScriptEngine.fileWatcher(&self) @dynamic
 fn void ScriptEngine.createScript(&this, Path script_path) @dynamic
 {   
     Script* new_script = mem::new(Script);
-    new_script.init(script_path.path_string);
+    new_script.init(script_path);
     new_script.linkTo(this);
     this.scripts.push(new_script);
 }

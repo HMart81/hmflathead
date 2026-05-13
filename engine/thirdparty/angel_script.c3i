@@ -61,9 +61,9 @@ const uint ANGELSCRIPT_VERSION = 23601;
 const String VERSION_STRING = "2.36.01";
 
 // Calling conventions
-enum CallConv : inline uint
+constdef CallConv : inline uint
 {
-  CDECL,
+  CDECL = 0,
   STDCALL,
   THISCALL_ASGLOBAL,
   THISCALL,
@@ -75,9 +75,9 @@ enum CallConv : inline uint
 }
 
 // Message types
-enum MsgType : inline int
+constdef MsgType : inline int
 {
-  ERROR,
+  ERROR = 0,
   WARNING,
   INFORMATION
 }
@@ -113,58 +113,58 @@ struct SMessageInfo
 	ZString message;
 }
 
-extern fn ScriptEngine *createEngine(uint version = ANGELSCRIPT_VERSION) @extern("asCreateScriptEngine");
-extern fn ZString getLibraryVersion() @extern("asGetLibraryVersion");
-extern fn ZString getLibraryOptions() @extern("asGetLibraryOptions");
+extern fn ScriptEngine *createEngine(uint version = ANGELSCRIPT_VERSION) @cname("asCreateScriptEngine");
+extern fn ZString getLibraryVersion() @cname("asGetLibraryVersion");
+extern fn ZString getLibraryOptions() @cname("asGetLibraryOptions");
 
 // Memory management
-extern fn int ScriptEngine.addRef(ScriptEngine *e) @extern("asEngine_AddRef");
-extern fn int ScriptEngine.release(ScriptEngine *e) @extern("asEngine_Release");
-extern fn int ScriptEngine.shutDownAndRelease(ScriptEngine *e) @extern("asEngine_ShutDownAndRelease");
+extern fn int ScriptEngine.addRef(ScriptEngine *e) @cname("asEngine_AddRef");
+extern fn int ScriptEngine.release(ScriptEngine *e) @cname("asEngine_Release");
+extern fn int ScriptEngine.shutDownAndRelease(ScriptEngine *e) @cname("asEngine_ShutDownAndRelease");
 
 // Compiler messages
-extern fn ContextState _setMessageCallback(ScriptEngine *e, FunctionCallback callback, void *obj, uint callConv) @local @extern("asEngine_SetMessageCallback");
+extern fn ContextState _setMessageCallback(ScriptEngine *e, FunctionCallback callback, void *obj, uint callConv) @local @cname("asEngine_SetMessageCallback");
 macro ContextState ScriptEngine.setMessageCallback(&self, FunctionCallback callback, void *obj = null, uint callConv = CallConv.CDECL) {
   ContextState result = _setMessageCallback(self, callback, obj, callConv);
   assert(result >= 0, "Failed to set message callback");
   return result;
 }
-extern fn int ScriptEngine.clearMessageCallback(ScriptEngine *e) @extern("asEngine_ClearMessageCallback");
-extern fn int ScriptEngine.writeMessage(ScriptEngine *e, ZString section, int row, int col, MsgType type, ZString message) @extern("asEngine_WriteMessage");
+extern fn int ScriptEngine.clearMessageCallback(ScriptEngine *e) @cname("asEngine_ClearMessageCallback");
+extern fn int ScriptEngine.writeMessage(ScriptEngine *e, ZString section, int row, int col, MsgType type, ZString message) @cname("asEngine_WriteMessage");
 
 // Global functions
-extern fn ContextState _registerGlobalFunction(ScriptEngine *e, ZString declaration, FunctionCallback funcPointer, uint callConv, void *auxiliary) @local @extern("asEngine_RegisterGlobalFunction");
+extern fn ContextState _registerGlobalFunction(ScriptEngine *e, ZString declaration, FunctionCallback funcPointer, uint callConv, void *auxiliary) @local @cname("asEngine_RegisterGlobalFunction");
 macro ContextState ScriptEngine.registerGlobalFunction(&self, ZString declaration, FunctionCallback funcPointer, uint callConv = CallConv.CDECL, void *auxiliary = null) {
   ContextState result = _registerGlobalFunction(self, declaration, funcPointer, callConv, auxiliary); 
   assert(result >= 0, "Failed to register global function: %s", declaration);
   return result;
 }
-extern fn uint            ScriptEngine.getGlobalFunctionCount(ScriptEngine *e) @extern("asEngine_GetGlobalFunctionCount");
-extern fn ScriptFunction* ScriptEngine.getGlobalFunctionByIndex(ScriptEngine *e, uint index) @extern("asEngine_GetGlobalFunctionByIndex");
-extern fn ScriptFunction* ScriptEngine.getGlobalFunctionByDecl(ScriptEngine *e, ZString declaration) @extern("asEngine_GetGlobalFunctionByDecl");
+extern fn uint            ScriptEngine.getGlobalFunctionCount(ScriptEngine *e) @cname("asEngine_GetGlobalFunctionCount");
+extern fn ScriptFunction* ScriptEngine.getGlobalFunctionByIndex(ScriptEngine *e, uint index) @cname("asEngine_GetGlobalFunctionByIndex");
+extern fn ScriptFunction* ScriptEngine.getGlobalFunctionByDecl(ScriptEngine *e, ZString declaration) @cname("asEngine_GetGlobalFunctionByDecl");
 
 // Script execution
-extern fn ScriptContext *        ScriptEngine.createContext(ScriptEngine *e) @extern("asEngine_CreateContext");
-extern fn void *                 ScriptEngine.createScriptObject(ScriptEngine *e, TypeInfo *type) @extern("asEngine_CreateScriptObject");
-extern fn void *                 ScriptEngine.createScriptObjectCopy(ScriptEngine *e, void *obj, TypeInfo *type) @extern("asEngine_CreateScriptObjectCopy");
-extern fn void *                 ScriptEngine.createUninitializedScriptObject(ScriptEngine *e, TypeInfo *type) @extern("asEngine_CreateUninitializedScriptObject");
-extern fn ScriptFunction *       ScriptEngine.createDelegate(ScriptEngine *e, ScriptFunction *func, void *obj) @extern("asEngine_CreateDelegate");
-extern fn int                    ScriptEngine.assignScriptObject(ScriptEngine *e, void *dstObj, void *srcObj, TypeInfo *type) @extern("asEngine_AssignScriptObject");
-extern fn void                   ScriptEngine.releaseScriptObject(ScriptEngine *e, void *obj, TypeInfo *type) @extern("asEngine_ReleaseScriptObject");
-extern fn void                   ScriptEngine.addRefScriptObject(ScriptEngine *e, void *obj, TypeInfo *type) @extern("asEngine_AddRefScriptObject");
-extern fn int                    ScriptEngine.refCastObject(ScriptEngine *e, void *obj, TypeInfo *fromType, TypeInfo *toType, void **newPtr, bool useOnlyImplicitCast) @extern("asEngine_RefCastObject");
-extern fn LockableSharedBool *ScriptEngine.getWeakRefFlagOfScriptObject(ScriptEngine *e, void *obj, TypeInfo *type) @extern("asEngine_GetWeakRefFlagOfScriptObject");
+extern fn ScriptContext *        ScriptEngine.createContext(ScriptEngine *e) @cname("asEngine_CreateContext");
+extern fn void *                 ScriptEngine.createScriptObject(ScriptEngine *e, TypeInfo *type) @cname("asEngine_CreateScriptObject");
+extern fn void *                 ScriptEngine.createScriptObjectCopy(ScriptEngine *e, void *obj, TypeInfo *type) @cname("asEngine_CreateScriptObjectCopy");
+extern fn void *                 ScriptEngine.createUninitializedScriptObject(ScriptEngine *e, TypeInfo *type) @cname("asEngine_CreateUninitializedScriptObject");
+extern fn ScriptFunction *       ScriptEngine.createDelegate(ScriptEngine *e, ScriptFunction *func, void *obj) @cname("asEngine_CreateDelegate");
+extern fn int                    ScriptEngine.assignScriptObject(ScriptEngine *e, void *dstObj, void *srcObj, TypeInfo *type) @cname("asEngine_AssignScriptObject");
+extern fn void                   ScriptEngine.releaseScriptObject(ScriptEngine *e, void *obj, TypeInfo *type) @cname("asEngine_ReleaseScriptObject");
+extern fn void                   ScriptEngine.addRefScriptObject(ScriptEngine *e, void *obj, TypeInfo *type) @cname("asEngine_AddRefScriptObject");
+extern fn int                    ScriptEngine.refCastObject(ScriptEngine *e, void *obj, TypeInfo *fromType, TypeInfo *toType, void **newPtr, bool useOnlyImplicitCast) @cname("asEngine_RefCastObject");
+extern fn LockableSharedBool *ScriptEngine.getWeakRefFlagOfScriptObject(ScriptEngine *e, void *obj, TypeInfo *type) @cname("asEngine_GetWeakRefFlagOfScriptObject");
 
 ///////////////////////////////////////////
 module thirdparty::angel::ctx @if($feature(ANGEL_ENABLE));
 
 // Memory management
-extern fn int  ScriptContext.addRef(ScriptContext *c) @extern("asContext_AddRef");
-extern fn int  ScriptContext.release(ScriptContext *c) @extern("asContext_Release");
+extern fn int  ScriptContext.addRef(ScriptContext *c) @cname("asContext_AddRef");
+extern fn int  ScriptContext.release(ScriptContext *c) @cname("asContext_Release");
 
 // Execution
-extern fn int ScriptContext.prepare(ScriptContext *c, ScriptFunction *func) @extern("asContext_Prepare");
-extern fn ContextState ScriptContext.execute(ScriptContext *c) @extern("asContext_Execute");
+extern fn int ScriptContext.prepare(ScriptContext *c, ScriptFunction *func) @cname("asContext_Prepare");
+extern fn ContextState ScriptContext.execute(ScriptContext *c) @cname("asContext_Execute");
 
 
 

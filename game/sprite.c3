@@ -74,7 +74,7 @@ constdef SpriteKind : inline int
 
 <*
     @param value : "the inderlying ordinal value from the kind enum"
-    @require value >= 0 && value < SpriteKind.values.len
+    @require value >= 0 && value < SpriteKind::values.len
 *>
 fn SpriteKind kindFrom(int value) @inline @local
 {
@@ -140,7 +140,7 @@ fn void HMSprite.register(&self) @inline
 
 fn void HMSprite.init(&self, float x, float y, float w, float h, RLColor color = rl::WHITE, SpriteKind kind = GENERIC, String material_name = "")
 {
-    self.type  = HMSprite.typeid;
+    self.type  = HMSprite;
     //
     self.kind  = kind;
     self.color = color;
@@ -624,7 +624,7 @@ fn void drawImmediate(float posX, float posY, float width, float height, RLColor
 {
     @pool() {
         HMSprite sptr;
-        sptr.type  = HMSprite.typeid;
+        sptr.type  = HMSprite;
         sptr.kind  = SpriteKind.GENERIC;
         sptr.color = color;
         sptr.setPosition( posX, posY );
@@ -669,7 +669,7 @@ struct Particle
 fn void Particle.create(&self, Vec2f pos, Vec2f size, RLColor color = rl::WHITE, int lifetime_ms = DEFAULT_PARTICLE_LIFETIME, String tex_name = "") {
     // init the inline sprite data
     self.initV(pos, size, color);
-    //self.tex          = assetManager.getAssetExt(tex_name, RLTexture2D.typeid);
+    //self.tex          = assetManager.getAssetExt(tex_name, RLTexture2D);
     self.lifetime     = game::gpGame.time_ms + lifetime_ms;
     self.dir          = misc::VEC_UP;
     self.velocity     = self.dir;

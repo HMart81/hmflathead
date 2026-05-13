@@ -122,7 +122,7 @@ macro Vec2f Anchor.mulScalerEqual(self, float sc) @operator(*=)
 
 module engine::tools::editor @private;
 
-import std::io, std::ascii, std::collections::list;
+import std::io, std::core::ascii, std::collections::list;
 import engine::gui;
 import engine::misc;
 import engine::sys::cvar;
@@ -800,8 +800,8 @@ fn void addToConsoleHistory(Editor* editor, String input_text) //@inline
 }
 
 macro void con_printfn(String fmt, ...) @public @builtin {
-	DString str = dstring::temp_with_capacity(fmt.len + $vacount * 8);
-	str.appendf(fmt, $vasplat);
+	DString str = dstring::temp_with_capacity(fmt.len + $vaarg.len * 8);
+	str.appendf(fmt, ...$vaarg);
 	game::gpGame.editor.con_history.push(str.str_view().copy(mem));
 }
 

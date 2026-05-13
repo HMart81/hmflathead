@@ -75,8 +75,8 @@ fn void vec2_translate(WrenVM* vm)
     double a = vm.getSlotDouble(1);
     double b = vm.getSlotDouble(2);
     vec1.translateV({(float)a, (float)b});
-    Vec2f* vecp = (Vec2f*)vm.setSlotNewForeign(0,0, Vec2f.sizeof);
-    mem::copy(vecp, &vec1, Vec2f.sizeof);
+    Vec2f* vecp = (Vec2f*)vm.setSlotNewForeign(0,0, Vec2f::size);
+    mem::copy(vecp, &vec1, Vec2f::size);
     vecp = null; 
 }
 
@@ -149,11 +149,11 @@ fn usz getArgBytesCount(EventDef* ev, typeid type = double.typeid)
 	switch(type)
 	{
 		case double.typeid:
-			return (ev.argtypes.len * double.sizeof);
+			return (ev.argtypes.len * double::size);
 		case float.typeid:
-			return (ev.argtypes.len * float.sizeof);
+			return (ev.argtypes.len * float::size);
 		case int.typeid:
-			return (ev.argtypes.len * int.sizeof);
+			return (ev.argtypes.len * int::size);
 		default:
 			unreachable("Can't get argument byte count from an unkown type!");
 	}

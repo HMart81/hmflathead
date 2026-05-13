@@ -234,7 +234,7 @@ macro bool connected() => (local_connected() == 0) ? false : true;
 macro @zone($active; @body) @if($feature(TRACY_HAS_CALLSTACK) &&& $feature(TRACY_CALLSTACK))
 {
     $if $active:
-        var $Type = $typeof($active);
+        var $Type = $Typeof($active);
         $Type activate = local_connected();
         var source_location = (SourceLocationData) { "", $$FUNC,  $$FILE, (uint)$$LINE, 0 };
         var ctx = zn::begin_callstack( &source_location, TRACY_CALLSTACK, $active );
@@ -251,7 +251,7 @@ macro @zone($active; @body) @if($feature(TRACY_HAS_CALLSTACK) &&& $feature(TRACY
 macro @zoneN($name, $active; @body) @if($feature(TRACY_HAS_CALLSTACK) &&& $feature(TRACY_CALLSTACK))
 {
     $if $active:
-        var $Type = $typeof($active);
+        var $Type = $Typeof($active);
         $Type activate = local_connected();
         var source_location = (SourceLocationData) { $name, $$FUNC,  $$FILE, (uint)$$LINE, 0 };
         var ctx = zn::begin_callstack( &source_location, TRACY_CALLSTACK, $active );
@@ -268,7 +268,7 @@ macro @zoneN($name, $active; @body) @if($feature(TRACY_HAS_CALLSTACK) &&& $featu
 macro @zoneC($color, $active; @body) @if($feature(TRACY_HAS_CALLSTACK) &&& $feature(TRACY_CALLSTACK))
 {
     $if $active:
-        var $Type = $typeof($active);
+        var $Type = $Typeof($active);
         $Type activate = local_connected();
         var source_location = (SourceLocationData) { "", $$FUNC,  $$FILE, (uint)$$LINE, $color };
         var ctx = zn::begin_callstack( &source_location, TRACY_CALLSTACK, $active );
@@ -286,7 +286,7 @@ macro @zoneC($color, $active; @body) @if($feature(TRACY_HAS_CALLSTACK) &&& $feat
 macro @zoneNC($name, $color, $active; @body) @if($feature(TRACY_HAS_CALLSTACK) &&& $feature(TRACY_CALLSTACK))
 {
     $if $active:
-        var $Type = $typeof($active);
+        var $Type = $Typeof($active);
         $Type activate = local_connected();
         var source_location = (SourceLocationData) { $name, $$FUNC,  $$FILE, (uint)$$LINE, $color };
         var ctx = zn::begin_callstack( &source_location, TRACY_CALLSTACK, $active );

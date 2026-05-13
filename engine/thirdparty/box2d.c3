@@ -90,7 +90,7 @@ fn void initDebugDraw(B2DebugDraw* dd, RenderView* view)
     dd.drawPoint          = &dbgDrawPoint;
     dd.drawString         = &dbgDrawString;
     //
-    B2AABBox bounds = view.fromBoundsToPhysicsAABB(); //{ { -float.max, -float.max }, { float.max, float.max } };
+    B2AABBox bounds = view.fromBoundsToPhysicsAABB(); //{ { -float::max, -float::max }, { float::max, float::max } };
     dd.drawingBounds      = bounds;
     // drawing options
     dd.useDrawingBounds   = true;

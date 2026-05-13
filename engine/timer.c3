@@ -30,10 +30,10 @@ module game::logic::timer;
 
 // region C3 imports
 import std::io;
-// import std::ascii;
+// import std::core::ascii;
 // import std::io::file;
 // import std::collections::list;
-// import std::collections::tuple;
+// import std::collections::pair;
 // end
 
 // region custom imports

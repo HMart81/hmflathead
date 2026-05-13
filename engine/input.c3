@@ -93,8 +93,8 @@ struct Action (ActionInterface)
     ActionKind kind;
     
     struct keyboard @packed {
-        RLKeyboardKey key1;
-        RLKeyboardKey key2;  // for alternative keys like alt, shift, ctrl, etc...
+        int key1;
+        int key2;  // for alternative keys like alt, shift, ctrl, etc...
     }
     struct mouse {
         RLMouseButton btn;
@@ -112,7 +112,7 @@ struct Action (ActionInterface)
         RLGamepadAxis   axis;
     }
     //
-    RLGesture gesture;  // for mobile phones
+    int gesture;  // for mobile phones
     
     // pointer to a function this action should trigger
     ActionCallBack callback;
@@ -260,7 +260,7 @@ fn String Action.getName(&self) => self.name;
  @require name != ""
  @require key1 != rl::KEY_NULL && key2 != key1
 *>
-fn void makeKeyboardAction(String name, RLKeyboardKey key1, RLKeyboardKey key2 = rl::KEY_NULL, ActionCallBack func = null)  @inline
+fn void makeKeyboardAction(String name, int key1, int key2 = rl::KEY_NULL, ActionCallBack func = null)  @inline
 {
     if(name == "" || key1 == rl::KEY_NULL) {
         log::warning(Where.CONSOLE, "Cannot create keyboard action with empty name or KEY_NULL key.");
@@ -286,7 +286,7 @@ fn void makeKeyboardAction(String name, RLKeyboardKey key1, RLKeyboardKey key2 =
     }
 
     Action* action       = mem::new(Action);
-    action.type          = Action.typeid;
+    action.type          = Action;
     action.name          = name;
     action.kind          = ActionKind.KEYBOARD;
     action.callback      = func;
@@ -296,10 +296,10 @@ fn void makeKeyboardAction(String name, RLKeyboardKey key1, RLKeyboardKey key2 =
     local_manager.actions.push(action);
 }
 
-fn void makeMouseAction(String name, RLMouseButton btn, RLKeyboardKey key = rl::KEY_NULL, ActionCallBack func = null)  @inline
+fn void makeMouseAction(String name, RLMouseButton btn, int key = rl::KEY_NULL, ActionCallBack func = null)  @inline
 {
     Action* action       = mem::new(Action);
-    action.type          = Action.typeid;
+    action.type          = Action;
     action.name          = name;
     action.kind          = ActionKind.MOUSE;
     action.mouse.btn     = btn;
@@ -312,7 +312,7 @@ fn void makeMouseAction(String name, RLMouseButton btn, RLKeyboardKey key = rl::
 fn void makeGamepadAction(String name, RLGamepadButton btn, RLGamepadAxis axis, ActionCallBack func = null)  @inline
 {
     Action* action      = mem::new(Action);
-    action.type         = Action.typeid;
+    action.type         = Action;
     action.name         = name;
     action.kind         = ActionKind.GAMEPAD;
     action.gamepad.btn  = btn;
@@ -326,8 +326,8 @@ struct Input_Action_Entry
 {
 	String name;
 	ActionKind kind;
-	RLKeyboardKey key1;
-	RLKeyboardKey key2;
+	int key1;
+	int key2;
 	RLMouseButton btn;
 	RLGamepadButton gbtn;
 	RLGamepadAxis axis;
@@ -357,7 +357,7 @@ macro void @makeAction(Input_Action_Entry entry)
 	});
 }
 
-fn RLKeyboardKey getKeyCodeFromStr(String name) @inline
+fn int getKeyCodeFromStr(String name) @inline
 {
     // NOTE(HM) this is used to get the key enum value from a string
     // like "KEY_A" or "KEY_LEFT" etc.
@@ -501,7 +501,7 @@ fn void removeAction(String name) @inline
     }
 }
 
-fn String getKeyboardKeyName(RLKeyboardKey k) 
+fn String getKeyboardKeyName(int k) 
 {
     switch (k)
     {
@@ -653,7 +653,7 @@ fn String getMainBtnNameFrom(Action* action) @inline @local
 fn void printKeyActions() @inline
 {
     io::printfn("\n============== Input Actions =====================");
-    usz count = local_manager.actions.len();
+    sz count = local_manager.actions.len();
     if(count == 0) {
         io::printfn("No input actions to print found.");
     } else {

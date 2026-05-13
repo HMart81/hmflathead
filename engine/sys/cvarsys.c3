@@ -176,7 +176,7 @@ fn bool? saveCvarsToIniFile(ConfigFile* cfg)
 }*/
 
 <*
-	@ensure return != 0
+	@ensure return >= 0
 *>
 fn int CVar.getBasicType(&self) @MyInline
 {
@@ -190,18 +190,18 @@ fn int CVar.getBasicType(&self) @MyInline
     }
 }
 
-fn void printflags(int flags) @inline @local
+fn void printflags(uint flags) @inline @local
 {
     int count;
-    foreach(flag : CvFlag.values) {
+    foreach(flag : CvFlag::values) {
 		if(flags & flag) {
 			count++;
 		}
 	}
 
-	foreach(i, flag : CvFlag.values) {
+	foreach(i, flag : CvFlag::values) {
 		if(flags & flag) {
-			io::printf("%s", CvFlag.names[i]);
+			io::printf("%s", CvFlag::names[i]);
 			if(count) {
 				io::printf(" %c ", '|');
                 count -= 1;
@@ -315,7 +315,7 @@ fn bool CVar.getBool(&self, bool default_value = false) @inline @nodiscard
     }
     
     // from here we expect a valid char value
-    char? value = self.value.to_uchar();
+    char? value = self.value.to_char();
     if(catch excuse = value) {
         log::error(FILE, "CVar: %s fault '%s' :: %s->%d", self.name, excuse, $$FUNC, $$LINE);
         return default_value;

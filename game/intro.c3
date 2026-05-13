@@ -354,7 +354,7 @@ fn void IntroAnimation.loop(&self) @inline
 
 fn void IntroAnimation.loop_frame(&self, uint idx) @inline 
 {
-    if(self.current_frame_index != idx) self.current_frame_index = idx;
+    if(self.current_frame_index != (int)idx) self.current_frame_index = (int)idx;
 }
 
 <*

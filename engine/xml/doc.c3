@@ -58,20 +58,19 @@ struct XmlDoc
 }
 
 fn XmlDoc*? read_file(File file) {
-	usz contents_size = file.seek(0, Seek.END)!;
-	file.seek(0, Seek.SET)!; // return to the start
-	//char[] buff = allocator::new_array(allocator, char, 2048);
+	long contents_size = file.size()!;
+	file.seek(0, FROM_START)!; // return to the start
 	char[] buff = alloc::new_array(mem, char, contents_size);
 	defer alloc::free(mem, buff);
 
 	XmlDoc* doc   = mem::new(XmlDoc);
-    doc.contents_size = contents_size;
+    doc.contents_size = (usz)contents_size;
 
 	XmlReader* reader = new_reader(doc);
 	defer reader.free();
 
 	while (!file.eof()) {
-		usz? bytesRead = file.read(buff);
+		long? bytesRead = file.read(buff);
 		if (catch f = bytesRead) {
 			return f~;
 		}
@@ -123,7 +122,7 @@ fn void XmlNode.find_nodes_by_tag_name(&self, char[] type, XmlNodeList* cache) {
 		cache.push(self);
 	}
 
-	for (usz i = 0; i < self.children.size; i++) {
+	for (sz i = 0; i < self.children.size; i++) {
 		XmlNode* childNode = self.children[i];
 		childNode.find_nodes_by_tag_name(type, cache);
 	}
@@ -162,7 +161,7 @@ fn XmlAttribute* XmlNode.getAttribute(&self, String name)
 
 fn char[]? XmlNode.get_attrib_value(&self, char[] name) @deprecated("Use XmlNode.getAttribute instead")
 {
-	for (usz i = 0; i < self.attributes.size; i++) {
+	for (sz i = 0; i < self.attributes.size; i++) {
 		XmlAttribute* attribute = self.attributes[i];
 		if (attribute.name == name) {
 			return attribute.value;
@@ -179,7 +178,7 @@ fn void XmlDoc.print_as_tree(&doc, OutStream stream) {
 fn String XmlNode.getText(&self)
 {
     String result;
-    usz child_count = self.children.len();
+    sz child_count = self.children.len();
     while(child_count > 0 && self.children[child_count - 1].name == "#text") {
         result = result.tconcat(self.children[child_count - 1].value);
         child_count--;
@@ -203,7 +202,7 @@ fn void XmlNode.print_as_tree(&node, OutStream stream, int depth, usz childIndex
 	}
 
 	io::fprintf(stream, "%s:%s", node.name, node.attributes.size)!!;
-	for (usz i = 0; i < node.attributes.size; i++) {
+	for (sz i = 0; i < node.attributes.size; i++) {
 		XmlAttribute* attribute = node.attributes[i];
 		io::fprintf(stream, ", %s=\"%s\"", attribute.name, attribute.value)!!;
 	}
@@ -219,8 +218,8 @@ fn void XmlNode.print_as_tree(&node, OutStream stream, int depth, usz childIndex
 	io::fprint(stream, "\n")!!;
 
 	depth = depth + 1;
-	for (usz i = 0; i < node.children.size; i++) {
+	for (sz i = 0; i < node.children.size; i++) {
 		XmlNode* child = node.children[i];
-		child.print_as_tree(stream, depth, i, node.children.size);
+		child.print_as_tree(stream, depth, (usz)i, (usz)node.children.size);
 	}
 }

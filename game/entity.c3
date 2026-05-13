@@ -164,10 +164,10 @@ fn void Entity.init(&self, String aname, Vec2f origin, RLColor color = rl::WHITE
 {
 	if(self.shouldSkip(aname)) return;
 	
-	self.type = Entity.typeid;
+	self.type = Entity;
 	self.move_dir = NONE;
 	
-	usz entity_count = game::gpGame.entityList.len();
+	sz entity_count = game::gpGame.entityList.len();
 	/*if( entity_count == 0 ) {
 		unreachable("invalid entity count at this time, that should only happen if player1 entity is missing!");
 	}*/

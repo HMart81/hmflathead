@@ -61,9 +61,9 @@ struct Flag_List
     usz capacity;
 }
 
-enum Flag_Type : inline int
+constdef Flag_Type : inline int
 {
-    BOOL,
+    BOOL = 0,
     UINT64,
     SIZE,
     STR,
@@ -81,9 +81,9 @@ union Flag_Value
     Flag_List as_list;
 }
 
-enum Flag_Error : inline int
+constdef Flag_Error : inline int
 {
-    NO_ERROR,
+    NO_ERROR = 0,
     UNKNOWN,
     NO_VALUE,
     INVALID_NUMBER,
@@ -116,18 +116,18 @@ struct Flag_Context
     ZString* rest_argv;
 }
 
-extern fn ZString flag_name(void* val) @extern("flag_name");
-extern fn bool* flag_bool(ZString  name, bool def, ZString  desc) @extern("flag_bool");
-extern fn ulong* flag_uint64(ZString  name, ulong def, ZString  desc) @extern("flag_uint64");
-extern fn usz* flag_size(ZString  name, ulong def, ZString  desc) @extern("flag_size");
-extern fn ZString* flag_str(ZString  name, ZString  def, ZString  desc) @extern("flag_str");
-extern fn Flag_List* flag_list(ZString  name, ZString  desc) @extern("flag_list");
-extern fn bool flag_parse(int argc, ZString* argv) @extern("flag_parse");
-extern fn int rest_argc() @extern("flag_rest_argc");
-extern fn ZString* rest_argv() @extern("flag_rest_argv");
-extern fn void print_error(CFile *stream) @extern("flag_print_error");
-extern fn void print_options(CFile *stream) @extern("flag_print_options");
-extern fn ZString program_name() @extern("flag_program_name");
+extern fn ZString flag_name(void* val) @cname("flag_name");
+extern fn bool* flag_bool(ZString  name, bool def, ZString  desc) @cname("flag_bool");
+extern fn ulong* flag_uint64(ZString  name, ulong def, ZString  desc) @cname("flag_uint64");
+extern fn usz* flag_size(ZString  name, ulong def, ZString  desc) @cname("flag_size");
+extern fn ZString* flag_str(ZString  name, ZString  def, ZString  desc) @cname("flag_str");
+extern fn Flag_List* flag_list(ZString  name, ZString  desc) @cname("flag_list");
+extern fn bool flag_parse(int argc, ZString* argv) @cname("flag_parse");
+extern fn int rest_argc() @cname("flag_rest_argc");
+extern fn ZString* rest_argv() @cname("flag_rest_argv");
+extern fn void print_error(CFile *stream) @cname("flag_print_error");
+extern fn void print_options(CFile *stream) @cname("flag_print_options");
+extern fn ZString program_name() @cname("flag_program_name");
 
 
 /*
