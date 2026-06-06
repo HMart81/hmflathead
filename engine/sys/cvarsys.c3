@@ -401,10 +401,11 @@ fn void CVar.archive(&self)
         case (bool)(self.flags & CvFlag.TOOL):     sec_name = "Tool";
         default: break;
     }
-	if(settings_data.hasSection(sec_name)) {
-		section = settings_data.getSection(sec_name);
+	if(section = settings_data.hasSection(sec_name), section) {
+		//section = settings_data.getSection(sec_name);
+		// got the section so go on
 	} else {
-		section = settings_data.createSection(sec_name);
+		section = settings_data.createSection(sec_name)!!;
 	}
 	assert(section != null);
 

@@ -2819,12 +2819,12 @@ $endif
         // int? res_index  = settings_data.getInt("r_mode");
         // if(catch excuse = res_index ) { return excuse; }
 
-        if(settings_data.getInt("r_mode")! == -1)
+        if(settings_data.getInt("video", "r_mode")! == -1)
         {
             int w_value, h_value;
             // use ini defined custom resolutions
-            if(try value =  settings_data.getInt("r_custom_width"))  w_value = value;
-            if(try value =  settings_data.getInt("r_custom_heigth")) h_value = value;
+            if(try value =  settings_data.getInt("video", "r_custom_width"))  w_value = value;
+            if(try value =  settings_data.getInt("video", "r_custom_heigth")) h_value = value;
             
             // see if the custom resolution exists in the list of resolutions
             // NOTE(HM) if the custom resolution is not found, it will return -1
@@ -2874,7 +2874,7 @@ $endif
     // NOTE(HM) cvar r_fullscreen has top priority
     int fullscreen_choice = r_fullscreen.getInt();
     // NOTE(HM) if cvar was not set, see if the config file is overriding the value
-    if(fullscreen_choice == -1) fullscreen_choice = settings_data.getInt("r_fullscreen")!;
+    if(fullscreen_choice == -1) fullscreen_choice = settings_data.getInt("video", "r_fullscreen")!;
     // prevent under or overflow
     if(fullscreen_choice < -1 || fullscreen_choice > 2) 
     {
@@ -2913,7 +2913,7 @@ $endif
     // Multi-sampling AA (ONLY 0 or 4x is supported by Raylib, there's no inbetween)
     if(local_game.screen.state.fullscreen) 
     {
-        if(try msaa_samples = settings_data.getInt("msaa")) 
+        if(try msaa_samples = settings_data.getInt("video", "msaa")) 
         {
             if(msaa_samples > 0) 
             {
