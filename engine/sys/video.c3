@@ -69,7 +69,7 @@ const VIDEOS_FOLDER_PATH   = "videos"+++platf::PATHSEPERATOR_STR;
 const COLOR_CHANNELS  @local = 3;
 const BYTES_PER_PIXEL @local = COLOR_CHANNELS * Uint8_t::size;
 
-alias gpGame = game::gpGame;
+alias pContext = game::pContext;
 
 alias VideoFile   = File;
 alias VideoPlayer = PLM_t; // video player to play videos
@@ -153,10 +153,10 @@ fn void VidMovie.draw(&self, Vec2f position = VEC2_ZERO)
 {
 	if(self.is_ready && self.should_play && self.started)
 	{
-		assert(gpGame.render.isWindowReady()!!);
+		assert(pContext.render.isWindowReady()!!);
 		Vec2f view_size = {
-			.x = (self.fullscreen) ? gpGame.screen.w : self.frame.width,
-			.y = (self.fullscreen) ? gpGame.screen.h : self.frame.height
+			.x = (self.fullscreen) ? pContext.screen.w : self.frame.width,
+			.y = (self.fullscreen) ? pContext.screen.h : self.frame.height
 		};
 
 		if(self.fullscreen) if(position != VEC2_ZERO) position = VEC2_ZERO;
@@ -178,7 +178,7 @@ fn void VidMovie.draw(&self, Vec2f position = VEC2_ZERO)
 fn void VidMovie.drawWithinRect(&self, RLRectangle rect)
 {
 	if(self.is_ready && self.should_play && self.started) {
-		assert(gpGame.render.isWindowReady()!!);
+		assert(pContext.render.isWindowReady()!!);
 		RLTexture2D* frame = &self.frame_texture;
 		rl::drawTexturePro(
 			*frame,
@@ -264,7 +264,7 @@ fn void VidMovie.updateAudio(&self, PLMsamples *samples) @MyInline
 	$endif
 
 	$if $defined(AUDIO_SEPERATE):
-		if(gpGame.time_sec > self.track_delay) {
+		if(pContext.time_sec > self.track_delay) {
 			if(rl::isMusicValid(self.audio)) rl::updateMusicStream(self.audio);
 		}
 	$endif
@@ -312,7 +312,7 @@ fn void VidMovie.enableAudio(&self, bool enable = false) @MyInline
 
 	$if $defined(AUDIO_SEPERATE):
 		if(self.track_name) {
-			ZString track_path = game::gpGame.app_base_folder.tconcat("music/").tconcat(self.track_name).zstr_tcopy();
+			ZString track_path = game::pContext.app_base_folder.tconcat("music/").tconcat(self.track_name).zstr_tcopy();
 			self.audio = rl::loadMusicStream(track_path);
 			self.track_delay = 0.0f; //(float)BUFFER_SIZE / self.samplerate;
 		}
@@ -340,11 +340,11 @@ fn void VidMovie.audio_play(&self) @MyInline
 				$endif
 				$if $defined(AUDIO_SEPERATE):
 					rl::playMusicStream(self.audio);
-					self.track_delay = gpGame.time_sec + ((float)BUFFER_SIZE / self.samplerate) * rl::getFrameTime();
+					self.track_delay = pContext.time_sec + ((float)BUFFER_SIZE / self.samplerate) * rl::getFrameTime();
 				$endif
 				if(self.paused) self.paused = false;
 			}
-			//log::info(CONSOLE, "starting video %s sound playing at: %s", self.name, gpGame.time_sec);
+			//log::info(CONSOLE, "starting video %s sound playing at: %s", self.name, pContext.time_sec);
 		}
 	}
 }
@@ -364,7 +364,7 @@ fn void VidMovie.audio_stop(&self) @MyInline
 			// you cannot pause the audio seperatly from the video itself
 			// aka if the video is paused audio is paused and vice versa
 			self.paused = true;
-			//log::info(CONSOLE, "Stopped video %s sound playing at: %s", self.name, gpGame.time_sec);
+			//log::info(CONSOLE, "Stopped video %s sound playing at: %s", self.name, pContext.time_sec);
 		}
 	}
 }
@@ -484,7 +484,7 @@ fn void VidMovie.resetTime(&self, int time = 0)
 {
 	/*
 	//self.startTime = ( backEnd.viewDef ) ? 1000 * backEnd.viewDef->floatTime : -1;
-	self.startTime = gpGame.time_ms;
+	self.startTime = pContext.time_ms;
 	self.start();
 	//status = FMV_PLAY;
 	*/
@@ -618,7 +618,7 @@ fn void setCabinetMoviesDirectory(VideoCabinet* self, String movies_dir) @local 
 
 fn void initCabinetMoviesDirectory(VideoCabinet* self) @local @MyInline
 {
-	String videos_path = gpGame.app_base_folder.tconcat(VIDEOS_FOLDER_PATH);
+	String videos_path = pContext.app_base_folder.tconcat(VIDEOS_FOLDER_PATH);
 	/*if(catch excuse = fs::makeDirectory_IfNotExist(videos_path)) {
 		log::error(FILE, "failed to create videos directory at path: %s with excuse %s", videos_path, excuse);
 	}*/

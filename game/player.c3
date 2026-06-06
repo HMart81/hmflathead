@@ -140,7 +140,7 @@ fn void Player.init(&self, Vec2f origin, RLColor color, int id)
     bodyDef.type        = box2d::KINEMATIC;
     bodyDef.position    = origin;
     // create the body
-    self.physics        = box2d::createBody(game::gpGame.physWorldId, &bodyDef);
+    self.physics        = box2d::createBody(game::pContext.physWorldId, &bodyDef);
     //
     // create the polygon shape
     // TODO(HM) Set the correct size at creation time!!!
@@ -252,7 +252,7 @@ fn void Player.think(&self, float dt /*delta_time*/)
 fn Player* makePlayer(int id, Vec2f position = {0, 0}, RLColor color = rl::WHITE) @MyInline
 {
 	Vec2f pos = position;
-	if(pos == misc::VEC2_ZERO) pos = game::gpGame.screen.center;
+	if(pos == misc::VEC2_ZERO) pos = game::pContext.screen.center;
 	log::info(CONSOLE, "Player pos = %s", pos);
     Player* player = mem::new(Player);
     player.init(pos, color, id);
@@ -366,7 +366,7 @@ fn Projectile* create(Vec2f origin, Vec2f size = {40, 40}, int lifetime = 5000, 
     projectile.rec          = {origin.x, origin.y, size.x, size.y};
     projectile.move_speed   = DEFAULT_PROJECTILE_SPEED; // @hardcode
     projectile.move_dir     = DEFAULT_PROJECTILE_MOVE_DIR; // @hardcode
-    projectile.creationTime = game::gpGame.time_ms;
+    projectile.creationTime = game::pContext.time_ms;
     projectile.lifetime     = projectile.creationTime + lifetime;
     //projectile.maxLifeTime  = projectile.creationTime + projectile.lifetime;
     return projectile;
@@ -379,7 +379,7 @@ fn Projectile* create(Vec2f origin, Vec2f size = {40, 40}, int lifetime = 5000, 
 fn void update(Projectile* projectile, float dt) @inline {
     if(!projectile) return;
     
-    if(game::gpGame.time_ms > projectile.lifetime) {
+    if(game::pContext.time_ms > projectile.lifetime) {
         destroy(projectile);
         return;
     }

@@ -381,7 +381,7 @@ $endif
 
 <*
     Archive console variables into the config file
-    @require game::gpGame.settings_data.isValid()
+    @require game::pContext.settings_data.isValid()
 *>
 fn void CVar.archive(&self)
 {
@@ -389,7 +389,7 @@ fn void CVar.archive(&self)
 	if(!(self.flags & CvFlag.ARCHIVE)) return;
 
 	IniSection* section;
-	ConfigFile* settings_data = &game::gpGame.settings_data;
+	ConfigFile* settings_data = &game::pContext.settings_data;
 
     String sec_name = "Cvars";
     switch {

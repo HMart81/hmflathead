@@ -153,7 +153,7 @@ const Matrix3f VIEW_AXIS_IDENTITY = {
     0.0f, 0.0f, 1.0f
 };
 
-alias gameptr = game::gpGame;
+alias gameptr = game::pContext;
 
 const int ENABLE_CAMERA_VIEW @public = 1;
 
@@ -384,7 +384,7 @@ fn void RenderView.debug(&self)
     rl::drawRectangleLinesEx(rec, 2.5f, rl::RED);
     String view_data_text = string::tformat("Screen Size: {%.2f, %.2f}", rec.width, rec.height);
     rl::drawText(view_data_text.zstr_tcopy(), 100, 10, 30, rl::RED);
-    //rl::drawTextEx(*game::gpGame.candara_font, "TEXT DRAWN IN RENDER TEXTURE", {10, 30}, 16.0f, 2.0f, rl::COLOR_RED);
+    //rl::drawTextEx(*game::pContext.candara_font, "TEXT DRAWN IN RENDER TEXTURE", {10, 30}, 16.0f, 2.0f, rl::COLOR_RED);
     //rl::drawLine((int)self.camera.target.x, -(int)rec.height*10, (int)self.camera.target.x, (int)rec.height*10, rl::COLOR_GREEN);
     //rl::drawCircleV(self.camera.target, 16.0f, rl::COLOR_RED);
     //rl::drawRectangle(-6000, 320, 13000, 8000, rl::DARKGRAY);*/
@@ -411,7 +411,7 @@ fn void takeScreenShot()
 {
     unreachable();
     /*
-    String shots_dir = game::gpGame.app_work_dir.tconcat("screenshots\\");
+    String shots_dir = game::pContext.app_work_dir.tconcat("screenshots\\");
     if(fs::directoryExists(shots_dir) == false) {
         bool~ sucess = fs::makeDirectory(shots_dir);
         if(catch excuse = sucess) {
@@ -437,7 +437,7 @@ fn void takeScreenShot()
         //log::info(Where.CONSOLE, "current dir after all = %s", rl::getWorkingDirectory());
         if(bytes_count) {
             // return to main work dir
-            fs::changeDirectory(game::gpGame.app_work_dir)!!;
+            fs::changeDirectory(game::pContext.app_work_dir)!!;
             rl::unloadFileData(saved_shot_file);
             // and try to delete older file
             @catch(file::delete(shotname.str_view()));
@@ -471,7 +471,7 @@ fn void takeScreenShot()
 
 fn void moveScreenShots() 
 {
-    String shots_dir = game::gpGame.app_work_dir.tconcat("screenshots\\");
+    String shots_dir = game::pContext.app_work_dir.tconcat("screenshots\\");
     bool? sucess = fs::makeDirectory_IfNotExist(shots_dir);
     if(catch excuse = sucess) { // will ignore if the directory already exists
         log::warning(FILE, "Cannot create screenshots directory at: %s!\n\t -> excuse: %s", 
@@ -483,7 +483,7 @@ fn void moveScreenShots()
     }
     
     // count how many shots are in the work directory (where the .exe is...)
-    RLFilePathList files = fs::loadDirectoryFilesEx(game::gpGame.app_work_dir, ".png", scanSubdirs: false);
+    RLFilePathList files = fs::loadDirectoryFilesEx(game::pContext.app_work_dir, ".png", scanSubdirs: false);
     for(int i = 0; i < (int)files.count; i++) {
         // move the images to the screenshot folder
         String file_shot_path = ((ZString)files.paths[i]).str_view();
@@ -780,7 +780,7 @@ fn void RenderView.drawWorldSpaceCoords(&self) @if($feature(_DEBUG))
 
 fn void RenderView.drawCameraSpaceCoords(&self) @if($defined(ENABLE_CAMERA_VIEW) && $feature(_DEBUG))
 {
-	if(game::gpGame.editor.isOpened() || game::gpGame.mode == GameMode.EDITOR) return;
+	if(game::pContext.editor.isOpened() || game::pContext.mode == GameMode.EDITOR) return;
 
     self.showModelViewAxis();
 
@@ -855,9 +855,9 @@ $if $defined(ENABLE_CAMERA_VIEW):
 $endif
 
         // draw general game sprites
-        if(game::gpGame.sprites.len()) 
+        if(game::pContext.sprites.len()) 
         {
-            foreach(sprite : game::gpGame.sprites)
+            foreach(sprite : game::pContext.sprites)
             {
                 if(sprite.kind == SpriteKind.CURSOR) { continue; } // skip game cursor sprite
                 
@@ -893,9 +893,9 @@ $endif
         }
             
         // draw game entities
-        if(game::gpGame.entityList.len()) 
+        if(game::pContext.entityList.len()) 
         {
-            foreach(ent : game::gpGame.entityList) 
+            foreach(ent : game::pContext.entityList) 
             {
                 bool ent_out_of_view = !view.bounds.intersectsOther(&ent.vs.bounds);
                 if(ent_out_of_view) {
@@ -910,7 +910,7 @@ $endif
         
         // draw the boid entities
         $if $defined(BOIDS_ENABLE):
-        game::gpGame.boidManager1.draw();
+        game::pContext.boidManager1.draw();
         $endif
         
         // physics debug drawing
@@ -918,7 +918,7 @@ $endif
         // before/behind the gui and other debug stuff at the same time as the game entities.
         $if $feature(PHYSICS_BOX2D):
 			if(game::db_drawPhysics.getBool()) {
-				game::gpGame.physWorldId.debugDraw(&game::gpGame.phys_debug);
+				game::pContext.physWorldId.debugDraw(&game::pContext.phys_debug);
 			}
 		$endif
 
@@ -1021,7 +1021,7 @@ struct HMPostProcess
 *>
 fn void HMPostProcess.loadPPShader(&self, String _name) 
 {
-    String shader_path = game::gpGame.app_base_folder.tconcat(SHADERS_FOLDER).tconcat(_name).tconcat(".fs");
+    String shader_path = game::pContext.app_base_folder.tconcat(SHADERS_FOLDER).tconcat(_name).tconcat(".fs");
     self.shader = glsl::loadShader("", shader_path);
     if(rl::isShaderValid(self.shader)) {
         self.name = _name.tcopy();
@@ -1069,7 +1069,7 @@ fn void HMPostProcess.update(&self) {
 
 macro HMPostProcess.@apply(&self, RenderTexture* layer = null; @body) {
     //self.shader.setUniformTexture("texture0", layer.texture);
-    //game::gpGame.current_global_shader = &self.shader;
+    //game::pContext.current_global_shader = &self.shader;
     rl::@shaderMode(self.shader)
     {
         @body();

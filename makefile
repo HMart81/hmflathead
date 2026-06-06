@@ -63,9 +63,9 @@ BUILD_PATH := ${CURDIR}/$(BUILD_DIR)
 ##
 
 ## Third party libraries
-RAYLIB := raylib55\lib\raylibdll.lib
+RAYLIB := raylib55\lib\raylib.lib
 BOX2D := box2d\box2d.lib
-RAYGUI := raygui\raygui.obj
+RAYGUI := raygui\raygui.lib
 TSOD_FLAG := flaglib\flaglib.lib
 TRACY := tracy\TracyClient.lib
 MICROUI := microui\microui.lib
@@ -79,7 +79,7 @@ PLMPEG := plmpeg\plmpeg_d.lib
 LIBS=\
 	-l $(RAYLIB)\
 	-l $(BOX2D)\
-	-z $(RAYGUI)\
+	-l $(RAYGUI)\
 	-l $(MICROUI)\
 	-l $(TSOD_FLAG)\
 	-l $(TRACY)\

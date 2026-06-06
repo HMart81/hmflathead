@@ -523,7 +523,7 @@ fn bool check_definition_existance(String name,  DEFile* file = null) @inline @p
 
     // else check for it in the global defs database
     // NOTE(HM) this is a slow operation, so use it with caution
-    DefsDataBase* db = &game::gpGame.defsDB;
+    DefsDataBase* db = &game::pContext.defsDB;
     foreach(def: db.data) {
         if(def.getEntityDefinition(name) != null) return true;
     }
@@ -763,11 +763,11 @@ fn void? load_def_files(String search_path, DefsDataBase* database) @local
 
 <*
     @param [&inout] db : "entitydef file data base"
-    @require game::gpGame.app_base_folder.len > 0
+    @require game::pContext.app_base_folder.len > 0
 *>
 fn void? loadDefsFilesTo(DefsDataBase* db) @inline @public
 {
-    String folder = game::gpGame.app_base_folder.tconcat("defs").tconcat("\\");
+    String folder = game::pContext.app_base_folder.tconcat("defs").tconcat("\\");
 	load_def_files(folder, db)!!;
 
     // see if we have a default entitydef inside the file, if not create one
@@ -788,14 +788,14 @@ fn void? loadDefsFilesTo(DefsDataBase* db) @inline @public
 
     @param [in] def_name : "name of the entitydef to search for"
     @require def_name.len > 0
-    @require game::gpGame.defsDB.data.len() > 0
+    @require game::pContext.defsDB.data.len() > 0
 *>
 fn EntityDef* getDefinition(String def_name) @public
 {
     EntityDef* ent;
     uint index;
 
-    uint count = (uint)game::gpGame.defsDB.data.len();
+    uint count = (uint)game::pContext.defsDB.data.len();
     if(count == 0) {
         log::error(FILE, "No def files loaded in the game, cannot get entitydef '%s'", def_name);
 		// todo return a required default entitydef
@@ -806,7 +806,7 @@ fn EntityDef* getDefinition(String def_name) @public
         // NOTE(HM): This is done this way because findDefinition() from  DEFile returns null 
         // if the entitydef is not found in the def data, so while we have defs in the data base
         // we need to keep looking through all of them.
-        ent = game::gpGame.defsDB.data[index++].findDefinition(def_name);
+        ent = game::pContext.defsDB.data[index++].findDefinition(def_name);
     } while(ent == null && index < count);
     
 	return ent;
@@ -827,7 +827,7 @@ fn void DefsDataBase.listDEFs(&self)
         {
             log::info(CONSOLE, "[Definition FILES]");
             foreach(_def: self.data) {
-                String trimmed_path = "...\\".tconcat(_def.path.strip(game::gpGame.app_base_folder));
+                String trimmed_path = "...\\".tconcat(_def.path.strip(game::pContext.app_base_folder));
                 io::printfn("%s\t-> \"%s\"%s", ansi::color_rgb(171, 218, 217), trimmed_path, Ansi.RESET);
             }
         }

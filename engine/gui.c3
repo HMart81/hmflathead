@@ -85,6 +85,7 @@ const uint HORIZONTAL_DIR = 1;
 const uint VERTICAL_DIR   = 2;
 // #endregion
 
+/* #region Anchors */
 typedef GuiAnchor = inline Vec2f;
 
 constdef AnchorType : inline int
@@ -98,6 +99,99 @@ constdef AnchorType : inline int
     BOTTOM_LEFT,
     BOTTOM_CENTER,
     BOTTOM_RIGHT
+}
+
+
+<*
+	init anchor points
+	@param [&in] obj : "to init the anchors for"
+	@require obj.rect != rl::EMPTY_RECT
+*>
+fn void initAnchors(Type* obj) <Type>
+{
+    // init the anchors to attach stuff in guis
+	RLRectangle rect = obj.rect;
+	GuiAnchor[AnchorType::values.len] anchors;
+	anchors[AnchorType.TOP_LEFT]      = {0, 0};
+    anchors[AnchorType.TOP_CENTER]    = {rect.w / 2, 0};
+    anchors[AnchorType.TOP_RIGHT]     = {rect.w, 0};
+    anchors[AnchorType.CENTER_LEFT]   = {0, rect.h / 2};
+    anchors[AnchorType.CENTER]        = {rect.w / 2, rect.h / 2};
+    anchors[AnchorType.CENTER_RIGHT]  = {rect.w, rect.h / 2};
+    anchors[AnchorType.BOTTOM_LEFT]   = {0, rect.h};
+    anchors[AnchorType.BOTTOM_CENTER] = {rect.w / 2, rect.h};
+    anchors[AnchorType.BOTTOM_RIGHT]  = {rect.w, rect.h};
+	obj.anchor.reserve(AnchorType::values.len);
+	obj.anchor.init_with_array(mem, anchors[..]);
+}
+
+<*
+	update anchor points for obj
+	@param [&in] obj : "to update the anchors for"
+	@require obj.rect != rl::EMPTY_RECT
+*>
+fn void updateAnchors(Type* obj, Vec2f new_size) <Type>
+{
+	if(new_size == VEC2_ZERO) return;
+
+    obj.anchor[AnchorType.TOP_CENTER]    = {new_size.x / 2, 0};
+    obj.anchor[AnchorType.TOP_RIGHT]     = {new_size.x, 0};
+    obj.anchor[AnchorType.CENTER_LEFT]   = {0, new_size.y / 2};
+    obj.anchor[AnchorType.CENTER]        = {new_size.x / 2,new_size.y / 2};
+    obj.anchor[AnchorType.CENTER_RIGHT]  = {new_size.x, new_size.y / 2};
+    obj.anchor[AnchorType.BOTTOM_LEFT]   = {0, new_size.y};
+    obj.anchor[AnchorType.BOTTOM_CENTER] = {new_size.x / 2, new_size.y};
+    obj.anchor[AnchorType.BOTTOM_RIGHT]  = {new_size.x, new_size.y};
+}
+
+<*
+	Display anchor points
+	@param [&in] obj : "to show the anchors for"
+*>
+fn void drawAnchors(Type* obj) <Type>
+{
+    if(!ui_showAnchors.getBool()) return;
+
+	Vec2f origin = obj.rect.pos;
+	//r2d::drawSquare(origin ,8, rl::BLACK);
+	r2d::drawSquare(origin + obj.anchor[AnchorType.TOP_LEFT],     4, rl::RED);
+    r2d::drawSquare(origin + obj.anchor[AnchorType.TOP_CENTER],   4, rl::GREEN);
+    r2d::drawSquare(origin + obj.anchor[AnchorType.TOP_RIGHT],    4, rl::BLUE);
+    r2d::drawSquare(origin + obj.anchor[AnchorType.CENTER_LEFT],  4, rl::MAROON);
+    r2d::drawSquare(origin + obj.anchor[AnchorType.CENTER],       4, rl::LIME); 
+    r2d::drawSquare(origin + obj.anchor[AnchorType.CENTER_RIGHT], 4, rl::SKYBLUE);
+    r2d::drawSquare(origin + obj.anchor[AnchorType.BOTTOM_LEFT],  4, rl::VIOLET); 
+    r2d::drawSquare(origin + obj.anchor[AnchorType.BOTTOM_CENTER],4, rl::ORANGE);
+    r2d::drawSquare(origin + obj.anchor[AnchorType.BOTTOM_RIGHT], 4, rl::MAGENTA);
+}
+
+<*
+	get anchor point for gui obj
+	@param [&in] obj : "to get the anchor for"
+	@param idx : "index of anchor to get"
+	@require idx >= 0 && idx < AnchorType::values.len
+*>
+fn Vec2f getAnchor(Type* obj, int idx) <Type>
+{
+	return obj.anchor[idx];
+}
+
+/* #endregion Anchors */
+
+macro scale(Type1 ojb, Vec2f dim) <Type1, Type2>
+{
+	switch
+	{
+		case Type1 == Panel:
+		case Type1 == Widget:
+		case Type1 == WidgetContainer:
+			if(Type2 == float) {
+				ojb.scale(dim.x, dim.y);
+			} else if(Type2 == Vec2f) {
+				ojb.scaleV(dim);
+			}
+			default: @todo();
+	}
 }
 
 constdef PanelShape : inline int
@@ -178,84 +272,6 @@ fn sz? Panel.to_format(&self, Formatter* f) @dynamic
     "id" = %s,\n"name" = %s,\n"shape" = %s,\n"rect" = { x: %s, y: %s, width: %s, height: %s  },\n"color" = { r: %s, g: %s, b: %s, a: %s  },\n"material" = %s 
     }`, self.id, self.name, self.shape, self.rect.x, self.rect.y, self.rect.width, self.rect.height, self.color.r, self.color.g, self.color.b, self.color.a, (self.mat != null) ? self.mat.name : "null");
 }
-
-/* #region Anchors */
-
-<*
-	init anchor points
-	@param [&in] obj : "to init the anchors for"
-	@require obj.rect != rl::EMPTY_RECT
-*>
-fn void initAnchors(Type* obj) <Type>
-{
-    // init the anchors to attach stuff in guis
-	RLRectangle rect = obj.rect;
-	GuiAnchor[AnchorType::values.len] anchors;
-	anchors[AnchorType.TOP_LEFT]      = {0, 0};
-    anchors[AnchorType.TOP_CENTER]    = {rect.w / 2, 0};
-    anchors[AnchorType.TOP_RIGHT]     = {rect.w, 0};
-    anchors[AnchorType.CENTER_LEFT]   = {0, rect.h / 2};
-    anchors[AnchorType.CENTER]        = {rect.w / 2, rect.h / 2};
-    anchors[AnchorType.CENTER_RIGHT]  = {rect.w, rect.h / 2};
-    anchors[AnchorType.BOTTOM_LEFT]   = {0, rect.h};
-    anchors[AnchorType.BOTTOM_CENTER] = {rect.w / 2, rect.h};
-    anchors[AnchorType.BOTTOM_RIGHT]  = {rect.w, rect.h};
-	obj.anchor.reserve(AnchorType::values.len);
-	obj.anchor.init_with_array(mem, anchors[..]);
-}
-
-<*
-	update anchor points for obj
-	@param [&in] obj : "to update the anchors for"
-	@require obj.rect != rl::EMPTY_RECT
-*>
-fn void updateAnchors(Type* obj, Vec2f new_size) <Type>
-{
-	if(new_size == VEC2_ZERO) return;
-
-    obj.anchor[AnchorType.TOP_CENTER]    = {new_size.x / 2, 0};
-    obj.anchor[AnchorType.TOP_RIGHT]     = {new_size.x, 0};
-    obj.anchor[AnchorType.CENTER_LEFT]   = {0, new_size.y / 2};
-    obj.anchor[AnchorType.CENTER]        = {new_size.x / 2,new_size.y / 2};
-    obj.anchor[AnchorType.CENTER_RIGHT]  = {new_size.x, new_size.y / 2};
-    obj.anchor[AnchorType.BOTTOM_LEFT]   = {0, new_size.y};
-    obj.anchor[AnchorType.BOTTOM_CENTER] = {new_size.x / 2, new_size.y};
-    obj.anchor[AnchorType.BOTTOM_RIGHT]  = {new_size.x, new_size.y};
-}
-
-<*
-	Display anchor points
-	@param [&in] obj : "to show the anchors for"
-*>
-fn void drawAnchors(Type* obj) <Type>
-{
-    if(!ui_showAnchors.getBool()) return;
-
-	Vec2f origin = obj.rect.pos;
-	//r2d::drawSquare(origin ,8, rl::BLACK);
-	r2d::drawSquare(origin + obj.anchor[AnchorType.TOP_LEFT],     4, rl::RED);
-    r2d::drawSquare(origin + obj.anchor[AnchorType.TOP_CENTER],   4, rl::GREEN);
-    r2d::drawSquare(origin + obj.anchor[AnchorType.TOP_RIGHT],    4, rl::BLUE);
-    r2d::drawSquare(origin + obj.anchor[AnchorType.CENTER_LEFT],  4, rl::MAROON);
-    r2d::drawSquare(origin + obj.anchor[AnchorType.CENTER],       4, rl::LIME); 
-    r2d::drawSquare(origin + obj.anchor[AnchorType.CENTER_RIGHT], 4, rl::SKYBLUE);
-    r2d::drawSquare(origin + obj.anchor[AnchorType.BOTTOM_LEFT],  4, rl::VIOLET); 
-    r2d::drawSquare(origin + obj.anchor[AnchorType.BOTTOM_CENTER],4, rl::ORANGE);
-    r2d::drawSquare(origin + obj.anchor[AnchorType.BOTTOM_RIGHT], 4, rl::MAGENTA);
-}
-
-<*
-	get anchor point for gui obj
-	@param [&in] obj : "to get the anchor for"
-	@param idx : "index of anchor to get"
-	@require idx >= 0 && idx < AnchorType::values.len
-*>
-fn Vec2f getAnchor(Type* obj, int idx) <Type>
-{
-	return obj.anchor[idx];
-}
-
-/* #endregion Anchors */
 
 fn void Panel.initRec(&self, RLRectangle rect, RLColor color) @inline
 {
@@ -490,7 +506,7 @@ fn bool Panel.active_visible_infocus(&self) @inline => (self.active() && !self.h
 //    If so it will require conversion from world space coordinates to camera space.
 fn bool Panel.isMouseOver(&self)
 {
-    if (!self.active() || self.hidden() || guieditor::as_focus() || game::gpGame.showMessageBox) return false;
+    if (!self.active() || self.hidden() || guieditor::as_focus() || game::pContext.showMessageBox) return false;
 
     // gets windows mouse position...
     Vec2f mouseWorldPos = rl::getMousePosition();
@@ -507,7 +523,7 @@ fn bool Panel.asFocus(&self)  @inline => self.flags.inFocus;
 
 fn void Panel.update(&self) 
 {
-    if((guieditor::enabled() && guieditor::as_focus()) || game::gpGame.show_microui_test_frames)
+    if((guieditor::enabled() && guieditor::as_focus()) || game::pContext.show_microui_test_frames)
     {
        return; // do not update panels when in editor mode
     }
@@ -818,7 +834,7 @@ fn void Widget.update(&self) @dynamic
 
     self.super.update(); // mouse over is done in super update
 
-    if((guieditor::enabled() && guieditor::as_focus()) || game::gpGame.show_microui_test_frames) { return; }
+    if((guieditor::enabled() && guieditor::as_focus()) || game::pContext.show_microui_test_frames) { return; }
     else if (!self.active() || self.hidden()) { return; }
 
     if(guieditor::enabled())
@@ -864,8 +880,8 @@ fn void Widget.draw_origin_coordinates(Widget* wgt) @inline
     
     int scr_w, scr_h;
     float lineThick  = 1.0f;
-    scr_w = game::gpGame.screen.w;
-    scr_h = game::gpGame.screen.h;
+    scr_w = game::pContext.screen.w;
+    scr_h = game::pContext.screen.h;
     
     Vec2f widget_center = wgt.getPosition();
     Vec2f widget_size   = wgt.getSize();
@@ -982,8 +998,8 @@ fn bool Widget.isWithinScreenBounds(&self) @dynamic
     RLRectangle screen_bounds = {
     .x      = 0,
     .y      = 0,
-    .width  = game::gpGame.screen.w,
-    .height = game::gpGame.screen.h
+    .width  = game::pContext.screen.w,
+    .height = game::pContext.screen.h
     };
 
     return rl::checkCollisionRecs(screen_bounds, self.rect) ? true : false;
@@ -1344,7 +1360,7 @@ fn void WidgetButton.init(&self, int kind = KIND_BUTTON) @inline
     self.super.init(kind);
     self.super.name = "Button";
     self.setDefaultColor(rl::WHITE); //@hardcode
-    self.setSound(&game::gpGame.default_sound); //@hardcode, todo give this a better sound
+    self.setSound(&game::pContext.default_sound); //@hardcode, todo give this a better sound
 }
 
 fn void WidgetButton.deinit(&self) @inline 
@@ -1603,8 +1619,14 @@ const uint RIGHT_TO_LEFT = 4;
 struct ContainerParams @packed
 {
     uint direction;
-    RLColor background;
-    Vec4f padding;
+    RLColor background_color;
+    struct pad 
+	{
+		int top;
+		int left;
+		int right;
+		int bottom;
+	}
     uint itemGap;
     struct minSize
     {
@@ -1633,30 +1655,40 @@ macro WidgetContainer.@container(&self, UIWindow* uiwin, ContainerParams params;
     @body(self);
 }
 
-fn void WidgetContainer.init(&self, ContainerParams params) @inline 
+fn void WidgetContainer.init_default_params(&self) 
 {
-    self.params = params;
+	self.params = {
+		.direction = TOP_TO_BOTTOM,
+		.background_color = rl::GRAY,
+		.itemGap = 5,
+		.pad = {
+			.top = 10,
+			.left = 5,
+			.right = 5,
+			.bottom = 9
+		},
+		.minSize = {
+			.w = 200,
+			.h = 200
+		},
+		.border_between = {
+			.lineThick = 3,
+			.color = rl::BLACK
+		}
+	};
+}
+
+fn void WidgetContainer.init(&self, ContainerParams* _params = null) @inline 
+{
     self.super.init();
-    self.color = params.background;
-
-    if(params.minSize.w != 0 && params.minSize.h == 0) 
-    {
-        self.setSize(params.minSize.w, 200);
-    } 
-    else if(params.minSize.w == 0 && params.minSize.h != 0) 
-    {
-        self.setSize(200, params.minSize.h);
-    } 
-    else if(params.minSize.w == 0 && params.minSize.h == 0) 
-    {
-        self.setSize(200, 200);
-    } 
-    else 
-    {
-        self.setSize(params.minSize.w, params.minSize.h);
-    }
-
     self.kind = gui::KIND_CONTAINER;
+    if(_params) {
+		self.params = *_params;
+	} else {
+		self.init_default_params();
+	}
+    self.color = self.params.background_color;
+	self.setSize(self.params.minSize.w, self.params.minSize.h);
 }
 
 fn void WidgetContainer.deinit(&self) @inline 
@@ -1669,10 +1701,10 @@ fn void WidgetContainer.update(&self)
     self.super.update();
 
     float pad_left, pad_right, pad_top, pad_bottom;
-    pad_left   = self.params.padding[0];
-    pad_right  = self.params.padding[1];
-    pad_top    = self.params.padding[2];
-    pad_bottom = self.params.padding[3];
+    pad_top    = self.params.pad.top;
+    pad_left   = self.params.pad.left;
+    pad_right  = self.params.pad.right;
+    pad_bottom = self.params.pad.bottom;
     
     Widget* previous;
     Vec2f offset;
@@ -1862,11 +1894,11 @@ fn void UIWindow.init(&self, String name, bool isDesktop = false, int w = 800, i
     RLRectangle rect;
     if(isDesktop) {
         self.isDesktop = isDesktop;
-		assert(game::gpGame.screen.w > 0 && game::gpGame.screen.h > 0, 
+		assert(game::pContext.screen.w > 0 && game::pContext.screen.h > 0, 
 			"UIWindow.init: Cannot set window desktop to fullscreen because screen width or height is zero!!"
 		);
-        rect.w = game::gpGame.screen.w;
-        rect.h = game::gpGame.screen.h;
+        rect.w = game::pContext.screen.w;
+        rect.h = game::pContext.screen.h;
     } else {
         rect.w = w;
         rect.h = h;
@@ -1966,14 +1998,14 @@ fn void UIWindow.setPosition(&self, float x, float y) @inline
 {
     self.rect.x = x;
     self.rect.y = y;
-    self.stateChanged(game::gpGame.time_ms, true);
+    self.stateChanged(game::pContext.time_ms, true);
 }
 
 fn void UIWindow.setPositionV(&self, Vec2f pos) @inline 
 {
     self.rect.x = pos.x;
     self.rect.y = pos.y;
-    self.stateChanged(game::gpGame.time_ms, true);
+    self.stateChanged(game::pContext.time_ms, true);
 }
 
 fn Vec2f UIWindow.getPosition(&self) @inline 
@@ -1985,7 +2017,7 @@ fn void UIWindow.setSize(&self, float w, float h) @inline
 {
     self.rect.width  = w;
     self.rect.height = h;
-    self.stateChanged(game::gpGame.time_ms, true);
+    self.stateChanged(game::pContext.time_ms, true);
 }
 
 fn Vec2f UIWindow.getSize(&self) @inline 
@@ -1993,13 +2025,13 @@ fn Vec2f UIWindow.getSize(&self) @inline
     return {self.rect.width, self.rect.height};
 }
 
-fn void UIWindow.activate(&self, bool activate = true, int _time = game::gpGame.time_ms) @inline 
+fn void UIWindow.activate(&self, bool activate = true, int _time = game::pContext.time_ms) @inline 
 {
 	self.time   = _time;
 	self.active = activate;
 }
 
-fn void UIWindow.deactivate(&self, int _time = game::gpGame.time_ms) @inline 
+fn void UIWindow.deactivate(&self, int _time = game::pContext.time_ms) @inline 
 {
     self.activate(false, _time);
 }
@@ -2033,7 +2065,7 @@ fn String UIWindow.getName(&self, bool fullname = false) @inline
 fn void UIWindow.setColor(&self, RLColor color) @inline 
 { 
 	self.color = color;
-	self.stateChanged(game::gpGame.time_ms, true);
+	self.stateChanged(game::pContext.time_ms, true);
 }
 
 fn void UIWindow.setBackgroundTexture(&self, String image_path) @inline 
@@ -2116,7 +2148,7 @@ fn void UIWindow.show(&self)
 
 fn void UIWindow.drawCursor(&self) @inline
 {
-    if(game::gpGame.editor.isOpened()) return;
+    if(game::pContext.editor.isOpened()) return;
     
 	if ( self.isInteractive && self.active && self.visible ) {
 		if(game::game_cursor_hidden()) game::show_game_cursor();
@@ -2165,7 +2197,7 @@ fn void UIWindow.update(&self, int _time)
 
     if(rl::isMusicValid(self.music_stream)) 
 	{
-        if(game::gpGame.pause_all_music)
+        if(game::pContext.pause_all_music)
         {
            if(rl::isMusicStreamPlaying(self.music_stream)) rl::pauseMusicStream(self.music_stream);
         } 
@@ -2241,7 +2273,7 @@ fn void UIWindow.redraw(&self, int _time)
     This is a function that should be called from the main game loop.   
 */
 fn void UIWindow.draw(&this) {
-    UIWindow* guiActive = game::gpGame.guiActive;
+    UIWindow* guiActive = game::pContext.guiActive;
 
     if ( guiActive == this ) {
 		guiActive.redraw(this.time);
@@ -2500,7 +2532,7 @@ fn void UIWindowManager.update(&self, int _time)
             if(uiwin.active) 
             {
                 uiwin.update(_time);
-                if(self.mode == EDITOR && !game::gpGame.editor.focused()) {
+                if(self.mode == EDITOR && !game::pContext.editor.focused()) {
                     // put something here
                 }
 
@@ -2521,7 +2553,7 @@ fn void UIWindowManager.draw(&self, int screenWidth, int screenHeight) @inline
         {
             uiwin.draw();
             
-            if(self.mode == EDITOR && !game::gpGame.editor.isOpened()) {
+            if(self.mode == EDITOR && !game::pContext.editor.isOpened()) {
                 //drawGuiEditor(uiwin); TODO(HM) draw this through the new editor
             }
 
@@ -2815,7 +2847,7 @@ import engine::misc;
 //import engine::serialize::svs;
 //import std::collections::list;
 
-alias game = game::gpGame;
+alias game = game::pContext;
 
 const GUIE_MAJOR    = 0;
 const GUIE_MINOR    = 1;

@@ -78,44 +78,51 @@ import engine::sys::framework::language::lang;
 // end_region
 
 // region alias
-alias gpGame @local = game::gpGame;
+alias pContext @local = game::pContext;
 // end_region
 
 // region constants
-const SCREEN_TOP_CORNER = (Vec2f) {0.0f, 0.0f}; // In Raylib the top-left corner is (0,0), is different from OpenGL where the bottom-left corner is (0,0)
+// NOTE(HM) In Raylib window top-left corner is (0,0), 
+// is different from OpenGL where the bottom-left corner is (0,0)
+// this means that when rendering images sometimes they 
+// need to be inverted to display correctly.
+const SCREEN_TOP_CORNER = (Vec2f) {0.0f, 0.0f}; 
 // end_region
 
 fn UIWindow* getActiveMenu() @local @inline 
 {
-	return game::gpGame.guiActive;
+	return game::pContext.guiActive;
 }
 
 fn void setGUI(UIWindow* menu) 
 {
     UIWindow* guiActive;
 
-    // if the menu is set to null, deactivate the current menu
+    // if the coming menu is set to null, deactivate the current menu
 	if (menu == null) 
     {
         guiActive = getActiveMenu();
         if ( guiActive != null ) {
             guiActive.deactivate();
         }
-        game::gpGame.guiActive = null;
+        game::pContext.guiActive = null;
 		return;
 	}
 
     //else set the current menu
-    guiActive = game::gpGame.guiActive = menu;
+    guiActive = menu;
     if(guiActive.hidden()) {
         guiActive.show();
     }
+	game::pContext.guiActive = guiActive;
 
-	if (guiActive == game::gpGame.main_menu) 
+	if (guiActive == game::pContext.main_menu) 
     {
-        if(game::gpGame.mode != game::GameMode.MENU) game::gpGame.mode = game::GameMode.MENU;
+        if(game::pContext.mode != game::GameMode.MENU) {
+			game::pContext.mode = game::GameMode.MENU;
+		}
 
-        if(game::gpGame.editor.isOpened()) {
+        if(game::pContext.editor.isOpened()) {
             if(game::game_cursor_visible()) game::hide_game_cursor();
         } else {
            if(game::game_cursor_hidden()) game::show_game_cursor();
@@ -124,7 +131,7 @@ fn void setGUI(UIWindow* menu)
         // todo set the gui vars
 		//SetSaveGameGuiVars();
 		//SetMainMenuGuiVars();
-	} /*else if ( guiActive == game::gpGame.restart_menu ) {
+	} /*else if ( guiActive == game::pContext.restart_menu ) {
 		SetSaveGameGuiVars();
 	}*/
 
@@ -132,9 +139,9 @@ fn void setGUI(UIWindow* menu)
 	//sysEvent_t  ev;
 	//memset( &ev, 0, sizeof( ev ) );
 	//ev.evType = SE_NONE;
-
 	//guiActive.handleEvent( &ev, com_frameTime );
-	//guiActive.activate( true, game::gpGame.time_ms );
+	
+	//guiActive.activate( true, game::pContext.time_ms );
     guiActive.setFocus(true);
 }
 
@@ -153,7 +160,7 @@ fn void start(UIWindow* gui)
 	// start playing the menu sounds
 	//soundSystem->SetPlayingSoundWorld( menuSoundWorld );
     if(rl::isMusicValid(gui.music_stream)) {
-        if(!rl::isMusicStreamPlaying(gui.music_stream) && !game::gpGame.pause_all_music) rl::playMusicStream(gui.music_stream);
+        if(!rl::isMusicStreamPlaying(gui.music_stream) && !game::pContext.pause_all_music) rl::playMusicStream(gui.music_stream);
     }
 
     setGUI(gui);
@@ -191,7 +198,7 @@ fn void exit()
     // TODO(HM) This should be set ONLY when we are sure we are ingame and not
     // in some other state, right now is set when all menus exit what is not 
 	// total guarantie that we are returning to the game world.
-    game::gpGame.mode = GameMode.PLAYING;
+    game::pContext.mode = GameMode.PLAYING;
 
 	// go back to the game sounds
 	//soundSystem->SetPlayingSoundWorld( sw );
@@ -312,7 +319,7 @@ macro WidgetButton* UIWindow.create_menu_button(&self, Vec2f pos, String text, M
     float button_width  = bdef.size.x;
     float button_height = bdef.size.y;
     WidgetText* label   = mem::new(WidgetText);
-    gui::init_label(label, text, game::gpGame.candara_font, 0, bdef.label_color, self);
+    gui::init_label(label, text, game::pContext.candara_font, 0, bdef.label_color, self);
     // set the label properties
     Vec2f label_offset  = pos;
     /*Vec2f label_offset  = pos + misc::VEC_RIGHT * (button_width / 2);
@@ -350,7 +357,7 @@ const MAINMENU_PAGE_COUNT = 2; // update this is more consts are define above th
 fn UIWindow* mainMenuCreate(int screenWidth, int screenHeight)
 {
     // Menu creation
-    Vec2f screen_center       = game::gpGame.view.origin; //(Vec2f) {(float)screenWidth/2.0f, (float)screenHeight / 2.0f};
+    Vec2f screen_center       = game::pContext.view.origin; //(Vec2f) {(float)screenWidth/2.0f, (float)screenHeight / 2.0f};
     float screen_half_width   = screen_center.x;
     float screen_half_height  = screen_center.y;
     Vec2f screen_top_center   = {screen_half_width, 0.0f};
@@ -390,7 +397,7 @@ fn UIWindow* mainMenuCreate(int screenWidth, int screenHeight)
     window_extra.hide();
     
 
-    String music_path = game::gpGame.app_base_folder.tconcat("music\\main_menu\\Swallow.ogg");
+    String music_path = game::pContext.app_base_folder.tconcat("music\\main_menu\\Swallow.ogg");
     if(fs::fileExists(music_path))
     {
         log::info(FILE, "\tloading %s music: %s", desk_main.name, music_path);
@@ -439,7 +446,7 @@ fn UIWindow* mainMenuCreate(int screenWidth, int screenHeight)
     //*************
     const TITLE           = "FlatHead";
     const TITLE_FONT_SIZE = 50;
-    RLFont* title_font = game::gpGame.trojan_pro_font;
+    RLFont* title_font = game::pContext.trojan_pro_font;
     WidgetText* title_label = mem::new(WidgetText);
 	gui::init_label(title_label, TITLE, title_font, TITLE_FONT_SIZE, rl::GRAY, desk_main);
     Vec2f title_offset = misc::VEC_RIGHT * screen_top_center.x;
@@ -452,7 +459,7 @@ fn UIWindow* mainMenuCreate(int screenWidth, int screenHeight)
     //*************
     const SUBTITLE           = "engine";
     const SUBTITLE_FONT_SIZE = 16;
-    RLFont* subtitle_font = game::gpGame.lucida_font;
+    RLFont* subtitle_font = game::pContext.lucida_font;
     WidgetText* subtitle_label = mem::new(WidgetText);
 	gui::init_label(subtitle_label, SUBTITLE, subtitle_font, SUBTITLE_FONT_SIZE, rl::RAYWHITE, desk_main);
     Vec2f subtitle_offset = misc::VEC_RIGHT * screen_top_center.x;
@@ -830,12 +837,12 @@ fn void checkbox1_onSinglePress(any widget)
         //log::info(CONSOLE, "Checkbox 1 is now %s.", this.isChecked() ? "checked" : "unchecked");
 		if(this.isChecked()) {
 			log::info(CONSOLE, "Checkbox 1 is now checked.");
-			game::gpGame.pause_all_music = 1;
-			if(rl::isMusicStreamPlaying(game::gpGame.guiActive.music_stream)) rl::pauseMusicStream(game::gpGame.guiActive.music_stream);
+			game::pContext.pause_all_music = 1;
+			if(rl::isMusicStreamPlaying(game::pContext.guiActive.music_stream)) rl::pauseMusicStream(game::pContext.guiActive.music_stream);
 		} else {
 			log::info(CONSOLE, "Checkbox 1 is now unchecked.");
-			game::gpGame.pause_all_music = 0;
-			if(!rl::isMusicStreamPlaying(game::gpGame.guiActive.music_stream)) rl::resumeMusicStream(game::gpGame.guiActive.music_stream);
+			game::pContext.pause_all_music = 0;
+			if(!rl::isMusicStreamPlaying(game::pContext.guiActive.music_stream)) rl::resumeMusicStream(game::pContext.guiActive.music_stream);
 		}
         // TODO(HM) do something with checkbox state
     } else {

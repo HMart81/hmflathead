@@ -53,6 +53,7 @@ import game::material::manager::mtrmng; // material database
 import engine::sys::framework::language::lang;
 import engine::sys::framework::backends::bkend; // graphics backend interface
 import engine::sys::framework::platform::platf; // platform specific stuff
+import engine::sys::framework::soundbkd::sndbk; // Sound system
 //
 import thirdparty::wren;
 import engine::sys::script_engine::scpt; // Script Engine (based on Wren language)
@@ -252,9 +253,6 @@ CVar r_noSplashPic  @public = { "r_noSplashPic" , CvFlag.BOOL | CvFlag.ARCHIVE, 
 CVar r_fullscreen   @public = { "r_fullscreen"  , CvFlag.INT | CvFlag.ARCHIVE,    "-1",    "screen mode 0 = window, 1 = borderless, 2 = dedicated, -1 = ini file setting"};
 CVar r_fps_unlocked @public = { "r_unlockFps"   , CvFlag.BOOL | CvFlag.ARCHIVE,   "false", "sets if the fps is unlocked (true) or locked to the monitor refresh rate (false)"};
 CVar r_max_fps      @public = { "r_max_fps"     , CvFlag.INT | CvFlag.ARCHIVE,    "-1",    "sets the maximum fps when fps is unlocked, -1 = monitor refresh rate"};
-CVar fs_base        @public = { "fs_base"       , CvFlag.STRING | CvFlag.ARCHIVE, "data",  "default game base folder"};
-CVar fs_mod_name    @public = { "fs_mod_name"   , CvFlag.STRING | CvFlag.ARCHIVE, "",      "folder name of mod to run"};
-CVar fs_mod_base    @public = { "fs_mod_base"   , CvFlag.STRING | CvFlag.ARCHIVE, "",      "folder name for custom database of running mod"};
 CVar db_drawPhysics @public = { "db_drawPhysics", CvFlag.BOOL | CvFlag.TOOL,   "1",     "show debug visualization for world physics" };
 CVar s_noaudio      @public = { "s_noaudio"     , CvFlag.BOOL | CvFlag.ARCHIVE | CvFlag.SOUND,   "0",     "disables all audio"};
 CVar fl_help        @public = { "help"          , CvFlag.BOOL | CvFlag.TOOL,   "0",     "shows help message"};
@@ -271,9 +269,6 @@ fn void register_cvars() @local
     cvar::@register(&r_fullscreen);
     cvar::@register(&r_fps_unlocked);
     cvar::@register(&r_max_fps);
-    cvar::@register(&fs_base);
-    cvar::@register(&fs_mod_name);
-    cvar::@register(&fs_mod_base);
     cvar::@register(&db_drawPhysics);
     cvar::@register(&s_noaudio);
     cvar::@register(&fl_help);
@@ -283,6 +278,7 @@ fn void register_cvars() @local
 
 fn void register_modulo_cvars() @local {
     register_cvars(); // game module cvars
+	fs::register_cvars();
     gui::register_cvars();
 	vid::register_cvars();
     intro::register_cvars();
@@ -315,9 +311,6 @@ enum GameMode @public
 // ********************
 // #region game manager
 // ********************
-
-const usz GAME_ARENA_PAGE_SIZE = 256 * 1024; // 256 KB
-DynamicArenaAllocator gameArena @public;
 
 struct Game (SaveSystemInterface/*, IGame*/) @local 
 {
@@ -372,6 +365,8 @@ struct Game (SaveSystemInterface/*, IGame*/) @local
     
     RLShader    default_shader;
     RLShader*   current_global_shader;
+	// sound stuff
+	AudioDevice audio_device;
     RLSound     default_sound;
     RLMusic     default_music;
     RLFont      default_font;
@@ -471,7 +466,7 @@ struct Game (SaveSystemInterface/*, IGame*/) @local
 
 /*************** global game singleton ***************/
 Game local_game @local; 
-Game* gpGame @public = &local_game;
+Game* pContext @public = &local_game;
 /*****************************************************/
 
 // ***********************
@@ -1116,15 +1111,18 @@ fn void draw_game_cursor() @local @MyInline
 }
 
 // NOTE(HM) only hides the cursor doesn't disable it, will still move regardless of visibility.
-fn void hide_game_cursor() @public @MyInline {
+fn void hide_game_cursor() @public @MyInline 
+{
     if(game_cursor_visible()) local_game.mouse_cursor.hide();
 }
 
-fn bool game_cursor_visible() @public @MyInline {
+fn bool game_cursor_visible() @public @MyInline 
+{
     return !local_game.mouse_cursor.hidden();
 }
 
-fn bool game_cursor_hidden() @public @MyInline {
+fn bool game_cursor_hidden() @public @MyInline 
+{
     return !game_cursor_visible();
 }
 
@@ -2148,11 +2146,15 @@ fn void handle_cmdline(String[] args)
             switch(cmd_arg)
             {
                 case "fs_base":
-                    fs_base.set(arg);
-                case "fs_mod_name":
-                    fs_mod_name.set(arg);
-                case "fs_mod_base":
-                    fs_mod_base.set(arg);
+					fs::cv_base.set(arg);
+				case "fs_mod_name":
+					fs::cv_mod_name.set(arg);
+				case "fs_mod_base":
+					fs::cv_mod_base.set(arg);
+				case "fs_savepath":
+					fs::cv_save_path.set(arg);
+				case "fs_devpath":
+					fs::cv_dev_path.set(arg);
                 default:
                     log::warning(CONSOLE, "cmdline arg '%s' with string = %s is still not handled.", cmd_arg, arg);
             }
@@ -2374,11 +2376,15 @@ fn void handle_cmdline_new(String[] args)
 				} 
 				else {nextcase default;}
 			case "fs_base":
-				fs_base.set(arg);
+				fs::cv_base.set(arg);
 			case "fs_mod_name":
-				fs_mod_name.set(arg);
+				fs::cv_mod_name.set(arg);
 			case "fs_mod_base":
-				fs_mod_base.set(arg);
+				fs::cv_mod_base.set(arg);
+			case "fs_savepath":
+				fs::cv_save_path.set(arg);
+			case "fs_devpath":
+				fs::cv_dev_path.set(arg);
 			default:
 				log::warning(FILE, "cmdline arg '%s' did nothing by some error or is still not handled.", cmd_arg, arg);
 		}
@@ -2483,6 +2489,7 @@ $endif
 	//////////////////////////////////////////////
     // Detect and Setup the work directory folder (aka where the .exe file is)
     // In case a mod is being used, use this to get the original game work dir.
+    HMDirectory* work_dir = fs::addDirectory(fs::getWorkingDirectory())!;
     local_game.app_default_workdir = fs::getWorkingDirectory();
     if(fs::directoryExists(local_game.app_default_workdir)) {
         log::info(FILE, "\tWorking from default Dir: %s", local_game.app_default_workdir);
@@ -2492,7 +2499,7 @@ $endif
 
 	/////////////////////////////////////////////////////////////////////////
     // Detect and Setup the base folder, where all required game assets/data live.
-	String base_folder = local_game.app_default_workdir.tconcat(fs_base.getString());
+	String base_folder = local_game.app_default_workdir.tconcat(fs::cv_base.getString());
 	if(!base_folder.ends_with(platf::PATHSEPERATOR_STR)) {
 		base_folder = base_folder.tconcat(platf::PATHSEPERATOR_STR);
 	}
@@ -2507,7 +2514,7 @@ $endif
     // NOTE(HM) support for mods.
     // WARNING(HM) This needs way more testing...
 	const MODS_DIR = "mods";
-	String mod_name = fs_mod_name.getString();
+	String mod_name = fs::cv_mod_name.getString();
     bool using_mod  = mod_name.len > 0;
     local_game.is_modded_game = using_mod;
     if(using_mod)
@@ -2531,7 +2538,7 @@ $endif
 					// set the generic work dir, to the mod work dir, instead of the original game work dir.
 					local_game.app_work_dir = mod_work_dir;
 					// also make sure the mod base dir exists
-					mod_base_folder = mod_work_dir.tconcat(fs_mod_base.getString()).tconcat(platf::PATHSEPERATOR_STR);
+					mod_base_folder = mod_work_dir.tconcat(fs::cv_mod_base.getString()).tconcat(platf::PATHSEPERATOR_STR);
 					if(fs::directoryExists(mod_base_folder)) {
 						// now set the generic game base dir for the mod base dir as well
 						local_game.app_base_folder = mod_base_folder;
@@ -2579,12 +2586,12 @@ $endif
             log::error(FILE,`Required base folder inside %s not found!\n
                        A non-empty folder called '%s' (case sensitive) most exist!`, 
                        local_game.app_work_dir, 
-                       (fs_mod_base.getString().len > 0) ? fs_mod_base.getString() : fs_base.getString(), 
+                       (fs::cv_mod_base.getString().len > 0) ? fs::cv_mod_base.getString() : fs::cv_base.getString(), 
                        local_game.app_name);
         } else {
             log::error(FILE,`Required base folder inside %s not found!\n
                        A non-empty folder called '%s' (case sensitive) most exist.\n
-                       Please reinstall game.`, local_game.app_work_dir, fs_base.getString(), local_game.app_name);
+                       Please reinstall game.`, local_game.app_work_dir, fs::cv_base.getString(), local_game.app_name);
         }
         return NO_DATA_FOLDER~;
     }
@@ -2597,7 +2604,8 @@ $endif
     {
         // NOTE(HM)
         // Look in the user saving directory, if save folder is already there if not create it.
-        local_game.app_save_folder = local_game.app_save_folder.tconcat(platf::PATHSEPERATOR_STR).tconcat(local_game.app_name);
+		String save_folder = local_game.app_save_folder.tconcat(platf::PATHSEPERATOR_STR).tconcat(fs::cv_save_path.getString()).tconcat(local_game.app_name);
+        local_game.app_save_folder = save_folder;
         if(fs::directoryExists(local_game.app_save_folder)) 
         {
             log::info(FILE, "\tUser Save folder set to: %s", local_game.app_save_folder);
@@ -2605,14 +2613,14 @@ $endif
             bool? sucess    = fs::makeDirectory_IfNotExist(local_game.app_save_folder);
             if(catch excuse = sucess) 
             {
-                log::warning(FILE,"Failed to create user folder %s inside %s with excuse: %s", 
-                           local_game.app_name, local_game.app_save_folder, excuse);
+                log::warning(FILE,"Failed to create save folder path %s with excuse: %s", 
+                    local_game.app_save_folder, excuse);
                 return NO_USER_SAVE_FOLDER~;
             }
         }
     }
 	$else
-		local_game.app_save_folder = local_game.app_save_folder.tconcat(platf::PATHSEPERATOR_STR).tconcat("saves");
+		local_game.app_save_folder = local_game.app_save_folder.tconcat(platf::PATHSEPERATOR_STR).tconcat(fs::cv_save_path.getString()).tconcat(local_game.app_name);
 	$endif
     log::info(FILE, "---------------------------------------------\n");
 // #endregion
@@ -3199,13 +3207,16 @@ $endif
     log::info(FILE, "Initializing Audio Device:");
     log::info(FILE, "---------------------------------------------");
 
-    rl::initAudioDevice();
+    //rl::initAudioDevice();
+	local_game.audio_device.init();
     
-    if(rl::isAudioDeviceReady()) 
+    if(local_game.audio_device.isReady() /*rl::isAudioDeviceReady()*/) 
     {
-        if(rl::getMasterVolume() < 1.0f) 
+		float volume = local_game.audio_device.getVolume();
+        if(volume < 1.0f) 
         {
-            rl::setMasterVolume(1.0f);
+			local_game.audio_device.setVolume(volume);
+            //rl::setMasterVolume(1.0f);
             log::info(FILE, "\tAudio Master Volume set to = %s", 1.0f);
         } else {
             float master_volume = rl::getMasterVolume();
@@ -3313,10 +3324,10 @@ $if $feature(LUA_ENABLE):
 
         // register needed paths in lua environment
         lua::registerGameLuaGlobals();
-        /*lua::registerGlobalType("g_baseFolder", any_make(&gpGame.app_base_folder, String.typeid));
+        /*lua::registerGlobalType("g_baseFolder", any_make(&pContext.app_base_folder, String.typeid));
         lua::registerGlobalType("g_timeSc", any_make(&local_game.time_sec, float.typeid));
-        lua::registerGlobalType("g_timeMs", any_make(&gpGame.time_ms, int.typeid));
-        lua::registerGlobalType("g_deltaTime", any_make(&gpGame.dt, float.typeid));*/
+        lua::registerGlobalType("g_timeMs", any_make(&pContext.time_ms, int.typeid));
+        lua::registerGlobalType("g_deltaTime", any_make(&pContext.dt, float.typeid));*/
 
         lua::runModulefunction("main", "init", 0);
         //int status = local_game.lua_state.@loadfile(local_game.app_base_folder.tconcat("scripts/main.lua"));
@@ -3664,7 +3675,10 @@ $endif
 	log::info(FILE, "---------------------------------------------\n");
 	$endif
 
-    rl::closeAudioDevice();
+	// todo close sound worlds here before closing the audio device
+    //rl::closeAudioDevice();
+	local_game.audio_device.close();
+
 
     // clear language dictionair
     lang::dict.destroy();
@@ -3709,7 +3723,7 @@ $endif
 }
 
 fn void clear_game_singletons() @MyInline {
-    gpGame = null; // clear pointer to game singleton
+    pContext = null; // clear pointer to game singleton
     //
     input::gpManager.free();
     input::gpManager = null;
@@ -3879,7 +3893,7 @@ fn void quitGame() @MyInline @public {
     local_game.should_quit = true;
 }
 
-fn void waitFrame(int msec = misc::sec2ms(1.0f / local_game.screen.displayHz)) @local {
+fn void waitFrame(int msec = misc::sec2ms(1.0f / local_game.screen.displayHz)) @public {
     long sleep_time = (long)(msec);
     //ulong sleep_time = (ulong)(misc::sec2ms(1.0f / local_game.screen.displayHz) - local_game.dt);
     //log::info(CONSOLE, "Sleeping for %d ms to cap framerate to %d hz", sleep_time, local_game.screen.displayHz);
@@ -4138,7 +4152,7 @@ fn void settings_window(MU_Context* ctx) //@MyInline
                         if(r_fullscreen.getInt()) r_fullscreen.set("0");
                     }
                     choice = 0;
-                    //ctx.checkbox("VSync:", &game::gpGame.vsync);
+                    //ctx.checkbox("VSync:", &game::pContext.vsync);
                 };
             };
         };*/

@@ -135,7 +135,7 @@ fn void HMSprite.reload(&self, SaveFile* file) @dynamic
 
 fn void HMSprite.register(&self) @inline 
 {
-    game::gpGame.sprites.push(self);
+    game::pContext.sprites.push(self);
 }
 
 fn void HMSprite.init(&self, float x, float y, float w, float h, RLColor color = rl::WHITE, SpriteKind kind = GENERIC, String material_name = "")
@@ -165,7 +165,7 @@ fn void HMSprite.initV(&self, Vec2f pos, Vec2f size, RLColor color = rl::WHITE, 
 
 fn void HMSprite.resetPosAndSize(&self) @inline 
 {
-    self.setPositionV(game::gpGame.view.origin);
+    self.setPositionV(game::pContext.view.origin);
     self.setSizeV(MIN_SIZE);
 }
 
@@ -358,7 +358,7 @@ fn HMSprite* HMSprite.setPosition(&self, float x, float y) @inline
     return self;
 /*
 $if $feature(_DEBUG):   
-    if(game::gpGame.isPointInsideScreenView({x,y}) == false) {
+    if(game::pContext.isPointInsideScreenView({x,y}) == false) {
         unreachable("HMSprite origin is outside the view.");
     }
 $endif
@@ -379,7 +379,7 @@ fn HMSprite* HMSprite.addToPosition(&self, float x, float y) @inline
     self.rect.y += y;
     return self;
 // $if $feature(_DEBUG):   
-    // if(game::gpGame.isPointInsideScreenView({self.rect.x, self.rect.y}) == false) {
+    // if(game::pContext.isPointInsideScreenView({self.rect.x, self.rect.y}) == false) {
         // unreachable("HMSprite origin is outside the view.");
     // }
 // $endif
@@ -509,7 +509,7 @@ fn void HMSprite.update(&self) @inline
 
     // update the in-game cursor
     if(self.kind == SpriteKind.CURSOR) {
-        game::update_game_cursor(game::gpGame.screen.w, game::gpGame.screen.h);
+        game::update_game_cursor(game::pContext.screen.w, game::pContext.screen.h);
     }
 }
 
@@ -670,7 +670,7 @@ fn void Particle.create(&self, Vec2f pos, Vec2f size, RLColor color = rl::WHITE,
     // init the inline sprite data
     self.initV(pos, size, color);
     //self.tex          = assetManager.getAssetExt(tex_name, RLTexture2D);
-    self.lifetime     = game::gpGame.time_ms + lifetime_ms;
+    self.lifetime     = game::pContext.time_ms + lifetime_ms;
     self.dir          = misc::VEC_UP;
     self.velocity     = self.dir;
     self.acceleration = 1.0f;
@@ -679,9 +679,9 @@ fn void Particle.create(&self, Vec2f pos, Vec2f size, RLColor color = rl::WHITE,
 fn void Particle.animate(&self) @inline {
     if(self.lifetime == 0) return;
     
-    self.velocity  *= self.acceleration * game::gpGame.dt;
+    self.velocity  *= self.acceleration * game::pContext.dt;
     self.addToPositionV(self.dir * self.velocity);
-    if(game::gpGame.time_ms > self.lifetime) self.remove();
+    if(game::pContext.time_ms > self.lifetime) self.remove();
 }
 
 fn void Particle.stop(&self) @inline {
@@ -714,7 +714,7 @@ struct ParticleSpawner
 }
 
 fn void ParticleSpawner.init(&self, Vec2f pos, int delay = 0) {
-    String name = string::tformat("%s%s", "ParticleSpawner_", game::gpGame.time_ms);
+    String name = string::tformat("%s%s", "ParticleSpawner_", game::pContext.time_ms);
     RLColor color = misc::INVISIBLE_COLOR;
 $if $feature(_DEBUG):
     color = rl::RED;
@@ -743,10 +743,10 @@ fn void ParticleSpawner.setParticleSize(&self, int size) @inline {
 
 fn void ParticleSpawner.activate(&self) @inline {
     if(self.delay_ms) {
-        self.delay_ms = game::gpGame.time_ms + self.delay_ms;
+        self.delay_ms = game::pContext.time_ms + self.delay_ms;
         self.lifetime = self.delay_ms + self.lifetime;
     } else {
-        self.lifetime = game::gpGame.time_ms + self.lifetime;
+        self.lifetime = game::pContext.time_ms + self.lifetime;
     }
     self.super.startThinking();
     self.startThinking();
@@ -766,11 +766,11 @@ fn void ParticleSpawner.spawnParticle(&self) {
 
 // TODO(HM) Create a CPU thread for this?
 fn void ParticleSpawner.think(&self) {
-   self.super.think(game::gpGame.dt);
+   self.super.think(game::pContext.dt);
     
     if(self.flags & ent::TH_THINK)
     {
-        int current_time = game::gpGame.time_ms;
+        int current_time = game::pContext.time_ms;
         log::info(Where.CONSOLE, "Entity '%s' has flag %s!!!\n", self.name, self.flags);
         if(current_time < self.delay_ms) {
            // do nothing

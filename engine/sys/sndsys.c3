@@ -313,7 +313,7 @@ fn void init() {
 
 /*
 fn bool? populateMusicDataBase() {
-    String music_folder = game::gpGame.app_base_folder.tconcat("\\").tconcat("music\\");
+    String music_folder = game::pContext.app_base_folder.tconcat("\\").tconcat("music\\");
 	PathList? paths = path::ls(tmem, path::temp(music_folder));
 	if(catch excuse = paths) {
 		log::warning(Where.FILE,  "Unable to get audio from folder music with excuse: %s", excuse);

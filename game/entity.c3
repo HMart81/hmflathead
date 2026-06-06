@@ -132,7 +132,7 @@ fn void Entity.reload(&self, SaveFile* file) @dynamic {
 
 fn void Entity.register(&self) @inline
 {
-	game::gpGame.entityList.push(self);
+	game::pContext.entityList.push(self);
 }
 
 <*
@@ -143,7 +143,7 @@ fn void Entity.register(&self) @inline
 *>
 fn bool Entity.shouldSkip(&self, String name) @inline 
 {
-    if(game::gpGame.entityList.len() == game::MAX_ENTITY_COUNT) {
+    if(game::pContext.entityList.len() == game::MAX_ENTITY_COUNT) {
 		log::warning(FILE, "Skipping entity: '%s' creation, max count of '%s' was reached!", 
 			name, game::MAX_ENTITY_COUNT);
 		return true;
@@ -167,7 +167,7 @@ fn void Entity.init(&self, String aname, Vec2f origin, RLColor color = rl::WHITE
 	self.type = Entity;
 	self.move_dir = NONE;
 	
-	sz entity_count = game::gpGame.entityList.len();
+	sz entity_count = game::pContext.entityList.len();
 	/*if( entity_count == 0 ) {
 		unreachable("invalid entity count at this time, that should only happen if player1 entity is missing!");
 	}*/
@@ -189,8 +189,8 @@ $if $feature(_DEBUG):
 $endif
     
 	//
-	//float x_meters = game::gpGame.screen.width_in_meters;
-	//float y_meters = game::gpGame.screen.height_in_meters;
+	//float x_meters = game::pContext.screen.width_in_meters;
+	//float y_meters = game::pContext.screen.height_in_meters;
 	// visuals
     self.vs.initV( origin, 
 	{ // entity visual size
@@ -221,7 +221,7 @@ $endif
     //bodyDef.enableSleep = true;
     
     // create the body from the definition data above
-    self.physics        = box2d::createBody(game::gpGame.physWorldId, &bodyDef);
+    self.physics        = box2d::createBody(game::pContext.physWorldId, &bodyDef);
     //
     // create the physics shape
     // ‍Caution: A dynamic body should have at least one shape with a non-zero density. 
@@ -470,7 +470,7 @@ fn Entity* Entity.find_other_in_radius(self, float radius )
 	// square the radius, so that we don't have to do a square root
 	float r2 = misc::square(radius);
 	
-	foreach(int index, Entity* other : game::gpGame.entityList)
+	foreach(int index, Entity* other : game::pContext.entityList)
 	{
 		// NOTE(HM) Should this really ignore hidden entities?
 		if (other == null || other.isDead() || other.hidden()) {
@@ -500,7 +500,7 @@ fn Entity* findradius(Entity *startent, Vec2f* org, float rad )
 	if ( !startent )
 	{
 		// startent becomes the player
-		startent = (Entity*)game::gpGame.getLocalPlayer(); //entityList[0];
+		startent = (Entity*)game::pContext.getLocalPlayer(); //entityList[0];
 	}
 	
 	assert( startent );
@@ -513,7 +513,7 @@ fn Entity* findradius(Entity *startent, Vec2f* org, float rad )
 	// square the radius so that we don't have to do a square root
 	float r2 = misc::square(rad);
 	
-	foreach(int index, Entity* other : game::gpGame.entityList) 
+	foreach(int index, Entity* other : game::pContext.entityList) 
 	{
 		if(other.isDead() || other.hidden()) continue;
 		
@@ -563,7 +563,7 @@ fn void Entity.setAlive(&self, bool live) @inline {
 			if (self.thinkflags & EntTh.THINK) {
 				self.stopThinking(); // stop thinking if it was thinking
 			}
-			if(!game::gpGame.entitiesToRemove.contains(self)) game::gpGame.entitiesToRemove.push(self);
+			if(!game::pContext.entitiesToRemove.contains(self)) game::pContext.entitiesToRemove.push(self);
 		}
 	}
 }
@@ -626,7 +626,7 @@ fn bool Entity.isDead(&self) @inline
 }
 
 fn bool Entity.onThinkingList(&self) @inline {
-	return game::gpGame.thinkingEntities.contains(self);
+	return game::pContext.thinkingEntities.contains(self);
 }
 
 fn bool Entity.notOnThinkingList(&self) @inline {
@@ -639,7 +639,7 @@ fn void Entity.startThinking(&self) @inline
 
 	self.thinkflags = 0;
 	self.thinkflags |= EntTh.THINK;
-	if(self.notOnThinkingList()) game::gpGame.thinkingEntities.push(self);
+	if(self.notOnThinkingList()) game::pContext.thinkingEntities.push(self);
 }
 
 fn void Entity.stopThinking(&self) @inline 
@@ -649,7 +649,7 @@ fn void Entity.stopThinking(&self) @inline
 	if (self.thinkflags) {
 		self.thinkflags &= ~ent::EntTh.THINK; // remove the thinking flag
 
-		if(self.onThinkingList()) game::gpGame.thinkingEntities.remove_at(game::gpGame.thinkingEntities.index_of(self)!!);
+		if(self.onThinkingList()) game::pContext.thinkingEntities.remove_at(game::pContext.thinkingEntities.index_of(self)!!);
 
 		// if all thinking flags are removed, then we can deactivate the entity
 		if (!self.thinkflags && self.isActive()) {
@@ -659,7 +659,7 @@ fn void Entity.stopThinking(&self) @inline
 }
 
 fn bool Entity.onActiveList(&self) @inline {
-	return game::gpGame.activeEntities.contains(self);
+	return game::pContext.activeEntities.contains(self);
 }
 
 fn bool Entity.notOnActiveList(&self) @inline {
@@ -670,12 +670,12 @@ fn void Entity.setActive(&self, bool active) @inline {
 	if (active) {
 		if (!self.isActive()) {
 			self.flags.active = true;
-			if(self.notOnActiveList()) game::gpGame.activeEntities.push(self);
+			if(self.notOnActiveList()) game::pContext.activeEntities.push(self);
 		}
 	} else {
 		if (self.isActive()) {
 			self.flags.active = false;
-			if(self.onActiveList()) game::gpGame.activeEntities.remove_at(game::gpGame.activeEntities.index_of(self)!!);
+			if(self.onActiveList()) game::pContext.activeEntities.remove_at(game::pContext.activeEntities.index_of(self)!!);
 		}
 	}
 }

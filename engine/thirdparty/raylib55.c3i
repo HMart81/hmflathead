@@ -439,11 +439,11 @@ struct RLBoundingBox //@compact
 // RLWave, audio wave data
 struct RLWave
 {
-    CUInt frameCount;            // Total number of frames (considering channels)
-    CUInt sampleRate;            // Frequency (samples per second)
-    CUInt sampleSize;            // Bit depth (bits per sample): 8, 16, 32 (24 not supported)
-    CUInt channels;              // Number of channels (1-mono, 2-stereo, ...)
-    void* data;                 // Buffer data pointer
+    CUInt frameCount;   // Total number of frames (considering channels)
+    CUInt sampleRate;   // Frequency (samples per second)
+    CUInt sampleSize;   // Bit depth (bits per sample): 8, 16, 32 (24 not supported)
+    CUInt channels;     // Number of channels (1-mono, 2-stereo, ...)
+    void* data;         // Buffer data pointer
 }
 
 alias RLAudioBufferRef = void*;
@@ -460,23 +460,19 @@ struct RLAudioStream
     CUInt channels;               // Number of channels (1-mono, 2-stereo, ...)
 }
 
-
-// RLSound
 struct RLSound
 {
-    RLAudioStream stream;         // Audio stream
-    CUInt frameCount;            // Total number of frames (considering channels)
+    RLAudioStream stream;
+    CUInt frameCount;   // Total number of frames (considering channels)
 }
 
-// RLMusic, audio stream, anything longer than ~10 seconds should be streamed
+// for streaming audio, anything longer than ~10 seconds should be streamed
 struct RLMusic
 {
-    RLAudioStream stream;         // Audio stream
-    CUInt frameCount;            // Total number of frames (considering channels)
-    bool looping;               // RLMusic looping enable
-
-    CInt ctxType;                // Type of music context (audio filetype)
-    void* ctxData;              // Audio context data, depends on type
+    inline RLSound super;
+    bool looping;    // looping enable
+    CInt ctxType;    // Type of music context (audio filetype)
+    void* ctxData;   // Audio context data, depends on type
 }
 
 // RLVrDeviceInfo, Head-Mounted-Display device parameters

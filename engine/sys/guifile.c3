@@ -115,7 +115,7 @@ constdef GUIPWinParm : inline String @public
 
 fn UIWindow*? read(String file_path)
 {
-	File? file = fs::openFile(game::gpGame.app_base_folder.tconcat(file_path));
+	File? file = fs::openFile(game::pContext.app_base_folder.tconcat(file_path));
 	if(catch excuse = file)
     {
        log::warning(FILE, "Failed to open GUIP file [%s] with excuse: %s", file_path, excuse);
@@ -327,7 +327,7 @@ fn void parse_pair(XmlNode* node, String win_name, String file_path, UIWindow** 
     	case GUIPWinParm.TEXTCOLOR:
             if(label) label.setTextColor(getColor(arg.second));
     	case GUIPWinParm.FONT:
-            if(label) label.setFont(game::gpGame.getfont(arg.second));
+            if(label) label.setFont(game::pContext.getfont(arg.second));
 		default:
 			log::warning(FILE, "Malformed pair in window '%s' of guip '%s'", win_name, file_path);
 	}

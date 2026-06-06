@@ -47,7 +47,7 @@ import thirdparty::raygui5::rgui;
 import engine::sys::licensee;
 alias lic = module engine::sys::licensee;
 
-alias game = game::gpGame;
+alias game = game::pContext;
 
 const TRUE @builtin  = 1;
 const FALSE @builtin = 0;

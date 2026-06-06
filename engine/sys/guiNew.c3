@@ -111,13 +111,13 @@ fn void drawImage(RLTexture2D* tex, float w, float h) @public
 {
     if(tex == null) {
 		log::warning(FILE, "Cannot show image, texture was null! Showing default texture. %s::%s", $$FILE, $$LINE);
-        tex = &game::gpGame.default_texture;
+        tex = &game::pContext.default_texture;
 	}
 
     if(w <= 0 || h <= 0) {
         log::warning(FILE, "Invalid width or height for background image! width: %f, height: %f. Using screen dimensions instead.", w, h);
-        w = (float)game::gpGame.screen.w;
-        h = (float)game::gpGame.screen.h;
+        w = (float)game::pContext.screen.w;
+        h = (float)game::pContext.screen.h;
     }
 
 	rl::drawTexturePro(*tex, 
@@ -136,11 +136,11 @@ fn void drawImageFullScreen(RLTexture2D* tex) @public
 
     if(tex == null) {
 		log::warning(FILE, "Cannot show fullscreen image, it was null! Showing default texture.");
-        tex = &game::gpGame.default_texture;
+        tex = &game::pContext.default_texture;
 	}
 
-    float w = (float)game::gpGame.screen.w;
-    float h = (float)game::gpGame.screen.h;
+    float w = (float)game::pContext.screen.w;
+    float h = (float)game::pContext.screen.h;
 
 	rl::drawTexturePro(*tex, 
 		{0, 0, (float)(*tex).width, (float)(*tex).height}, 
@@ -279,13 +279,13 @@ fn void UIRectangle.setcolors(&self, UIRectangleColors colors) @inline
     @param [inout] typ : "the user interface type to initialize"
     @require typ != null
 	@require rl::isWindowReady() == true : "needs the window to be already started."
-	@require game::gpGame.screen.w >= 600 && game::gpGame.screen.h >= 400 : "because it uses the screen size to set the default size of the quad."
+	@require game::pContext.screen.w >= 600 && game::pContext.screen.h >= 400 : "because it uses the screen size to set the default size of the quad."
 *>
 fn void init(Type* typ) <Type> @inline @public
 {
     switch((*typ).typeid) {
         case UIRectangle.typeid:
-            (*typ).initQuad({0, 0, 0.20f*game::gpGame.screen.w, 0.20f*game::gpGame.screen.h}, 
+            (*typ).initQuad({0, 0, 0.20f*game::pContext.screen.w, 0.20f*game::pContext.screen.h}, 
                             {
                                 .normal   = rl::WHITE,
                                 .selected = rl::GRAY,
@@ -526,7 +526,7 @@ fn bool UIRectangle.active_visible_infocus(&self) @inline => (self.active() && !
 //    If so it will require conversion from world space coordinates to camera space.
 fn bool UIRectangle.isMouseOver(&self)
 {
-    if (!self.active() || self.hidden() || guieditor::as_focus() || game::gpGame.showMessageBox) return false;
+    if (!self.active() || self.hidden() || guieditor::as_focus() || game::pContext.showMessageBox) return false;
 
     // gets windows mouse position...
     Vec2f mouseWorldPos = rl::getMousePosition();
@@ -543,7 +543,7 @@ fn bool UIRectangle.asFocus(&self)  @inline => self.flags.inFocus;
 
 fn void UIRectangle.update(&self) 
 {
-    if((guieditor::enabled() && guieditor::as_focus()) || game::gpGame.show_microui_test_frames)
+    if((guieditor::enabled() && guieditor::as_focus()) || game::pContext.show_microui_test_frames)
     {
        return; // do not update panels when in editor mode
     }
@@ -864,7 +864,7 @@ fn void Widget.update(&self) @dynamic
 
     self.super.update(); // mouse over is done in super update
 
-    if((guieditor::enabled() && guieditor::as_focus()) || game::gpGame.show_microui_test_frames) { return; }
+    if((guieditor::enabled() && guieditor::as_focus()) || game::pContext.show_microui_test_frames) { return; }
     else if (!self.active() || self.hidden()) { return; }
 
     if(guieditor::enabled())
@@ -910,8 +910,8 @@ fn void Widget.draw_origin_coordinates(Widget* wgt) @local @inline
     
     int scr_w, scr_h;
     float lineThick  = 1.0f;
-    scr_w = game::gpGame.screen.w;
-    scr_h = game::gpGame.screen.h;
+    scr_w = game::pContext.screen.w;
+    scr_h = game::pContext.screen.h;
     
     Vec2f widget_center = wgt.getPosition();
     Vec2f widget_size   = wgt.getSize();
@@ -1028,8 +1028,8 @@ fn bool Widget.isWithinScreenBounds(&self) @dynamic
     RLRectangle screen_bounds = {
     .x      = 0,
     .y      = 0,
-    .width  = game::gpGame.screen.w,
-    .height = game::gpGame.screen.h
+    .width  = game::pContext.screen.w,
+    .height = game::pContext.screen.h
     };
 
     return rl::checkCollisionRecs(screen_bounds, self.quad) ? true : false;
@@ -1329,7 +1329,7 @@ fn void WidgetButton.init(&self, int kind = KIND_BUTTON) //@inline
     self.super.init(kind);
     self.super.name = "Button";
     self.setDefaultColor(rl::WHITE); //@hardcode
-    self.setSound(&game::gpGame.default_sound); //@hardcode, todo give this a better sound
+    self.setSound(&game::pContext.default_sound); //@hardcode, todo give this a better sound
 }
 
 fn void WidgetButton.deinit(&self) @inline {
@@ -1846,14 +1846,14 @@ fn void UIWindow.init(&self, String name, bool isFullscreen = true, int w = 800,
     //
     if(isFullscreen)
     {
-		assert(game::gpGame.screen.w > 0 && game::gpGame.screen.h > 0, 
+		assert(game::pContext.screen.w > 0 && game::pContext.screen.h > 0, 
 			"UIWindow.init: Cannot initialize fullscreen window when screen width or height is zero."
 		);
         self.quad = { // @hardcode
             .x      = 0,
             .y      = 0, 
-            .width  = game::gpGame.screen.w,
-            .height = game::gpGame.screen.h,
+            .width  = game::pContext.screen.w,
+            .height = game::pContext.screen.h,
         };
     } 
     else 
@@ -1923,12 +1923,12 @@ fn Vec2f UIWindow.getSize(&self) @inline
     return {self.quad.width, self.quad.height};
 }
 
-fn void UIWindow.activate(&self, bool activate = true, int _time = game::gpGame.time_ms) @inline {
+fn void UIWindow.activate(&self, bool activate = true, int _time = game::pContext.time_ms) @inline {
 	self.time   = _time;
 	self.active = activate;
 }
 
-fn void UIWindow.deactivate(&self, int _time = game::gpGame.time_ms) @inline {
+fn void UIWindow.deactivate(&self, int _time = game::pContext.time_ms) @inline {
     self.activate(false, _time);
 }
 
@@ -2058,7 +2058,7 @@ fn void UIWindow.show(&self) {
 
 fn void UIWindow.drawCursor(&self) @inline
 {
-    if(game::gpGame.editor.isOpened()) return;
+    if(game::pContext.editor.isOpened()) return;
     
 	if ( self.isInteractive && self.active && self.visible ) {
 		if(game::game_cursor_hidden()) game::show_game_cursor();
@@ -2093,7 +2093,7 @@ fn void UIWindow.update(&self)
 
     if(rl::isMusicValid(self.music_stream)) 
 	{
-        if(game::gpGame.pause_all_music)
+        if(game::pContext.pause_all_music)
         {
            if(rl::isMusicStreamPlaying(self.music_stream)) rl::pauseMusicStream(self.music_stream);
         } 
@@ -2161,7 +2161,7 @@ fn void UIWindow.redraw(&self, int _time)
     @param time : "the current time in milliseconds"    
 *>
 fn void UIWindow.draw(&self, int time) {
-    UIWindow* guiActive = game::gpGame.guiActive;
+    UIWindow* guiActive = game::pContext.guiActive;
 
     if ( guiActive ) {
 		guiActive.redraw(time);
@@ -2198,8 +2198,8 @@ fn void UIWindow.debug(&self)
     {
         int scr_w, scr_h;
         float lineThick  = 1.0f;
-        scr_w = game::gpGame.screen.w;
-        scr_h = game::gpGame.screen.h;
+        scr_w = game::pContext.screen.w;
+        scr_h = game::pContext.screen.h;
 /*
         Vec2f w_startPos; // = {0, 0};
         Vec2f h_startPos; // = {0, 0};
@@ -2323,7 +2323,7 @@ fn void UIWindowManager.update(&self) {
         foreach(uiwin: self.windows) {
             if(uiwin.active) {
                 uiwin.update();
-                if(self.mode == EDITOR && !game::gpGame.editor.focused()) {
+                if(self.mode == EDITOR && !game::pContext.editor.focused()) {
                     // put something here
                 }
 
@@ -2340,9 +2340,9 @@ fn void UIWindowManager.draw(&self, int screenWidth, int screenHeight) @inline {
     usz desktop_count = self.windows.len();
     if(desktop_count >= 1) {
         foreach(uiwin: self.windows) {
-            uiwin.draw(game::gpGame.time_ms);
+            uiwin.draw(game::pContext.time_ms);
             
-            if(self.mode == EDITOR && !game::gpGame.editor.isOpened()) {
+            if(self.mode == EDITOR && !game::pContext.editor.isOpened()) {
                 //drawGuiEditor(uiwin); TODO(HM) draw this through the new editor
             }
 
@@ -2380,7 +2380,7 @@ import engine::misc;
 //import engine::serialize::svs;
 //import std::collections::list;
 
-alias game = game::gpGame;
+alias game = game::pContext;
 
 const GUIE_MAJOR    = 0;
 const GUIE_MINOR    = 1;

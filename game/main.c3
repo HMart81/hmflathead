@@ -87,9 +87,9 @@ fn void pre_InitFunc() @init
     log::init(RLTraceLogLevel.INFO);
     // *********************************************************
 
-    game::gpGame.warningBox.init((int)MessageBoxType.WARN);
-    game::gpGame.errorBox.init((int)MessageBoxType.ERROR);
-    game::gpGame.infoBox.init((int)MessageBoxType.INFO);
+    game::pContext.warningBox.init((int)MessageBoxType.WARN);
+    game::pContext.errorBox.init((int)MessageBoxType.ERROR);
+    game::pContext.infoBox.init((int)MessageBoxType.INFO);
 
     game::showSettingsWindow();
 
@@ -145,7 +145,9 @@ $endif
     } else {
         // Play the intro in a separate thread
 		// mutex used to protect intro state
-        /*if(try introMutex.init()) {
+        /*
+		if(try introMutex.init()) 
+		{
 			// create and run intro thread
         	if(try introThread.create(&game::playIntro, null)) {
 				excuse = @catch(introThread.detach()); // detach it so it runs independently and cleans up itself on exit
@@ -157,11 +159,13 @@ $endif
 			}
 		} else {
 			log::error(FILE, "Failed to init mutex to play intro!!");
-		}*/
+		}
+		*/
         // NOTE(HM) 
-        // using .join hangs the game, I think this is because 
-        // intro thread will block the main game thread and 
-        // intro needs the main thread to run to display itself and update the window.
+        // using .join() hangs the game, this is because 
+        // it causes intro thread to block the main thread and 
+        // intro needs the main thread to run its code to be able
+		// to display itself and update the window.
         //assert(introThread.join()!! == 0);
         //introMutex.destroy()!!;
         

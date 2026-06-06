@@ -33,14 +33,19 @@ module engine::filesystem::fs;
 import std::os;
 import libc;
 import game::main;
+import engine::misc;
 import std::io, std::io::path;
 import std::collections::list;
 import thirdparty::raylib5::rl;
 import engine::logging::log;
+import engine::sys::cvar;
 // end_region
 
 faultdef FS_FAILED_SAVE_DATA,
          FS_FAILED_MAKE_DIR,
+         FS_FAILED_GET_DIR,
+         FS_FAILED_GET_FILE_ATTRIB,
+         FS_FAILED_ADD_DIR,
          FS_FAILED_CHANGE_DIR;
 
 const Time_t FILE_NOT_FOUND_TIMESTAMP = 0xFFFFFFFF;
@@ -49,6 +54,20 @@ const int MAX_PURE_PAKS = 128;
 //     that FILENAME_MAX can be *really* big on some systems and thus is not suitable
 //     for buffer lengths. So limit it to prevent stack overflow/out of memory issues
 const int MAX_OSPATH = (libc::FILENAME_MAX < 32000) ? libc::FILENAME_MAX : 32000;
+
+CVar cv_base      = { "fs_base", CvFlag.STRING | CvFlag.ARCHIVE, "data",  "default game base folder"};
+CVar cv_mod_name  = { "fs_mod_name", CvFlag.STRING | CvFlag.ARCHIVE, "",      "folder name of mod to run"};
+CVar cv_mod_base  = { "fs_mod_base", CvFlag.STRING | CvFlag.ARCHIVE, "",      "folder name for custom database of running mod"};
+CVar cv_save_path = { "fs_savepath", CvFlag.STRING | CvFlag.ARCHIVE, "HMGames/saves/", "relative folder path to the game/s save data"};
+CVar cv_dev_path  = { "fs_devpath", CvFlag.STRING | CvFlag.ARCHIVE, "", "special developer folder where source assets are put"};
+
+fn void register_cvars() 
+{
+    cvar::@register(&cv_base);
+    cvar::@register(&cv_mod_name);
+    cvar::@register(&cv_mod_base);
+}
+
 
 
 // modes for OpenFileByMode. used as bit mask internally
@@ -60,6 +79,185 @@ const FileMode FILE_APPEND            = "a";
 const FileMode FILE_READ_BINARY       = "rb";
 const FileMode FILE_WRITE_BINARY      = "wb";
 const FileMode FILE_READ_WRITE_BINARY = "r+b";
+
+
+const MAX_SEARCH_DEPTH = 6; // how deep to search for directories
+const DIR_COUNT = 3;
+const BASE_DIR = 0;
+const WORK_DIR = 1;
+const SAVE_DIR = 2;
+
+struct HMDirectory
+{
+    Path path;
+    String name;
+    PathList files;
+    PathList directories; // child directories
+    int id;
+}
+
+fn void HMDirectory.clear(&self) {
+    self.path.free(tmem);
+    self.name = "";
+    self.files.free();
+    self.directories.free();
+}
+
+fn bool HMDirectory.exists(self) => directoryExists(self.path);
+
+/*
+TraverseCallback fnwalk = fn bool?(Path p, bool is_dir, any d) {
+    assert(d.type == HMDirectory);
+    HMDirectory* dr = d.ptr;
+    $if env::WIN32:
+        Win32_FILE_ATTRIBUTE_DATA fileInfo;
+        Win32_BOOL sucess = win32::getFileAttributesExW(p.to_temp_wstring(), Win32_GET_FILEEX_INFO_LEVELS.STANDARD, &fileInfo)!;
+        if(sucess == 0) {
+            log::warning(FILE, "failed to get attributs for file '%s", p);
+            return true; // abort traverse
+        }
+        bool is_hidden_file_or_folder = (fileInfo.dwFileAttributes & win32::FILE_ATTRIBUTE_HIDDEN) == win32::FILE_ATTRIBUTE_HIDDEN;
+        if(is_dir) {
+            if(is_hidden_file_or_folder || p.basename().starts_with(".")) {
+                // ignore this directory
+            } else {
+                dr.directories.push(p);
+            }
+            return false; // continue traverse
+        } else if(path::is_file(p)) {
+            if(is_hidden_file_or_folder) {
+                // ignore hidden files
+            } else { 
+                dr.files.push(p); 
+            }
+            return false; // continue traverse
+        }
+    $else
+        if(is_dir) {
+            dr.directories.push(p);
+            return false;
+        } else if(path::is_file(p)) {
+            dr.files.push(p);
+            return false;
+        }
+    $endif
+    return true; // abort traverse
+};
+*/
+
+fn bool? traverse(Path p, bool is_dir, HMDirectory* dr) @local
+{
+    PathList paths = listDirectoryPaths(p)!;
+    foreach(_path : paths) 
+    {
+        bool is_hidden_file_or_folder;
+        $if env::WIN32:
+            Win32_FILE_ATTRIBUTE_DATA fileInfo;
+            Win32_BOOL sucess = win32::getFileAttributesExW(_path.to_temp_wstring(), Win32_GET_FILEEX_INFO_LEVELS.STANDARD, &fileInfo)!;
+            if(sucess == 0) {
+                log::warning(FILE, "failed to get attributs for file '%s", _path);
+                return FS_FAILED_ADD_DIR~;
+            }
+            is_hidden_file_or_folder = (fileInfo.dwFileAttributes & win32::FILE_ATTRIBUTE_HIDDEN) == win32::FILE_ATTRIBUTE_HIDDEN;
+        $endif
+        if(path::is_dir(_path))
+        {
+            if(is_hidden_file_or_folder || _path.basename().starts_with(".")) {
+                continue;
+            } else {
+                if(traverse(_path, true, dr)!) break;
+            }
+        } else {
+            dr.files.push(_path);
+        }
+    }
+    return true; // abort traverse
+}
+
+fn bool? is_hidden_file_or_folder(Path path) @local
+{
+    $if env::WIN32:
+        Win32_FILE_ATTRIBUTE_DATA fileInfo;
+        Win32_BOOL sucess = win32::getFileAttributesExW(path.to_temp_wstring(), Win32_GET_FILEEX_INFO_LEVELS.STANDARD, &fileInfo)!;
+        if(sucess == 0) {
+            log::warning(FILE, "failed to get attributs for file '%s", path);
+            return FS_FAILED_GET_FILE_ATTRIB~;
+        }
+        return (fileInfo.dwFileAttributes & win32::FILE_ATTRIBUTE_HIDDEN) == win32::FILE_ATTRIBUTE_HIDDEN;
+    $else // handle linux
+        @todo();
+    $endif
+}
+
+fn HMDirectory*? addDirectory(String folder_path) {
+    HMDirectory* dir = mem::new(HMDirectory);
+    dir.path = path::tnew(folder_path)!;
+    dir.name = dir.path.basename();
+    dir.id   = (int)local_directories.len();
+    defer local_directories.push(dir);
+
+    PathList paths = listDirectoryPaths(dir.path)!;
+    foreach(_path : paths) 
+    {
+        if(path::is_dir(_path))
+        {
+            if(is_hidden_file_or_folder(_path)! || _path.basename().starts_with(".")) {
+                continue;
+            } else {
+                dir.directories.push(_path);
+            }
+        } else {
+            dir.files.push(_path);
+        }
+    }
+    return dir;
+}
+
+fn HMDirectory*? getDirectoryByid(int id) {
+    foreach(dir : local_directories) {
+        if(dir.id == id) return dir;
+    }
+    return FS_FAILED_GET_DIR~;
+}
+
+fn HMDirectory*? getDirectoryByName(String name) {
+    foreach(dir : local_directories) {
+        if(dir.name == name) return dir;
+    }
+    return FS_FAILED_GET_DIR~;
+}
+
+fn HMDirectory*? getDirectoryByPath(Path path) {
+    foreach(dir : local_directories) {
+        if(dir.path == path) return dir;
+    }
+    return FS_FAILED_GET_DIR~;
+}
+
+/*fn void init_game_directories() @inline {
+    // if DIR_COUNT is less than local_directories.capacity will do nothing
+    local_directories.reserve(DIR_COUNT);
+    //
+    local_directories.push(mem::new(HMDirectory, {
+        .path = "/base/"
+        .name = "base"
+        .files.clear();
+        .directories.clear();
+    }));
+}*/
+
+fn void clearGameDirectories() {
+    foreach(dir : local_directories) {
+        dir.clear();
+    }
+    local_directories.free();
+    pGameDirs = null;
+}
+
+alias DirList @local = List{HMDirectory*};
+
+DirList local_directories @local;
+DirList* pGameDirs = &local_directories;
 
 alias StringList @local = List{String};
 
@@ -75,18 +273,15 @@ fn sz? FileList.to_format(&self, Formatter* f) @dynamic
     return f.printf("FileList(basePath: '%s', numFiles: %d)", self.basePath, self.getNumFiles());
 }
 
-<*
-    Returns the number of files in a file list.
-    @ensure return <= self.list.len()
-*>
-fn uint FileList.getNumFiles(&self) => (uint)self.list.len();
+
+fn sz FileList.getNumFiles(&self) @inline => self.list.len();
 
 <*
     Returns a file path from the list.
     @param index : "The index into the file list."
     @require index < self.getNumFiles()
 *>
-fn String FileList.getFile(&self, uint index ) => self.list[index];
+fn Path? FileList.getFile(&self, uint index ) @inline => path::tnew(self.list[index]);
 
 <*
     Return a pointer to the file list.
@@ -98,12 +293,12 @@ fn FileList*? listDirectoryFiles(String dirPath) @inline {
     FileList* dirList = mem::new(FileList, {.basePath = dirPath});
 	PathList ls = path::ls(tmem, path::tnew(dirPath)!)!;
 	foreach(pt : ls) {
-		if(path::is_dir(pt)) dirList.list.push(pt.tcopy(tmem)); // c3 library bug tcopy shouldn't need tmem
+		if(path::is_dir(pt)) dirList.list.push(pt.tcopy());
 	}
 	return dirList;
 }
 
-fn PathList? listDirectoryPaths(String dirPath) => path::ls(mem, path::tnew(dirPath)!)!;
+fn PathList? listDirectoryPaths(Path dirPath) => path::ls(mem, dirPath)!;
 
 struct ModList 
 {
@@ -118,7 +313,7 @@ fn uint ModList.getNumMods(&self) => (uint)self.mods.len();
     @param index : "The index into the mod list."
     @require index < self.getNumMods()
 *>
-fn String ModList.getMod(&self, uint index ) => self.mods[index];
+fn Path? ModList.getMod(&self, uint index ) => path::tnew(self.mods[index]);
 
 <*
     Returns a mod description from a description list.
@@ -127,7 +322,103 @@ fn String ModList.getMod(&self, uint index ) => self.mods[index];
 *>
 fn String ModList.getDescription(&self, uint index ) => self.descriptions[index];
 
+const MODS_MAX_DESCRIPTION = 256;
+<*
+    Returns a list of mods found along with descriptions
+    'mods' contains the directory names to be passed to fs_game
+    'descriptions' contains a string to be used in the UI
+*>
+fn ModList* listMods() 
+{
+    @todo();
+    /*
+	char[ MODS_MAX_DESCRIPTION ] desc;
 
+	StringList	dirs;
+	StringList	pks;
+
+	ModList	*list = mem::new(ModList);
+
+	String[4] search;
+
+	search[0] = cv_save_path.getString();
+	search[1] = cv_dev_path.getString();
+	search[2] = cv_base.getString();
+	search[3] = cv_dev_path.getString();
+
+	for ( int isearch = 0; isearch < 4; isearch++ ) {
+		// skip empty cdpath or such, so we don't search C:\ or / -_-
+		if ( search[ isearch ] == "" ) {
+			continue;
+		}
+
+		dirs.clear();
+		pk4s.clear();
+
+		// scan for directories
+		ListOSFiles( search[ isearch ], "/", dirs );
+
+		dirs.Remove( "." );
+		dirs.Remove( ".." );
+		dirs.Remove( "base" );
+		dirs.Remove( "pb" );
+
+		// see if there are any pk files in each directory
+		for( i = 0; i < dirs.Num(); i++ ) {
+			idStr gamepath = BuildOSPath( search[ isearch ], dirs[ i ], "" );
+			ListOSFiles( gamepath, ".pk4", pk4s );
+			if ( pk4s.Num() ) {
+				if ( !list->mods.Find( dirs[ i ] ) ) {
+					// DG: ignore d3xp, it's added explicitly later, if available
+					if ( dirs[ i ].Icmp( "d3xp" ) ) {
+						list->mods.Append( dirs[ i ] );
+					}
+				}
+			}
+		}
+	}
+
+	list->mods.Sort();
+
+	// read the descriptions for each mod - search all paths
+	for ( i = 0; i < list->mods.Num(); i++ ) {
+
+		for ( isearch = 0; isearch < 4; isearch++ ) {
+
+			idStr descfile = BuildOSPath( search[ isearch ], list->mods[ i ], "description.txt" );
+			FILE *f = OpenOSFile( descfile, "r" );
+			if ( f ) {
+				if ( fgets( desc, MAX_DESCRIPTION, f ) ) {
+					list->descriptions.Append( desc );
+					fclose( f );
+					break;
+				} else {
+					common->DWarning( "Error reading %s", descfile.c_str() );
+					fclose( f );
+					continue;
+				}
+			}
+		}
+
+		if ( isearch == 4 ) {
+			list->descriptions.Append( list->mods[ i ] );
+		}
+	}
+
+	list->mods.Insert( "" );
+	list->descriptions.Insert( "Doom 3 (base game)" );
+
+	// DG: if installed, add d3xp with useful description, right below the base game
+	if ( HasD3XP() ) {
+		list->mods.Insert( "d3xp", 1 );
+		list->descriptions.Insert( "Resurrection Of Evil (d3xp)", 1 );
+	}
+
+	assert( list->mods.Num() == list->descriptions.Num() );
+
+	return list;
+    */
+}
 //////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////
 
@@ -465,8 +756,8 @@ fn void moveFiles(String from, String to, String fileExtensions = "")
             to = to.tconcat("\\");
         }
         
-        String files_dir = game::gpGame.app_work_dir.tconcat(from);
-        String files_to  = game::gpGame.app_work_dir.tconcat(to);
+        String files_dir = game::pContext.app_work_dir.tconcat(from);
+        String files_to  = game::pContext.app_work_dir.tconcat(to);
 
         bool? sucess = fs::makeDirectory_IfNotExist(files_to);
         if(catch excuse = sucess) { // will ignore if the directory already exists

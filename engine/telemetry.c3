@@ -94,7 +94,7 @@ $if $feature(PROFILE):
             value = value / 1000.0f;
             print_sec = true;
         }
-        //game::gpGame.gameView.pushDebugText("Performance zone:\n [%s] = %s %s", name, value, (print_sec) ? "sec" : "ms");
+        //game::pContext.gameView.pushDebugText("Performance zone:\n [%s] = %s %s", name, value, (print_sec) ? "sec" : "ms");
         io::printfn("Performance zone:\n [%s] = %s %s", $$FUNC, value, (print_sec) ? "sec" : "ms");
 $endif
 */

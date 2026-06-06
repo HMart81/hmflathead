@@ -17,11 +17,11 @@ import engine::sys::render2d::r2d; // 2D rendering
 import engine::sys::videoplay::vid @public;
 // end_region
 
-// region defines
+// #region defines
 alias FrameQueue = List{Frame*};
 //const FADE_FRAMES = true; // comment this to disable the fade effect
-alias pGame = game::gpGame;
-// end_region
+alias pGame = game::pContext;
+// #endregion
 
 // region constants
 const EPILEPSY_TEXT_DURATION = 12000; // ms
@@ -126,7 +126,7 @@ fn void draw(Frame* frame) @local
 	}
 
 	if(frame.text.msg != "") {
-		frame.text.font = game::gpGame.candara_font;
+		frame.text.font = game::pContext.candara_font;
 		frame.text.font_size = 20.0f;
 		frame.text.spacing = 1.0f;
 		frame.text.color = rl::LIME;
@@ -158,9 +158,9 @@ fn void makeTexturedFrame(String texture_path, IntroAnimation* anim) @local
 {
     /*
 	int w, h;
-    w = game::gpGame.screen.w;
-    h = game::gpGame.screen.h;
-    ZString path = game::gpGame.app_base_folder.tconcat(texture_path).zstr_tcopy();
+    w = game::pContext.screen.w;
+    h = game::pContext.screen.h;
+    ZString path = game::pContext.app_base_folder.tconcat(texture_path).zstr_tcopy();
     Frame* frame = mem::new(Frame);
     frame.texture = rl::loadTexture(path);
     assert(rl::isTextureValid(frame.texture));
@@ -184,8 +184,8 @@ fn void makeTextFrame(IntroAnimation* anim, String message = "undefined", RLColo
 {
     /*
 	int w, h;
-    w = game::gpGame.screen.w;
-    h = game::gpGame.screen.h;
+    w = game::pContext.screen.w;
+    h = game::pContext.screen.h;
     Frame* frame = mem::new(Frame);
 	frame.text.msg = message;
 	frame.dest_rect = {0, 0, w, h};
@@ -202,8 +202,8 @@ fn void makeTextFrame(IntroAnimation* anim, String message = "undefined", RLColo
 *>
 fn void makeColorFrame(RLColor _color, IntroAnimation* anim) @local 
 {
-	int w = game::gpGame.screen.w;
-    int h = game::gpGame.screen.h;
+	int w = game::pContext.screen.w;
+    int h = game::pContext.screen.h;
     Frame* frame = mem::new(Frame);
 	frame.dest_rect = {0, 0, w, h};
     frame.color = _color;
@@ -216,8 +216,8 @@ fn void makeColorFrame(RLColor _color, IntroAnimation* anim) @local
 *>
 fn void makeVideoFrame(String video_name, IntroAnimation* anim, bool _audio = false, String audio_name = "") @local @if($feature(VIDEO_PLAYBACK_ENABLE))
 {
-    int w = game::gpGame.screen.w;
-    int h = game::gpGame.screen.h;
+    int w = game::pContext.screen.w;
+    int h = game::pContext.screen.h;
 	bool failed;
     Frame* frame = mem::new(Frame);
 	defer if(failed) {
@@ -233,7 +233,7 @@ fn void makeVideoFrame(String video_name, IntroAnimation* anim, bool _audio = fa
 		// do nothing and go on to the defer code
 	} else {
 		$if $defined(vid::AUDIO_SEPERATE):
-		if(_audio) frame.movie.track_name = (audio_name) ? audio_name : "default.mp3";
+			if(_audio) frame.movie.track_name = (audio_name) ? audio_name : "default.mp3";
 		$endif
 		if(frame.movie.preparePlayer(audio: _audio)) {
 			frame.movie.fullscreen = true;
@@ -282,8 +282,8 @@ fn void deinitAnimation(IntroAnimation* anim) @local
 fn void hide_cursors() @local @inline
 {
     if(game::game_cursor_visible()) game::hide_game_cursor();
-    if(game::gpGame.screen.state.fullscreen || 
-       game::gpGame.screen.state.borderless) 
+    if(game::pContext.screen.state.fullscreen || 
+       game::pContext.screen.state.borderless) 
     {
         if(game::system_cursor_enabled()) game::disable_system_cursor();
     }
@@ -335,14 +335,14 @@ fn void setup(IntroAnimation* anim) @local
 {
     hide_cursors();
     initAnimation(anim);
-    //log::info(CONSOLE, "intro-setup: %s", game::gpGame.time_ms);
+    //log::info(CONSOLE, "intro-setup: %s", game::pContext.time_ms);
 }
 
 fn void IntroAnimation.stop(&self)
 {
     self.should_play = false;
     deinitAnimation(self);
-    game::gpGame.mode = GameMode.NONE;
+    game::pContext.mode = GameMode.NONE;
      // goes to the main menu;
     game::disconnect();
 }
@@ -365,9 +365,9 @@ fn void update(IntroAnimation* anim)
 	if(!anim.should_play) return;
 
     Frame* current_frame @noinit;
-    game::gpGame.mode = GameMode.INTRO;
+    game::pContext.mode = GameMode.INTRO;
 
-	int current_time = game::gpGame.time_ms;
+	int current_time = game::pContext.time_ms;
 
     // init frames durations has to be done here because it 
     // requires the current time for each frame
@@ -458,9 +458,9 @@ fn void drawAnimation(IntroAnimation* anim) @if(!$defined(FADE_FRAMES))
 	if(!anim.should_play) return;
 
     // draw a full screen black frame to hide the stuff behind it
-    r2d::drawRectangleRec({0,0,game::gpGame.screen.w, game::gpGame.screen.w}, rl::BLACK);
+    r2d::drawRectangleRec({0,0,game::pContext.screen.w, game::pContext.screen.w}, rl::BLACK);
 
-    int current_time = game::gpGame.time_ms;
+    int current_time = game::pContext.time_ms;
     // current frame
     Frame* frame = anim.frames[anim.current_frame_index];
     draw(frame);
@@ -483,9 +483,9 @@ bool should_fade_out @local @if($defined(FADE_FRAMES)) = false;
 *>
 fn void drawAnimation(IntroAnimation* anim) @if($defined(FADE_FRAMES))
 {
-    int current_time = game::gpGame.time_ms;
-    int w = game::gpGame.screen.w;
-    int h = game::gpGame.screen.h;
+    int current_time = game::pContext.time_ms;
+    int w = game::pContext.screen.w;
+    int h = game::pContext.screen.h;
 
     // only if frame is not a video...
     if(anim.frames[anim.current_frame_index].kind != VIDEO) {
@@ -555,7 +555,8 @@ fn void drawAnimation(IntroAnimation* anim) @if($defined(FADE_FRAMES))
 
 // unused but saved code
 
-/*fn void drawEpilepsyWarning(int w, int h) @local //@deprecated("use the new mpg video instead")
+/*
+fn void drawEpilepsyWarning(int w, int h) @local //@deprecated("use the new mpg video instead")
 {
 	/////////
 	// Title

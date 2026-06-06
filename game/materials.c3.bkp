@@ -195,7 +195,7 @@ fn void initIntroAnimation(IntroAnimation* anim) {
     Frame* frame1 = mem::new(Frame);
     frame1.image  = gui::makePanelImage(
     game::asstManager.getTexture("logo_hm.png"),
-    {0, 0, game::gpGame.screen.w, game::gpGame.screen.h}, 
+    {0, 0, game::pContext.screen.w, game::pContext.screen.h}, 
     rl::WHITE);
     frame1.draw_time = DEFAULT_SHOW_TIME;
     //
@@ -229,7 +229,7 @@ fn bool updateIntroAnimation(IntroAnimation* anim) {
     do {
         bool stop_anim = input::getAction("noIntro").fnBecameTriggered();
         
-        int current_time = game::gpGame.time_ms;
+        int current_time = game::pContext.time_ms;
         if (!stop_anim && anim.current_frame && index == 0) // first frame
         {
             anim.current_frame.start_time = current_time;
@@ -247,7 +247,7 @@ fn bool updateIntroAnimation(IntroAnimation* anim) {
         else if(stop_anim) {
             if(anim.current_frame && anim.frames.len() > 1 && index < anim.frames.len()) {
                 anim.current_frame = anim.frames[index += 1];
-                anim.current_frame.start_time = game::gpGame.time_ms;
+                anim.current_frame.start_time = game::pContext.time_ms;
                 anim.current_frame.end_time   = anim.current_frame.start_time + anim.current_frame.draw_time;
             } else {
                 anim.current_frame = null;

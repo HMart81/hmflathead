@@ -746,7 +746,7 @@ fn void ActionManager.update(&self)
     if(self.actions.len())
     {
         foreach(act: self.actions) {
-            act.update(game::gpGame.dt);
+            act.update(game::pContext.dt);
         }
     }
     
@@ -778,7 +778,7 @@ fn void _listActions(ActionManager* actdb) @local @inline
 // TODO(HM) Move this to the cmds module
 // region input cmds
 fn void quitGame() {
-    game::gpGame.should_quit = true;
+    game::pContext.should_quit = true;
 }
 // endregion
 

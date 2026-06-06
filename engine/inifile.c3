@@ -175,7 +175,7 @@ constdef Token : inline String @local
 alias ListIniSectionPrts @local = List{IniSection*};
 alias ListIniCMDPrts     @local = List{IniCMD*};
 alias IniCmdData         @local = Pair{String, String};
-alias game               @local = game::gpGame;
+alias game               @local = game::pContext;
 
 
 struct Config_Flags @local  // flags used to store config file state

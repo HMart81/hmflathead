@@ -135,16 +135,6 @@ fn void closeLogFile()
 
 fn String getfilepath() @MyInline => gpath.str_view();
 
-
-/*fn void log(Where where, RLTraceLogLevel level, String fmt, args...) @public {
-    switch (where) {
-        case FILE:
-            logTofile(level, fmt, ...args);
-        case CONSOLE:
-            logToConsole(level, fmt, ...args);
-    }
-}*/
-
 fn void info(Where where, String fmt, args...) @public
 {
 	switch (where) {
@@ -268,6 +258,8 @@ fn void logToConsole(RLTraceLogLevel level, String fmt, args...) @format(1) @loc
 	String color;
 	String level_str;
 
+	bool to_stderr;
+
 	switch(level)
 	{
 		case RLTraceLogLevel.WARNING:
@@ -276,17 +268,22 @@ fn void logToConsole(RLTraceLogLevel level, String fmt, args...) @format(1) @loc
 		case RLTraceLogLevel.ERROR:
 			color = ANSI_COLOR_RED;
 			level_str = "[ERROR]";
+			to_stderr = true;
 		case RLTraceLogLevel.FATAL:
 			color = ANSI_COLOR_BR_RED;
 			level_str = "[FATAL]";
+			to_stderr = true;
 		case RLTraceLogLevel.INFO:
 		default:
 			color = ANSI_COLOR_YELLOW;
 			level_str = "[INFO]";
 	}
 	String message = string::tformat("%s%s%s", color, str, ANSI_COLOR_RESET);
-	//rl::traceLog(level, message.zstr_tcopy());
-	io::printfn(level_str.tconcat(" ").tconcat(message));
+	if(to_stderr) {
+		io::eprintn(level_str.tconcat(" ").tconcat(message));
+	} else { // to stdout
+		io::printfn(level_str.tconcat(" ").tconcat(message));
+	}
 }
 
 

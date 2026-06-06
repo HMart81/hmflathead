@@ -274,7 +274,7 @@ fn void Editor.open(&self) @inline
     self.flags.is_opened = true;
     self.kind = EditorKind.MAIN_EDITOR;
     self.setVisible(); // also sets the editor to active
-    game::gpGame.mode = GameMode.EDITOR;
+    game::pContext.mode = GameMode.EDITOR;
 }
 
 fn bool Editor.isOpened(&self) => self.flags.is_opened;
@@ -288,7 +288,7 @@ fn void Editor.close(&self) @inline
     }
     self.flags.is_opened = false;
     self.setInvisible(); // also sets the editor to inactive and unfocused
-    game::gpGame.mode = GameMode.NONE;
+    game::pContext.mode = GameMode.NONE;
 }
 
 
@@ -449,7 +449,7 @@ fn void Editor.setUndockable(&self) @inline
 //    like if the camera is zoomed or the camera is rotated, this will break.
 //    it will require conversion from world space coordinates to camera space.
 <*
-	@require  game::gpGame.view.camera.zoom == 1.0f
+	@require  game::pContext.view.camera.zoom == 1.0f
 *>
 fn bool Editor.isMouseOver(&self)
 {
@@ -802,7 +802,7 @@ fn void addToConsoleHistory(Editor* editor, String input_text) //@inline
 macro void con_printfn(String fmt, ...) @public @builtin {
 	DString str = dstring::temp_with_capacity(fmt.len + $vaarg.len * 8);
 	str.appendf(fmt, ...$vaarg);
-	game::gpGame.editor.con_history.push(str.str_view().copy(mem));
+	game::pContext.editor.con_history.push(str.str_view().copy(mem));
 }
 
 <* 
@@ -847,7 +847,7 @@ $endif
             editor.kind = EditorKind.GUI_EDITOR;
             editor.setActive();
             editor.setVisible();
-            game::gpGame.mode = GameMode.EDITOR;
+            game::pContext.mode = GameMode.EDITOR;
             con_printfn("GUI Editor opened.");*/
             (guieditor::is_opened()) ?  guieditor::close() : guieditor::open();
             nextcase "quit";
@@ -901,8 +901,8 @@ fn void drawOpenEditorBorder(Editor* editor) @inline
     }
 
     int w, h;
-    w = (int)game::gpGame.screen.w;
-    h = (int)game::gpGame.screen.h;
+    w = (int)game::pContext.screen.w;
+    h = (int)game::pContext.screen.h;
     rl::drawRectangleLinesEx({0, 0, w, h}, 2.0f, *editor.border_color);
 }
 
@@ -949,11 +949,11 @@ fn void openFolderButtonCallback(void* data) @inline @local
     io::printfn("Open folder button pressed.");
     // NOTE(HM) doesn't work causes a unaligned acess error
     $if $defined(env::WIN32):
-    Win32_LPCSTR path = (Win32_LPCSTR)&game::gpGame.app_base_folder.zstr_tcopy()[0];
+    Win32_LPCSTR path = (Win32_LPCSTR)&game::pContext.app_base_folder.zstr_tcopy()[0];
     Win32_LPCSTR operation = (Win32_LPCSTR)&string::tformat_zstr("%s", "explore")[0];
     // To open a folder = ShellExecute(handle, "open", <fully_qualified_path_to_folder>, NULL, NULL, SW_SHOWNORMAL);
     // To explore a folder = ShellExecute(handle, "explore", <fully_qualified_path_to_folder>, NULL, NULL, SW_SHOWNORMAL);
-    /*if(*(Win32_INT*)win32::shellExecuteA(null, "open", "explorer.exe", (Win32_LPCSTR)game::gpGame.app_base_folder.zstr_tcopy(), null, win32::Sw.SHOWNORMAL.ordinal) < 32) {
+    /*if(*(Win32_INT*)win32::shellExecuteA(null, "open", "explorer.exe", (Win32_LPCSTR)game::pContext.app_base_folder.zstr_tcopy(), null, win32::Sw.SHOWNORMAL.ordinal) < 32) {
         log::warning(FILE, "Editor: Unable to open base folder to explore.");
     }*/
     win32::shellExecuteA(null, operation, path, null, null, win32::Sw.SHOWNORMAL.ordinal);

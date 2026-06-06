@@ -654,7 +654,7 @@ fn void HMaterial.parse_stage(&self, XmlNode* stage_node)
                 self.parse_blend(child, stage);
             case mtr::isXmlNode(child, Node.MAP):
                 // create the full path by concatenating the relative material path to the game base folder
-                String texture_path = game::gpGame.app_base_folder.tconcat(child.getAttribute(NodeAttrib.URL).value);
+                String texture_path = game::pContext.app_base_folder.tconcat(child.getAttribute(NodeAttrib.URL).value);
                 if(texture_path.is_empty()) {
                     unreachable("RLMaterial '%s' in file '%s' has a stage node with a map node without a url attribute!", self.name, self.mtrfile.path);
                 }
@@ -721,7 +721,7 @@ fn void HMaterial.parse_maps(&self, XmlNode* maps_node)
                             // path is relative to the game base folder
                             String relative_texture_path = child.getText();
                             if(relative_texture_path.extractFileBaseByCopy() == "default.png") {
-                                (*stage).tex = game::gpGame.default_texture;
+                                (*stage).tex = game::pContext.default_texture;
                             } else {
                                 (*stage).loadTexture(relative_texture_path);
                                 $if $feature(_DEBUG):
@@ -1880,7 +1880,7 @@ fn void MaterialDataBase.listMTRs(&self)
         {
             log::info(CONSOLE, "[MATERIAL FILES]");
             foreach(mtr: self.data) {
-                String trimmed_path = "...\\".tconcat(mtr.path.strip_start(game::gpGame.app_base_folder));
+                String trimmed_path = "...\\".tconcat(mtr.path.strip_start(game::pContext.app_base_folder));
                 io::printfn("%s\t-> \"%s\"%s", ansi::color_rgb(171, 218, 217), trimmed_path, Ansi.RESET);
             }
         }
@@ -1981,11 +1981,11 @@ fn void? load_mtr_files(String search_path, MaterialDataBase* database = mtrDB) 
 }
 
 <*
-    @require game::gpGame.app_base_folder.len > 0
+    @require game::pContext.app_base_folder.len > 0
 *>
 fn void? loadMaterialFiles() @inline @public
 {
-    String material_folder = game::gpGame.app_base_folder.tconcat("materials").tconcat("\\");
+    String material_folder = game::pContext.app_base_folder.tconcat("materials").tconcat("\\");
 	load_mtr_files(material_folder)!!;
 
     // see if we have a default material file, if not create one
@@ -1997,7 +1997,7 @@ fn void? loadMaterialFiles() @inline @public
         HMaterial* default_material = mem::new(HMaterial);
         default_material.init();
         default_material.name = "default_material";
-        default_material.getStage(MStageType.DIFFUSE).tex = game::gpGame.default_texture;
+        default_material.getStage(MStageType.DIFFUSE).tex = game::pContext.default_texture;
         default_material.getStage(MStageType.DIFFUSE).color = rl::WHITE;
         local_material_db.data[0].register(default_material);
     }

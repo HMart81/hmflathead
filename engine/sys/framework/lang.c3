@@ -78,7 +78,7 @@ fn String LANGData.getString(&self, String id)
 {
     foreach(lang : self.languages) 
     {
-        if(lang.type != game::gpGame.language) continue;
+        if(lang.type != game::pContext.language) continue;
 
         foreach(str : lang.strings) 
         {

@@ -61,6 +61,9 @@ const Vec2f VEC_DOWN  = {0.0f,  1.0f};
 const Vec2f VEC_LEFT  = {-1.0f, 0.0f};
 const Vec2f VEC_RIGHT = {1.0f,  0.0f};
 
+//const USER_FACTOR = 1.0f;
+//fn void width() @expand => 16*USER_FACTOR*ini::getfloat(&game::pContext.settings_data)
+
 const float	INFINITY = 1e30f;
 
 macro unurdered_remove(List{Typ}* list, usz index) <Typ>
@@ -359,7 +362,7 @@ struct DebugLine
 }
 
 fn void DebugLine.update(&self) @inline {
-    if(self.lifetime < game::gpGame.time_ms) {
+    if(self.lifetime < game::pContext.time_ms) {
         self.nodraw = true;
         self.unregister(); // remove the line from the global list
         mem::free(self); // free the memory allocated for the line
@@ -379,7 +382,7 @@ fn void makeDbgLine(Vec2f start, Vec2f end, RLColor color = rl::RED, int lifetim
     line.startPos   = start;
     line.endPos     = end;
     line.color      = color;
-    line.lifetime   = game::gpGame.time_ms + lifetime_ms;
+    line.lifetime   = game::pContext.time_ms + lifetime_ms;
     line.register();
 }
 
@@ -472,8 +475,8 @@ fn float percent(uint p, float x) @inline
 
 macro int @bit($x) @builtin => 1 << $x;
 
-macro Vec2f worldToScreen(Vec2f wpos) => rl::getWorldToScreen2D(wpos, game::gpGame.cameraView);
-macro Vec2f screenToWorld(spos) => rl::getScreenToWorld2D(wpos, game::gpGame.cameraView);
+macro Vec2f worldToScreen(Vec2f wpos) => rl::getWorldToScreen2D(wpos, game::pContext.cameraView);
+macro Vec2f screenToWorld(spos) => rl::getScreenToWorld2D(wpos, game::pContext.cameraView);
 // end_region MATH misc
 
 // region vec2 extensions
@@ -556,7 +559,7 @@ macro Vec2f RLRectangle.getScreenPos(self) => worldToScreen(self.getPosition());
 fn Vec2f RLRectangle.getPosCameraCoords(&self) @if ($defined(camview::ENABLE_CAMERA_VIEW))
 {
     Vec2f world_origin   = {0, 0};
-    Vec2f cam_org        = game::gpGame.view.camera.target;
+    Vec2f cam_org        = game::pContext.view.camera.target;
     Vec2f offset_vec_dir = cam_org - world_origin;
     float offset_len     = offset_vec_dir.length();
     
@@ -595,12 +598,12 @@ fn RLSound loadSound(String asset_path) @inline {
     }
     
     log::warning(Where.FILE,  "Unable to load » %s", asset_path);
-    return game::gpGame.default_sound;
+    return game::pContext.default_sound;
 }
 // end_region
 
-macro sec_since_init()  => game::gpGame.time_sec;
-macro mili_since_init() => game::gpGame.time_ms;
+macro sec_since_init()  => game::pContext.time_sec;
+macro mili_since_init() => game::pContext.time_ms;
 
 //////////////////////////////////////////////////////////////////////////
 // #region String custom extension
