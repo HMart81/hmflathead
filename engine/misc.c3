@@ -61,9 +61,6 @@ const Vec2f VEC_DOWN  = {0.0f,  1.0f};
 const Vec2f VEC_LEFT  = {-1.0f, 0.0f};
 const Vec2f VEC_RIGHT = {1.0f,  0.0f};
 
-const USER_FACTOR = 1.0f;
-macro width() => 16*USER_FACTOR*ini::getfloat(&game::pContext.settings_data, "Screen", "factor");
-
 const float	INFINITY = 1e30f;
 
 macro unurdered_remove(List{Typ}* list, usz index) <Typ>

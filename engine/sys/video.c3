@@ -646,11 +646,13 @@ fn void VideoCabinet.addMovie(&self, VidMovie* movie) @MyInline
 	self.movies.push(movie);
 }
 
+<*
+	Register videos in the video folder to the virtual video cabinet
+	@require self.movies_folder.len > 0
+*>
 fn void? VideoCabinet.registerVideos(&self) 
 {
-    assert(self.movies_folder != "");
-
-    if(fs::makeDirectory_IfNotExist(self.movies_folder)!!)
+    if(fs::makeDirectory_IfNotExist(self.movies_folder)!)
     {
         RLFilePathList files = fs::loadDirectoryFiles(self.movies_folder);
         defer {
@@ -668,6 +670,7 @@ fn void? VideoCabinet.registerVideos(&self)
                     if(path_view.ends_with(EXTENSION_MPG) || path_view.ends_with(EXTENSION_MPEG)) {
 						String vid_name = fs::getFileNameWithoutExt(path_view);
 						if(self.hasMovie(vid_name)) continue;
+						// else
                         self.addMovie(
                             mem::new(VidMovie, {
                                 .path = path_view.tcopy(),

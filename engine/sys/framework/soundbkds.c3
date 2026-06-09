@@ -55,7 +55,11 @@ fn float getMasterVolume() @inline => rl::getMasterVolume();
 // Audio device Object
 typedef AudioDevice @public = void*;
 
+<*
+	@require rl::isWindowReady() == true
+*>
 fn void AudioDevice.init(self) @inline => initAudioDevice();
+//
 fn void AudioDevice.close(self) @inline => closeAudioDevice();
 fn bool AudioDevice.isReady(self) @inline => isAudioDeviceReady();
 fn void AudioDevice.setVolume(self, float volume /*0.0 to 1.0*/) @inline => setMasterVolume(volume);

@@ -363,8 +363,13 @@ struct Game (SaveSystemInterface/*, IGame*/) @local
     RLTexture2D tex_black;
     RLTexture2D tex_gray;
     
+	// SHADER STUFF
     RLShader    default_shader;
-    RLShader*   current_global_shader;
+	int default_shader_resolution_loc;
+	int default_shader_time_loc;
+	int default_shader_dt_loc;
+    RLShader* current_global_shader;
+
 	// sound stuff
 	AudioDevice audio_device;
     RLSound     default_sound;
@@ -394,8 +399,13 @@ struct Game (SaveSystemInterface/*, IGame*/) @local
     {
         int index; // monitor index
         int id; // monitor id (index + 1)
-        int  w;
-        int  h;
+		union {
+			Vec2i size;
+			struct @packed {
+        		int  w;
+        		int  h;
+			}
+		}
         Vec2f center;
 
         struct state {
@@ -403,6 +413,7 @@ struct Game (SaveSystemInterface/*, IGame*/) @local
             bool fullscreen;
             bool borderless;
             bool vsync_hint;
+			bool changed;
         }
 
         int  displayHz;
@@ -432,10 +443,10 @@ struct Game (SaveSystemInterface/*, IGame*/) @local
     
     String app_name;
     
-    String app_default_workdir; // usefull if a mod is set
+    String default_app_dir; // usefull if a mod is set
     String app_default_base_folder; // usefull if a mod is set
     
-    String app_work_dir;
+    String app_root_dir;
     String app_base_folder;
     
     String app_save_folder;
@@ -530,9 +541,9 @@ fn void Game.save(&self, SaveFile* file) @dynamic {
     $endif
 
     svs::writeString(file, self.app_name);
-    svs::writeString(file, self.app_default_workdir); // usefull if a mod is set
+    svs::writeString(file, self.default_app_dir); // usefull if a mod is set
     svs::writeString(file, self.app_default_base_folder); // usefull if a mod is set
-    svs::writeString(file, self.app_work_dir);
+    svs::writeString(file, self.app_root_dir);
     svs::writeString(file, self.app_base_folder);
     svs::writeString(file, self.app_save_folder);
     svs::writeFloat(file,  self.time_sec);
@@ -580,9 +591,9 @@ fn void Game.reload(&self, SaveFile* file) @dynamic {
     self.boidManager1.reload(file);
     
     svs::readString(file, &self.app_name);
-    svs::readString(file, &self.app_default_workdir); // usefull if a mod is set
+    svs::readString(file, &self.default_app_dir); // usefull if a mod is set
     svs::readString(file, &self.app_default_base_folder); // usefull if a mod is set
-    svs::readString(file, &self.app_work_dir);
+    svs::readString(file, &self.app_root_dir);
     svs::readString(file, &self.app_base_folder);
     svs::readString(file, &self.app_save_folder);
     svs::readFloat(file,  &self.time_sec);
@@ -1320,6 +1331,12 @@ fn void onUpdate() @local
             //$endif
         }
         //////////
+
+
+		if(local_game.screen.state.changed) {
+			local_game.default_shader_resolution_loc = local_game.default_shader.getUniformLocation("resolution");
+			local_game.default_shader.setValue(local_game.default_shader_resolution_loc, &local_game.screen.size, RLShdUniTyp.VEC2);
+		}
         
         gameHandleGeneralControls();
 
@@ -1675,6 +1692,12 @@ fn void onDraw(int screenWidth, int screenHeight) @local
             //rl::clearBackground(*(RLColor*)&&((uint[1]){ 0x181818FF }));
 
             // 2) render the view FBO's rendered above into the back buffer
+			if(local_game.view.enable_grayscale) {
+				local_game.current_global_shader = &local_game.view.grayscale.shader;
+			} else {
+				local_game.current_global_shader = &local_game.default_shader;
+			}
+
             if(rl::isShaderValid(*local_game.current_global_shader)) 
             {
                 rl::drawText(string::tformat_zstr("shader id: %s", (*local_game.current_global_shader).id), 50, 100, 16, rl::RED);
@@ -1683,7 +1706,7 @@ fn void onDraw(int screenWidth, int screenHeight) @local
                 {
                     local_game.view.draw();
                 };
-            } 
+            }
             else // render using raylib default shader
             {
                 local_game.view.draw();
@@ -2422,6 +2445,22 @@ fn void print_game_version() @local @inline
 // #endregion ARGS HANDLING ******************
 //////////////////////////////////////////////////////////////////
 
+alias JSCObject = Object;
+<*
+    @ensure return != null
+*>
+fn JSCObject*? load_jsonc_obj(String file_path) @local @inline
+{
+    File js_data = fs::openFile(file_path)!;
+    return json::load(mem, &js_data)!;
+}
+
+// use this to free jsonc objects create with load_jsonc
+fn void free_jsonc(JSCObject* obj) @local @inline 
+{
+    if(obj) obj.free();
+}
+
 /* This is where game execution begins */
 fn void? onStart(String[]* args) 
 {
@@ -2459,7 +2498,32 @@ $endif
     log::info(FILE, "Initializing game:");
     log::info(FILE, "---------------------------------------------");
     
-    // TODO load the user.ini at this time?
+    // load paths list
+	@off()
+	{
+    JSCObject* path_list = load_jsonc_obj(fs::getApplicationDirectory().str_view().tconcat("paths.ls"))!;
+    defer free_jsonc( obj: path_list );
+
+    if(path_list.has_key("folders")) {
+        Object* folders = path_list.get("folders")!;
+        log::info(CONSOLE, "---------------------------------------------");
+        folders.map.@each(; String key, value) 
+        {
+            if(key == "paths") 
+            {
+                assert(value.is_array() && !value.is_empty());
+                foreach(path : value.array)
+                {
+                    assert(path.s.len > 0);
+                    fs::addDirectory(path.s)!;
+                }
+            } else {
+                unreachable("currupted paths.ls file, not paths key was found!");
+            }
+        };
+        log::info(CONSOLE, "---------------------------------------------");
+    }
+	};
 
     if(fl_help.getBool()) 
     {
@@ -2487,19 +2551,20 @@ $endif
     }
     
 	//////////////////////////////////////////////
-    // Detect and Setup the work directory folder (aka where the .exe file is)
+    // Detect and Setup the app directory folder (aka where the .exe file is)
     // In case a mod is being used, use this to get the original game work dir.
-    HMDirectory* work_dir = fs::addDirectory(fs::getWorkingDirectory())!;
-    local_game.app_default_workdir = fs::getWorkingDirectory();
-    if(fs::directoryExists(local_game.app_default_workdir)) {
-        log::info(FILE, "\tWorking from default Dir: %s", local_game.app_default_workdir);
+    local_game.default_app_dir = fs::getApplicationDirectory();
+    if(fs::directoryExists(local_game.default_app_dir)) {
+        log::info(FILE, "\tWorking from default Dir: %s", local_game.default_app_dir);
+    	// register the directory
+		fs::addDirectory(local_game.default_app_dir)!;
     } else { 
         return INVALID_WORK_DIR~; // will this ever happen?
     }
 
 	/////////////////////////////////////////////////////////////////////////
     // Detect and Setup the base folder, where all required game assets/data live.
-	String base_folder = local_game.app_default_workdir.tconcat(fs::cv_base.getString());
+	String base_folder = local_game.default_app_dir.tconcat(fs::cv_base.getString());
 	if(!base_folder.ends_with(platf::PATHSEPERATOR_STR)) {
 		base_folder = base_folder.tconcat(platf::PATHSEPERATOR_STR);
 	}
@@ -2507,7 +2572,7 @@ $endif
     
 	//////////////////////////////////////////////
 	// define the generic work dir and base folder
-    local_game.app_work_dir    = local_game.app_default_workdir;
+    local_game.app_root_dir    = local_game.default_app_dir;
     local_game.app_base_folder = local_game.app_default_base_folder;
     
 	///////////////////////////////////////////////
@@ -2519,7 +2584,7 @@ $endif
     local_game.is_modded_game = using_mod;
     if(using_mod)
     {
-        String mods_dir = local_game.app_default_workdir.tconcat(MODS_DIR);
+        String mods_dir = local_game.default_app_dir.tconcat(MODS_DIR);
 
         bool mod_handling_failed;
         String mod_work_dir, mod_base_folder;
@@ -2536,7 +2601,7 @@ $endif
 				// if mod work dir exists
 				if(fs::directoryExists(mod_work_dir)) {
 					// set the generic work dir, to the mod work dir, instead of the original game work dir.
-					local_game.app_work_dir = mod_work_dir;
+					local_game.app_root_dir = mod_work_dir;
 					// also make sure the mod base dir exists
 					mod_base_folder = mod_work_dir.tconcat(fs::cv_mod_base.getString()).tconcat(platf::PATHSEPERATOR_STR);
 					if(fs::directoryExists(mod_base_folder)) {
@@ -2551,24 +2616,24 @@ $endif
 				}
 			}
         } else {
-            log::warning(FILE, "Mod %s has to be run from inside folder \"mods\" but none was found at: %s", mod_name, local_game.app_default_workdir);
+            log::warning(FILE, "Mod %s has to be run from inside folder \"mods\" but none was found at: %s", mod_name, local_game.default_app_dir);
             mod_handling_failed = true;
         }
 
         if(mod_handling_failed) // make sure we return to valid original game folders
         {
-            log::warning(FILE, "Mod handling failed, using default work dir: %s", local_game.app_default_workdir);
-            local_game.app_work_dir    = local_game.app_default_workdir;
+            log::warning(FILE, "Mod handling failed, using default work dir: %s", local_game.default_app_dir);
+            local_game.app_root_dir    = local_game.default_app_dir;
             local_game.app_base_folder = local_game.app_default_base_folder;
         }
     }
     
 	/////////////////////////////////////////
     // make sure required work dir exists, if not halt the game
-    if(fs::directoryExists(local_game.app_work_dir)) {
-        if(local_game.app_work_dir != local_game.app_default_workdir) 
+    if(fs::directoryExists(local_game.app_root_dir)) {
+        if(local_game.app_root_dir != local_game.default_app_dir) 
         {
-            log::info(FILE,  "\tWorking now from Dir: %s", local_game.app_work_dir);
+            log::info(FILE,  "\tWorking now from Dir: %s", local_game.app_root_dir);
         }
     } else {
         return INVALID_WORK_DIR~;
@@ -2585,13 +2650,13 @@ $endif
         {
             log::error(FILE,`Required base folder inside %s not found!\n
                        A non-empty folder called '%s' (case sensitive) most exist!`, 
-                       local_game.app_work_dir, 
+                       local_game.app_root_dir, 
                        (fs::cv_mod_base.getString().len > 0) ? fs::cv_mod_base.getString() : fs::cv_base.getString(), 
                        local_game.app_name);
         } else {
             log::error(FILE,`Required base folder inside %s not found!\n
                        A non-empty folder called '%s' (case sensitive) most exist.\n
-                       Please reinstall game.`, local_game.app_work_dir, fs::cv_base.getString(), local_game.app_name);
+                       Please reinstall game.`, local_game.app_root_dir, fs::cv_base.getString(), local_game.app_name);
         }
         return NO_DATA_FOLDER~;
     }
@@ -2671,12 +2736,12 @@ $endif
     @off() 
     {
         // Test json file reading
-        File? file = fs::openFile(fs::getWorkingDirectory().tconcat("prefs.data"));
+        File? file = fs::openFile(local_game.app_root_dir.tconcat("prefs.data"));
         if( catch excuse = file) {
             log::warning(FILE, "Failed to load json file with excuse: %s", excuse);
             return excuse~;
         }
-        //String jstext = fs::fileLoadEntireText(fs::getWorkingDirectory().tconcat("prefs.data"));
+        //String jstext = fs::fileLoadEntireText(local_game.app_root_dir.tconcat("prefs.data"));
         Object*? config = json::tparse(&file);
         //Object*? config = json::tparse_string(jstext)!;
         if(catch excuse = config) {
@@ -2741,7 +2806,7 @@ $endif
 // #endregion Ini file handling
 
     // set game language
-    if(settings_data.hasSection("game")) 
+    if(try settings_data.hasSection("game"))
     {
         local_game.language = settings_data.getString("language");
         assert(local_game.language.len > 0);
@@ -2764,7 +2829,7 @@ $endif
 
     // change logging level
     // NOTE(HM) this will override the default log level set before in pre_InitFunc()
-    if(settings_data.getBool("log")! == true)
+    if(settings_data.getBool("developer", "log")! == true)
     {
 		RLTraceLogLevel level = log::getLevelFromString(settings_data.getString("log_level"));
 		if(log::getLogLevel() != level)
@@ -2778,7 +2843,7 @@ $endif
 			log::info(FILE, "Logging set to: %s\n", log::levelToString(level));
 		}
     }
-    else if(settings_data.getBool("log")! == false)
+    else if(settings_data.getBool("developer", "log")! == false)
     {
         log::setLogLevel(RLTraceLogLevel.NONE);
         log::info(FILE, "Logging disabled.");
@@ -2863,7 +2928,7 @@ $endif
     log::info(FILE, "Window settings:");
     log::info(FILE, "---------------------------------------------");
     // Vertical sync (this is a hint so may or may not apply...)
-    if(try settings_data.getBool("vsync")) 
+    if(try settings_data.getBool("video", "vsync"))
     {
         //window_flags |= (int)rl::FLAG_VSYNC_HINT;
         bkend::setWindowFlag(&window_flags, rl::FLAG_VSYNC_HINT);
@@ -2984,6 +3049,15 @@ $endif
 
     // rlgl init
     //rlgl::init(screenWidth, screenHeight);
+	local_game.default_shader_resolution_loc = local_game.default_shader.getUniformLocation("resolution");
+	local_game.default_shader.setValue(local_game.default_shader_resolution_loc, &local_game.screen.size, RLShdUniTyp.VEC2);
+	// shader timing
+	local_game.default_shader_time_loc = local_game.default_shader.getUniformLocation("time");
+	local_game.default_shader.setValue(local_game.default_shader_time_loc, &local_game.time_sec, RLShdUniTyp.FLOAT);
+
+	local_game.default_shader_dt_loc = local_game.default_shader.getUniformLocation("dt");
+	local_game.default_shader.setValue(local_game.default_shader_dt_loc, &local_game.dt, RLShdUniTyp.FLOAT);
+	//
 
 $if env::WIN32:
     /*
@@ -3921,6 +3995,14 @@ fn void doOneFrame()
                         local_game.dt       = rl::getFrameTime(); // last frame time (delta time)
                         local_game.time_sec = (float)rl::getTime();
                         local_game.time_ms  = misc::@sec2ms(local_game.time_sec);
+
+						if(local_game.default_shader.isValid()) {
+							local_game.default_shader_time_loc = local_game.default_shader.getUniformLocation("time");
+							local_game.default_shader.setValue(local_game.default_shader_time_loc, &local_game.time_sec, RLShdUniTyp.FLOAT);
+
+							local_game.default_shader_dt_loc = local_game.default_shader.getUniformLocation("dt");
+							local_game.default_shader.setValue(local_game.default_shader_dt_loc, &local_game.dt, RLShdUniTyp.FLOAT);	
+						}
 
                         $if $feature(LUA_ENABLE):
                         lua::updateGameLuaGlobals();

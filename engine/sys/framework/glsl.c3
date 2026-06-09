@@ -323,85 +323,67 @@ fn void handleShaderIncludes(String* shdcode) @local
 
     @param [in] vs_path : "path to the vertex shader, can be empty string"
     @param [in] fs_path : "path to frag/pixel shader, can be empty string"
+	@require (vs_path.is_empty() && fs_path.is_empty()) == false
+	@require (rl::isWindowReady() == true)
 *>
 fn RLShader loadShader(String vs_path, String fs_path) @nodiscard
 {
     // NOTE(HM) this is used to load a shader from a vertex and fragment shader file
     // if the paths are empty it will return the default shader
     if(vs_path.is_empty() && fs_path.is_empty()) {
-        log::warning(Where.FILE, "Both vertex and fragment shader paths are empty, returning empty shader. -> %s::%s:%s", $$MODULE, $$FUNC, $$LINE);
+        log::warning(FILE, "Both vertex and fragment shader paths are empty, returning empty shader. -> %s::%s:%s", $$MODULE, $$FUNC, $$LINE);
         return {}; // return empty shader, afaik will use raylib default shaders
     }
 
-    //String include_marker = "#include \"global.inc\"";
-    
-    // NOTE(HM) if the vertex shader path is empty, it will use the default raylib vertex shader
     String vs_shader_code;
     String fs_shader_code;
 
-    if(vs_path.is_empty()) 
+	if(vs_path.is_empty()) {
+		// todo use the virtual folder system now!!
+		// our default vertex shader
+		vs_path = game::pContext.app_base_folder.tconcat("shaders\\default.vs");
+		if(fs::directoryExists(vs_path) == false) vs_path = ""; // use the raylib default one instead
+    }
+
+	if(fs_path.is_empty()) {
+        // todo use the virtual folder system now!!
+		// our default pixel shader
+		fs_path = game::pContext.app_base_folder.tconcat("shaders\\default.fs");
+		if(fs::directoryExists(fs_path) == false) fs_path = ""; // use the raylib default one instead
+    }
+
+	// load vertex shader
+	bool vs_not_empty = !vs_path.is_empty();
+    if(vs_not_empty) 
     {
-        // NOTE(HM) use default vertex shader instead and try to load the custom fragment shader only
+        String? code = fs::readEntireFileX(vs_path);
+        if(catch excuse = code) {
+            log::warning(FILE, "Failed to read vertex shader from path: %s with excuse: %s", vs_path, excuse);
+			vs_path = "";
+        } else {
+        	vs_shader_code = code;
+			handleShaderIncludes(&vs_shader_code);
+		}
+    }
+
+	// load fragment/pixel shader
+	bool fs_not_empty = !fs_path.is_empty();
+    if(fs_not_empty) 
+    {
         String? code = fs::readEntireFileX(fs_path);
         if(catch excuse = code) {
-            log::error(FILE, "Failed to read shader code from path: %s with excuse: %s", fs_path, excuse);
-            return {};
-        }
-        fs_shader_code = code;
-        if(fs_shader_code.is_empty()) {
-            log::error(FILE, "Frag/pixel shader code from path: %s returned empty!", fs_path);
-            return {}; // return empty shader will use raylib default shaders
-        }
-
-        // else
-       if(fs_shader_code) handleShaderIncludes(&fs_shader_code);
-        //if(fs_shader_code.contains(include_marker)) fs_shader_code = fs_shader_code.treplace(include_marker, SHADER_INCLUDE);
-
-        return rl::loadShaderFromMemory("", fs_shader_code.zstr_tcopy());
+			log::warning(FILE, "Failed to read frag shader from path: %s with excuse: %s", fs_path, excuse);
+			fs_path = "";
+        } else {
+        	fs_shader_code = code;
+			handleShaderIncludes(&fs_shader_code);
+		}
     }
 
-    // NOTE(HM) if the vertex shader path is not empty, we will try to read the custom vertex shader as well
-    String? code = fs::readEntireFileX(vs_path);
-    if(catch excuse = code) {
-        log::error(FILE, "Failed to read shader code from path: %s with excuse: %s", fs_path, excuse);
-        return {};
-    }
-    vs_shader_code = code;
-    if(vs_shader_code.is_empty()) {
-        log::warning(FILE, "Vertex shader code from path: %s returned empty!", vs_path);
-        // if for some reason we fail to read our vertex shader, this will froce raylib default vertex shader
-    }
-
-    if(vs_shader_code.is_empty() && fs_path.is_empty()) {
+    if(vs_shader_code.is_empty() && fs_shader_code.is_empty()) {
         log::warning(FILE, "Both vertex and fragment shader paths are empty, returning empty shader. -> %s::%s:%s", $$MODULE, $$FUNC, $$LINE);
         return {}; // empty shader will force raylib default shaders
     }
-
-    //if(vs_shader_code.contains(include_marker)) vs_shader_code = vs_shader_code.treplace(include_marker, SHADER_INCLUDE);
-    if(vs_shader_code) handleShaderIncludes(&vs_shader_code);
-
-    if(fs_path.is_empty()) 
-    {
-        // NOTE(HM) if the fragment shader path is empty, we will use the default raylib fragment shader
-        return rl::loadShaderFromMemory(vs_shader_code.zstr_tcopy(), "");
-    } 
-    else
-    {
-        String? code2 = fs::readEntireFileX(fs_path);
-        if(catch excuse = code2) {
-            log::error(FILE, "Failed to read shader code from path: %s with excuse: %s", fs_path, excuse);
-            return {};
-        }
-        fs_shader_code = code2; //fs::readEntireFileX(fs_path)!!;
-        if(fs_shader_code.is_empty()) {
-            log::error(Where.FILE, "Failed to load fragment shader from path: %s", fs_path);
-            // NOTE(HM) we will use the default raylib fragment shader then
-            return rl::loadShaderFromMemory(vs_shader_code.zstr_tcopy(), "");
-        }
-    }
-
-    if(fs_shader_code) handleShaderIncludes(&fs_shader_code);
-    
     // else both shaders are not empty, so we can load them
     return rl::loadShaderFromMemory(vs_shader_code.zstr_tcopy(), fs_shader_code.zstr_tcopy());
 }

@@ -90,6 +90,8 @@ import game::camview::postprocess::pp;
     |             |
     0,0___________|
     
+	UPDATE: No need to invert Y anymore in raylib code directly
+	// that is done at render time in our main default shader now.
     WARNING: This means that when displaying framebuffer textures, 
              the Y coordinate, will be inverted!!!
              So we have to negate the Y axis when drawing the framebuffer texture.
@@ -241,6 +243,9 @@ fn void initViewLayer(ViewLayer* layer, int width, int height, bool hdr = false)
 	} else { 
 		layer.data = (RenderTexture)rl::loadRenderTexture(width, height);
 	}
+	rl::genTextureMipmaps(&layer.data.texture);
+	rl::setTextureWrap(layer.data.texture, RLTextureWrap.CLAMP);
+	rl::setTextureFilter(layer.data.texture, RLTextureFilter.TRILINEAR);
 }
 
 fn RenderTexture initFrameBufferLayer(int width, int height, bool hdr = false) @local @inline
@@ -291,7 +296,24 @@ fn void RenderView.reload(&self, SaveFile* file) @dynamic {
 fn void RenderView.init(&self, int screenWidth, int screenHeight) @inline 
 {
     // @testing...
-    foreach(&layer : layers) layer.data = initFrameBufferLayer(screenWidth, screenHeight, hdr: true); //(RenderTexture)rl::loadRenderTexture(screenWidth, screenHeight);
+    foreach(&layer : layers) {
+		layer.data = initFrameBufferLayer(screenWidth, screenHeight, hdr: true); //(RenderTexture)rl::loadRenderTexture(screenWidth, screenHeight);
+		rl::genTextureMipmaps(&layer.data.texture);
+		rl::setTextureWrap(layer.data.texture, RLTextureWrap.CLAMP);
+		switch(layer.name) 
+		{
+			case "game":
+				rl::setTextureFilter(layer.data.texture, RLTextureFilter.ANISOTROPIC_4X);
+			case "postgame": 
+			case "gui":
+				rl::setTextureFilter(layer.data.texture, RLTextureFilter.TRILINEAR);
+			case "postgui":
+			case "debug":
+				rl::setTextureFilter(layer.data.texture, RLTextureFilter.POINT);
+			default:
+				unreachable();
+		}
+	}
    
     //
     // NOTE(HM) used to point to the main render layer to be used for shaders and such if necessary
@@ -411,7 +433,7 @@ fn void takeScreenShot()
 {
     unreachable();
     /*
-    String shots_dir = game::pContext.app_work_dir.tconcat("screenshots\\");
+    String shots_dir = game::pContext.app_root_dir.tconcat("screenshots\\");
     if(fs::directoryExists(shots_dir) == false) {
         bool~ sucess = fs::makeDirectory(shots_dir);
         if(catch excuse = sucess) {
@@ -434,10 +456,10 @@ fn void takeScreenShot()
     defer {
         // at the end return everything to defaults
         fs::unloadDirectoryFiles(files);
-        //log::info(Where.CONSOLE, "current dir after all = %s", rl::getWorkingDirectory());
+        //log::info(Where.CONSOLE, "current dir after all = %s", rl::getApplicationDirectory());
         if(bytes_count) {
             // return to main work dir
-            fs::changeDirectory(game::pContext.app_work_dir)!!;
+            fs::changeDirectory(game::pContext.app_root_dir)!!;
             rl::unloadFileData(saved_shot_file);
             // and try to delete older file
             @catch(file::delete(shotname.str_view()));
@@ -471,7 +493,7 @@ fn void takeScreenShot()
 
 fn void moveScreenShots() 
 {
-    String shots_dir = game::pContext.app_work_dir.tconcat("screenshots\\");
+    String shots_dir = game::pContext.app_root_dir.tconcat("screenshots\\");
     bool? sucess = fs::makeDirectory_IfNotExist(shots_dir);
     if(catch excuse = sucess) { // will ignore if the directory already exists
         log::warning(FILE, "Cannot create screenshots directory at: %s!\n\t -> excuse: %s", 
@@ -483,7 +505,7 @@ fn void moveScreenShots()
     }
     
     // count how many shots are in the work directory (where the .exe is...)
-    RLFilePathList files = fs::loadDirectoryFilesEx(game::pContext.app_work_dir, ".png", scanSubdirs: false);
+    RLFilePathList files = fs::loadDirectoryFilesEx(game::pContext.app_root_dir, ".png", scanSubdirs: false);
     for(int i = 0; i < (int)files.count; i++) {
         // move the images to the screenshot folder
         String file_shot_path = ((ZString)files.paths[i]).str_view();
@@ -643,10 +665,7 @@ $endif
         self.updateBounds();
     }
 
-    if (input::getAction("pp_graysacle").fnBecameTriggered()) {
-        self.enable_grayscale = !self.enable_grayscale;
-        //log::info(CONSOLE, "grayscale: %s", (self.enable_grayscale) ? "on" : "off");
-    }
+    if (input::getAction("pp_graysacle").fnBecameTriggered()) self.enable_grayscale = !self.enable_grayscale;
 }
 
 fn void RenderView.updateBounds(&self) 
@@ -689,15 +708,16 @@ fn void RenderView.renderFrameBuffersObjects(&self)
 fn void RenderView.draw(&self)
 {
     // NOTE: Render texture must be y-flipped due to default OpenGL coordinates (left-bottom)
+	// UPDATE(HM, 05/06/2023) NOT anymore, that is done at the shader level now
     foreach(layer : layers) 
     {
-        if(self.enable_grayscale) {
-            self.grayscale.@apply() {
-                rl::drawTextureRec(layer.data.texture, { 0, 0, (float)self.w, (float)-self.h }, { 0, 0 }, rl::WHITE);
-            };
-        } else {
-            rl::drawTextureRec(layer.data.texture, { 0, 0, (float)self.w, (float)-self.h }, { 0, 0 }, rl::WHITE);
-        }
+        //if(self.enable_grayscale) {
+          //  self.grayscale.@apply() {
+            //    rl::drawTextureRec(layer.data.texture, { 0, 0, (float)self.w, (float)self.h }, { 0, 0 }, rl::WHITE);
+            //};
+        //} else {
+            rl::drawTextureRec(layer.data.texture, { 0, 0, (float)self.w, (float)self.h }, { 0, 0 }, rl::WHITE);
+        //}
     }
 }
 
@@ -830,7 +850,7 @@ fn void renderLayersFBOs(RenderView* view) @local
                     renderPostSceneLayer(view);
                 case "gui":
                     renderGuiLayer(view);
-                case "postgui": 
+                case "postgui":
                     renderPostGuiLayer(view);
                 case "debug":
                     renderDebugLayer(view);
@@ -853,7 +873,6 @@ fn void renderMainGameLayer(RenderView* view) @local
 $if $defined(ENABLE_CAMERA_VIEW):
         rl::beginMode2D(view.camera);
 $endif
-
         // draw general game sprites
         if(game::pContext.sprites.len()) 
         {
@@ -861,13 +880,15 @@ $endif
             {
                 if(sprite.kind == SpriteKind.CURSOR) { continue; } // skip game cursor sprite
                 
-                 bool out_of_view = !view.bounds.intersectsOther(&sprite.bounds);
+                bool out_of_view = !view.bounds.intersectsOther(&sprite.bounds);
                 if(out_of_view) {
                     sprite.hide();
-                } else if(sprite.hidden()) { 
-                    sprite.show(); 
-                } else {
-                    if(sprite.hasMaterial())
+                } 
+				else 
+				{
+					if(sprite.hidden()) sprite.show(); 
+                    sprite.draw(); 
+                    /*if(sprite.hasMaterial())
                     {
                         int sort = (int)sprite.mat.sort;
                         if(sort <= old_sort) 
@@ -887,7 +908,7 @@ $endif
                     else // draw with no material using the default shader
                     {
                         sprite.draw(); 
-                    }
+                    }*/
                 }
             }
         }
@@ -1022,10 +1043,11 @@ struct HMPostProcess
 fn void HMPostProcess.loadPPShader(&self, String _name) 
 {
     String shader_path = game::pContext.app_base_folder.tconcat(SHADERS_FOLDER).tconcat(_name).tconcat(".fs");
-    self.shader = glsl::loadShader("", shader_path);
+    shader_path = path::normalize(shader_path)!!;
+	self.shader = glsl::loadShader("", shader_path);
     if(rl::isShaderValid(self.shader)) {
         self.name = _name.tcopy();
-        self.id = (uint)pplist.len(); // we use the past list lenght as the index. Because is 1 minus the current lenght like what indices are... 
+        self.id = (uint)pplist.len() + 1; // we use the past list lenght as the index. Because is 1 minus the current lenght like what indices are... 
         pplist.push(self);
     } else {
         unreachable("failed to load required post process shader %s!", _name);
@@ -1035,7 +1057,8 @@ fn void HMPostProcess.loadPPShader(&self, String _name)
 fn void HMPostProcess.unload(&self) 
 {
     if(rl::isShaderValid(self.shader))  glsl::unloadShader(&self.shader);
-    pplist[self.id] = null;
+	int idx = (int)self.id - 1;
+    pplist[idx] = null;
     if(self.id) self.id = 0;
     self.name = "";
 }
@@ -1067,6 +1090,9 @@ fn void HMPostProcess.update(&self) {
   @todo();
 }
 
+<*
+	@require rl::isShaderValid(self.shader)
+*>
 macro HMPostProcess.@apply(&self, RenderTexture* layer = null; @body) {
     //self.shader.setUniformTexture("texture0", layer.texture);
     //game::pContext.current_global_shader = &self.shader;

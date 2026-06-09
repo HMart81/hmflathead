@@ -764,10 +764,10 @@ constdef RLTextureFilter : inline CInt
 // RLTexture parameters: wrap mode
 constdef RLTextureWrap : inline int
 {
-    REPEAT = 0,                    // Repeats texture in tiled mode
-    CLAMP,                     // Clamps texture to edge pixel in tiled mode
-    MIRROR_REPEAT,             // Mirrors and repeats the texture in tiled mode
-    MIRROR_CLAMP               // Mirrors and clamps to border the texture in tiled mode
+    REPEAT = 0,    // Repeats texture in tiled mode
+    CLAMP,         // Clamps texture to edge pixel in tiled mode
+    MIRROR_REPEAT, // Mirrors and repeats the texture in tiled mode
+    MIRROR_CLAMP   // Mirrors and clamps to border the texture in tiled mode
 }
 
 // Cubemap layouts
@@ -1022,8 +1022,13 @@ fn RLMatrix getCameraMatrix(RLCamera camera) @cname("GetCameraMatrix");         
 fn RLMatrix getCameraMatrix2D(RLCamera2D camera) @cname("GetCameraMatrix2D");                 // Get camera 2d transform matrix
 
 // Timing-related functions
+<*
+	@require rl::isWindowReady() == true
+*>
 fn void setTargetFPS(CInt fps) @cname("SetTargetFPS");                                     // Set target FPS (maximum)
+
 fn CInt getFPS() @cname("GetFPS");                                                          // Get current FPS
+
 <*
 	Get time in seconds for last frame drawn (delta time)
 	@require rl::isWindowReady() == true

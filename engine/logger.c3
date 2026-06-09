@@ -114,7 +114,7 @@ fn RLTraceLogLevel getLevelFromString(String str) @MyInline {
 // plus sets where the log file is saved as well.
 fn void initGlobalLoggingDir() @MyInline @local
 {
-    gpath = rl::getWorkingDirectory().str_view().tconcat(platf::PATHSEPERATOR_STR+++"debug.log").zstr_tcopy();
+    gpath = rl::getApplicationDirectory().str_view().tconcat(platf::PATHSEPERATOR_STR+++"debug.log").zstr_tcopy();
 }
 
 fn void init(RLTraceLogLevel level) @MyInline

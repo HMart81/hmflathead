@@ -176,6 +176,9 @@ fn bool? traverse(Path p, bool is_dir, HMDirectory* dr) @local
 
 fn bool? is_hidden_file_or_folder(Path path) @local
 {
+	bool is_dot_folder = path.basename().starts_with(".");
+	if(is_dot_folder) return true;
+
     $if env::WIN32:
         Win32_FILE_ATTRIBUTE_DATA fileInfo;
         Win32_BOOL sucess = win32::getFileAttributesExW(path.to_temp_wstring(), Win32_GET_FILEEX_INFO_LEVELS.STANDARD, &fileInfo)!;
@@ -189,27 +192,36 @@ fn bool? is_hidden_file_or_folder(Path path) @local
     $endif
 }
 
-fn HMDirectory*? addDirectory(String folder_path) {
+fn HMDirectory*? addDirectory(String folder_path, String root = "",  bool add_child_dirs = false) {
     HMDirectory* dir = mem::new(HMDirectory);
-    dir.path = path::tnew(folder_path)!;
+	String full_path;
+	if(root != "") {
+		full_path = root.tconcat("//").tconcat(folder_path);
+	} else {
+		full_path = folder_path;
+	}
+    dir.path = path::normalize(path::tnew(full_path)!).to_tpath()!;
     dir.name = dir.path.basename();
     dir.id   = (int)local_directories.len();
     defer local_directories.push(dir);
 
-    PathList paths = listDirectoryPaths(dir.path)!;
-    foreach(_path : paths) 
-    {
-        if(path::is_dir(_path))
-        {
-            if(is_hidden_file_or_folder(_path)! || _path.basename().starts_with(".")) {
-                continue;
-            } else {
-                dir.directories.push(_path);
-            }
-        } else {
-            dir.files.push(_path);
-        }
-    }
+    PathList child_paths = listDirectoryPaths(dir.path)!;
+	if(child_paths.len() && add_child_dirs) 
+	{
+		foreach(it : child_paths)
+		{
+			if(path::is_dir(it))
+			{
+				if(is_hidden_file_or_folder(it)!) {
+					continue; // is not a valid folder ignore it
+				} else {
+					dir.directories.push(it);
+				}
+			} else {
+				dir.files.push(it);
+			}
+		}
+	}
     return dir;
 }
 
@@ -220,6 +232,11 @@ fn HMDirectory*? getDirectoryByid(int id) {
     return FS_FAILED_GET_DIR~;
 }
 
+<*
+	Use getDirectoryByid in performance sensitive code... 
+	@param [in] name : "name of directory"
+	@require name.len > 0
+*>
 fn HMDirectory*? getDirectoryByName(String name) {
     foreach(dir : local_directories) {
         if(dir.name == name) return dir;
@@ -227,6 +244,7 @@ fn HMDirectory*? getDirectoryByName(String name) {
     return FS_FAILED_GET_DIR~;
 }
 
+//@performance!!!! May be slow for large paths...
 fn HMDirectory*? getDirectoryByPath(Path path) {
     foreach(dir : local_directories) {
         if(dir.path == path) return dir;
@@ -603,15 +621,17 @@ fn String getWorkingDirectory() @inline {
     }
     return result.tcopy();
 }
+
 // Get the directory of the running application (uses static string)
 // This is the directory where the executable is really located.
-fn ZString getApplicationDirectory() @inline {
+fn String getApplicationDirectory() @inline {
     String result = rl::getApplicationDirectory().str_view();
     if(!(result.ends_with("/") || result.ends_with("\\"))) {
         result = result.tconcat("\\");
     }
-    return result.zstr_tcopy();
+    return result.tcopy();
 }
+
 // Create directories (including full path requested), returns true on success
 fn bool? makeDirectory_IfNotExist(String dirPath) {
     if(rl::directoryExists(dirPath.zstr_tcopy())) {
@@ -756,8 +776,8 @@ fn void moveFiles(String from, String to, String fileExtensions = "")
             to = to.tconcat("\\");
         }
         
-        String files_dir = game::pContext.app_work_dir.tconcat(from);
-        String files_to  = game::pContext.app_work_dir.tconcat(to);
+        String files_dir = game::pContext.app_root_dir.tconcat(from);
+        String files_to  = game::pContext.app_root_dir.tconcat(to);
 
         bool? sucess = fs::makeDirectory_IfNotExist(files_to);
         if(catch excuse = sucess) { // will ignore if the directory already exists

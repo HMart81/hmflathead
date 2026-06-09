@@ -211,7 +211,7 @@ fn void ConfigFile.register(&self, IniSection* section) @inline {
 *>
 fn IniSection*? ConfigFile.createSection(&self, String name) @nodiscard
 {
-    if(self.hasSection(name)) {
+    if(try self.hasSection(name)) {
         log::warning(FILE, "Ignoring creation of Section %s, because already exists in config file %s.", name, self.path);
         return self.getSection(name)!;
     }
@@ -284,16 +284,7 @@ fn IniSection*? ConfigFile.getSection(&self, String name)
 <*
   @param [in] name : " name of the new section to look for"
 *>
-fn IniSection* ConfigFile.hasSection(&self, String name)
-{
-	IniSection*? result = self.getSection(name);
-	if(catch excuse = result) {
-		log::warning(CONSOLE, "looking for section %s but none was found. excuse: %s", name, excuse);
-		return null;
-	} else {
-		return result;
-	}
-}
+fn IniSection*? ConfigFile.hasSection(&self, String name) => self.getSection(name);
 
 <*
     @param [in] name : `The section name to add the cmd to`
@@ -302,7 +293,7 @@ fn IniSection* ConfigFile.hasSection(&self, String name)
 *>
 fn void ConfigFile.addToSectionByName(&self, String name, IniCMD* _cmd)
 {
-    if(self.hasSection(name))
+    if(try self.hasSection(name))
     {
         IniSection*? section = self.getSection(name);
 		if(catch excuse = section) {
@@ -380,7 +371,7 @@ fn String ConfigFile.getValue(&self, String key, String default_value = "")
 *>
 fn float? ConfigFile.getFloat(&self, String section_name, String key, float default_value = 0.0f) 
 {
-	if(IniSection* sect = self.hasSection(section_name), sect) {
+	if(IniSection* sect = self.hasSection(section_name)!, sect) {
 		return sect.getCmd(key)!.toFloat()!;
 	}
 	
@@ -426,7 +417,7 @@ fn float? ConfigFile.getFloat(&self, String section_name, String key, float defa
 *>
 fn int? ConfigFile.getInt(&self, String section_name, String key, int default_value = -1) 
 {
-	if(IniSection* sect = self.hasSection(section_name), sect) {
+	if(IniSection* sect = self.hasSection(section_name)!, sect) {
 		return sect.getCmd(key)!.toInt()!;
 	}
 	
@@ -466,10 +457,11 @@ fn int? ConfigFile.getInt(&self, String section_name, String key, int default_va
 }
 
 <*
- @param [in] key : `The cmd name`
- @require key != ""
+	@param [in] section_name : `The cmd name`
+	@param [in] key : `The cmd name`
+	@require section_name != "" && key != ""
 *>
-fn bool? ConfigFile.getBool(&self, String key, bool default_value = false) 
+fn bool? ConfigFile.getBool(&self, String section_name, String key, bool default_value = false) 
 {
     ListIniCMDPrts* child_cmds;
 
@@ -597,7 +589,12 @@ fn void ConfigFile.setValue(&self, String key, String value)
 *>
 fn void setBool(ConfigFile* cfg, String section, String key, bool value)
 {
-	if(cfg.hasSection(section) == null) {
+	if(try sect = cfg.hasSection(section)) {
+		cfg.addToSection(sect, mem::new(IniCMD, {
+			.type = BOOLEAN,
+			.cmd  = (IniCmdData){ key, (value) ? "1" : "0" }
+		}));
+	} else {
 		cfg.addToSection(cfg.createSection(section)!!, mem::new(IniCMD, {
 			.type = BOOLEAN,
 			.cmd  = (IniCmdData){ key, (value) ? "1" : "0" }
@@ -613,9 +610,14 @@ fn void setBool(ConfigFile* cfg, String section, String key, bool value)
 *>
 fn void setInt(ConfigFile* cfg, String section, String key, int value)
 {
-	if(cfg.hasSection(section) == null) 
+	String val = string::tformat("%s", value);
+	if(try sect = cfg.hasSection(section))
 	{
-		String val = string::tformat("%s", value);
+		cfg.addToSection(sect, mem::new(IniCMD, {
+			.type = INT,
+			.cmd  = (IniCmdData){ key, val }
+		}));
+	} else {
 		cfg.addToSection(cfg.createSection(section)!!, mem::new(IniCMD, {
 			.type = INT,
 			.cmd  = (IniCmdData){ key, val }
@@ -631,9 +633,14 @@ fn void setInt(ConfigFile* cfg, String section, String key, int value)
 *>
 fn void setFloat(ConfigFile* cfg, String section, String key, float value)
 {
-	if(cfg.hasSection(section) == null) 
+	String val = string::tformat("%s", value);
+	if(try sect = cfg.hasSection(section)) 
 	{
-		String val = string::tformat("%s", value);
+		cfg.addToSection(sect, mem::new(IniCMD, {
+			.type = FLOAT,
+			.cmd  = (IniCmdData){ key, val }
+		}));
+	} else {
 		cfg.addToSection(cfg.createSection(section)!!, mem::new(IniCMD, {
 			.type = FLOAT,
 			.cmd  = (IniCmdData){ key, val }
@@ -649,8 +656,12 @@ fn void setFloat(ConfigFile* cfg, String section, String key, float value)
 *>
 fn void setString(ConfigFile* cfg, String section, String key, String value)
 {
-	if(cfg.hasSection(section) == null) 
-	{
+	if(try sect = cfg.hasSection(section)) {
+		cfg.addToSection(sect, mem::new(IniCMD, {
+			.type = INT,
+			.cmd  = (IniCmdData){ key, value }
+		}));
+	} else {
 		cfg.addToSection(cfg.createSection(section)!!, mem::new(IniCMD, {
 			.type = INT,
 			.cmd  = (IniCmdData){ key, value }
@@ -952,7 +963,7 @@ fn void parse_section_name(String line, ConfigFile* file) @local
         
         // see if the parent section already exists
         // if it does, we just link the child section to it
-        if(parent = file.hasSection(parent_section_name), parent) {
+        if(try parent_ = file.hasSection(parent_section_name)) {
             //parent = file.getSection(parent_section_name);
 			//found parent go on
         } else {

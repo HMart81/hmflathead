@@ -540,44 +540,49 @@ fn void HMSprite.draw(&self)  @inline
     {
         if(self.flags.isHidden) return;
 
-        RLRectangle rect = self.rect;
-        
-        //$if $defined(DEBUG_SPRITES):
-            //r2d::drawRectangleLinesEx(rect, 1.0f, rl::RED);
-        //$endif
+        RLRectangle* rect = &self.rect;
+		RLRectangle* dist = rect;
         
         if(self.hasMaterial())
         {
             RLTexture2D* texture = self.mat.getTexture(MTexture.DIFFUSE);
             assert(texture && *texture != rl::INVALID_TEXTURE, "HMSprite material '%s' has no diffuse texture.", self.mat.name);
-            Vec2f texture_size   = texture.getSize(); //{ texture.width, texture.height };
+            
+			Vec2f texture_size   = texture.getSize();
             RLRectangle source   = { 0, 0, texture_size.x, texture_size.y };
-            RLRectangle* dist    = &rect;
+            
 
             MatStage* diffuse_stage = self.mat.getStage(MStageType.DIFFUSE);
             assert(diffuse_stage != null, "RLMaterial diffuse stage is null for material '%s'.", self.mat.name);
-            RLColor color = diffuse_stage.color;
+            
+			RLColor color = diffuse_stage.color;
 
-            // Todo(HM) Right now, we only do blending per material but we could do it per stage
-            // so for example we could have a material with multiple diffuse stages and each stage 
-            // could have its own blending mode. This would allow us to have more complex materials.
+            // TODO(HM) Right now, we only do blending per material 
+			// but we should do it per stage in the future...
+            // for example, we could have a material with multiple diffuse stages 
+			// and each stage could have its own blending mode. 
+			// This would allow us to have more complex materials.
             RLBlendMode blending;
             Coverage coverage = self.mat.coverage;
-            switch
+			bool has_alpha_testing = self.coverageSet(Coverage.PERFORATED);
+			bool not_has_alpha_testing = !has_alpha_testing;
+			bool is_opaque          = self.coverageSet(Coverage.OPAQUE);
+			bool is_translucent     = self.coverageSet(Coverage.TRANSLUCENT);
+			bool not_is_translucent = !is_translucent;
+			switch
             {
-                case self.coverageSet(Coverage.OPAQUE) && !self.coverageSet(Coverage.PERFORATED):
-                case self.coverageSet(Coverage.OPAQUE) && self.coverageSet(Coverage.PERFORATED):
+                case is_opaque && (not_has_alpha_testing || has_alpha_testing):
                 //case diffuse_stage.drawStateBits & mat::BLEND_NONE:
                     break; // do nothing here
-                case self.coverageSet(Coverage.PERFORATED) && !self.coverageSet(Coverage.TRANSLUCENT):
+                case has_alpha_testing && not_is_translucent:
                     blending = RLBlendMode.ALPHA;
-                case self.coverageSet(Coverage.TRANSLUCENT) && !self.coverageSet(Coverage.PERFORATED):
+                case is_translucent && not_has_alpha_testing:
                 //case diffuse_stage.drawStateBits & mat::BLEND_BLEND:
                     blending = RLBlendMode.ALPHA_PREMUL;
-                case self.coverageSet(Coverage.TRANSLUCENT) && self.coverageSet(Coverage.PERFORATED):
+                case is_translucent && has_alpha_testing:
                     blending = RLBlendMode.CUSTOM_SEPARATE; // use the custom blending mode
                 case self.coverageSet(Coverage.BAD):
-                    log::error(Where.FILE, "Panel with material %s has a bad material coverage type.", self.mat.name);
+                    log::error(FILE, "Sprite material %s has a bad material coverage type.", self.mat.name);
                     unreachable();
             }
 
@@ -602,12 +607,10 @@ fn void HMSprite.draw(&self)  @inline
                 {
                     // NOTE(HM) center of the texture (rotation/scale point), 
                     // it's relative to destination rectangle dimentions, not the screen dimentions.
-                    rl::drawTexturePro(*texture, source, rect, {0, 0}, 0.0f, color);
+                    rl::drawTexturePro(*texture, source, *rect, {0, 0}, 0.0f, color);
                 };
             } else { // no blending/Opaque (or perfurated as well)
-                // NOTE(HM) center of the texture (rotation/scale point), 
-                // it's relative to destination rectangle dimentions, not the screen dimentions.
-                rl::drawTexturePro(*texture, source, rect, {0, 0}, 0.0f, color);
+                rl::drawTexturePro(*texture, source, *rect, {0, 0}, 0.0f, color);
             }
         } 
         else // draw simple flat shape
