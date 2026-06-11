@@ -1046,10 +1046,12 @@ fn double getTime() @cname("GetTime");
 // To avoid that behaviour and control frame processes manually, enable in config.h: SUPPORT_CUSTOM_FRAME_CONTROL
 fn void swapScreenBuffer() @cname("SwapScreenBuffer");                                    // Swap back buffer with front buffer (screen drawing)
 fn void pollInputEvents() @cname("PollInputEvents");                                      // Register all input events
-fn void waitTime(float ms) @cname("WaitTime");                                             // Wait for some milliseconds (halt program execution)
+// Wait for some milliseconds (halt program execution)
+fn void waitTime(float ms) @cname("WaitTime");
 
-// Random values generation functions
-fn CInt getRandomValue(CInt min, CInt max) @cname("GetRandomValue");                          // Get a random value between min and max (both included)
+// Random values generation functions:
+// Get a random value between min and max (both included)
+fn CInt getRandomValue(CInt min, CInt max) @cname("GetRandomValue");                          
 fn void setRandomSeed(CUInt seed) @cname("SetRandomSeed");                                  // Set the seed for the random number generator
 fn CInt* loadRandomSequence(CUInt count, CInt min, CInt max) @cname("LoadRandomSequence");     // Load random values sequence, no values repeated
 fn void unloadRandomSequence(CInt *sequence) @cname("UnloadRandomSequence");                // Unload random values sequence

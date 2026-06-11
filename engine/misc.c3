@@ -72,6 +72,30 @@ macro unurdered_remove(List{Typ}* list, usz index) <Typ>
 	(*list).remove_last();
 }
 
+alias Predicate <Type> = fn bool(Type);
+<*
+	Random Scoring see: https://youtu.be/SL4MzRbNdmk?t=1424
+*>
+fn Type? selectRandomValid(Type[] items, Predicate{Type} is_valid) <Type>
+{
+	int best_score = -1;
+	Type? best_thing;
+
+	foreach(Type item : items) {
+		if(isValid(item))
+		{
+			int score = rl::getRandomValue(0, items.len);
+			if(score > best_score)
+			{
+				best_score = score;
+				best_thing = item;
+			}
+		}
+	}
+
+	return best_thing;
+}
+
 attrdef  @MyInline @if($feature(_RELEASE)) = @inline;
 attrdef  @MyInline @if($feature(_DEBUG));
 

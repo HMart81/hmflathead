@@ -51,6 +51,24 @@ faultdef INVALID_ASSETS_PATH_STRING,
 	     MISSING_ASSET;
 
 
+
+// NOTE(HM) 
+// If this is changed need to update FILE_EXTENSIONS_ARRAY in hm_lib_funcs.c3 as well.
+constdef FileExtension : inline String
+{
+	PNG = ".png",
+	JPG = ".jpg",
+	TGA = ".tga",
+	DDS = ".dds",
+	BMP = ".bmp",
+	MP3 = ".mp3",
+	VS  = ".vs" ,
+	FS  = ".fs" ,
+	WAV = ".wav",
+	OGG = ".ogg",
+	FNT = ".fnt"
+}
+
 struct Asset <Type>
 {
 	String name;
@@ -59,36 +77,7 @@ struct Asset <Type>
 	Type   data;
 }
 
-// NOTE(HM) 
-// If this is changed need to update FILE_EXTENSIONS_ARRAY in hm_lib_funcs.c3 as well.
-enum FileExtension : int (String str)
-{
-	PNG {".png"},
-	JPG {".jpg"},
-	TGA {".tga"},
-	DDS {".dds"},
-	BMP {".bmp"},
-	MP3 {".mp3"},
-	VS  {".vs" },
-	FS  {".fs" },
-	WAV {".wav"},
-	OGG {".ogg"},
-	FNT {".fnt"}
-}
 
-/*const String[*] VALID_ASSET_EXTENSIONS = {
-	".png",
-	".jpg",
-	".tga",
-	".dds",
-	".bmp",
-	".mp3",
-	".vs",
-	".fs",
-	".wav",
-	".ogg",
-	".fnt"
-};*/
 
 
 // TODO(HM) Support more asset types, like the new HMaterial, etc.
@@ -533,7 +522,7 @@ fn RLMusic* Manager.getMusic(&self, String name) @nodiscard @inline
 
 <*
     @param [in] name : "name of the font with extension included"
-    @require name.contains(".") && fs::getFileExtension(name) == FileExtension.FNT.str
+    @require name.contains(".") && fs::getFileExtension(name) == FileExtension.FNT
 	@ensure return != null
 *>
 fn RLFont* Manager.getFont(&self, String name) @nodiscard /*@inline*/ 
@@ -744,11 +733,11 @@ fn void? loadAssetsRecursively(String basepath, String parent_folder = "") /*@in
 			bool valid_file;
 			
 			FileExtension extension;
-			foreach(ext : FileExtension::values)
+			foreach(ext_str : FileExtension::values)
 			{
-				if(extension_str == ext.str) { 
+				if(extension_str == ext_str) { 
 					valid_file = true;
-					extension = ext;
+					extension = ext_str;
 					break; 
 				}
 			}
