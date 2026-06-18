@@ -778,3 +778,35 @@ fn void on_audio(VideoPlayer* mpeg, PLMsamples *samples, void *user)
 	var video @safeinfer = (VidMovie *)user;
 	video.updateAudio(samples);
 }
+
+
+
+/*
+Todo put this into the game side of things!!!!!!!!!
+/// for gif animations
+module game::image_anim::animstrip @private;
+
+// Pseudocode for sprite animation loop
+struct HMAnimStrip @public
+{
+	float frameTimer @private;
+	int currentFrame @private;
+	int totalFrames;
+	float frameDuration; // seconds per frame
+}
+
+fn void HMAnimStrip.update(&self) 
+{
+	self.frameTimer += game::gpGame.frameTime();
+    
+    if (self.frameTimer >= self.frameDuration) {
+        self.frameTimer = 0;
+        self.currentFrame = (self.currentFrame + 1) % self.totalFrames;
+    }
+}
+
+fn void HMAnimStrip.draw() 
+{
+	// Calculate source rectangle based on currentFrame
+    // Draw the specific frame using DrawTexturePro
+}

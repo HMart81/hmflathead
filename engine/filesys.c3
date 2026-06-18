@@ -568,19 +568,34 @@ fn bool fileExists(String fileName) @inline {
 fn bool directoryExists(String dirPath) @inline {
     return rl::directoryExists(dirPath.zstr_tcopy());
 }
-// Check file extension (including point: .png, .wav)
-fn bool isFileExtension(String fileName, ZString ext) @inline {
-    return rl::isFileExtension(fileName.zstr_tcopy(), ext);
-}
+
 // Get file size in bytes
 fn uint getFileSize(String fileName) @inline {
     CInt result = rl::getFileLength(fileName.zstr_tcopy());
     return (result) ? (uint)result : 0u;
 }
+
 // Get string view of extension for a filename (includes dot: '.png')
 fn String getFileExtension(String fileName) @inline {
     return rl::getFileExtension(fileName.zstr_tcopy()).str_view();
 }
+
+// Check file extension (including point: .png, .wav)
+fn bool isFileExtension(String fileName, ZString ext) @inline {
+    return rl::isFileExtension(fileName.zstr_tcopy(), ext);
+}
+
+<*
+	@param [in] str : "string to remove extension"
+*>
+fn String remove_extension(String str) @inline {
+	if(!str.contains(".")) {
+		log::warning(FILE, "Trying to remove extension from '%s' but it has none", str);
+		return str;
+	}
+	return str.strip_end(getFileExtension(str));
+}
+
 // Get string view for a filename for a path string
 fn String getFileName(String filePath) {
     return rl::getFileName(filePath.zstr_tcopy()).str_view();
@@ -589,10 +604,12 @@ fn String getFileName(String filePath) {
 fn ZString getFileNameZstr(String filePath) @inline {
     return rl::getFileName(filePath.zstr_tcopy());
 }
+
 // Get filename string view without extension (uses static string)
 fn String getFileNameWithoutExt(String filePath) @inline {
     return rl::getFileNameWithoutExt(filePath.zstr_tcopy()).str_view();
 }
+
 // Get full path for a given fileName with path (uses static string)
 fn ZString getDirectoryPath(ZString filePath) @inline {
     String result = string::tformat("%s", rl::getDirectoryPath(filePath));

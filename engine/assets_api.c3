@@ -41,53 +41,35 @@ import engine::misc;
 import engine::telemetry::telem;
 import engine::sys::framework::glsl;
 
-faultdef INVALID_ASSETS_PATH_STRING,
-	     MALFORMED_PATHS_FILE,
-	     UNKNOWN_FOLDER,
-	     FOLDER_SCAN_ERROR,
-	     ASSET_LOAD_ERROR,
-	     SMALL_ASSET_PATH,
-	     ASSET_RETRIVAL_ERROR,
-	     MISSING_ASSET;
+faultdef ASSETS_MALFORMED_PATH_STRING,
+	     ASSETS_MALFORMED_FILE,
+	     ASSETS_UNKNOWN_FOLDER,
+	     ASSETS_FOLDER_SCAN_ERROR,
+	     ASSETS_LOAD_ERROR,
+	     ASSETS_SMALL_PATH,
+	     ASSETS_ASSET_RETRIVAL_ERROR,
+	     ASSETS_MISSING_ASSET;
 
 
-
-// NOTE(HM) 
-// If this is changed need to update FILE_EXTENSIONS_ARRAY in hm_lib_funcs.c3 as well.
-constdef FileExtension : inline String
-{
-	PNG = ".png",
-	JPG = ".jpg",
-	TGA = ".tga",
-	DDS = ".dds",
-	BMP = ".bmp",
-	MP3 = ".mp3",
-	VS  = ".vs" ,
-	FS  = ".fs" ,
-	WAV = ".wav",
-	OGG = ".ogg",
-	FNT = ".fnt"
-}
+// TODO(HM) 
+	// should use extension to support diferent types of assets with the same name, 
+	// diferentiate them using their extension.
 
 struct Asset <Type>
 {
 	String name;
 	String path;
-    typeid type;
 	Type   data;
 }
 
-
-
-
 // TODO(HM) Support more asset types, like the new HMaterial, etc.
-alias AssetTextureListPtr = List{Asset{RLTexture2D}*};
-alias AssetSoundListPtr   = List{Asset{RLSound}*};
-alias AssetMusicListPtr   = List{Asset{RLMusic}*};
-alias AssetFontListPtr    = List{Asset{RLFont}*};
-alias AssetShaderListPtr  = List{Asset{RLShader}*};
+alias AssetTextureListPtr @local = List{Asset{RLTexture2D}*};
+alias AssetSoundListPtr   @local = List{Asset{RLSound}*};
+alias AssetMusicListPtr   @local = List{Asset{RLMusic}*};
+alias AssetFontListPtr    @local = List{Asset{RLFont}*};
+alias AssetShaderListPtr  @local = List{Asset{RLShader}*};
 
-struct Manager 
+struct AssetLibrary
 {
 	AssetTextureListPtr textures; // list of texture assets 
     AssetSoundListPtr   sounds;   // list of sound assets
@@ -96,14 +78,14 @@ struct Manager
     AssetShaderListPtr  shaders;  // list of shader assets
 }
 
-Manager local_manager @local;
-Manager* assetManager = &local_manager;
+AssetLibrary local_library @local;
+AssetLibrary* assets_library = &local_library;
 
 <*
 	@param [inout] asset : "the asset to register, must be a pointer to an Asset struct of a supported type, like Asset{RLTexture2D}* for example."
 	@require asset.ptr != null
 *>
-fn void Manager.register(&self, any asset)
+fn void AssetLibrary.register(&self, any asset)
 {
     switch(asset.type)
     {
@@ -118,11 +100,11 @@ fn void Manager.register(&self, any asset)
         case RLShader:
             self.shaders.push((Asset{RLShader}*)asset.ptr);
         default:
-            log::error(FILE, "Trying to register an asset of unknown type!");
+            log::fatal(FILE, "Trying to register an asset of unknown type!");
     }
 }
 
-fn void Manager.listAssets(&self) @if($feature(_DEBUG)) 
+fn void AssetLibrary.listAssets(&self) @if($feature(_DEBUG)) 
 {
     /*
 	AssetListPtr texture_assets;
@@ -202,76 +184,32 @@ fn void Manager.listAssets(&self) @if($feature(_DEBUG))
 // when that is done, I will have to change this to only load assets at level load,
 // for now getting them hot from RAM, is very fast, compared
 // to reading the data from the HD/SSD/MD2 drive.
-fn void Manager.releaseAllAssets(&self) @inline 
+fn void AssetLibrary.releaseAllAssets(&self)
 {
-    if (self.textures.len() > 0) {
-        foreach(texture: self.textures) {
-            rl::unloadTexture(texture.data);
-        }
-        self.textures.free();
-    }
-    if (self.shaders.len() > 0) {
-        foreach(shader: self.shaders) {
-            rl::unloadShader(shader.data);
-        }
-        self.shaders.free();
-    }
-    if (self.sounds.len() > 0) {
-        foreach(sound: self.sounds) {
-            rl::unloadSound(sound.data);
-        }
-        self.sounds.free();
-    }
-    if (self.musics.len() > 0) {
-        foreach(music: self.musics) {
-            rl::unloadMusicStream(music.data);
-        }
-        self.musics.free();
-    }
-    if (self.fonts.len() > 0) {
-        foreach(font: self.fonts) {
-            rl::unloadFont(font.data);
-        }
-        self.fonts.free();
-    }
-}
-
-/*
-<*
-@require self.assets.len() > 0
-*>
-fn Asset* Manager.getAsset(&self, String name, typeid type) @local /*@inline*/ 
-{
-$if $feature(_DEBUG):
-	bool failed = true;
-$endif
-	
-	foreach(asset: self.assets)
-    {
-        if(asset.data.type != type) continue; // skip assets that are not of the requested type
-
-		String asset_name = asset.name;
-		
-		if(asset_name == name) 
-        {
-$if $feature(_DEBUG):		
-		failed = false;
-$endif
-			return asset;
-		}
-	} //foreach
-
-$if $feature(_DEBUG):
-	if(failed) { // to get a valid asset panic
-		unreachable();
+	switch {
+		case self.textures.len() > 0:
+			foreach(texture: self.textures) rl::unloadTexture(texture.data);
+			self.textures.free();
+			nextcase;
+		case self.shaders.len() > 0:
+			foreach(shader: self.shaders) rl::unloadShader(shader.data);
+			self.shaders.free();
+			nextcase;
+		case self.sounds.len() > 0:
+			foreach(sound: self.sounds) rl::unloadSound(sound.data);
+			self.sounds.free();
+			nextcase;
+		case self.musics.len() > 0:
+			foreach(music: self.musics) rl::unloadMusicStream(music.data);
+			self.musics.free();
+			nextcase;
+		case self.fonts.len() > 0:
+			foreach(font: self.fonts) rl::unloadFont(font.data);
+			self.fonts.free();
 	}
-$endif
-	
-	return null;
 }
-*/
 
-fn any Manager.getAsset(&self, String name, typeid type)
+fn any AssetLibrary.getAsset(&self, String name, typeid type)
 {
     String needle = "/";
     if(name.contains(needle)) {
@@ -305,99 +243,55 @@ fn any Manager.getAsset(&self, String name, typeid type)
     }
 }
 
-/*
-fn any Manager.getAsset(&self, String name, typeid type)
+
+fn Type* get_asset(String name, AssetLibrary* lib) <Type>
 {
     String needle = "/";
     if(name.contains(needle)) {
         name = name.extractFileBase();
     }
 
-    if(self.hasAsset(name, type) == false) {
-        log::error(FILE, "Asset with name \"%s\" and type \"%s\" not found in the asset manager.", name, type);
+    if(lib.hasAsset(name, Type) == false) {
+        log::error(FILE, "Asset with name \"%s\" and type \"%s\" not found in the asset manager.", name, Type);
         return null;
     }
     
-	switch(type)
+	switch(Type)
     {
         case RLTexture2D:
-            foreach(texture: self.textures) {
+            foreach(texture: lib.textures) {
                 if(texture.name == name) {
-                    return any_make(&texture.data, texture.type);
+                    return (Type*)&texture.data;
                 }
             }
         case RLSound:
-            foreach(sound: self.sounds) {
+            foreach(sound: lib.sounds) {
                 if(sound.name == name) {
-                    return any_make(&sound.data, sound.type);
+                    return (Type*)&sound.data;
                 }
             }
         case RLMusic:
-            foreach(music: self.musics) {
+            foreach(music: lib.musics) {
                 if(music.name == name) {
-                    return any_make(&music.data, music.type);
+                    return (Type*)&music.data;
                 }
             }
         case RLFont:
-            foreach(font: self.fonts) {
+            foreach(font: lib.fonts) {
                 if(font.name == name) {
-                    return any_make(&font.data, font.type);
+                    return (Type*)&font.data;
                 }
             }
         case RLShader:
-            foreach(shader: self.shaders) {
+            foreach(shader: lib.shaders) {
                 if(shader.name == name) {
-                    return any_make(&shader.data, shader.type);
+                    return (Type*)&shader.data;
                 }
             }
     }
 	
 	return null;
 }
-*/
-
-/*
-fn bool Manager.hasAsset(&self, String name, typeid type) @inline 
-{
-    if(name == "") return false; // no asset name provided
-
-    switch(type)
-    {
-        case RLTexture2D:
-            foreach(texture: self.textures) {
-                if(texture.name == name) {
-                    return true;
-                }
-            }
-        case RLSound:
-           foreach(sound: self.sounds) {
-                if(sound.name == name) {
-                    return true;
-                }
-            }
-        case RLMusic:
-           foreach(music: self.musics) {
-                if(music.name == name) {
-                    return true;
-                }
-            }
-        case RLFont:
-           foreach(font: self.fonts) {
-                if(font.name == name) {
-                    return true;
-                }
-            }
-        case RLShader:
-           foreach(shader: self.shaders) {
-                if(shader.name == name) {
-                    return true;
-                }
-            }
-    }
-    
-    return false;
-}
-*/
 
 <*
 	Sees if a asset exists within the asset manager
@@ -407,7 +301,7 @@ fn bool Manager.hasAsset(&self, String name, typeid type) @inline
 	@param type : "type identification of the asset being serched for"
 	@require name != ""
 *>
-fn bool Manager.hasAsset(&self, String name, typeid type, int* index_out = null) /*@inline*/ @nodiscard
+fn bool AssetLibrary.hasAsset(&self, String name, typeid type, int* index_out = null) /*@inline*/ @nodiscard
 {
 	if(index_out) (*index_out) = -1;
 	
@@ -454,19 +348,18 @@ fn bool Manager.hasAsset(&self, String name, typeid type, int* index_out = null)
 }
 
 <*
+	@param name : "name of asset"
+	@require name.len > 0
 	@ensure return != null
 *>
-fn RLTexture2D* Manager.getTexture(&self, String name) @inline @nodiscard
+fn RLTexture2D* AssetLibrary.getTexture(&self, String name) @inline @nodiscard
 {
-    if(name != "") 
-    {
-        any asset = local_manager.getAsset(name, RLTexture2D);
-        if(asset.ptr != null) {
-            return (RLTexture2D*)&((Asset{RLTexture2D}*)asset.ptr).data;
-        }
+    RLTexture2D* tex = get_asset{RLTexture2D}(name, assets_library);
+	if(tex != null) {
+        return tex;
     }
     
-    log::warning(Where.FILE,  "[Asset Manager]: Requesting texture asset but returning default texture, because no asset name was provided.");
+    log::warning(FILE,  "[Asset AssetLibrary]: Requesting texture asset but returning default texture, because no asset name was provided.");
     return &game::pContext.default_texture;
 }
 
@@ -475,48 +368,46 @@ fn RLTexture2D* Manager.getTexture(&self, String name) @inline @nodiscard
     @require name != ""
     @ensure return != null
 *>
-fn RLShader* Manager.getShader(&self, String name) @nodiscard //@inline 
+fn RLShader* AssetLibrary.getShader(&self, String name) @nodiscard //@inline 
 {
-    any asset = local_manager.getAsset(name, RLShader);
-    if(asset.ptr != null) {
-        return (RLShader*)&((Asset{RLShader}*)asset.ptr).data;
+    RLShader* asset = get_asset{RLShader}(name, assets_library);
+    if(asset != null) {
+        return asset;
     }
 
-    log::warning(Where.FILE,  "[Asset Manager]: Requesting shader asset but returning default shader, because no asset name was provided.");
+    log::warning(FILE,  "[Asset AssetLibrary]: Requesting shader asset but returning default shader, because no asset name was provided.");
 	return &game::pContext.default_shader;
 }
 
 <*
-	@ensure return != null
+	@param name : "the name of the sound asset to retrieve"
+    @require name != ""
+    @ensure return != null
 *>
-fn RLSound* Manager.getSound(&self, String name) @nodiscard @inline 
+fn RLSound* AssetLibrary.getSound(&self, String name) @nodiscard @inline 
 {
-    if(name != "") 
-    {
-        any asset = local_manager.getAsset(name, RLSound);
-        if(asset.ptr != null) {
-            return (RLSound*)&((Asset{RLSound}*)asset.ptr).data;
-        }
+    RLSound* asset = get_asset{RLSound}(name, assets_library);
+    if(asset != null) {
+        return asset;
     }
 
-    log::warning(Where.FILE,  "[Asset Manager]: Requesting sound asset but returning default sound, because no asset name was provided.");
+    log::warning(FILE,  "[Asset AssetLibrary]: Requesting sound asset but returning default sound, because no asset name was provided.");
     return &game::pContext.default_sound;
 }
 
 <*
-	@ensure return != null
+	@param name : "the name of the music asset to retrieve"
+    @require name != ""
+    @ensure return != null
 *>
-fn RLMusic* Manager.getMusic(&self, String name) @nodiscard @inline 
+fn RLMusic* AssetLibrary.getMusic(&self, String name) @nodiscard @inline 
 {
-    if(name != "") 
-    {
-        any asset = local_manager.getAsset(name, RLMusic);
-        if(asset.ptr != null) {
-            return (RLMusic*)&((Asset{RLMusic}*)asset.ptr).data;
-        }
+    RLMusic* asset = get_asset{RLMusic}(name, assets_library);
+    if(asset != null) {
+        return asset;
     }
 
-    log::warning(Where.FILE,  "[Asset Manager]: Requesting music asset but returning default music, because no asset name was provided.");
+    log::warning(FILE,  "[Asset AssetLibrary]: Requesting music asset but returning default music, because no asset name was provided.");
     return &game::pContext.default_music;
 }
 
@@ -525,27 +416,14 @@ fn RLMusic* Manager.getMusic(&self, String name) @nodiscard @inline
     @require name.contains(".") && fs::getFileExtension(name) == FileExtension.FNT
 	@ensure return != null
 *>
-fn RLFont* Manager.getFont(&self, String name) @nodiscard /*@inline*/ 
+fn RLFont* AssetLibrary.getFont(&self, String name) @nodiscard /*@inline*/ 
 {
-	if(name != "") 
-    {
-		// shouldn't remove extension to support diferent types of assets
-        // with the same name, diferentiate them using their extension. 
-		//if(name.contains(".")) name = fs::getFileNameWithoutExt(name);
-
-        any asset = local_manager.getAsset(name, RLFont);
-        if(asset.ptr != null) {
-            Asset{RLFont}* font = asset.ptr;
-            return &font.data;
-            //return (RLFont*)&((Asset{RLFont}*)asset.ptr).data;
-        }
+	RLFont* asset = get_asset{RLFont}(name, assets_library);
+    if(asset != null) {
+        return asset;
     }
 
-    if(name != "") {
-		log::warning(FILE,  "[Asset Manager]: Requesting font %s but returning default font, because it was not found.", name);
-	} else {
-		log::warning(FILE,  "[Asset Manager]: Requesting font asset but returning default font, because no asset name was provided.");
-	}
+	log::warning(FILE,  "[Asset AssetLibrary]: Requesting font %s but returning default font, because it was not found.", name);
     return &game::pContext.default_font;
 }
 
@@ -565,50 +443,40 @@ fn RLFont* Manager.getFont(&self, String name) @nodiscard /*@inline*/
 *>
 fn void loadAsset(String path, String asset_name, FileExtension extension)
 {
-    /*if(path == "") {
-        log::error(Where.FILE, "Trying to load an asset with an empty path, skipping it.");
-        return;
+    foreach(ext_str : FileExtension::values) {
+        if(extension != ext_str) {
+            String p = path.strip_start(game::pContext.app_base_folder);
+            log::warning(FILE, "Ignoring File \"%s\", because is not a valid asset type.", p);
+            return;
+        }
     }
-    
-    if(path.len < 5) {
-        log::error(Where.FILE, "Trying to load an asset with a path that is too short, skipping it.");
-        return;
-    }
-	
-    if(!fs::fileExists(path)) {
-        log::error(Where.FILE, "Trying to load an asset with a path that does not exist: %s", path);
-        return;
-    }*/
-
-    bool should_load;
   
+    bool should_load;
 	switch(extension)
 	{
 	case PNG:
 	case JPG:
 	case TGA:
-        should_load = !local_manager.hasAsset(asset_name, RLTexture2D);
+        should_load = !local_library.hasAsset(asset_name, RLTexture2D);
         if(should_load) 
         {
             //path = path.trim_right(extension);
             Asset{RLTexture2D}* new_asset = mem::new(Asset{RLTexture2D}, { 
                 .name = asset_name, 
                 .path = path, 
-                .type = RLTexture2D,
                 .data = rl::loadTexture(path.zstr_tcopy())
             });
-            local_manager.register(any_make(new_asset, new_asset.type));
+            local_library.register(any_make(new_asset, RLTexture2D));
         }
 	case VS:
 	case FS:
-        should_load = !local_manager.hasAsset(asset_name, RLShader);
+        should_load = !local_library.hasAsset(asset_name, RLShader);
         if(should_load) 
         {
             //path = path.trim_right(extension);
             Asset{RLShader}* new_asset = mem::new(Asset{RLShader}, { 
                 .name = asset_name, 
-                .path = path, 
-                .type = RLShader,
+                .path = path
             });
 
             if(path.ends_with(".fs"))
@@ -646,37 +514,35 @@ fn void loadAsset(String path, String asset_name, FileExtension extension)
             {
                 unreachable("RLShader path must end with either \".fs\" or \".vs\", got: %s", path);
             }
-            local_manager.register(any_make(new_asset, new_asset.type));
+            local_library.register(any_make(new_asset, RLShader));
         }
 	case MP3: nextcase;
 	case OGG:
-		should_load = !local_manager.hasAsset(asset_name, RLMusic);
+		should_load = !local_library.hasAsset(asset_name, RLMusic);
         if(should_load) 
         {
             //path = path.trim_right(extension);
             Asset{RLMusic}* new_asset = mem::new(Asset{RLMusic}, { 
                 .name = asset_name, 
                 .path = path, 
-                .type = RLMusic,
                 .data = rl::loadMusicStream(path.zstr_tcopy())
             });
-            local_manager.register(any_make(new_asset, new_asset.type));
+            local_library.register(any_make(new_asset, RLMusic));
         }
 	case WAV:
-		should_load = !local_manager.hasAsset(asset_name, RLSound);
+		should_load = !local_library.hasAsset(asset_name, RLSound);
         if(should_load) 
         {
             //path = path.trim_right(extension);
             Asset{RLSound}* new_asset = mem::new(Asset{RLSound}, { 
                 .name = asset_name, 
                 .path = path, 
-                .type = RLSound,
                 .data = rl::loadSound(path.zstr_tcopy())
             });
-            local_manager.register(any_make(new_asset, new_asset.type));
+            local_library.register(any_make(new_asset, RLSound));
         }
 	case FNT:
-		should_load = !local_manager.hasAsset(asset_name, RLFont);
+		should_load = !local_library.hasAsset(asset_name, RLFont);
         if(should_load) 
         {
             assert(rl::isWindowReady() == true);
@@ -684,19 +550,18 @@ fn void loadAsset(String path, String asset_name, FileExtension extension)
             Asset{RLFont}* new_asset = mem::new(Asset{RLFont}, { 
                 .name = asset_name.tcopy(),
                 .path = path.tcopy(), 
-                .type = RLFont,
                 // NOTE(HM) This was always loading the default font data because of the 
                 // null and 0 in the call!! I forgot about the loadFontEx comment...
                 //.data = rl::loadFontEx(path.zstr_tcopy(), game::DEFAULT_FONT_SIZE, null, 0)
                 .data = rl::loadFont(path.zstr_tcopy())
             });
             assert(rl::isFontValid(new_asset.data), "Failed to load font from path: %s", path);
-            local_manager.register(any_make(new_asset, new_asset.type));
+            local_library.register(any_make(new_asset, RLFont));
         }
 	case DDS: nextcase;
 	case BMP: nextcase;
     default:
-        unreachable("Can't load Asset \"%s\" at \"%s\", is missing or unknown type.", asset_name, path);
+        log::warning(FILE, "Ignoring File \"%s\" at \"%s\", because is not a valid asset type.", asset_name, path);
 	};
 }
 
@@ -706,68 +571,37 @@ fn void? loadAssetsRecursively(String basepath, String parent_folder = "") /*@in
 	if(parent_folder != "")
     {
 		if (parent_folder.ends_with("\\")) {
-			search_path = parent_folder.tconcat(basepath).tconcat("\\");
+			search_path = parent_folder.tconcat(basepath);
 		} else {
-			search_path = parent_folder.tconcat("\\").tconcat(basepath).tconcat("\\");
+			search_path = parent_folder.tconcat("\\").tconcat(basepath);
 		}
+	}
+
+    if (search_path.ends_with("\\") == false) {
+		search_path = search_path.tconcat("\\");
 	}
 	
 	PathList? paths = path::ls(tmem, path::tnew(search_path));
 	if(catch excuse = paths) {
-		log::warning(Where.FILE,  "Unable to get list of files from folder: %s with excuse: %s", search_path, excuse);
-		return FOLDER_SCAN_ERROR~;
+		log::error(FILE,  "Unable to get list of files from folder: %s with excuse: %s", search_path, excuse);
+		return ASSETS_FOLDER_SCAN_ERROR~;
 	}
 	
 	foreach(path: paths)
 	{
 		String path_ = search_path.tconcat(path);
-		if(fs::isFile(path_)) // try to load it
+		if(fs::isFile(path_)) // try to load the file
         {
 			String extension_str = fs::getFileExtension(path_);
-
-			String file_name = fs::getFileName(path_);//fs::getFileNameWithoutExt(path_);
-			// NOTE(HM) ignore default assets those are handled directly
-			if (file_name.trim_right(extension_str) == "default" || 
-                file_name.trim_right(extension_str) == "splash") continue; // to next file
-			
-			bool valid_file;
-			
-			FileExtension extension;
-			foreach(ext_str : FileExtension::values)
-			{
-				if(extension_str == ext_str) { 
-					valid_file = true;
-					extension = ext_str;
-					break; 
-				}
-			}
-			
-			if(valid_file == false) {
-                log::warning(FILE,  "File %s is not a valid asset file, skipping it.", path_);
-				continue; // to next file
-			}
+			String file_name = fs::getFileName(path_);
+			// NOTE(HM) ignore any default asset those are handled directly
+			if (file_name.strip_extension() == "default" || 
+                file_name.strip_extension() == "splash") continue; // to next file
 			
             //////////////////////////////////////////////////////////////////
 			// from here should be a valid file
-			
-			String asset_path = search_path;
-			if (asset_path.ends_with("\\")) {
-				asset_path = path_; //asset_path.tconcat(path.str_view());
-			} else {
-				asset_path = asset_path.tconcat("\\").tconcat(path);
-			}
-			
-			// NOTE(HM) 06/11/2024 
-			// When looking at C3 strings in Visual Studio, take note of the 
-			// 	    string len value, this is important, because the watch window will show them as 
-			// 	    a ZString (char*) and so will ignore the C3 slice len value, ending 
-            //      displaying more characters than necessary or untill a null terminator (zero) 
-            //      character is found. Meaning for C3 String's, Visual Studio will display 
-            //      invalid characters. This fact, caused me no end of confusion for a time.
-            // I was expecting to see the sliced strings in VS but they always showed as if 
-            //      no cut was ever made and that throw me for a loop. So to see them correctly, 
-            //      look at C3 strings in VS watch window, like so: String.ptr, len
-			loadAsset(asset_path, file_name, extension);
+			String asset_path = path_;
+			loadAsset(asset_path, file_name, (FileExtension)extension_str);
 			continue; // to next file
 			
 		} else { // is a child folder/Directory so do recursive a call
@@ -783,10 +617,14 @@ fn void? loadAssets() {
 
 	telem::@profile_zone("loadAssets", false)
     {
-        loadAssetsRecursively(game::pContext.app_base_folder)!!;
+        String path = game::pContext.app_base_folder;
+        if (path.ends_with("\\") == false) {
+			path = path.tconcat("\\");
+		}
+        loadAssetsRecursively(path)!;
         
         $if $feature(_DEBUG):
-            //assetManager.listAssets();
+            //assets_library.listAssets();
         $endif
     }; // end @profile_zone
 }
@@ -1022,11 +860,11 @@ fn void RLMaterial.parse(&self, String file_path) @dynamic
                 switch(map.name)
                 {
                     case "albedo":
-                        self.maps.diffuse = astmng::assetManager.getTexture(map.value);
+                        self.maps.diffuse = astmng::assets_library.getTexture(map.value);
                     case "normal":
-                        self.maps.normal  = astmng::assetManager.getTexture(map.value);
+                        self.maps.normal  = astmng::assets_library.getTexture(map.value);
                     case "specular":
-                        self.maps.spec    = astmng::assetManager.getTexture(map.value);
+                        self.maps.spec    = astmng::assets_library.getTexture(map.value);
                     default:
                        unreachable("invalid material maps found");
                 }
@@ -1042,7 +880,7 @@ fn void RLMaterial.parse(&self, String file_path) @dynamic
             }
             
             // TODO make sound shaders
-            //self.sound = astmng::assetManager.getSound(sound_shader_name);
+            //self.sound = astmng::assets_library.getSound(sound_shader_name);
        }
     }
     /*
@@ -1055,7 +893,7 @@ fn void RLMaterial.parse(&self, String file_path) @dynamic
     elf.path = file_path;
     
     tring albedo = node.get_attrib_value("Diffuse").extractFileBaseByCopy();
-    elf.maps.diffuse = astmng::assetManager.getTexture(albedo);
+    elf.maps.diffuse = astmng::assets_library.getTexture(albedo);
     io::printfn("{");
     foreach(atribute : material_node.attributes) {
         io::printfn("%s = %s", atribute.name, atribute.value);
@@ -1397,7 +1235,7 @@ fn void? loadSoundShaderRecursively(String basepath, String parent_folder = "") 
 	PathList! paths = path::temp_ls(path::temp_new(search_path));
 	if(catch excuse = paths) {
 		log::warning(Where.FILE, "Unable to get files from folder: %s with excuse: %s", search_path, excuse);
-		return AssetError.FOLDER_SCAN_ERROR~;
+		return ASSETS_FOLDER_SCAN_ERROR~;
 	}
 	
 	foreach(path: paths)
@@ -1564,11 +1402,11 @@ fn void SoundShader.load(&self)
                 switch(map.name)
                 {
                     case "albedo":
-                        self.maps.diffuse = astmng::assetManager.getTexture(map.value);
+                        self.maps.diffuse = astmng::assets_library.getTexture(map.value);
                     case "normal":
-                        self.maps.normal  = astmng::assetManager.getTexture(map.value);
+                        self.maps.normal  = astmng::assets_library.getTexture(map.value);
                     case "specular":
-                        self.maps.spec    = astmng::assetManager.getTexture(map.value);
+                        self.maps.spec    = astmng::assets_library.getTexture(map.value);
                     default:
                        unreachable("invalid material maps found");
                 }
@@ -1584,7 +1422,7 @@ fn void SoundShader.load(&self)
             }
             
             // TODO make sound shaders
-            //self.sound = astmng::assetManager.getSound(sound_shader_name);
+            //self.sound = astmng::assets_library.getSound(sound_shader_name);
        }
     }
     
@@ -1596,8 +1434,8 @@ struct SoundShaderManager @local {
     SoundShaderList snd_shader_list;
 }
 
-SoundShaderManager local_manager @local;
-SoundShaderManager* mng = &local_manager;
+SoundShaderManager local_library @local;
+SoundShaderManager* mng = &local_library;
 
 fn void SoundShaderManager.free(&self) {
     foreach(snd_shader : self.snd_shader_list) {

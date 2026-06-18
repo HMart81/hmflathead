@@ -697,30 +697,36 @@ fn ZString String.cpy_zpeace(self, int start, int len) @MyInline
     return result.zstr_tcopy();
 }
 
-// NOTE(HM) 
-// If this is changed need to update VALID_ASSET_EXTENSIONS in asset.c3 as well.
-const String[*] FILE_EXTENSIONS_ARRAY = {
-    ".exe",
-    ".txt",
-    ".zip",
-    ".7zip",
-    ".ini",
-    ".fnt",
-    ".png",
-    ".jpg",
-    ".tga",
-    ".vs",
-    ".fs",
-    ".wav",
-    ".mp3",
-    ".ogg"
-};
 
-fn String String.stripExtension(self)
+// NOTE(HM)
+// Valid extensions used by the application anthing else 
+// should throw a warning.
+constdef FileExtension : inline String @constinit
+{
+	PNG  = ".png",
+	JPG  = ".jpg",
+	TGA  = ".tga",
+	DDS  = ".dds",
+	BMP  = ".bmp",
+	MP3  = ".mp3",
+	VS   = ".vs" ,
+	FS   = ".fs" ,
+	WAV  = ".wav",
+	OGG  = ".ogg",
+	FNT  = ".fnt",
+	EXE  = ".exe",
+    TXT  = ".txt",
+	ZIP  = ".zip",
+    ZIP7 = ".7zip",
+    MPG  = ".mpg", // mpeg videos
+    INI  = ".ini"
+}
+
+fn String String.strip_known_extension(self)
 {
     bool known_extension = false;
     String needle;
-    foreach(String ext : FILE_EXTENSIONS_ARRAY) {
+    foreach(String ext : FileExtension::values) {
         if(self.ends_with(ext)) {
             known_extension = true;
             needle = ext;
@@ -731,7 +737,27 @@ fn String String.stripExtension(self)
     if(known_extension) {
         return self.strip_end(needle);
     } else {
-        log::warning(FILE,  "Cannot strip extension %s of string %s is unkown.", needle, self);
+        log::warning(FILE,  "Cannot strip extension %s of string %s is unkown!", needle, self);
+        return self; // do nothing
+    }
+}
+
+fn String String.strip_extension(self)
+{
+    if(!self.contains(".")) {
+		log::warning(FILE, "Trying to remove extension from '%s' but it has none", self);
+		return self;
+	}
+    //assert(self.count(".") == 1);
+    if(self.count(".") > 1) {
+      log::warning(FILE, "String %s has malformed or more than one extension!.", self);
+    }
+
+    if(try idx = self.index_of_char('.')) {
+        if (idx == self.len) return self;
+        return self.strip_end(self[idx..]);
+    } else {
+        log::warning(FILE, "Cannot strip extension of string %s failed to get '.' index position.", self);
         return self; // do nothing
     }
 }

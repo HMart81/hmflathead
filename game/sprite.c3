@@ -51,7 +51,7 @@ import thirdparty::tracy;
 // end_region
 
 // region defines
-alias assetManager @local = astmng::assetManager;
+alias assets_library @local = astmng::assets_library;
 // end_region
 
 // region constants
@@ -657,7 +657,7 @@ import engine::misc;
 const int DEFAULT_PARTICLE_LIFETIME   = 1000; // ms
 
 // region defines
-alias assetManager @local = astmng::assetManager;
+alias assets_library @local = astmng::assets_library;
 // end_region
 
 struct Particle
@@ -672,7 +672,7 @@ struct Particle
 fn void Particle.create(&self, Vec2f pos, Vec2f size, RLColor color = rl::WHITE, int lifetime_ms = DEFAULT_PARTICLE_LIFETIME, String tex_name = "") {
     // init the inline sprite data
     self.initV(pos, size, color);
-    //self.tex          = assetManager.getAssetExt(tex_name, RLTexture2D);
+    //self.tex          = assets_library.getAssetExt(tex_name, RLTexture2D);
     self.lifetime     = game::pContext.time_ms + lifetime_ms;
     self.dir          = misc::VEC_UP;
     self.velocity     = self.dir;

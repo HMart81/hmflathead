@@ -2589,7 +2589,7 @@ import game::main;
 import std::math;
 import engine::misc;
 
-alias asstManager @local = astmng::assetManager;
+alias asstManager @local = astmng::assets_library;
 
 enum IMUI_FONTs : int (String name) @local
 {

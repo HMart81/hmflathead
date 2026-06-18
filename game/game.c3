@@ -240,7 +240,7 @@ alias lic = module engine::sys::licensee;
 alias RShader        @public = rl::RLShader;
 alias StringPair     @public = Pair{String, String};
 alias IniFileCMDList = List{StringPair*};
-alias asstManager    @public= astmng::assetManager;
+alias asstManager    @public= astmng::assets_library;
 
 // #endregion Alias
 

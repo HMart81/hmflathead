@@ -853,7 +853,7 @@ fn void HMaterial.parse_sound(&self, XmlNode* node) @inline
    //self.parse_node_atributes(node);
             
    // TODO make sound shaders
-   //self.sound = astmng::assetManager.getSound(sound_shader_name);
+   //self.sound = astmng::assets_library.getSound(sound_shader_name);
 }
 
 
@@ -1140,7 +1140,7 @@ fn void HMaterial.parse_uniform(&self, XmlNode* child)
                             Vec4f vec4 = getVector4FromString(atrb.value);
 							glsl::setShaderValue{Vec4f}(loc, (void*)&vec4[0], &self.shader);
                         case RLShdUniTyp.SAMPLER2D:
-                            RLTexture2D* tex = astmng::assetManager.getTexture(atrb.value);
+                            RLTexture2D* tex = astmng::assets_library.getTexture(atrb.value);
                             if(tex == null || !rl::isTextureValid(*tex)) {
                                 log::error(FILE, "Failed to get texture '%s' for sampler2D uniform '%s' in node '%s' of material '%s' in file '%s'!", 
                                     atrb.value, id, child.name,
@@ -1220,7 +1220,7 @@ fn void HMaterial.parse_shader(&self, XmlNode* node)
     RLShader shader;
     shader_path = shader_path.tconcat(".tp");
     String shader_name = fs::getFileNameWithoutExt(shader_path);
-    if(RLShader* shader_found = astmng::assetManager.getShader(shader_name))
+    if(RLShader* shader_found = astmng::assets_library.getShader(shader_name))
     {
         shader = *shader_found; // use the shader from the asset manager
         $if $feature(_DEBUG):
