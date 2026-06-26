@@ -86,8 +86,8 @@ const float ENTITY_DEFAULT_SIZE_Y @if(game::UNITS == Units.PIXEL) = 100;  // px
 alias TargetList = List{Entity*}; // list of entities that are targets for this entity
 
 // WORK_IN_PROGRESS!!
-const EventDef EV_ENTITY_GET_NAME @if($defined(event::ENABLE_EVENTS)) @local = {"getName", "p", "s"}; 
-const EventDef EV_ENTITY_GET_ID @if($defined(event::ENABLE_EVENTS)) @local = {"getID", "p", "i"};
+const EventDef EV_ENTITY_GET_NAME @if($defined(event::ENABLE_EVENTS)) @local = {"getName", "p", 's'}; 
+const EventDef EV_ENTITY_GET_ID @if($defined(event::ENABLE_EVENTS)) @local = {"getID", "p", 'i'};
 
 const EventFunc[*] ENTITY_EVENTS @if($defined(event::ENABLE_EVENTS)) = {
 	{&EV_ENTITY_GET_NAME, &ent::event_getName},

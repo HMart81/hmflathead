@@ -45,7 +45,7 @@ faultdef ASSETS_MALFORMED_PATH_STRING,
 	     ASSETS_MALFORMED_FILE,
 	     ASSETS_UNKNOWN_FOLDER,
 	     ASSETS_FOLDER_SCAN_ERROR,
-	     ASSETS_LOAD_ERROR,
+	     ASSETS_ASSET_LOAD_ERROR,
 	     ASSETS_SMALL_PATH,
 	     ASSETS_ASSET_RETRIVAL_ERROR,
 	     ASSETS_MISSING_ASSET;
@@ -294,8 +294,8 @@ fn Type* get_asset(String name, AssetLibrary* lib) <Type>
 }
 
 <*
-	Sees if a asset exists within the asset manager
-	returns asset index.
+	See if an asset exists within the asset manager
+	returns asset index. is a linear search so it will be 0-n in performance
 
 	@param name : "name of the asset"
 	@param type : "type identification of the asset being serched for"
@@ -359,7 +359,7 @@ fn RLTexture2D* AssetLibrary.getTexture(&self, String name) @inline @nodiscard
         return tex;
     }
     
-    log::warning(FILE,  "[Asset AssetLibrary]: Requesting texture asset but returning default texture, because no asset name was provided.");
+    log::warning(FILE,  "[Asset AssetLibrary]: Requesting texture asset but returning default texture, because no asset with name '%s' was found.", name);
     return &game::pContext.default_texture;
 }
 
@@ -433,6 +433,7 @@ fn RLFont* AssetLibrary.getFont(&self, String name) @nodiscard /*@inline*/
 
 <*
 	Loads an asset from a given path and registers it in the asset manager.
+    Invalid assets will not cause a error will just be ignored.
 
 	@param [in] path : "the path to the asset to load, must be a valid path to an existing file, with a supported extension, like .png for example."
 	@param [in] asset_name : "the name of the asset to load."
@@ -443,8 +444,9 @@ fn RLFont* AssetLibrary.getFont(&self, String name) @nodiscard /*@inline*/
 *>
 fn void loadAsset(String path, String asset_name, FileExtension extension)
 {
-    foreach(ext_str : FileExtension::values) {
-        if(extension != ext_str) {
+    foreach(i, ext : FileExtension::values) {
+        if(extension == ext) break;
+        if(i == (FileExtension::values.len - 1) && extension != ext) {
             String p = path.strip_start(game::pContext.app_base_folder);
             log::warning(FILE, "Ignoring File \"%s\", because is not a valid asset type.", p);
             return;
@@ -460,7 +462,6 @@ fn void loadAsset(String path, String asset_name, FileExtension extension)
         should_load = !local_library.hasAsset(asset_name, RLTexture2D);
         if(should_load) 
         {
-            //path = path.trim_right(extension);
             Asset{RLTexture2D}* new_asset = mem::new(Asset{RLTexture2D}, { 
                 .name = asset_name, 
                 .path = path, 
@@ -561,7 +562,8 @@ fn void loadAsset(String path, String asset_name, FileExtension extension)
 	case DDS: nextcase;
 	case BMP: nextcase;
     default:
-        log::warning(FILE, "Ignoring File \"%s\" at \"%s\", because is not a valid asset type.", asset_name, path);
+        String p = path.strip_start(game::pContext.app_base_folder);
+        log::warning(FILE, "Ignoring File \"%s\", because is not a valid asset type.", p);
 	};
 }
 
@@ -603,7 +605,6 @@ fn void? loadAssetsRecursively(String basepath, String parent_folder = "") /*@in
 			String asset_path = path_;
 			loadAsset(asset_path, file_name, (FileExtension)extension_str);
 			continue; // to next file
-			
 		} else { // is a child folder/Directory so do recursive a call
 			loadAssetsRecursively(path, search_path)!;
 		}

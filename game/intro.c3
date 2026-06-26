@@ -262,7 +262,7 @@ fn void initAnimation(IntroAnimation* anim) @local
 	makeVideoFrame("epiwarn", anim);
 	//makeVideoFrame("test_credits", anim, _audio: true);
 	//makeVideoFrame("hm_logo", anim, _audio: true, audio_name: "hm_logo_audio.ogg");
-	makeVideoFrame("hm_logo", anim);
+	makeVideoFrame("hm_logo", anim, false);
 	makeVideoFrame("ray_intro", anim);
     input::makeKeyboardAction("skipIntro", rl::KEY_ESCAPE);
     input::@makeAction({.name = "skipFrame", .kind = KEYBOARD, .key1 = rl::KEY_SPACE});

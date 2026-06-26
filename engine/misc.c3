@@ -796,25 +796,8 @@ macro void String.remove_spaces(&self)
     // }
 }
 
-// NOTE(HM) my own string improvement....
-// fn void String.extractFileBase(self, String *dest ) {
-
-    // //
-    // // back up until a \ or the start
-    // //
-    // int pos = self.len - 1;
-    // while( ( pos > 0 ) && !isDirSeparator(self[ pos - 1 ]) ) {
-        // pos--;
-    // }
-
-    // int start = pos;
-    // while( ( pos < self.len ) && ( self[ pos ] != '.' ) ) {
-        // pos++;
-    // }
-    // mem::copy(dest, self.cpy_zpeace( start, pos - start).str_view(), (usz)(pos - start));
-// }
-
-fn String String.extractFileBaseByCopy(self) { // using self you are passing by value use &self to pass by ref
+fn String String.extractFileBaseByCopy(self) 
+{ // using self you are passing by value use &self to pass by ref
 
     //back up until a \ or the start
     int pos = self.len - 1;
@@ -824,7 +807,8 @@ fn String String.extractFileBaseByCopy(self) { // using self you are passing by 
     return self[pos..];
 }
 
-fn void String.extractFileBaseByRef(&self) { // using self you are passing by value use &self to pass by ref
+fn void String.extractFileBaseByRef(&self) 
+{ // using self you are passing by value use &self to pass by ref
 
     //back up until a \ or the start
     String copy = *self;
@@ -851,11 +835,9 @@ fn String String.extractFileBase(&self)
     return (String)copy[start..];
 }
 
-// fn String getAssetNameFrom(String path) @inline {
-    // return path.extractFileBaseByCopy();
-// }
 
-fn int String.count_spaces(&self) @inline {
+fn int String.count_spaces(&self) @inline 
+{
     int count = 0;
 
     foreach(ch : self) {
@@ -865,7 +847,8 @@ fn int String.count_spaces(&self) @inline {
     return count;
 }
 
-fn bool String.has_spaces(&self) @inline {
+fn bool String.has_spaces(&self) @inline 
+{
     if(self.count_spaces() > 0) return true;
     
     // else
@@ -876,12 +859,14 @@ fn String String.strip_start(self, String prefix) @inline => self.strip_prefix(p
 fn String String.strip_end(self, String suffix) @inline => self.strip_suffix(suffix);
 // #endregion String custom extensions
 
-// #region raw strings/ZString utils
-fn int ZString.count_spaces(&self) @inline {
+// #region raw C zero terminated string or c3 parlance ZString utils
+fn int ZString.count_spaces(&self) @inline 
+{
     return self.str_view().count_spaces();
 }
 
-fn bool ZString.has_spaces(self, int* out_count) @inline {
+fn bool ZString.has_spaces(self, int* out_count) @inline 
+{
     char* src = self;
     while(*src != '\0') 
     {

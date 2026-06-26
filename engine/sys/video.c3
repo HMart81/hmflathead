@@ -65,7 +65,7 @@ fn void register_cvars() @public
 
 const EXTENSION_MPG = ".mpg";
 const EXTENSION_MPEG = ".mpeg";
-const VIDEOS_FOLDER_PATH   = "videos"+++platf::PATHSEPERATOR_STR;
+const VIDEOS_FOLDER_PATH   = "videos";//+++platf::PATHSEPERATOR_STR;
 const COLOR_CHANNELS  @local = 3;
 const BYTES_PER_PIXEL @local = COLOR_CHANNELS * Uint8_t::size;
 
@@ -78,8 +78,8 @@ alias VideoFrame  = RLImage;
 const TRUE @local  = 1;
 const FALSE @local = 0;
 
-//const AUDIO_EMBEDED = 1; // comment to disable
-const AUDIO_SEPERATE = 1; // uncomment to enable or vice versa
+const AUDIO_EMBEDED = 1; // comment to disable
+//const AUDIO_SEPERATE = 1; // uncomment to enable or vice versa
 
 //const VIDEO_FRAME_RATE = 30;
 
@@ -259,7 +259,8 @@ fn void VidMovie.updateAudio(&self, PLMsamples *samples) @MyInline
 		{
 			//int size = samples.interleaved.len;
 			int size = BUFFER_SIZE;
-			rl::updateAudioStream(self.audio, &samples.interleaved[0], size);
+			void* data = &samples.interleaved[0];
+			rl::updateAudioStream(self.audio, data, size);
 		}
 	$endif
 
@@ -270,6 +271,7 @@ fn void VidMovie.updateAudio(&self, PLMsamples *samples) @MyInline
 	$endif
 }
 
+// not used for now
 fn void VidMovie.update_audio(&self) @MyInline
 {
 	if(!self.should_play && !self.started) return;
@@ -302,7 +304,7 @@ fn void VidMovie.enableAudio(&self, bool enable = false) @MyInline
 		{
 			// NOTE(HM) This has to be set before loadAudioStream
 			rl::setAudioStreamBufferSizeDefault(BUFFER_SIZE);
-			self.audio = rl::loadAudioStream(self.samplerate, AUDIO_F32, CHANNEL_COUNT);
+			self.audio = rl::loadAudioStream((CUInt)self.samplerate, AUDIO_F32, CHANNEL_COUNT);
 			//rl::setAudioStreamVolume(self.audio, 1.0f);
 			//rl::playAudioStream(self.audio);
 			// Adjust the audio lead time according to the audio_spec buffer size
@@ -441,8 +443,8 @@ fn bool VidMovie.preparePlayer(&self, bool loop = false, bool audio = false) @no
 			self.duration
 		);
 
-		// was doing this on updateFrame but is better here
-		// has the frames are always the same size and format thoughout the video
+		// was doing this on updateFrame but is better here for performance!
+		// the frames are always the same size and format, thoughout the entire video anyway!
 		int w = self.plyr.get_width();
 		int h = self.plyr.get_height();
 		self.frame.width   = w;
@@ -454,13 +456,17 @@ fn bool VidMovie.preparePlayer(&self, bool loop = false, bool audio = false) @no
 		// compute data size (how many rows make the full frame data in bytes)
 		self.frame_data_size = self.frame_stride * h;
 
-		// allocate memory buffer for frame data
-		// NOTE(HM) do not use C3 memory allocator when manually 
-		// creating memory for Raylib types! 
-		// This is because using the unload functions from Raylib
-		// will not work with C3 mem allocator and will crash the app.
-		// In this particular cases, use the internal Raylib rl::memAlloc.
-		//Uint8_t* fileData = (Uint8_t*)mem::malloc(self.frame_data_size);
+		// Allocate memory buffer for frame data
+		// WARNING(HM) when using C3 memory allocator/deallocator for manual,
+		// allocation of memory, if you want to then clear that memory, 
+		// do NOT use the Raylib unload functions!!! But the C3 ones.
+		// This is because, those functions it will not see the 
+		// C3 mem/tmem allocations and will crash the application!
+		// Only use the unloadFuntions() when data is allocated 
+		// by Raylib itself, using the loadWhatever() functions or rl::memAlloc.
+		//
+		// In this particular case, I will use the Raylib rl::memAlloc,
+		// so I can safelly use its unload function.
 		Uint8_t* fileData = (Uint8_t*)rl::memAlloc(self.frame_data_size);
 		self.frame.data = fileData;
 
@@ -634,7 +640,7 @@ fn void? initVideoCabinet(VideoCabinet** vidc) @public
 	(*vidc) = mem::new(VideoCabinet);
 	initCabinetMoviesDirectory((*vidc));
 	if(catch excuse = (*vidc).registerVideos()) {
-		log::error(FILE, "failed to register videos inside video cabinet with excuse %s.",  excuse);
+		log::error(FILE, "failed to register videos to video cabinet with excuse %s.",  excuse);
 		(*vidc).movies_folder = "";
 		mem::free((*vidc));
 		vidc = null;
@@ -679,10 +685,10 @@ fn void? VideoCabinet.registerVideos(&self)
                             })
                         );
                     } else {
-                        log::warning(FILE, "found unsuported file '%s' inside videos folder.\n\t-For now only mpg videp (mpeg1 with or without mp2 audio) is supported.", path_view);
+                        log::warning(FILE, "found unsuported file '%s' inside videos folder.\n\t-For now only mpeg1 video, with or without mp2 audio, is supported.", path_view);
                     }
                 } else {
-                    log::warning(FILE, "found sub directory '%s' inside videos folder.\n\t-For now any mpg video, needs to be put in the root of the videos folder, no sub directories please.", path_view);
+                    log::warning(FILE, "found a sub directory '%s' inside videos folder, that is not supported.\n\t-For now any mpg video, needs to be put in the root of the videos folder, no sub directories please.", path_view);
                 }
             }
         } else {
@@ -781,23 +787,45 @@ fn void on_audio(VideoPlayer* mpeg, PLMsamples *samples, void *user)
 
 
 
-/*
-Todo put this into the game side of things!!!!!!!!!
-/// for gif animations
+
+//Todo put this into the game side of things!!!!!!!!!
+/// for strip like animations
 module game::image_anim::animstrip @private;
+
+import thirdparty::raylib5::rl;
+import std::io::path;
+import game;
 
 // Pseudocode for sprite animation loop
 struct HMAnimStrip @public
 {
-	float frameTimer @private;
-	int currentFrame @private;
+	float frameTimer;
+	int currentFrame;
 	int totalFrames;
 	float frameDuration; // seconds per frame
+	RLImage image;
 }
 
-fn void HMAnimStrip.update(&self) 
+<*
+	@param file_path : "full path to the strip animation (mostly a png file)"
+	@param totalFrames : "amount of frames of the strip"
+	@require path::exists(file_path) && totalFrames > 0
+	@ensure return != null
+*>
+fn HMAnimStrip* create_anim(Path file_path, uint totalFrames) @public
 {
-	self.frameTimer += game::gpGame.frameTime();
+	HMAnimStrip* result = mem::new(HMAnimStrip, (HMAnimStrip){
+							.totalFrames   = (int)totalFrames,
+							.frameDuration = 0.01f, // seconds per frame
+							.image         = rl::loadImage(file_path.zstr_tcopy())
+						});
+	assert(rl::isImageValid(result.image) == true);
+	return result;
+}
+
+fn void HMAnimStrip.update(&self)
+{
+	self.frameTimer += game::pContext.dt;
     
     if (self.frameTimer >= self.frameDuration) {
         self.frameTimer = 0;
@@ -805,7 +833,7 @@ fn void HMAnimStrip.update(&self)
     }
 }
 
-fn void HMAnimStrip.draw() 
+fn void HMAnimStrip.draw(&self)
 {
 	// Calculate source rectangle based on currentFrame
     // Draw the specific frame using DrawTexturePro

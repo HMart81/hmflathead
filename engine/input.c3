@@ -262,25 +262,30 @@ fn String Action.getName(&self) => self.name;
 *>
 fn void makeKeyboardAction(String name, int key1, int key2 = rl::KEY_NULL, ActionCallBack func = null)  @inline
 {
+	if(key1 == rl::KEY_F12 || key2 == rl::KEY_F12) {
+        log::warning(FILE, "Cannot assing key function 'F12' to keyboard action '%s' because is the screenshot key.", name);
+        return;
+    }
+
     if(name == "" || key1 == rl::KEY_NULL) {
-        log::warning(Where.CONSOLE, "Cannot create keyboard action with empty name or KEY_NULL key.");
+        log::warning(FILE, "Cannot create keyboard action with empty name or KEY_NULL as main key.");
         return;
     }
 
     if(local_manager.actions.len() >= MAX_ACTION_COUNT) {
-        log::warning(Where.CONSOLE, "Cannot create more actions, reached the max limit of %d actions.", MAX_ACTION_COUNT);
+        log::warning(FILE, "Cannot create more actions, reached the max limit of %d actions.", MAX_ACTION_COUNT);
         return;
     }
 
     foreach(act : local_manager.actions)
 	{
 		if(act.name == name) {
-        	log::warning(CONSOLE, "Cannot create another action named \"%s\", is already taken.", name);
+        	log::warning(FILE, "Cannot define another action named \"%s\" that is not supported.", name);
        		return;
     	}
 
         if(act.kind == ActionKind.KEYBOARD && act.keyboard.key1 == key1 && act.keyboard.key2 == key2) {
-            log::warning(CONSOLE, "Cannot give key1 \"%s\" and key2 \"%s\" to action \"%s\", they are already taken by action \"%s\".", getKeyboardKeyName(key1), getKeyboardKeyName(key2), name, act.name);
+            log::warning(FILE, "Cannot give key1 \"%s\" and key2 \"%s\" to action \"%s\", they are already taken by action \"%s\".", getKeyboardKeyName(key1), getKeyboardKeyName(key2), name, act.name);
             return;
         }
     }

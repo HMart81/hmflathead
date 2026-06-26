@@ -312,7 +312,7 @@ enum GameMode @public
 // #region game manager
 // ********************
 
-struct Game (SaveSystemInterface/*, IGame*/) @local 
+struct Game (SaveSystemInterface) @local 
 {
     bool should_update_entities;
     bool system_cursor_enabled;
@@ -320,7 +320,7 @@ struct Game (SaveSystemInterface/*, IGame*/) @local
     bool msgbox_showing;
     bool is_modded_game; // is the game running a mod?
     
-    ConfigFile settings_data; // game settings file data, used to get or save game settings
+    ConfigFile settings_data; // game settings file data, used to get or save initialization settings
     
     IntroAnimation intro;
     
@@ -329,13 +329,13 @@ struct Game (SaveSystemInterface/*, IGame*/) @local
     // menus
     UIWindow* guiActive; // to handle all guis
     UIWindow* main_menu;
-    // new immediate mode gui
+    // new *very WIP* custom immediate mode gui
     IMUI_Context test_ui;
     bool show_test_tool_frame;
     //
 
     // microui
-    mu::MU_Context* mu_ctx @if($feature(MICROUI_ENABLE)); // microui context, used for the micro ui system
+    MU_Context* mu_ctx @if($feature(MICROUI_ENABLE)); // microui context, used for the micro ui system
     bool show_microui_test_frames @if($feature(MICROUI_ENABLE));
     bool show_statistics @if($feature(MICROUI_ENABLE)); // show statistics window
     RLTexture2D mu_font_atlas @if($feature(MICROUI_ENABLE)); // microui font texture
@@ -368,15 +368,15 @@ struct Game (SaveSystemInterface/*, IGame*/) @local
 	int default_shader_resolution_loc;
 	int default_shader_time_loc;
 	int default_shader_dt_loc;
-    RLShader* current_global_shader;
+    RLShader* current_global_shader; // pointer to the current main rendering shader
 
 	// sound stuff
 	AudioDevice audio_device;
     RLSound     default_sound;
     RLMusic     default_music;
     RLFont      default_font;
-    //
     int      pause_all_music; // to pause all music on demand
+    //
     
     // game fonts TODO(HM) We should only chose 2 for the final game...
     RLFont* candara_font;
@@ -385,7 +385,7 @@ struct Game (SaveSystemInterface/*, IGame*/) @local
     RLFont* trojan_pro_font;
     //
     
-    String[] cursors; // list of game cursors, used to load the game cursors from the assets folder
+    //String[] cursors; // list of game cursors, used to load the game cursors from the assets folder
     HMSprite mouse_cursor;
     Vec2f mouse_window_pos; // raylib coordinates origin top left
     
@@ -525,7 +525,7 @@ fn void Game.save(&self, SaveFile* file) @dynamic {
     //RLFont*  trojan_pro_font;
     //
     
-    svs::write(file, &self.cursors, self.cursors.len);
+    //svs::write(file, &self.cursors, self.cursors.len);
     self.mouse_cursor.save(file);
     
     //Player* main_player;
@@ -821,7 +821,7 @@ fn RLFont* Game.getfont(&self, String font_name) /*@MyInline*/ {
 fn void? Game.loadDefaultAssets(&self) 
 {
     // get required default game texture
-    self.default_texture = rl::loadTexture(self.app_base_folder.tconcat("images//default.png").zstr_tcopy());
+    self.default_texture = rl::loadTexture(self.app_base_folder.tconcat("images/default.png").zstr_tcopy());
     if(self.default_texture.isInvalid()) {
         log::fatal(FILE, "Required asset: images//default.png failed to load!");
         return MISSING_REQUIRED_ASSET~;
@@ -845,11 +845,11 @@ fn void? Game.loadDefaultAssets(&self)
         self.app_base_folder.tconcat("shaders//default.fs").zstr_tcopy()
     );*/
     self.default_shader = glsl::loadShader(
-        self.app_base_folder.tconcat("shaders//default.vs"),
-        self.app_base_folder.tconcat("shaders//default.fs")
+        self.app_base_folder.tconcat("shaders/default.vs"),
+        self.app_base_folder.tconcat("shaders/default.fs")
     );
     if(rl::isShaderValid(self.default_shader) == false) {
-        log::fatal(FILE, "Required default shader not found in folder %s!", self.app_base_folder.tconcat("//shaders"));
+        log::fatal(FILE, "Required default shader not found in folder %s!", self.app_base_folder.tconcat("/shaders"));
         return MISSING_REQUIRED_ASSET~;
     }
     
@@ -864,7 +864,7 @@ fn void? Game.loadDefaultAssets(&self)
     //
         
     // load required default sound
-    self.default_sound = rl::loadSound(self.app_base_folder.tconcat("sounds//default.wav").zstr_tcopy());
+    self.default_sound = rl::loadSound(self.app_base_folder.tconcat("sounds/default.wav").zstr_tcopy());
     if(rl::isSoundValid(self.default_sound)) {
         //$if $feature(_DEBUG):
             //if(rl::isAudioDeviceReady()) rl::playSound(self.default_sound);
@@ -2535,7 +2535,7 @@ $endif
 // #region Paths/Folders Setup
     log::info(FILE, "Registering game paths:");
     log::info(FILE, "---------------------------------------------");
-    String app_exe_path = (*args)[0];
+    String app_exe_path = fs::getApplicationDirectory(); //(*args)[0];
     
 	///////////////////////////
     // Set the game name
@@ -2553,21 +2553,19 @@ $endif
 	//////////////////////////////////////////////
     // Detect and Setup the app directory folder (aka where the .exe file is)
     // In case a mod is being used, use this to get the original game work dir.
-    local_game.default_app_dir = fs::getApplicationDirectory();
+    local_game.default_app_dir = app_exe_path;
     if(fs::directoryExists(local_game.default_app_dir)) {
         log::info(FILE, "\tWorking from default Dir: %s", local_game.default_app_dir);
+		fs::changeDirectory(local_game.default_app_dir)!;
     	// register the directory
-		fs::addDirectory(local_game.default_app_dir)!;
+		//fs::addDirectory(local_game.default_app_dir)!;
     } else { 
         return INVALID_WORK_DIR~; // will this ever happen?
     }
 
 	/////////////////////////////////////////////////////////////////////////
-    // Detect and Setup the base folder, where all required game assets/data live.
-	String base_folder = local_game.default_app_dir.tconcat(fs::cv_base.getString());
-	if(!base_folder.ends_with(platf::PATHSEPERATOR_STR)) {
-		base_folder = base_folder.tconcat(platf::PATHSEPERATOR_STR);
-	}
+    // Detect and Setup the base folder, where all required game assets/data will live.
+	String base_folder = local_game.default_app_dir.tconcat(fs::cv_base.getString()).tconcat(platf::PATHSEPERATOR_STR);
     local_game.app_default_base_folder = base_folder.tcopy();
     
 	//////////////////////////////////////////////
@@ -2584,47 +2582,30 @@ $endif
     local_game.is_modded_game = using_mod;
     if(using_mod)
     {
-        String mods_dir = local_game.default_app_dir.tconcat(MODS_DIR);
+		if(mod_name.len <= 2) {
+			log::warning(FILE, "mod name: \"%s\" seems to be very small are you sure that is correct?", mod_name);
+		}
 
-        bool mod_handling_failed;
-        String mod_work_dir, mod_base_folder;
-
-        if(fs::directoryExists(mods_dir)) // look inside mods folder for the desired mod folder
+		bool mod_handling_failed = true; // this gets changed bellow if all is well
+        String mods_dir = local_game.default_app_dir.tconcat(MODS_DIR).tconcat(platf::PATHSEPERATOR_STR);
+		if(fs::directoryExists(mods_dir)) // look inside mods folder for the desired mod folder
         {
-			mod_handling_failed = true; // this gets changed bellow if all is well
-
-			// first check if mod folder name is valid
-			if(mod_name.len <= 2) {
-				log::warning(FILE, "mod name: \"%s\" seems to be very small are you sure that is correct?", mod_name);
-			} else {
-				mod_work_dir = mods_dir.tconcat(platf::PATHSEPERATOR_STR).tconcat(mod_name).tconcat(platf::PATHSEPERATOR_STR);
-				// if mod work dir exists
-				if(fs::directoryExists(mod_work_dir)) {
-					// set the generic work dir, to the mod work dir, instead of the original game work dir.
-					local_game.app_root_dir = mod_work_dir;
-					// also make sure the mod base dir exists
-					mod_base_folder = mod_work_dir.tconcat(fs::cv_mod_base.getString()).tconcat(platf::PATHSEPERATOR_STR);
-					if(fs::directoryExists(mod_base_folder)) {
-						// now set the generic game base dir for the mod base dir as well
-						local_game.app_base_folder = mod_base_folder;
-						mod_handling_failed = false;
-					} else { 
-						log::warning(FILE, "base directory for mod \"%s\" is missing cannot run mod!", mod_name);
-					}
-				} else { 
-					log::warning(FILE, "Work directory for mod \"%s\" is missing cannot run mod!", mod_name);
-				}
+			String mod_base_folder = mods_dir.tconcat(fs::cv_mod_base.getString()).tconcat(platf::PATHSEPERATOR_STR);
+			if(fs::directoryExists(mod_base_folder)) {
+				// now set the generic game base dir for the mod base dir as well
+				local_game.app_base_folder = mod_base_folder;
+				mod_handling_failed = false;
+			} else { 
+				log::warning(FILE, "base directory for mod \"%s\" is missing cannot run mod!", mod_name);
 			}
-        } else {
-            log::warning(FILE, "Mod %s has to be run from inside folder \"mods\" but none was found at: %s", mod_name, local_game.default_app_dir);
-            mod_handling_failed = true;
+		} else{
+            log::warning(FILE, "Trying to run a mod %s but no \"mods\" folder exists inside: %s", mod_name, local_game.default_app_dir);
         }
 
         if(mod_handling_failed) // make sure we return to valid original game folders
         {
-            log::warning(FILE, "Mod handling failed, using default work dir: %s", local_game.default_app_dir);
-            local_game.app_root_dir    = local_game.default_app_dir;
             local_game.app_base_folder = local_game.app_default_base_folder;
+            log::warning(FILE, "Mod handling failed, using default game base directory: %s", local_game.app_base_folder);
         }
     }
     
@@ -2633,7 +2614,7 @@ $endif
     if(fs::directoryExists(local_game.app_root_dir)) {
         if(local_game.app_root_dir != local_game.default_app_dir) 
         {
-            log::info(FILE,  "\tWorking now from Dir: %s", local_game.app_root_dir);
+            log::info(FILE, "\tWorking now from Dir: %s", local_game.app_root_dir);
         }
     } else {
         return INVALID_WORK_DIR~;
@@ -2642,17 +2623,15 @@ $endif
 	/////////////////////////////////////////
     // make sure required base folder exists, else halt the game
     if(fs::directoryExists(local_game.app_base_folder)) {
-        log::info(FILE,  "\tBase Dir set to: %s", local_game.app_base_folder);
+        log::info(FILE, "\tBase Dir set to: %s", local_game.app_base_folder);
     } 
 	else 
 	{
         if(local_game.is_modded_game) 
         {
-            log::error(FILE,`Required base folder inside %s not found!\n
-                       A non-empty folder called '%s' (case sensitive) most exist!`, 
-                       local_game.app_root_dir, 
-                       (fs::cv_mod_base.getString().len > 0) ? fs::cv_mod_base.getString() : fs::cv_base.getString(), 
-                       local_game.app_name);
+            log::error(FILE,`Required mod '%s' base folder not found!\n
+                       it should exist inside a non-empty folder called 'mods' (case sensitive) at: %s!`, 
+                       fs::cv_mod_base.getString(), local_game.app_root_dir);
         } else {
             log::error(FILE,`Required base folder inside %s not found!\n
                        A non-empty folder called '%s' (case sensitive) most exist.\n
@@ -2663,14 +2642,14 @@ $endif
     
 	//////////////////////////////////////////////////
     // get the home folder to save necessary game data
-	local_game.app_save_folder = win32::getSystemSpecialPath()!;
+	local_game.app_save_folder = win32::getSystemSpecialPath()!.tconcat(platf::PATHSEPERATOR_STR);
 	$if env::WIN32:
     if(local_game.app_save_folder.len > 0)
     {
         // NOTE(HM)
-        // Look in the user saving directory, if save folder is already there if not create it.
-		String save_folder = local_game.app_save_folder.tconcat(platf::PATHSEPERATOR_STR).tconcat(fs::cv_save_path.getString()).tconcat(local_game.app_name);
-        local_game.app_save_folder = save_folder;
+        // Look in the user saving directory, if save folder is already there, 
+		// if not create it.
+		local_game.app_save_folder = local_game.app_save_folder.tconcat(fs::cv_save_path.getString()).tconcat(local_game.app_name);
         if(fs::directoryExists(local_game.app_save_folder)) 
         {
             log::info(FILE, "\tUser Save folder set to: %s", local_game.app_save_folder);
@@ -2685,7 +2664,7 @@ $endif
         }
     }
 	$else
-		local_game.app_save_folder = local_game.app_save_folder.tconcat(platf::PATHSEPERATOR_STR).tconcat(fs::cv_save_path.getString()).tconcat(local_game.app_name);
+		local_game.app_save_folder = local_game.app_save_folder.tconcat(fs::cv_save_path.getString()).tconcat(local_game.app_name);
 	$endif
     log::info(FILE, "---------------------------------------------\n");
 // #endregion

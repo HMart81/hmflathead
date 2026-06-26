@@ -39,6 +39,7 @@ import std::collections::list;
 import thirdparty::raylib5::rl;
 import engine::logging::log;
 import engine::sys::cvar;
+import engine::sys::framework::platform::platf;
 // end_region
 
 faultdef FS_FAILED_SAVE_DATA,
@@ -552,7 +553,7 @@ fn char[]? loadBinaryFileFromPath(Path path) @inline
     
     char[100] buffer;
     String res = (String)io::bprintf(&buffer, "%s", "This is where save data will be")!;
-    if(@catch(fs::makeFile(local_game.app_save_folder.tconcat("\\").tconcat("READ_ME.txt"), &buffer))) {
+    if(@catch(fs::makeFile(local_game.app_save_folder.tconcat(platf::PATHSEPERATOR_STR).tconcat("READ_ME.txt"), &buffer))) {
         unreachable();
     }
 */
@@ -611,40 +612,52 @@ fn String getFileNameWithoutExt(String filePath) @inline {
 }
 
 // Get full path for a given fileName with path (uses static string)
-fn ZString getDirectoryPath(ZString filePath) @inline {
-    String result = string::tformat("%s", rl::getDirectoryPath(filePath));
-    if(!(result.ends_with("/") || result.ends_with("\\"))) {
-        result = result.tconcat("\\");
+fn String getDirectoryPath(String filePath) @inline {
+    String result = string::tformat("%s", rl::getDirectoryPath(filePath.zstr_tcopy()));
+    if(!result.ends_with(platf::PATHSEPERATOR_STR)) {
+        result = result.tconcat(platf::PATHSEPERATOR_STR);
     }
-    return result.zstr_tcopy();
+    return result;
 }
-// Get previous directory path for a given path (uses static string)
-fn ZString getPrevDirectoryPath(ZString dirPath) @inline {
-    String result = string::tformat("%s", rl::getPrevDirectoryPath(dirPath));
-    if(!(result.ends_with("/") || result.ends_with("\\"))) {
-        result = result.tconcat("\\");
+
+<*
+	Get previous directory path for a given path (uses static string)
+	@param dirPath : "path string to the current directory"
+	@ensure result.ends_with(platf::PATHSEPERATOR_STR) 
+*>
+fn String getPrevDirectoryPath(String dirPath) @inline {
+    String result = string::tformat("%s", rl::getPrevDirectoryPath(dirPath.zstr_tcopy()));
+    if(!result.ends_with(platf::PATHSEPERATOR_STR)) {
+        result = result.tconcat(platf::PATHSEPERATOR_STR);
     }
-   return result.zstr_tcopy();
+   return result;
 }
-// Get current working directory (uses static string)
-// This is the directory where the application is running FROM.
-// It is not the same as the application directory, which is where the executable is located.
-// This is because the working directory can change during runtime, for example, 
-// if the user changes it in the settings or runs the application from a shortcut in a different directory.
+
+<*
+	Get current working directory (uses static string)
+	This is the directory where the application is running FROM.
+	It is not the same as the application directory, which is where the executable is located.
+	This is because the working directory can change during runtime, for example, 
+	if the user changes it in the settings or runs the application from a shortcut in a different directory.
+	@ensure result.ends_with(platf::PATHSEPERATOR_STR) 
+*>
 fn String getWorkingDirectory() @inline {
     String result = rl::getWorkingDirectory().str_view();
-    if(!(result.ends_with("/") || result.ends_with("\\"))) {
-        result = result.tconcat("\\");
+    if(!result.ends_with(platf::PATHSEPERATOR_STR)) {
+        result = result.tconcat(platf::PATHSEPERATOR_STR);
     }
     return result.tcopy();
 }
 
-// Get the directory of the running application (uses static string)
-// This is the directory where the executable is really located.
+<*
+	Get the directory of the running application (uses static string)
+	This is the directory where the executable is really located.
+	@ensure result.ends_with(platf::PATHSEPERATOR_STR)
+*>
 fn String getApplicationDirectory() @inline {
     String result = rl::getApplicationDirectory().str_view();
-    if(!(result.ends_with("/") || result.ends_with("\\"))) {
-        result = result.tconcat("\\");
+    if(!result.ends_with(platf::PATHSEPERATOR_STR)) {
+        result = result.tconcat(platf::PATHSEPERATOR_STR);
     }
     return result.tcopy();
 }
@@ -662,14 +675,17 @@ fn bool? makeDirectory_IfNotExist(String dirPath) {
         return FS_FAILED_MAKE_DIR~;
     }
 }
+
 // Change working directory, return true on success
-fn bool? changeDirectory(String dir) {
+fn bool? changeDirectory(String dir) 
+{
     if(rl::changeDirectory(dir.zstr_tcopy())) {
         return true;
     } else {
         return FS_FAILED_CHANGE_DIR~;
     }
 }
+
 // Check if a given path is a file
 fn bool isFile(String path) @inline @public {
     return rl::isPathFile(path.zstr_tcopy());
@@ -786,11 +802,11 @@ fn void moveFiles(String from, String to, String fileExtensions = "")
 {
     if(directoryExists(from))
     {
-        if(from.ends_with("\\") == false) {
-            from = from.tconcat("\\");
+        if(from.ends_with(platf::PATHSEPERATOR_STR) == false) {
+            from = from.tconcat(platf::PATHSEPERATOR_STR);
         }
-        if(to.ends_with("\\") == false) {
-            to = to.tconcat("\\");
+        if(to.ends_with(platf::PATHSEPERATOR_STR) == false) {
+            to = to.tconcat(platf::PATHSEPERATOR_STR);
         }
         
         String files_dir = game::pContext.app_root_dir.tconcat(from);
@@ -858,6 +874,7 @@ import std::io;
 import std::os::env, std::os::win32;
 import engine::logging::log;
 import engine::misc;
+import engine::sys::framework::platform::platf;
 
 enum HResult : int (Win32_HRESULT val, String disc) @local {
     S_OK           {(Win32_HRESULT)0x00000000, "Operation successful"},
@@ -1086,8 +1103,8 @@ fn bool? regCreateKey(Win32_HKEY key, String sub_key, Win32_DWORD options,
 {
     // remove start and end trailing slashs for paths 
     // aparently those are not supported!
-    if(sub_key.starts_with("\\")) sub_key = sub_key.strip_start("\\");
-    if(sub_key.ends_with("\\")) sub_key = sub_key.strip_end("\\");
+    if(sub_key.starts_with(platf::PATHSEPERATOR_STR)) sub_key = sub_key.strip_start(platf::PATHSEPERATOR_STR);
+    if(sub_key.ends_with(platf::PATHSEPERATOR_STR)) sub_key = sub_key.strip_end(platf::PATHSEPERATOR_STR);
     Win32_LSTATUS status = regCreateKeyEx(key, (Win32_LPCSTR)sub_key.zstr_tcopy(), 0, null, options, desired, securityAttributes, result, disposition);
     if (status == ERROR_SUCCESS) {
         return true;

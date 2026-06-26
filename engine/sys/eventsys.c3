@@ -264,6 +264,13 @@ const MAX_EVENTS = 8192;
 const MAX_EVENTSPERFRAME = 8192;
 
 const VOID		= ((char)0);
+// NOTE(HM) if you want to say a event returns void
+// don't use the void constant above
+// just pass a empty string like so "" or 
+// use the void defined bellow in the Argument type strings.
+//
+
+// Argument type chars
 // The int and uint are the recommended 64-bit integer types. 
 // Other integer types are for compatibility with an external environment.
 const INT    = 'i'; // a 64bits signed integer (int)
@@ -272,38 +279,40 @@ const UINT	 = 'y'; // a 64bits unsigned integer (uint)
 const REAL32 = 'f'; // a 64bits floating point number (real)
 const REAL   = 'F'; // a 64bits floating point number (real)
 //
-const VECTOR = 'v'; // a list of f64's/REAL's
+const LIST   = 'L'; // a dynamic list of f64's/REAL's
 const STRING = 's'; // a char/u8 array
-const PTR    = 'p';
+const PTR    = 'p'; // a pointer (64bits)
 //
 // TODO: "pointers" will be defined as a single double value (like they are in reality on 64bits OS's...)
 const ENTITY		= 'e'; // entity pointer
 const ENTITY_NULL	= '€'; // null entity
 // TODO: 2d collision traces in script
 const TRACE			= 't'; // todo
+const _VOID         = ' ';
 
 alias EventDefList = List{EventDef*}; // list of entities that are targets for this entity
 
 EventDefList eventDefList @local;
 
-fn uint numEventCommands() => (uint)eventDefList.len();
+fn uint numEventFunctions() @inline => (uint)eventDefList.len();
 
-struct EventDef @packed
+struct EventDef
 {
 	String name; // script function name
 	String argtypes; // fn params as array of strings
-	String returnType; // fn return type as a string
+	char returnType; // fn return type character
 }
 
 <*
 	Get the number of the event from 1 to MAX_EVENTS
-	@param [&in] _ev : "pointer of event to look for"
+	will return zero on failure.
+	@param [&in] _ev : "pointer to event to look for"
 *>
 fn uint getNum(EventDef* _ev) @nodiscard
 {
 	foreach(i, ev : eventDefList) 
 	{
-		if ( ev == _ev ) {
+		if ( ev.name == _ev.name ) {
 			return (uint)(i + 1);
 		}
 	}
@@ -312,39 +321,38 @@ fn uint getNum(EventDef* _ev) @nodiscard
 }
 
 <*
-	Get the index of the event from 0 to MAX_EVENTS - 1
+	Get the index of the event from 0 to MAX_EVENTS - 1;
+	Will return -1 in case of failure;
 	@param [&in] _ev : "pointer of event to look for"
 *>
-fn uint getIndex(EventDef* _ev) @nodiscard
+fn int getIndex(EventDef* _ev) @nodiscard
 {
 	foreach(i, ev : eventDefList) 
 	{
 		if ( ev.name == _ev.name ) {
-			return (uint)i;
+			return (int)i;
 		}
 	}
-
-	return 0;
+	return -1;
 }
 
-fn EventDef* find(String name)
+<*
+	Find a event in the event list;
+	Will return null on failure;
+	@param [in] name : "name of event to look for"
+	@require name.len > 0
+*>
+fn EventDef* find(String name) @inline
 {
-	assert( name != "" );
-
 	foreach( ev : eventDefList) 
 	{
 		if ( ev.name == name ) {
 			return ev;
 		}
 	}
-
 	return null;
 }
 
-// warning makes no testing to see if events are duplicated
-// and now because of the way the event system is done, is very
-// easy for two diferent events to have the same internal, name string.
-// Todo(HM) find a way to ignore duplicate events
 fn void registerEvents(EventFunc[]* events) 
 {
 	foreach(ev : events) 
@@ -358,16 +366,7 @@ fn void registerEvents(EventFunc[]* events)
 	}
 }
 
-fn bool isDuplicated(EventDef* _ev) @local
-{
-	// find duplicates;
-	foreach(ev : eventDefList)
-	{
-		if(ev == _ev) return true;
-	}
-
-	return false;
-}
+fn bool isDuplicated(EventDef* _ev) @local => (getIndex(_ev) == -1) ? false : true;
 
 struct EventFunc 
 {
@@ -376,14 +375,23 @@ struct EventFunc
 	ExternFuncCallback callback;
 }
 
+//const SIGNATURE @local = 0;
+//const CALLBACK @local  = 1;
+/*
 <*
-	ex: 
-		EventDef* entity_cmd_x = event::getEventCommand(ENTITY_EVENTS, 5); 
-
-	@param [&in] events : "pointer to the array of events"
-	@param index : "index of the event in the array"
-	@ensure return != null
+	runs/calls the callback function pointer of a particular event
+	
+	@param [&in] event : "pointer to the event to call"
+	@param [&in] events : "pointer to the desired events array"
 *>
-fn EventDef* getEventCommand(EventFunc[]* events,  int index ) {
-	return (*events)[index].event;
-}
+fn void run(EventDef* event, EventFunc[]* events) @inline 
+{
+	foreach(i, it : (*events))
+	{
+		if(it.event.name == event.name) {
+			// call the event function
+			(*events)[i].callback(get_parms(event), );
+			return;
+		}
+	}
+}*/

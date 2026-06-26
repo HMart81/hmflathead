@@ -690,8 +690,8 @@ fn void Script.init(&self, String path)
     self.context = mujs::new_state();
     if(self.context)
     {
-        int ret = self.context.initStdLib();
-        if(ret != 0) {
+        int error = self.context.initStdLib();
+        if(error) {
             log::warning(FILE, "mujs script failed to init stdlib with code: %d", ret);
         }
     }
@@ -719,7 +719,6 @@ fn void Script.deinit(&self)
 *>
 fn void Script.run(&this) @inline
 {
-    //assert(this.sengine != null);
     if(this.isValid() == false) {
         log::warning(FILE, "Cannot run invalid script! '%s' ", (this.name.len) ? this.name : "<unnamed>");
         $if $feature(_DEBUG):
@@ -757,7 +756,7 @@ fn void Script.reloadData(CLong new_mod_time)
 {
     self.data    = fs::fileLoadEntireText(self.path).zstr_tcopy();
     self.modtime = new_mod_time;
-    log::info(Where.FILE, "Reloaded script %s", self.name);
+    log::info(FILE, "Reloaded script %s", self.name);
 }
 
 <*
@@ -1470,7 +1469,7 @@ fn void ScriptEngine.registerScripts(&self, String script_folder) @dynamic
             Path? script_path = fs::newPath(scriptlist.paths[i].str_view());
             if(catch excuse = script_path) 
             {
-                log::warning(Where.FILE,"Failed to load script %s inside %s with excuse: %s", 
+                log::warning(FILE,"Failed to load script %s inside %s with excuse: %s", 
                                 fs::getFileNameWithoutExt(script_path), SCRIPT_FOLDER_PATH, excuse)!!;
                 continue;
             }
@@ -1498,7 +1497,7 @@ fn void ScriptEngine.reloadScripts(&self, String script_folder) @dynamic
             Path? script_path = fs::newPath(scriptlist.paths[i].str_view());
             if(catch excuse = script_path) 
             {
-                log::warning(Where.FILE,"Failed to reload script %s inside %s with excuse: %s", 
+                log::warning(FILE,"Failed to reload script %s inside %s with excuse: %s", 
                                 fs::getFileNameWithoutExt(script_path), SCRIPT_FOLDER_PATH, excuse)!!;
                 continue;
             }
@@ -1515,7 +1514,7 @@ fn void ScriptEngine.reloadScripts(&self, String script_folder) @dynamic
                     {
                         script.data = fs::fileLoadEntireText(script_path).zstr_tcopy();
                         script.modtime = file_mod_time;
-                        log::info(Where.FILE, "Reloaded script %s", script.name);
+                        log::info(FILE, "Reloaded script %s", script.name);
                     }
                     continue;
                 }
