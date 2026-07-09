@@ -27,7 +27,7 @@
 *********************************************************************************************************************************************/
 /* UNFINISHED BACKEND INTERFACE */
 
-module engine::sys::framework::soundbkd::sndbk @private;
+module engine::sys::framework::soundbkd @private;
 
 import std::io, std::os::win32;
 import engine::filesystem::fs;
@@ -69,7 +69,7 @@ fn float AudioDevice.getActiveSounds(self) @inline => rl::getSoundsPlaying();
 
 // *************** Sound Data ***********************
 // a wrapper around RLSound just a way to give raylib 
-// sounds some more data
+// sounds some more data and controls
 // **************************************************
 struct HMSound @public 
 {
@@ -147,6 +147,7 @@ fn void HMMusic.stop(&self) => rl::stopMusicStream(self.super);
 fn void HMMusic.pause(&self) => rl::pauseMusicStream(self.super);
 fn void HMMusic.resume(&self) => rl::resumeMusicStream(self.super);
 fn void HMMusic.seek(&self, float position) => rl::seekMusicStream(self.super, position);
+
 fn void HMMusic.setVolume(&self, float volume) @inline
 {
 	if(volume < 0) volume = 0.0f;
@@ -222,7 +223,19 @@ fn void HMSpeaker.unload(&self, bool immediate = false)
 	self.audio.unload();
 }
 
+ <*
+    @param [&inout] snd_world : "pointer to sound world to create the speaker in"
+ *>
+ fn HMSpeaker{HMMusic}*? create_music_speaker(HMSoundWorld* snd_world) @inline
+ {
+	snd_world.musics.push(alloc::new(&snd_world.mem_arena, HMSpeaker{HMMusic}));
+    snd_world.musics.last()!.sndwld = snd_world;
+    return snd_world.musics.last();
+ }
 // Sound Backend interface
+
+const MAX_SOUND_WORLD_PLAYING_SOUNDS = 64;
+// todo should I have a max limit of sounds playing or not, in a sound world?
 
 const usz SOUND_ARENA_PAGE_SIZE = 256 * 1024; // 256 KB
 DynamicArenaAllocator soundArena;
@@ -232,6 +245,8 @@ interface SoundWorldBackend
     fn void	init(String);
     fn int?	addSound(Path);
     fn int?	addMusic(Path);
+    fn void update();
+    fn void pause();
 	fn HMSpeaker{HMSound}* getSoundEmitter(int);
 	fn HMSpeaker{HMSound}* getSoundEmitterByName(String);
 	fn HMSpeaker{HMMusic}* getMusicEmitter(int);
@@ -248,6 +263,7 @@ struct HMSoundWorld (SoundWorldBackend) @public
     SoundEmitterList sounds;
     MusicEmitterList musics;
     DynamicArenaAllocator mem_arena;
+	int sounds_playing_count;
 	bool active;
 }
 
@@ -268,6 +284,35 @@ fn void HMSoundWorld.deactivate(&self) @dynamic
 }
 
 fn bool HMSoundWorld.isActive(&self) @dynamic => self.active;
+
+fn void HMSoundWorld.update(&self) @dynamic
+{
+    if(self.isActive()) 
+    {
+        foreach(music_speaker : self.musics) {
+		    if(music_speaker.audio.isPlaying()) {
+                music_speaker.audio.update();
+            }
+	    }
+    }
+}
+
+fn void HMSoundWorld.pause(&self) @dynamic
+{
+    if(self.isActive())
+    {
+        foreach(music_speaker : self.musics) {
+		    if(music_speaker.audio.isPlaying()) {
+                music_speaker.audio.pause();
+            }
+	    }
+        foreach(sound_speaker : self.sounds) {
+		    if(sound_speaker.audio.isPlaying()) {
+                sound_speaker.audio.pause();
+            }
+	    }
+    }
+}
 
 <*
     @param path : "path to sound to add to the world"
@@ -300,33 +345,34 @@ fn int? HMSoundWorld.addSound(&self, Path path) @dynamic
 
 fn int? HMSoundWorld.addMusic(&self, Path path) @dynamic
 {
-    HMSpeaker{HMMusic}* new_speaker = alloc::new(&self.mem_arena, HMSpeaker{HMMusic});
+    HMSpeaker{HMMusic}* new_speaker = create_music_speaker(self)!;
     new_speaker.audio = {
-            .super = rl::loadMusicStream(path.zstr_tcopy()), // more than 10 seconds sounds
-            .path = path,
-            .name = path.basename(),
-            .id = (int)self.musics.len() + 1
-        };
-	self.musics.push(new_speaker);
+        .super = rl::loadMusicStream(path.zstr_tcopy()), // more than 10 seconds sounds
+        .path = path,
+        .name = path.basename(),
+        .id = (int)self.musics.len()
+    };
+    assert(rl::isMusicValid(new_speaker.audio.super));
     return new_speaker.audio.id;
 }
 
+<*
+    @param id : "id of sound emitter"
+    @ensure return != null
+*>
 fn HMSpeaker{HMSound}* HMSoundWorld.getSoundEmitter(&self, int id) @dynamic
 {
-    foreach(speaker : self.sounds) {
-		if(speaker.audio.id == id) return speaker;
-	}
-
-    return null;
+    return self.sounds[--id];
 }
 
+<*
+    @param id : "id of music emitter"
+    @require id >= 1
+    @ensure return != null
+*>
 fn HMSpeaker{HMMusic}* HMSoundWorld.getMusicEmitter(&self, int id) @dynamic
 {
-    foreach(speaker : self.musics) {
-		if(speaker.audio.id == id) return speaker;
-	}
-
-    return null;
+   return self.musics[(sz)(id - 1)];
 }
 
 fn HMSpeaker{HMSound}* HMSoundWorld.getSoundEmitterByName(&self, String name) @dynamic
@@ -349,9 +395,31 @@ fn HMSpeaker{HMMusic}* HMSoundWorld.getMusicEmitterByName(&self, String name) @d
 
 fn void HMSoundWorld.playSound(&self, String name) @dynamic
 {
+	if(self.sounds_playing_count >= 64) return;
+
     foreach(speaker : self.sounds) {
-		if(speaker.audio.name == name) speaker.audio.play();
+		if(speaker.audio.name == name) {
+			speaker.audio.play();
+			self.sounds_playing_count++;
+		}
 	}
+}
+
+fn void HMSoundWorld.stopSound(&self, String name) @dynamic
+{
+    foreach(speaker : self.sounds) {
+		if(speaker.audio.name == name) {
+			speaker.audio.stop();
+			self.sounds_playing_count--;
+			if(self.sounds_playing_count < 0) self.sounds_playing_count = 0;
+		}
+	}
+}
+
+fn void HMSoundWorld.removeSound(&self, String name) @dynamic
+{
+	HMSpeaker{HMSound}* speaker = self.getSoundEmitterByName(name);
+    if(speaker) self.sounds.remove_item(speaker);
 }
 
 
@@ -366,7 +434,17 @@ fn void HMSoundWorld.shutdown(&self) @dynamic
 }
 
 
-
+fn void setPlayingSoundWorld(HMSoundWorld* snd_world) @public
+{
+    if(!snd_world) {
+        HMSoundWorld* current_sound_world = game::pContext.current_sound_world;
+        if(current_sound_world) current_sound_world.deactivate();
+        return;
+    }
+    // else
+    snd_world.activate();
+    game::pContext.current_sound_world = snd_world;
+}
 
 
 /*

@@ -75,6 +75,7 @@ import engine::logging::log;
 import engine::filesystem::fs;
 import thirdparty::raylib5::rl;
 import engine::sys::framework::language::lang;
+import engine::sys::framework::soundbkd;
 // end_region
 
 // region alias
@@ -86,6 +87,7 @@ alias pContext @local = game::pContext;
 // is different from OpenGL where the bottom-left corner is (0,0)
 // this means that when rendering images sometimes they 
 // need to be inverted to display correctly.
+// UPDATE(HM) No need to invert that is done in the shader now.
 const SCREEN_TOP_CORNER = (Vec2f) {0.0f, 0.0f}; 
 // end_region
 
@@ -98,8 +100,8 @@ fn void setGUI(UIWindow* menu)
 {
     UIWindow* guiActive;
 
-    // if the coming menu is set to null, deactivate the current menu
-	if (menu == null) 
+    // if the incoming menu is set to null, deactivate the current menu
+	if (menu == null)
     {
         guiActive = getActiveMenu();
         if ( guiActive != null ) {
@@ -109,39 +111,27 @@ fn void setGUI(UIWindow* menu)
 		return;
 	}
 
-    //else set the current menu
+    // else set the current menu to the desired one
     guiActive = menu;
     if(guiActive.hidden()) {
         guiActive.show();
     }
+    // update the global game pointer to the gui
 	game::pContext.guiActive = guiActive;
 
-	if (guiActive == game::pContext.main_menu) 
+	if (guiActive == game::pContext.main_menu)
     {
         if(game::pContext.mode != game::GameMode.MENU) {
 			game::pContext.mode = game::GameMode.MENU;
 		}
 
-        if(game::pContext.editor.isOpened()) {
+        if(game::pContext.editor.isOpen()) {
             if(game::game_cursor_visible()) game::hide_game_cursor();
         } else {
            if(game::game_cursor_hidden()) game::show_game_cursor();
         }
-        
-        // todo set the gui vars
-		//SetSaveGameGuiVars();
-		//SetMainMenuGuiVars();
-	} /*else if ( guiActive == game::pContext.restart_menu ) {
-		SetSaveGameGuiVars();
-	}*/
+	}
 
-	// NOTE(HM) i'm 99.9% sure this creates and inits a event data struct to catch key presses
-	//sysEvent_t  ev;
-	//memset( &ev, 0, sizeof( ev ) );
-	//ev.evType = SE_NONE;
-	//guiActive.handleEvent( &ev, com_frameTime );
-	
-	//guiActive.activate( true, game::pContext.time_ms );
     guiActive.setFocus(true);
 }
 
@@ -158,7 +148,7 @@ fn void start(UIWindow* gui)
 	}*/
 
 	// start playing the menu sounds
-	//soundSystem->SetPlayingSoundWorld( menuSoundWorld );
+	soundbkd::setPlayingSoundWorld( &main_menu_sound_world );
     if(rl::isMusicValid(gui.music_stream)) {
         if(!rl::isMusicStreamPlaying(gui.music_stream) && !game::pContext.pause_all_music) rl::playMusicStream(gui.music_stream);
     }
@@ -212,6 +202,8 @@ fn void exit()
 
 //////////////////////////////////////////////////////////////////
 /* #region MAIN MENU */
+
+HMSoundWorld main_menu_sound_world;
 
 <*
     Create a checkbox for the menu
@@ -286,15 +278,13 @@ constdef CallBack : inline int @local
 	RELEASE
 }
 
-//const MAX_CALLBACK_PTRS @local = CallBack.len;
-struct MenuButtonDef 
+struct MenuButtonDef
 {
     Vec2f size;
     RLColor default_color;
     RLColor over_color;
     RLColor label_color;
     WidgetTextAlign label_align;
-    //WidgetCallback[MAX_CALLBACK_PTRS] callbacks;
     WidgetCallback[CallBack::len] cbs;
 }
 
@@ -374,7 +364,7 @@ fn UIWindow* mainMenuCreate(int screenWidth, int screenHeight)
     window_options.setPositionV({
         desk_options_center.x,
         desk_options_center.y
-        });
+    });
     window_options.setColor(rl::GRAY);
     window_options.hide();
     // link the menus
@@ -392,18 +382,24 @@ fn UIWindow* mainMenuCreate(int screenWidth, int screenHeight)
     window_extra.setPositionV({
         desk_options_center.x,
         desk_options_center.y
-        });
+    });
     window_extra.setColor(rl::GRAY);
     window_extra.hide();
     
-
     String music_path = game::pContext.app_base_folder.tconcat("music\\main_menu\\Swallow.ogg");
-    if(fs::fileExists(music_path))
-    {
+    if(fs::fileExists(music_path)) {
         log::info(FILE, "\tloading %s music: %s", desk_main.name, music_path);
     } else { 
         unreachable("music path not found: %s", music_path);
     }
+
+    int? main_menu_music_id;
+    main_menu_sound_world.init("SoundWorld_MainMenu");
+    @catch(main_menu_music_id = main_menu_sound_world.addMusic(music_path.to_tpath()));
+    desk_main.sound_world = &main_menu_sound_world;
+    HMSpeaker{HMMusic}* music = main_menu_sound_world.getMusicEmitter(main_menu_music_id)!!;
+    if(music) music.audio.setVolume(1.0f);
+
     desk_main.music_stream = rl::loadMusicStream(music_path.zstr_tcopy());
     if(!rl::isMusicValid(desk_main.music_stream)) {
         unreachable("music stream not valid: %s", music_path);

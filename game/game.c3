@@ -53,7 +53,7 @@ import game::material::manager::mtrmng; // material database
 import engine::sys::framework::language::lang;
 import engine::sys::framework::backends::bkend; // graphics backend interface
 import engine::sys::framework::platform::platf; // platform specific stuff
-import engine::sys::framework::soundbkd::sndbk; // Sound system
+import engine::sys::framework::soundbkd; // Sound system
 //
 import thirdparty::wren;
 import engine::sys::script_engine::scpt; // Script Engine (based on Wren language)
@@ -376,6 +376,7 @@ struct Game (SaveSystemInterface) @local
     RLMusic     default_music;
     RLFont      default_font;
     int      pause_all_music; // to pause all music on demand
+	HMSoundWorld* current_sound_world;
     //
     
     // game fonts TODO(HM) We should only chose 2 for the final game...
@@ -465,13 +466,13 @@ struct Game (SaveSystemInterface) @local
     String msgBoxText;
     //
     float time_sec;
-    int   time_ms;
+    int   time_ms; // wraps around to zero in 25 days... who cares.
     float dt;
     bool fps_unlocked;
     int max_fps;
     int last_key_pressed;
     
-    timer::Timer testTimer;
+   Timer testTimer;
     //ParticleSpawner particleSpawner1;
 }
 
@@ -1158,7 +1159,7 @@ fn void gameHandleGeneralControls() @local
         if((local_game.mode != STARTING && local_game.mode != INTRO)) {
             if(editor.getBool() == true) {
 				Editor* ed = &local_game.editor;
-                (ed.isOpened()) ? ed.close() : ed.open();
+                (ed.isOpen()) ? ed.close() : ed.open();
             }
         }
     }
@@ -1344,7 +1345,7 @@ fn void onUpdate() @local
             local_game.mouse_window_pos = rl::getMousePosition(); // pixel coordinates, top left origin
         }
 
-        if(editor.getBool() && local_game.editor.isOpened()) {
+        if(editor.getBool() && local_game.editor.isOpen()) {
             local_game.editor.update();
         }
         
@@ -1361,6 +1362,7 @@ $if $defined(SCRIPT_ENGINE):
         local_game.script_eng.update();
 $endif
         
+		if(local_game.current_sound_world) local_game.current_sound_world.update();
         // updates all fullscreen menus state like the main menu
         uiwin::gpManager.update(local_game.time_ms);
         

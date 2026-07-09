@@ -77,6 +77,7 @@ alias VideoFrame  = RLImage;
 
 const TRUE @local  = 1;
 const FALSE @local = 0;
+const MIN_VIDEO_SIZE = (Vec2f) {64, 64};
 
 const AUDIO_EMBEDED = 1; // comment to disable
 //const AUDIO_SEPERATE = 1; // uncomment to enable or vice versa
@@ -130,17 +131,22 @@ struct VidMovie @public
 }
 
 /*
-// this was causing massive GPU memory leaking....
+// NOTE(HM) 
+// this was causing massive GPU memory leaking and crashing the GPU
+// because was creating a new texture each frame in GPU RAM
+// and not clearing the previous ones!
 <*
-	Render each frame as a GPU texture unto screen
+	Render each frame as a GPU texture unto screen.
 	@param [&in] _frame : "frame data to render"
 	@param screen : "screen area where play the frame"
-	@require rl::isImageValid(*_frame) != false
-	@require screen.size != VEC2_ZERO
+	@require rl::isImageValid(*_frame) == true
+	@require screen.size > (Vec2f)MIN_VIDEO_SIZE
 *>
 fn void renderFrame(RLImage* _frame, RLRectangle screen) @local
 {
+	// load texture data into GPU ram 
 	RLTexture2D frame = rl::loadTextureFromImage(*_frame);
+	// draw it on screen
 	rl::drawTexturePro(
 		frame,
 		(RLRectangle){0.0f, 0.0f, (float)frame.width, (float)frame.height},
@@ -149,17 +155,26 @@ fn void renderFrame(RLImage* _frame, RLRectangle screen) @local
 }
 */
 
+<*
+	@require pContext.render.isWindowReady()!!
+*>
 fn void VidMovie.draw(&self, Vec2f position = VEC2_ZERO)
 {
 	if(self.is_ready && self.should_play && self.started)
 	{
-		assert(pContext.render.isWindowReady()!!);
+		if(self.fullscreen) if(position != VEC2_ZERO) position = VEC2_ZERO;
+
 		Vec2f view_size = {
 			.x = (self.fullscreen) ? pContext.screen.w : self.frame.width,
 			.y = (self.fullscreen) ? pContext.screen.h : self.frame.height
 		};
 
-		if(self.fullscreen) if(position != VEC2_ZERO) position = VEC2_ZERO;
+		if(!self.fullscreen && view_size.length_sq() < MIN_VIDEO_SIZE.length_sq()) {
+			view_size = {
+				.x = MIN_VIDEO_SIZE.x,
+				.y = MIN_VIDEO_SIZE.y
+			};
+		}
 
 		RLTexture2D* frame = &self.frame_texture;
 		rl::drawTexturePro(
@@ -168,22 +183,27 @@ fn void VidMovie.draw(&self, Vec2f position = VEC2_ZERO)
 			misc::makeRect(position, view_size), VEC2_ZERO, 0.0f, rl::WHITE
 		);
 
+		self.frame_count++;
 		$if $defined(DEBUG_VIDEO):
-			self.frame_count++;
 			rl::drawText(string::tformat_zstr("Video: fr: %s fc: %s", (int)self.framerate, self.frame_count), 50, 25, 16, rl::RED);
 		$endif
 	}
 }
 
+<*
+	@require pContext.render.isWindowReady()!! && rect.size.length_sq() > MIN_VIDEO_SIZE.length_sq()
+*>
 fn void VidMovie.drawWithinRect(&self, RLRectangle rect)
 {
 	if(self.is_ready && self.should_play && self.started) {
-		assert(pContext.render.isWindowReady()!!);
 		RLTexture2D* frame = &self.frame_texture;
+		// the full image texture
+		RLRectangle image_rect = {0.0f, 0.0f, (float)(*frame).width, (float)(*frame).height};
 		rl::drawTexturePro(
 			*frame,
-			(RLRectangle){0.0f, 0.0f, (float)(*frame).width, (float)(*frame).height},
-			rect, VEC2_ZERO, 0.0f, rl::WHITE
+			image_rect, // full image rectangle
+			rect, // smaller frame to scale the full image above into 
+			VEC2_ZERO, 0.0f, rl::WHITE
 		);
 	}
 }
@@ -202,6 +222,7 @@ fn void freeFrameData(VideoFrame* frame, bool clear_all = false) @local @depreca
 	}
 }
 
+
 <*
 	@param [&in] frame : "pointer to the current plm frame to update the video frame"
 *>
@@ -213,6 +234,7 @@ fn void VidMovie.updateFrame(&self, PLMframe *frame) @MyInline
 	rl::updateTexture(self.frame_texture, self.frame.data);
 }
 
+/*
 fn void VidMovie.update_video(&self) @MyInline
 {
 	if(!self.is_ready || !self.should_play || !self.started ) return;
@@ -221,7 +243,7 @@ fn void VidMovie.update_video(&self) @MyInline
     // converte YUV to required RGB data
     frame.to_rgb(self.frame.data, self.frame_stride);
 	rl::updateTexture(self.frame_texture, self.frame.data);
-}
+}*/
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////// AUDIO ///////////////////////////////////////////
@@ -520,7 +542,7 @@ fn void VidMovie.update(&self)
 		//if(self.plyr.get_time() < (current_time + elapsed_time)) self.update_video();
 		//self.update_audio();
 		$if $defined(DEBUG_VIDEO):
-		self.frame_count++;
+			self.frame_count++;
 		$endif
 		self.is_playing = true;
 	} else {

@@ -749,7 +749,7 @@ fn void RenderView.drawWorldSpaceCoords(&self) @if($feature(_DEBUG))
 
 fn void RenderView.drawCameraSpaceCoords(&self) @if($defined(ENABLE_CAMERA_VIEW) &&& $feature(_DEBUG))
 {
-	if(game_context.editor.isOpened() || game_context.mode == GameMode.EDITOR) return;
+	if(game_context.editor.isOpen()) return;
 
     self.showModelViewAxis();
 
@@ -974,6 +974,7 @@ import std::collections::list;
 import thirdparty::raylib5::rl;
 import engine::filesystem::fs;
 import engine::sys::framework::glsl;
+import engine::logging::log;
 import engine::misc; // for @todo
 import game::camview @public;
 
@@ -990,15 +991,16 @@ struct HMPostProcess
 }
 
 <*
-    Load a PostProcess shader
-    shaders should be put inside the main shader folder no sub folder
-    and only the shader file name is passed to the function, no need for the path or extension.
+    Load a PostProcess shader, shaders should be put in the root, of the shaders folder, 
+	inside the data folder and only the shader name, is passed to the function, 
+	no need for the path or file extension.
     @param [in] _name : "name of the post process shader to load"
-    @require _name != ""
+    @require _name.len > 0
 *>
 fn void HMPostProcess.loadPPShader(&self, String _name) 
 {
-    String shader_path = game::pContext.app_base_folder.tconcat(SHADERS_FOLDER).tconcat(_name).tconcat(".fs");
+	String path_root   = game::pContext.app_base_folder.tconcat(SHADERS_FOLDER);
+    String shader_path = path_root.tconcat(_name).tconcat(".fs");
     shader_path = path::normalize(shader_path)!!;
 	self.shader = glsl::loadShader("", shader_path);
     if(rl::isShaderValid(self.shader)) {
@@ -1006,40 +1008,51 @@ fn void HMPostProcess.loadPPShader(&self, String _name)
         self.id = (uint)pplist.len() + 1; // we use the past list lenght as the index. Because is 1 minus the current lenght like what indices are... 
         pplist.push(self);
     } else {
-        unreachable("failed to load required post process shader %s!", _name);
+		String error_msg = string::tformat("failed to load required post process shader %s!", _name);
+		$if $feature(_DEBUG):
+        	unreachable(error_msg);
+		$else
+			log::warning(FILE, error_msg);
+		$endif
     }
 }
 
 fn void HMPostProcess.unload(&self) 
 {
-    if(rl::isShaderValid(self.shader))  glsl::unloadShader(&self.shader);
-	int idx = (int)self.id - 1;
-    pplist[idx] = null;
-    if(self.id) self.id = 0;
-    self.name = "";
+	if(self.id == 0) return;
+	
+    self.id = 0;
+    glsl::unloadShader(&self.shader);
+    pplist.remove_item(self);
 }
 
+/*
+	get post process index using its name
+*/
 fn int getPostProcessIdxFromName(String _name) @inline 
 {
     foreach(it : pplist) {
-        if(it.name == _name) return (int)it.id;
+        if(it.name == _name) return (int)(it.id - 1);
     }
     return -1;
 }
 
-fn HMPostProcess* getPostProcessFromID(uint idx) @inline 
+fn HMPostProcess* getPostProcessFromID(int _id) @inline 
 {
-    return pplist[idx];
+    foreach(it : pplist) {
+        if(it.id == (uint)_id) return it;
+    }
+    return null;
 }
 
 fn HMPostProcess* getPostProcessFromName(String _name) @inline 
 {
     int indice = getPostProcessIdxFromName(_name);
-    if(indice == -1) {
-        io::printf("failed to find post process shader %s.", _name);
+    if(indice < 0) {
+        log::warning(FILE, "failed to find post process shader %s.", _name);
         return null;
     }
-    return getPostProcessFromID((uint)indice);
+    return pplist[indice];
 }
 
 fn void HMPostProcess.update(&self) {
@@ -1049,7 +1062,7 @@ fn void HMPostProcess.update(&self) {
 <*
 	@require rl::isShaderValid(self.shader)
 *>
-macro HMPostProcess.@apply(&self, RenderTexture* layer = null; @body) {
+macro HMPostProcess.@apply(&self, ViewLayer* layer = null; @body) {
     //self.shader.setUniformTexture("texture0", layer.texture);
     //game_context.current_global_shader = &self.shader;
     rl::@shaderMode(self.shader)

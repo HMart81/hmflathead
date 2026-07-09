@@ -748,7 +748,7 @@ interface WidgetInterface
 
     fn void setColor(rl::RLColor);
 //
-    fn bool onMouseOver(int x, int y) @optional;
+    /*fn bool onMouseOver(int x, int y) @optional;
     fn bool onMouseStopOver() @optional;
     fn bool onMouseButton(int x, int y, RLMouseButton button, bool pressed) @optional;
     fn bool onMouseWheel(int x, int y, int scroll) @optional;
@@ -756,7 +756,7 @@ interface WidgetInterface
 	fn bool onJoystickAxis(int axis, float value) @optional;
 	fn bool onJoystickButton(int button, bool pressed) @optional;
 	fn void onSize(int w, int h) @optional;
-	fn void onFocus(bool focus) @optional;
+	fn void onFocus(bool focus) @optional;*/
 }
 
 struct Widget (WidgetInterface) 
@@ -768,16 +768,15 @@ struct Widget (WidgetInterface)
     int kind;
     bool selected;  // for the gui editor
 
-    // for binding (one single binding for now, but in the future we could have multiple bindings)
-    struct parent 
-    {
-        UIWindow* window;
-        Widget* other;
-    }
+    UIWindow* parent_window;
+    // For binding. One single binding for now, 
+	// in the future we may have multiple bindings, 
+	// if I come up with a good system for that...
+    Widget* other;
     // for linking
     Widget* next; // for linked list of widgets
 
-    // callbacks
+    // callbacks (function pointers...)
     WidgetCallback onOver; // called when the mouse is over the widget
     WidgetCallback onStopOver;
     WidgetCallback onPress;
@@ -824,7 +823,7 @@ fn void Widget.update(&self) @dynamic
     // NOTE(HM) This is done even if we are hidden or deactivated.
     if(self.bound())
     {
-        Vec2f parent_origin = self.parent.other.getPosition();
+        Vec2f parent_origin = self.other.getPosition();
         // WTF? Why do we need to add the parent pos and then 
         // remove it again for this to work?!
         Vec2f new_offset    = (self.getPosition() + parent_origin) - parent_origin;
@@ -849,8 +848,8 @@ fn RLColor selected_color_anim(Widget* wgt) @inline @local
 {
     if(!wgt) return {0, 0, 0, 1};
     
-    assert(wgt.parent.window != null);
-    int time = wgt.parent.window.time;
+    assert(wgt.parent_window != null);
+    int time = wgt.parent_window.time;
     int flicker_milliseconds = 200;
     
     RLColor color;
@@ -1024,61 +1023,52 @@ fn Vec2f Widget.getAnchor(&self, int idx) @inline
 *>
 fn void Widget.addTo(&self, UIWindow* window) @dynamic 
 {
-    //self.parent.window = window;
     self.setParentUIWindow(window);
+	defer self.parent_window.addChildWidget(self);
+
     // todo change this to activate logic like the panel system...
-    if (self.parent.window.isInteractive) {
+    if (self.parent_window.isInteractive) {
         self.activate();
     }
 
-    self.super.id = (int)self.parent.window.childWidgets.len() + 1;
+    self.super.id = (int)self.parent_window.childWidgets.len() + 1;
     
     // concatenate with window name
     if (self.super.id < 10) {
-        self.super.name = string::tformat("%s_%s%d", self.parent.window.name, self.super.name.tconcat("0"), self.super.id);
+        self.super.name = string::tformat("%s_%s%d", self.parent_window.name, self.super.name.tconcat("0"), self.super.id);
         if (self.bound()) {
-            self.super.name = string::tformat("%s_%s_%s%d", self.parent.window.name, self.parent.other.super.name, self.super.name.tconcat("0"), self.super.id);
+            self.super.name = string::tformat("%s_%s_%s%d", self.parent_window.name, self.other.super.name, self.super.name.tconcat("0"), self.super.id);
         }
     } else {
-      self.super.name = string::tformat("%s_%s%d", self.parent.window.name, self.super.name, self.super.id);
+      self.super.name = string::tformat("%s_%s%d", self.parent_window.name, self.super.name, self.super.id);
       if (self.bound()) {
-          self.super.name = string::tformat("%s_%s_%s%d", self.parent.window.name, self.parent.other.super.name, self.super.name, self.super.id);
+          self.super.name = string::tformat("%s_%s_%s%d", self.parent_window.name, self.other.super.name, self.super.name, self.super.id);
       }
     }
-    
-    self.parent.window.addChildWidget(self);
 }
 
 <*
  @ensure return != null
 *>
-fn UIWindow* Widget.getParentWindow(&self) @dynamic => self.parent.window;
+fn UIWindow* Widget.getParentWindow(&self) @dynamic => self.parent_window;
 
 <*
- @param [in] other : "parent widget"
+ @param [in] other : "other widget to bind to"
  @require other != null
 *>
 fn void Widget.bindTo(&self, Widget* other) @dynamic 
 {
     if(self.bound()) {
-        log::warning(Where.CONSOLE, "Cannot Bind %s to %s because is already bound to %s.", self.super.id, other.super.id, self.parent.other.super.id);
+        log::warning(FILE, "Cannot Bind %s to %s because is already bound to %s.", self.super.id, other.super.id, self.other.super.id);
         return;
     }
-    
-    // we are now bound to the parent
-    self.parent.other = other;
-
-    // our position is now relative to the parent origin
-    //Vec2f parent_origin  = other.getPosition();
-    //Vec2f dist_offset    = self.getPosition() - parent_origin;
-    //Vec2f new_offset     = parent_origin + dist_offset;
-    //self.setPositionV(new_offset);
-    //
+    // we are now bound to another widget
+    self.other = other;
 }
 
 fn bool Widget.bound(&self) @dynamic 
 {
-    return self.parent.other != null;
+    return self.other != null;
 }
 
 fn void Widget.unbind(&self) @dynamic 
@@ -1086,23 +1076,21 @@ fn void Widget.unbind(&self) @dynamic
     if(!self.bound()) {
         return;
     }
-    
-    self.parent.other = null;
+    self.other = null;
 }
 
 fn String Widget.getName(&self) @inline @dynamic => self.super.name;
 fn void Widget.setName(&self, String name) @inline @dynamic => self.super.name = name.tcopy();
 
-fn void Widget.link(&self, Widget* other) @dynamic 
+fn void Widget.link(&self, Widget* target) @dynamic 
 {
-    if (other == null) return;
+    if (target == null) return;
 
     if (self.isLinked()) {
-        log::warning(Where.CONSOLE, "Cannot link %s to %s because is already linked to %s.", self.super.id, other.super.id, self.next.id);
+        log::warning(FILE, "Cannot link %s to %s because is already linked to %s.", self.super.id, target.super.id, self.next.id);
         return;
     }
-
-    self.next = other;
+    self.next = target;
 }
 
 fn bool Widget.isLinked(&self) @dynamic 
@@ -1117,17 +1105,17 @@ fn void Widget.unlink(&self) @inline @dynamic
 
 fn bool Widget.hasParentUIWindow(&self) @inline @dynamic
 {
-    return (self.parent.window != null) ? true : false;
+    return (self.parent_window != null) ? true : false;
 }
 
 fn void Widget.setParentUIWindow(&self, UIWindow* window) @inline @dynamic
 {
-    self.parent.window = window;
+    self.parent_window = window;
 }
 
 fn void Widget.releaseParentUIWindow(&self) @inline @dynamic
 {
-    self.parent.window = null;
+    self.parent_window = null;
 }
 
 fn void Widget.setColor(&self, RLColor color) @dynamic 
@@ -1796,6 +1784,7 @@ import engine::sys::render2d::r2d;
 import engine::gui::container::cont;
 //import engine::tools::editor;
 import engine::gui::guieditor;
+import engine::sys::framework::soundbkd;
 
 /*
     NOTE(HM) 
@@ -1851,6 +1840,7 @@ struct UIWindow (SaveSystemInterface)
     Vec2f mouse_pos;
 	List{GuiAnchor} anchor;
 
+	HMSoundWorld* sound_world;
     RLMusic music_stream; // any music stream that we may want to attach to a window
     List{UIWindow*} shared_music_stream_desktops; // list of windows that share the same music stream
     
@@ -1941,6 +1931,8 @@ fn void UIWindow.clear(&self) @inline
     }
 
 	self.anchor.clear();
+
+	if(self.sound_world) self.sound_world.shutdown();
 
     if(self.shared_music_stream_desktops.len()) 
     {
@@ -2148,7 +2140,7 @@ fn void UIWindow.show(&self)
 
 fn void UIWindow.drawCursor(&self) @inline
 {
-    if(game::pContext.editor.isOpened()) return;
+    if(game::pContext.editor.isOpen()) return;
     
 	if ( self.isInteractive && self.active && self.visible ) {
 		if(game::game_cursor_hidden()) game::show_game_cursor();
@@ -2553,7 +2545,7 @@ fn void UIWindowManager.draw(&self, int screenWidth, int screenHeight) @inline
         {
             uiwin.draw();
             
-            if(self.mode == EDITOR && !game::pContext.editor.isOpened()) {
+            if(self.mode == EDITOR && !game::pContext.editor.isOpen()) {
                 //drawGuiEditor(uiwin); TODO(HM) draw this through the new editor
             }
 

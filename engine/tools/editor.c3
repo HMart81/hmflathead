@@ -268,24 +268,24 @@ fn void Editor.deinit(&self) @inline
 
 fn void Editor.open(&self) @inline
 {
-    if (self.flags.is_opened) {
-        return;
-    }
+    if (self.isOpen()) return;
+    
     self.flags.is_opened = true;
     self.kind = EditorKind.MAIN_EDITOR;
     self.setVisible(); // also sets the editor to active
     game::pContext.mode = GameMode.EDITOR;
 }
 
-fn bool Editor.isOpened(&self) => self.flags.is_opened;
+fn bool Editor.isOpen(&self) {
+	return (game::pContext.mode == GameMode.EDITOR && self.flags.is_opened);
+}
 
 fn EditorKind Editor.getOpenKind(&self) => self.kind;
 
 fn void Editor.close(&self) @inline
 {
-    if (!self.isOpened()) {
-        return;
-    }
+    if (!self.isOpen()) return;
+    
     self.flags.is_opened = false;
     self.setInvisible(); // also sets the editor to inactive and unfocused
     game::pContext.mode = GameMode.NONE;
@@ -488,7 +488,7 @@ fn void Editor.update(&self) @inline
 
 fn void Editor.draw(&self, int screenWidth, int screenHeight) 
 {
-    if (self.isActive() == false || self.isVisible() == false || self.isOpened() == false) {
+    if (self.isActive() == false || self.isVisible() == false || self.isOpen() == false) {
         return;
     }
 
@@ -872,7 +872,7 @@ $endif
 *>
 fn void drawOpenEditorBorder(Editor* editor) @inline
 {
-	if (editor.isActive() == false || editor.isVisible() == false || editor.isOpened() == false) {
+	if (editor.isActive() == false || editor.isVisible() == false || editor.isOpen() == false) {
         return;
     }
 

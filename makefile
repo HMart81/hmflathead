@@ -62,6 +62,14 @@ BUILD_DIR := build
 BUILD_PATH := ${CURDIR}/$(BUILD_DIR)
 ##
 
+## Windows stuff
+MSVC_SDK_PATH := "C:\Program Files (x86)\Windows Kits\8.1\Lib\winv6.3\um\x64"
+#FULL_MSVC_SDK_PATH := $(LIBRARY_ROOT_PATH)$(MSVC_SDK_PATH)
+KERNEL32_LIB := $(MSVC_SDK_PATH)\kernel32.lib
+USER32_LIB := $(MSVC_SDK_PATH)\user32.lib
+ADVAPI32_LIB := $(MSVC_SDK_PATH)\Advapi32.lib
+##
+
 ## Third party libraries
 RAYLIB := raylib55\lib\raylib.lib
 BOX2D := box2d\box2d.lib
@@ -94,7 +102,7 @@ LINKER_SEARCH_PATHS := -L $(LIBRARY_ROOT_PATH)
 
 ifeq ($(filter umka,$(SCRIPT_LANG)),umka)
 #LINKED_LIBRARIES := -l $(RAYLIB) -l $(BOX2D) -l kernel32.lib -z $(RAYGUI) -l $(MICROUI) -l $(UMKA) -l $(TSOD_FLAG) -l $(TRACY) -l $(PLMPEG)
-LINKED_LIBRARIES := $(LIBS) -l $(UMKA)
+LINKED_LIBRARIES := $(LIBS) -l $(UMKA) -l $(USER32_LIB) -l $(ADVAPI32_LIB)
 else
 ifeq ($(filter wren,$(SCRIPT_LANG)),wren)
 LINKED_LIBRARIES := $(LIBS) -l $(WREN)
@@ -115,12 +123,6 @@ endif
 #LINKED_LIBRARIES := -l $(RAYLIB) -l $(BOX2D) -l kernel32.lib -l $(RAYGUI) -l $(TRACY) -l $(ANGELSCRIPT)
 ##
 
-## Windows stuff
-MSVC_SDK_PATH := windows\kit\8.1\Lib\winv6.3\um\x64
-FULL_MSVC_SDK_PATH := $(LIBRARY_ROOT_PATH)$(MSVC_SDK_PATH)
-KERNEL32_LIB := $(MSVC_SDK_PATH)\kernel32.lib
-USER32_LIB := $(MSVC_SDK_PATH)\user32.lib
-##
 
 
 ############################## Source code  #####################################
@@ -146,7 +148,7 @@ RELEASE_GAME_ARGUMENTS := +r_fullscreen 1 +r_mode 23
 #-D VIDEO_PLAYBACK_ENABLE
 # in c3 you need to use $feature(_DEBUG) to check for this defines, C3 $define doesn't work for this...
 ifeq ($(SCRIPT_LANG), umka)
-DEBUG_DEFINES := -D _DEBUG -D VMEM_TEMP -D TRACY_ENABLE -D MICROUI_ENABLE -D UMKA_ENABLE -D BACKEND_RAYLIB -D VIDEO_PLAYBACK_ENABLE
+DEBUG_DEFINES := -D _DEBUG -D VMEM_TEMP -D MICROUI_ENABLE -D UMKA_ENABLE -D BACKEND_RAYLIB -D VIDEO_PLAYBACK_ENABLE
 else
 ifeq ($(SCRIPT_LANG), wren)
 DEBUG_DEFINES := -D _DEBUG -D TRACY_ENABLE -D MICROUI_ENABLE -D WREN_ENABLE
@@ -172,7 +174,7 @@ RELEASE_DEFINES := -D _RELEASE -D TRACY_ENABLE -D MICROUI_ENABLE -D UMKA_ENABLE 
 CC := c3c.exe
 
 # common compiler flags/options
-CFLAGS := --target windows-x64 --threads 8 --output-dir $(BUILD_PATH)
+CFLAGS := --target windows-x64 --threads 8 --wincrt=dynamic --output-dir $(BUILD_PATH)
 
 # release
 comand_release_compile := $(CC) -O3 $(CFLAGS) $(RELEASE_DEFINES) $(LINKER_SEARCH_PATHS) $(LINKED_LIBRARIES) -o $(APPLICATION_RELEASE_NAME) compile $(GAME_ROOT_SOURCES) $(ENGINE_ROOT_SOURCES) $(ENGINE_CHILD_SOURCES)

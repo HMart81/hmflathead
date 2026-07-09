@@ -106,14 +106,14 @@ const String GLOBAL_SHADER_INCLUDE = `
 const INCLUDE_DIRECTIVE @local = "#include";
 const SHADER_HOME_PATH  @local = "shaders/";
 
+faultdef SHD_LOAD_ERROR, 
+         SHD_UNKNOWN_LOCATION;
+
 struct HMShader 
 {
     inline RLShader data;
     String name;
 }
-
-faultdef SHD_LOAD_ERROR, 
-         SHD_UNKNOWN_LOCATION;
 
 <*
     loads a shader file data into RAM
@@ -241,113 +241,121 @@ fn void setShaderValue(CInt locIndex, void*value, HMShader* shader) <Type>
 *>
 fn void handleShaderIncludes(String* shdcode) @local
 {
-    uint include_count = (uint)(*shdcode).count(INCLUDE_DIRECTIVE);
-	bool multi_line_coment_found;
+    uint include_count; //= (uint)(*shdcode).count(INCLUDE_DIRECTIVE);
+    String[] lines = (*shdcode).tsplit("\r\n");
+	foreach(String line : lines)
+    {
+		if(line.starts_with(INCLUDE_DIRECTIVE)) include_count += 1;
+	}
+
+	bool skip_lines;
     if(include_count > 0)
     {
-        String[] lines = (*shdcode).tsplit("\r\n");
         foreach(String line : lines)
         {
-            if(include_count == 0 ) break;
-
             if(line.is_empty()) continue; // skip empty lines
             if(line.starts_with("//")) continue; // skip comments
 			if(line.starts_with("/*")) {
-				multi_line_coment_found = true;
+				skip_lines = true;
 				continue;
 			} else if (line.ends_with("*/")) {
-				multi_line_coment_found = false;
+				skip_lines = false;
 				continue;
 			}
-			if(multi_line_coment_found) continue; // skip multi line comments
+			if(skip_lines) continue; // skip multi line comments
 			// Directive found
             if(line.starts_with("#"))
             {
                 String[] tokens = line.tsplit(" ");
-                foreach(String token : tokens) 
+				StringPair pair = {
+					.first  = tokens[0],
+					.second = tokens[1]
+				};
+                /*foreach(String token : tokens) 
                 {
                     if(token.is_empty()) continue; // skip empty tokens
                     token = token.trim(); // trim whitespace
-                }
+                }*/
 
-                String directive = tokens[0];
-                if(directive != INCLUDE_DIRECTIVE) continue; // skip if not an include directive
+				//String original_include_path = include_path.tcopy(); // keep the original path for later use
+				// NOTE(HM) now create the replace token, it will be used to detect the full include directive in the shader code
+                // NOTE(HM) this will try to find the include directive text in the shader code, without caring about well-formedness
+                String replace_directive = pair.first.tconcat(" ").tconcat(pair.second);
+                assert(replace_directive.len > 0, "replace directive should not be empty!");
+                
+                if(pair.first.trim() != INCLUDE_DIRECTIVE) continue; // skip if not an include directive
 
                 // NOTE(HM) we expect the include directive to be in the format: #include "path/to/include.inc"
-                String include_path = tokens[1];
-                String original_include_path = tokens[1].tcopy(); // keep the original path for later use
-
+                String include_path = pair.second.trim(); //tokens[1];
+                
                 if(include_path.contains(".\\") || include_path.contains("./")) {
-                    // NOTE(HM) if the include path contains a slash or backslash, we will replace it with a forward slash
                     include_path = include_path.treplace("./", "\\").treplace(".\\", "\\");
                 }
 
+                // NOTE(HM) remove the quotes
                 if(include_path.starts_with("\"")) {
-                    // NOTE(HM) remove the quotes
                     include_path = include_path.trim("\"");
                 }
+                //
             
-                include_path = SHADER_HOME_PATH.tconcat(include_path);
-
-                assert(include_path.is_empty() == false, "Include path should not be empty!");
+				// final full include path
+                include_path = game::pContext.app_base_folder.tconcat(SHADER_HOME_PATH).tconcat(include_path);
 
                 // NOTE(HM) if the include path does not end with .inc, append it
                 if(include_path.ends_with(".inc") == false) {
                     include_path = include_path.tconcat(".inc");
                 }
+                assert(include_path.len > 0, "Include path should not be empty!");
 
-                // NOTE(HM) now create the replace token, it will be used to detect the full include directive in the shader code
-                // NOTE(HM) this will try to find the include directive text in the shader code, without caring about well-formedness
-                String replace_directive = INCLUDE_DIRECTIVE.tconcat(" ").tconcat(original_include_path);
-
-                assert(replace_directive.is_empty() == false, "replace directive should not be empty!");
-
-                String? code_to_included = fs::readEntireFileX(game::pContext.app_base_folder.tconcat(include_path));
+                // get the code to include
+                String? code_to_included = fs::readEntireFileX((include_path));
                 if(catch excuse = code_to_included) {
-                    log::error(FILE, "Failed to include file: %s, error: %s", include_path, excuse);
+                    log::error(FILE, "Failed to include file: %s with excuse: %s", include_path, excuse);
                     // NOTE(HM) if the file is not found, we will just remove the include directive
+                    // and hope for the best...
                     (*shdcode) = (*shdcode).treplace(replace_directive, "");
                     continue; // skip to next line
                 }
 
-                // NOTE(HM) else replace the full include directive with the code to include
+                // NOTE(HM) else, replace the include directive with the desired code.
                 (*shdcode) = (*shdcode).treplace(replace_directive, code_to_included.tconcat("\n"));
                 include_count -= 1;
             }
+			if(include_count == 0) break;
         }
     }
 }
 
 <*
-    loads a shader file code to memory
+    loads a shader file code to RAM (memory)
 
     @param [in] vs_path : "path to the vertex shader, can be empty string"
     @param [in] fs_path : "path to frag/pixel shader, can be empty string"
-	@require (vs_path.is_empty() && fs_path.is_empty()) == false
+	@require (vs_path.is_empty() && fs_path.is_empty()) == false : "both path's cannot be empty thou"
 	@require (rl::isWindowReady() == true)
 *>
 fn RLShader loadShader(String vs_path, String fs_path) @nodiscard
 {
     // NOTE(HM) this is used to load a shader from a vertex and fragment shader file
     // if the paths are empty it will return the default shader
-    if(vs_path.is_empty() && fs_path.is_empty()) {
+    /*if(vs_path.is_empty() && fs_path.is_empty()) {
         log::warning(FILE, "Both vertex and fragment shader paths are empty, returning empty shader. -> %s::%s:%s", $$MODULE, $$FUNC, $$LINE);
         return {}; // return empty shader, afaik will use raylib default shaders
-    }
+    }*/
 
     String vs_shader_code;
     String fs_shader_code;
 
 	if(vs_path.is_empty()) {
-		// todo use the virtual folder system now!!
 		// our default vertex shader
+		// todo use the virtual folder system now?
 		vs_path = game::pContext.app_base_folder.tconcat("shaders\\default.vs");
 		if(fs::directoryExists(vs_path) == false) vs_path = ""; // use the raylib default one instead
     }
 
 	if(fs_path.is_empty()) {
-        // todo use the virtual folder system now!!
 		// our default pixel shader
+        // todo use the virtual folder system now!!
 		fs_path = game::pContext.app_base_folder.tconcat("shaders\\default.fs");
 		if(fs::directoryExists(fs_path) == false) fs_path = ""; // use the raylib default one instead
     }
