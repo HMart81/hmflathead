@@ -1,0 +1,29 @@
+{
+    "use-stdlib": true,
+    // Set general level of x64 cpu: "baseline", "ssse3", "sse4", "avx1", "avx2-v1", "avx2-v2", "avx512", "native".
+    "x86cpu": "native",
+    // Set max type of vector use: "none", "mmx", "sse", "avx", "avx512", "native".
+    "x86vec": "native",
+    "sources": ["./engine/**", "./game/**"],
+    "output": "../build",
+    // Features enabled for all targets.
+    "features": [ "", ""],
+    "targets": {
+        "debug": {
+            "type": "executable",
+            "opt": "O0",
+            "safe": true,
+            "single-module": true,
+            // Enable sanitizer: none, address, memory, thread.
+            "sanitize": "memory",
+        },
+        "release": {
+            "type": "executable",
+            "opt": "O3",
+            "safe": false,
+            "single-module": true,
+            // Strip unused code and globals from the output.
+            "strip-unused": true,
+        },
+    }
+}

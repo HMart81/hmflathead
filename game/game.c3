@@ -40,6 +40,7 @@ import std::math::complex;
 import std::core::mem; // for malloc/new
 import std::collections::list, std::collections::map, std::collections::pair;
 import engine::input;
+import engine::sys::version;
 import engine::tokanizer::tok; // tokanizer
 import engine::filesystem::fs;
 import engine::telemetry::telem;
@@ -107,13 +108,16 @@ constdef Units : inline int @public
 	METER = 1,
 	PIXEL,
 }
-const UNITS @public = Units.PIXEL; // default units are pixels (one day change this to meters...)
+// default units are pixels because I did this before even thinking
+// about units, so I made a bunch of stuff based on pixel units, 
+// things that are now hard to change. :(
+// TODO(HM) (one day change this to meters please)
+const UNITS @public = Units.PIXEL;
 
 const float DEFAULT_UNITS_PER_METER @public @Hardcode  = 1.0f;
 const float DEFAULT_PIXELS_PER_METER @public @Hardcode = 100.0f; // 100 pixels per meter
 const float DEFAULT_UNITS_PER_PIXEL @public @Hardcode  = DEFAULT_UNITS_PER_METER / DEFAULT_PIXELS_PER_METER; // 0.01 units per pixel
 
-const String MOUSE_IMAGE_NAME       @Hardcode = "pointer.png";
 const String MOUSE_POINTER_MAT_NAME @Hardcode = "gui/pointer"; // game assets folder
 const GAME_CURSOR_SCALER            @Hardcode = 0.025f;
 
@@ -249,7 +253,7 @@ CVar developer      @public = { "developer"     , CvFlag.BOOL | CvFlag.TOOL | Cv
 CVar editor         @public = { "editor"        , CvFlag.BOOL | CvFlag.TOOL,   "0",     "enables the game editor (requires developer mode)"};
 CVar r_mode         @public = { "r_mode"        , CvFlag.INT | CvFlag.ARCHIVE,    "-1",    "index of window resolution [0 to 32], -1 = ini file setting"};
 CVar r_showFPS      @public = { "r_showFPS"     , CvFlag.BOOL | CvFlag.ARCHIVE,   "1",     "draws framerate on screen"};
-CVar r_noSplashPic  @public = { "r_noSplashPic" , CvFlag.BOOL | CvFlag.ARCHIVE,   "0",     "disables the splash image at game start"};
+CVar r_showSplashPic  @public = { "r_showSplashPic", CvFlag.BOOL | CvFlag.ARCHIVE,   "0",     "enables the splash image at game start"};
 CVar r_fullscreen   @public = { "r_fullscreen"  , CvFlag.INT | CvFlag.ARCHIVE,    "-1",    "screen mode 0 = window, 1 = borderless, 2 = dedicated, -1 = ini file setting"};
 CVar r_fps_unlocked @public = { "r_unlockFps"   , CvFlag.BOOL | CvFlag.ARCHIVE,   "false", "sets if the fps is unlocked (true) or locked to the monitor refresh rate (false)"};
 CVar r_max_fps      @public = { "r_max_fps"     , CvFlag.INT | CvFlag.ARCHIVE,    "-1",    "sets the maximum fps when fps is unlocked, -1 = monitor refresh rate"};
@@ -265,7 +269,7 @@ fn void register_cvars() @local
     cvar::@register(&editor);
     cvar::@register(&r_mode);
     cvar::@register(&r_showFPS);
-    cvar::@register(&r_noSplashPic);
+    cvar::@register(&r_showSplashPic);
     cvar::@register(&r_fullscreen);
     cvar::@register(&r_fps_unlocked);
     cvar::@register(&r_max_fps);
@@ -327,7 +331,7 @@ struct Game (SaveSystemInterface) @local
 	String language;  // current set language
 
     // menus
-    UIWindow* guiActive; // to handle all guis
+    UIWindow* guiActive; // pointer to current gui visible on screen
     UIWindow* main_menu;
     // new *very WIP* custom immediate mode gui
     IMUI_Context test_ui;
@@ -335,7 +339,7 @@ struct Game (SaveSystemInterface) @local
     //
 
     // microui
-    MU_Context* mu_ctx @if($feature(MICROUI_ENABLE)); // microui context, used for the micro ui system
+    MU_Context* mu_ctx @if($feature(MICROUI_ENABLE)); // microui context, used for the micro gui system
     bool show_microui_test_frames @if($feature(MICROUI_ENABLE));
     bool show_statistics @if($feature(MICROUI_ENABLE)); // show statistics window
     RLTexture2D mu_font_atlas @if($feature(MICROUI_ENABLE)); // microui font texture
@@ -344,7 +348,7 @@ struct Game (SaveSystemInterface) @local
     ScriptEngine script_eng;
     //
     // mujs script engine
-    State* mujs_state @if($feature(MUJS_ENABLE)); // mujs context
+    MUState* mujs_state @if($feature(MUJS_ENABLE)); // mujs context
     //
     // LUA script engine
     LUAState* lua_state @if($feature(LUA_ENABLE)); // lua context
@@ -607,22 +611,28 @@ fn void Game.reload(&self, SaveFile* file) @dynamic {
 }
 
 <*
- @require(self.entityList.len() >= 1)
+    Get a pointer to the a player, 
+    @param id : "id of player, if none is passed, gets player1 by default"
+    @require(local_game.entityList.len() >= 1)
 *>
-fn Player* Game.getLocalPlayer(&self, int id = 1) @MyInline {
+fn Player* getLocalPlayer(int id = 1) @MyInline @public
+{
     int idx = id - 1;
-    return (Player*)self.entityList[idx];
+    return (Player*)local_game.entityList[idx];
 }
 
-fn RLShader getDefaultShaderCopy() @MyInline @public {
+fn RLShader getDefaultShaderCopy() @MyInline @public 
+{
     return local_game.default_shader;
 }
 
-fn RLShader* getDefaultShader() @MyInline @public {
+fn RLShader* getDefaultShader() @MyInline @public 
+{
     return &local_game.default_shader;
 }
 
-fn RLShader* getCurrentGlobalShader() @MyInline @public {
+fn RLShader* getCurrentGlobalShader() @MyInline @public 
+{
     return local_game.current_global_shader;
 }
 
@@ -637,7 +647,8 @@ fn Vec2i getScreenCenterPosI() @MyInline @public
 <*
  @require(self.entityList.len() >= 2)
 *>
-fn Entity* Game.getEntityByName(&self, String name) {
+fn Entity* Game.getEntityByName(&self, String name) 
+{
     foreach(i, ent : self.entityList) {
         if(ent.name == name) return self.entityList[i];
     }
@@ -645,7 +656,8 @@ fn Entity* Game.getEntityByName(&self, String name) {
     return null;
 }
 
-fn bool Game.isPointInsideScreenView(&self, RLVector2 point) {
+fn bool Game.isPointInsideScreenView(&self, RLVector2 point) 
+{
     int w, h;
     w = self.screen.w;
     h = self.screen.h;
@@ -784,37 +796,38 @@ fn void drawMsgBox(int w, int h) @public
 ///////////////////////////////////////////////////
 
 
-/*
-fn void Game.updateScreenSize(&self, int rez_index) @MyInline @deprecated {
-    self.screen.w = SCREEN_RES[rez_index].w;
-    self.screen.h = SCREEN_RES[rez_index].h;
-    rl::setWindowSize(self.screen.w,  self.screen.h);
-}
-*/
-
-fn void Game.initFonts(&self) /*@MyInline*/ {
+fn void Game.initFonts(&self) @MyInline 
+{
     self.candara_font       = asstManager.getFont("candara.fnt");
     self.candara_light_font = asstManager.getFont("candara_light.fnt");
     self.lucida_font        = asstManager.getFont("lucida.fnt");
     self.trojan_pro_font    = asstManager.getFont("trojan_pro.fnt");
 }
 
-fn void Game.clearFonts(&self) @MyInline {
-    // we dont unload the fonts here, because they are unloaded by the asset manager
-    //rl::unloadFont(self.candara_font);
+fn void Game.clearFonts(&self) @MyInline 
+{
+    // NOTE(HM) 
+    // we dont unload the fonts here, 
+    // they are unloaded by the asset manager instead
     self.candara_font       = null;
     self.candara_light_font = null;
     self.lucida_font        = null;
     self.trojan_pro_font    = null;
 }
 
-fn RLFont* Game.getfont(&self, String font_name) /*@MyInline*/ {
+<*
+    Get one of the already loaded custom fonts by name
+    @param [in] font_name : "the name of the font..."
+    @require font_name.len > 0
+*>
+fn RLFont* Game.getfont(&self, String font_name) @MyInline 
+{
 	switch(font_name)
 	{
-    	case "candara.fnt":       return self.candara_font;      
-    	case "candara_light.fnt": return self.candara_light_font;
-    	case "lucida.fnt":        return self.lucida_font;       
-    	case "trojan_pro.fnt":    return self.trojan_pro_font;   
+    	case "candara":       return self.candara_font;      
+    	case "candara_light": return self.candara_light_font;
+    	case "lucida":        return self.lucida_font;       
+    	case "trojan_pro":    return self.trojan_pro_font;   
 		default: unreachable();
 	}
 }
@@ -984,12 +997,10 @@ enum ESCReply : char {
 
 fn ESCReply Game.handleESC(&self, UIWindow** gui ) @dynamic
 {
-	Player* player = self.getLocalPlayer();
+	Player* player = getLocalPlayer();
 	if ( player ) {
 		if ( player.handleESC() ) {
 			return ESCReply.IGNORE;
-		} else {
-			return ESCReply.MAIN;
 		}
 	}
 	return ESCReply.MAIN;
@@ -1041,13 +1052,16 @@ fn bool system_cursor_visible() @public @MyInline {
 ///////////////////////////////////////
 // #region Game Custom Cursor functions
 
+<*
+	@require rl::isWindowReady() == true
+*>
 fn void init_game_cursor() @MyInline
 {
     local_game.mouse_cursor.initV(
-        pos: {0,0}, // position in pixel units
+        pos: misc::VEC2_ZERO, // position in pixel units
         size: {
-            42, // width
-            42  // height
+            .x = 42, // width
+            .y = 42  // height
         },
         color: rl::WHITE,
         kind: SpriteKind.CURSOR,
@@ -1082,18 +1096,17 @@ fn void update_game_cursor(int screen_w, int screen_h) @public
     
     // update position
     local_game.mouse_cursor.setPositionV({x, y});
-    //local_game.mouse_cursor.setPositionV(rl::getWorldToScreen2D({x, y}, local_game.view.camera));
-    
+
     // update size
     // TODO do a better mouse cursor size dependent on screen size!!
-    float cursor_h = local_game.mouse_cursor.getSizeY();
     float desired_cursor_size;
+    float cursor_h = local_game.mouse_cursor.getSizeY();
     // now change coordinates depending on set uints
-    if(UNITS == Units.METER) {
-        desired_cursor_size = math::floor(GAME_CURSOR_SCALER * misc::pixelsToMeters((uint)screen_h));
-    }
-    else if(UNITS == Units.PIXEL) {
+    if(UNITS == Units.PIXEL) {
         desired_cursor_size = math::floor(GAME_CURSOR_SCALER * screen_h);
+    }
+    else if(UNITS == Units.METER) {
+        desired_cursor_size = math::floor(GAME_CURSOR_SCALER * misc::pixelsToMeters((uint)screen_h));
     }
 
     if(cursor_h > desired_cursor_size) {
@@ -1143,8 +1156,6 @@ fn bool game_cursor_hidden() @public @MyInline
 // todo change all direct raylib input handling to use the actions system
 fn void gameHandleGeneralControls() @local
 {
-    input::gpManager.update();
-    
     //if(rl::isKeyPressed(rl::KEY_F1) && !local_game.msgbox_showing) {
         //local_game.msgbox_showing = true;
     //}
@@ -1339,6 +1350,7 @@ fn void onUpdate() @local
 			local_game.default_shader.setValue(local_game.default_shader_resolution_loc, &local_game.screen.size, RLShdUniTyp.VEC2);
 		}
         
+        input::gpManager.update();
         gameHandleGeneralControls();
 
         if(rl::getMouseDelta().length_sq() > 0) {
@@ -1544,7 +1556,7 @@ fn void drawGameVersion(Vec2i at_pos) @MyInline @local
     //ZString game_version     = string::tformat_zstr("version: (%s, %s, %s)", lic::MAX_VERSION, lic::MIN_VERSION, lic::BABY_VERSION);
     //int version_text_len     = rl::measureText(game_version, VERSION_FONT_SCALE);
     rl::drawText(
-        string::tformat_zstr("game version: %s", lic::@game_version()),
+        string::tformat_zstr("game version: %s", lic::GAME_VERSION),
         //(int)(screenWidth - (2.0f * version_text_len)), //(float)(font_w * libc::strlen(game_version))),
         //(int)0.25f*screenHeight,
         at_pos.x,
@@ -2433,32 +2445,32 @@ fn void handle_cmdline_new(String[] args)
 fn void print_engine_version() @local @inline 
 {
     log::info(FILE, "---------------------------------------------");
-    log::info(FILE, "ENGINE_VERSION: %s", lic::ENGINE_VERSION);
+    log::info(FILE, "%s", version::ENGINE);
     log::info(FILE, "---------------------------------------------\n");
 }
 
 fn void print_game_version() @local @inline 
 {
     log::info(FILE, "---------------------------------------------");
-    log::info(FILE, "Game Version: %s", lic::@game_version());
+    log::info(FILE, "%s", lic::GAME_VERSION);
     log::info(FILE, "---------------------------------------------\n");
 }
 
 // #endregion ARGS HANDLING ******************
 //////////////////////////////////////////////////////////////////
 
-alias JSCObject = Object;
+alias JSCObject @public = Object;
 <*
     @ensure return != null
 *>
-fn JSCObject*? load_jsonc_obj(String file_path) @local @inline
+fn JSCObject*? load_jsonc_obj(String file_path) @public @inline
 {
     File js_data = fs::openFile(file_path)!;
     return json::load(mem, &js_data)!;
 }
 
 // use this to free jsonc objects create with load_jsonc
-fn void free_jsonc(JSCObject* obj) @local @inline 
+fn void free_jsonc(JSCObject* obj) @public @inline 
 {
     if(obj) obj.free();
 }
@@ -2507,7 +2519,8 @@ $endif
     defer free_jsonc( obj: path_list );
 
     if(path_list.has_key("folders")) {
-        Object* folders = path_list.get("folders")!;
+        JSCObject* folders = path_list.get("folders")!;
+        log::info(CONSOLE, "Directories:");
         log::info(CONSOLE, "---------------------------------------------");
         folders.map.@each(; String key, value) 
         {
@@ -2537,7 +2550,7 @@ $endif
 // #region Paths/Folders Setup
     log::info(FILE, "Registering game paths:");
     log::info(FILE, "---------------------------------------------");
-    String app_exe_path = fs::getApplicationDirectory(); //(*args)[0];
+    String app_exe_path = fs::getApplicationDirectory();
     
 	///////////////////////////
     // Set the game name
@@ -2557,7 +2570,8 @@ $endif
     // In case a mod is being used, use this to get the original game work dir.
     local_game.default_app_dir = app_exe_path;
     if(fs::directoryExists(local_game.default_app_dir)) {
-        log::info(FILE, "\tWorking from default Dir: %s", local_game.default_app_dir);
+        log::info(FILE, "\tWorking from: %s", local_game.default_app_dir);
+        // just in case
 		fs::changeDirectory(local_game.default_app_dir)!;
     	// register the directory
 		//fs::addDirectory(local_game.default_app_dir)!;
@@ -2649,21 +2663,20 @@ $endif
     if(local_game.app_save_folder.len > 0)
     {
         // NOTE(HM)
-        // Look in the user saving directory, if save folder is already there, 
-		// if not create it.
+        // Look in the user saving directory, to see if save folder is already there, 
+		// if not, create it.
 		local_game.app_save_folder = local_game.app_save_folder.tconcat(fs::cv_save_path.getString()).tconcat(local_game.app_name);
-        if(fs::directoryExists(local_game.app_save_folder)) 
+        if(fs::directoryExists(local_game.app_save_folder) == false) // create it 
         {
-            log::info(FILE, "\tUser Save folder set to: %s", local_game.app_save_folder);
-        } else { // create it
             bool? sucess    = fs::makeDirectory_IfNotExist(local_game.app_save_folder);
             if(catch excuse = sucess) 
             {
-                log::warning(FILE,"Failed to create save folder path %s with excuse: %s", 
+                log::warning(FILE, "Failed to create save folder path %s with excuse: %s", 
                     local_game.app_save_folder, excuse);
                 return NO_USER_SAVE_FOLDER~;
             }
         }
+        log::info(FILE, "\tUser Save folder set to: %s", local_game.app_save_folder);
     }
 	$else
 		local_game.app_save_folder = local_game.app_save_folder.tconcat(fs::cv_save_path.getString()).tconcat(local_game.app_name);
@@ -2674,7 +2687,7 @@ $endif
 ////////////////////////////////////////////////////
     // if enabled, show a splash screen. Btw this delays the game start for a few seconds
 	// so not sure if really something I want to have, but is here for others if they want it.
-    if(r_noSplashPic.getBool() == false) showSplashScreenImage();
+    if(r_showSplashPic.getBool()) showSplashScreenImage();
 ////////////////////////////////////////////////////
 
 // #region InitRaylib library stuff
@@ -2990,7 +3003,7 @@ $endif
     
     //===============================//
     //========= Init Window ======== //
-    String window_name = string::tformat("%s version: (%s, %s, %s)", local_game.app_name, lic::MAX_VERSION, lic::MIN_VERSION, lic::BABY_VERSION);
+    String window_name = string::tformat("%s %s %s", local_game.app_name, lic::GAME_VERSION, version::ENGINE);
     $if $feature(BACKEND_RAYLIB) || $feature(BACKEND_RGFW):
        
         WindowHandle window = local_game.render.createWindow(
@@ -3566,11 +3579,11 @@ $endif
     log::info(FILE,  "** Creating test player. **");
     local_game.player1 = plyr::makePlayer(id: 1, color: rl::RED);
     local_game.player1.setMaterial("figure");
-    local_game.player2 = plyr::makePlayer(id: 2, color: rl::BLUE);
-    local_game.player2.setMaterial("figure");
+    //local_game.player2 = plyr::makePlayer(id: 2, color: rl::BLUE);
+    //local_game.player2.setMaterial("figure");
     // NOTE(HM) The first entities are always the players
     local_game.entityList.push((Entity*)local_game.player1);
-    local_game.entityList.push((Entity*)local_game.player2);
+    //local_game.entityList.push((Entity*)local_game.player2);
     log::info(FILE,  "** Done **.");
     
     // local_game.particleSpawner1.init({

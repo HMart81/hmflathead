@@ -487,7 +487,7 @@ fn UIWindow* mainMenuCreate(int screenWidth, int screenHeight)
     offset += misc::VEC_RIGHT * screen_half_width;
     offset -= {button_width / 2.0f, 0.0f};
     offset += misc::VEC_DOWN * (screenHeight / button_height) * 10;
-    String btn_string = lang::dict.getString("0");
+    String btn_string = lang::dict.getString(0);
     desk_main.create_menu_button(offset, btn_string/*"START"*/, &btn_def);
 
     //************
@@ -498,7 +498,7 @@ fn UIWindow* mainMenuCreate(int screenWidth, int screenHeight)
     
     offset += misc::VEC_DOWN * button_height;
     offset.y += 0.5f * button_height;
-    btn_string = lang::dict.getString("1");
+    btn_string = lang::dict.getString(1);
     desk_main.create_menu_button(offset, btn_string/*"QUIT"*/, &btn_def);
     
     //************
@@ -509,7 +509,7 @@ fn UIWindow* mainMenuCreate(int screenWidth, int screenHeight)
     
     offset += misc::VEC_DOWN * button_height;
     offset.y += 0.5f * button_height;
-    btn_string = lang::dict.getString("3");
+    btn_string = lang::dict.getString(3);
     desk_main.create_menu_button(offset, btn_string/*"OPTIONS"*/, &btn_def);
     // end_region BUTTONS
 
@@ -538,7 +538,7 @@ fn UIWindow* mainMenuCreate(int screenWidth, int screenHeight)
     offset += misc::VEC_RIGHT * (0.10f * (window_options.getSize().x / 2));
     offset += misc::VEC_DOWN * window_options.getSize().y;
     offset.y -= button_height + (0.5f * button_height);
-    btn_string = lang::dict.getString("4");
+    btn_string = lang::dict.getString(4);
     window_options.create_menu_button(offset, btn_string/*"BACK"*/, &btn_def);
 // end_region widgets
     

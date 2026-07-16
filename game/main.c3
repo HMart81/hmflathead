@@ -37,6 +37,7 @@ import std::time;
 import engine::telemetry::telem;
 import game::intro;
 import engine::misc;
+import engine::sys::version;
 import engine::logging::log;
 import engine::filesystem::fs::win32;
 // third party libraries
@@ -93,7 +94,7 @@ fn void pre_InitFunc() @init
 
     game::showSettingsWindow();
 
-    log::info(FILE, "-------- THE <toname> ENGINE LOG ------------");
+    log::info(FILE, "-------- THE %s ENGINE LOG ------------", version::ENGINE_NAME);
     DateTime date = datetime::now();
     log::info(FILE, "\t%s of %s of %s at %sh:%sm", date.day, date.month, date.year, date.hour, date.min);
     log::info(FILE, "---------------------------------------------");

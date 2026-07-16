@@ -26,7 +26,7 @@
 # 
 *********************************************************************************************************************************************/
 
-module engine::sys::licensee;
+module engine::sys::version;
 
 import std::io;
 import engine::misc; // misc code
@@ -34,52 +34,13 @@ import engine::sys::framework::platform::platf;
 /*
 ===============================================================================
 
-	Definitions for information that is related to a licensee's game name and location.
+	Definitions for information related to engine version.
 
 ===============================================================================
 */
 
-const int MAX_VERSION  = 0;
-const int MIN_VERSION  = 0;
-const int BABY_VERSION = 1;
-const GAME_NAME	@Hardcode = "hmflathead"; // appears on window titles and errors NO SPACES in the names please!
-const GAME_SUB_NAME @Hardcode = ""; // NOTE(HM) optional...
-const GAME_VERSION = @sprintf("Game Version (%s.%s.%s)", MAX_VERSION, MIN_VERSION, BABY_VERSION);
-
-// paths
-const BASE_GAMEDIR = "data"+++platf::PATHSEPERATOR_STR;	// directory where the game data exists, relative to the executable
-
-// filenames
-const CONFIG_FILE =	GAME_NAME+++".ini";	// configuration file name, in BASE_GAMEDIR
-
-// base folder where the source code lives
-const SOURCE_CODE_BASE_FOLDER = "src"+++platf::PATHSEPERATOR_STR;
-
-// Savegame Version
-// Update when you can no longer maintain compatibility with previous savegames
-// NOTE: a seperate core save version and game save version could be useful
-const SAVEGAME_VERSION = 1;
-
-// editor info
-const EDITOR_DEFAULT_PROJECT = "def.proj";
-const EDITOR_WINDOWTEXT = "HMeditor";
-
-// win32 info
-const WIN32_CONSOLE_CLASS = "hmpixy2d WinConsole";
-
-// Linux info
-// allow overriding it from the build system with -L LINUX_DEFAULT_PATH
-const LINUX_DEFAULT_PATH = "/usr/local/games/hmflathead"; // default install path
-
-// CD Key file info
-// goes into BASE_GAMEDIR whatever the fs_game is set to
-// two distinct files for easier win32 installer job
-const CDKEY_FILE = "hmpixy2dkey"; // name of the cd key file
-const CDKEY_TEXT = `
-// Do not give this file to ANYONE.
-// The developer will NEVER ask you to send this file to him or anyone, so don't do it!
-// The file contains a unique CD key that is used to identify your copy of the game.
-// So don't lose it or give it away!
-`;
-
-const CONFIG_SPEC = "config.spec";
+const int MAX_VERSION  @local = 0;
+const int MIN_VERSION  @local = 0;
+const int BABY_VERSION @local = 5;
+const ENGINE_NAME = "hmpixy2d";
+const ENGINE @Hardcode = @sprintf("Engine Version: (%s.%s.%s)", MAX_VERSION, MIN_VERSION, BABY_VERSION);	// printed in console and used in log files

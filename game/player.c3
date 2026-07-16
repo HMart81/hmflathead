@@ -256,6 +256,7 @@ fn Player* makePlayer(int id, Vec2f position = {0, 0}, RLColor color = rl::WHITE
 	log::info(CONSOLE, "Player pos = %s", pos);
     Player* player = mem::new(Player);
     player.init(pos, color, id);
+	player.setSpawnArgs(string::tformat("player%s", id));
     return player;
 }
 

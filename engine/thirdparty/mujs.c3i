@@ -81,9 +81,9 @@ var console = { log: print, error: print, warn: print, debug: print };
 var logfile = { write: printTofile };
 `;
 
-typedef State = inline void;
+typedef MUState = inline void;
 
-/* State constructor flags */
+/* MUState constructor flags */
 alias StateFlags = int;
 const StateFlags STRICT = 1;
 
@@ -127,11 +127,11 @@ const GC_NOREPORT = 0;
 const GC_REPORT   = 1;
 
 /* Exception handling */
-extern fn void* State.savetry(&self) @cname("js_savetry");  /* returns a jmp_buf */
-macro State._catch(&self) => libc::setjmp(self.savetry());
-extern fn void State.endtry(&self) @cname("js_endtry");
+extern fn void* MUState.savetry(&self) @cname("js_savetry");  /* returns a jmp_buf */
+macro MUState._catch(&self) => libc::setjmp(self.savetry());
+extern fn void MUState.endtry(&self) @cname("js_endtry");
 
-macro void @try(State* state; @body) 
+macro void @try(MUState* state; @body) 
 {
   assert(state != null, "state must not be null");
   if(state._catch()) 
@@ -147,126 +147,126 @@ macro void @try(State* state; @body)
 //
 
 alias FnAlloc       = fn void*(void* memctx, void* ptr, int size);
-alias FnPanic       = fn void(State* state);
-alias FnCFunction   = fn void(State* state);
-alias FnFinalize    = fn void(State* state, void* p);
-alias FnHasProperty = fn int(State* state, void* p, ZString name);
-alias FnPut         = fn int(State* state, void* p, ZString name);
-alias FnDelete      = fn int(State* state, void* p, ZString name);
-alias FnReport      = fn void(State* state, ZString message);
+alias FnPanic       = fn void(MUState* state);
+alias FnCFunction   = fn void(MUState* state);
+alias FnFinalize    = fn void(MUState* state, void* p);
+alias FnHasProperty = fn int(MUState* state, void* p, ZString name);
+alias FnPut         = fn int(MUState* state, void* p, ZString name);
+alias FnDelete      = fn int(MUState* state, void* p, ZString name);
+alias FnReport      = fn void(MUState* state, ZString message);
 
 /* Basic functions */
-extern fn State* new_state(FnAlloc* alloc = null, void *actx = null, int flags = STRICT) @cname("js_newstate");
-extern fn void State.setcontext(&self, void *uctx) @cname("js_setcontext");
-extern fn void *State.getcontext(&self) @cname("js_getcontext");
-extern fn void State.setreport(&self, FnReport report) @cname("js_setreport");
-extern fn FnPanic State.atpanic(&self, FnPanic panic) @cname("js_atpanic");
-extern fn void State.freestate(&self) @cname("js_freestate");
-extern fn void State.gc(&self, int report) @cname("js_gc");
+extern fn MUState* new_state(FnAlloc* alloc = null, void *actx = null, int flags = STRICT) @cname("js_newstate");
+extern fn void MUState.setcontext(&self, void *uctx) @cname("js_setcontext");
+extern fn void *MUState.getcontext(&self) @cname("js_getcontext");
+extern fn void MUState.setreport(&self, FnReport report) @cname("js_setreport");
+extern fn FnPanic MUState.atpanic(&self, FnPanic panic) @cname("js_atpanic");
+extern fn void MUState.freestate(&self) @cname("js_freestate");
+extern fn void MUState.gc(&self, int report) @cname("js_gc");
 
-extern fn void State.loadstring(&self, ZString filename, ZString source) @cname("js_loadstring");
-extern fn void State.loadfile(&self, ZString filename) @cname("js_loadfile");
+extern fn void MUState.loadstring(&self, ZString filename, ZString source) @cname("js_loadstring");
+extern fn void MUState.loadfile(&self, ZString filename) @cname("js_loadfile");
 
-extern fn void State.eval(&self) @cname("js_eval");
-extern fn void State.call(&self, int n) @cname("js_call");
-extern fn void State.construct(&self, int n) @cname("js_construct");
+extern fn void MUState.eval(&self) @cname("js_eval");
+extern fn void MUState.call(&self, int n) @cname("js_call");
+extern fn void MUState.construct(&self, int n) @cname("js_construct");
 
-extern fn ZString State.ref(&self) @cname("js_ref");
-extern fn void State.unref(&self, ZString ref) @cname("js_unref");
+extern fn ZString MUState.ref(&self) @cname("js_ref");
+extern fn void MUState.unref(&self, ZString ref) @cname("js_unref");
 
-extern fn int State.dofile(&self, ZString filename) @cname("js_dofile");
-macro int State.compile_and_or_Run_or_throw(&self, ZString filename) {
+extern fn int MUState.dofile(&self, ZString filename) @cname("js_dofile");
+macro int MUState.compile_and_or_Run_or_throw(&self, ZString filename) {
   if(self.dofile(filename) != 0 ) {
     unreachable("Failed to execute mujs file: %s with excuse: %s", filename, self.tostring(-1));
   }
   //assert(result == 0, "Failed to execute mujs file: %s", filename);
   return 0;
 }
-macro int State.runScript(&self, String source_code) => self.compile_and_or_Run_or_throw(source_code.zstr_tcopy());
-extern fn int State.dostring(&self, ZString source) @cname("js_dostring");
-extern fn void State.free(&self) @cname("js_freestate");
+macro int MUState.runScript(&self, String source_code) => self.compile_and_or_Run_or_throw(source_code.zstr_tcopy());
+extern fn int MUState.dostring(&self, ZString source) @cname("js_dostring");
+extern fn void MUState.free(&self) @cname("js_freestate");
 
 // protected environment calls
-extern fn int State.ploadstring(&self, ZString filename, ZString source) @cname("js_ploadstring");
-extern fn int State.ploadfile(&self, ZString filename) @cname("js_ploadfile");
-extern fn int State.pcall(&self, int n) @cname("js_pcall");
-extern fn int State.pconstruct(&self, int n) @cname("js_pconstruct");
+extern fn int MUState.ploadstring(&self, ZString filename, ZString source) @cname("js_ploadstring");
+extern fn int MUState.ploadfile(&self, ZString filename) @cname("js_ploadfile");
+extern fn int MUState.pcall(&self, int n) @cname("js_pcall");
+extern fn int MUState.pconstruct(&self, int n) @cname("js_pconstruct");
 //
 
-extern fn void State.getglobal(&self, ZString name) @cname("js_getglobal");
-extern fn void State.setglobal(&self, ZString name) @cname("js_setglobal");
-extern fn void State.defglobal(&self, ZString name, int atts) @cname("js_defglobal");
-extern fn void State.delglobal(&self, ZString name) @cname("js_delglobal");
+extern fn void MUState.getglobal(&self, ZString name) @cname("js_getglobal");
+extern fn void MUState.setglobal(&self, ZString name) @cname("js_setglobal");
+extern fn void MUState.defglobal(&self, ZString name, int atts) @cname("js_defglobal");
+extern fn void MUState.delglobal(&self, ZString name) @cname("js_delglobal");
 
-extern fn int  State.gettop(&self) @cname("js_gettop");
-extern fn void State.pop(&self, int n) @cname("js_pop");
-extern fn void State.rot(&self, int n) @cname("js_rot");
-extern fn void State.copy(&self, int idx) @cname("js_copy");
-extern fn void State.remove(&self, int idx) @cname("js_remove");
-extern fn void State.insert(&self, int idx) @cname("js_insert");
-extern fn void State.replace(&self, int idx) @cname("js_replace");
+extern fn int  MUState.gettop(&self) @cname("js_gettop");
+extern fn void MUState.pop(&self, int n) @cname("js_pop");
+extern fn void MUState.rot(&self, int n) @cname("js_rot");
+extern fn void MUState.copy(&self, int idx) @cname("js_copy");
+extern fn void MUState.remove(&self, int idx) @cname("js_remove");
+extern fn void MUState.insert(&self, int idx) @cname("js_insert");
+extern fn void MUState.replace(&self, int idx) @cname("js_replace");
 
-extern fn int State.toboolean(&self, int idx) @cname("js_toboolean");
-extern fn double State.tonumber(&self, int idx) @cname("js_tonumber");
-extern fn ZString State.tostring(&self, int idx) @cname("js_tostring");
+extern fn int MUState.toboolean(&self, int idx) @cname("js_toboolean");
+extern fn double MUState.tonumber(&self, int idx) @cname("js_tonumber");
+extern fn ZString MUState.tostring(&self, int idx) @cname("js_tostring");
 
 // 
-extern fn void State.newcfunction(&self, FnCFunction fun, ZString name, int length) @cname("js_newcfunction");
+extern fn void MUState.newcfunction(&self, FnCFunction fun, ZString name, int length) @cname("js_newcfunction");
 
-macro void State.bindFunction(&self, FnCFunction c3_fn, ZString js_fn_name, int argcount, bool is_global = true) {
+macro void MUState.bindFunction(&self, FnCFunction c3_fn, ZString js_fn_name, int argcount, bool is_global = true) {
   self.newcfunction(c3_fn, js_fn_name, argcount);
   if(is_global) self.setglobal(js_fn_name);
 }
 
-extern fn int State.isdefined(&self, int idx) @cname("js_isdefined");
-extern fn int State.isundefined(&self, int idx) @cname("js_isundefined");
-extern fn int State.isnull(&self, int idx) @cname("js_isnull");
-extern fn int State.isboolean(&self, int idx) @cname("js_isboolean");
-extern fn int State.isnumber(&self, int idx) @cname("js_isnumber");
-extern fn int State.isstring(&self, int idx) @cname("js_isstring");
-extern fn int State.isprimitive(&self, int idx) @cname("js_isprimitive");
-extern fn int State.isobject(&self, int idx) @cname("js_isobject");
-extern fn int State.isarray(&self, int idx) @cname("js_isarray");
-extern fn int State.isregexp(&self, int idx) @cname("js_isregexp");
-extern fn int State.iscoercible(&self, int idx) @cname("js_iscoercible");
-extern fn int State.iscallable(&self, int idx) @cname("js_iscallable");
-extern fn int State.isuserdata(&self, int idx, ZString tag) @cname("js_isuserdata");
-extern fn int State.iserror(&self, int idx) @cname("js_iserror");
-extern fn int State.isnumberobject(&self, int idx) @cname("js_isnumberobject");
-extern fn int State.isstringobject(&self, int idx) @cname("js_isstringobject");
-extern fn int State.isbooleanobject(&self, int idx) @cname("js_isbooleanobject");
-extern fn int State.isdateobject(&self, int idx) @cname("js_isdateobject");
+extern fn int MUState.isdefined(&self, int idx) @cname("js_isdefined");
+extern fn int MUState.isundefined(&self, int idx) @cname("js_isundefined");
+extern fn int MUState.isnull(&self, int idx) @cname("js_isnull");
+extern fn int MUState.isboolean(&self, int idx) @cname("js_isboolean");
+extern fn int MUState.isnumber(&self, int idx) @cname("js_isnumber");
+extern fn int MUState.isstring(&self, int idx) @cname("js_isstring");
+extern fn int MUState.isprimitive(&self, int idx) @cname("js_isprimitive");
+extern fn int MUState.isobject(&self, int idx) @cname("js_isobject");
+extern fn int MUState.isarray(&self, int idx) @cname("js_isarray");
+extern fn int MUState.isregexp(&self, int idx) @cname("js_isregexp");
+extern fn int MUState.iscoercible(&self, int idx) @cname("js_iscoercible");
+extern fn int MUState.iscallable(&self, int idx) @cname("js_iscallable");
+extern fn int MUState.isuserdata(&self, int idx, ZString tag) @cname("js_isuserdata");
+extern fn int MUState.iserror(&self, int idx) @cname("js_iserror");
+extern fn int MUState.isnumberobject(&self, int idx) @cname("js_isnumberobject");
+extern fn int MUState.isstringobject(&self, int idx) @cname("js_isstringobject");
+extern fn int MUState.isbooleanobject(&self, int idx) @cname("js_isbooleanobject");
+extern fn int MUState.isdateobject(&self, int idx) @cname("js_isdateobject");
 
-extern fn void State.currentfunction(&self) @cname("js_currentfunction");
-extern fn void*State.currentfunctiondata(&self) @cname("js_currentfunctiondata");
-extern fn void State.pushglobal(&self) @cname("js_pushglobal");
-extern fn void State.pushundefined(&self) @cname("js_pushundefined");
-extern fn void State.pushnull(&self) @cname("js_pushnull");
-extern fn void State.pushboolean(&self, int v) @cname("js_pushboolean");
-extern fn void State.pushnumber(&self, double v) @cname("js_pushnumber");
-extern fn void State.pushstring(&self, ZString v) @cname("js_pushstring");
-extern fn void State.pushlstring(&self, ZString v, int n) @cname("js_pushlstring");
-extern fn void State.pushliteral(&self, ZString v) @cname("js_pushliteral");
+extern fn void MUState.currentfunction(&self) @cname("js_currentfunction");
+extern fn void*MUState.currentfunctiondata(&self) @cname("js_currentfunctiondata");
+extern fn void MUState.pushglobal(&self) @cname("js_pushglobal");
+extern fn void MUState.pushundefined(&self) @cname("js_pushundefined");
+extern fn void MUState.pushnull(&self) @cname("js_pushnull");
+extern fn void MUState.pushboolean(&self, int v) @cname("js_pushboolean");
+extern fn void MUState.pushnumber(&self, double v) @cname("js_pushnumber");
+extern fn void MUState.pushstring(&self, ZString v) @cname("js_pushstring");
+extern fn void MUState.pushlstring(&self, ZString v, int n) @cname("js_pushlstring");
+extern fn void MUState.pushliteral(&self, ZString v) @cname("js_pushliteral");
 
 
-extern fn int  State.hasproperty(&self, int idx, ZString name) @cname("js_hasproperty");
-extern fn void State.getproperty(&self, int idx, ZString name) @cname("js_getproperty");
-extern fn void State.setproperty(&self, int idx, ZString name) @cname("js_setproperty");
-extern fn void State.defproperty(&self, int idx, ZString name, int atts) @cname("js_defproperty");
-extern fn void State.delproperty(&self, int idx, ZString name) @cname("js_delproperty");
-extern fn void State.defaccessor(&self, int idx, ZString name, int atts) @cname("js_defaccessor");
+extern fn int  MUState.hasproperty(&self, int idx, ZString name) @cname("js_hasproperty");
+extern fn void MUState.getproperty(&self, int idx, ZString name) @cname("js_getproperty");
+extern fn void MUState.setproperty(&self, int idx, ZString name) @cname("js_setproperty");
+extern fn void MUState.defproperty(&self, int idx, ZString name, int atts) @cname("js_defproperty");
+extern fn void MUState.delproperty(&self, int idx, ZString name) @cname("js_delproperty");
+extern fn void MUState.defaccessor(&self, int idx, ZString name, int atts) @cname("js_defaccessor");
 
-extern fn void State.concat(&self) @cname("js_concat");
-extern fn int State.compare(&self, int *okay) @cname("js_compare");
-extern fn int State.equal(&self) @cname("js_equal");
-extern fn int State.strictequal(&self) @cname("js_strictequal");
-extern fn int State.instanceof(&self) @cname("js_instanceof");
-extern fn ZString State.typeof(&self, int idx) @cname("js_typeof");
-extern fn int State.type(&self, int idx) @cname("js_type");
+extern fn void MUState.concat(&self) @cname("js_concat");
+extern fn int MUState.compare(&self, int *okay) @cname("js_compare");
+extern fn int MUState.equal(&self) @cname("js_equal");
+extern fn int MUState.strictequal(&self) @cname("js_strictequal");
+extern fn int MUState.instanceof(&self) @cname("js_instanceof");
+extern fn ZString MUState.typeof(&self, int idx) @cname("js_typeof");
+extern fn int MUState.type(&self, int idx) @cname("js_type");
 
-extern fn void State.repr(&self, int idx) @cname("js_repr");
-extern fn ZString State.torepr(&self, int idx) @cname("js_torepr");
-extern fn ZString State.tryrepr(&self, int idx, ZString error) @cname("js_tryrepr");
+extern fn void MUState.repr(&self, int idx) @cname("js_repr");
+extern fn ZString MUState.torepr(&self, int idx) @cname("js_torepr");
+extern fn ZString MUState.tryrepr(&self, int idx, ZString error) @cname("js_tryrepr");
 /*
 extern fn ScriptEngine *createEngine(uint version = ANGELSCRIPT_VERSION) @cname("asCreateScriptEngine");
 extern fn ZString getLibraryVersion() @cname("asGetLibraryVersion");

@@ -47,6 +47,7 @@ import engine::physics::box2d;
 import engine::sys::script_engine::event; // still in testing phase (delete if not finished)
 import thirdparty::scripting::umka; // umka scripting
 import thirdparty::wren; // wren scripting engine
+import engine::sys::framework::hmdict;
 // end_region
 
 // region cvars
@@ -110,6 +111,7 @@ struct Entity (SaveSystemInterface)
     //
     HMSprite vs;
     //
+	HMDict spawnargs;
     Entity* parent;
 	TargetList targets; // list of other entities that are targets for this entity, activated in certain situations
     // physics
@@ -253,6 +255,15 @@ $endif
     
 	self.born(); // set the entity as alive, so it can be used
 	self.updateVisuals();
+}
+
+fn void Entity.setSpawnArgs(&self, String def_name) @inline {
+	self.spawnargs.init();
+	@catch(self.spawnargs.parse(DefType.ENTITY, def_name));
+}
+
+fn void Entity.clearSpawnArgs(&self) @inline {
+	self.spawnargs.clear();
 }
 
 fn void Entity.setTexture(&self, String texture_name_with_ext) @inline {
@@ -499,8 +510,8 @@ fn Entity* findradius(Entity *startent, Vec2f* org, float rad )
 {
 	if ( !startent )
 	{
-		// startent becomes the player
-		startent = (Entity*)game::pContext.getLocalPlayer(); //entityList[0];
+		// then startent becomes the player
+		startent = (Entity*)game::getLocalPlayer();
 	}
 	
 	assert( startent );
@@ -508,7 +519,7 @@ fn Entity* findradius(Entity *startent, Vec2f* org, float rad )
 		return null;
 	}
 	
-	assert( startent.isAlive());
+	assert(startent.isAlive());
 	
 	// square the radius so that we don't have to do a square root
 	float r2 = misc::square(rad);
@@ -611,6 +622,8 @@ fn void Entity.kill(&self)
 		// that is done elsewhere
 		self.targets.clear();
 	}
+
+	self.clearSpawnArgs();
 
 	self.setAlive(false);
 }

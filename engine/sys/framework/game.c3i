@@ -61,11 +61,11 @@ interface IGame
     fn bool	 initFromSaveGame( String mapName, /*idRenderWorld *renderWorld, idSoundWorld *soundWorld,*/ SaveFile* saveGameFile ) @optional;
     // The session calls this before moving the single player game to a new level.
     // TODO create a dictionary class based/inspired on idDict
-    	//fn HMDict* getPersistentPlayerInfo( int clientNum ) @optional;
+    //fn HMDict* getPersistentPlayerInfo( int clientNum ) @optional;
     // The session calls this right before a new level is loaded.
-    	//fn void setPersistentPlayerInfo( int clientNum, HMDict* playerInfo ) @optional;
+    //fn void setPersistentPlayerInfo( int clientNum, HMDict* playerInfo ) @optional;
     // Caches media referenced from in key/value pairs in the given dictionary.
-    	//fn void cacheDictionaryMedia( HMDict *dict ) @optional;
+    //fn void cacheDictionaryMedia( HMDict *dict ) @optional;
     // Spawns the player entity to be used by the client.
     fn void	spawnPlayer( int clientNum ) @optional;
     // Runs a game frame, may return a session command for level changing, etc

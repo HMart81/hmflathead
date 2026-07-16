@@ -531,6 +531,18 @@ fn void Vec2f.translate(&self, float x, float y) @inline {
 fn void Vec2f.translateV(&self, Vec2f vec) @inline {
     self.translate(vec.x, vec.y);
 }
+
+fn String Vec2f.toString(&self) @inline {
+    return string::tformat("%s %s", self.x, self.y);
+}
+
+fn String Vec3f.toString(&self) @inline {
+    return string::tformat("%s %s %s", self.x, self.y, self.z);
+}
+
+fn String Vec4f.toString(&self) @inline {
+    return string::tformat("%s %s %s %s", self.x, self.y, self.z, self.w);
+}
 // end_region vec2 extensions
 
 // region Matrix3f extensions

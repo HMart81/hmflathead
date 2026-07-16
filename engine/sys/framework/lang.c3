@@ -54,7 +54,7 @@ alias LanguageList = List{Language*};
 
 struct LangStr
 {
-    String id;
+    int id;
     String data;
 }
 
@@ -74,7 +74,7 @@ LANGData dict @public; // Saves all the games languages data
 
 
 
-fn String LANGData.getString(&self, String id) 
+fn String LANGData.getString(&self, int id) 
 {
     foreach(lang : self.languages) 
     {
@@ -169,11 +169,11 @@ fn bool _parse_lang(LANGData* _dict, LANGFile* doc) @local
             foreach(str_node : node.children) 
             {
                 if(str_node.name != "string" && !str_node.hasAttributes()) {
-                    unreachable("invalid string node found in language file");
+                    unreachable("invalid string node found in languages file, in language '%s'", new_lang.type);
                 }
                 new_lang.strings.push(
                     mem::new(LangStr, {
-                        .id  = str_node.attributes[0].value.tcopy(), 
+                        .id   = str_node.attributes[0].value.to_int()!!, 
                         .data = str_node.attributes[1].value.tcopy()
                     })
                 );

@@ -813,17 +813,24 @@ fn void IniCMD.setValue(&self, String val, ConfigFile* file) @inline @deprecated
 
 fn float? IniCMD.toFloat(&self, float default_value = 0.0f) @inline
 {
-    assert(self.type == FLOAT);
-	if(self.cmd.second.len) return self.cmd.second.to_float()!;
-    
+	if(self.cmd.second.len && self.type == FLOAT) {
+		return self.cmd.second.to_float()!;
+	}
+	$if $feature(_DEBUG):
+		log::warning(FILE, "Default value was return for ini variable '%s'", self.cmd.first);
+	$endif
     return default_value;
 }
 
 fn int? IniCMD.toInt(&self, int default_value = 0) @inline
 {
-    assert(self.type == INT);
-	if(self.cmd.second.len) return self.cmd.second.to_int()!;
-    
+	if(self.cmd.second.len && self.type == INT) 
+	{
+		return self.cmd.second.to_int()!;
+	}
+	$if $feature(_DEBUG):
+		log::warning(FILE, "Default value was return for ini variable '%s'", self.cmd.first);
+	$endif
     return default_value;
 }
 
@@ -831,17 +838,17 @@ fn bool? IniCMD.toBool(&self, bool default_value = false) @inline
 {
     assert(self.type == BOOLEAN);
 	if(self.cmd.second.len) {
-		switch
+		switch(self.cmd.second)
 		{
-			case self.cmd.second == "TRUE":
-			case self.cmd.second == "true":
-			case self.cmd.second == "T":
-			case self.cmd.second == "t":
+			case "TRUE": 
+			case "true": 
+			case "T": 
+			case "t":
 				return true;
-			case self.cmd.second == "FALSE":
-			case self.cmd.second == "false":
-			case self.cmd.second == "F":
-			case self.cmd.second == "f":
+			case "FALSE":
+			case "false":
+			case "F":
+			case "f": 
 				return false;
 		}
 	}

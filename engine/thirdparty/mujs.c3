@@ -38,12 +38,12 @@ import std::io;
 import engine::logging::log;
 import game::main;
 
-fn int State.initStdLib(&self)
+fn int MUState.initStdLib(&self)
 {
   self.bindFunction(&bindPrint, "print", 1);
   self.bindFunction(&bindPrintToFile, "printTofile", 1);
-  self.atpanic(&State.panic);
-  self.setreport(&State.report);
+  self.atpanic(&MUState.panic);
+  self.setreport(&MUState.report);
 
   int result = self.dostring(MUJS_STDLIB);
   assert(result == 0, "Failed to initialize mujs stdlib");
@@ -53,7 +53,7 @@ fn int State.initStdLib(&self)
 <*
   @param [&in] state : "The mujs state"
 *>
-fn void bindPrint(State* state) @local
+fn void bindPrint(MUState* state) @local
 {
   int top = state.gettop();
   for(int i = 1; i < top; i++)
@@ -68,7 +68,7 @@ fn void bindPrint(State* state) @local
 <*
   @param [&in] state : "The mujs state"
 *>
-fn void bindPrintToFile(State* state) @local
+fn void bindPrintToFile(MUState* state) @local
 {
   int top = state.gettop();
   for(int i = 1; i < top; i++)
@@ -81,7 +81,7 @@ fn void bindPrintToFile(State* state) @local
   state.pushundefined();
 }
 
-fn void state_panic(State* state) @local
+fn void state_panic(MUState* state) @local
 {
   ZString msg = state.tostring(-1);
   unreachable("mujs panic: %s", msg);
@@ -95,7 +95,7 @@ fn void state_panic(State* state) @local
   @param [&in] state : "The mujs state"
   @param [in] message : "The message to report"
 *>
-fn void report_state(State* state, ZString message) @local
+fn void report_state(MUState* state, ZString message) @local
 {
   log::warning(Where.FILE, "mujs report: %s", message);
 }
@@ -108,70 +108,70 @@ fn void report_state(State* state, ZString message) @local
   @param [in] args : "Optional arguments to pass to the function"
   @require fl == ISGLOBAL || fl == ISLOCAL || fl == ISMENBER
 *>
-fn void State.runFunction(&self, String func_name, int fl, args...) 
+fn void MUState.runFunction(&self, String func_name, int fl, args...) 
 {
-  if(fl == ISGLOBAL) {
-    self.getglobal(func_name.zstr_tcopy()); // get named global function
-  }
-  // if not global, get it from the subtop object
-  else { self.getproperty(STACK_IDX_SUBTOP, func_name.zstr_tcopy()); }
-  //
-  int stack_top_val = self.gettop();
-  if(stack_top_val < STACK_IDX_ARG1 || self.toboolean(STACK_IDX_TOP) == 0 || self.type(STACK_IDX_TOP) != ISFUNCTION) {
-    unreachable("Function %s not found in mujs state", func_name);
-  }
+	if(fl == ISGLOBAL) {
+		self.getglobal(func_name.zstr_tcopy()); // get named global function
+	}
+	// if not global, get it from the subtop object
+	else { self.getproperty(STACK_IDX_SUBTOP, func_name.zstr_tcopy()); }
+	//
+	int stack_top_val = self.gettop();
+	if(stack_top_val < STACK_IDX_ARG1 || self.toboolean(STACK_IDX_TOP) == 0 || self.type(STACK_IDX_TOP) != ISFUNCTION) {
+		unreachable("Function %s not found in mujs state", func_name);
+	}
 
-  self.pushnull(); // push the 'this' object to use
+	self.pushnull(); // push the 'this' object to use
 
-  int arg_count;
-  if(args) arg_count = args.len;
+	int arg_count;
+	if(args) arg_count = args.len;
 
-  // push function arguments unto the stack if any
-  if(arg_count) 
-  {
-    double val;
-    int i = 1;
-    foreach(any arg: args) 
-    {
-      switch(arg.type) 
-      {
-        case void.typeid: 
-          self.pushnull();
-        case int.typeid:
-          val = (double)*(int*)arg.ptr;
-          self.pushnumber(val);
-        case uint.typeid:
-          val = (double)*(uint*)arg.ptr;
-          self.pushnumber(val);
-        case float.typeid:
-          val = (double)*(float*)arg.ptr;
-          self.pushnumber(val);
-        case double.typeid:
-          val = *(double*)arg.ptr;
-          self.pushnumber(val);
-        case bool.typeid: 
-          (*(bool*)arg.ptr) ? self.pushboolean(1) : self.pushboolean(0);
-        case String.typeid: 
-          self.pushstring((*(String*)arg.ptr).zstr_tcopy());
-        case ZString.typeid: 
-          self.pushstring(*(ZString*)arg.ptr);
-        default: unreachable("Function %s argument has unsupported type", func_name);
-      }
-      i++;
-    }
-  }
-  //
-  String result; 
-  if(self.pcall(arg_count) != 0) 
-  {
-    result = self.tostring(STACK_IDX_RETURN).str_view();
-    self.pop(1); // pop only function
-    unreachable("Failed to execute script function '%s' with excuse: %s", func_name, result);
-  } 
-  else if(game::developer.getBool()) 
-  {
-    result = self.tostring(STACK_IDX_RETURN).str_view();
-    io::printfn("Script function '%s' executed successfully with return value: %s", func_name, result);
-  }
-  self.pop(1); // pop function + args
+	// push function arguments unto the stack if any
+	if(arg_count) 
+	{
+		double val;
+		int i = 1;
+		foreach(any arg: args) 
+		{
+			switch(arg.type) 
+			{
+			case void.typeid: 
+				self.pushnull();
+			case int.typeid:
+				val = (double)*(int*)arg.ptr;
+				self.pushnumber(val);
+			case uint.typeid:
+				val = (double)*(uint*)arg.ptr;
+				self.pushnumber(val);
+			case float.typeid:
+				val = (double)*(float*)arg.ptr;
+				self.pushnumber(val);
+			case double.typeid:
+				val = *(double*)arg.ptr;
+				self.pushnumber(val);
+			case bool.typeid: 
+				(*(bool*)arg.ptr) ? self.pushboolean(1) : self.pushboolean(0);
+			case String.typeid: 
+				self.pushstring((*(String*)arg.ptr).zstr_tcopy());
+			case ZString.typeid: 
+				self.pushstring(*(ZString*)arg.ptr);
+			default: unreachable("Function %s argument has unsupported type", func_name);
+			}
+			i++;
+		}
+	}
+	//
+	String result; 
+	if(self.pcall(arg_count) != 0) 
+	{
+		result = self.tostring(STACK_IDX_RETURN).str_view();
+		self.pop(1); // pop only function
+		unreachable("Failed to execute script function '%s' with excuse: %s", func_name, result);
+	} 
+	else if(game::developer.getBool()) 
+	{
+		result = self.tostring(STACK_IDX_RETURN).str_view();
+		io::printfn("Script function '%s' executed successfully with return value: %s", func_name, result);
+	}
+	self.pop(1); // pop function + args
 }
