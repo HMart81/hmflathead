@@ -35,7 +35,7 @@ EV_name("script func name", "func PARAM types", 'func RETURN type')
 example:
     EV_Foo("foo","f",'d'); ==  fn int foo(float value) { return some_int; }
     EV_Foo2("foo2", "",'f'); == fn float foo2() { return some_float; }
-    EV_Bar("bar", "ff",'e'); == fn Entity* bar(float value, float value2) { return some_entity_adress; }
+    EV_Bar("bar", "ff",'e'); == fn HMEntity* bar(float value, float value2) { return some_entity_adress; }
 */
 
 module engine::sys::script_engine::event @if($feature(WREN_ENABLE));
@@ -244,7 +244,7 @@ EV_name("script func name", "func PARAM types", 'func RETURN type')
 example:
     EV_Foo("foo","f",'d'); ==  fn int foo(float value) { return some_int; }
     EV_Foo2("foo2", "",'f'); == fn float foo2() { return some_float; }
-    EV_Bar("bar", "ff",'e'); == fn Entity* bar(float value, float value2) { return some_entity_adress; }
+    EV_Bar("bar", "ff",'e'); == fn HMEntity* bar(float value, float value2) { return some_entity_adress; }
 */
 
 module engine::sys::script_engine::event @if($feature(UMKA_ENABLE));

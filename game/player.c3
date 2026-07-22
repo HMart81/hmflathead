@@ -94,12 +94,12 @@ fn bool PersistentInfo.clear(&self) @inline {
    return false;
 }
 
-//typedef Player = inline Entity;
+//typedef Player = inline HMEntity;
 
 struct Player (SaveSystemInterface)
 {
     // WARNING(HM) When using subtypes, OVERLAPPING FUNCTION NAMES WILL BE SHADOWED...
-    inline Entity super;
+    inline HMEntity super;
     //ammo::ProjectilePtrList projectiles;
 }
 
@@ -113,13 +113,16 @@ fn void Player.reload(&self, SaveFile* file) @dynamic {
 	@todo();
 }
 
-// WARNING(HM) Player.init() will shadow (aka override) Entity.init()
+// WARNING(HM) Player.init() will shadow (aka override) HMEntity.init()
 fn void Player.init(&self, Vec2f origin, RLColor color, int id)
 {
     self.type     = Player;
     self.id       = id;
     self.name     = string::tformat("player%d", id).tcopy();
     self.move_dir = NONE;
+
+	self.health = self.spawnargs.getInt("health")!!;
+	self.max_health = self.spawnargs.getInt("maxhealth")!!;
     
     // TODO(HM) makes this position editable...
   	self.setPositionV(origin);
@@ -155,7 +158,7 @@ fn void Player.init(&self, Vec2f origin, RLColor color, int id)
     self.born();
     self.updateVisuals();
     // NOTE(HM) for now the player as to be manually registered and 
-    // be the first Entity in the entity list.
+    // be the first HMEntity in the entity list.
     //
     // TODO(HM) When I create a level system, specially if I ever change 
     // the game to 3D, I need to rethink this entity registering 
@@ -255,8 +258,8 @@ fn Player* makePlayer(int id, Vec2f position = {0, 0}, RLColor color = rl::WHITE
 	if(pos == misc::VEC2_ZERO) pos = game::pContext.screen.center;
 	log::info(CONSOLE, "Player pos = %s", pos);
     Player* player = mem::new(Player);
-    player.init(pos, color, id);
 	player.setSpawnArgs(string::tformat("player%s", id));
+    player.init(pos, color, id);
     return player;
 }
 

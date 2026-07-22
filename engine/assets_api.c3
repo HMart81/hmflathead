@@ -63,11 +63,17 @@ struct Asset <Type>
 }
 
 // TODO(HM) Support more asset types, like the new HMaterial, etc.
-alias AssetTextureListPtr @local = List{Asset{RLTexture2D}*};
-alias AssetSoundListPtr   @local = List{Asset{RLSound}*};
-alias AssetMusicListPtr   @local = List{Asset{RLMusic}*};
-alias AssetFontListPtr    @local = List{Asset{RLFont}*};
-alias AssetShaderListPtr  @local = List{Asset{RLShader}*};
+alias AssetTexture = Asset{RLTexture2D};
+alias AssetSound   = Asset{RLSound};
+alias AssetMusic   = Asset{RLMusic};
+alias AssetFont    = Asset{RLFont};
+alias AssetShader  = Asset{RLShader};
+//
+alias AssetTextureListPtr @local = List{AssetTexture*};
+alias AssetSoundListPtr   @local = List{AssetSound*};
+alias AssetMusicListPtr   @local = List{AssetMusic*};
+alias AssetFontListPtr    @local = List{AssetFont*};
+alias AssetShaderListPtr  @local = List{AssetShader*};
 
 struct AssetLibrary
 {
@@ -79,10 +85,10 @@ struct AssetLibrary
 }
 
 AssetLibrary local_library @local;
-AssetLibrary* assets_library = &local_library;
+AssetLibrary* pAssetsLib = &local_library;
 
 <*
-	@param [inout] asset : "the asset to register, must be a pointer to an Asset struct of a supported type, like Asset{RLTexture2D}* for example."
+	@param [inout] asset : "the asset to register, must be a pointer to an Asset struct of a supported type, like AssetTexture* for example."
 	@require asset.ptr != null
 *>
 fn void AssetLibrary.register(&self, any asset)
@@ -90,15 +96,15 @@ fn void AssetLibrary.register(&self, any asset)
     switch(asset.type)
     {
         case RLTexture2D:
-            self.textures.push((Asset{RLTexture2D}*)asset.ptr);
+            self.textures.push((AssetTexture*)asset.ptr);
         case RLSound:
-            self.sounds.push((Asset{RLSound}*)asset.ptr);
+            self.sounds.push((AssetSound*)asset.ptr);
         case RLMusic:
-            self.musics.push((Asset{RLMusic}*)asset.ptr);
+            self.musics.push((AssetMusic*)asset.ptr);
         case RLFont:
-            self.fonts.push((Asset{RLFont}*)asset.ptr);
+            self.fonts.push((AssetFont*)asset.ptr);
         case RLShader:
-            self.shaders.push((Asset{RLShader}*)asset.ptr);
+            self.shaders.push((AssetShader*)asset.ptr);
         default:
             log::fatal(FILE, "Trying to register an asset of unknown type!");
     }
@@ -209,6 +215,11 @@ fn void AssetLibrary.releaseAllAssets(&self)
 	}
 }
 
+fn Asset{Type}* get_asset(String name) <Type> @nodiscard
+{
+	return (Asset{Type}*)pAssetsLib.getAsset(name, Type::typeid);
+}
+
 fn any AssetLibrary.getAsset(&self, String name, typeid type)
 {
     String needle = "/";
@@ -228,24 +239,25 @@ fn any AssetLibrary.getAsset(&self, String name, typeid type)
 	switch(type)
     {
         case RLTexture2D:
-            return any_make(&(*self.textures[i]).data, type);
+            return any_make(self.textures[i], type);
         case RLSound:
-            return any_make(&(*self.sounds[i]).data, type);
+            return any_make(self.sounds[i], type);
         case RLMusic:
-            return any_make(&(*self.musics[i]).data, type);
+            return any_make(self.musics[i], type);
         case RLFont:
-			//Asset{RLFont}* font = self.fonts[i];
+			//AssetFont* font = self.fonts[i];
             return any_make(self.fonts[i], type);
         case RLShader:
-            return any_make(&(*self.shaders[i]).data, type);
+            return any_make(self.shaders[i], type);
         default:
             unreachable();
     }
 }
 
-
-fn Type* get_asset(String name, AssetLibrary* lib) <Type>
+fn Type* get_asset_data(String name) <Type>
 {
+	AssetLibrary* lib = pAssetsLib;
+
     String needle = "/";
     if(name.contains(needle)) {
         name = name.extractFileBase();
@@ -354,7 +366,7 @@ fn bool AssetLibrary.hasAsset(&self, String name, typeid type, int* index_out = 
 *>
 fn RLTexture2D* AssetLibrary.getTexture(&self, String name) @inline @nodiscard
 {
-    RLTexture2D* tex = get_asset{RLTexture2D}(name, assets_library);
+    RLTexture2D* tex = get_asset_data{RLTexture2D}(name);
 	if(tex != null) {
         return tex;
     }
@@ -370,7 +382,7 @@ fn RLTexture2D* AssetLibrary.getTexture(&self, String name) @inline @nodiscard
 *>
 fn RLShader* AssetLibrary.getShader(&self, String name) @nodiscard //@inline 
 {
-    RLShader* asset = get_asset{RLShader}(name, assets_library);
+    RLShader* asset = get_asset_data{RLShader}(name);
     if(asset != null) {
         return asset;
     }
@@ -386,7 +398,7 @@ fn RLShader* AssetLibrary.getShader(&self, String name) @nodiscard //@inline
 *>
 fn RLSound* AssetLibrary.getSound(&self, String name) @nodiscard @inline 
 {
-    RLSound* asset = get_asset{RLSound}(name, assets_library);
+    RLSound* asset = get_asset_data{RLSound}(name);
     if(asset != null) {
         return asset;
     }
@@ -402,7 +414,7 @@ fn RLSound* AssetLibrary.getSound(&self, String name) @nodiscard @inline
 *>
 fn RLMusic* AssetLibrary.getMusic(&self, String name) @nodiscard @inline 
 {
-    RLMusic* asset = get_asset{RLMusic}(name, assets_library);
+    RLMusic* asset = get_asset_data{RLMusic}(name);
     if(asset != null) {
         return asset;
     }
@@ -418,7 +430,7 @@ fn RLMusic* AssetLibrary.getMusic(&self, String name) @nodiscard @inline
 *>
 fn RLFont* AssetLibrary.getFont(&self, String name) @nodiscard /*@inline*/ 
 {
-	RLFont* asset = get_asset{RLFont}(name, assets_library);
+	RLFont* asset = get_asset_data{RLFont}(name);
     if(asset != null) {
         return asset;
     }
@@ -462,7 +474,7 @@ fn void loadAsset(String path, String asset_name, FileExtension extension)
         should_load = !local_library.hasAsset(asset_name, RLTexture2D);
         if(should_load) 
         {
-            Asset{RLTexture2D}* new_asset = mem::new(Asset{RLTexture2D}, { 
+            AssetTexture* new_asset = mem::new(AssetTexture, { 
                 .name = asset_name, 
                 .path = path, 
                 .data = rl::loadTexture(path.zstr_tcopy())
@@ -475,7 +487,7 @@ fn void loadAsset(String path, String asset_name, FileExtension extension)
         if(should_load) 
         {
             //path = path.trim_right(extension);
-            Asset{RLShader}* new_asset = mem::new(Asset{RLShader}, { 
+            AssetShader* new_asset = mem::new(AssetShader, { 
                 .name = asset_name, 
                 .path = path
             });
@@ -523,7 +535,7 @@ fn void loadAsset(String path, String asset_name, FileExtension extension)
         if(should_load) 
         {
             //path = path.trim_right(extension);
-            Asset{RLMusic}* new_asset = mem::new(Asset{RLMusic}, { 
+            AssetMusic* new_asset = mem::new(AssetMusic, { 
                 .name = asset_name, 
                 .path = path, 
                 .data = rl::loadMusicStream(path.zstr_tcopy())
@@ -535,7 +547,7 @@ fn void loadAsset(String path, String asset_name, FileExtension extension)
         if(should_load) 
         {
             //path = path.trim_right(extension);
-            Asset{RLSound}* new_asset = mem::new(Asset{RLSound}, { 
+            AssetSound* new_asset = mem::new(AssetSound, { 
                 .name = asset_name, 
                 .path = path, 
                 .data = rl::loadSound(path.zstr_tcopy())
@@ -548,7 +560,7 @@ fn void loadAsset(String path, String asset_name, FileExtension extension)
         {
             assert(rl::isWindowReady() == true);
             //path = path.trim_right(extension);
-            Asset{RLFont}* new_asset = mem::new(Asset{RLFont}, { 
+            AssetFont* new_asset = mem::new(AssetFont, { 
                 .name = asset_name.tcopy(),
                 .path = path.tcopy(), 
                 // NOTE(HM) This was always loading the default font data because of the 
@@ -614,8 +626,8 @@ fn void? loadAssetsRecursively(String basepath, String parent_folder = "") /*@in
 <*
 *@require game::pContext.app_base_folder.len > 0
 *>
-fn void? loadAssets() {
-
+fn void? loadAssets() 
+{
 	telem::@profile_zone("loadAssets", false)
     {
         String path = game::pContext.app_base_folder;
@@ -625,7 +637,7 @@ fn void? loadAssets() {
         loadAssetsRecursively(path)!;
         
         $if $feature(_DEBUG):
-            //assets_library.listAssets();
+            //pAssetsLib.listAssets();
         $endif
     }; // end @profile_zone
 }
@@ -861,11 +873,11 @@ fn void RLMaterial.parse(&self, String file_path) @dynamic
                 switch(map.name)
                 {
                     case "albedo":
-                        self.maps.diffuse = astmng::assets_library.getTexture(map.value);
+                        self.maps.diffuse = astmng::pAssetsLib.getTexture(map.value);
                     case "normal":
-                        self.maps.normal  = astmng::assets_library.getTexture(map.value);
+                        self.maps.normal  = astmng::pAssetsLib.getTexture(map.value);
                     case "specular":
-                        self.maps.spec    = astmng::assets_library.getTexture(map.value);
+                        self.maps.spec    = astmng::pAssetsLib.getTexture(map.value);
                     default:
                        unreachable("invalid material maps found");
                 }
@@ -881,7 +893,7 @@ fn void RLMaterial.parse(&self, String file_path) @dynamic
             }
             
             // TODO make sound shaders
-            //self.sound = astmng::assets_library.getSound(sound_shader_name);
+            //self.sound = astmng::pAssetsLib.getSound(sound_shader_name);
        }
     }
     /*
@@ -894,7 +906,7 @@ fn void RLMaterial.parse(&self, String file_path) @dynamic
     elf.path = file_path;
     
     tring albedo = node.get_attrib_value("Diffuse").extractFileBaseByCopy();
-    elf.maps.diffuse = astmng::assets_library.getTexture(albedo);
+    elf.maps.diffuse = astmng::pAssetsLib.getTexture(albedo);
     io::printfn("{");
     foreach(atribute : material_node.attributes) {
         io::printfn("%s = %s", atribute.name, atribute.value);
@@ -1403,11 +1415,11 @@ fn void SoundShader.load(&self)
                 switch(map.name)
                 {
                     case "albedo":
-                        self.maps.diffuse = astmng::assets_library.getTexture(map.value);
+                        self.maps.diffuse = astmng::pAssetsLib.getTexture(map.value);
                     case "normal":
-                        self.maps.normal  = astmng::assets_library.getTexture(map.value);
+                        self.maps.normal  = astmng::pAssetsLib.getTexture(map.value);
                     case "specular":
-                        self.maps.spec    = astmng::assets_library.getTexture(map.value);
+                        self.maps.spec    = astmng::pAssetsLib.getTexture(map.value);
                     default:
                        unreachable("invalid material maps found");
                 }
@@ -1423,7 +1435,7 @@ fn void SoundShader.load(&self)
             }
             
             // TODO make sound shaders
-            //self.sound = astmng::assets_library.getSound(sound_shader_name);
+            //self.sound = astmng::pAssetsLib.getSound(sound_shader_name);
        }
     }
     

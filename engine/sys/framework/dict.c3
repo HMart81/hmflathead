@@ -66,11 +66,28 @@ fn bool HMKeyValue.equal(&self, HMKeyValue kv ) @operator(==) {
 	return self.key == kv.key && self.value == kv.value; 
 }
 
+fn void HMDict.set_at(&self, sz i, HMKeyValue* new_kv) @operator([]=)
+{
+    return self.args.set_at(i, new_kv);
+}
+
+fn HMKeyValue* HMDict.get(&self, sz index) @operator([])
+{
+    return self.getKeyVal((int)index);
+}
+
+fn sz HMDict.len(&self) @operator(len)
+{
+    return self.args.len();
+}
+
 const DEF_DATA_FILE_PATH = "defs.data";
 
 constdef DefType : inline String
 {
-	ENTITY = "entityDef"
+	ENTITY = "entityDef",
+	AUDIO  = "soundDef",
+	FX	   = "fxDef"
 }
 
 alias SpawnArgsList = List{HMKeyValue*};
@@ -158,9 +175,15 @@ fn bool HMDict.getStringOut(&self, String key, String defaultString, String *out
 fn String HMDict.getString(&self, String key, String defaultString ) {
  	HMKeyValue*? kv = self.findKey( key );
 	if ( catch excuse = kv ) {
+		log::warning(FILE, "HMDict.getString: unnable to find key '%s', returning default '%s'", key, defaultString);
 		return defaultString;
 	}
-	return kv.value.tcopy();
+
+	if(kv) {
+		return kv.value.tcopy();
+	} else {
+		return defaultString;
+	}
 }
 
 fn float? HMDict.getFloat(&self, String key, String defaultString = "0.0" )  {
@@ -205,7 +228,8 @@ fn bool? HMDict.getVec3Out(&self, String key, String defaultString, Vec3f* out )
 	return found;
 }
 
-fn bool? HMDict.getVec2Out(&self, String key, String defaultString, Vec2f* out ) {
+fn bool? HMDict.getVec2Out(&self, String key, String defaultString, Vec2f* out )
+{
 	bool found;
 	String s;
 
@@ -222,7 +246,8 @@ fn bool? HMDict.getVec2Out(&self, String key, String defaultString, Vec2f* out )
 	return found;
 }
 
-fn bool? HMDict.getVec4Out(&self, String key, String defaultString, Vec4f* out ) {
+fn bool? HMDict.getVec4Out(&self, String key, String defaultString, Vec4f* out )
+{
 	bool found;
 	String s;
 
@@ -239,19 +264,22 @@ fn bool? HMDict.getVec4Out(&self, String key, String defaultString, Vec4f* out )
 	return found;
 }
 
-fn Vec3f? HMDict.getVec3(&self, String key, String defaultString = "0 0 0") {
+fn Vec3f? HMDict.getVec3(&self, String key, String defaultString = "0 0 0")
+{
 	Vec3f out;
 	self.getVec3Out( key, defaultString, &out )!;
 	return out;
 }
 
-fn Vec2f? HMDict.getVec2(&self, String key, String defaultString = "0 0")  {
+fn Vec2f? HMDict.getVec2(&self, String key, String defaultString = "0 0")
+{
 	Vec2f out;
 	self.getVec2Out( key, defaultString, &out )!;
 	return out;
 }
 
-fn Vec4f? HMDict.getVec4(&self, String key, String defaultString = "0 0 0 0")  {
+fn Vec4f? HMDict.getVec4(&self, String key, String defaultString = "0 0 0 0")
+{
 	Vec4f out;
 	self.getVec4Out( key, defaultString, &out )!;
 	return out;
@@ -265,25 +293,58 @@ fn HMKeyValue* HMDict.getKeyVal(&self, int index )
 	return null;
 }
 
+<*
+	Finds the next key/value pair with the given key prefix.
+	lastMatch can be used to do additional searches past the first match.
+
+	@param [in] prefix : "prefix to find and compare with"
+	@param [in] lastMatch : "last kval to be matched, if passed null is ignored"
+	@require prefix.len > 0
+*>
+fn HMKeyValue*? HMDict.matchPrefix(&self, String prefix, HMKeyValue* lastMatch )
+{
+	int len = (int)prefix.len;
+
+	int start = -1;
+	if ( lastMatch ) {
+		start = (int)self.args.index_of(lastMatch)!;
+		assert( start >= 0 );
+		if ( start < 1 ) {
+			start = 0;
+		}
+	}
+
+	for( int i = start + 1; i < self.args.len(); i++ ) {
+		if ( self.args[i].key == prefix ) {
+			return self.args[i];
+		}
+	}
+	return null;
+}
+
+<*
+	@param [in] key : "key to find"
+	@require key.len > 0
+*>
 fn HMKeyValue*? HMDict.findKey(&self, String key ) 
 {
 	if ( key == "" || key[0] == '\0' ) {
-		log::warning(FILE, "HMDict.findKey: empty key" );
-		return FAULT_EMPTY_KEY~;
+		log::warning(FILE, "HMDict.findKey: was given a empty key!");
+		return FAULT_EMPTY_KEY~; //FAULT_MISSING_KEY~; //
 	}
 
-	foreach (arg : self.args) {
+	foreach (arg : self) {
 		if ( arg.key == key ) {
 			return arg;
 		}
 	}
 
-	return FAULT_MISSING_KEY~;
+	return null;
 }
 
 <*
-	get a spawnarg key index 
-	@param [in] key : " the key"
+	get a spawnarg key index from within the dictionary
+	@param [in] key : " the key to find index for"
 	@require key.len > 0
 *>
 fn int HMDict.findKeyIndex(&self, String key )  {
@@ -293,7 +354,7 @@ fn int HMDict.findKeyIndex(&self, String key )  {
 		return 0;
 	}
 
-	foreach (i, arg : self.args) {
+	foreach (i, arg : self) {
 		if ( arg.key == key ) {
 			return (int)i;
 		}
@@ -308,7 +369,8 @@ fn int HMDict.findKeyIndex(&self, String key )  {
 	@param [in] value : " the value"
 	@require key.len > 0
 *>
-fn void HMDict.set(&self, String key, String value ) {
+fn void HMDict.set(&self, String key, String value )
+{
 	if (key.len == 0) {
 		return;
 	}
@@ -324,9 +386,10 @@ fn void HMDict.set(&self, String key, String value ) {
 	}
 }
 
-fn void HMDict.list_spawnargs(&self) {
+fn void HMDict.list_spawnargs(&self)
+{
 	log::info(CONSOLE, "Spawnargs = {");
-	foreach (arg : self.args) {
+	foreach (arg : self) {
 		log::info(CONSOLE, "%s", arg);
 	}
 	log::info(CONSOLE, "}");
@@ -338,20 +401,25 @@ fn void? HMDict.parse(&self, DefType def_type, String def_name )
 	JSCObject* parser = game::load_jsonc_obj(path)!;
 	defer game::free_jsonc( obj: parser );
 
-	if(parser.has_key(def_type)) 
+	if(parser.has_key(def_type))
 	{
 		JSCObject* ent_def_root = parser.get(def_type)!;
-		if(ent_def_root && ent_def_root.has_key(def_name)) {
+		if(ent_def_root && ent_def_root.has_key(def_name))
+		{
 			JSCObject* def = ent_def_root.get(def_name)!;
 			def.map.@each(; String key, value)
 			{
 				if(key != "")
 				{
 					assert(value.is_string() && !value.is_empty());
-					self.register(mem::new(HMKeyValue, {
-						.key   = key, 
-						.value = value.to_value(String)!
-					}));
+					if(key == "inherit") {
+						handle_inheritance(value.to_value(String)!, ent_def_root, self)!;
+					} else { // inherit key is not registered 
+						self.register(mem::new(HMKeyValue, {
+							.key   = key, 
+							.value = value.to_value(String)!
+						}));
+					}
 				} else {
 					log::warning(FILE, "HMDict.parse: empty key found for dictionary object \"%s\" inside defs.data file!", def_name);
 				}
@@ -359,5 +427,37 @@ fn void? HMDict.parse(&self, DefType def_type, String def_name )
 		}
     }
 	return FAULT_PARSING_ERROR~;
+}
+
+<*
+	@param [in] other_def_name : "definition name we are handling"
+	@param [&in] in_def : "root definition we are reading from"
+	@param [&inout] dic : "dictionary where spawnargs are saved"
+*>
+fn void? handle_inheritance(String other_def_name, JSCObject* in_def, HMDict* dic)
+{
+	JSCObject* def = in_def.get(other_def_name)!;
+	def.map.@each(; String key, value)
+	{
+		if(key != "")
+		{
+			assert(value.is_string() && !value.is_empty());
+			if(key == "inherit") {
+				// warning(HM) may have too deep recursion?
+				handle_inheritance(value.to_value(String)!, def, dic)!;
+			} else {
+				// variables with same name/key are ignored
+				bool key_not_registered = dic.findKey(key)! == null;
+				if(key_not_registered) { 
+					dic.register(mem::new(HMKeyValue, {
+						.key   = key, 
+						.value = value.to_value(String)!
+					}));
+				}
+			}
+		} else {
+			log::warning(FILE, "handle_inheritance: empty key found!");
+		}
+	};
 }
 

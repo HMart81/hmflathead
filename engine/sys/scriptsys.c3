@@ -533,7 +533,7 @@ fn WrenForeignMethodFn bindForeignMethod(WrenVM* vm, ZString script_name, ZStrin
         case "entity":
             switch (class_name)
             {
-                case "Entity":
+                case "HMEntity":
                     if (isStatic)
                     {
                         foreach(evfunc : ent::ENTITY_EVENTS_CALLBACKS)

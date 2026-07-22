@@ -84,7 +84,7 @@ const float ENTITY_DEFAULT_SIZE_X @if(game::UNITS == Units.PIXEL) = 45; // px  (
 const float ENTITY_DEFAULT_SIZE_Y @if(game::UNITS == Units.PIXEL) = 100;  // px
 
 // Target list is a list of other entities that are activated by this entity in certain situations.
-alias TargetList = List{Entity*}; // list of entities that are targets for this entity
+alias TargetList = List{HMEntity*}; // list of entities that are targets for this entity
 
 // WORK_IN_PROGRESS!!
 const EventDef EV_ENTITY_GET_NAME @if($defined(event::ENABLE_EVENTS)) @local = {"getName", "p", 's'}; 
@@ -103,7 +103,7 @@ struct EntityFlags
 	bool active; // is the entity active?
 }
 
-struct Entity (SaveSystemInterface)
+struct HMEntity (SaveSystemInterface)
 {
 	int id;
 	typeid type;
@@ -112,29 +112,34 @@ struct Entity (SaveSystemInterface)
     HMSprite vs;
     //
 	HMDict spawnargs;
-    Entity* parent;
+	String def_name; // entity definition name assigned to this entity
+    HMEntity* parent;
 	TargetList targets; // list of other entities that are targets for this entity, activated in certain situations
     // physics
     B2BodyId physics @if($feature(PHYSICS_BOX2D));
     //
 	Move_Dir move_dir; // mostly used for the player entity
+	int health; // should all entities have a health value?
+	int max_health;
 	//
 	int thinkflags;
-	//LinkList{Entity} activeNode;	// for being linked into activeEntities list
+	//LinkList{HMEntity} activeNode;	// for being linked into activeEntities list
 	EntityFlags flags; // Todo read about C3 bitstruct?
 }
 
-fn void Entity.save(&self, SaveFile* file) @dynamic {
+fn void HMEntity.save(&self, SaveFile* file) @dynamic {
 // todo
 }
 
-fn void Entity.reload(&self, SaveFile* file) @dynamic {
+fn void HMEntity.reload(&self, SaveFile* file) @dynamic {
 // todo
 }
 
-fn void Entity.register(&self) @inline
+fn void HMEntity.register(&self) @inline
 {
-	game::pContext.entityList.push(self);
+	if(!game::pContext.entityList.contains(self)) {
+		game::pContext.entityList.push(self);
+	}
 }
 
 <*
@@ -143,7 +148,7 @@ fn void Entity.register(&self) @inline
 	@param [in] name : "name of the entity to test"
 	@require name != "" : "entities should all have a name!"
 *>
-fn bool Entity.shouldSkip(&self, String name) @inline 
+fn bool HMEntity.shouldSkip(&self, String name) @inline 
 {
     if(game::pContext.entityList.len() == game::MAX_ENTITY_COUNT) {
 		log::warning(FILE, "Skipping entity: '%s' creation, max count of '%s' was reached!", 
@@ -162,29 +167,19 @@ fn bool Entity.shouldSkip(&self, String name) @inline
 	@require aname != "" : "entities should all be given a name!"
 	@require rl::isWindowReady() == true : "Cannot create entity before the window is ready!"
 *>
-fn void Entity.init(&self, String aname, Vec2f origin, RLColor color = rl::WHITE)
+fn void HMEntity.init(&self, String aname, Vec2f origin, RLColor color = rl::WHITE)
 {
 	if(self.shouldSkip(aname)) return;
 	
-	self.type = Entity;
-	self.move_dir = NONE;
+	self.type = HMEntity;
+
+	self.health     = self.spawnargs.getInt("health")!!;
+	self.max_health = self.spawnargs.getInt("maxhealth")!!;
 	
 	sz entity_count = game::pContext.entityList.len();
-	/*if( entity_count == 0 ) {
-		unreachable("invalid entity count at this time, that should only happen if player1 entity is missing!");
-	}*/
 	self.id = (int)entity_count + 1;
 
-	/*if(aname == "")
-    {
-		if(self.id < 10) {
-			self.name = string::tformat("entity0%s", self.id);
-		} else {
-			self.name = string::tformat("entity%s", self.id);
-		}
-	} else*/ {
-		self.name = aname.tcopy();
-	}
+	self.name = aname.tcopy();
     
 $if $feature(_DEBUG):
 	log::info(FILE, "Created entity-> id: %s with name: %s.", self.id, self.name);
@@ -257,21 +252,21 @@ $endif
 	self.updateVisuals();
 }
 
-fn void Entity.setSpawnArgs(&self, String def_name) @inline {
+fn void HMEntity.setSpawnArgs(&self, String def_name) @inline {
 	self.spawnargs.init();
 	@catch(self.spawnargs.parse(DefType.ENTITY, def_name));
 }
 
-fn void Entity.clearSpawnArgs(&self) @inline {
+fn void HMEntity.clearSpawnArgs(&self) @inline {
 	self.spawnargs.clear();
 }
 
-fn void Entity.setTexture(&self, String texture_name_with_ext) @inline {
+fn void HMEntity.setTexture(&self, String texture_name_with_ext) @inline {
 	unreachable();
 	//self.vs.tex = game::asstManager.getAssetExt(texture_name_with_ext, RLTexture2D.typeid);
 }
 
-fn void Entity.setMaterial(&self, String material_name) @inline {
+fn void HMEntity.setMaterial(&self, String material_name) @inline {
 	self.vs.setMaterial(material_name);
 	self.updateVisuals();
 }
@@ -280,33 +275,33 @@ fn void Entity.setMaterial(&self, String material_name) @inline {
 	TODO(HM) handle more material/texture stages than diffuse
  @ensure return != null
 *>
-fn RLTexture2D* Entity.getTexture(&self) @inline {
+fn RLTexture2D* HMEntity.getTexture(&self) @inline {
 	return self.vs.mat.getTexture(MTexture.DIFFUSE);
 }
 
-fn void Entity.setSize(&self, float w, float h) @inline {
+fn void HMEntity.setSize(&self, float w, float h) @inline {
 	self.vs.setSize(w, h);
 }
 
-fn void Entity.setSizeV(&self, Vec2f scale) @inline {
+fn void HMEntity.setSizeV(&self, Vec2f scale) @inline {
 	self.vs.setSizeV(scale);
 }
 
-fn void Entity.addToSize(&self, float w, float h) @inline {
+fn void HMEntity.addToSize(&self, float w, float h) @inline {
 	self.vs.addToSize(w, h);
 }
 
-fn void Entity.addToSizeV(&self, Vec2i size) @inline {
+fn void HMEntity.addToSizeV(&self, Vec2i size) @inline {
 	self.vs.addToSizeV(size);
 }
 
-fn Vec2f Entity.getSize(&self) @inline => self.vs.getSize();
+fn Vec2f HMEntity.getSize(&self) @inline => self.vs.getSize();
 
-fn void Entity.scale(&self, float w, float h) @inline {
+fn void HMEntity.scale(&self, float w, float h) @inline {
 	self.vs.scale(w, h);
 }
 
-fn void Entity.scaleV(&self, Vec2f scaler) @inline {
+fn void HMEntity.scaleV(&self, Vec2f scaler) @inline {
 	self.vs.scaleV(scaler);
 }
 
@@ -314,7 +309,7 @@ fn void Entity.scaleV(&self, Vec2f scaler) @inline {
     @param [in] other : "the other entity to bind this one too"
     @require other != null
 *>
-fn void Entity.bindTo(&self, Entity* other, bool release_from_other = false) {
+fn void HMEntity.bindTo(&self, HMEntity* other, bool release_from_other = false) {
     if(self.bound() && !release_from_other) {
         log::warning(CONSOLE, "Cannot Bind %s to %s because is already bound to %s.", self.name, other.name, self.parent.name);
         return;
@@ -323,14 +318,14 @@ fn void Entity.bindTo(&self, Entity* other, bool release_from_other = false) {
     self.parent = other;
 }
 
-fn bool Entity.bound(&self) => self.parent != null;
+fn bool HMEntity.bound(&self) => self.parent != null;
 
-fn void Entity.unbind(&self) 
+fn void HMEntity.unbind(&self) 
 {
     if(self.parent) self.parent = null;
 }
 
-fn void Entity.setPosition(&self, float x, float y) @inline
+fn void HMEntity.setPosition(&self, float x, float y) @inline
 {
 	Vec2f old_pos = self.getPosition();
 	Vec2f new_pos = {x,y};
@@ -339,12 +334,12 @@ fn void Entity.setPosition(&self, float x, float y) @inline
 	self.vs.updateBounds(translation);
 }
 
-fn void Entity.setPositionV(&self, Vec2f newpos) @inline
+fn void HMEntity.setPositionV(&self, Vec2f newpos) @inline
 {
 	self.setPosition(newpos.x, newpos.y);
 }
 
-fn Vec2f Entity.getPosition(&self) @inline
+fn Vec2f HMEntity.getPosition(&self) @inline
 {
 	$if $feature(PHYSICS_BOX2D):
 	return self.physics.getPosition();
@@ -353,18 +348,18 @@ fn Vec2f Entity.getPosition(&self) @inline
 	$endif
 }
 
-fn void Entity.setBounds(&self, Bounds bb) @inline {
+fn void HMEntity.setBounds(&self, Bounds bb) @inline {
     self.vs.bounds = {
         .minc = bb.minc,
         .maxc = bb.maxc
     };
 }
 
-fn Vec2f Entity.getMinc(&self, Bounds bb) => self.vs.bounds.minc;
+fn Vec2f HMEntity.getMinc(&self, Bounds bb) => self.vs.bounds.minc;
 
-fn Vec2f Entity.getMaxc(&self, Bounds bb) => self.vs.bounds.maxc;
+fn Vec2f HMEntity.getMaxc(&self, Bounds bb) => self.vs.bounds.maxc;
 
-// fn void Entity.rotate2D(&self, float angle) @inline
+// fn void HMEntity.rotate2D(&self, float angle) @inline
 // {
 	// //float rad = (float)math::deg_to_rad(angle);
 	// float ct, st; // t = theta
@@ -375,12 +370,12 @@ fn Vec2f Entity.getMaxc(&self, Bounds bb) => self.vs.bounds.maxc;
 // }
 
 /*
-fn bool Entity.equalcoverage(&self, Coverage coverage) @operator(==)
+fn bool HMEntity.equalcoverage(&self, Coverage coverage) @operator(==)
 {
     return self.vs == coverage;
 }
 
-fn bool Entity.nequalcoverage(&self, Coverage coverage) @operator(!=)
+fn bool HMEntity.nequalcoverage(&self, Coverage coverage) @operator(!=)
 {
     return self.vs != coverage;
 }
@@ -390,17 +385,17 @@ fn bool Entity.nequalcoverage(&self, Coverage coverage) @operator(!=)
 	@require self.vs.mat != null
 	@ensure return >= 1
 *>
-fn Coverage Entity.getCoverage(&self) @inline => self.vs.mat.coverage;
+fn Coverage HMEntity.getCoverage(&self) @inline => self.vs.mat.coverage;
 
-fn bool Entity.coverageSet(self, Coverage cv) @inline => self.vs.coverageSet(cv);
+fn bool HMEntity.coverageSet(self, Coverage cv) @inline => self.vs.coverageSet(cv);
 
-fn void Entity.hide(&self) @inline => self.vs.hide();
+fn void HMEntity.hide(&self) @inline => self.vs.hide();
 
-fn void Entity.show(&self) @inline => self.vs.show();
+fn void HMEntity.show(&self) @inline => self.vs.show();
 
-fn bool Entity.hidden(&self) @inline => self.vs.hidden();
+fn bool HMEntity.hidden(&self) @inline => self.vs.hidden();
 
-fn void Entity.setname(&self, String* aname) @inline
+fn void HMEntity.setname(&self, String* aname) @inline
 {
 	if(aname)
 	{
@@ -410,7 +405,7 @@ fn void Entity.setname(&self, String* aname) @inline
 	}
 }
 
-fn void Entity.setTarget(&self, Entity* other) @inline
+fn void HMEntity.setTarget(&self, HMEntity* other) @inline
 {
 	if(other == null) {
 		log::error(FILE, "Cannot set target to null entity.");
@@ -418,14 +413,14 @@ fn void Entity.setTarget(&self, Entity* other) @inline
 	}
 	
 	if(self.targets.contains(other)) {
-		log::warning(FILE, "Entity '%s' already has '%s' as a target.", self.name, other.name);
+		log::warning(FILE, "HMEntity '%s' already has '%s' as a target.", self.name, other.name);
 		return;
 	}
 	
 	self.targets.push(other);
 }
 
-fn bool Entity.hasTarget(&self, Entity* other) @inline
+fn bool HMEntity.hasTarget(&self, HMEntity* other) @inline
 {
 	if(other == null) {
 		log::error(FILE, "Cannot check target for null entity.");
@@ -436,11 +431,11 @@ fn bool Entity.hasTarget(&self, Entity* other) @inline
 		return true;
 	}
 	
-	log::warning(FILE, "Entity '%s' does not have '%s' as a target.", self.name, other.name);
+	log::warning(FILE, "HMEntity '%s' does not have '%s' as a target.", self.name, other.name);
 	return false;
 }
 
-fn Entity* Entity.getTarget(&self, int index) @inline
+fn HMEntity* HMEntity.getTarget(&self, int index) @inline
 {
 	if(index < 0 || index >= self.targets.len()) {
 		log::error(FILE, "Index out of bounds when getting target from entity '%s'.", self.name);
@@ -450,7 +445,7 @@ fn Entity* Entity.getTarget(&self, int index) @inline
 	return self.targets[index];
 }
 
-fn void Entity.removeTarget(&self, Entity* other) @inline
+fn void HMEntity.removeTarget(&self, HMEntity* other) @inline
 {
 	if(other == null) {
 		log::error(FILE, "Cannot remove target from null entity.");
@@ -458,7 +453,7 @@ fn void Entity.removeTarget(&self, Entity* other) @inline
 	}
 	
 	if(!self.targets.contains(other)) {
-		log::warning(FILE, "Entity '%s' does not have '%s' as a target.", self.name, other.name);
+		log::warning(FILE, "HMEntity '%s' does not have '%s' as a target.", self.name, other.name);
 		return;
 	}
 	
@@ -476,12 +471,12 @@ within a spherical area around us
 =================
 */
 // UNTESTED
-fn Entity* Entity.find_other_in_radius(self, float radius )
+fn HMEntity* HMEntity.find_other_in_radius(self, float radius )
 {
 	// square the radius, so that we don't have to do a square root
 	float r2 = misc::square(radius);
 	
-	foreach(int index, Entity* other : game::pContext.entityList)
+	foreach(int index, HMEntity* other : game::pContext.entityList)
 	{
 		// NOTE(HM) Should this really ignore hidden entities?
 		if (other == null || other.isDead() || other.hidden()) {
@@ -506,12 +501,12 @@ Returns entities that have origins within a spherical area
 =================
 */
 // UNTESTED
-fn Entity* findradius(Entity *startent, Vec2f* org, float rad )
+fn HMEntity* findradius(HMEntity *startent, Vec2f* org, float rad )
 {
 	if ( !startent )
 	{
 		// then startent becomes the player
-		startent = (Entity*)game::getLocalPlayer();
+		startent = (HMEntity*)game::getLocalPlayer();
 	}
 	
 	assert( startent );
@@ -524,7 +519,7 @@ fn Entity* findradius(Entity *startent, Vec2f* org, float rad )
 	// square the radius so that we don't have to do a square root
 	float r2 = misc::square(rad);
 	
-	foreach(int index, Entity* other : game::pContext.entityList) 
+	foreach(int index, HMEntity* other : game::pContext.entityList) 
 	{
 		if(other.isDead() || other.hidden()) continue;
 		
@@ -550,7 +545,7 @@ fn Entity* findradius(Entity *startent, Vec2f* org, float rad )
 	return null;
 }
 
-fn void Entity.setAlive(&self, bool live) @inline {
+fn void HMEntity.setAlive(&self, bool live = true, bool shouldRemove = false) @inline {
 	if (live) 
 	{
 		if (!self.flags.alive) {
@@ -574,19 +569,19 @@ fn void Entity.setAlive(&self, bool live) @inline {
 			if (self.thinkflags & EntTh.THINK) {
 				self.stopThinking(); // stop thinking if it was thinking
 			}
-			if(!game::pContext.entitiesToRemove.contains(self)) game::pContext.entitiesToRemove.push(self);
+			if(shouldRemove && !game::pContext.entitiesToRemove.contains(self)) game::pContext.entitiesToRemove.push(self);
 		}
 	}
 }
 
-fn void Entity.born(&self) @inline
+fn void HMEntity.born(&self) @inline
 { 
 	self.setAlive(true);
 
 	if(self.targets.len() > 0) 
 	{
 		// TODO(HM) activate the targets, if they are not already activated
-		foreach(Entity* target : self.targets) 
+		foreach(HMEntity* target : self.targets) 
 		{
 			if(target.isAlive()) {
 				if(target.notOnActiveList()) {
@@ -599,9 +594,9 @@ fn void Entity.born(&self) @inline
 	}
 }
 
-fn void Entity.kill(&self) 
+fn void HMEntity.kill(&self) 
 {
-    log::info(CONSOLE, "%s%s'%s'!!!%s", ansi::color_rgb(255, 0, 0), "Killing Entity ", self.name, Ansi.RESET);
+    log::info(CONSOLE, "%s%s'%s'!!!%s", ansi::color_rgb(255, 0, 0), "Killing HMEntity ", self.name, Ansi.RESET);
     self.hide();
 
 	// activate targets on death
@@ -628,25 +623,25 @@ fn void Entity.kill(&self)
 	self.setAlive(false);
 }
 
-fn bool Entity.isAlive(&self) @inline
+fn bool HMEntity.isAlive(&self) @inline
 {
 	return self.flags.alive;
 }
 
-fn bool Entity.isDead(&self) @inline
+fn bool HMEntity.isDead(&self) @inline
 {
 	return (self.flags.alive) ? false : true;
 }
 
-fn bool Entity.onThinkingList(&self) @inline {
+fn bool HMEntity.onThinkingList(&self) @inline {
 	return game::pContext.thinkingEntities.contains(self);
 }
 
-fn bool Entity.notOnThinkingList(&self) @inline {
+fn bool HMEntity.notOnThinkingList(&self) @inline {
 	return !self.onThinkingList();
 }
 
-fn void Entity.startThinking(&self) @inline 
+fn void HMEntity.startThinking(&self) @inline 
 {
 	if (self.thinkflags & EntTh.THINK) return; // already thinking
 
@@ -655,7 +650,7 @@ fn void Entity.startThinking(&self) @inline
 	if(self.notOnThinkingList()) game::pContext.thinkingEntities.push(self);
 }
 
-fn void Entity.stopThinking(&self) @inline 
+fn void HMEntity.stopThinking(&self) @inline 
 {
 	if (!(self.thinkflags & EntTh.THINK)) return; // not thinking
 
@@ -671,15 +666,15 @@ fn void Entity.stopThinking(&self) @inline
 	}
 }
 
-fn bool Entity.onActiveList(&self) @inline {
+fn bool HMEntity.onActiveList(&self) @inline {
 	return game::pContext.activeEntities.contains(self);
 }
 
-fn bool Entity.notOnActiveList(&self) @inline {
+fn bool HMEntity.notOnActiveList(&self) @inline {
 	return !self.onActiveList();
 }
 
-fn void Entity.setActive(&self, bool active) @inline {
+fn void HMEntity.setActive(&self, bool active) @inline {
 	if (active) {
 		if (!self.isActive()) {
 			self.flags.active = true;
@@ -693,18 +688,18 @@ fn void Entity.setActive(&self, bool active) @inline {
 	}
 }
 
-fn bool Entity.isActive(&self) @inline {
+fn bool HMEntity.isActive(&self) @inline {
 	return self.flags.active;
 }
 
-fn void Entity.becomeInactive(&self, int flags) 
+fn void HMEntity.becomeInactive(&self, int flags) 
 {
 	if ((flags & EntTh.PHYSICS)) {
 		flags &= ~EntTh.PHYSICS;
 		return;
 		// may only disable physics on a team master if no team members are running physics or bound to a joints
 		/*if (teamMaster == this) {
-			for (Entity *ent = teamMaster.teamChain; ent; ent = ent.teamChain) {
+			for (HMEntity *ent = teamMaster.teamChain; ent; ent = ent.teamChain) {
 				if ((ent->thinkflags & EntTh.PHYSICS) || ((ent->bindMaster == this) && (ent->bindJoint != INVALID_JOINT))) {
 					flags &= ~EntTh.PHYSICS;
 					break;
@@ -732,7 +727,7 @@ fn void Entity.becomeInactive(&self, int flags)
 	}*/
 }
 
-fn void Entity.becomeActive(&self, int flags) 
+fn void HMEntity.becomeActive(&self, int flags) 
 {
 	if ((flags & EntTh.PHYSICS)) {
 		// enable the team master if this entity is part of a physics team
@@ -762,7 +757,7 @@ fn void Entity.becomeActive(&self, int flags)
 }
 
 
-fn void Entity.move(&self) {
+fn void HMEntity.move(&self) {
 	$if $feature(PHYSICS_BOX2D):
     // update visuals based on physics movement
     // && box2d::body_GetType(self.physics) == box2d::DYNAMIC
@@ -778,12 +773,12 @@ fn void Entity.move(&self) {
 	// todo movement not based on Box2D physics but inhouse one
 }
 
-fn void Entity.think(&self, float dt) // update in other engines
+fn void HMEntity.think(&self, float dt) // update in other engines
 {
     if(self.thinkflags & EntTh.THINK)
     {
 		$if $feature(TRACY_ENABLE):
-			tracy::@zoneN("Entity.think", 1)
+			tracy::@zoneN("HMEntity.think", 1)
 			{
 				self.move();
 			};
@@ -798,12 +793,12 @@ fn void Entity.think(&self, float dt) // update in other engines
 	}
 }
 
-fn void Entity.updateVisuals(&self) 
+fn void HMEntity.updateVisuals(&self) 
 {
 	self.becomeActive(EntTh.UPDATEVISUALS);
 }
 
-fn void Entity.draw(&self) 
+fn void HMEntity.draw(&self) 
 {
 	if(self.hidden() || self.isDead()) return;
 
@@ -855,7 +850,7 @@ fn void Entity.draw(&self)
 			case self.coverageSet(Coverage.TRANSLUCENT) && self.coverageSet(Coverage.PERFORATED):
 				blending = RLBlendMode.CUSTOM_SEPARATE; // use the custom blending mode					
             case self.coverageSet(Coverage.BAD):
-                log::error(FILE, "Entity %s has a bad material coverage type.", self.vs.mat.name);
+                log::error(FILE, "HMEntity %s has a bad material coverage type.", self.vs.mat.name);
                 unreachable();
         }
 
@@ -896,7 +891,7 @@ fn void Entity.draw(&self)
 }
 
 /*
-fn void Entity.becomeActive(&self, int flags) {
+fn void HMEntity.becomeActive(&self, int flags) {
 	
     if (flags & EntTh.PHYSICS) {
         //enable physics
@@ -916,7 +911,7 @@ fn void Entity.becomeActive(&self, int flags) {
 }
 */
 
-fn bool Entity.isValid(&self)
+fn bool HMEntity.isValid(&self)
 {
 	// TODO(HM) find why this is returning false
 	if(
@@ -931,25 +926,25 @@ fn bool Entity.isValid(&self)
 	return false;
 }
 
-fn void create(String aname, int x, int y, int w, int h, RLColor color) @public 
+fn void create_entity(String aname, Vec2f pos, int w, int h, RLColor color) @public 
 {
-	Entity* ent = mem::new(Entity);
-	ent.init(aname, {x, y}, color);
+	HMEntity* ent = mem::new(HMEntity);
+	ent.init(aname, pos, color);
 	ent.scale((float)w, (float)h);
 }
 
 <*
  @ensure return != null
 *>
-fn Entity* create_ex(String aname, Vec2f origin, RLColor color) @public 
+fn HMEntity* create_ex(String aname, Vec2f origin, RLColor color) @public 
 {
-	Entity* ent = mem::new(Entity);
+	HMEntity* ent = mem::new(HMEntity);
 	ent.init(aname, origin, color);
 	return ent;
 }
 
 // TODO
-fn void cloneEntity( Entity* dest, Entity* src )
+fn void cloneEntity( HMEntity* dest, HMEntity* src )
 {
 /*
 	int     i, num;
@@ -975,8 +970,8 @@ fn void cloneEntity( Entity* dest, Entity* src )
 		num = src.bind_info.numchildren;
 		for( i = 0; ( i < MAX_MODEL_CHILDREN ) && num; i++ )
 		{
-			Entity * clone;
-			Entity * child;
+			HMEntity * clone;
+			HMEntity * child;
 			
 			// duplicate the children
 			if ( !src.bind_info.children[ i ] )
@@ -986,7 +981,7 @@ fn void cloneEntity( Entity* dest, Entity* src )
 			child = G_GetEntity( src.bind_info.children[ i ] );
 			if ( child )
 			{
-				clone = new Entity( ENTITY_CREATE_FLAG_ANIMATE );
+				clone = new HMEntity( ENTITY_CREATE_FLAG_ANIMATE );
 				CloneEntity( clone, child );
 				clone.attach( dest.entnum, child.edict.s.tag_num );
 			}
@@ -998,16 +993,16 @@ fn void cloneEntity( Entity* dest, Entity* src )
 }
 
 ///////////////////////////////////
-/// Entity script events
+/// HMEntity script events
 ///////////////////////////////////
 fn void event_getName(UmkaStackSlot *params, UmkaStackSlot *result) @if($feature(UMKA_ENABLE))
 {
-	//Entity *ent = (Entity *)umkaGetParam(params, 0);
+	//HMEntity *ent = (HMEntity *)umkaGetParam(params, 0);
 	//@todo();
 	Umka *umk = umka::getInstance(result);
     UmkaAPI *api = umk.getAPI();
 
-    Entity *ent = api.umkaGetParam(params, 0).ptrVal;
+    HMEntity *ent = api.umkaGetParam(params, 0).ptrVal;
     api.umkaGetResult(params, result).ptrVal = api.umkaMakeStr(umk, ent.name.zstr_tcopy());
 }
 
@@ -1016,18 +1011,18 @@ fn void event_getID(UmkaStackSlot *params, UmkaStackSlot *result) @if($feature(U
 	Umka *umk = umka::getInstance(result);
     UmkaAPI *api = umk.getAPI();
 
-    Entity *ent = api.umkaGetParam(params, 0).ptrVal;
+    HMEntity *ent = api.umkaGetParam(params, 0).ptrVal;
     api.umkaGetResult(params, result).intVal = (long)ent.id;
 }
 
 ///////////////////////////////////
-/// Entity script callbacks
+/// HMEntity script callbacks
 ///////////////////////////////////
 
 fn void getMinc(WrenVM* vm) @if($feature(WREN_ENABLE))
 {
 	vm.ensureSlots(1); // slot 0 is the caller (and return slot), slots after that are the fn arguments slots
-	Entity* ent = (Entity*)vm.getSlotForeign(0);
+	HMEntity* ent = (HMEntity*)vm.getSlotForeign(0);
 	WrenHandle handle;
 	handle.value = *(Value*)&(*ent).bounds.minc;
 	vm.setSlotHandle(0, &handle);
@@ -1036,7 +1031,7 @@ fn void getMinc(WrenVM* vm) @if($feature(WREN_ENABLE))
 fn void getMaxc(WrenVM* vm) @if($feature(WREN_ENABLE))
 {
 	vm.ensureSlots(1); // slot 0 is the caller (and return slot), slots after that are the fn arguments slots
-	Entity* ent = (Entity*)vm.getSlotForeign(0);
+	HMEntity* ent = (HMEntity*)vm.getSlotForeign(0);
 	WrenHandle handle;
 	handle.value = *(Value*)&(*ent).bounds.maxc;
 	vm.setSlotHandle(0, &handle);
@@ -1045,12 +1040,12 @@ fn void getMaxc(WrenVM* vm) @if($feature(WREN_ENABLE))
 // fn void script_fn_getBounds(WrenVM* vm) 
 // {
 // 	vm.ensureSlots(1); // slot 0 is the caller (and return slot), slots after that are the fn arguments slots
-//     Entity* ent = (Entity*)vm.getSlotForeign(0);
+//     HMEntity* ent = (HMEntity*)vm.getSlotForeign(0);
 // 	WrenHandle handle.value = *(Value*)&(*ent).bounds;
 //     vm.setSlotHandle(0, &handle);
 // }
 
-/********************************* Entity Component System (ECS) *********************************/
+/********************************* HMEntity Component System (ECS) *********************************/
 /*
 module game::entity_component_system::ecs;
 

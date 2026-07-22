@@ -40,12 +40,12 @@
 *   Some of the structs in this file, were not really required to be this complete... (or even here...)
 *   This because, most of them are passed by pointer, so I could had just alias them 
 *   to a void* (opaque pointer) and be done with it! 
-*   The reality is, you don't need to know the full data-layout for most of them to use this... 
-*   Unfortunatly I did this, before knowing that was a option, sorry... :(
-*   Because of this ignorance, writting this took way more time and more work then needed, 
+*   The reality, you don't need to know the full data-layout for most of them to use this... 
+*   Unfortunatly this bindings are old and I did this, before knowing this was unnecessary, sorry... :(
+*   Because of this ignorance, writting this took way more work and time then needed, 
 *   I add to search all over the wren source code for the full structs. 
-*   But now that is done is done, just ignore the structs layout or if you really want,
-*   delete the body and alias them to a void* to cut on code compilation time. 
+*   But now that is done is done, just ignore the structs data or if you really want,
+*   delete them yourself and alias them to a void* to cut on code compilation time. 
 *   (but don't try storing the structs by value after that...)
 ****************************************************************/
 module thirdparty::wren @if($feature(WREN_ENABLE));

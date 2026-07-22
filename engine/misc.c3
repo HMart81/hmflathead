@@ -478,6 +478,7 @@ macro float metersTopixels(m) => (m * 10.0f);
 
 macro uint megaBytes2Bytes(x) => ((x) << 20);
 macro uint bytes2MB(x)        => ((x) >> 20);
+macro uint bits2Bytes(x)      => ((x) >> 3);
 // macro float pixelsTopercent(x) => (x / 10.0f); // 1.0% = 10.0 pixels
 // macro float percentTopixels(x) => (x * 10.0f);
 

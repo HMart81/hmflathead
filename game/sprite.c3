@@ -51,7 +51,7 @@ import thirdparty::tracy;
 // end_region
 
 // region defines
-alias assets_library @local = astmng::assets_library;
+alias pAssetsLib @local = astmng::pAssetsLib;
 // end_region
 
 // region constants
@@ -657,7 +657,7 @@ import engine::misc;
 const int DEFAULT_PARTICLE_LIFETIME   = 1000; // ms
 
 // region defines
-alias assets_library @local = astmng::assets_library;
+alias pAssetsLib @local = astmng::pAssetsLib;
 // end_region
 
 struct Particle
@@ -672,7 +672,7 @@ struct Particle
 fn void Particle.create(&self, Vec2f pos, Vec2f size, RLColor color = rl::WHITE, int lifetime_ms = DEFAULT_PARTICLE_LIFETIME, String tex_name = "") {
     // init the inline sprite data
     self.initV(pos, size, color);
-    //self.tex          = assets_library.getAssetExt(tex_name, RLTexture2D);
+    //self.tex          = pAssetsLib.getAssetExt(tex_name, RLTexture2D);
     self.lifetime     = game::pContext.time_ms + lifetime_ms;
     self.dir          = misc::VEC_UP;
     self.velocity     = self.dir;
@@ -707,7 +707,7 @@ const int DEFAULT_PARTICLES_SPAWNER_LIFETIME   = 5000; // ms
 // UNFINISHED...
 struct ParticleSpawner
 {
-    inline Entity super;
+    inline HMEntity super;
     
     int max_amount;
     int current_amount;
@@ -774,7 +774,7 @@ fn void ParticleSpawner.think(&self) {
     if(self.flags & ent::TH_THINK)
     {
         int current_time = game::pContext.time_ms;
-        log::info(Where.CONSOLE, "Entity '%s' has flag %s!!!\n", self.name, self.flags);
+        log::info(Where.CONSOLE, "HMEntity '%s' has flag %s!!!\n", self.name, self.flags);
         if(current_time < self.delay_ms) {
            // do nothing
         }

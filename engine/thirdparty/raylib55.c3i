@@ -1059,8 +1059,9 @@ fn void unloadRandomSequence(CInt *sequence) @cname("UnloadRandomSequence");    
 // Misc. functions
 // Takes a screenshot of current screen (filename extension defines format)
 // NOTE(HM) note the parameter for takeScreenshot(..) is fileName with extension, not a file Path!!!
-// Also Raysan from raylib, hardcoded F12 to the screenshot key and gave no way to override it,
-// like you can do with the exit key. :(
+// Raysan from raylib, hardcoded F12 to a internal screenshot func and gave no way to override it,
+// unlike you can with the exit key. :(
+// So if you use this function and also bind it to F12, it will take two screenshots not one. :S
 fn void takeScreenshot(ZString fileName) @cname("TakeScreenshot");
 
 fn void setConfigFlags(RLConfigFlag flags) @cname("SetConfigFlags");                         // Setup init configuration flags (view FLAGS)

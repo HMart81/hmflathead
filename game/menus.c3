@@ -76,6 +76,7 @@ import engine::filesystem::fs;
 import thirdparty::raylib5::rl;
 import engine::sys::framework::language::lang;
 import engine::sys::framework::soundbkd;
+import engine::assets_api::astmng;
 // end_region
 
 // region alias
@@ -149,9 +150,9 @@ fn void start(UIWindow* gui)
 
 	// start playing the menu sounds
 	soundbkd::setPlayingSoundWorld( &main_menu_sound_world );
-    if(rl::isMusicValid(gui.music_stream)) {
-        if(!rl::isMusicStreamPlaying(gui.music_stream) && !game::pContext.pause_all_music) rl::playMusicStream(gui.music_stream);
-    }
+	if(!game::pContext.pause_all_music) {
+		main_menu_sound_world.playSound("Swallow", is_music: true);
+	}
 
     setGUI(gui);
 
@@ -164,16 +165,11 @@ fn void stop(UIWindow* guiActive = getActiveMenu())
 	//UnloadMap();
 
     // stop gui sound world
-	//if ( guiActive.soundWorld ) {
-		//guiActive.soundWorld.stopAllSounds();
-	//}
-
     if(guiActive)
     {
-        if(rl::isMusicValid(guiActive.music_stream)) {
+        if(guiActive.sound_world) {
             // todo fade out the music stream
-            if(rl::isMusicStreamPlaying(guiActive.music_stream)) rl::stopMusicStream(guiActive.music_stream);
-            //rl::unloadMusicStream(guiActive.music_stream);
+            guiActive.sound_world.stop();
         }
     }
 
@@ -386,31 +382,24 @@ fn UIWindow* mainMenuCreate(int screenWidth, int screenHeight)
     window_extra.setColor(rl::GRAY);
     window_extra.hide();
     
-    String music_path = game::pContext.app_base_folder.tconcat("music\\main_menu\\Swallow.ogg");
-    if(fs::fileExists(music_path)) {
-        log::info(FILE, "\tloading %s music: %s", desk_main.name, music_path);
+	// relative to the music folder inside data folder
+    String music_path = "main_menu\\Swallow.ogg";
+	String fullpath = game::pContext.app_base_folder.tconcat("music\\").tconcat(music_path);
+    if(fs::fileExists(fullpath)) {
+        log::info(FILE, "\tloading %s music: %s", desk_main.name, fullpath);
     } else { 
         unreachable("music path not found: %s", music_path);
     }
 
-    int? main_menu_music_id;
     main_menu_sound_world.init("SoundWorld_MainMenu");
-    @catch(main_menu_music_id = main_menu_sound_world.addMusic(music_path.to_tpath()));
+    //int? main_menu_music_id = main_menu_sound_world.addMusic(music_path.to_tpath());
+    @catch(main_menu_sound_world.addMusic(music_path.to_tpath()));
+    //@catch(main_menu_sound_world.addMusicAsset(astmng::get_asset{RLMusic}("Swallow.ogg")));
     desk_main.sound_world = &main_menu_sound_world;
-    HMSpeaker{HMMusic}* music = main_menu_sound_world.getMusicEmitter(main_menu_music_id)!!;
-    if(music) music.audio.setVolume(1.0f);
-
-    desk_main.music_stream = rl::loadMusicStream(music_path.zstr_tcopy());
-    if(!rl::isMusicValid(desk_main.music_stream)) {
-        unreachable("music stream not valid: %s", music_path);
-    }
-    window_options.music_stream = desk_main.music_stream; // share the same music stream
-    // add the windows to the shared music stream list
-    desk_main.shared_music_stream_desktops.push(desk_main);
-    desk_main.shared_music_stream_desktops.push(window_options);
-
-    rl::setMusicVolume(desk_main.music_stream, 1.0f);
-
+    window_options.sound_world = desk_main.sound_world;
+    window_extra.sound_world = desk_main.sound_world;
+    //HMSpeaker{HMMusic}* music = main_menu_sound_world.getMusicEmitter(main_menu_music_id)!!;
+    //if(music) music.audio.setVolume(1.0f);
     
     Vec2f default_button_size = { 0.10f*screenWidth, 0.05f*screenHeight };
     float button_width, button_height;
@@ -834,11 +823,24 @@ fn void checkbox1_onSinglePress(any widget)
 		if(this.isChecked()) {
 			log::info(CONSOLE, "Checkbox 1 is now checked.");
 			game::pContext.pause_all_music = 1;
-			if(rl::isMusicStreamPlaying(game::pContext.guiActive.music_stream)) rl::pauseMusicStream(game::pContext.guiActive.music_stream);
+			if(game::pContext.guiActive) {
+				HMSoundWorld* current_sound_world = game::pContext.guiActive.sound_world;
+				if(current_sound_world) {
+					if(current_sound_world.hasSoundsPlaying()) {
+						//HMSpeaker{HMMusic*}[] = current_sound_world.getPlayingMusic();
+						current_sound_world.pause();
+					}
+				}
+			}
 		} else {
 			log::info(CONSOLE, "Checkbox 1 is now unchecked.");
 			game::pContext.pause_all_music = 0;
-			if(!rl::isMusicStreamPlaying(game::pContext.guiActive.music_stream)) rl::resumeMusicStream(game::pContext.guiActive.music_stream);
+			if(game::pContext.guiActive) {
+				HMSoundWorld* current_sound_world = game::pContext.guiActive.sound_world;
+				if(current_sound_world) {
+					current_sound_world.resumeSound("Swallow", is_music: true);
+				}
+			}
 		}
         // TODO(HM) do something with checkbox state
     } else {

@@ -491,15 +491,15 @@ fn void	readTypeid(SaveFile* savefile, typeid* type) {
 
 <*
  @param [&in] savefile : "the file to read the data from"
- @param [inout] asset : "the adress to place the data into"
- @require asset != null
+ @param [&inout] asset : "the adress to place the data into"
 *>
-fn void readAsset(SaveFile* savefile, any* asset) {
+fn void readAsset(SaveFile* savefile, Asset{Type}** asset) <Type>
+{
     String name;
     readString(savefile, &name);
     if(name == "") return;
     
-    (*asset) = game::asstManager.getAsset(name, asset.type);
+    (*asset) = (Asset{Type}*)game::asstManager.getAsset(name, Type::typeid);
 }
 
 
@@ -821,7 +821,7 @@ interface SaveGameInterface {
 	fn void					writeMat3( Matrix3f* mat ) {}
 	//fn void					writeAngles( const idAngles &angles ) {}
 	fn void					writeMaterial( RLMaterial* material ) {}
-    fn void					writeEntity( ent::Entity* model ) {}
+    fn void					writeEntity( ent::HMEntity* model ) {}
 	//fn void					writeParticle( const idDeclParticle *particle ) {}
 	//fn void					writeSoundShader( const idSoundShader *shader ) {}
 	//fn void					writeModelDef( const class idDeclModelDef *modelDef ) {}

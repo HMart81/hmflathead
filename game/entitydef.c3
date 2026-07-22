@@ -129,7 +129,7 @@ fn void EntityDef.init(&self)
 // TODO(HM) make this print a more detailed info
 fn void EntityDef.print(self)
 {
-    io::printfn("[Entity : '%s']", self.name);
+    io::printfn("[HMEntity : '%s']", self.name);
     if(self.comment.len && self.comment != "<no comment>") {
         io::printfn(" comment = \"%s\"", self.comment);
     }
@@ -199,7 +199,7 @@ fn String EntityDef.defaultDefinition(self) @inline
      <EntityDef name="default">
         <comment>This is the default entity definition</comment>
         <spawnargs
-        spawnType="Entity"
+        spawnType="HMEntity"
         />
     </EntityDef>
     `;
@@ -306,7 +306,7 @@ fn Vec4f getVector4FromString(String str) @inline @local
 
 ////////////////////////////////////////////////////////////////////////////////
 //
-//              DEFile - Entity definitions file data structure
+//              DEFile - HMEntity definitions file data structure
 //
 ///////////////////////////////////////////////////////////////////////////////
 

@@ -244,7 +244,7 @@ alias lic = module engine::sys::licensee;
 alias RShader        @public = rl::RLShader;
 alias StringPair     @public = Pair{String, String};
 alias IniFileCMDList = List{StringPair*};
-alias asstManager    @public= astmng::assets_library;
+alias asstManager    @public = astmng::pAssetsLib;
 
 // #endregion Alias
 
@@ -425,11 +425,11 @@ struct Game (SaveSystemInterface) @local
         int  multiSamples; // MSAA
     }
 
-    List{Entity*} entityList; // list of all entities in the game, used to iterate all entities every frame
-    List{Entity*} thinkingEntities; // entities that are thinking this frame, used to avoid iterating all entities every frame
-    List{Entity*} activeEntities; // entities that are active this frame, used to avoid iterating all entities every frame
-    List{Entity*} entitiesToDeactivate; // entities that are marked for deactivation this frame, used to avoid iterating all entities every frame
-    List{Entity*} entitiesToRemove; // entities that are marked for removal this frame, used to avoid iterating all entities every frame
+    List{HMEntity*} entityList; // list of all entities in the game, used to iterate all entities every frame
+    List{HMEntity*} thinkingEntities; // entities that are thinking this frame, used to avoid iterating all entities every frame
+    List{HMEntity*} activeEntities; // entities that are active this frame, used to avoid iterating all entities every frame
+    List{HMEntity*} entitiesToDeactivate; // entities that are marked for deactivation this frame, used to avoid iterating all entities every frame
+    List{HMEntity*} entitiesToRemove; // entities that are marked for removal this frame, used to avoid iterating all entities every frame
     List{HMSprite*} sprites;
 
     // BoidManager
@@ -647,7 +647,7 @@ fn Vec2i getScreenCenterPosI() @MyInline @public
 <*
  @require(self.entityList.len() >= 2)
 *>
-fn Entity* Game.getEntityByName(&self, String name) 
+fn HMEntity* Game.getEntityByName(&self, String name) 
 {
     foreach(i, ent : self.entityList) {
         if(ent.name == name) return self.entityList[i];
@@ -1470,7 +1470,7 @@ $endif
                         if(new_size == 0) {
                             log::info(FILE, "All entities were destroyed!");
                         } else {
-                            log::info(FILE, "Entity '%s' was removed from the game! Remaining entities: %d", ent.name, new_size);
+                            log::info(FILE, "HMEntity '%s' was removed from the game! Remaining entities: %d", ent.name, new_size);
                         }
                         local_game.entityList.compact();
                     }
@@ -1485,12 +1485,12 @@ $endif
             {
                 if(ent == null) 
                 {
-                    unreachable("Entity in thinking list is null!");
+                    unreachable("HMEntity in thinking list is null!");
                 }
 
                 if(ent.isDead()) 
                 {
-                    log::error(FILE, "Entity '%s' was in thinking list but is dead!\n", ent.name);
+                    log::error(FILE, "HMEntity '%s' was in thinking list but is dead!\n", ent.name);
                     local_game.thinkingEntities.remove_at(local_game.thinkingEntities.index_of(ent)!!);
                     continue;
                 }
@@ -1498,7 +1498,7 @@ $endif
                 if(ent.type == Player) 
                 {
                     assert(ent != null);
-                    // Need to cast Entity* to Player* to call player think not Entity think...
+                    // Need to cast HMEntity* to Player* to call player think not HMEntity think...
                     ((Player*)ent).think(dt: local_game.dt);
                 } 
                 else // all other entities
@@ -3582,8 +3582,8 @@ $endif
     //local_game.player2 = plyr::makePlayer(id: 2, color: rl::BLUE);
     //local_game.player2.setMaterial("figure");
     // NOTE(HM) The first entities are always the players
-    local_game.entityList.push((Entity*)local_game.player1);
-    //local_game.entityList.push((Entity*)local_game.player2);
+    local_game.entityList.push((HMEntity*)local_game.player1);
+    //local_game.entityList.push((HMEntity*)local_game.player2);
     log::info(FILE,  "** Done **.");
     
     // local_game.particleSpawner1.init({
@@ -3603,7 +3603,7 @@ $endif
         $endif
         origin = origin + misc::VEC_UP * 100 * i;
         
-        Entity* test_ent = ent::create_ex(string::tformat("Entity%s", i), origin, rl::WHITE);
+        HMEntity* test_ent = ent::create_ex(string::tformat("HMEntity%s", i), origin, rl::WHITE);
         test_ent.setMaterial("figure");
     }
     

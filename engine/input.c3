@@ -50,7 +50,7 @@ import engine::logging::log;
 // end_region
 
 // region defines
-//alias assets_library = astmng::assets_library @private;
+//alias pAssetsLib = astmng::pAssetsLib @private;
 //alias WidgetQueue  = List{Widget*};
 //alias UIWindowList  = List{Action*};
 alias ActionQueue    = List{Action*};

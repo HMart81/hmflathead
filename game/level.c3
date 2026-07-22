@@ -46,7 +46,7 @@ import game::actors::ent, /*entity module*/ game::actors::ent::plyr; // player m
 const int OLD_MAP_VERSION	    = 0;
 const int CURRENT_MAP_VERSION	= 1;
 
-alias EntityList = List{Entity*};
+alias EntityList = List{HMEntity*};
 alias HMDict @local = StringPair;
 
 struct MapEntity 

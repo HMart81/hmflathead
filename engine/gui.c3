@@ -1841,8 +1841,6 @@ struct UIWindow (SaveSystemInterface)
 	List{GuiAnchor} anchor;
 
 	HMSoundWorld* sound_world;
-    RLMusic music_stream; // any music stream that we may want to attach to a window
-    List{UIWindow*} shared_music_stream_desktops; // list of windows that share the same music stream
     
     // Lists
     //ChildrenWidgetQueue selected; // List of selected widgets, used for multi-selection in the editor, and also to keep track of what widgets are currently selected for other purposes like changing their color or properties.
@@ -1933,28 +1931,6 @@ fn void UIWindow.clear(&self) @inline
 	self.anchor.clear();
 
 	if(self.sound_world) self.sound_world.shutdown();
-
-    if(self.shared_music_stream_desktops.len()) 
-    {
-        if(self.shared_music_stream_desktops.first()!! == self) 
-        {
-            // if the first window in the list is the same as self, then we can unload the music stream
-            if(rl::isMusicValid(self.music_stream)) 
-            {
-                // todo fade out the music stream
-                //if(rl::isMusicStreamPlaying(self.music_stream)) rl::stopMusicStream(self.music_stream);
-                rl::unloadMusicStream(self.music_stream);
-
-                // then just zero the data for the rest of the window's and clear the shared music windows list.
-                for(int i = 1; i < self.shared_music_stream_desktops.len(); i++)
-                {
-                    (*self.shared_music_stream_desktops[i]).music_stream = {};
-                }
-
-                self.shared_music_stream_desktops.clear();
-            }
-        } 
-    }
 
 	if(self.tex) self.tex = null;
 	if(self.childWindows.len()) {
@@ -2107,8 +2083,8 @@ fn void UIWindow.hide(&self)
         }
     }
 
-    if(rl::isMusicValid(self.music_stream)) {
-        if(rl::isMusicStreamPlaying(self.music_stream)) rl::pauseMusicStream(self.music_stream);
+    if(self.sound_world) {
+        self.sound_world.pause();
     }
 }
 
@@ -2133,8 +2109,9 @@ fn void UIWindow.show(&self)
         }
     }
 
-    if(rl::isMusicValid(self.music_stream)) {
-        if(!rl::isMusicStreamPlaying(self.music_stream)) rl::resumeMusicStream(self.music_stream);
+    if(self.sound_world) {
+		self.sound_world.activate();
+		self.sound_world.playSound("Swallow", is_music: true);
     }
 }
 
@@ -2187,19 +2164,22 @@ fn void UIWindow.update(&self, int _time)
         }
     }
 
-    if(rl::isMusicValid(self.music_stream)) 
+	if(self.sound_world)
 	{
-        if(game::pContext.pause_all_music)
-        {
-           if(rl::isMusicStreamPlaying(self.music_stream)) rl::pauseMusicStream(self.music_stream);
-        } 
-        else if (!rl::isMusicStreamPlaying(self.music_stream))
-        {
-            rl::resumeMusicStream(self.music_stream);
-        } 
-		else 
+		foreach(music : self.sound_world.musics)
 		{
-			rl::updateMusicStream(self.music_stream);
+			if(music.audio.isPlaying())
+			{
+				if(game::pContext.pause_all_music) {
+					music.audio.pause();
+				} else {
+					music.audio.update();
+				}
+			} 
+			else if (!game::pContext.pause_all_music)
+			{
+				music.audio.resume();
+			}
 		}
     }
 }
@@ -2581,7 +2561,7 @@ import game::main;
 import std::math;
 import engine::misc;
 
-alias asstManager @local = astmng::assets_library;
+alias asstManager @local = astmng::pAssetsLib;
 
 enum IMUI_FONTs : int (String name) @local
 {
