@@ -26,7 +26,9 @@
 # 
 *********************************************************************************************************************************************/
 
-// NOTE(HM) This is the main game module, is where the game initializes almost all its systems and where the entry point is
+// NOTE(HM) This is the main game module, 
+// is where the game initializes almost all its systems 
+// and where the entry point is.
 module game @private;
 
 // #region imports
@@ -52,7 +54,7 @@ import engine::sys::reader::svg;
 import engine::sys::render2d::r2d;
 import game::material::manager::mtrmng; // material database
 import engine::sys::framework::language::lang;
-import engine::sys::framework::backends::bkend; // graphics backend interface
+import engine::sys::framework::vidbackends::vidbkd; // graphics backend interface
 import engine::sys::framework::platform::platf; // platform specific stuff
 import engine::sys::framework::soundbkd; // Sound system
 //
@@ -93,7 +95,7 @@ import engine::sys::videoplay::vid; // video playing
 // #endregion
 
 // #region Constants
-const SCRIPT_ENGINE = true; // use the new script engine
+
 /*
    ===== Game Scale Units =====
    
@@ -126,6 +128,66 @@ const int MAX_ENTITY_COUNT @public @Hardcode = 1 << 12; //int::max;
 const MIN_DISPLAY_HZ_FACTOR @Hardcode = 0.13f; // if the display hz is bellow this factor of the monitor hz, we set it to the minimum
 const MIN_DISPLAY_HZ  @Hardcode = 15;   // minimum display hz
 const MAX_DISPLAY_HZ  @Hardcode = 500;  // maximum display hz
+
+constdef PerfOption : inline int
+{
+    LOW = 1,
+    MEDIUM,
+    HIGH,
+    ULTRA
+}
+
+
+// #region Cvars
+CVar developer        @public = { "developer"     , CvFlag.BOOL | CvFlag.TOOL | CvFlag.CHEAT,   "0",     "enables developer mode"};
+CVar editor           @public = { "editor"        , CvFlag.BOOL | CvFlag.TOOL,   "0",     "enables the game editor (requires developer mode)"};
+CVar r_mode           @public = { "r_mode"        , CvFlag.INT | CvFlag.ARCHIVE,    "-1",    "index of window resolution [0 to 32], -1 = ini file setting"};
+CVar r_showFPS        @public = { "r_showFPS"     , CvFlag.BOOL | CvFlag.ARCHIVE,   "1",     "draws framerate on screen"};
+CVar r_showSplashPic  @public = { "r_showSplashPic", CvFlag.BOOL | CvFlag.ARCHIVE,   "0",     "enables the splash image at game start"};
+CVar r_fullscreen     @public = { "r_fullscreen"  , CvFlag.INT | CvFlag.ARCHIVE,    "-1",    "screen mode 0 = window, 1 = borderless, 2 = dedicated, -1 = ini file setting"};
+CVar r_fps_unlocked   @public = { "r_unlockFps"   , CvFlag.BOOL | CvFlag.ARCHIVE,   "false", "sets if the fps is unlocked (true) or locked to the monitor refresh rate (false)"};
+CVar r_max_fps        @public = { "r_max_fps"     , CvFlag.INT | CvFlag.ARCHIVE,    "-1",    "sets the maximum fps when fps is unlocked, -1 = monitor refresh rate"};
+CVar db_drawPhysics   @public = { "db_drawPhysics", CvFlag.BOOL | CvFlag.TOOL,   "1",     "show debug visualization for world physics" };
+CVar s_noaudio        @public = { "s_noaudio"     , CvFlag.BOOL | CvFlag.ARCHIVE | CvFlag.SOUND,   "0",     "disables all audio"};
+CVar fl_help          @public = { "help"          , CvFlag.BOOL | CvFlag.TOOL,   "0",     "shows help message"};
+CVar dbg_stats        @public = { "dbg_stats"     , CvFlag.BOOL | CvFlag.TOOL,   "0",     "shows various debug things on screen"};
+CVar skip_config      @public = { "skip_config"   , CvFlag.BOOL | CvFlag.TOOL,   "1",     "skips the configuarator at game start" };
+CVar script_engine    @public = {"cmd_useScptEngine", CvFlag.BOOL | CvFlag.ARCHIVE, "0", "enables the script engine"};
+CVar perf_option      @public = {"g_perfOption", CvFlag.INT | CvFlag.ARCHIVE, "3", "sets the game performance levels, <1 to 4> = 'low, medium, high, ultra'."};
+
+
+fn void register_cvars() @local
+{
+    cvar::@register(&developer);
+    cvar::@register(&editor);
+    cvar::@register(&r_mode);
+    cvar::@register(&r_showFPS);
+    cvar::@register(&r_showSplashPic);
+    cvar::@register(&r_fullscreen);
+    cvar::@register(&r_fps_unlocked);
+    cvar::@register(&r_max_fps);
+    cvar::@register(&db_drawPhysics);
+    cvar::@register(&s_noaudio);
+    cvar::@register(&fl_help);
+    cvar::@register(&dbg_stats);
+	cvar::@register(&skip_config);
+	cvar::@register(&script_engine);
+	cvar::@register(&perf_option);
+}
+
+fn void register_modulo_cvars() @local {
+    register_cvars(); // this module cvars (game module)
+	fs::register_cvars();
+    gui::register_cvars();
+	vid::register_cvars();
+    intro::register_cvars();
+    log::register_cvars();
+    ent::register_cvars();
+    bounds::register_cvars();
+    editor::register_cvars();
+}
+
+// #endregion Cvars
 
 
 /**************** DOC ********************************************
@@ -247,52 +309,6 @@ alias IniFileCMDList = List{StringPair*};
 alias asstManager    @public = astmng::pAssetsLib;
 
 // #endregion Alias
-
-// #region Cvars
-CVar developer      @public = { "developer"     , CvFlag.BOOL | CvFlag.TOOL | CvFlag.CHEAT,   "0",     "enables developer mode"};
-CVar editor         @public = { "editor"        , CvFlag.BOOL | CvFlag.TOOL,   "0",     "enables the game editor (requires developer mode)"};
-CVar r_mode         @public = { "r_mode"        , CvFlag.INT | CvFlag.ARCHIVE,    "-1",    "index of window resolution [0 to 32], -1 = ini file setting"};
-CVar r_showFPS      @public = { "r_showFPS"     , CvFlag.BOOL | CvFlag.ARCHIVE,   "1",     "draws framerate on screen"};
-CVar r_showSplashPic  @public = { "r_showSplashPic", CvFlag.BOOL | CvFlag.ARCHIVE,   "0",     "enables the splash image at game start"};
-CVar r_fullscreen   @public = { "r_fullscreen"  , CvFlag.INT | CvFlag.ARCHIVE,    "-1",    "screen mode 0 = window, 1 = borderless, 2 = dedicated, -1 = ini file setting"};
-CVar r_fps_unlocked @public = { "r_unlockFps"   , CvFlag.BOOL | CvFlag.ARCHIVE,   "false", "sets if the fps is unlocked (true) or locked to the monitor refresh rate (false)"};
-CVar r_max_fps      @public = { "r_max_fps"     , CvFlag.INT | CvFlag.ARCHIVE,    "-1",    "sets the maximum fps when fps is unlocked, -1 = monitor refresh rate"};
-CVar db_drawPhysics @public = { "db_drawPhysics", CvFlag.BOOL | CvFlag.TOOL,   "1",     "show debug visualization for world physics" };
-CVar s_noaudio      @public = { "s_noaudio"     , CvFlag.BOOL | CvFlag.ARCHIVE | CvFlag.SOUND,   "0",     "disables all audio"};
-CVar fl_help        @public = { "help"          , CvFlag.BOOL | CvFlag.TOOL,   "0",     "shows help message"};
-CVar dbg_stats      @public = { "dbg_stats"     , CvFlag.BOOL | CvFlag.TOOL,   "0",     "shows various debug things on screen"};
-CVar skip_config    @public = { "skip_config"   , CvFlag.BOOL | CvFlag.TOOL,   "1",     "skips the configuarator at game start" };
-
-fn void register_cvars() @local 
-{
-    cvar::@register(&developer);
-    cvar::@register(&editor);
-    cvar::@register(&r_mode);
-    cvar::@register(&r_showFPS);
-    cvar::@register(&r_showSplashPic);
-    cvar::@register(&r_fullscreen);
-    cvar::@register(&r_fps_unlocked);
-    cvar::@register(&r_max_fps);
-    cvar::@register(&db_drawPhysics);
-    cvar::@register(&s_noaudio);
-    cvar::@register(&fl_help);
-    cvar::@register(&dbg_stats);
-	cvar::@register(&skip_config);
-}
-
-fn void register_modulo_cvars() @local {
-    register_cvars(); // game module cvars
-	fs::register_cvars();
-    gui::register_cvars();
-	vid::register_cvars();
-    intro::register_cvars();
-    log::register_cvars();
-    ent::register_cvars();
-    bounds::register_cvars();
-    editor::register_cvars();
-}
-
-// #endregion Cvars
 
 faultdef WINDOW_INIT_FAILED, 
          MISSING_REQUIRED_ASSET,
@@ -495,18 +511,6 @@ Game* pContext @public = &local_game;
 VideoCabinet* vidCabinet @public @if($feature(VIDEO_PLAYBACK_ENABLE));
 // end
 
-
-fn void Game.freeGameEntities(&self) @MyInline 
-{
-    if(int count = (int)self.entityList.len()) 
-    {
-        foreach(&it: self.entityList) if(it) (*it).kill();
-        self.entityList.free();
-        log::info(FILE, "['%s'] Entities were cleared!", count);
-        //log::info(FILE,  "Done.");
-    }
-}
-
 fn void Game.save(&self, SaveFile* file) @dynamic {
     svs::writeBool(file, self.should_update_entities);
     svs::writeBool(file, self.system_cursor_enabled);
@@ -621,6 +625,17 @@ fn Player* getLocalPlayer(int id = 1) @MyInline @public
     return (Player*)local_game.entityList[idx];
 }
 
+fn void Game.freeGameEntities(&self) @MyInline 
+{
+    if(int count = (int)self.entityList.len()) 
+    {
+        foreach(&it: self.entityList) if(it) (*it).kill();
+        self.entityList.free();
+        log::tofile("['%s'] Entities were cleared!", count);
+        //log::tofile( "Done.");
+    }
+}
+
 fn RLShader getDefaultShaderCopy() @MyInline @public 
 {
     return local_game.default_shader;
@@ -675,14 +690,10 @@ fn bool Game.isPointInsideScreenView(&self, RLVector2 point)
 
 //////////// Message box stuff based on raygui
 
-alias MessageBoxList = List{MessageBox*};
-MessageBoxList messageBoxs;
-List{usz} messageBoxsIndecesToRemove;
-
 const DEFAULT_MESSAGE_BOX_TEXT_SIZE = 10;
-const DEFAULT_MESSAGE_BOX_H = 100;
-const DEFAULT_MESSAGE_BOX_W = 250;
-const DEFAULT_MESSAGE_BOX_MARGIN = 20;
+const DEFAULT_MESSAGE_BOX_H = 180;
+const DEFAULT_MESSAGE_BOX_W = 320;
+const DEFAULT_MESSAGE_BOX_MARGIN = 10;
 
 constdef MessageBoxType : inline int
 {
@@ -705,54 +716,45 @@ struct MessageBox
     bool shouldRemove;
 }
 
-fn void MessageBox.init(&self, int type) {
+<*
+    @require self.initted == false
+*>
+fn void MessageBox.init(&self, int type)
+{
     if(self.initted) return;
     self.type = type;
-    int w = local_game.screen.w / 2;
-    w -= (int)DEFAULT_MESSAGE_BOX_W / 2;
-    int h = local_game.screen.h / 2;
-    h -= (int)DEFAULT_MESSAGE_BOX_H / 2;
-    self.box.height = h;
-    self.box.width  = w;
+    self.box.height = DEFAULT_MESSAGE_BOX_H;
+    self.box.width  = DEFAULT_MESSAGE_BOX_W + DEFAULT_MESSAGE_BOX_MARGIN * 2;
     self.initted = true;
-    register_messagebox(self);
 }
 
-fn void MessageBox.updateSize(&self) @MyInline {
-    if(self.text_len > self.box.width) self.box.width = self.text_len + DEFAULT_MESSAGE_BOX_MARGIN;
+fn void MessageBox.updateSize(&self) @MyInline 
+{
+    if(self.text_len > self.box.width) {
+        self.box.width = self.text_len + DEFAULT_MESSAGE_BOX_MARGIN * 2;
+    }
 }
 
+<*
+    @require self.initted == true
+*>
 fn void MessageBox.setMessage(&self, String msg) {
     self.message  = msg;
     self.text_len = rl::measureText(self.message.zstr_tcopy(), DEFAULT_MESSAGE_BOX_TEXT_SIZE);
     self.updateSize();
 }
 
-<*
-	@param [&inout] msgBox : "the message box to register, it needs to be initted first"
- 	@require(msgBox.initted)
-*>
-fn void register_messagebox(MessageBox* msgBox) @local => messageBoxs.push(msgBox);
+fn void MessageBox.toggle(&self) => self.show = !self.show;
 
-fn void MessageBox.delete(&self) {
-    if(self.isVisible) self.isVisible = false;
-    messageBoxs.remove_item(self);
-}
-
-fn void MessageBox.open(&self) => self.show = true;
-fn void MessageBox.close(&self, bool kill = false) {
-    self.show = false;
-    if(kill) self.shouldRemove = true;
-}
 
 fn void MessageBox.draw(&self) 
 {
-    if (self.show)
+    if (self.show && self.message.len > 0)
     {
         self.isVisible = true;
         float x, y;
-        x = self.box.width;
-        y = self.box.height;
+        x = local_game.screen.center.x - self.box.width / 2;
+        y = local_game.screen.center.y - self.box.height / 2;
         ZString msg_title;
         switch(self.type)
         {
@@ -764,15 +766,17 @@ fn void MessageBox.draw(&self)
             default:
                 msg_title = string::tformat_zstr("%s%s","#191#", "Info");
         }
-        int result = rgui::messageBox((RLRectangle) {x, y, self.box.width, self.box.height},
+        int result = rgui::messageBox({x, y, self.box.width, self.box.height},
             title: msg_title, 
-            message: local_game.msgBoxText.zstr_tcopy(), 
+            message: self.message.zstr_tcopy(), //local_game.msgBoxText.zstr_tcopy(), 
             buttons: "close");
-            if(result >= 0) self.show = false;
+            if(result == rgui::BUTTON_EXIT || 
+               result == rgui::BUTTON_IDX01 /*close*/) self.show = false;
     } else {
         self.isVisible = false;
     }
 }
+
 
 fn void drawMsgBox(int w, int h) @public 
 {
@@ -896,14 +900,14 @@ fn void? Game.loadDefaultAssets(&self)
     }
     
     // get the default game font
-    local_game.default_font = bkend::getFontDefault();
+    local_game.default_font = vidbkd::getFontDefault();
 }
 
 fn void Game.unloadDefaultAssets(&self) {
-    bkend::unloadTexture(self.default_texture);
-    bkend::unloadTexture(self.tex_white);
-    bkend::unloadTexture(self.tex_black);
-    bkend::unloadTexture(self.tex_gray);
+    vidbkd::unloadTexture(self.default_texture);
+    vidbkd::unloadTexture(self.tex_white);
+    vidbkd::unloadTexture(self.tex_black);
+    vidbkd::unloadTexture(self.tex_gray);
     rl::unloadShader(self.default_shader);
     self.current_global_shader = null;
     rl::unloadSound(self.default_sound);
@@ -977,7 +981,7 @@ $endif
     if(sz count = self.sprites.len()) {
         foreach(&it: self.sprites) if(it) (*it).deinit();
         self.sprites.free();
-        log::info(FILE, "['%s'] sprites were cleared!", count);
+        log::tofile("['%s'] sprites were cleared!", count);
     }
     self.view.deinit();
 
@@ -1313,35 +1317,35 @@ fn void onUpdate() @local
     telem::@profile_zone("Game Update")
     {
     $if $feature(_DEBUG):
-        const CHOICE = 1;
+        const CHOICE = 0;
     $else
         const CHOICE = 0;
     $endif
     tracy::@zoneN("gameUpdate", CHOICE)
     {
         // make game run at lower rate in case window loses focus
-        int runningHz = (int)local_game.render.getFPS();
-        int max_fps   = local_game.max_fps;
-        if(max_fps <= 0) {
-            max_fps = math::clamp(local_game.max_fps, MIN_DISPLAY_HZ, local_game.screen.displayHz);
-        }
-        int targetHz = (local_game.fps_unlocked && max_fps > 0) ? max_fps : local_game.screen.displayHz;
-        if(rl::isWindowFocused())
-        {
-            if(runningHz <= MIN_DISPLAY_HZ)
-            {
-                if(targetHz > MAX_DISPLAY_HZ) targetHz = MAX_DISPLAY_HZ;
-                rl::setTargetFPS(targetHz);
-                local_game.pause_all_music = 0;
-            }
-        }
-        else if(runningHz > MIN_DISPLAY_HZ) // lost focus
-        {
-            //$if !$feature(TRACY_ENABLE):
-                rl::setTargetFPS(MIN_DISPLAY_HZ);
-                local_game.pause_all_music = 1;
-            //$endif
-        }
+		int runningHz = (int)local_game.render.getFPS();
+		int max_fps   = local_game.max_fps;
+		if(max_fps <= 0) {
+			max_fps = math::clamp(local_game.max_fps, MIN_DISPLAY_HZ, local_game.screen.displayHz);
+		}
+		int targetHz = (local_game.fps_unlocked && max_fps > 0) ? max_fps : local_game.screen.displayHz;
+		if(rl::isWindowFocused())
+		{
+			if(runningHz <= MIN_DISPLAY_HZ)
+			{
+				if(targetHz > MAX_DISPLAY_HZ) targetHz = MAX_DISPLAY_HZ;
+				rl::setTargetFPS(targetHz);
+				local_game.pause_all_music = 0;
+			}
+		}
+		else if(runningHz > MIN_DISPLAY_HZ && local_game.mode != GameMode.INTRO) // lost focus
+		{
+			//$if !$feature(TRACY_ENABLE):
+			rl::setTargetFPS(MIN_DISPLAY_HZ);
+			local_game.pause_all_music = 1;
+			//$endif
+		}
         //////////
 
 
@@ -1356,6 +1360,13 @@ fn void onUpdate() @local
         if(rl::getMouseDelta().length_sq() > 0) {
             local_game.mouse_window_pos = rl::getMousePosition(); // pixel coordinates, top left origin
         }
+
+		$if $feature(VIDEO_PLAYBACK_ENABLE):
+            if(local_game.mode != INTRO) {
+                // intro does its own video timing
+                vidCabinet.update();
+            }
+		$endif
 
         if(editor.getBool() && local_game.editor.isOpen()) {
             local_game.editor.update();
@@ -1383,13 +1394,6 @@ $endif
         // } else {
             // io::printfn("NOT ON SCREEN!!!!!");
         // }
-
-        $if $feature(VIDEO_PLAYBACK_ENABLE):
-            if(local_game.mode != INTRO) {
-                // intro does its own video decoding
-                vidCabinet.update();
-            }
-		$endif
         
         local_game.view.update();
         
@@ -1468,9 +1472,9 @@ $endif
                         local_game.entityList.remove_at(i);
                         sz new_size = old_size - 1;
                         if(new_size == 0) {
-                            log::info(FILE, "All entities were destroyed!");
+                            log::tofile("All entities were destroyed!");
                         } else {
-                            log::info(FILE, "HMEntity '%s' was removed from the game! Remaining entities: %d", ent.name, new_size);
+                            log::tofile("HMEntity '%s' was removed from the game! Remaining entities: %d", ent.name, new_size);
                         }
                         local_game.entityList.compact();
                     }
@@ -1520,25 +1524,6 @@ $endif
             intro::update(&local_game.intro);
         }
 
-        // update message box's
-        if(messageBoxs.len()) {
-            messageBoxsIndecesToRemove.clear();
-
-            foreach(i, box : messageBoxs) {
-                if(box.shouldRemove && !box.isVisible) {
-                    messageBoxsIndecesToRemove.push((ulong)i);
-                } else if(box.shouldRemove && box.isVisible) {
-                    log::warning(CONSOLE, "Message box set to remove but still visible!!!");
-                    unreachable();
-                }
-            }
-
-            if(messageBoxsIndecesToRemove.len()) {
-                foreach(i : messageBoxsIndecesToRemove) {
-                    messageBoxs.remove_at((long)i);
-                }
-            }
-        }
     }; // tracy
     }; // profile_zone
 }
@@ -1734,13 +1719,6 @@ fn void onDraw(int screenWidth, int screenHeight) @local
             // NOTE(HM) 
             // drawing after the GUI is draw
             //onPostGUIDraw(screenWidth, screenHeight);
-
-            // draw message box's
-            if(messageBoxs.len()) {
-                foreach(box : messageBoxs ) {
-                    box.draw();
-                }
-            }
             
             // this is where input pooling and swapping buffers happens
             //rl::endDrawing();
@@ -1790,6 +1768,11 @@ fn void onPostGUIDraw(int screenWidth, int screenHeight) @public
 
     // draw raygui message box error
     drawMsgBox(screenWidth, screenHeight);
+
+    // draw message box's
+    local_game.warningBox.draw();
+    local_game.errorBox.draw();
+    local_game.infoBox.draw();
     
     if(developer.getBool())
     {
@@ -2014,7 +1997,7 @@ fn void handle_cmdline(String[] args)
         if(args.len <= 1) return;
 	$endif
     
-    log::info(FILE, "Handling cmd line args: %s\n", args[..]);
+    log::tofile("Handling cmd line args: %s\n", args[..]);
 
     String cmd_arg;
 	bool cmd_is_standalone;
@@ -2210,7 +2193,7 @@ fn void handle_cmdline_new(String[] args)
         if(args.len <= 1) return;
 	$endif
     
-    log::info(FILE, "Handling cmd line args: %s\n", args[..]);
+    log::tofile("Handling cmd line args: %s\n", args[..]);
 
     String cmd_arg;
 	// standalone cmds are thought as if they are booleans
@@ -2444,16 +2427,16 @@ fn void handle_cmdline_new(String[] args)
 
 fn void print_engine_version() @local @inline 
 {
-    log::info(FILE, "---------------------------------------------");
-    log::info(FILE, "%s", version::ENGINE);
-    log::info(FILE, "---------------------------------------------\n");
+    log::tofile("---------------------------------------------");
+    log::tofile("%s", version::ENGINE);
+    log::tofile("---------------------------------------------\n");
 }
 
 fn void print_game_version() @local @inline 
 {
-    log::info(FILE, "---------------------------------------------");
-    log::info(FILE, "%s", lic::GAME_VERSION);
-    log::info(FILE, "---------------------------------------------\n");
+    log::tofile("---------------------------------------------");
+    log::tofile("%s", lic::GAME_VERSION);
+    log::tofile("---------------------------------------------\n");
 }
 
 // #endregion ARGS HANDLING ******************
@@ -2476,9 +2459,10 @@ fn void free_jsonc(JSCObject* obj) @public @inline
 }
 
 /* This is where game execution begins */
-fn void? onStart(String[]* args) 
+fn void? onStart(String[] args) 
 {
     local_game.mode = STARTING;
+    defer local_game.mode = NONE;
 
     print_engine_version();
     print_game_version();
@@ -2497,20 +2481,20 @@ $if $feature(TSODING_FLAG):
         return GAME_START_FAILED~;
     }
 $else
-    //handle_cmdline(*args);
 	// needs more testing
-    handle_cmdline_new(*args);
+    handle_cmdline_new(args);
 $endif
-     // NOTE(HM) 
-    // This will save cvars in a global array for later looping through if needed
+    // NOTE(HM) 
+    // This will save cvars in a global array 
+    // for later looping through if necessary...
     register_modulo_cvars();
 
     //
     // ******* Main Game Start *******
     //
 
-    log::info(FILE, "Initializing game:");
-    log::info(FILE, "---------------------------------------------");
+    log::tofile("Initializing game:");
+    log::tofile("---------------------------------------------");
     
     // load paths list
 	@off()
@@ -2548,19 +2532,21 @@ $endif
     }
     
 // #region Paths/Folders Setup
-    log::info(FILE, "Registering game paths:");
-    log::info(FILE, "---------------------------------------------");
+    log::tofile("Registering game paths:");
+    log::tofile("---------------------------------------------");
     String app_exe_path = fs::getApplicationDirectory();
     
 	///////////////////////////
     // Set the game name
     local_game.app_name = lic::GAME_NAME;
-    if(local_game.app_name.len > 0) {
+    if(local_game.app_name.len > 0) 
+    {
         if(lic::GAME_SUB_NAME.len > 0) {
-            local_game.app_name = local_game.app_name.tconcat("_");
-            local_game.app_name = local_game.app_name.tconcat(lic::GAME_SUB_NAME);
+            local_game.app_name = lic::GAME_NAME+++"_"+++lic::GAME_SUB_NAME;
         }
-    } else {
+    }
+    else 
+    {
         // take the name from the exe path
         local_game.app_name = fs::getFileNameWithoutExt(app_exe_path).tconcat("_app");
     }
@@ -2570,14 +2556,19 @@ $endif
     // In case a mod is being used, use this to get the original game work dir.
     local_game.default_app_dir = app_exe_path;
     if(fs::directoryExists(local_game.default_app_dir)) {
-        log::info(FILE, "\tWorking from: %s", local_game.default_app_dir);
+        log::tofile("\tWorking from: %s", local_game.default_app_dir);
         // just in case
 		fs::changeDirectory(local_game.default_app_dir)!;
-    	// register the directory
+    	// todo register the directory
 		//fs::addDirectory(local_game.default_app_dir)!;
-    } else { 
+    } else {
+        local_game.errorBox.setMessage("Invalid work directory for the game!");
+        local_game.errorBox.toggle();
         return INVALID_WORK_DIR~; // will this ever happen?
     }
+
+    local_game.errorBox.setMessage("Invalid work directory for the game!");
+    local_game.errorBox.toggle();
 
 	/////////////////////////////////////////////////////////////////////////
     // Detect and Setup the base folder, where all required game assets/data will live.
@@ -2630,7 +2621,7 @@ $endif
     if(fs::directoryExists(local_game.app_root_dir)) {
         if(local_game.app_root_dir != local_game.default_app_dir) 
         {
-            log::info(FILE, "\tWorking now from Dir: %s", local_game.app_root_dir);
+            log::tofile("\tWorking now from Dir: %s", local_game.app_root_dir);
         }
     } else {
         return INVALID_WORK_DIR~;
@@ -2639,7 +2630,7 @@ $endif
 	/////////////////////////////////////////
     // make sure required base folder exists, else halt the game
     if(fs::directoryExists(local_game.app_base_folder)) {
-        log::info(FILE, "\tBase Dir set to: %s", local_game.app_base_folder);
+        log::tofile("\tBase Dir set to: %s", local_game.app_base_folder);
     } 
 	else 
 	{
@@ -2676,12 +2667,12 @@ $endif
                 return NO_USER_SAVE_FOLDER~;
             }
         }
-        log::info(FILE, "\tUser Save folder set to: %s", local_game.app_save_folder);
+        log::tofile("\tUser Save folder set to: %s", local_game.app_save_folder);
     }
 	$else
 		local_game.app_save_folder = local_game.app_save_folder.tconcat(fs::cv_save_path.getString()).tconcat(local_game.app_name);
 	$endif
-    log::info(FILE, "---------------------------------------------\n");
+    log::tofile("---------------------------------------------\n");
 // #endregion
 
 ////////////////////////////////////////////////////
@@ -2699,7 +2690,7 @@ $endif
     RLConfigFlag window_flags; // special windows flags for the rl window handling
     
     // support for high dpi monitors (replaces the need for manual use of GetWindowScaleDPI() functionality)
-    bkend::setWindowFlag(&window_flags, rl::FLAG_WINDOW_HIGHDPI);
+    vidbkd::setWindowFlag(&window_flags, rl::FLAG_WINDOW_HIGHDPI);
     
     // TODO(HM)
     // Create a console here for error displaying...
@@ -2708,8 +2699,8 @@ $endif
     // Print engine version in the console
 
 // #region Ini file handling
-    log::info(FILE, "Loading settings file:");
-    log::info(FILE, "---------------------------------------------");
+    log::tofile("Loading settings file:");
+    log::tofile("---------------------------------------------");
     String ini_file_path = local_game.app_base_folder.tconcat(ini::SETTINGS_FILE_NAME);
     bool settings_file_missing = fs::fileExists(ini_file_path) == false;
     if (settings_file_missing) // create it with default settings
@@ -2748,13 +2739,13 @@ $endif
         // !json
     };
 
-    log::info(FILE, "Settings file data loaded into RAM with sucess: %s", ini_file_path);
-    log::info(FILE, "---------------------------------------------\n");
+    log::tofile("Settings file data loaded into RAM with sucess: %s", ini_file_path);
+    log::tofile("---------------------------------------------\n");
 
     // test writting to the register
     $if $defined(env::WIN32):
     {
-        //log::info(FILE, "Saving registry data:");
+        //log::tofile("Saving registry data:");
         // NOTE(HM) this is only for windows, to test if we can write to the registry
         // and if the user has permissions to do so.
 		/*String path;
@@ -2780,7 +2771,7 @@ $endif
 					log::warning(FILE, "Failed to create key \"%s\" inside registry 'HKEY_CURRENT_USER/Software' key with: excuse > %s", reg_key, excuse3);
 				} else {
     			    defer win32::regCloseKey(folder_key);
-                    //log::info(FILE, "Saving required registry data to: \"HKEY_CURRENT_USER\\Software\\HMartSoftware\\unnnamed\\settings\"");
+                    //log::tofile("Saving required registry data to: \"HKEY_CURRENT_USER\\Software\\HMartSoftware\\unnnamed\\settings\"");
 					// now save values into the path
                     ;
                     if(!win32::regSetValue(folder_key, "baseDir", any_make(&local_game.app_base_folder, String))) {
@@ -2793,8 +2784,8 @@ $endif
 			}
 		}
     }
-    //log::info(FILE, "Done.")
-    //log::info(FILE, "---------------------------------------------\n")
+    //log::tofile("Done.")
+    //log::tofile("---------------------------------------------\n")
     $endif // $if $defined(env::WIN32)
 
 // #endregion Ini file handling
@@ -2810,8 +2801,8 @@ $endif
         $endif
         Path? langs_path = path::tnew(local_game.app_base_folder.tconcat("langs\\local.lang"))!;
         if(try lang::dict.load(langs_path)) {
-            log::info(FILE, "languages data file loaded sucessfully.\n\t-> %s", langs_path!);
-            log::info(FILE, "---------------------------------------------\n");
+            log::tofile("languages data file loaded sucessfully.\n\t-> %s", langs_path!);
+            log::tofile("---------------------------------------------\n");
         } else {
             unreachable("failed to load languages data file: %s!!", langs_path!);
         }
@@ -2828,26 +2819,26 @@ $endif
 		RLTraceLogLevel level = log::getLevelFromString(settings_data.getString("log_level"));
 		if(log::getLogLevel() != level)
 		{
-			log::info(FILE, "Ini file overriding prior Logging level!");
-			log::info(FILE, "\t- prior level was '%s' new level will be: '%s'", 
+			log::tofile("Ini file overriding prior Logging level!");
+			log::tofile("\t- prior level was '%s' new level will be: '%s'", 
 			log::levelToString(log::getLogLevel()), 
 			log::levelToString(level));
 
 			log::setLogLevel(level);
-			log::info(FILE, "Logging set to: %s\n", log::levelToString(level));
+			log::tofile("Logging set to: %s\n", log::levelToString(level));
 		}
     }
     else if(settings_data.getBool("developer", "log")! == false)
     {
         log::setLogLevel(RLTraceLogLevel.NONE);
-        log::info(FILE, "Logging disabled.");
+        log::tofile("Logging disabled.");
     }
 
     // log the amount of screen resolutions and their Mode
-    log::info(FILE, "Total video modes : %d", SCREEN_RES.len);
-    log::info(FILE, "Enumerating rendering video modes:");
+    log::tofile("Total video modes : %d", SCREEN_RES.len);
+    log::tofile("Enumerating rendering video modes:");
     foreach(res: SCREEN_RES) {
-        log::info(FILE, "\t%s", res.str);
+        log::tofile("\t%s", res.str);
     }
     
     // default screen resolution
@@ -2898,7 +2889,7 @@ $endif
             {
                 local_game.screen.w = SCREEN_RES[res_index].w;
                 local_game.screen.h = SCREEN_RES[res_index].h;
-                log::info(FILE, "Custom resolution %dx%d found in the list of video modes, using it.", 
+                log::tofile("Custom resolution %dx%d found in the list of video modes, using it.", 
                           local_game.screen.w, local_game.screen.h);
             }
         }
@@ -2911,23 +2902,23 @@ $endif
         return INVALID_SCREEN_RESOLUTION~;
     }
     
-    log::info(FILE,  "Video mode set -> %s", SCREEN_RES[res_index].str);
+    log::tofile( "Video mode set -> %s", SCREEN_RES[res_index].str);
 
     $if $defined(env::WIN32):
         Win32_HKEY k = win32::getGameRegSettingsPath()!;
         @catch(k.setValue("video_mode", &SCREEN_RES[res_index].str, String, close_key: true));
     $endif
 
-    log::info(FILE, "---------------------------------------------\n");
-    log::info(FILE, "Window settings:");
-    log::info(FILE, "---------------------------------------------");
+    log::tofile("---------------------------------------------\n");
+    log::tofile("Window settings:");
+    log::tofile("---------------------------------------------");
     // Vertical sync (this is a hint so may or may not apply...)
     if(try settings_data.getBool("video", "vsync"))
     {
         //window_flags |= (int)rl::FLAG_VSYNC_HINT;
-        bkend::setWindowFlag(&window_flags, rl::FLAG_VSYNC_HINT);
+        vidbkd::setWindowFlag(&window_flags, rl::FLAG_VSYNC_HINT);
         local_game.screen.state.vsync_hint = true;
-        log::info(FILE, "VSync **hint** enabled. (may not apply)");
+        log::tofile("VSync **hint** enabled. (may not apply)");
     }
     
     // NOTE(HM) cvar r_fullscreen has top priority
@@ -2949,13 +2940,13 @@ $endif
     switch(fullscreen_choice)
     {
         case 1:
-            bkend::setWindowFlag(&window_flags, rl::FLAG_FULLSCREEN_MODE);
+            vidbkd::setWindowFlag(&window_flags, rl::FLAG_FULLSCREEN_MODE);
             local_game.screen.state.fullscreen = true;
-			log::info(FILE, "Game window set to Real/Dedicated Fullscreen mode.");
+			log::tofile("Game window set to Real/Dedicated Fullscreen mode.");
         case 2:
-            bkend::setWindowFlag(&window_flags, rl::FLAG_BORDERLESS_WINDOWED_MODE /*| rl::FLAG_WINDOW_TOPMOST*/);
+            vidbkd::setWindowFlag(&window_flags, rl::FLAG_BORDERLESS_WINDOWED_MODE /*| rl::FLAG_WINDOW_TOPMOST*/);
             local_game.screen.state.borderless = true;
-			log::info(FILE, "Game window set to Borderless fullscreen mode.");
+			log::tofile("Game window set to Borderless fullscreen mode.");
         default: // fullscreen_choice -1 or 0
             local_game.screen.state.window = true;
     }
@@ -2976,9 +2967,9 @@ $endif
         {
             if(msaa_samples > 0) 
             {
-                bkend::setWindowFlag(&window_flags, rl::FLAG_MSAA_4X_HINT);
+                vidbkd::setWindowFlag(&window_flags, rl::FLAG_MSAA_4X_HINT);
                 local_game.screen.multiSamples = msaa_samples;
-                log::info(FILE, "4x MSAA **hint** enabled (may not apply).");
+                log::tofile("4x MSAA **hint** enabled (may not apply).");
             }
         }
     }
@@ -2990,11 +2981,11 @@ $endif
             // local_game.screen.state.resizable = true;
         // }
     // }
-    log::info(FILE, "---------------------------------------------\n");
+    log::tofile("---------------------------------------------\n");
 
 // #region Window initialization
-    log::info(FILE, "Initializing window:");
-    log::info(FILE, "---------------------------------------------");
+    log::tofile("Initializing window:");
+    log::tofile("---------------------------------------------");
     // set/apply the final window flags
     //rl::setConfigFlags((RLConfigFlag)window_flags);
     
@@ -3013,9 +3004,9 @@ $endif
             flags: window_flags
         )!;
 
-        log::info(FILE, "Window initialized successfully.");
-        log::info(FILE, "Graphics API: OpenGL%s context.", rlgl::getVersion());
-		log::info(FILE, "---------------------------------------------\n");
+        log::tofile("Window initialized successfully.");
+        log::tofile("Graphics API: OpenGL%s context.", rlgl::getVersion());
+		log::tofile("---------------------------------------------\n");
     $else
         //============================== //
         rl::initWindow(screenWidth, screenHeight, window_name.zstr_tcopy());
@@ -3026,10 +3017,10 @@ $endif
             log::fatal(FILE, "Failed to init rl window and OpenGL context!");
             return WINDOW_INIT_FAILED~;
         } else {
-            log::info(FILE, "Window initialized successfully.");
-			log::info(FILE, "---------------------------------------------\n");
-            log::info(FILE, "OpenGL '%s' context set.", rlgl::getVersion());
-			log::info(FILE, "---------------------------------------------\n");
+            log::tofile("Window initialized successfully.");
+			log::tofile("---------------------------------------------\n");
+            log::tofile("OpenGL '%s' context set.", rlgl::getVersion());
+			log::tofile("---------------------------------------------\n");
         }
     $endif
 
@@ -3064,24 +3055,24 @@ $if env::WIN32:
 	win32::setThreadAffinityMask(win32::getCurrentThread(), 1);
 $endif
 
-    log::info(FILE, "---------------------------------------------\n");
+    log::tofile("---------------------------------------------\n");
 
     // init raygui dark style (needs to be done after raylib window is initialized)
-    log::info(FILE, "loading raygui dark style:");
-    log::info(FILE, "---------------------------------------------\n");
+    log::tofile("loading raygui dark style:");
+    log::tofile("---------------------------------------------\n");
     rgui::style::dark::load();
-    log::info(FILE, "- done -\n");
+    log::tofile("- done -\n");
 
 // #region MONITOR STATES
-    log::info(FILE, "Setting up monitor states:");
-    log::info(FILE, "---------------------------------------------");
+    log::tofile("Setting up monitor states:");
+    log::tofile("---------------------------------------------");
     // See how many monitors user has and change the window placement if necessary.
     // WARNING(HM) This is not guarantied to work for all multi-monitor setups, 
     // it seems that even glfw, that rl uses internally, fails to set the correct monitor on some setups :(
     int monitor_count = rl::getMonitorCount();
     if(monitor_count >= 2) // is multi-monitor setup
     {
-        log::info(FILE, "\tMulti-Monitor setup found:");
+        log::tofile("\tMulti-Monitor setup found:");
         bool chose_screen_pos_by_mouse = true; // @Hardcode
         if(chose_screen_pos_by_mouse)
         {
@@ -3137,7 +3128,7 @@ $endif
         }
     }
     
-    log::info(FILE, "\tWindow put on monitor id: '%d' name: '%s", local_game.screen.id, rl::getMonitorName(local_game.screen.index));
+    log::tofile("\tWindow put on monitor id: '%d' name: '%s", local_game.screen.id, rl::getMonitorName(local_game.screen.index));
     
     // @Todo 
     // Support user setting frame rate on main menu?
@@ -3160,12 +3151,12 @@ $endif
         if(local_game.fps_unlocked)
         {
             rl::setTargetFPS(local_game.max_fps);
-            log::info(FILE,  "\tGame set to unlocked framerate with a max of %shz.", local_game.max_fps);
+            log::tofile( "\tGame set to unlocked framerate with a max of %shz.", local_game.max_fps);
             if(local_game.max_fps > local_game.screen.displayHz) {
-                log::info(FILE,  "\tNote: max fps is set to higher than monitor speed of %s hz, tearing may occur!", local_game.screen.displayHz);
-                log::info(FILE,  "\t      consider enabling vsync or lowering max fps value in the main menu or using r_max_fps start flag.");
-                log::info(FILE,  "\t      (you can also set 'r_max_fps' in the ini file).");
-                log::info(FILE,  "\t      (or set 'r_fps_unlocked' to false in the ini file as well, to use monitor hz)");
+                log::tofile( "\tNote: max fps is set to higher than monitor speed of %s hz, tearing may occur!", local_game.screen.displayHz);
+                log::tofile( "\t      consider enabling vsync or lowering max fps value in the main menu or using r_max_fps start flag.");
+                log::tofile( "\t      (you can also set 'r_max_fps' in the ini file).");
+                log::tofile( "\t      (or set 'r_fps_unlocked' to false in the ini file as well, to use monitor hz)");
                 log::warning(FILE,  "\t      (changing all these settings will require a game restart)");
                 log::warning(FILE,  "\t      (running the game at a rate above the display rate, is wastefull, the monitor cannot display those extra frames to you).");
             }
@@ -3173,7 +3164,7 @@ $endif
         else // set the target fps to monitor hz set in windows (monitor framerate)
         {
             rl::setTargetFPS(local_game.screen.displayHz);
-            log::info(FILE, "\tSetting game to display update rate of %shz.", local_game.screen.displayHz);
+            log::tofile("\tSetting game to display update rate of %shz.", local_game.screen.displayHz);
         }
     }
     else // lost focus during game start /*if(local_game.screen.state.window || local_game.screen.state.borderless)*/ 
@@ -3181,31 +3172,31 @@ $endif
         int val = (int)(MIN_DISPLAY_HZ_FACTOR * local_game.screen.displayHz);
         if(val < MIN_DISPLAY_HZ) val = MIN_DISPLAY_HZ;
         rl::setTargetFPS(val); // save resources when not focused
-        log::info(FILE, "\tGame set to %shz update rate because lost focus.", val);
+        log::tofile("\tGame set to %shz update rate because lost focus.", val);
     }
     
 
-    log::info(FILE, "---------------------------------------------\n");
+    log::tofile("---------------------------------------------\n");
 // #endregion MONITOR STATES
 
 $if $feature(MICROUI_ENABLE):
     // #region MicroUI initialization
-    log::info(FILE, "Initializing MicroUI:");
-    log::info(FILE, "---------------------------------------------");
+    log::tofile("Initializing MicroUI:");
+    log::tofile("---------------------------------------------");
     // NOTE(HM) This needs to be done before any microUI function requiring units is used!!!
     local_game.mu_ctx = mem::new(MU_Context);
     local_game.mu_ctx.init();
     local_game.mu_ctx.text_width  = &mu::text_width;
     local_game.mu_ctx.text_height = &mu::text_height;
     local_game.mu_font_atlas = rl::loadTexture(local_game.app_base_folder.tconcat("images\\mu_atlas.png").zstr_tcopy());
-    log::info(FILE, "---------------------------------------------\n");
+    log::tofile("---------------------------------------------\n");
 $endif
     
-    log::info(FILE, "Setting up game view:");
-    log::info(FILE, "---------------------------------------------");
+    log::tofile("Setting up game view:");
+    log::tofile("---------------------------------------------");
     // setup/init game view (for now is a static view)
     local_game.view.init(screenWidth, screenHeight);
-    log::info(FILE, "---------------------------------------------\n");
+    log::tofile("---------------------------------------------\n");
 
 $if $feature(_DEBUG):
     // TODO(HM) On release version quit should only be done from main menu (or alt+f4...).
@@ -3214,19 +3205,19 @@ $if $feature(_DEBUG):
     //rl::setExitKey(rl::KEY_F10);
     String key_name = settings_data.getString("quit", default_value: "KEY_ESCAPE");
     rl::setExitKey(input::getKeyCodeFromStr(key_name));
-    log::info(FILE, "Exit key set to: %s", key_name);
-    log::info(FILE, "---------------------------------------------\n");
+    log::tofile("Exit key set to: %s", key_name);
+    log::tofile("---------------------------------------------\n");
 $endif
 
 // #endregion Window initialization
 
 // #region physics engine
 $if $feature(PHYSICS_BOX2D):
-    log::info(FILE, "Starting Physics Engine:");
-    log::info(FILE, "---------------------------------------------");
+    log::tofile("Starting Physics Engine:");
+    log::tofile("---------------------------------------------");
     // TODO(HM) refactor this into a physics engine module that wraps box2d?
     B2Version version = box2d::getVersion();
-    log::info(FILE, "\tBox2D version: \"%d.%d.%d\"", version.major, version.minor, version.revision);
+    log::tofile("\tBox2D version: \"%d.%d.%d\"", version.major, version.minor, version.revision);
     
     // NOTE(HM) This needs to be done before any box2d function that requiring units to be used!!!
 	box2d::setLengthUnitsPerMeter(DEFAULT_UNITS_PER_METER);
@@ -3245,7 +3236,7 @@ $if $feature(PHYSICS_BOX2D):
     //
 	local_game.physWorldId = box2d::createWorld(&physWorld);
     if(local_game.physWorldId.isValid()) {
-        log::info(FILE, "\tBox2D Started.");
+        log::tofile("\tBox2D Started.");
     } else {
         log::error(FILE, "Failed to start Box2D physics engine! Halting game initialization.");
         unreachable();
@@ -3267,13 +3258,13 @@ $if $feature(PHYSICS_BOX2D):
     
     box2d::initDebugDraw(&local_game.phys_debug, &local_game.view);
 
-    log::info(FILE, "---------------------------------------------\n");
+    log::tofile("---------------------------------------------\n");
 $endif
 // #endregion physics engine
     
 // #region AUDIO DEVICE initialization
-    log::info(FILE, "Initializing Audio Device:");
-    log::info(FILE, "---------------------------------------------");
+    log::tofile("Initializing Audio Device:");
+    log::tofile("---------------------------------------------");
 
     //rl::initAudioDevice();
 	local_game.audio_device.init();
@@ -3285,26 +3276,26 @@ $endif
         {
 			local_game.audio_device.setVolume(volume);
             //rl::setMasterVolume(1.0f);
-            log::info(FILE, "\tAudio Master Volume set to = %s", 1.0f);
+            log::tofile("\tAudio Master Volume set to = %s", 1.0f);
         } else {
             float master_volume = rl::getMasterVolume();
             if(master_volume > 1.0f) {
                 log::warning(FILE, "\tAudio Master Volume is set to %.2f, this is not recommended!", master_volume);
                 rl::setMasterVolume(1.0f); // clamp it
             } else {
-                log::info(FILE, "\tAudio Master Volume is = %.1f", master_volume);
+                log::tofile("\tAudio Master Volume is = %.1f", master_volume);
             }
         }
     } else {
         log::warning(FILE, "AudioDevice: Not ready, sound will be disabled! %s:%s", $$MODULE, $$FUNC );
     }
 
-    log::info(FILE, "---------------------------------------------\n");
+    log::tofile("---------------------------------------------\n");
 // #endregion AUDIO DEVICE initialization
 
 // #region Asset manager
-    log::info(FILE, "Loading game assets:");
-    log::info(FILE, "---------------------------------------------");
+    log::tofile("Loading game assets:");
+    log::tofile("---------------------------------------------");
     // first load default assets
     @catch(local_game.loadDefaultAssets());
     //
@@ -3327,7 +3318,7 @@ $endif
     svg::SVGData svgfile;
     svgfile.path = local_game.app_base_folder.tconcat("levels/test.svg").copy(mem);
     if(svgfile.load()!) {
-        log::info(FILE, "SVG file loaded successfully: %s", svgfile.path);
+        log::tofile("SVG file loaded successfully: %s", svgfile.path);
         //svgfile.printTofile(local_game.app_base_folder.tconcat("levels/test.txt"));
         //svgfile.print();
     } else {
@@ -3336,24 +3327,24 @@ $endif
 
     //  init video library
 	$if $feature(VIDEO_PLAYBACK_ENABLE):
-	log::info(FILE, "Initializing Video Player:");
+	log::tofile("Initializing Video Player:");
     @catch(vid::initVideoCabinet(&vidCabinet));
-	log::info(FILE, "---------------------------------------------\n");
+	log::tofile("---------------------------------------------\n");
 	$endif
         
-    log::info(FILE,  "** done **");
-    log::info(FILE, "---------------------------------------------\n");
+    log::tofile( "** done **");
+    log::tofile("---------------------------------------------\n");
 // #endregion Asset manager
 
 $if $defined(SCRIPT_ENGINE):
-    log::info(FILE, "Initializing Script Engine:");
-    log::info(FILE, "---------------------------------------------");
+    log::tofile("Initializing Script Engine:");
+    log::tofile("---------------------------------------------");
     // init the game editor defaults
     local_game.script_eng.init();
     if(Script* main = local_game.script_eng.getScript("main")) {
         main.compile_run();
     }
-    log::info(FILE, "---------------------------------------------\n");
+    log::tofile("---------------------------------------------\n");
 $endif
 
     // test mujs initialization
@@ -3498,15 +3489,15 @@ $if $feature(UMKA_ENABLE):
     */
 $endif
 
-    log::info(FILE, "Initializing game editor:");
-    log::info(FILE, "---------------------------------------------");
+    log::tofile("Initializing game editor:");
+    log::tofile("---------------------------------------------");
     // init the game editor defaults
     local_game.editor.initDefaults();
 
     // // immediate UI @testing
     local_game.show_test_tool_frame = true;
-    log::info(FILE, "-done-");
-    log::info(FILE, "---------------------------------------------\n");
+    log::tofile("-done-");
+    log::tofile("---------------------------------------------\n");
     
     // Load custom shader to be used on some parts drawing
     // NOTE 1: Using GLSL 330 shader version, on OpenGL ES 2.0 use GLSL 100 shader version
@@ -3569,14 +3560,19 @@ $endif
 	// intro video/images and I don't know if I should really do that...   
     //
     // Set the current program mode to the intro mode
-    if(intro::skip.getBool() == false) intro::play(&local_game.intro);
+    if(intro::skip.getBool()) {
+        menu::start(local_game.main_menu);
+    } 
+    else {
+        intro::play(&local_game.intro);
+    }
 
 
     // Create the main Single Player
     // NOTE(HM) todo: the player and ingame entities should be created only at spawn of a level 
     // but right now, I don't have a concept of a "level" or game World.
     // TODO(HM) when possible make a dedicated spawn point entity for the player.
-    log::info(FILE,  "** Creating test player. **");
+    log::tofile( "** Creating test player. **");
     local_game.player1 = plyr::makePlayer(id: 1, color: rl::RED);
     local_game.player1.setMaterial("figure");
     //local_game.player2 = plyr::makePlayer(id: 2, color: rl::BLUE);
@@ -3584,7 +3580,7 @@ $endif
     // NOTE(HM) The first entities are always the players
     local_game.entityList.push((HMEntity*)local_game.player1);
     //local_game.entityList.push((HMEntity*)local_game.player2);
-    log::info(FILE,  "** Done **.");
+    log::tofile( "** Done **.");
     
     // local_game.particleSpawner1.init({
     //     0.5f*local_game.screen.w,
@@ -3592,7 +3588,7 @@ $endif
     // });
     
     // Create test entities @delete
-    log::info(FILE,  "** Creating test entities. **");
+    log::tofile( "** Creating test entities. **");
     for(int i = 1; i <= 2; i++) 
     {
         $if $defined(camview::ENABLE_CAMERA_VIEW):
@@ -3607,9 +3603,9 @@ $endif
         test_ent.setMaterial("figure");
     }
     
-    log::info(FILE,  "** Done. **");
+    log::tofile( "** Done. **");
     
-    log::info(FILE,  "** Enabling test entities brains. **");
+    log::tofile( "** Enabling test entities brains. **");
     if(local_game.entityList.len() >= 1) {
         local_game.should_update_entities = true;
     }
@@ -3624,13 +3620,13 @@ $endif
         if(vidCabinet) {
 			String vid_name = "epiwarn";
             if(vidCabinet.hasMovie(vid_name)) {
-                log::info(FILE, "Setting up test video: '%s'", vid_name);
+                log::tofile("Setting up test video: '%s'", vid_name);
                 VidMovie* vid1 = vidCabinet.getMovie(vid_name);
                 if(vid1 == null) {
                     log::warning(FILE, "\tFailed to get test video '%s' from video library!", vid_name);
                 } else {
                     if(vid1.preparePlayer()) {
-                        log::info(FILE, "\tPrepared Video player for video '%s' playback, successfully.", vid_name);
+                        log::tofile("\tPrepared Video player for video '%s' playback, successfully.", vid_name);
                         vid1.fullscreen = true;
 						vid1.enable();
                     } else {
@@ -3639,66 +3635,66 @@ $endif
                 }
             }
         }
-	log::info(FILE, "---------------------------------------------\n");
+	log::tofile("---------------------------------------------\n");
 	$endif
     
-    log::info(FILE,  "** Done. **");
+    log::tofile( "** Done. **");
 // #endregion Test game stuff
     
     local_game.should_quit = false;
-    log::info(FILE,  "Game Start Done Sucessfully.\n//**//");
+    log::tofile( "Game Start Done Sucessfully.\n//**//");
 }
 
 fn void onExit()
 {
-	// save cvars to config data file (settings file below)
+	// save cvars marked as archive to config data (settings file below)
 	/*foreach(cv : cvar::cvars) {
-		if(cv.flags & CvFlag.ARCHIVE) cv.archive();
-	}*/
+		cv.archive();
+	}
 
     //
-    /*if(local_game.settings_data.isModified())
+    if(try local_game.settings_data.save())
     {
         // save the settings file
-        log::info(FILE, "Saving settings file: %s", local_game.settings_data.path);
-        @catch(local_game.settings_data.save());
-    }*/
-    ini::unload(&local_game.settings_data);
+        log::tofile("Updated settings file: %s", local_game.settings_data.path);
+    }
+    ini::unload(&local_game.settings_data);*/
+    //
 
-    log::info(FILE,  "Game shutdown starting.");
+    log::tofile( "Game shutdown starting.");
     deinit_game_cursor();
     // make sure to release all assets last, so you don't try to release a asset that is already released.
     asstManager.releaseAllAssets();
 
 $if $feature(WREN_ENABLE):
-    log::info(FILE, "close wren Script Engine: %s", wren::VERSION_STRING);
-    log::info(FILE, "---------------------------------------------");
+    log::tofile("close wren Script Engine: %s", wren::VERSION_STRING);
+    log::tofile("---------------------------------------------");
     local_game.script_eng.deinit();
-    log::info(FILE, "wren Script Engine closed.");
-    log::info(FILE, "---------------------------------------------\n");
+    log::tofile("wren Script Engine closed.");
+    log::tofile("---------------------------------------------\n");
 $endif
 
 $if $feature(ANGEL_ENABLE):
-    log::info(FILE, "close angel Script Engine: %s", angel::VERSION_STRING);
-    log::info(FILE, "---------------------------------------------");
+    log::tofile("close angel Script Engine: %s", angel::VERSION_STRING);
+    log::tofile("---------------------------------------------");
     if(local_game.asEngine != null) {
         local_game.asEngine.release();
         local_game.asEngine = null;
-        log::info(FILE, "angel Script Engine closed.");
+        log::tofile("angel Script Engine closed.");
     }
-    log::info(FILE, "---------------------------------------------\n");
+    log::tofile("---------------------------------------------\n");
 $endif
 
 $if $feature(MUJS_ENABLE):
-    log::info(FILE, "close mujs Script Engine: %s", mujs::VERSION_STRING);
-    log::info(FILE, "---------------------------------------------");
+    log::tofile("close mujs Script Engine: %s", mujs::VERSION_STRING);
+    log::tofile("---------------------------------------------");
     if(local_game.mujs_state) {
         local_game.mujs_state.gc(mujs::GC_NOREPORT); // run a full garbage collection cycle
         local_game.mujs_state.free();
         local_game.mujs_state = null;
-        log::info(FILE, "mujs Script closed.");
+        log::tofile("mujs Script closed.");
     }
-    log::info(FILE, "---------------------------------------------\n");
+    log::tofile("---------------------------------------------\n");
 $endif
 
 $if $feature(LUA_ENABLE):
@@ -3712,16 +3708,16 @@ $if $feature(LUA_ENABLE):
     */
     if(local_game.lua_state) 
     {
-        log::info(FILE, "close lua Script: %s", lua::VERSION_STR);
-        log::info(FILE, "---------------------------------------------");
+        log::tofile("close lua Script: %s", lua::VERSION_STR);
+        log::tofile("---------------------------------------------");
         if(local_game.lua_debug != null) {
             mem::free(local_game.lua_debug);
             local_game.lua_debug = null;
         }
         local_game.lua_state.close();
         local_game.lua_state = null;
-        log::info(FILE, "lua script engine closed.");
-        log::info(FILE, "---------------------------------------------\n");
+        log::tofile("lua script engine closed.");
+        log::tofile("---------------------------------------------\n");
     }
 $endif
 
@@ -3729,18 +3725,18 @@ $endif
 	$if $feature(PHYSICS_BOX2D):
     box2d::deinitDebugDraw(&local_game.phys_debug);
     if(local_game.physWorldId.isValid()) {
-        log::info(FILE, "Destroying physics engine.");
+        log::tofile("Destroying physics engine.");
         box2d::destroyWorld(local_game.physWorldId);
-        log::info(FILE, "Done.");
+        log::tofile("Done.");
     }
     $endif
 
 	$if $feature(VIDEO_PLAYBACK_ENABLE):
-	log::info(FILE, "Deinitializing Video Player:");
+	log::tofile("Deinitializing Video Player:");
         if(vidCabinet) {
             vid::deinitVideoCabinet(vidCabinet);
         }
-	log::info(FILE, "---------------------------------------------\n");
+	log::tofile("---------------------------------------------\n");
 	$endif
 
 	// todo close sound worlds here before closing the audio device
@@ -3783,10 +3779,10 @@ $endif
 
     local_game.unload();
     //rl::memFree(memory_pool);
-    //log::info(FILE,  "clearing game singletons and log system!\n\t** Printing done on OS terminal from this point on **");
-    log::info(FILE,  "clearing game singletons!");
+    //log::tofile( "clearing game singletons and log system!\n\t** Printing done on OS terminal from this point on **");
+    log::tofile( "clearing game singletons!");
     clear_game_singletons();
-    log::info(FILE,  "Game shutdown done!!");
+    log::tofile( "Game shutdown done!!");
     log::closeLogFile();
 }
 
@@ -3798,37 +3794,60 @@ fn void clear_game_singletons() @MyInline {
     //
     uiwin::gpManager.free();
     uiwin::gpManager = null;
-    log::info(FILE,  "**done**");
+    log::tofile( "**done**");
 }
 
+<*
+    @require local_game.app_save_folder.len > 0 && fs::directoryExists(local_game.app_save_folder)
+*>
 fn void saveGame()
 {
+    Player* player = getLocalPlayer();
+    if(player) {
+        // do not save the game, if the player is dead,
+        // it will break the game!!
+        if(player.isDead()) return;
+    } else {
+        unreachable("Trying to get the player but none was found!!");
+    }
+
     // look in the directory for the game save folder
     String save_folder = local_game.app_save_folder;
-    if(fs::directoryExists(save_folder)) {
-        String file_path = save_folder.tconcat(platf::PATHSEPERATOR_STR).tconcat(string::tformat("%s%s%s", local_game.app_name, local_game.time_ms, ".sav"));
-        SaveFile? save_file = svs::make_new(file_path);
-        defer (void)svs::close(&save_file);
-        if(catch excuse = save_file) {
-            log::warning(FILE, "Unable to save to file: %s with excuse: %s", file_path, excuse);
+    if(!save_folder.ends_with("\\")) {
+        save_folder = save_folder.tconcat(platf::PATHSEPERATOR_STR);
+    }
+
+    $if env::WIN32:
+    ulong totalNumberOfFreeBytes;
+    if(win32::getDiskFreeSpaceExA((Win32_LPCSTR)&save_folder, lpTotalNumberOfFreeBytes: &totalNumberOfFreeBytes)) {
+        if ( totalNumberOfFreeBytes < 25 ) {
+            local_game.warningBox.setMessage("Not enough drive space to save the game!");
+            local_game.warningBox.toggle();
+            log::warning(FILE, "Not enough drive space to save the game!");
             return;
         }
-        // save the game state to the file
-        // #### TODO ENABLE THIS LATER!!!!! #####
-        @off() { local_game.save(&save_file); };
-        // ######################################
-        log::info(FILE,  "Saved \"%s\" to folder: %s", file_path, save_folder);
-        //todo show some ui message that the game was saved
-        local_game.showSaveMessage = true;
-        local_game.saveMessageTime = local_game.time_ms + 2000; // show for 2 seconds
-    } else {
-        log::warning(FILE,`Required save folder inside %s not found!\n
-                    A folder called '%s' (case sensitive) most exist there!`,
-                    local_game.app_save_folder, local_game.app_name);
-        $if $feature(_DEBUG):
-        unreachable();
-        $endif
     }
+    $endif
+
+    DateTime date = datetime::now();
+    String clock_data = string::tformat("_%s_%s_%s_%s_%s", date.day, date.month, date.year, date.hour, date.min);
+    String file_name = string::tformat("%s_%s.sav", local_game.app_name, clock_data);
+    String file_path = save_folder.tconcat(file_name);
+    // 
+    SaveFile? save_file = svs::make_new(file_path);
+    defer (void)svs::close(&save_file);
+    if(catch excuse = save_file) {
+        log::warning(FILE, "Unable to save to file: %s with excuse: %s", file_path, excuse);
+        return;
+    }
+    // save the game state to the file
+    // #### TODO ENABLE THIS LATER!!!!! #####
+    @off() { local_game.save(&save_file); };
+    // ######################################
+    log::tofile( "Saved \"%s\" to folder: %s", file_path, save_folder);
+    //todo show some ui message that the game was saved
+    local_game.showSaveMessage = true;
+    local_game.saveMessageTime = local_game.time_ms + 2000; // show for 2 seconds
 }
 
 fn void loadGame() 
@@ -3978,7 +3997,7 @@ fn void doOneFrame()
             //@pool()
             //{
                 tracy::@messageL( "Tick" );
-                tracy::@zoneN("Game loop", 1)
+                tracy::@zoneN("Game loop", 0)
                 {
                     @profile_zone("gameDoOneFrame", OFF)
                     {
@@ -4024,7 +4043,7 @@ fn void doOneFrame()
            // };
         }
         $else
-            bkend::@renderLoop(local_game.render) 
+            vidbkd::@renderLoop(local_game.render) 
             {
                 tracy::@messageL( "Tick" );
                 tracy::@zoneN("Game loop", 1)

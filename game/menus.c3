@@ -392,8 +392,7 @@ fn UIWindow* mainMenuCreate(int screenWidth, int screenHeight)
     }
 
     main_menu_sound_world.init("SoundWorld_MainMenu");
-    //int? main_menu_music_id = main_menu_sound_world.addMusic(music_path.to_tpath());
-    @catch(main_menu_sound_world.addMusic(music_path.to_tpath()));
+    @catch(soundbkd::addMusicTo(&main_menu_sound_world, music_path.to_tpath()));
     //@catch(main_menu_sound_world.addMusicAsset(astmng::get_asset{RLMusic}("Swallow.ogg")));
     desk_main.sound_world = &main_menu_sound_world;
     window_options.sound_world = desk_main.sound_world;

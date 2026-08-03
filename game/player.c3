@@ -74,22 +74,26 @@ fn Vec2f Move_Dir.mul(self, float a ) @operator(*)
 }
 
 // Save here any info the player should take into other levels 
-struct PersistentInfo (SaveSystemInterface)  @packed {
+struct PersistentInfo (SaveSystemInterface)  @packed 
+{
     int health;
     int score;
 }
 
-fn void PersistentInfo.save(&self, SaveFile* file) @dynamic {
+fn void PersistentInfo.save(&self, SaveFile* file) @dynamic 
+{
 // todo
     io::printfn("PersistentInfo save not implemented!!");
 }
 
-fn void PersistentInfo.reload(&self, SaveFile* file) @dynamic {
+fn void PersistentInfo.reload(&self, SaveFile* file) @dynamic 
+{
 // todo
     io::printfn("PersistentInfo reload not implemented!!");
 }
 
-fn bool PersistentInfo.clear(&self) @inline {
+fn bool PersistentInfo.clear(&self) @inline 
+{
    // TODO(HM) if some pointers are defined in the struct clean them here.
    return false;
 }
@@ -166,14 +170,16 @@ fn void Player.init(&self, Vec2f origin, RLColor color, int id)
     // not the first like is the case now.
 }
 
-fn bool Player.anyKeyPressed(&self) @inline {
+fn bool Player.anyKeyPressed(&self) @inline 
+{
     // I don't care about what key was pressed
     if(rl::getKeyPressed()) return true;
     
     return false;
 }
 
-fn bool Player.handleESC(&self) {
+fn bool Player.handleESC(&self) 
+{
 /*
 	if (self.inventoryGuiOpen) {
 		self.toggleInventory();

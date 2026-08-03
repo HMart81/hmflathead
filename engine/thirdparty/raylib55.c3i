@@ -466,10 +466,24 @@ struct RLSound
     CUInt frameCount;   // Total number of frames (considering channels)
 }
 
+// Music context type (imported from Raylib raudio.c)
+enum RLMusicCtxType : CInt (String str)
+{
+    NONE {"none"},  // No audio context loaded
+    WAV  {".wav"},  // WAV audio context
+    OGG  {".ogg"},  // OGG audio context
+    FLAC {".flac"}, // FLAC audio context
+    MP3  {".mp3"},  // MP3 audio context
+    QOA  {".qoa"},  // QOA audio context
+    XM   {".xm"},   // XM module audio context
+    MOD  {".mod"}   // MOD module audio context
+}
+
 // for streaming audio, anything longer than ~10 seconds should be streamed
 struct RLMusic
 {
-    inline RLSound super;
+	RLAudioStream stream;
+    CUInt frameCount;   // Total number of frames (considering channels)
     bool looping;    // looping enable
     CInt ctxType;    // Type of music context (audio filetype)
     void* ctxData;   // Audio context data, depends on type
@@ -2072,7 +2086,12 @@ fn void unloadWaveSamples(float* samples) @cname("UnloadWaveSamples");
 fn bool isMusicValid(RLMusic music) @cname("IsMusicValid");
 // Load music stream from file
 fn RLMusic loadMusicStream(ZString fileName) @cname("LoadMusicStream");
-// Load music stream from data
+<*
+	Load music stream from data.
+	WARNING: File extension must be provided in lower-case
+	@param fileType :  "refers to extension: i.e. '.wav'"
+	@require fileType.str_view().starts_with(".")
+*>
 fn RLMusic loadMusicStreamFromMemory(ZString fileType, char* data, CInt dataSize) @cname("LoadMusicStreamFromMemory");
 // Unload music stream
 fn void unloadMusicStream(RLMusic music) @cname("UnloadMusicStream");

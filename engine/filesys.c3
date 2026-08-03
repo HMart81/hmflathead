@@ -1419,3 +1419,40 @@ fn bool is_symblink(String path_or_file) @inline
         return false;
     }
 }
+
+alias Win32_PULARGE_INTEGER @local = ulong*;
+<*
+	Retrieves information about the amount of space that is available on a disk volume, 
+	which is the total amount of space, 
+	the total amount of free space, 
+	and the total amount of free space available to the user that is associated with the calling thread.
+	
+	Remarks:
+	If the function succeeds, the return value is nonzero.
+	If the function fails, the return value is zero (0). 
+	To get extended error information, call wind32::getLastError()
+	The values obtained by this function are of the type ULARGE_INTEGER. 
+	Do not truncate these values to 32 bits!!!
+	
+	@param [in] lpDirectoryName : `A directory on the disk.
+								   If this parameter is NULL, the function uses the root of the current disk.
+								   If this parameter is a UNC name, it must include a trailing backslash, for example, "\\MyServer\MyShare\".
+								   This parameter does not have to specify the root directory on a disk. The function accepts any directory on a disk.
+								   The calling application must have FILE_LIST_DIRECTORY access rights for this
+								   directory.`
+	@param [out] lpFreeBytesAvailableToCaller : `A pointer to a variable that receives the total number of free bytes on a disk that are available to the user who is associated with the calling thread.
+											   This parameter can be NULL.
+											   If per-user quotas are being used, this value may be less than the total number of free bytes on a disk.`
+	@param [out]  lpTotalNumberOfBytes : `A pointer to a variable that receives the total number of bytes on a disk that are available to the user who is associated with the calling thread.
+									    This parameter can be NULL.
+									    If per-user quotas are being used, this value may be less than the total number of bytes on a disk.
+									    To determine the total number of bytes on a disk or volume, use IOCTL_DISK_GET_LENGTH_INFO.`
+	@param [out]  lpTotalNumberOfFreeBytes : `A pointer to a variable that receives the total number of free bytes on a disk.
+											This parameter can be NULL.`
+*>
+extern fn Win32_BOOL getDiskFreeSpaceExA(
+  Win32_LPCSTR          lpDirectoryName = null,
+  Win32_PULARGE_INTEGER lpFreeBytesAvailableToCaller = null,
+  Win32_PULARGE_INTEGER lpTotalNumberOfBytes = null,
+  Win32_PULARGE_INTEGER lpTotalNumberOfFreeBytes = null
+) @cname("GetDiskFreeSpaceExA");

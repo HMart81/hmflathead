@@ -60,6 +60,15 @@ struct GuiTextStyle
   CInt padding;
 }
 
+// Button indices for when clicking a window button
+// if more buttons indeces are necessary write them here
+const BUTTON_EXIT = 0; // topbar button to exit/close the window
+// any other defined button
+const BUTTON_IDX01 = 1;
+const BUTTON_IDX02 = 2;
+const BUTTON_IDX03 = 3;
+const BUTTON_IDX04 = 4;
+const BUTTON_IDX05 = 5;
 
 // Gui control state
 enum GuiState

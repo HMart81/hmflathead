@@ -386,34 +386,45 @@ $endif
 fn void CVar.archive(&self)
 {
 	// don't archive console variables that are not marked to be so.
-	if(!(self.flags & CvFlag.ARCHIVE)) return;
+	bool not_archive = (bool)(self.flags & CvFlag.ARCHIVE) == false;
+	if(not_archive) return;
 
-	IniSection* section;
-	ConfigFile* settings_data = &game::pContext.settings_data;
+	IniSection* section @noinit;
+	ConfigFile* settings = &game::pContext.settings_data;
 
-    String sec_name = "Cvars";
+    String sec_name;
     switch {
-        case (bool)(self.flags & CvFlag.SYSTEM):   sec_name = "System";
-        case (bool)(self.flags & CvFlag.RENDERER): sec_name = "Renderer";
-        case (bool)(self.flags & CvFlag.SOUND):    sec_name = "Sound";
-        case (bool)(self.flags & CvFlag.GUI):      sec_name = "Gui";
-        case (bool)(self.flags & CvFlag.GAME):     sec_name = "Game";
-        case (bool)(self.flags & CvFlag.TOOL):     sec_name = "Tool";
-        default: break;
+        case (bool)(self.flags & CvFlag.SYSTEM):   sec_name = "system";
+        case (bool)(self.flags & CvFlag.RENDERER): sec_name = "video";
+        case (bool)(self.flags & CvFlag.SOUND):    sec_name = "sound";
+        case (bool)(self.flags & CvFlag.GUI):      sec_name = "gui";
+        case (bool)(self.flags & CvFlag.GAME):     sec_name = "game";
+        case (bool)(self.flags & CvFlag.TOOL):     sec_name = "tool";
+        default: {
+			log::warning(FILE, "CVar.archive: Failed to set ini section name, unkown type flag");
+			return;
+		}
     }
-	if(try section_ = settings_data.hasSection(sec_name)) {
-		//section = settings_data.getSection(sec_name);
+
+	if(try section_ = settings.hasSection(sec_name)) {
+		//section = settings.getSection(sec_name);
 		// got the section so go on
 	} else {
-		section = settings_data.createSection(sec_name)!!;
+		section = settings.createSection(sec_name)!!;
 	}
-	assert(section != null);
+
+	if(section == null) {
+		log::warning(FILE, "CVar.archive: Failed to set ini section '%s'.", sec_name);
+		return;
+	}
 
     if(section.hasCmd(self.name)) {
         // just update cmd value;
-        settings_data.setValue(self.name, self.value);
-    } else {
-        settings_data.addToSection(section, mem::new(IniCMD, {
+        settings.setValue(self.name, self.value);
+    } 
+	else // create a new cmd for the section
+	{
+        settings.addToSection(section, mem::new(IniCMD, {
             .type = self.getBasicType(),
             .cmd  = {self.name, self.value}
         }));

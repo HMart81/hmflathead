@@ -102,7 +102,8 @@ fn String levelToString(RLTraceLogLevel level) => RLTraceLogLevel::names[level];
 	@param [in] str : "the supposed level name"
 	@require str.len > 0
 *>
-fn RLTraceLogLevel getLevelFromString(String str) @MyInline {
+fn RLTraceLogLevel getLevelFromString(String str) @MyInline 
+{
 	foreach(i, _str : RLTraceLogLevel::names) {
 		if(_str == str) return RLTraceLogLevel::values[i];
 	}
@@ -126,10 +127,10 @@ fn void init(RLTraceLogLevel level) @MyInline
 fn void closeLogFile() 
 {
     if(catch excuse = gfile.close()) {
-		warning(CONSOLE, "failed to close log file!!!\n	- %s", excuse);
+		warning(FILE, "failed to close log file!!!\n - %s", excuse);
 		unreachable("failed to close log file!!!");
 	} else {
-		info(CONSOLE, "log file closed successfully!!!");
+		info(CONSOLE, "log file closed successfully.");
 	}
 }
 
@@ -165,7 +166,8 @@ fn void error(Where where, String fmt, args...) @public
     }
 }
 
-fn void fatal(Where where, String fmt, args...) @public {
+fn void fatal(Where where, String fmt, args...) @public
+{
 	switch (where) {
         case FILE:
             logTofile(RLTraceLogLevel.FATAL, fmt, ...args);
@@ -174,6 +176,8 @@ fn void fatal(Where where, String fmt, args...) @public {
     }
     unreachable();
 }
+
+macro tofile(String fmt, args...) @public => info(FILE, fmt, ...args);
 
 fn void logTofile(RLTraceLogLevel level, String fmt, args...) @local @format(1)
 {
@@ -197,6 +201,11 @@ fn void logTofile(RLTraceLogLevel level, String fmt, args...) @local @format(1)
 		//CFile* file = libc::fopen(gpath, WRITE_NEW);
 		if(gfile.file == null) {
 			gfile = file::open(gpath.str_view(), WRITE_NEW.str_view())!!;
+			// NOTE(HM) log file is a global file, 
+			// so its handle, will not be closed after this funtion,
+			// this is done on purpose to speed up logging, 
+			// it will be kept open, ready for next log writes,
+			// only closed at game termination with closeLogFile().
 		}
 		defer {
 			//libc::fclose(file);

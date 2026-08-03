@@ -35,7 +35,7 @@ const FONT_SPACING     = 3.0f;
 // end_region
 
 // region cvars
-CVar skip @public = { "skip_intro", CvFlag.BOOL, "0", "skip displaying the intro" };
+CVar skip @public = { "skip_intro", CvFlag.BOOL, "1", "skip displaying the intro" };
 
 fn void register_cvars() @public 
 {
@@ -126,7 +126,7 @@ fn void draw(Frame* frame) @local
 	}
 
 	if(frame.text.msg != "") {
-		frame.text.font = game::pContext.candara_font;
+		frame.text.font = pGame.candara_font;
 		frame.text.font_size = 20.0f;
 		frame.text.spacing = 1.0f;
 		frame.text.color = rl::LIME;
@@ -158,9 +158,9 @@ fn void makeTexturedFrame(String texture_path, IntroAnimation* anim) @local
 {
     /*
 	int w, h;
-    w = game::pContext.screen.w;
-    h = game::pContext.screen.h;
-    ZString path = game::pContext.app_base_folder.tconcat(texture_path).zstr_tcopy();
+    w = pGame.screen.w;
+    h = pGame.screen.h;
+    ZString path = pGame.app_base_folder.tconcat(texture_path).zstr_tcopy();
     Frame* frame = mem::new(Frame);
     frame.texture = rl::loadTexture(path);
     assert(rl::isTextureValid(frame.texture));
@@ -184,8 +184,8 @@ fn void makeTextFrame(IntroAnimation* anim, String message = "undefined", RLColo
 {
     /*
 	int w, h;
-    w = game::pContext.screen.w;
-    h = game::pContext.screen.h;
+    w = pGame.screen.w;
+    h = pGame.screen.h;
     Frame* frame = mem::new(Frame);
 	frame.text.msg = message;
 	frame.dest_rect = {0, 0, w, h};
@@ -202,8 +202,8 @@ fn void makeTextFrame(IntroAnimation* anim, String message = "undefined", RLColo
 *>
 fn void makeColorFrame(RLColor _color, IntroAnimation* anim) @local 
 {
-	int w = game::pContext.screen.w;
-    int h = game::pContext.screen.h;
+	int w = pGame.screen.w;
+    int h = pGame.screen.h;
     Frame* frame = mem::new(Frame);
 	frame.dest_rect = {0, 0, w, h};
     frame.color = _color;
@@ -216,8 +216,8 @@ fn void makeColorFrame(RLColor _color, IntroAnimation* anim) @local
 *>
 fn void makeVideoFrame(String video_name, IntroAnimation* anim, bool _audio = false, String audio_name = "") @local @if($feature(VIDEO_PLAYBACK_ENABLE))
 {
-    int w = game::pContext.screen.w;
-    int h = game::pContext.screen.h;
+    int w = pGame.screen.w;
+    int h = pGame.screen.h;
 	bool failed;
     Frame* frame = mem::new(Frame);
 	defer if(failed) {
@@ -259,11 +259,16 @@ constdef FrmIndex : inline int
 // Also audio for videos is broken so don't use it. :(
 fn void initAnimation(IntroAnimation* anim) @local
 {
-	makeVideoFrame("epiwarn", anim);
-	//makeVideoFrame("test_credits", anim, _audio: true);
+	// videos
+	//makeVideoFrame("epiwarn", anim);
+	makeVideoFrame("test_credits", anim, _audio: true);
+	$if $defined(AUDIO_SEPERATE):
 	//makeVideoFrame("hm_logo", anim, _audio: true, audio_name: "hm_logo_audio.ogg");
-	makeVideoFrame("hm_logo", anim, false);
+	$endif
+	makeVideoFrame("hm_logo", anim, _audio: true);
 	makeVideoFrame("ray_intro", anim);
+	
+	// input
     input::makeKeyboardAction("skipIntro", rl::KEY_ESCAPE);
     input::@makeAction({.name = "skipFrame", .kind = KEYBOARD, .key1 = rl::KEY_SPACE});
 }
@@ -282,8 +287,8 @@ fn void deinitAnimation(IntroAnimation* anim) @local
 fn void hide_cursors() @local @inline
 {
     if(game::game_cursor_visible()) game::hide_game_cursor();
-    if(game::pContext.screen.state.fullscreen || 
-       game::pContext.screen.state.borderless) 
+    if(pGame.screen.state.fullscreen || 
+       pGame.screen.state.borderless) 
     {
         if(game::system_cursor_enabled()) game::disable_system_cursor();
     }
@@ -335,14 +340,14 @@ fn void setup(IntroAnimation* anim) @local
 {
     hide_cursors();
     initAnimation(anim);
-    //log::info(CONSOLE, "intro-setup: %s", game::pContext.time_ms);
+    //log::info(CONSOLE, "intro-setup: %s", pGame.time_ms);
 }
 
 fn void IntroAnimation.stop(&self)
 {
     self.should_play = false;
     deinitAnimation(self);
-    game::pContext.mode = GameMode.NONE;
+    pGame.mode = GameMode.NONE;
      // goes to the main menu;
     game::disconnect();
 }
@@ -365,9 +370,9 @@ fn void update(IntroAnimation* anim)
 	if(!anim.should_play) return;
 
     Frame* current_frame @noinit;
-    game::pContext.mode = GameMode.INTRO;
+    pGame.mode = GameMode.INTRO;
 
-	int current_time = game::pContext.time_ms;
+	int current_time = pGame.time_ms;
 
     // init frames durations has to be done here because it 
     // requires the current time for each frame
@@ -458,9 +463,9 @@ fn void drawAnimation(IntroAnimation* anim) @if(!$defined(FADE_FRAMES))
 	if(!anim.should_play) return;
 
     // draw a full screen black frame to hide the stuff behind it
-    r2d::drawRectangleRec({0,0,game::pContext.screen.w, game::pContext.screen.w}, rl::BLACK);
+    r2d::drawRectangleRec({0,0,pGame.screen.w, pGame.screen.w}, rl::BLACK);
 
-    int current_time = game::pContext.time_ms;
+    int current_time = pGame.time_ms;
     // current frame
     Frame* frame = anim.frames[anim.current_frame_index];
     draw(frame);
@@ -483,9 +488,9 @@ bool should_fade_out @local @if($defined(FADE_FRAMES)) = false;
 *>
 fn void drawAnimation(IntroAnimation* anim) @if($defined(FADE_FRAMES))
 {
-    int current_time = game::pContext.time_ms;
-    int w = game::pContext.screen.w;
-    int h = game::pContext.screen.h;
+    int current_time = pGame.time_ms;
+    int w = pGame.screen.w;
+    int h = pGame.screen.h;
 
     // only if frame is not a video...
     if(anim.frames[anim.current_frame_index].kind != VIDEO) {

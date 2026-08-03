@@ -139,7 +139,7 @@ $if $feature(TSODING_FLAG):
     ZString* help    = flg::flag_bool("help", false, "Show this help message");
 $endif
 
-    fault excuse = @catch(game::onStart(&args));
+    fault excuse = @catch(game::onStart(args));
     if (excuse) {
         log::error(FILE, "Game initialization failed with excuse: %s", excuse);
         return -1;

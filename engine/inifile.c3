@@ -177,7 +177,7 @@ constdef Token : inline String @local
 alias ListIniSectionPrts @local = List{IniSection*};
 alias ListIniCMDPrts     @local = List{IniCMD*};
 alias IniCmdData         @local = Pair{String, String};
-alias game               @local = game::pContext;
+alias pgame               @local = game::pContext;
 
 
 struct Config_Flags @local  // flags used to store config file state
@@ -285,6 +285,12 @@ fn IniSection*? ConfigFile.getSection(&self, String name)
   @param [in] name : " name of the new section to look for"
 *>
 fn IniSection*? ConfigFile.hasSection(&self, String name) => self.getSection(name);
+
+<*
+  @param [&in] section : "section to look for"
+*>
+fn bool? ConfigFile.hasSectionItem(&self, IniSection* section) => self.sections.contains(section);
+
 
 <*
     @param [in] name : `The section name to add the cmd to`
@@ -797,6 +803,7 @@ struct IniCMD
 {
     int type;
     IniCmdData cmd;
+	//String comment;
 }
 
 <*
@@ -890,7 +897,7 @@ fn String[]? openConfigfileAndCutDataByLines(String filepath, bool isrelative) @
         return MISSING_FILE_PATH~;
     }
     
-    if(isrelative) filepath = game.app_base_folder.tconcat(filepath);
+    if(isrelative) filepath = pgame.app_base_folder.tconcat(filepath);
     
     INIFile file_data = (INIFile)file::open(filepath, "r")!;
     defer file_data.close()!!;
@@ -1218,12 +1225,12 @@ fn void? writeSectionName(INIFile* file, IniSection* section) @local @MyInline
 {
 	file.write(Token.NEWLINE)!;
 	file.write(Token.SECTION_START)!;
-        file.write(section.name)!;
-        if(section.isLinked()) {
-            file.write(Token.DOT)!;
-            file.write(section.next.name)!;
-        }
-    file.write(Token.SECTION_END+++Token.NEWLINE)!;
+		file.write(section.name)!;
+		if(section.isLinked()) {
+			file.write(Token.DOT)!;
+			file.write(section.next.name)!;
+		}
+	file.write(Token.SECTION_END+++Token.NEWLINE)!;
 }
 
 
@@ -1243,6 +1250,9 @@ fn void? writeSectionCmds(INIFile* file, IniSection* section) @local @MyInline
     foreach(it : cmds) 
     {
         if(it.cmd.first.is_empty()) continue; // skip empty cmds
+		/*if(it.comment.len > 0) {
+			file.write(string::tformat("%s %s", Token.COMMENT, it.comment))!;
+		}*/
 		bool print_quotes;
         if(it.type == STRING) {
             if(it.cmd.second.starts_with(Token.QUOTE)) {
@@ -1268,16 +1278,17 @@ fn void? writeSectionCmds(INIFile* file, IniSection* section) @local @MyInline
 *>
 fn bool? ConfigFile.save(&self)
 {
-    if(self.isModified() == false) return true; // nothing to save, the file is not modified
+    if(self.isModified() == false) return false; // nothing to save, the file is not modified
 
     String filepath;
     if(self.path.len) {
         filepath = self.path;
     } else {
-        filepath = game.app_base_folder.tconcat(SETTINGS_FILE_NAME);
+        filepath = pgame.app_base_folder.tconcat(SETTINGS_FILE_NAME);
     }
 
-    INIFile? file_data = (INIFile)file::open(self.path, "a+");
+	String opening_option = "w";
+    INIFile? file_data = (INIFile)file::open(self.path, opening_option);
     if(catch excuse = file_data) {
         log::warning(FILE, "Failed to open file: %s to write configuration data with excuse: %s", filepath, excuse);
         return excuse~;
@@ -1291,9 +1302,8 @@ fn bool? ConfigFile.save(&self)
             log::warning(FILE, "\tskipping invalid section name, but please solve the issue!");
             continue; // skip empty sections if any exist
         }
-        
-        writeSectionName(&file_data, section)!;
 
+        writeSectionName(&file_data, section)!;
         writeSectionCmds(&file_data, section)!;
 	}
 
@@ -1318,6 +1328,61 @@ fn void ConfigFile.reload(&self)
     
     // free the new data
     mem::free(new_data);
+}
+
+
+fn bool? ConfigFile.update(&self)
+{
+	@todo();
+	/*
+    if(self.isModified() == false) return false; // nothing to save, the file is not modified
+
+    String filepath;
+    if(self.path.len) {
+        filepath = self.path;
+    } else {
+        filepath = pgame.app_base_folder.tconcat(SETTINGS_FILE_NAME);
+    }
+
+	String opening_option = "w";
+    INIFile? file_data = (INIFile)file::open(self.path, opening_option);
+    if(catch excuse = file_data) {
+        log::warning(FILE, "Failed to open file: %s to write configuration data with excuse: %s", filepath, excuse);
+        return excuse~;
+    }
+    defer file_data.close()!!;
+
+	// FINISIH this!!!!!!!!!!!!!!
+	// todo
+	// read entire file data
+	// modify data
+	// try to maintain the comments intact
+	// (save them to a list? )
+	// and in the correct line numbers?
+	// (cut data by lines and use that to know line number...)
+	// after the updates save data again to the the file
+	String entire_file_data = fs::read_entire_file(file_data);
+
+	String sect_name;
+	foreach(section : self.sections)
+	{
+		if (section.name.is_empty()) {
+            log::warning(FILE, "While writting config data to file, found a empty section name, that shouldn't happen.");
+            log::warning(FILE, "\tskipping invalid section name, but please solve the issue!");
+            continue; // skip empty sections if any exist
+        }
+
+		if(file.read(sect_name)) {
+			if(sect_name == section.name) {
+
+			}
+		}
+
+        writeSectionName(&file_data, section)!;
+        writeSectionCmds(&file_data, section)!;
+	}
+	return true;
+*/
 }
 
 <*

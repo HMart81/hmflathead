@@ -52,8 +52,9 @@ faultdef ASSETS_MALFORMED_PATH_STRING,
 
 
 // TODO(HM) 
-	// should use extension to support diferent types of assets with the same name, 
-	// diferentiate them using their extension.
+	// Should use file extension to support diferent types of assets 
+	// with the same name.
+	// Support more asset types, like the new HMaterial, etc.
 
 struct Asset <Type>
 {
@@ -62,7 +63,6 @@ struct Asset <Type>
 	Type   data;
 }
 
-// TODO(HM) Support more asset types, like the new HMaterial, etc.
 alias AssetTexture = Asset{RLTexture2D};
 alias AssetSound   = Asset{RLSound};
 alias AssetMusic   = Asset{RLMusic};
@@ -77,7 +77,7 @@ alias AssetShaderListPtr  @local = List{AssetShader*};
 
 struct AssetLibrary
 {
-	AssetTextureListPtr textures; // list of texture assets 
+	AssetTextureListPtr textures; // list of texture assets
     AssetSoundListPtr   sounds;   // list of sound assets
     AssetMusicListPtr   musics;   // list of music assets
     AssetFontListPtr    fonts;    // list of font assets
@@ -182,14 +182,17 @@ fn void AssetLibrary.listAssets(&self) @if($feature(_DEBUG))
 }
 
 // WARNING(HM) 06/11/2024
-// To be used only at game exit, for now ALL assets are loaded at game start and stay in RAM, 
+// To be used only at game exit, 
+// for now, ALL assets are loaded at game start and stay in RAM, 
 // for the duration of the game, aka they only get freed at game end.
-// I made this like so because, 
-// one I don't have many assets in this game for now,
-// two nor I have a way to make real individual levels, 
-// when that is done, I will have to change this to only load assets at level load,
-// for now getting them hot from RAM, is very fast, compared
-// to reading the data from the HD/SSD/MD2 drive.
+// I made it like this because, for now, 
+// I don't have many assets in this game,
+// nor do I have a way to make levels, 
+// when that is done, I will change this to only load assets at level load,
+// to use less RAM.
+// For now while I'm testing things, getting them hot from RAM, 
+// is faster than first reading the data from the HD/SSD/MD2 drive, 
+// when I want to use it.
 fn void AssetLibrary.releaseAllAssets(&self)
 {
 	switch {
@@ -217,7 +220,7 @@ fn void AssetLibrary.releaseAllAssets(&self)
 
 fn Asset{Type}* get_asset(String name) <Type> @nodiscard
 {
-	return (Asset{Type}*)pAssetsLib.getAsset(name, Type::typeid);
+	return (Asset{Type}*)local_library.getAsset(name, Type::typeid);
 }
 
 fn any AssetLibrary.getAsset(&self, String name, typeid type)
@@ -227,7 +230,7 @@ fn any AssetLibrary.getAsset(&self, String name, typeid type)
         name = name.extractFileBase();
     }
 
-    int i; // asset index
+    int i = -1; // asset index
 
     if(self.hasAsset(name, type, &i) == false) {
         log::error(FILE, "Asset with name \"%s\" and type \"%s\" not found in the asset manager.", name, type);
@@ -307,7 +310,8 @@ fn Type* get_asset_data(String name) <Type>
 
 <*
 	See if an asset exists within the asset manager
-	returns asset index. is a linear search so it will be 0-n in performance
+	returns asset index. 
+	Is a linear search so it will be 0-n in performance
 
 	@param name : "name of the asset"
 	@param type : "type identification of the asset being serched for"
@@ -371,7 +375,7 @@ fn RLTexture2D* AssetLibrary.getTexture(&self, String name) @inline @nodiscard
         return tex;
     }
     
-    log::warning(FILE,  "[Asset AssetLibrary]: Requesting texture asset but returning default texture, because no asset with name '%s' was found.", name);
+    log::warning(FILE,  "[AssetLibrary]: Requesting texture asset '%s' from library but returning default one, because no asset with that name was found.", name);
     return &game::pContext.default_texture;
 }
 
@@ -387,7 +391,7 @@ fn RLShader* AssetLibrary.getShader(&self, String name) @nodiscard //@inline
         return asset;
     }
 
-    log::warning(FILE,  "[Asset AssetLibrary]: Requesting shader asset but returning default shader, because no asset name was provided.");
+    log::warning(FILE,  "[AssetLibrary]: Requested shader asset '%s' but it was null, returning default shader instead.", name);
 	return &game::pContext.default_shader;
 }
 
@@ -403,7 +407,7 @@ fn RLSound* AssetLibrary.getSound(&self, String name) @nodiscard @inline
         return asset;
     }
 
-    log::warning(FILE,  "[Asset AssetLibrary]: Requesting sound asset but returning default sound, because no asset name was provided.");
+    log::warning(FILE,  "[AssetLibrary]: Requested sound asset '%s' but it was null, returning default sound instead.", name);
     return &game::pContext.default_sound;
 }
 
@@ -419,7 +423,7 @@ fn RLMusic* AssetLibrary.getMusic(&self, String name) @nodiscard @inline
         return asset;
     }
 
-    log::warning(FILE,  "[Asset AssetLibrary]: Requesting music asset but returning default music, because no asset name was provided.");
+    log::warning(FILE,  "[AssetLibrary]: Requested music asset '%s' but it was null, returning default music instead.", name);
     return &game::pContext.default_music;
 }
 
@@ -435,7 +439,7 @@ fn RLFont* AssetLibrary.getFont(&self, String name) @nodiscard /*@inline*/
         return asset;
     }
 
-	log::warning(FILE,  "[Asset AssetLibrary]: Requesting font %s but returning default font, because it was not found.", name);
+	log::warning(FILE,  "[AssetLibrary]: Requested font %s but it was null, returning default font instead.", name);
     return &game::pContext.default_font;
 }
 
@@ -444,8 +448,9 @@ fn RLFont* AssetLibrary.getFont(&self, String name) @nodiscard /*@inline*/
 ///////////////////////////////////////////////////////
 
 <*
-	Loads an asset from a given path and registers it in the asset manager.
-    Invalid assets will not cause a error will just be ignored.
+	Loads and creates a Asset struct in memory from a given path 
+	and registers it, in the asset manager.
+    Invalid assets, will not cause a error will just be ignored.
 
 	@param [in] path : "the path to the asset to load, must be a valid path to an existing file, with a supported extension, like .png for example."
 	@param [in] asset_name : "the name of the asset to load."
