@@ -34,7 +34,7 @@ DOC:
 	GUI System
 
 	A simplistic retained mode gui system made just to create simple menus.
-	Still lacks many functionality.
+	Still lacks a ton of functionality...
 
 TODO:
     A ingame gui edit mode for easy placement of widgets

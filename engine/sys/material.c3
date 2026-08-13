@@ -166,12 +166,12 @@ TODO(HM) potencial new future material file and stage system in XML format:
     </library_materials>
 </MTR>
 */
+
+alias MatStages = List{MatStage*};
 // NOTE(HM) raylib has the RLMaterialMap already that is almost equivalent, should we use that?
 // RLMaterial stage represents each texture type in a material
 struct MatStage @public
 {
-    //int kind; // kind of stage, used to identify the stage type, for example diffuse, specular, normal, etc.
-
     //NOTE(HM) width and Height are encoded on the RLTexture2D data
     RLTexture2D tex;
     RLColor color;
@@ -186,7 +186,9 @@ struct MatStage @public
     // Todo perhaps rethink this per stage args stuff....
     MaterialStageArgList args;
 
+    //int kind; // kind of stage, used to identify the stage type, for example diffuse, specular, normal, etc.
     MStageType type @NewMatSystem(1); // is also a index
+
     StageArgument[MAX_STAGE_ARGS] new_args @NewMatSystem(1); // array of arguments for this stage
 }
 
@@ -1207,6 +1209,7 @@ fn void HMaterial.parse_shader(&self, XmlNode* node)
 		}
 	}
 }
+
 /*
 fn void HMaterial.parse_shader(&self, XmlNode* node)
 {
@@ -1472,7 +1475,8 @@ fn void MTRFile.register(&self, HMaterial* mat) @inline
 {
     if(self.mats.len() >= MAX_MATERIALS_PER_FILE) {
         log::warning(FILE, "Cannot register material '%s' in file '%s', maximum value of (%d) materials per file, reached.", mat.name, self.path, MAX_MATERIALS_PER_FILE);
-        return;
+        mat.free();
+		return;
     }
     self.mats.push(mat);
 }
@@ -1532,7 +1536,7 @@ fn bool? MTRFile.parse(&self, XmlDoc* doc)
         log::error(FILE, "Failed to get material data file version attribute in %s with excuse: %s\n", self.path, excuse);
         return false;
     }
-    // else got version, so check if it matches the current version
+    // else got version, so check if it matches the current expected version
     // TODO(HM) handle version changes.
     if(version != MTR_VERSION_STRING)
     {

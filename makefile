@@ -83,6 +83,7 @@ MUJS := mujs\mujslib.lib
 LUA := lua\LuaLib.lib
 UMKA := umka\libumka.lib
 PLMPEG := plmpeg\plmpeg_d.lib
+SQLITE3 := sqlite3\sqlite3.lib
 ## Library Dependencies ##
 LIBS=\
 	-l $(RAYLIB)\
@@ -90,6 +91,7 @@ LIBS=\
 	-l $(RAYGUI)\
 	-l $(MICROUI)\
 	-l $(TSOD_FLAG)\
+	-l $(SQLITE3)\
 	-l $(TRACY)\
 	-l $(PLMPEG)
 #-l kernel32.lib

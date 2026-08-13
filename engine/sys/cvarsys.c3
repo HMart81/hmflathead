@@ -58,6 +58,15 @@ alias CvarList = List{CVar*};
 //const int PRINT_CVAR_SETTING = 1;
 // end_region
 
+// region cvars
+CVar cmd_listCVars  @public = { "cmd_listCVars", CvFlag.BOOL | CvFlag.CHEAT, "0", "print all cvars to the console." };
+
+fn void register_cvars() @public 
+{
+    @register(&cmd_listCVars);
+}
+// end_region
+
 // cvar flags (some are unnused...)
 constdef CvFlag : inline uint
 {
@@ -212,20 +221,23 @@ fn void printflags(uint flags) @inline @local
 
 fn void printCvars() @inline
 {
-    if(cvars.len() == 0) {
-        io::printfn("No cvars registered.");
-        return;
-    }
+	if(cmd_listCVars.getBool())
+	{
+		if(cvars.len() == 0) {
+			io::printfn("No cvars registered.");
+			return;
+		}
 
-    io::printfn("\n============== CONSOLE/FLAGS VARS =====================");
-    foreach(cv: cvars) {
-        io::printf("%s :", cv.name); printflags(cv.flags);
-        io::printfn("\t - desc: %s", cv.description);
-        io::printfn("\t - default: %s", (!(cv.flags & CvFlag.BOOL)) ? cv.value : misc::bool2str(cv.value == "1"));
-        //io::printfn("--------------------------------------------------------");
-    }
-    io::printfn("Total cvars: %d", cvars.len());
-    io::printfn("============== CONSOLE/FLAGS VARS END =====================\n");
+		io::printfn("\n============== CONSOLE/FLAGS VARS =====================");
+		foreach(cv: cvars) {
+			io::printf("%s :", cv.name); printflags(cv.flags);
+			io::printfn("\t - desc: %s", cv.description);
+			io::printfn("\t - default: %s", (!(cv.flags & CvFlag.BOOL)) ? cv.value : misc::bool2str(cv.value == "1"));
+			//io::printfn("--------------------------------------------------------");
+		}
+		io::printfn("Total cvars: %d", cvars.len());
+		io::printfn("============== CONSOLE/FLAGS VARS END =====================\n");
+	}
 }
 
 /*

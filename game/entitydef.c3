@@ -61,19 +61,11 @@ faultdef ENTDEF_INVALID_PATH,
          ENTDEF_PARSING_ERROR,
 	     ENTDEF_SMALL_PATH_ERROR;
 
-bitstruct Flags : char
-{
-	bool noShadows;
-	bool forceShadows;
-	bool editor_visible; // visible in the editor
-}
-
-// RLMaterial stage represents each texture type in a entitydef
+// Represents in RAM the entity definiton defined in the defs file
 struct EntityDef (SaveSystemInterface) @public
 {
 	String name;
 	String comment;
-	Flags flags;
     SpawnArgList spawnargs; // dynamic array of spawn arguments for this entity definition, used to store any custom data for the entity that is not covered by the other fields
 	DEFile *file; // pointer to the .def file where this entity is defined
 }
@@ -84,26 +76,6 @@ fn void EntityDef.save(&self, SaveFile* file) @dynamic {
 
 fn void EntityDef.reload(&self, SaveFile* file) @dynamic {
     @todo();
-}
-
-<*
-    @param [&inout] def : "entity definition we are handling"
-    @param [&in] node : "xml node we are parsing"
-*>
-fn void register_spawnargs(EntityDef* def, XmlNode* node)
-{
-    if(node.hasAttributes() == false) return;
-
-    foreach (arg : node.attributes)
-    {
-       if(arg == null) unreachable("null atrribute found for xml node '%s'", node.name);
-       // else
-       def.spawnargs.push(mem::new(EntSpawnArg, {
-                                                  .first  = arg.name.tcopy(), 
-                                                  .second = arg.value.tcopy()
-                                                }
-        ));
-    }
 }
 
 fn void EntityDef.clear(&self)
@@ -120,22 +92,16 @@ fn void EntityDef.clear(&self)
     }
 }
 
-fn void EntityDef.init(&self)
-{
-    self.comment  = "<no comment>";
-	self.flags.editor_visible = true;
-}
-
 // TODO(HM) make this print a more detailed info
 fn void EntityDef.print(self)
 {
     io::printfn("[HMEntity : '%s']", self.name);
-    if(self.comment.len && self.comment != "<no comment>") {
+    if(self.comment.len > 0) {
         io::printfn(" comment = \"%s\"", self.comment);
     }
     io::printfn(" <spawnargs>");
-    foreach(i, arg : self.spawnargs) {
-        io::printfn("\t\"%s = %s\"", i, arg.first, arg.second);
+    foreach(arg : self.spawnargs) {
+        io::printfn("\t%s = \"%s\"", arg.first, arg.second);
     }
 	io::printfn(" </spawnargs>");
 }
@@ -179,12 +145,12 @@ fn void EntityDef.copy(&self, EntityDef* other)
 	}
 }
 
-fn bool EntityDef.hasSpawnarg(String arg_name, String *arg_value) @nodiscard
+fn bool EntityDef.hasSpawnarg(String arg_name, String *out_value = null)
 {
-	foreach (usz i, &arg : self.spawnargs)
+	foreach (sz i, arg : self.spawnargs)
 	{
-		if((*arg).name == arg_name) {
-            if(arg_value) (*arg_value) = self.spawnargs[i].second.tcopy();
+		if(arg.name == arg_name) {
+            if(arg_value) arg_value = &self.spawnargs.get(i).second;
             return true;
         }
 	}
@@ -192,7 +158,9 @@ fn bool EntityDef.hasSpawnarg(String arg_name, String *arg_value) @nodiscard
 	return false;
 }
 
-
+<*
+	@ensure return != ""
+*>
 fn String EntityDef.defaultDefinition(self) @inline
 {
     String def = `
@@ -208,13 +176,34 @@ fn String EntityDef.defaultDefinition(self) @inline
 }
 
 <*
+    @param [&inout] def : "entity definition we are handling"
+    @param [&in] node : "xml node we are parsing"
+	@require node.name == "spawnargs"
+*>
+fn void register_spawnargs(EntityDef* def, XmlNode* node)
+{
+    if(node.hasAttributes())
+	{
+		foreach (arg : node.attributes)
+		{
+			if(arg == null) unreachable("null atrribute found for xml node '%s'", node.name);
+			// else
+			EntSpawnArg* spawnarg = mem::new(EntSpawnArg);
+			spawnarg.first  = arg.name.tcopy(); 
+			spawnarg.second = arg.value.tcopy();
+			def.spawnargs.push(spawnarg);
+		}
+	}
+}
+
+<*
+    @param [&in] def : "entity definiton data being created"
     @param [&in] node : "node we are currently parsing"
+	@require node.hasAttributes() == true
+	@require isXmlNode(node, Node.TEXT) == false
 *>
 fn void parse_spawnargs(EntityDef* def, XmlNode* node)
 {
-    assert(node.hasAttributes() == true);
-    assert(isXmlNode(node, Node.TEXT) == false);
-
     foreach(atrb: node.attributes)
     {
         switch(atrb.name)
@@ -222,6 +211,7 @@ fn void parse_spawnargs(EntityDef* def, XmlNode* node)
             case Spawnarg.SPAWNTYPE.str:
             case Spawnarg.INHERIT.str:
 			case Spawnarg.MODEL.str:
+			case Spawnarg.SPRITE.str:
 			case Spawnarg.PHYSMODEL.str:
 			case Spawnarg.BROKEN.str:
 			case Spawnarg.DENSITY.str:
@@ -365,6 +355,7 @@ enum Spawnarg : int (String str) @public
 	SPAWNTYPE {"spawnType"},
 	INHERIT {"inherit"},
 	MODEL {"model"},
+	SPRITE {"sprite"},
 	PHYSMODEL {"physmodel"},
 	BROKEN {"broken"},
 	DENSITY {"density"},

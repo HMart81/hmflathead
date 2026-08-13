@@ -96,6 +96,11 @@ fn void clearWindowFlag(RLConfigFlag* windowFlags, RLConfigFlag flag) @inline
 {
     (*windowFlags) &= ~flag;
 }
+
+fn bool getWindowFlagState(RLConfigFlag* windowFlags, RLConfigFlag flag) @inline
+{
+    return ((*windowFlags) & flag) == 1;
+}
 //
 
 <*

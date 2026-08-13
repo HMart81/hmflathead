@@ -990,7 +990,8 @@ fn void MU_Context.forward_mouse_input(MU_Context* ctx)
     /*
       https://www.youtube.com/watch?v=-AFAY2IV4bk&t=3087s
       [quote] 
-      I think the mouse buttons are defined as (1 << 0), (1 << 1), (1 << 2) so that you can use that as a bitfield to check multiple mouse buttons at once. So instead of calling mu_input_mousedown/up on each iteration you probably can do
+      I think the mouse buttons are defined as (1 << 0), (1 << 1), (1 << 2), etc, 
+	  so that you can use that as a bitfield to check multiple mouse buttons at once. So instead of calling mu_input_mousedown/up on each iteration you probably can do
       int buttons = 0;
       for (int button = LEFT; button <= MIDDLE; ++button)
           if (Pressed(button)) buttons |= (1 << button);
@@ -1087,8 +1088,7 @@ const ATLAS_FONT   = MU_Icon.MAX + 1;
 const ATLAS_WIDTH  = 128;
 const ATLAS_HEIGHT = 128;
 
-
-char[ATLAS_WIDTH * ATLAS_HEIGHT] atlas_texture = {
+const char[ATLAS_WIDTH * ATLAS_HEIGHT] ATLAS_TEXTURE = {
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,

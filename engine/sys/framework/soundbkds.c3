@@ -80,6 +80,22 @@ fn void AudioDevice.setVolume(self, float volume = 1.0f) @inline {
 }
 
 <*
+    Mutes or unmutes the entire sound system
+    @require self.isReady()
+*>
+fn void AudioDevice.setMute(self, bool choice) @inline {
+	self.setVolume(choice ? 0.0f : 1.0f);
+}
+
+<*
+    Gets the mute state from the sound system
+    @require self.isReady()
+*>
+fn bool AudioDevice.isMute(self) @inline {
+	return self.getVolume() <= 0.0f;
+}
+
+<*
     @require self.isReady()
     @ensure return >= 0.0f
 *>

@@ -63,10 +63,10 @@ enum PlotFormat
 }
 
 fn void _set_thread_name( ZString name ) @local @cname("___tracy_set_thread_name");
-macro set_thread_name( $name ) 
+macro set_thread_name( String name ) @inline 
 {
-	_set_thread_name( $name );
-}	
+	_set_thread_name( name.zstr_tcopy() );
+}
 
 alias UInt8_t @private = char;
 
@@ -178,9 +178,9 @@ fn void ZoneContext.value( ZoneContext ctx, ulong value ) @cname("___tracy_emit_
 
 module thirdparty::tracy::gpuzn @if($feature(TRACY_ENABLE));
 
-fn void begin( GPU_ZoneBeginData ) @cname("___tracy_emit_GPU_zone_begin");
-fn void begin_callstack( GPU_Zone_begin_callstack_data ) @cname("___tracy_emit_GPU_zone_begin_callstack");
-fn void begin_alloc( GPU_ZoneBeginData ) @cname("___tracy_emit_GPU_zone_begin_alloc");
+fn void begin( GPU_ZoneBeginData data ) @cname("___tracy_emit_GPU_zone_begin");
+fn void begin_callstack( GPU_Zone_begin_callstack_data data ) @cname("___tracy_emit_GPU_zone_begin_callstack");
+fn void begin_alloc( GPU_ZoneBeginData data ) @cname("___tracy_emit_GPU_zone_begin_alloc");
 fn void begin_alloc_callstack( GPU_Zone_begin_callstack_data ) @cname("___tracy_emit_GPU_zone_begin_alloc_callstack");
 fn void end( GPU_zone_end_data data ) @cname("___tracy_emit_GPU_zone_end");
 

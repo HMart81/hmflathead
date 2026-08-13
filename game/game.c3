@@ -177,6 +177,7 @@ fn void register_cvars() @local
 
 fn void register_modulo_cvars() @local {
     register_cvars(); // this module cvars (game module)
+	cvar::register_cvars();
 	fs::register_cvars();
     gui::register_cvars();
 	vid::register_cvars();
@@ -359,13 +360,16 @@ struct Game (SaveSystemInterface) @local
     bool show_microui_test_frames @if($feature(MICROUI_ENABLE));
     bool show_statistics @if($feature(MICROUI_ENABLE)); // show statistics window
     RLTexture2D mu_font_atlas @if($feature(MICROUI_ENABLE)); // microui font texture
+    //
 
     // script engine
     ScriptEngine script_eng;
     //
+
     // mujs script engine
     MUState* mujs_state @if($feature(MUJS_ENABLE)); // mujs context
     //
+
     // LUA script engine
     LUAState* lua_state @if($feature(LUA_ENABLE)); // lua context
     LUADebug* lua_debug @if($feature(LUA_ENABLE)); // lua debug context
@@ -1385,7 +1389,10 @@ $if $defined(SCRIPT_ENGINE):
         local_game.script_eng.update();
 $endif
         
-		if(local_game.current_sound_world) local_game.current_sound_world.update();
+		if(local_game.current_sound_world) {
+            local_game.current_sound_world.update();
+        }
+        
         // updates all fullscreen menus state like the main menu
         uiwin::gpManager.update(local_game.time_ms);
         
@@ -2526,6 +2533,7 @@ $endif
 
     if(fl_help.getBool()) 
     {
+		if(!cvar::cmd_listCVars.getBool()) cvar::cmd_listCVars.setBool(true);
         cvar::printCvars();
         // TODO(HM) print key actions and cmdline args as well
         //usage(); todo make this function a reality...
@@ -2915,7 +2923,6 @@ $endif
     // Vertical sync (this is a hint so may or may not apply...)
     if(try settings_data.getBool("video", "vsync"))
     {
-        //window_flags |= (int)rl::FLAG_VSYNC_HINT;
         vidbkd::setWindowFlag(&window_flags, rl::FLAG_VSYNC_HINT);
         local_game.screen.state.vsync_hint = true;
         log::tofile("VSync **hint** enabled. (may not apply)");
@@ -4093,10 +4100,9 @@ fn void disconnect() @public
 	menu::stop();
 	menu::start(local_game.main_menu);
     
-    // todo handle music and audio
-	//if ( soundSystem ) {
-		//soundSystem->SetMute( false );
-	//}
+	if ( local_game.audio_device.isMute() ) {
+		local_game.audio_device.setMute( false );
+	}
 }
 
 // you can change the splash screen image. 
@@ -4345,8 +4351,12 @@ $if $feature(MICROUI_ENABLE):
 $endif;
 }
 
-// TODO rename to set_user_settings?
-fn void parse_user_settings(ConfigFile* settings, int* window_flags)
+
+<*
+    @param [&inout] settings : "the settings data in RAM memory"
+    @param [&inout] window_flags : "raylib window flags set control window behavior"
+*>
+fn void set_user_settings(ConfigFile* settings, int* window_flags)
 {
     if(settings == null) return;
     
@@ -4381,27 +4391,37 @@ fn void parse_user_settings(ConfigFile* settings, int* window_flags)
                             switch(cmd_id) 
                             {
                                 case "vsync":
+                                    // NOTE(HM) needs to be set before creating the window
                                     (*window_flags) |= (int)rl::FLAG_VSYNC_HINT;
                                 case "fullscreen":
-                                    if( try value = cmd_value.to_int()) {
+                                    // NOTE(HM) needs to be set before creating the window
+                                    if( try value = cmd_value.to_int()) 
+                                    {
                                         if(value == 1) {
                                             (*window_flags) |= (int)rl::FLAG_FULLSCREEN_MODE;
                                         } else if( value == 2) {
                                             (*window_flags) |= (int)rl::FLAG_WINDOW_UNDECORATED;
                                         }
-                                    } else {
-                                        log::warning(CONSOLE, "Unnable to convert value %s of cmd %s of section %s to int.", cmd_value, cmd_id, section.name);
+                                    } 
+                                    else // failed conversion to int
+                                    {
+                                        log::warning(FILE, "Unnable to convert value of cmd %s of section %s to integer.", cmd_id, section.name);
+                                        var w_flag @safeinfer = (RLConfigFlag*)window_flags;
+                                        if(vidbkd::getWindowFlagState(w_flag, rl::FLAG_FULLSCREEN_MODE)) {
+                                            vidbkd::clearWindowFlag(w_flag, rl::FLAG_FULLSCREEN_MODE);
+                                        }
+                                        if(vidbkd::getWindowFlagState(w_flag, rl::FLAG_WINDOW_UNDECORATED)) {
+                                            vidbkd::clearWindowFlag(w_flag, rl::FLAG_WINDOW_UNDECORATED);
+                                        }
                                     }
-                                    
                                 case "maxFPS":
                                     if( try value = cmd_value.to_int()) {
                                         if(value > 0) {
-                                            //rl::setTargetFPS(value);
                                             r_max_fps.set(cmd_value);
                                             log::warning(FILE, "CVar 'r_max_fps' value got changed to %s by cmd %s of section %s.", cmd_value, cmd_id, section.name);
                                         }
                                     } else {
-                                        log::warning(FILE, "Unnable to convert value %s of cmd %s of section %s to int.", cmd_value, cmd_id, section.name);
+                                        log::warning(FILE, "Unnable to convert value of cmd %s of section %s to integer.", cmd_id, section.name);
                                     }
                                 case "r_mode":
                                 nextcase;
