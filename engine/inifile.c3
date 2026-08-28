@@ -122,7 +122,8 @@ alias SectionListPtr = List{IniSection}*;
  @param [&in] inifile : `The ini file data`
  @require key != ""
 *>
-fn String getIniKey(String key, ConfigFile* inifile)  @deprecated {
+fn String getIniKey(String key, ConfigFile* inifile) @deprecated 
+{
     foreach(section : inifile.sections) {
         foreach(inicmd : section.cmds) {
             if(inicmd.cmd.first == key) {
@@ -328,6 +329,21 @@ fn void ConfigFile.addToSection(&self, IniSection* section, IniCMD* cmd)
         section.register(cmd); // register the cmd to the current section cmds
     }
     self.markModified(); // mark the config as modified
+}
+
+<*
+    @param [&inout] section : `The section to add the cmd to`
+    @param [&in] cmd : `The cmd to add to the section`
+    @param [&inout] cfg : `The ini file context were the section resides`
+*>
+fn void addCmdToSection(IniSection* section, IniCMD* cmd, ConfigFile* cfg)
+{
+    if(section.isLinked()) {
+        section.next.register(cmd); // register the cmd to the child section cmds
+    } else {
+        section.register(cmd); // register the cmd to the current section cmds
+    }
+    cfg.markModified(); // mark the config as modified
 }
 
 fn void ConfigFile.freeChildSections(&self)
@@ -560,8 +576,17 @@ fn bool ConfigFile.hasCmd(&self, String key)
 ///////////
 
 <*
- @param key : `The cmd name`
- @require key != ""
+	Updates a value within a ini file context
+	NOTE(HM) This is a old method and when I wrote it 
+	I didn't realized, at the time, that this assumes 
+	the command/variable to be unique per file, by luck 
+	this is mostly true but because, I seperate the ini 
+	by sections, theres nothing preventing each section 
+	from sharing cmds with the same name. 
+	Probably not the best thing to do thou, so is why I still
+	keep them unique and didn't deleted this function.
+	@param key : `The cmd name`
+	@require key != ""
 *>
 fn void ConfigFile.setValue(&self, String key, String value)
 {
@@ -585,6 +610,32 @@ fn void ConfigFile.setValue(&self, String key, String value)
             }
         }
     }
+}
+
+<*
+ @param [&inout] sect : `the section to update`
+ @param [in] key : `The cmd name to update`
+ @param [in] value : `The cmd value to update`
+ @param [&inout] file : `the file context to update`
+ @require key != "" && value != ""
+*>
+fn void setSectionValue(IniSection* sect, String key, String value, ConfigFile* file)
+{
+   ListIniCMDPrts* cmds;
+   // if the section is linked, we need to use the child section cmds
+	if(sect.isLinked()) {
+		cmds = &sect.next.cmds; // use the child sect cmds
+	} else {
+		cmds = &sect.cmds; // use the current sect cmds
+	}
+
+	foreach(cmd : *cmds)
+	{
+		if(cmd.getKey() == key)
+		{
+			cmd.setValue(value.tcopy(), file); // update the value
+		}
+	}
 }
 
 <*
@@ -728,6 +779,77 @@ fn void IniSection.register(&self, IniCMD* cmd) @inline {
 }
 
 <*
+  @param [&inout] file : "the file to write to"
+*>
+fn void? IniSection.writeToFile(&self, INIFile* file) @inline
+{
+    writeSectionName(self, file)!;
+	writeSectionCmds(self, file)!;
+}
+
+<*
+    @param [&in] section : "section data to save"
+    @param [&inout] file : "file to save data in"
+    @require section.name.len > 0
+*>
+fn void? writeSectionName(IniSection* section, INIFile* file) @local @MyInline
+{
+	file.write(Token.NEWLINE)!;
+	file.write(Token.SECTION_START)!;
+		file.write(section.name)!;
+		if(section.isLinked()) {
+			file.write(Token.DOT)!;
+			file.write(section.next.name)!;
+		}
+	file.write(Token.SECTION_END+++Token.NEWLINE)!;
+}
+
+
+<*
+    @param [&in] section : "section data to save"
+    @param [&inout] file : "file to save data in"
+*>
+fn void? writeSectionCmds(IniSection* section, INIFile* file) @local @MyInline
+{
+    ListIniCMDPrts cmds;
+	if(section.isLinked()) {
+        cmds = section.next.cmds;
+    } else {
+        cmds = section.cmds;
+    }
+
+    foreach(cmd : cmds)
+    {
+		String key, val;
+		key = cmd.getKey();
+		val = cmd.getValue();
+
+        if(key.is_empty()) continue; // skip empty cmds
+		/*if(cmd.comment.len > 0) {
+			file.write(string::tformat("%s %s", Token.COMMENT, cmd.comment))!;
+		}*/
+		bool print_quotes;
+        if(cmd.type == STRING) {
+            if(val.starts_with(Token.QUOTE)) {
+				if(!isValidString(val, key)) {
+					//make it valid
+					cmd.setValue(val.tconcat(Token.QUOTE), null);
+				}
+			} else {
+				print_quotes = true;
+			}
+        }
+        file.write(key)!;
+        file.write(Token.SPACE+++Token.ASSIGNMENT+++Token.SPACE)!;
+		if(print_quotes) file.write(Token.QUOTE)!;
+        file.write(val)!;
+		if(print_quotes) file.write(Token.QUOTE)!;
+        file.write(Token.NEWLINE)!;
+    }
+}
+
+
+<*
   	@param [&in] other : "pointer to another section to link to the first one"
 *>
 fn void IniSection.link(&self, IniSection* other) @inline {
@@ -757,7 +879,12 @@ fn void IniSection.freeChild(&self) @inline {
     mem::free(self.next);
 }
 
-fn bool IniSection.hasCmd(&self, String key)
+<*
+	Queries if a cmd already exists in a ini file section
+	@param [in] key : "key/name of the command"
+	@param [inout] out : "if not null return a pointer to the cmd as well"
+*>
+fn bool IniSection.hasCmd(&self, String key, IniCMD* out = null)
 {
     ListIniCMDPrts* cmds;
     if(self.isLinked()) 
@@ -767,8 +894,9 @@ fn bool IniSection.hasCmd(&self, String key)
         cmds = &self.cmds; // use the current section cmds
     }
 
-    foreach(it : cmds) {
-        if(it.cmd.first == key) {
+    foreach(cmd : cmds) {
+        if(cmd.getKey() == key) {
+			if(out) out = cmd;
             return true;
         }
     }
@@ -807,16 +935,18 @@ struct IniCMD
 }
 
 <*
-    DOC returns the index in the string where the comment starts
     @param [in] val : "new value to write"
-    @param [&inout] file : "pointer to config where was written"
+    @param [inout] file : "pointer to config where value must be written"
     @require val.len > 0
 *>
-fn void IniCMD.setValue(&self, String val, ConfigFile* file) @inline @deprecated("use ConfigFile.setValue() instead")
+fn void IniCMD.setValue(&self, String val, ConfigFile* file) @inline
 {
     self.cmd.second = val.tcopy(); // update the value
-    file.markModified(); // mark the config as modified
+    if(file) file.markModified(); // mark the config as modified
 }
+
+fn String IniCMD.getKey(&self) @inline => self.cmd.first;
+fn String IniCMD.getValue(&self) @inline => self.cmd.second;
 
 fn float? IniCMD.toFloat(&self, float default_value = 0.0f) @inline
 {
@@ -1216,70 +1346,15 @@ fn bool? saveConfigFile(ConfigFile* cfg)
 	return cfg.save()!;
 }
 
-<*
-    @param [&inout] file : "file to save data in"
-    @param [&in] section : "section data to save"
-    @require section.name.len > 0
-*>
-fn void? writeSectionName(INIFile* file, IniSection* section) @local @MyInline
-{
-	file.write(Token.NEWLINE)!;
-	file.write(Token.SECTION_START)!;
-		file.write(section.name)!;
-		if(section.isLinked()) {
-			file.write(Token.DOT)!;
-			file.write(section.next.name)!;
-		}
-	file.write(Token.SECTION_END+++Token.NEWLINE)!;
-}
-
-
-<*
-    @param [&inout] file : "file to save data in"
-    @param [&in] section : "section data to save"
-*>
-fn void? writeSectionCmds(INIFile* file, IniSection* section) @local @MyInline
-{
-    ListIniCMDPrts cmds;
-	if(section.isLinked()) {
-        cmds = section.next.cmds;
-    } else {
-        cmds = section.cmds;
-    }
-
-    foreach(it : cmds) 
-    {
-        if(it.cmd.first.is_empty()) continue; // skip empty cmds
-		/*if(it.comment.len > 0) {
-			file.write(string::tformat("%s %s", Token.COMMENT, it.comment))!;
-		}*/
-		bool print_quotes;
-        if(it.type == STRING) {
-            if(it.cmd.second.starts_with(Token.QUOTE)) {
-				if(!isValidString(it.cmd.second, it.cmd.first)) {
-					it.cmd.second = it.cmd.second.tconcat(Token.QUOTE);
-				}
-			} else {
-				print_quotes = true;
-			}
-        }
-        file.write(it.cmd.first)!;
-        file.write(Token.SPACE+++Token.ASSIGNMENT+++Token.SPACE)!;
-		if(print_quotes) file.write(Token.QUOTE)!;
-        file.write(it.cmd.second)!;
-		if(print_quotes) file.write(Token.QUOTE)!;
-        file.write(Token.NEWLINE)!;
-    }
-}
-
-<*
+/*
     Save the config data in memory to the file
-    //@require self.path.len > 0 : "The config file path must be set before saving the config file."
-*>
+*/
 fn bool? ConfigFile.save(&self)
 {
-    if(self.isModified() == false) return false; // nothing to save, the file is not modified
+	// nothing to save, the file is not modified
+    if(self.isModified() == false) return false; 
 
+	// else
     String filepath;
     if(self.path.len) {
         filepath = self.path;
@@ -1289,11 +1364,11 @@ fn bool? ConfigFile.save(&self)
 
 	String opening_option = "w";
     INIFile? file_data = (INIFile)file::open(self.path, opening_option);
+    defer file_data.close()!!;
     if(catch excuse = file_data) {
         log::warning(FILE, "Failed to open file: %s to write configuration data with excuse: %s", filepath, excuse);
         return excuse~;
     }
-    defer file_data.close()!!;
 
 	foreach(section : self.sections)
 	{
@@ -1303,8 +1378,7 @@ fn bool? ConfigFile.save(&self)
             continue; // skip empty sections if any exist
         }
 
-        writeSectionName(&file_data, section)!;
-        writeSectionCmds(&file_data, section)!;
+        section.writeToFile(&file_data)!;
 	}
 
 	return true;
@@ -1383,6 +1457,7 @@ fn bool? ConfigFile.update(&self)
 	}
 	return true;
 */
+	return true;
 }
 
 <*

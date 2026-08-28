@@ -131,7 +131,7 @@ endif
 ENGINE_FOLDER := engine/
 GAME_FOLDER   := game/
 ENGINE_ROOT_SOURCES := $(wildcard $(ENGINE_FOLDER)*.c3 $(ENGINE_FOLDER)*.c3i)
-GAME_ROOT_SOURCES := $(wildcard $(GAME_FOLDER)*.c3)
+GAME_ROOT_SOURCES := $(wildcard $(GAME_FOLDER)*.c3 $(GAME_FOLDER)*.c3i)
 ENGINE_CHILD_SOURCES := \
 	$(ENGINE_FOLDER)$(wildcard containers/*.c3 containers/*.c3i) \
 	$(ENGINE_FOLDER)$(wildcard thirdparty/*.c3 thirdparty/*.c3i) \
@@ -144,21 +144,29 @@ PDBS_TO_CLEAN := $(wildcard $(BUILD_PATH)/*.pdb)
 EXES_TO_CLEAN := $(wildcard $(BUILD_PATH)/*.exe)
 
 # arguments to set at game start
-DEBUG_GAME_ARGUMENTS := +developer +r_fullscreen 2 +editor +r_mode 15
+DEBUG_GAME_ARGUMENTS := +developer +r_fullscreen 2 +editor +r_mode 15 +skip_intro 0
 RELEASE_GAME_ARGUMENTS := +r_fullscreen 1 +r_mode 23
 
-#-D VIDEO_PLAYBACK_ENABLE
-# in c3 you need to use $feature(_DEBUG) to check for this defines, C3 $define doesn't work for this...
+# in c3 you need to use $feature or $feat in newer compilers...) to check for this 
+# C3 $defined() doesn't work for this...
+# example $feature(MICROUI_ENABLE)
+FEATURES :=\
+	-D RGUI_ENABLE\
+	-D VMEM_TEMP\
+	-D MICROUI_ENABLE\
+	-D BACKEND_RAYLIB\
+	-D VIDEO_PLAYBACK_ENABLE
+
 ifeq ($(SCRIPT_LANG), umka)
-DEBUG_DEFINES := -D _DEBUG -D VMEM_TEMP -D MICROUI_ENABLE -D UMKA_ENABLE -D BACKEND_RAYLIB -D VIDEO_PLAYBACK_ENABLE
+DEBUG_DEFINES := -D _DEBUG $(FEATURES) -D UMKA_ENABLE
 else
 ifeq ($(SCRIPT_LANG), wren)
-DEBUG_DEFINES := -D _DEBUG -D TRACY_ENABLE -D MICROUI_ENABLE -D WREN_ENABLE
+DEBUG_DEFINES := -D _DEBUG $(FEATURES) -D WREN_ENABLE
 else
 ifeq ($(SCRIPT_LANG), mujs)
-DEBUG_DEFINES := -D _DEBUG -D TRACY_ENABLE -D MICROUI_ENABLE -D MUJS_ENABLE
+DEBUG_DEFINES := -D _DEBUG $(FEATURES) -D MUJS_ENABLE
 else
-DEBUG_DEFINES := -D _DEBUG -D TRACY_ENABLE -D MICROUI_ENABLE -D LUA_ENABLE
+DEBUG_DEFINES := -D _DEBUG $(FEATURES) -D LUA_ENABLE
 endif
 endif
 endif
@@ -169,8 +177,8 @@ endif
 #-D LUA_ENABLE
 #-D ANGEL_ENABLE (not working yet)
 ################################################
-# current release defines aren't really usefull... 
-RELEASE_DEFINES := -D _RELEASE -D TRACY_ENABLE -D MICROUI_ENABLE -D UMKA_ENABLE -D BACKEND_RAYLIB
+
+RELEASE_DEFINES := -D _RELEASE $(FEATURES) -D UMKA_ENABLE
 
 # compiler to use, right now there's only one, c3c
 CC := c3c.exe

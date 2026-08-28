@@ -97,7 +97,7 @@ constdef MTexture : inline int @public
 // for example more than one diffuse map, etc.
 constdef MStageType : inline int @public
 {
-	DIFFUSE   = 1, // only one supported (for now...)
+	DIFFUSE   = 0, // only one supported (for now...)
 	SPECULAR,
 	NORMAL,
 	OCCLUSION,     // Ambient occlusion material
@@ -207,6 +207,91 @@ fn void MatStage.register_args(&self, XmlNode* node) @deprecated
     }
 }
 
+<*
+    @param [&inout] stage : "stage to set data from"
+    @param [&in] node : "node to get data from"
+    @param [&in] mat : "material we are parsing"
+*>
+fn void parse_stage_parm(MatStage* stage, XmlNode* node, HMaterial* mat)
+{
+	bool is_attribute_data = node.hasAttributes();
+    StageArgument arg;
+	
+	if(is_attribute_data) 
+	{
+		XmlAttribute* parm = node.attributes[0];
+		if(parm.name.is_empty()) {
+			log::warning(FILE, "Stage '%s' for Material '%s' in file '%s' has a empty param node!", node.name, mat.name, mat.mtrfile.path);
+			return;
+		}
+
+		arg.first  = parm.name.tcopy();
+		arg.second = parm.value.tcopy();
+	}
+	else // text based parm
+	{
+		String parm = node.getText();
+		if(parm.is_empty()) {
+			log::warning(FILE, "Stage '%s' for Material '%s' in file '%s' has a empty param node!", node.name, mat.name, mat.mtrfile.path);
+			return;
+		}
+
+		if(parm.has_spaces()) {
+        	parm.remove_spaces(); // remove spaces from the parm
+    	}
+
+		if(parm.contains("="))
+		{
+			// split the parm by the '=' character
+			// NOTE(HM) this is a simple way to parse key=value pairs, but it is not very robust
+			// perhaps we should use a more robust parser in the future?
+			// for now, we will just split the string and use the first part as the key and the second part as the value
+			String[] data = parm.tsplit("=");
+			String cmd    = data[0];
+			String value  = data[1];
+			if(data.len == 0 || cmd.len == 0 || value.len == 0) {
+				log::warning(FILE, "Stage '%s' for Material '%s' in file '%s' has a invalid param node!", node.name, mat.name, mat.mtrfile.path);
+				return;
+			} else {
+				assert(data.len > 0, "Invalid parm '%s' found in material '%s' in file '%s'!", parm, mat.name, mat.mtrfile.path);
+				assert(cmd.len > 0, "Invalid parm '%s' found in material '%s' in file '%s'! Value before = is empty!", parm, mat.name, mat.mtrfile.path);
+				assert(value.len > 0, "Invalid parm '%s' found in material '%s' in file '%s'! Value after = is empty!", parm, mat.name, mat.mtrfile.path);
+				arg.first  = cmd.tcopy();
+				arg.second = value.tcopy();
+			}
+		} 
+		else {
+			// just use the parm as the key and an empty string as the value
+			arg.first = parm.tcopy();
+		}
+	}
+
+
+    switch (arg.first)
+    {
+        case NodeParam.CLAMP:
+            r2d::clampTexture(stage.tex);
+        case NodeParam.ALPHAZEROCLAMP:
+            // find a way to clamp only the alpha channel using raylib
+			log::warning(FILE, "unsupported (for now) alpha zero parm '%s' in stage '%s' for material '%s' in file '%s'!", arg.first, node.name, mat.name, mat.mtrfile.path);
+        case NodeParam.COLOR:
+            stage.color = mtr::xmlStrColorToColor(arg.second);
+        case NodeParam.ALPHA:
+            stage.setAlpha(arg.second.to_float()!!);
+        case NodeParam.TILE_H:
+        case NodeParam.TILE_V:
+		// todo texture animations...
+			nextcase;
+        case NodeParam.SCROLL_X:
+        case NodeParam.SCROLL_Y:
+        case NodeParam.TRANSLATE_X:
+        case NodeParam.TRANSLATE_Y:
+            @todo();
+        default:
+            log::warning(FILE, "Unknown parm '%s' found in a stage for material '%s' in file '%s'!", arg.first, mat.name, mat.mtrfile.path);
+    }
+}
+
 fn void MatStage.loadTexture(&self, String path) @inline
 {
     self.tex = r2d::loadTexture(path);
@@ -227,6 +312,14 @@ fn void MatStage.clear(&self)
         }
         self.args.clear();
     }
+}
+
+fn void MatStage.setAlpha(&self, float value) @inline
+{
+   float alpha = math::clamp(value, 0.0f, 1.0f);
+   RLColor prev_color = self.color;
+   //self.color.a = (char)misc::@mapValueRangeToOther(alpha, 0.0f, 1.0f, 0, 255);
+   self.color = rl::colorAlpha(prev_color, alpha);
 }
 
 // todo
@@ -350,7 +443,7 @@ struct HMaterial  (SaveSystemInterface) @public
     
     // TODO(HM) support more than one diffuse map stage, etc.
     // for more complex materials.
-    MatStage[MStageType::len] maps;
+    MatStage[MStageType::len] stages;
     
     // NOTE(HM) Perhaps this should be a string with the mtr path in it, 
     // not a pointer to some data in memory, that could be freed anytime...
@@ -405,7 +498,7 @@ fn void HMaterial.init(&self)
 
 fn void HMaterial.free(&self)
 {
-	foreach(stage : self.maps) stage.clear();
+	foreach(stage : self.stages) stage.clear();
     if(self.mtrfile) self.mtrfile = null;
 
     // NOTE(HM) this will free the shader if it is not the default shader
@@ -422,14 +515,37 @@ fn void HMaterial.free(&self)
 fn void HMaterial.print(self)
 {
     RLColor color = self.getStage(MStageType.DIFFUSE).color;
-    RLTexture2D* tex = &self.getStage(MStageType.DIFFUSE).tex;
+    
     io::printfn("[material : '%s']", self.name);
     if(self.comment.len && self.comment != "<no comment>") {
         io::printfn(" comment = \"%s\"", self.comment);
     }
-    io::printfn(" [map : 'Diffuse']");
-    io::printfn("  tex: \"id: %s, w: %s, h: %s, mp: %s, pf: %s\"", tex.id, tex.width, tex.height, tex.mipmaps, tex.format);
-    io::printfn("  color: \"%s, %s , %s, %s\"", color.r, color.g, color.b, color.a);
+    io::printfn(" sort = \"%s\"", self.sort);
+    io::printfn(" coverage = \"%s\"", self.coverage);
+    io::printfn(" contents = \"%s\"", self.contentes);
+    io::printfn(" flags = \"%s\"", self.flags);
+    io::printfn(" shader = \"%s\"", self.shader.name);
+    io::printfn(" stages START");
+    foreach(stage : self.stages) {
+        io::printf(" stage = ");
+        if(stage.type == MStageType.DIFFUSE) {
+            io::printf("Diffuse\n");
+            io::printfn("  tex: \"id: %s, w: %s, h: %s, mp: %s, pf: %s\"", 
+            stage.tex.id, 
+            stage.tex.width, 
+            stage.tex.height, 
+            stage.tex.mipmaps, 
+            stage.tex.format
+            );
+            io::printfn("  color: \"%s, %s , %s, %s\"", 
+            stage.color.r, 
+            stage.color.g, 
+            stage.color.b, 
+            stage.color.a
+            );
+        }
+    }
+    io::printfn(" stages END");
     foreach(i, arg : self.getStage(MStageType.DIFFUSE).args) {
         io::printfn("  arg%d: \"%s = %s\"", i, arg.first, arg.second);
     }
@@ -442,7 +558,7 @@ fn void HMaterial.setShader(&self, RLShader shader) @inline
 
 fn void HMaterial.setCoverage(&self, Coverage cv)
 {
-    if(self.coverageSet(cv)) return;
+    if(self.hasCoverage(cv)) return;
 
     switch(cv)
     {
@@ -457,6 +573,12 @@ fn void HMaterial.setCoverage(&self, Coverage cv)
             if(self.coverage & Coverage.OPAQUE) {
                 self.coverage &= ~Coverage.OPAQUE;
             }
+            // this only applies to the diffuse stage for now...
+            // todo control translucency value
+			// right now is hardcoded at 0.5
+			// pre-multiplied alpha
+            MatStage* stage = self.getStage(MStageType.DIFFUSE);
+            (*stage).setAlpha(0.5f); // @Hardcode
         case Coverage.PERFORATED:
             self.coverage |= Coverage.PERFORATED;
         default:
@@ -464,7 +586,7 @@ fn void HMaterial.setCoverage(&self, Coverage cv)
     }
 }
 
-fn bool HMaterial.coverageSet(self, Coverage cv) @inline => (bool)(self.coverage & cv);
+fn bool HMaterial.hasCoverage(self, Coverage cv) @inline => (bool)(self.coverage & cv);
 
 
 // @untested
@@ -474,6 +596,7 @@ fn bool HMaterial.coverageSet(self, Coverage cv) @inline => (bool)(self.coverage
 *>
 fn void HMaterial.copy(&self, HMaterial* other)
 {
+    /*
     /*if(other == null) {
         log::error(FILE, "Cannot copy material from null pointer!");
         return;
@@ -504,6 +627,7 @@ fn void HMaterial.copy(&self, HMaterial* other)
     }
 	//self.getStage(MStageType.DIFFUSE).tex = *other.getTexture(mat::MTexture.DIFFUSE);
     //self.getStage(MStageType.DIFFUSE).args.add_all(&other.getStage(MStageType.DIFFUSE).args);
+    */
 }
 
 <*
@@ -512,7 +636,7 @@ fn void HMaterial.copy(&self, HMaterial* other)
 *>
 fn MatStage* HMaterial.getStage(&self, MStageType index) @inline
 {
-    return &self.maps[index];
+    return &self.stages[index];
 }
 
 <*
@@ -652,9 +776,9 @@ fn void HMaterial.parse_stage(&self, XmlNode* stage_node)
 
         switch 
         {
-            case mtr::isXmlNode(child, Node.BLEND):
+            case mtr::isMaterialNode(child, Node.BLEND):
                 self.parse_blend(child, stage);
-            case mtr::isXmlNode(child, Node.MAP):
+            case mtr::isMaterialNode(child, Node.MAP):
                 // create the full path by concatenating the relative material path to the game base folder
                 String texture_path = game::pContext.app_base_folder.tconcat(child.getAttribute(NodeAttrib.URL).value);
                 if(texture_path.is_empty()) {
@@ -690,8 +814,8 @@ fn void HMaterial.parse_stage(&self, XmlNode* stage_node)
                 $if $feature(_DEBUG):
                     log::info(FILE, "Loaded '%s' texture '%s' for material '%s' in file '%s'", stage.kind, texture_path, self.name, self.mtrfile.path);
                 $endif
-            case mtr::isXmlNode(child, Node.KEYWORD):
-                self.parse_keyword(child, stage);
+            case mtr::isMaterialNode(child, Node.PARAM):
+                self.parse_parm(child, stage);
             default:
                 unreachable("Invalid node: %s child for material node %s.", child.name, node.name);
         }
@@ -699,27 +823,138 @@ fn void HMaterial.parse_stage(&self, XmlNode* stage_node)
 }; // off   
 }
 
+<*
+    @param [&inout] mat : "material we are parsing"
+    @param [&in] node : "node to get data from"
+*>
+fn void parse_material_parm(HMaterial* mat, XmlNode* node) @public
+{
+	bool is_attribute_data = node.hasAttributes();
+    StageArgument arg;
+	
+	if(is_attribute_data) 
+	{
+		XmlAttribute* parm = node.attributes[0];
+		if(parm.name.is_empty()) {
+			log::warning(FILE, "Stage '%s' for Material '%s' in file '%s' has a empty param node!", node.name, mat.name, mat.mtrfile.path);
+			return;
+		}
+
+		arg.first  = parm.name.tcopy();
+		arg.second = parm.value.tcopy();
+	}
+	else // text based parm
+	{
+		String parm = node.getText();
+		if(parm.is_empty()) {
+			log::warning(FILE, "Stage '%s' for Material '%s' in file '%s' has a empty param node!", node.name, mat.name, mat.mtrfile.path);
+			return;
+		}
+
+		if(parm.has_spaces()) {
+        	parm.remove_spaces(); // remove spaces from the parm
+    	}
+
+		if(parm.contains("="))
+		{
+			// split the parm by the '=' character
+			// NOTE(HM) this is a simple way to parse key=value pairs, but it is not very robust
+			// perhaps we should use a more robust parser in the future?
+			// for now, we will just split the string and use the first part as the key and the second part as the value
+			String[] data = parm.tsplit("=");
+			String cmd    = data[0];
+			String value  = data[1];
+			if(data.len == 0 || cmd.len == 0 || value.len == 0) {
+				log::warning(FILE, "global param '%s' for Material '%s' in file '%s' is invalid!", parm, mat.name, mat.mtrfile.path);
+				return;
+			} else {
+				assert(data.len > 0, "Invalid parm '%s' found in material '%s' in file '%s'!", parm, mat.name, mat.mtrfile.path);
+				assert(cmd.len > 0, "Invalid parm '%s' found in material '%s' in file '%s'! Value before = is empty!", parm, mat.name, mat.mtrfile.path);
+				assert(value.len > 0, "Invalid parm '%s' found in material '%s' in file '%s'! Value after = is empty!", parm, mat.name, mat.mtrfile.path);
+				arg.first  = cmd.tcopy();
+				arg.second = value.tcopy();
+			}
+		} 
+		else {
+			// just use the parm as the key and an empty string as the value
+			arg.first = parm.tcopy();
+		}
+	}
+
+    switch (arg.first)
+    {
+        case NodeParam.TRANSLUCENT:
+            mat.setCoverage(Coverage.TRANSLUCENT);
+        case NodeParam.ALPHA:
+            mat.setCoverage(Coverage.PERFORATED);
+            float alpha = misc::clamp01f(arg.second.to_float()!!);
+			alpha = misc::clamp01f(alpha);
+            MatStage* stage = mat.getStage(MStageType.DIFFUSE);
+			RLColor color   = stage.color;
+			(*stage).color  = rl::colorAlpha(color, alpha);
+			/*RLImage image = rl::loadImageFromTexture(mat.getStage(MStageType.DIFFUSE).tex);
+			RLColor* color = rl::loadImageColors(image);
+            // multiply texture alpha by the material alpha
+			Vec4f color_norm = rl::colorNormalize(*color);
+			alpha *= color_norm.a;
+			color_norm.a = alpha;
+			(*color) = rl::colorFromNormalized(color_norm);
+			rl::updateTexture(mat.getStage(MStageType.DIFFUSE).tex, image.data);
+			*/
+            mat.flags.has_AlphaTest = true;
+        case NodeParam.SORT:
+            mat.sort = arg.second.to_uint()!!;
+        case NodeParam.CLAMP:
+        case NodeParam.ALPHAZEROCLAMP:
+        case NodeParam.TILE_H:
+        case NodeParam.TILE_V:
+        case NodeParam.SCROLL_X:
+        case NodeParam.SCROLL_Y:
+        case NodeParam.TRANSLATE_X:
+        case NodeParam.TRANSLATE_Y:
+            @todo();
+        default:
+            log::warning(FILE, "Unknown global param '%s' found in material '%s' in file '%s'!", arg.first, mat.name, mat.mtrfile.path);
+    }
+}
+
 
 <*
     Todo(HM): deprecate this in the future, use parse_stage instead. 
-    @param [&in] maps_node : "node we are currently parsing"
+    @param [&inout] mat : "the material we are currently parsing"
+    @param [&in] stages_node : "the material <stages> node we are currently parsing"
 *>
-fn void HMaterial.parse_maps(&self, XmlNode* maps_node)
+fn void parse_stages(XmlNode* stages_node, HMaterial* mat) @public
 {
-    foreach(node: maps_node.children)
+    foreach(node: stages_node.children)
     {
-        if(mtr::isXmlNode(node, Node.TEXT)) continue;
+		// once again skip invalid free text if any...
+        if(mtr::isMaterialNode(node, Node.TEXT)) continue;
         
         switch(node.name)
         {
             case Node.ALBEDO:
-                MatStage* stage = self.getStage(MStageType.DIFFUSE);
+                MatStage* stage = mat.getStage(MStageType.DIFFUSE);
+				// first see if we have a blend attribute assigned
+				if(node.hasAttributes()) {
+					// make sure is the blend one
+					String? blend = node.getAttribute(NodeAttrib.BLEND).name;
+					if (catch excuse = blend)
+					{
+						// todo report the stage index throwing the error 
+						// right now we only support one stage, others are ignored...
+						log::error(FILE, "Failed to get blend attribute for %s of material %s with excuse: %s\n", node.name, mat.name, excuse);
+						nextcase default;
+					}
+					parse_blend(stage, blend, mat);
+				}
                 foreach(child: node.children)
                 {
                     if(child == null) continue;
-                    switch 
+					// else
+                    switch // parse stage data
                     {
-                        case mtr::isXmlNode(child, Node.MAP):
+                        case child.name == Node.MAP:
                             // path is relative to the game base folder
                             String relative_texture_path = child.getText();
                             if(relative_texture_path.extractFileBaseByCopy() == "default.png") {
@@ -727,18 +962,11 @@ fn void HMaterial.parse_maps(&self, XmlNode* maps_node)
                             } else {
                                 (*stage).loadTexture(relative_texture_path);
                                 $if $feature(_DEBUG):
-                                    log::info(FILE, "Loaded texture '%s' for material '%s' in file '%s'", relative_texture_path, self.name, self.mtrfile.path);
+                                    log::info(FILE, "Loaded texture '%s' for material '%s' in file '%s'", relative_texture_path, mat.name, mat.mtrfile.path);
                                 $endif
                             }
-                        case mtr::isXmlNode(child, Node.BLEND):
-                            // NOTE(HM) this is a blend map, we will use it to blend two textures together
-                            // TODO(HM) implement this
-                            self.parse_blend(child, stage);
-                            //log::warning(FILE, "Blend is not implemented yet! Skipping node '%s' in material '%s' in file '%s'", child.name, self.name, self.mtrfile.path);
-                        case mtr::isXmlNode(child, Node.COLOR):
-                            (*stage).color = mtr::xmlStrColorToColor(child.getText());
-                        case mtr::isXmlNode(child, Node.KEYWORD):
-                            self.parse_keyword(child);
+                        case child.name == Node.PARAM:
+                            parse_stage_parm(stage, child, mat);
                         default:
                             unreachable("Invalid node: %s child for material node %s.", child.name, node.name);
                     }
@@ -747,25 +975,30 @@ fn void HMaterial.parse_maps(&self, XmlNode* maps_node)
             case Node.NORMAL: break; // todo
             case Node.SPECULAR: break; // todo
             default:
-               unreachable("invalid material maps node found!!");
+               unreachable("invalid material stage node found!!");
         }
     }
 }
 
 <*
     @param [&in] node : "node to get data from"
+    @param [&inout] mat : "material to set data"
 *>
-fn void HMaterial.parse_comment(&self, XmlNode* node) @inline
+fn void parse_comment(XmlNode* node, HMaterial* mat) @inline @public
 {
     String str  = node.getText();
-    if(str != "") self.comment = str.tcopy();
+    if(str != "") mat.comment = str.tcopy();
 }
 
+/*
 <*
     @param [&in] node : "node to get data from"
 *>
-fn void HMaterial.parse_keyword(&self, XmlNode* node)
+fn void HMaterial.parse_parm(&self, XmlNode* node)
 {
+	bool is_attribute_data = node.hasAttributes();
+    StageArgument arg;
+
     String keyword = node.getText();
     if(keyword.is_empty()) {
         log::warning(FILE, "Material '%s' in file '%s' has a empty keyword node!", self.name, self.mtrfile.path);
@@ -805,7 +1038,7 @@ fn void HMaterial.parse_keyword(&self, XmlNode* node)
 
     switch (arg.first)
     {
-        case NodeKeyword.TRANSLUCENT:
+        case NodeParam.TRANSLUCENT:
             self.setCoverage(Coverage.TRANSLUCENT);
 			// todo control translucency value
 			// right now is hardcoded at 0.5
@@ -814,7 +1047,7 @@ fn void HMaterial.parse_keyword(&self, XmlNode* node)
 			RLColor prev_color = stage.color;
             // update color
             (*stage).color = rl::colorAlpha(prev_color, 0.5f);
-        case NodeKeyword.ALPHA:
+        case NodeParam.ALPHA:
             self.setCoverage(Coverage.PERFORATED);
             float alpha = misc::clamp01f(arg.second.to_float()!!);
 			alpha = misc::clamp01f(alpha);
@@ -831,21 +1064,23 @@ fn void HMaterial.parse_keyword(&self, XmlNode* node)
 			rl::updateTexture(self.getStage(MStageType.DIFFUSE).tex, image.data);
 			*/
             self.flags.has_AlphaTest = true;
-        case NodeKeyword.SORT:
+        case NodeParam.SORT:
             self.sort = arg.second.to_uint()!!;
-        case NodeKeyword.CLAMP:
-        case NodeKeyword.ALPHAZEROCLAMP:
-        case NodeKeyword.TILE_H:
-        case NodeKeyword.TILE_V:
-        case NodeKeyword.SCROLL_X:
-        case NodeKeyword.SCROLL_Y:
-        case NodeKeyword.TRANSLATE_X:
-        case NodeKeyword.TRANSLATE_Y:
+        case NodeParam.CLAMP:
+        case NodeParam.ALPHAZEROCLAMP:
+        case NodeParam.TILE_H:
+        case NodeParam.TILE_V:
+        case NodeParam.SCROLL_X:
+        case NodeParam.SCROLL_Y:
+        case NodeParam.TRANSLATE_X:
+        case NodeParam.TRANSLATE_Y:
             @todo();
         default:
             log::warning(FILE, "Unknown keyword '%s' found in material '%s' in file '%s'!", keyword, self.name, self.mtrfile.path);
     }
 }
+*/
+
 
 <*
     @param [&in] node : "node to get data from"
@@ -858,8 +1093,11 @@ fn void HMaterial.parse_sound(&self, XmlNode* node) @inline
    //self.sound = astmng::pAssetsLib.getSound(sound_shader_name);
 }
 
-
-fn int HMaterial.nameToSrcBlendMode(&self, String name ) 
+<*
+	converts blend String To source Blend Mode value
+	@param [&inout] mat : "material we are dealing with"
+*>
+fn int blendStringToSrcBlendMode(String name, HMaterial* mat) 
 {
     switch(name)
     {
@@ -883,14 +1121,17 @@ fn int HMaterial.nameToSrcBlendMode(&self, String name )
         case "gl_src_alpha_saturate": return rl::RL_SRC_ALPHA_SATURATE;
     }
 
-	log::warning(FILE, "unknown blend mode '%s' in material '%s'", name, self.name);
-	self.flags.has_defaulted = true;
+	log::warning(FILE, "unknown blend mode '%s' in material '%s'", name, mat.name);
+	mat.flags.has_defaulted = true;
 
 	return rl::RL_ONE;
 }
 
-
-fn int HMaterial.nameToDstBlendMode(&self, String name ) 
+<*
+	converts blend String To destination Blend Mode value
+	@param [&inout] mat : "material we are dealing with"
+*>
+fn int blendStringToDstBlendMode(String name, HMaterial* mat) 
 {
     switch(name)
     {
@@ -912,25 +1153,22 @@ fn int HMaterial.nameToDstBlendMode(&self, String name )
         case "gl_one_minus_src_color": return rl::RL_ONE_MINUS_SRC_COLOR;
     }
 
-	log::warning(FILE, "unknown blend mode '%s' in material '%s'", name, self.name);
-	self.flags.has_defaulted = true;
+	log::warning(FILE, "unknown blend mode '%s' in material '%s'", name, mat.name);
+	mat.flags.has_defaulted = true;
 
 	return rl::RL_ONE;
 }
 
 <*
-	WARNING still not used!!!!!
-    @param [&in] node : "node to get data from"
     @param [&inout] stage : "stage to set data for"
+    @param [in] blend_mode : "blend mode being set"
+	@param [&inout] mat : "material we are dealing with"
+	@require blend_mode.len > 0
 *>
-fn void HMaterial.parse_blend(&self, XmlNode* node, MatStage *stage ) @unused
+fn void parse_blend(MatStage *stage, String blend_mode, HMaterial* mat )
 {
-    if(node.hasAttributes() == false) return;
-
-    String mode = (String)node.getAttribute(NodeAttrib.BLEND_MODE).value;
-
 	// baked blending combinations
-    switch(mode)
+    switch(blend_mode)
     {
         case "blend":
             stage.drawStateBits = BLEND_BLEND;
@@ -964,11 +1202,11 @@ fn void HMaterial.parse_blend(&self, XmlNode* node, MatStage *stage ) @unused
 	}
 
     // custom blending modes
-    String[] tokens = mode.tsplit(",");
-    assert(tokens.len == 2, "Invalid blend mode '%s' in material '%s' in file '%s'! Expected two tokens separated by a comma.", mode, self.name, self.mtrfile.path);
+    String[] tokens = blend_mode.tsplit(",");
+    assert(tokens.len == 2, "Invalid blend mode '%s' in material '%s' in file '%s'! Expected two tokens separated by a comma.", blend_mode, mat.name, mat.mtrfile.path);
 
-	int srcBlend = self.nameToSrcBlendMode( tokens[0] );
-	int dstBlend = self.nameToDstBlendMode( tokens[1] );
+	int srcBlend = blendStringToSrcBlendMode( tokens[0], mat);
+	int dstBlend = blendStringToDstBlendMode( tokens[1], mat);
 
 	stage.drawStateBits = srcBlend | dstBlend;
 }
@@ -1381,6 +1619,31 @@ faultdef MTR_INVALID_PATH,
 	     MTR_RETRIVAL_ERROR,
 	     MTR_MISSING;
 
+macro @fault_msg(fault $excuse) @const {
+  $switch $excuse:
+    $case MTR_LOAD_ERROR:
+      return @sprintf("%s: Failed to load MTR file", $excuse);
+    $case MTR_MALFORMED_FILE:
+        return @sprintf("%s: Marlformed MTR file", $excuse);
+	$case MTR_UNKNOWN_FOLDER:
+        return @sprintf("%s: Unknown folder for MTR files", $excuse);
+	$case MTR_FOLDER_SCAN_ERROR:
+        return @sprintf("%s: Failed to scan folder for MTR files", $excuse);
+    $case MTR_VERSION_MISMATCH:
+        return @sprintf("%s: Versions are not the same", $excuse);
+    $case MTR_MATERIAL_PARSING_ERROR:
+        return @sprintf("%s: Failed to parse a Material", $excuse);
+	$case MTR_SMALL_PATH_ERROR:
+        return @sprintf("%s: Path for a MTR file is to small", $excuse);
+	$case MTR_RETRIVAL_ERROR:
+        return @sprintf("%s: Failed to get MTR file", $excuse);
+	$case MTR_MISSING:
+        return @sprintf("%s: MTR file is missing", $excuse);
+    $default:
+      $error @sprintf("Unsupported fault %s", $excuse);
+  $endswitch
+}
+
 // NOTE(HM) This represents every used xml node in the mtr file 
 constdef Node : inline String @public
 {
@@ -1390,11 +1653,11 @@ constdef Node : inline String @public
 	// lower case
     TEXT             = "#text",
     COMMENT          = "comments",
-    MAPS             = "maps",
+    STAGES           = "stages",
     MAP              = "map",
     BLEND            = "blend", // used for blending two or more textures together
     VIDEO_MAP        = "video_map", // to play videos on materials @todo
-    KEYWORD          = "keyword", // used for globals or stages keywords
+    PARAM            = "param", // used for globals or stages params
     COLOR            = "color",    // used for colors, seperated by comma and normalized float values from 0 to 1 (1.0, 1.0, 1.0, 1.0) or 8bit (255, 255, 255, 255)
     ALBEDO           = "albedo",
     NORMAL           = "normal",
@@ -1408,15 +1671,17 @@ constdef Node : inline String @public
 <*
     @param [&in] node : "node to compare the name"
 *>
-fn bool isXmlNode(XmlNode* node, Node kind) @inline @public => (node.name == kind) ? true : false;
+fn bool isMaterialNode(XmlNode* node, Node kind) @public @inline => (node.name == kind) ? true : false;
 
-constdef NodeKeyword : inline String @public
+constdef NodeParam : inline String @public
 {
-    // general
+    // global for all the material
     TRANSLUCENT    = "translucent",
-    CLAMP          = "clamp",
-    ALPHAZEROCLAMP = "alphazeroclamp",   // prevents the alpha channel of this material from tiling by forcing 100% opacity outside normalized UV coordinates
     SORT           = "sort",             // used to sort materials by their sort value, lower values are rendered first
+	// per stage
+	COLOR          = "color", 
+    CLAMP          = "clamp",
+    ALPHAZEROCLAMP = "alphazeroclamp",   // prevents the alpha channel of this material stage map from tiling by forcing 100% opacity outside normalized UV coordinates
     ALPHA          = "alpha",
     TILE_H         = "tileH",
     TILE_V         = "tileV",
@@ -1434,7 +1699,7 @@ constdef NodeAttrib : inline String @public
     VERSION    = "version",
     PATH       = "path",
     KIND       = "kind",
-    BLEND_MODE = "mode", // used for blending modes in the material
+    BLEND      = "blend", // used for blending modes for each stage
 
     // shader specific
     LOCATION   = "loc", // shader location for the attribute
@@ -1443,19 +1708,19 @@ constdef NodeAttrib : inline String @public
     ID         = "id", // used for uniforms
 }
 
-// NOTE(HM) This is the data structure IN RAM 
-// that represents a material file, 
-// contains a list of materials and their data
+// NOTE(HM) This is the data structure IN RAM
+// that contains all the material file data. 
+// read and parsed from a .mtr file.
 struct MTRFile @public
 {
-    String path;        // path to the mtr file on disk.
+    Path path;        // path to the mtr file on disk.
     String version;     // version of the mtr file format, should be MTR_VERSION_STRING.
     MaterialList mats;  // list of materials in this file.
 }
 
 fn void MTRFile.init(&self, String path) @inline
 {
-    self.path = path.tcopy();
+    self.path = path.to_tpath()!!.tcopy();
     self.version = MTR_VERSION_STRING;
     self.mats.reserve(MAX_MATERIALS_PER_FILE);
 }
@@ -1481,10 +1746,13 @@ fn void MTRFile.register(&self, HMaterial* mat) @inline
     self.mats.push(mat);
 }
 
-// @Performance This will probably be very slow with many materials...
+
 // TODO(HM) make this faster by using a hash table
-fn HMaterial* MTRFile.findMaterial(&self, String name) @inline
+fn HMaterial* MTRFile.findMaterial(&self, String name) @inline @Performance("MTRFile.findMaterial")
 {
+    //This will probably be very slow with many materials...
+    //@performance($$FUNC);
+
 	foreach(mat: self.mats) {
 		if(mat.name == name) return mat;
 	}
@@ -1547,22 +1815,23 @@ fn bool? MTRFile.parse(&self, XmlDoc* doc)
     // else everything should be fine from here, so keep parsing this material data
     self.version = version.tcopy();
     
-    // now parse each MTR xml node
+    // now parse each MTR xml material node
     foreach (node : doc.rootNode.children)
     {
-        $if $feature(_DEBUG):
-            if(node == null) 
-            {
-                log::error(FILE, "A null node was found in mtr file '%s'!!", self.path);
+        if(isMaterialNode(node, Node.MATERIAL))
+        {
+            HMaterial* mat = self.parse_material(node);
+            if(mat) {
+                self.register(mat);
+            } else {
+                log::error(FILE, "Failed to parse material node '%s' in mtr file '%s'", node.name, self.path);
                 return MTR_MATERIAL_PARSING_ERROR~;
             }
-        $endif
-
-        switch
+        }
+        else
         {
-            // Skip any text nodes assigned to the root node (shouldn't happen now though).
-            // Text nodes are handled further by the material parser, so we don't need to handle them here.
-            case isXmlNode(node, Node.TEXT):
+            if(isMaterialNode(node, Node.TEXT))
+            {
                 log::error(FILE, "Unexpected 'TEXT' node found in body of MTR '%s'! Text = '%s' ", fs::getFileNameWithoutExt(self.path), node.value);
                 // DOC(HM) This was caused by a bug in the xml reader code (not very easy to solve so I worked around it). 
                 // The xml reader I use, treats any node end char '>', as always being followed by a Text "node", 
@@ -1573,23 +1842,20 @@ fn bool? MTRFile.parse(&self, XmlDoc* doc)
                 // This xml reader reads character by character so I didn't saw a easier way to solve this, 
                 //  but to let it create those empty text nodes and just don't register them at 
                 //  the end of the chain in the xml doc file data.
-                return MTR_MATERIAL_PARSING_ERROR~;
-                //
-            case isXmlNode(node, Node.MATERIAL):
-                HMaterial* mat = self.parse_material(node);
-                if(mat) {
-                    self.register(mat);
-                } else {
-                    log::error(FILE, "Failed to parse material node '%s' in mtr file '%s'", node.name, self.path);
-                    return MTR_MATERIAL_PARSING_ERROR~;
-                }
-            default:
+            } 
+            else if(node == null)
+            {
+                log::error(FILE, "A null node was found in mtr file '%s'!!", self.path);
+            }
+            else 
+            {
                 log::warning(FILE, "Unexpected node in mtr file '%s', inside '%s' expected <%s> found <%s>", self.path, Node.ROOT, Node.MATERIAL, node.name);
-                $if $feature(_DEBUG):
-                    return MTR_MATERIAL_PARSING_ERROR~;
-                $else
-                    continue;
-                $endif
+            }
+            $if $feature(_DEBUG):
+                return MTR_MATERIAL_PARSING_ERROR~;
+            $else
+                continue;
+            $endif
         }
     } // end foreach node
     
@@ -1602,7 +1868,8 @@ fn bool? MTRFile.parse(&self, XmlDoc* doc)
 *>
 fn HMaterial* MTRFile.parse_material(&self, XmlNode* in_node)
 {
-    // create the material structure in RAM to save the parsed data into
+    // create the material structure in RAM 
+    // to save the parsed data into
     HMaterial* mat = mem::new(HMaterial);
     mat.init();
     
@@ -1642,15 +1909,15 @@ fn HMaterial* MTRFile.parse_material(&self, XmlNode* in_node)
     mat.name    = mat_name.tcopy();
     mat.mtrfile = self; // set the material file pointer to this mtr file
     
-    // after the name atribbute parse any extras if any exist
+    // after the name atribbute ignore any extras if any exist
+	// but warn the developers
     if(in_node.attributes.len() > 2) {
-        //mat.parse_node_atributes(in_node);
-        log::warning(FILE, "A material should only have a 'name' attribute but more were defined for material '%s' in file '%s'!", mat.name, self.path);
+        log::warning(FILE, " 'MATERIAL' node should only have a 'name' attribute but more were defined, material '%s' in file '%s'!", mat.name, self.path);
     }
 
     /////////////////////////////////////////////
-    // NOTE(HM) this is the main part of the material parsing, where we parse all the child nodes of the material node
-    // and set the material data accordingly
+    // NOTE(HM) this is the main part of the material node parsing, 
+	// where we parse all the child nodes and set the material data accordingly.
     foreach (node : in_node.children)
     {
        // just in case...
@@ -1662,31 +1929,26 @@ fn HMaterial* MTRFile.parse_material(&self, XmlNode* in_node)
        switch(node.name)
        {
             case Node.TEXT:
-                // NOTE(HM) free text nodes are not supported here, so we just skip them
+                // NOTE(HM) free text nodes are not supported here, 
+				// so we just skip them
                 /*
                 <MATERIAL name="somename">
-                    some free text here, that should not be here
-                <maps>
-                    <albedo>
-                        <map>images/icons/stickman.png</map>
-                        <keyword>alpha=0.5</keyword>
-                    </albedo>
-                </maps>
+                    some free text here, including white space, that should not be here
+                <stages>
+                    ....
+                </stages>
                 </MATERIAL>
                 */
                 log::warning(FILE, "Unexpected text node found in material '%s'! Text = '%s' ", mat.name, node.value);
                 continue;
             case Node.COMMENT: 
-                mat.parse_comment(node);
-            case Node.KEYWORD: 
-                mat.parse_keyword(node);
-            /*case Node.STAGE: // TODO(HM) this should be used in the future to use individual stage nodes, but is disabled for now
-                mat.parse_stage(node);
-                continue;*/
-            case Node.MAPS:  // TODO(HM) deprecate this in the future
+                mat::parse_comment(node, mat);
+            case Node.PARAM:
+                mat::parse_material_parm(mat, node);
+            case Node.STAGES:  // TODO(HM) deprecate this in the future
                 /*log::warning(FILE, "Deprecated node '%s' found in material '%s', use '%s' instead.", 
                     node.name, mat.name, Node.STAGE);*/
-                mat.parse_maps(node);
+                mat::parse_stages(node, mat);
                 continue;
             case Node.SHADER:
                 mat.parse_shader(node);
@@ -1706,9 +1968,15 @@ fn HMaterial* MTRFile.parse_material(&self, XmlNode* in_node)
 // #region private
 //////////////////
 <*
-	@Untested
-    Converts a xml normalized <color>1 1 1 1</color> node
-    into a 0 to 255 low dynamic range raylib RLColor.
+	//@Untested
+    Converts a xml defined colors:
+        <param color="1 1 1 1" />  
+        <param color="1,1,1,1" />  
+        <param color="1.0 1.0 1.0 1.0" />  
+        <param color="1.0,1.0,1.0,1.0" />  
+        <param color="255 255 255 255" />
+        <param color="255,255,255,255" />
+    into 0 to 255 low dynamic range raylib RLColor.
     @param [in] _value : "xml color value"
     @require _value.len > 0 && _value.len <= 7 && _value.count(" ") == 3
     @ensure result.isValid()
@@ -1717,12 +1985,13 @@ fn RLColor xmlStrColorToColor(String _value) @public
 {
     RLColor result;
 	String data = _value;
-	bool has_comma, is8Bit;
+	bool has_comma, isInteger;
+
 	has_comma = data.contains(",");
 	if(data.contains_char('.')) {
 		assert(data.count(".") == 4);
 	} else {
-		is8Bit = true; // assuming is 8 bits if no dot is not used...
+		isInteger = true; // assuming is 8 bits if no dot is not used...
 	}
 
 	String[] chars;
@@ -1734,31 +2003,25 @@ fn RLColor xmlStrColorToColor(String _value) @public
 		chars = data.tsplit(" ");
 	}
 
-    /*bool is_all_ones;
-    char* c;
-    int i;
-    do {
-        if(i > 3) break;
-        c = chars[i];
-        if(c == "1") {is_all_ones = true;}
-        else {is_all_ones = false;}
-        i++;
-    } while(c);*/
+    assert(chars.len == 4);
 
-    //bool is_normalized_color = (_value.contains_char('.') || is_all_ones);
-    bool is_normalized_color = !is8Bit;
+    bool is_normalized_color = !isInteger;
 
 	char[4] values;
-    if(is_normalized_color) 
+    if(is_normalized_color) // is float values
     {
-		foreach(i, d : chars) {
+		foreach(i, d : chars) 
+        {
 			float? value = d.to_float();
-			if(catch excuse = value) {
+			if(catch excuse = value)
+            {
 				values[i] = 255;
 				$if $feature(_DEBUG):
-					unreachable(string::tformat("excuse = %s",excuse));
+					unreachable(string::tformat("excuse = %s", excuse));
 				$endif
-			} else {
+			} 
+            else
+            {
 				values[i] = (char)misc::@mapValueRangeToOther(value, 0.0f, 1.0f, 0, 255);
 			}
 		}
@@ -1786,18 +2049,42 @@ fn RLColor xmlStrColorToColor(String _value) @public
         } else {
             result.a = (char)misc::@mapValueRangeToOther(value, 0.0f, 1.0f, 0, 255);
         }*/
-    } else {
-		assert(is8Bit);
-		foreach(i, d : chars) {
+    } 
+    else // is integer values
+    {
+		assert(isInteger);
+        bool is_all_ones = true;
+        foreach(c : chars) {
+            if(c != "1") {
+                is_all_ones = false;
+                break;
+            }
+        }
+
+        if(is_all_ones)
+        {
+            result.r = 255;
+	        result.g = 255;
+	        result.b = 255;
+	        result.a = 255;
+            return result;
+        }
+
+        // else
+		foreach(i, d : chars)
+        {
 			char? value = d.to_char();
-			if(catch excuse = value) {
+			if(catch excuse = value) 
+            {
 				values[i] = 255;
 				$if $feature(_DEBUG):
 					unreachable(string::tformat("excuse = %s",excuse));
 				$endif
-			} else {
+			} 
+            else
+            {
 				// clamp color value
-				values[i] = (value <= 255) ? value : 255;
+				values[i] = (value <= 255) ? value : 255 /*only set if value larger then 255*/;
 			}
 		}
 		/*
@@ -1967,7 +2254,7 @@ fn void? load_mtr_files(String search_path, MaterialDataBase* database = mtrDB) 
 
             // we could open it, so now try to load and save it's data
             MTRFile* mtr_file = mem::new(MTRFile);
-            mtr_file.path = asset_path;
+            mtr_file.path = path::normalize(asset_path).to_tpath()!;
             
             if(catch excuse = mtr_file.load(file))
             {

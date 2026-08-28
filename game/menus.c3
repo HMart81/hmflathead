@@ -71,6 +71,7 @@ import game::main;
 import engine::gui;
 import engine::sys::ui;
 import engine::misc;
+import engine::tools;
 import engine::logging::log;
 import engine::filesystem::fs;
 import thirdparty::raylib5::rl;
@@ -126,7 +127,7 @@ fn void setGUI(UIWindow* menu)
 			game::pContext.mode = game::GameMode.MENU;
 		}
 
-        if(game::pContext.editor.isOpen()) {
+        if(tools::isOpen(&game::pContext.editor)) {
             if(game::game_cursor_visible()) game::hide_game_cursor();
         } else {
            if(game::game_cursor_hidden()) game::show_game_cursor();

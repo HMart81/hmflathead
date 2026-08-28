@@ -99,6 +99,15 @@ fn Type? selectRandomValid(Type[] items, Predicate{Type} is_valid) <Type>
 attrdef  @MyInline @if($feature(_RELEASE)) = @inline;
 attrdef  @MyInline @if($feature(_DEBUG));
 
+// used to mark functions that are performance critical
+const WARN_PERFORMANCE = 1;
+macro @performance($f) @builtin @if($defined(WARN_PERFORMANCE))
+{
+	$echo @sprintf("Performance warning: heavy function: '%s'", $f);
+	return true;
+}
+attrdef @Performance(f) @if($defined(WARN_PERFORMANCE)) = @if(@performance(f)); 
+
 const ON  @builtin = 1;
 const OFF @builtin = 2;
 macro @debug_break($x /*enable*/) @builtin {
@@ -333,7 +342,6 @@ fn String printColor(RLColor color) @inline {
 // NOTE(HM) empty user attributes (Need to start with a uppercase...)
 attrdef @Hardcode; // used to mark hardcoded values for easy search
 attrdef @NoDoc; // used to mark functions that are not documented
-attrdef @Performance; // used to mark functions that are performance critical
 attrdef @Exported; // used mainly to mark external functions from static libraries that are accessible, because got exported when compiled by VS, CC or GCC
 
 // cardinal directions
@@ -789,24 +797,26 @@ macro String[] cut_by_spaces(str) => str.tsplit(" ");
 
 macro void String.remove_spaces(&self) 
 {
-    *self = self.treplace(" ", ""); // remove all spaces
+    //*self = self.treplace(" ", ""); // remove all spaces
     // trim any white space at start and end leave only the middle if any
-    // self = self.trim();
+    *self = self.trim();
     // //
     // // see if we still have spaces else do nothing
-    // if(self.has_spaces()) 
-    // {
-    //     char[] buffer;
-    //     usz count;
-    //     $foreach $i, $ch : self:
-    //         $if $ch != ' ':
-    //             buffer[$i] = $ch;
-    //         $endif
-    //     $endforeach
-        
-    //     buffer[count] = '\0';
-    //     self.copy((String)buffer);
-    // }
+    if(self.has_spaces()) 
+    {
+        char* buffer = mem::malloc((self.len + 1) * char::size);
+		defer mem::free(buffer);
+
+        usz count;
+        foreach(ch : self)
+		{
+        	if(ch != ' ') {
+				buffer[count] = ch;
+				count += 1;
+			}
+		}
+        *self = ((String)buffer[:count]).tcopy();
+    }
 }
 
 fn String String.extractFileBaseByCopy(self) 
@@ -1013,7 +1023,7 @@ macro @safeRoundCast(#value, $Type) => ($Type)libc::rint(#value);
 
 macro @mapValueRangeToOther(#x, $in_min, $in_max, $out_min, $out_max)
 {
-    return ($Typeof(#x))(#x - $in_min) * ($out_max - $out_min) / ($in_max - $in_min) + $out_min;
+    return ($Typeof(#x))(#x - $in_min) * ($Typeof(#x))($out_max - $out_min) / ($in_max - $in_min) + ($Typeof(#x))$out_min;
 }
 
 // macro @mapValueRangeToOtherX(#x, #in_min, #in_max, #out_min, #out_max)

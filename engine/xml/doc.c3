@@ -139,12 +139,25 @@ fn XmlNode XmlDoc.get_node(&self, String name) {
     return {};
 }
 
-fn XmlNode* XmlNode.findNextChild(&self, String name) {
+fn XmlNode* XmlNode.findNextChild(&self, String name) 
+{
     foreach (child : self.children) {
 		if(child.name == name) return child;
 	}
     
     return null;
+}
+
+fn XmlNode* XmlNode.firstChild(&self) @inline 
+{
+	if(self.children.len()) 
+	{
+		return self.children.first()!!;
+	}
+	else
+	{
+    	return null;
+	}
 }
 
 fn bool XmlNode.hasAttributes(&self) => (self.attributes.size) ? true : false;
@@ -175,7 +188,16 @@ fn void XmlDoc.print_as_tree(&doc, OutStream stream) {
 	doc.rootNode.print_as_tree(stream, 0, 0, 0);
 }
 
-fn String XmlNode.getText(&self)
+fn String XmlNode.getText(self)
+{
+	XmlNode* child = self.firstChild();
+	if ( child && child.name == TEXT_NODE_NAME ) {
+		return child.value;
+	}
+	return "";
+}
+
+fn String XmlNode.getTextAlt(&self)
 {
     String result;
     sz child_count = self.children.len();
@@ -187,7 +209,8 @@ fn String XmlNode.getText(&self)
     return result;
 }
 
-fn void XmlNode.print_as_tree(&node, OutStream stream, int depth, usz childIndex, usz childCount) {
+fn void XmlNode.print_as_tree(&node, OutStream stream, int depth, usz childIndex, usz childCount)
+{
 
 	for (int i = 0; i < depth - 1; i++) {
 		io::fprintf(stream, "%c", '│')!!;

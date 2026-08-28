@@ -14,5 +14,5 @@ target:
   working_directory: build
   enabled: 0
   label: Release
-  arguments: "+r_fullscreen 1 +r_mode 23"
+  arguments: "+r_fullscreen 0 +r_mode 15"
 }

@@ -387,7 +387,7 @@ fn bool HMEntity.nequalcoverage(&self, Coverage coverage) @operator(!=)
 *>
 fn Coverage HMEntity.getCoverage(&self) @inline => self.vs.mat.coverage;
 
-fn bool HMEntity.coverageSet(self, Coverage cv) @inline => self.vs.coverageSet(cv);
+fn bool HMEntity.hasCoverage(self, Coverage cv) @inline => self.vs.hasCoverage(cv);
 
 fn void HMEntity.hide(&self) @inline => self.vs.hide();
 
@@ -812,7 +812,7 @@ fn void HMEntity.draw(&self)
 	//
 	// TODO rethink this, I should maybe reuse the sprite draw code
 	// not override it here!!!
-	self.vs.draw();
+	self.vs.onDraw();
 	/*if(self.vs.hasMaterial())
     {
         // TODO(HM) find how to draw a image on a rounded rectangle!?
@@ -828,12 +828,12 @@ fn void HMEntity.draw(&self)
 		Coverage coverage = self.getCoverage();
         switch //(coverage)
         {
-            case self.coverageSet(Coverage.OPAQUE) && !self.coverageSet(Coverage.PERFORATED):
-            case self.coverageSet(Coverage.OPAQUE) && self.coverageSet(Coverage.PERFORATED):
+            case self.hasCoverageCoverage.OPAQUE) && !self.hasCoverageCoverage.PERFORATED):
+            case self.hasCoverageCoverage.OPAQUE) && self.hasCoverageCoverage.PERFORATED):
 				break; // do nothing here
-            case self.coverageSet(Coverage.PERFORATED) && !self.coverageSet(Coverage.TRANSLUCENT):
+            case self.hasCoverageCoverage.PERFORATED) && !self.hasCoverageCoverage.TRANSLUCENT):
                 blending = RLBlendMode.ALPHA;
-            case self.coverageSet(Coverage.TRANSLUCENT) && !self.coverageSet(Coverage.PERFORATED):
+            case self.hasCoverageCoverage.TRANSLUCENT) && !self.hasCoverageCoverage.PERFORATED):
                 blending = RLBlendMode.ALPHA_PREMUL;
                 if(color.a == 255) unreachable("alpha should not be 255 at this point"); // if the color is not transparent
 				/*{
@@ -847,9 +847,9 @@ fn void HMEntity.draw(&self)
 					color.g = (char)math::floor((g * a) * 255);
 					color.b = (char)math::floor((b * a) * 255);
 				}*/
-			case self.coverageSet(Coverage.TRANSLUCENT) && self.coverageSet(Coverage.PERFORATED):
+			case self.hasCoverageCoverage.TRANSLUCENT) && self.hasCoverageCoverage.PERFORATED):
 				blending = RLBlendMode.CUSTOM_SEPARATE; // use the custom blending mode					
-            case self.coverageSet(Coverage.BAD):
+            case self.hasCoverageCoverage.BAD):
                 log::error(FILE, "HMEntity %s has a bad material coverage type.", self.vs.mat.name);
                 unreachable();
         }

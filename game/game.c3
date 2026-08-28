@@ -67,7 +67,7 @@ import game::assets::sprite;
 //import game::assets::part; // particles
 import engine::serialize::svs; // save system
 import game::logic::timer;
-import engine::tools::editor;
+import engine::tools;
 import engine::logging::log;
 import game::actors::ent::plyr;  // player module
 import engine::misc; // misc code
@@ -185,7 +185,7 @@ fn void register_modulo_cvars() @local {
     log::register_cvars();
     ent::register_cvars();
     bounds::register_cvars();
-    editor::register_cvars();
+    tools::register_cvars();
 }
 
 // #endregion Cvars
@@ -311,13 +311,14 @@ alias asstManager    @public = astmng::pAssetsLib;
 
 // #endregion Alias
 
-faultdef WINDOW_INIT_FAILED, 
-         MISSING_REQUIRED_ASSET,
-         INVALID_SCREEN_RESOLUTION,
+faultdef GAME_WINDOW_INIT_FAILED, 
+         GAME_MISSING_REQUIRED_ASSET,
+         GAME_INVALID_SCREEN_RESOLUTION,
          GAME_START_FAILED,
-         INVALID_WORK_DIR,
-         NO_USER_SAVE_FOLDER,
-         NO_DATA_FOLDER;
+         GAME_INVALID_EXE_DIR,
+         GAME_INVALID_WORK_DIR,
+         GAME_NO_USER_SAVE_FOLDER,
+         GAME_NO_DATA_FOLDER;
 
 enum GameMode @public 
 {
@@ -377,9 +378,11 @@ struct Game (SaveSystemInterface) @local
 
     GameMode mode;
 
-    // ingame editor
-    Editor editor;
-    
+    // Game editor
+    Editor editor @if($feature(MICROUI_ENABLE));
+    //bool show_editor @if($feature(MICROUI_ENABLE));
+    //
+
     // defaults
     // required default assets
     RLTexture2D default_texture;
@@ -468,7 +471,7 @@ struct Game (SaveSystemInterface) @local
     
     String app_name;
     
-    String default_app_dir; // usefull if a mod is set
+    String app_exe_dir; // usefull if a mod is set
     String app_default_base_folder; // usefull if a mod is set
     
     String app_root_dir;
@@ -554,7 +557,7 @@ fn void Game.save(&self, SaveFile* file) @dynamic {
     $endif
 
     svs::writeString(file, self.app_name);
-    svs::writeString(file, self.default_app_dir); // usefull if a mod is set
+    svs::writeString(file, self.app_exe_dir); // usefull if a mod is set
     svs::writeString(file, self.app_default_base_folder); // usefull if a mod is set
     svs::writeString(file, self.app_root_dir);
     svs::writeString(file, self.app_base_folder);
@@ -604,7 +607,7 @@ fn void Game.reload(&self, SaveFile* file) @dynamic {
     self.boidManager1.reload(file);
     
     svs::readString(file, &self.app_name);
-    svs::readString(file, &self.default_app_dir); // usefull if a mod is set
+    svs::readString(file, &self.app_exe_dir); // usefull if a mod is set
     svs::readString(file, &self.app_default_base_folder); // usefull if a mod is set
     svs::readString(file, &self.app_root_dir);
     svs::readString(file, &self.app_base_folder);
@@ -846,7 +849,7 @@ fn void? Game.loadDefaultAssets(&self)
     self.default_texture = rl::loadTexture(self.app_base_folder.tconcat("images/default.png").zstr_tcopy());
     if(self.default_texture.isInvalid()) {
         log::fatal(FILE, "Required asset: images//default.png failed to load!");
-        return MISSING_REQUIRED_ASSET~;
+        return GAME_MISSING_REQUIRED_ASSET~;
     }
     
     RLImage white = rl::genImageColor(32, 32, rl::WHITE);
@@ -872,7 +875,7 @@ fn void? Game.loadDefaultAssets(&self)
     );
     if(rl::isShaderValid(self.default_shader) == false) {
         log::fatal(FILE, "Required default shader not found in folder %s!", self.app_base_folder.tconcat("/shaders"));
-        return MISSING_REQUIRED_ASSET~;
+        return GAME_MISSING_REQUIRED_ASSET~;
     }
     
     /*int test_tex_loc = rl::getShaderLocation(self.default_shader, "texture0");
@@ -893,14 +896,14 @@ fn void? Game.loadDefaultAssets(&self)
         //$endif
     } else {
         log::fatal(FILE, "Required default asset: \"sounds/default.wav\" failed to load!");
-        return MISSING_REQUIRED_ASSET~;
+        return GAME_MISSING_REQUIRED_ASSET~;
     }
     
     // load required default music
     self.default_music = rl::loadMusicStream(self.app_base_folder.tconcat("music//default.mp3").zstr_tcopy());
     if(rl::isMusicValid(self.default_music) == false) {
         log::fatal(FILE, "Required default asset: \"music/default.mp3\" failed to load!");
-        return MISSING_REQUIRED_ASSET~;
+        return GAME_MISSING_REQUIRED_ASSET~;
     }
     
     // get the default game font
@@ -993,7 +996,7 @@ $endif
     self.boidManager1.release();
     $endif
 
-    self.editor.deinit();
+    tools::deinit(&self.editor);
 }
 
 // The type of menu gui set right now
@@ -1139,7 +1142,7 @@ fn void draw_game_cursor() @local @MyInline
                 sprite.draw();
             }
         }*/
-		local_game.mouse_cursor.draw();
+		local_game.mouse_cursor.onDraw();
     }
 }
 
@@ -1178,7 +1181,7 @@ fn void gameHandleGeneralControls() @local
         if((local_game.mode != STARTING && local_game.mode != INTRO)) {
             if(editor.getBool() == true) {
 				Editor* ed = &local_game.editor;
-                (ed.isOpen()) ? ed.close() : ed.open();
+                (tools::isOpen(ed)) ? tools::close(ed) : tools::open(ed);
             }
         }
     }
@@ -1372,8 +1375,8 @@ fn void onUpdate() @local
             }
 		$endif
 
-        if(editor.getBool() && local_game.editor.isOpen()) {
-            local_game.editor.update();
+        if(editor.getBool()) {
+            tools::update(&local_game.editor);
         }
         
         // physics engine
@@ -1786,7 +1789,7 @@ fn void onPostGUIDraw(int screenWidth, int screenHeight) @public
         drawWorkInProgressMessage(screenWidth, screenHeight);
 
         if(editor.getBool()) {
-            local_game.editor.draw(screenWidth, screenHeight);
+            tools::draw(&local_game.editor);
         }
         
         if(local_game.mode == EDITOR || local_game.mode == PLAYING) {
@@ -1949,7 +1952,7 @@ fn void onPostBufferSwap() @local @MyInline {
 //////////////////////////////////////////////////////////////////
 // #region ARGS HANDLING ************************
 
-fn void handle_standalone_cmd(String cmd)
+fn void handle_standalone_cmd(String cmd) @deprecated
 {
     // NOTE(HM) changing this cmds values will require a full game restart.
     // special standalone cmds (comands with no values, who's existance is enough to be set)
@@ -1997,7 +2000,7 @@ Also cmdline arguments require a full game restart, this may change,
 if I ever create a developer console...
 NOTE(HM) This above seems to be only true in _DEBUG mode!!!
 */
-fn void handle_cmdline(String[] args)
+fn void handle_cmdline(String[] args) @deprecated
 {
 	@debug_break(OFF);
     $if $feature(_DEBUG):
@@ -2223,48 +2226,39 @@ fn void handle_cmdline_new(String[] args)
         // Argument is a COMMAND
         if(arg.starts_with("+"))
         {
-			cmd_arg = arg.trim("+");
-			arg_is_value = false;
+			if(arg_is_value) arg_is_value = false;
+            if(arg.has_spaces()) arg.remove_spaces();
 
-			// look ahead to see what arg is next
+            // set the next command strip the plus sign...
+			cmd_arg = arg.trim("+");
+
+			// now look ahead to see what kind of arg comes next
+            // so we know what command we are dealing with...
 			int i = (int)arg_index;
             String next = args[i + 1];
 
-            if( next == "=" ) {
-                arg_is_value = true;
-                // cmd has value defined so just
-                continue; // to next argument
-            }
-            
             if(next.starts_with("+")) {
                 cmd_is_standalone = true;
+                // so go on parsing this command...
             }
-            else if( next == " " ) 
-            {
-                if(arg_index < (args.len - 1)) // not last cmd
-                {
-                    do {
-                        next = args[i++];
-                    } while(next == " ");
-                    //
-                    if(next == "+")  {
-                        cmd_is_standalone = true;
-                    } else { // we will look later if is a valid value...
-                        arg_is_value = true;
-                        continue; // to next argument
-                    }
-                }
-                else // last cmd
-                {
-                    cmd_is_standalone = true;
-                }
-            }
-            else { // we will look later if is a valid value...
+            else if( next == "=" ) {
                 arg_is_value = true;
-                continue; // to next argument
+                // if equals is expected to next arg to be a value 
+                // so just skip this argument.
+                // WARMING(HM) makes no testing to see if there's nothing
+                // after the equals!!
+                continue; // to next arg to get the value
+            }
+            else
+            {
+                // we assume next argument is a value, 
+                // we will look later if is a valid one...
+                arg_is_value = true;
+                continue; // to next argument to get the value
             }
         }
 
+        // just in case...
 		if(!arg_is_value && !cmd_is_standalone) continue;
         
 		/////////////////////////////////////////////////
@@ -2321,7 +2315,7 @@ fn void handle_cmdline_new(String[] args)
                         cmd_arg = "";
                         continue; // skip bad cmd
                     }
-                    else if(arg_is_number) 
+                    else //if(arg_is_number) 
                     {
                         bool error_found;
                         foreach(c : arg) { 
@@ -2419,15 +2413,16 @@ fn void handle_cmdline_new(String[] args)
 		// after dealing with a cmd clear it
         cmd_arg = "";
 
-		if(cmd_is_standalone) 
+		if(cmd_is_standalone)
 		{
-			bool last_cmd = arg_index == args.len - 1;
+			cmd_is_standalone = false;
+            // see if last cmd
+			bool last_cmd = (arg_index == (args.len - 1));
 			if(last_cmd) {
 				break; // get out
 			} else {
-				cmd_is_standalone = false;
 				continue; // to the next argument
-			};
+			}
         }
     }
 }
@@ -2478,6 +2473,7 @@ fn void? onStart(String[] args)
 $if $feature(TSODING_FLAG):
     List{ZString} argv;
     defer argv.clear();
+
     for(int i = 0; i < args.len; i++) {
         argv.push((*args)[i].zstr_tcopy());
     }
@@ -2531,20 +2527,16 @@ $endif
     }
 	};
 
-    if(fl_help.getBool()) 
+    if(fl_help.getBool() || cvar::cmd_listCVars.getBool()) 
     {
-		if(!cvar::cmd_listCVars.getBool()) cvar::cmd_listCVars.setBool(true);
+		// TODO(HM) print this cvars also on the developer console when
+        // if and when it exists...
         cvar::printCvars();
         // TODO(HM) print key actions and cmdline args as well
-        //usage(); todo make this function a reality...
+        // usage(); todo make this function a reality...
     }
-    
-// #region Paths/Folders Setup
-    log::tofile("Registering game paths:");
-    log::tofile("---------------------------------------------");
-    String app_exe_path = fs::getApplicationDirectory();
-    
-	///////////////////////////
+
+    ///////////////////////////
     // Set the game name
     local_game.app_name = lic::GAME_NAME;
     if(local_game.app_name.len > 0) 
@@ -2556,103 +2548,129 @@ $endif
     else 
     {
         // take the name from the exe path
-        local_game.app_name = fs::getFileNameWithoutExt(app_exe_path).tconcat("_app");
+        local_game.app_name = fs::getFileNameWithoutExt(fs::getApplicationDirectory()).tconcat("_app");
     }
+    
+// #region Paths/Folders Setup
+    log::tofile("Registering game paths:");
+    log::tofile("---------------------------------------------");
+    String app_exe_path   = fs::getApplicationDirectory();
+    String work_directory = fs::getWorkingDirectory();
     
 	//////////////////////////////////////////////
     // Detect and Setup the app directory folder (aka where the .exe file is)
     // In case a mod is being used, use this to get the original game work dir.
-    local_game.default_app_dir = app_exe_path;
-    if(fs::directoryExists(local_game.default_app_dir)) {
-        log::tofile("\tWorking from: %s", local_game.default_app_dir);
-        // just in case
-		fs::changeDirectory(local_game.default_app_dir)!;
-    	// todo register the directory
-		//fs::addDirectory(local_game.default_app_dir)!;
+    
+    $if $defined(fs::NEW_DIRECTORY_SYSTEM):
+        fs::init_game_directories_defaults();
+		fs::registerDirectory(app_exe_path.to_tpath(), AppDir.EXE);
+	$endif
+
+    local_game.app_exe_dir = app_exe_path;
+    if(fs::directoryExists(local_game.app_exe_dir)) {
+        log::tofile("\tApplication located at: %s", local_game.app_exe_dir);
+    } else {
+        local_game.errorBox.setMessage("Invalid application directory for the game!");
+        local_game.errorBox.toggle();
+        return GAME_INVALID_EXE_DIR~; // will this ever happen?
+    }
+
+    if(fs::directoryExists(work_directory)) {
+        log::tofile("\tWorking from: %s", work_directory);
+
+        $if $defined(fs::NEW_DIRECTORY_SYSTEM):
+		fs::registerDirectory(work_directory.to_tpath(), AppDir.WORK);
+	    $endif
     } else {
         local_game.errorBox.setMessage("Invalid work directory for the game!");
         local_game.errorBox.toggle();
-        return INVALID_WORK_DIR~; // will this ever happen?
+        return GAME_INVALID_WORK_DIR~; // will this ever happen?
     }
 
-    local_game.errorBox.setMessage("Invalid work directory for the game!");
-    local_game.errorBox.toggle();
+    if(app_exe_path.extractFileBase() != work_directory.extractFileBase()) {
+        log::tofile("Game was started from outside the executable folder:");
+        log::tofile("\tab exe path: %s", app_exe_path);
+        log::tofile("\tab work path: %s", work_directory);
+        //
+        log::tofile("\tChanging work directory to: %s", app_exe_path);
+		fs::changeDirectory(app_exe_path)!;
+    }
 
 	/////////////////////////////////////////////////////////////////////////
     // Detect and Setup the base folder, where all required game assets/data will live.
-	String base_folder = local_game.default_app_dir.tconcat(fs::cv_base.getString()).tconcat(platf::PATHSEPERATOR_STR);
+	String base_folder = local_game.app_exe_dir.tconcat(fs::cv_base.getString()).tconcat(platf::PATHSEPERATOR_STR);
     local_game.app_default_base_folder = base_folder.tcopy();
+
+    /////////////////////////////////////////
+    // make sure required base folder exists, if not halt the game
+    if(fs::directoryExists(base_folder)) {
+        log::tofile("\tBase Dir set to: %s", base_folder);
+    } else {
+        log::error(FILE,`Required base folder inside %s not found!\n
+                   A non-empty folder called '%s' (case sensitive) most exist.\n
+                   Please reinstall game.`, local_game.app_exe_dir, fs::cv_base.getString(), local_game.app_name);
+        return GAME_NO_DATA_FOLDER~;
+    }
     
 	//////////////////////////////////////////////
 	// define the generic work dir and base folder
-    local_game.app_root_dir    = local_game.default_app_dir;
+    local_game.app_root_dir    = local_game.app_exe_dir;
     local_game.app_base_folder = local_game.app_default_base_folder;
     
 	///////////////////////////////////////////////
     // NOTE(HM) support for mods.
     // WARNING(HM) This needs way more testing...
-	const MODS_DIR = "mods";
 	String mod_name = fs::cv_mod_name.getString();
     bool using_mod  = mod_name.len > 0;
-    local_game.is_modded_game = using_mod;
     if(using_mod)
     {
+        local_game.is_modded_game = true;
+
 		if(mod_name.len <= 2) {
 			log::warning(FILE, "mod name: \"%s\" seems to be very small are you sure that is correct?", mod_name);
 		}
 
-		bool mod_handling_failed = true; // this gets changed bellow if all is well
-        String mods_dir = local_game.default_app_dir.tconcat(MODS_DIR).tconcat(platf::PATHSEPERATOR_STR);
-		if(fs::directoryExists(mods_dir)) // look inside mods folder for the desired mod folder
+		bool mod_handling_failed;
+        // NOTE(HM) mods live in a folder always named mods next to the executable
+        // and it replace the original game base folder 
+        String mods_dir = local_game.app_exe_dir.tconcat("mods").tconcat(platf::PATHSEPERATOR_STR);
+		if(fs::directoryExists(mods_dir))
         {
+            // look inside mods folder for the desired mod folder
 			String mod_base_folder = mods_dir.tconcat(fs::cv_mod_base.getString()).tconcat(platf::PATHSEPERATOR_STR);
-			if(fs::directoryExists(mod_base_folder)) {
-				// now set the generic game base dir for the mod base dir as well
+			if(fs::directoryExists(mod_base_folder)) 
+            {
+				// set the game base dir for the new mod base dir
 				local_game.app_base_folder = mod_base_folder;
-				mod_handling_failed = false;
-			} else { 
+			} 
+            else
+            { 
 				log::warning(FILE, "base directory for mod \"%s\" is missing cannot run mod!", mod_name);
+				mod_handling_failed = true;
 			}
-		} else{
-            log::warning(FILE, "Trying to run a mod %s but no \"mods\" folder exists inside: %s", mod_name, local_game.default_app_dir);
+		} 
+        else
+        {
+            log::warning(FILE, "Trying to run a mod %s but no \"mods\" folder exists inside: %s", mod_name, local_game.app_exe_dir);
+            mod_handling_failed = true;
         }
 
         if(mod_handling_failed) // make sure we return to valid original game folders
         {
+            log::warning(FILE, "Mod handling failed, using original game base directory: %s", local_game.app_base_folder);
             local_game.app_base_folder = local_game.app_default_base_folder;
-            log::warning(FILE, "Mod handling failed, using default game base directory: %s", local_game.app_base_folder);
+            /////////////////////////////////////////
+            // again make sure required base folder exists, else halt the game
+            if(fs::directoryExists(local_game.app_base_folder)) {
+                log::tofile("\tBase Dir set to: %s", local_game.app_base_folder);
+            }
+            else 
+            {
+                local_game.is_modded_game = false;
+                log::error(FILE, "failed to find original game base directory!");
+                return GAME_NO_DATA_FOLDER~;
+            }
         }
-    }
-    
-	/////////////////////////////////////////
-    // make sure required work dir exists, if not halt the game
-    if(fs::directoryExists(local_game.app_root_dir)) {
-        if(local_game.app_root_dir != local_game.default_app_dir) 
-        {
-            log::tofile("\tWorking now from Dir: %s", local_game.app_root_dir);
-        }
-    } else {
-        return INVALID_WORK_DIR~;
-    }
-    
-	/////////////////////////////////////////
-    // make sure required base folder exists, else halt the game
-    if(fs::directoryExists(local_game.app_base_folder)) {
-        log::tofile("\tBase Dir set to: %s", local_game.app_base_folder);
-    } 
-	else 
-	{
-        if(local_game.is_modded_game) 
-        {
-            log::error(FILE,`Required mod '%s' base folder not found!\n
-                       it should exist inside a non-empty folder called 'mods' (case sensitive) at: %s!`, 
-                       fs::cv_mod_base.getString(), local_game.app_root_dir);
-        } else {
-            log::error(FILE,`Required base folder inside %s not found!\n
-                       A non-empty folder called '%s' (case sensitive) most exist.\n
-                       Please reinstall game.`, local_game.app_root_dir, fs::cv_base.getString(), local_game.app_name);
-        }
-        return NO_DATA_FOLDER~;
     }
     
 	//////////////////////////////////////////////////
@@ -2672,7 +2690,7 @@ $endif
             {
                 log::warning(FILE, "Failed to create save folder path %s with excuse: %s", 
                     local_game.app_save_folder, excuse);
-                return NO_USER_SAVE_FOLDER~;
+                return GAME_NO_USER_SAVE_FOLDER~;
             }
         }
         log::tofile("\tUser Save folder set to: %s", local_game.app_save_folder);
@@ -2907,7 +2925,7 @@ $endif
     if(res_index == -1 || local_game.screen.w <= 0 || local_game.screen.h <= 0) 
     {
         log::error(FILE, "Invalid screen resolution %dx%d, cannot continue!", local_game.screen.w, local_game.screen.h);
-        return INVALID_SCREEN_RESOLUTION~;
+        return GAME_INVALID_SCREEN_RESOLUTION~;
     }
     
     log::tofile( "Video mode set -> %s", SCREEN_RES[res_index].str);
@@ -3022,7 +3040,7 @@ $endif
         if(rl::isWindowReady() == false) 
         {
             log::fatal(FILE, "Failed to init rl window and OpenGL context!");
-            return WINDOW_INIT_FAILED~;
+            return GAME_WINDOW_INIT_FAILED~;
         } else {
             log::tofile("Window initialized successfully.");
 			log::tofile("---------------------------------------------\n");
@@ -3499,7 +3517,7 @@ $endif
     log::tofile("Initializing game editor:");
     log::tofile("---------------------------------------------");
     // init the game editor defaults
-    local_game.editor.initDefaults();
+    tools::initDefaults(&local_game.editor);
 
     // // immediate UI @testing
     local_game.show_test_tool_frame = true;
@@ -3783,6 +3801,9 @@ $endif
         rl::exportImage(img, local_game.app_base_folder.tconcat("images/").tconcat("mu_atlas.png").zstr_tcopy());
     }*/
     //
+    $if $defined(fs::NEW_DIRECTORY_SYSTEM):
+    fs::clearGameDirectories();
+    $endif
 
     local_game.unload();
     //rl::memFree(memory_pool);
@@ -4170,7 +4191,7 @@ bool show_settings_window @public = true;
   Shown before game start for user to configure some options
   @param [&in] ctx : "The current MicroUI context."
  *> 
-fn void settings_window(MU_Context* ctx) //@MyInline
+fn void settings_window(MU_Context* ctx)
 {
     // TODO(HM) FINISH THIS LATER!!! 
     // - show a image/logo at the top of the window

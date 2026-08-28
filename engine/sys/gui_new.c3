@@ -25,7 +25,7 @@
 # Hilario Martins, Rua de Sanguinhedo 1010 4850-545 Vieira Do Minho Portugal.
 # 
 *********************************************************************************************************************************************/
-
+/*
 module engine::gui;
 
 /*
@@ -60,6 +60,7 @@ import engine::sys::cvar;
 import thirdparty::raylib5::rl;
 import thirdparty::raygui5::rgui;
 import engine::sys::render2d::r2d; // 2D rendering
+import engine::gui::window::uiwin;
 // end_region
 
 // region cvars
@@ -77,8 +78,8 @@ fn void register_cvars() @public
 
 // #region constants
 //const bool PANEL_PROFILE = true;
-const bool DEBUG_PANELS   = true;
-const int  MIN_PANEL_SIZE = 32;
+const bool DEBUG_GUIRECT   = true;
+const int  MIN_GUIRECT_SIZE = 32;
 
 // mostly for the panel texture inversion ability
 const uint HORIZONTAL_DIR = 1;
@@ -182,7 +183,7 @@ macro scale(Type1 ojb, Vec2f dim) <Type1, Type2>
 {
 	switch
 	{
-		case Type1 == Panel:
+		case Type1 == GUIRect:
 		case Type1 == Widget:
 		case Type1 == WidgetContainer:
 			if(Type2 == float) {
@@ -194,109 +195,80 @@ macro scale(Type1 ojb, Vec2f dim) <Type1, Type2>
 	}
 }
 
-constdef PanelShape : inline int
-{
-    BOX = 0,
-    ROUNDED_BOX // with rounded corners (unused right now)
-}
 
-struct PanelFlags
-{
-    bool isHidden;
-    bool isActive;
-    // right now in focus and mouse over, mean the same thing 
-    // but in the future we could have a system where they are seperate, 
-    // you have a widget marked in focus but the mouse pointer not ontop of it.  
-    bool inFocus;
-    bool isCaptured; // used to know if the panel is capturing mouse input
-    bool isDestroyed; // used to mark panels that are being destroyed
-    bool showBounds; // used to debug the panel bounds
-}
 
 ///////////////////////////////////////////////////////////////////////////
-/*                                PANEL
-
+/*                                GUIRect
     NOTE(HM) simple data structure representing a square or image, 
     used for background images or single color rectangles.
-	I wanted to use Rectangle as name but it was already taken by raylib...
 */
 ///////////////////////////////////////////////////////////////////////////
 
-struct Panel (SaveSystemInterface, Printable)
+struct GUIRect (SaveSystemInterface, Printable)
 {
-    int             id;  // used to uniquily identify each panel
-    String          name;
-    PanelFlags      flags;
-    PanelShape      shape; // default is BOX
-    RLRectangle     rect; // x, y, width, height
+	inline RLRectangle super; // x, y, width, height
+
 	List{GuiAnchor} anchor;
-    RLColor 		color; // current color, material color overrides this color
-    RLColor         color_selected; // for gui editor functionality
-    HMaterial*      mat;
+	RLColor color; // current color
+	// if set material color overrides the default color above
+    HMaterial* mat;
 }
 
-fn void Panel.save(&self, SaveFile* file) @dynamic 
+fn void GUIRect.save(&self, SaveFile* file) @dynamic 
 {
-    svs::writeInt(file, self.id);
-    svs::writeString(file, self.name);
-	svs::write(file, (void*)&self.flags, PanelFlags::size);
-    svs::writeInt(file, self.shape);
-    svs::writeRect{RLRectangle}(file, self.rect);
-    svs::writeColor(file, self.color);
-    svs::writeColor(file, self.color_selected);
+	svs::writeRect{RLRectangle}(file, self.super);
+	foreach(anchor : self.anchor) svs::writeVector{GuiAnchor}(file, anchor);
+	svs::writeColor(file, self.color);
     // cannot save pointers so just save the material name
     svs::writeString(file, (self.mat != null) ? self.mat.name : "");
 }
 
-fn void Panel.reload(&self, SaveFile* file) @dynamic 
+fn void GUIRect.reload(&self, SaveFile* file) @dynamic 
 {
-    int value;
+	RLRectangle rect;
 
-    svs::readInt(file, &value);
-	self.id = value;
-	svs::readString(file, &self.name);
-	svs::read(file, (void*)&self.flags, PanelFlags::size);
-    svs::readInt(file, &value);
-    self.shape = (PanelShape)value;
-    svs::readRect{RLRectangle}(file, &self.rect);
-    svs::readColor(file, &self.color);
-    svs::readColor(file, &self.color_selected);
+	svs::readRect{RLRectangle}(file, &rect);
+	self.super = rect;
+	foreach(&anchor : self.anchor) svs::readVector{GuiAnchor}(file, anchor);
+	svs::readColor(file, &self.color);
     String mat_name;
     svs::readString(file, &mat_name);
-    if(mat_name != "") self.mat = mtrmng::getMaterial(mat_name);
+    self.mat = mtrmng::getMaterial(mat_name);
 }
 
-fn sz? Panel.to_format(&self, Formatter* f) @dynamic 
+fn sz? GUIRect.to_format(&self, Formatter* f) @dynamic 
 {
-    return f.printf(`Panel { 
-    "id" = %s,\n"name" = %s,\n"shape" = %s,\n"rect" = { x: %s, y: %s, width: %s, height: %s  },\n"color" = { r: %s, g: %s, b: %s, a: %s  },\n"material" = %s 
-    }`, self.id, self.name, self.shape, self.rect.x, self.rect.y, self.rect.width, self.rect.height, self.color.r, self.color.g, self.color.b, self.color.a, (self.mat != null) ? self.mat.name : "null");
+    return f.printf(`GUIRect {
+	"super" = { x: %s, y: %s, width: %s, height: %s  },
+	"color" = { r: %s, g: %s, b: %s, a: %s  },
+	"material" = %s 
+    }`, self.x, self.y, self.width, self.height, self.color.r, self.color.g, self.color.b, self.color.a, (self.mat != null) ? self.mat.name : "null");
 }
 
-fn void Panel.initRec(&self, RLRectangle rect, RLColor color) @inline
+fn RLRectangle GUIRect.toRLRect(&self) => self.super;
+
+fn void GUIRect.initRec(&self, RLRectangle rect, RLColor color) @inline
 {
-    self.rect  = rect;
+    self.super = rect;
     self.color = color;
-	initAnchors{Panel}(self);
+	initAnchors{GUIRect}(self);
 }
 
-fn void Panel.initV(&self, Vec2f pos, Vec2f size, RLColor color) @inline
+fn void GUIRect.initV(&self, Vec2f pos, Vec2f size, RLColor color) @inline
 {
     self.initRec({pos.x, pos.y, size.x, size.y}, color);
 }
 
-fn void Panel.init(&self) @inline
+fn void GUIRect.initDefault(&self) @inline
 {
-    self.initRec({0, 0, MIN_PANEL_SIZE, MIN_PANEL_SIZE}, rl::WHITE);
+    self.initRec({0, 0, MIN_GUIRECT_SIZE, MIN_GUIRECT_SIZE}, rl::WHITE);
 }
 
-fn void Panel.deinit(&self) @inline 
-{ 
+fn void GUIRect.deinit(&self) @inline 
+{
     if(self.mat) self.mat = null;
     self.anchor.clear();
 }
-
-fn void Panel.setShape(&self, PanelShape shape) @inline => self.shape = shape;
 
 <*
     Todo(HM) Make a way to select or view pannels with very low sizes or huge sizes
@@ -305,7 +277,7 @@ fn void Panel.setShape(&self, PanelShape shape) @inline => self.shape = shape;
     @param h_scaler : "value to scale the panel verticaly, from 0.05f to INF"
     @require w_scaler >= 0.05f && h_scaler >= 0.05f
 *>
-fn void Panel.scale(&self, float w_scaler, float h_scaler) @inline 
+fn void GUIRect.scale(&self, float w_scaler, float h_scaler) @inline 
 {
     if( w_scaler >= 0.05f && w_scaler < 0.06f &&
         h_scaler >= 0.05f && h_scaler < 0.06f )
@@ -313,21 +285,21 @@ fn void Panel.scale(&self, float w_scaler, float h_scaler) @inline
         log::warning(FILE, "scaled a panel to almost invisible size! Was that desired?");
     }
 
-    self.rect.width  *= w_scaler;
-    self.rect.height *= h_scaler;
+    self.width  *= w_scaler;
+    self.height *= h_scaler;
 }
 
 <*
     @param scale : "vector to scale the panel with, from 0.05f to INF"
     @require scale.x >= 0.05f && scale.y >= 0.05f
 *>
-fn void Panel.scaleV(&self, Vec2f scale) @inline => self.scale(scale.x, scale.y);
+fn void GUIRect.scaleV(&self, Vec2f scale) @inline => self.scale(scale.x, scale.y);
 
 <*
     @param amount : "value to scale equaly both coordinates with, from 0.05f to INF"
     @require amount >= 0.05f
 *>
-fn void Panel.scale_equaly(&self, float amount) @inline => self.scale(amount, amount);
+fn void GUIRect.scale_equaly(&self, float amount) @inline => self.scale(amount, amount);
 
 <*
     @param w_scaler : "value to scale x coordinate with"
@@ -335,7 +307,7 @@ fn void Panel.scale_equaly(&self, float amount) @inline => self.scale(amount, am
     @require w_scaler >= 0.05f && w_scaler <= 1.0f
     @require h_scaler >= 0.05f && h_scaler <= 1.0f
 *>
-fn void Panel.scaleNormalized(&self, float w_scaler, float h_scaler) @inline 
+fn void GUIRect.scaleNormalized(&self, float w_scaler, float h_scaler) @inline 
 {
     float x, y;
     x = math::clamp(w_scaler, 0.05f, 1.0f);
@@ -348,96 +320,96 @@ fn void Panel.scaleNormalized(&self, float w_scaler, float h_scaler) @inline
     else if(h_scaler > 1.0f) { h_scaler = 1.0f; }
     */
 
-    self.rect.width  *= x;
-    self.rect.height *= y;
+    self.width  *= x;
+    self.height *= y;
 }
 
 <*
-    Sets the size of the Panel, 
+    Sets the size of the GUIRect, 
     units is in pixels.
 
 	@param w : "size for x coordinate"
     @param h : "size for y coordinate"
 *>
-fn void Panel.setSize(&self, float w, float h) @inline 
+fn void GUIRect.setSize(&self, float w, float h) @inline 
 {
-	if(w < MIN_PANEL_SIZE || h < MIN_PANEL_SIZE) {
-		log::warning(FILE, "One or both size values of panel '%s', were set to bellow the minimum.", self.name);
+	if(w < MIN_GUIRECT_SIZE || h < MIN_GUIRECT_SIZE) {
+		log::warning(FILE, "One or both size values of GUIRect, were set to bellow the minimum.");
 	}
-    self.rect.width  = w;
-    self.rect.height = h;
-	updateAnchors{Panel}(self, {w, h});
+    self.width  = w;
+    self.height = h;
+	updateAnchors{GUIRect}(self, {w, h});
 }
 
 <*
-    Sets the size of the Panel, vector units is in pixels.
+    Sets the size of the GUIRect, vector units is in pixels.
 *>
-fn void Panel.setSizeV(&self, Vec2f scale) @inline => self.setSize(scale.x, scale.y);
+fn void GUIRect.setSizeV(&self, Vec2f scale) @inline => self.setSize(scale.x, scale.y);
 
 <*
-    gets the size of the Panel, units is in pixels.
+    gets the size of the GUIRect, units is in pixels.
 *>
-fn Vec2f Panel.getSize(&self) @inline => { self.rect.width, self.rect.height };
+fn Vec2f GUIRect.getSize(&self) @inline => { self.width, self.height };
 
 <*
-    gets the width of the Panel, units is in pixels.
+    gets the width of the GUIRect, units is in pixels.
 *>
-fn float Panel.getWidth(&self) @inline => self.rect.width;
+fn float GUIRect.getWidth(&self) @inline => self.width;
 
 <*
-    gets the height of the Panel, units is in pixels.
+    gets the height of the GUIRect, units is in pixels.
 *>
-fn float Panel.getHeight(&self) @inline => self.rect.height;
+fn float GUIRect.getHeight(&self) @inline => self.height;
 
 <*
-    replaces the position of the Panel, units is in pixels.
+    replaces the position of the GUIRect, units is in pixels.
 *>
-fn void Panel.setPosition(&self, float x, float y) @inline {
-    self.rect.x = x;
-    self.rect.y = y;
+fn void GUIRect.setPosition(&self, float x, float y) @inline {
+    self.x = x;
+    self.y = y;
 }
 
 <*
-    replaces position of the Panel, vector units is in pixels.
+    replaces position of the GUIRect, vector units is in pixels.
 *>
-fn void Panel.setPositionV(&self, Vec2f pos) @inline => self.setPosition(pos.x, pos.y);
+fn void GUIRect.setPositionV(&self, Vec2f pos) @inline => self.setPosition(pos.x, pos.y);
 
 <*
-    adds to existing position of the Panel, units is in pixels.
+    adds to existing position of the GUIRect, units is in pixels.
 *>
-fn void Panel.addToPosition(&self, float x, float y) @inline {
-    self.rect.x += x;
-    self.rect.y += y;
+fn void GUIRect.addToPosition(&self, float x, float y) @inline {
+    self.x += x;
+    self.y += y;
 }
 
 <*
-    adds to existing position of the Panel, vector units is in pixels.
+    adds to existing position of the GUIRect, vector units is in pixels.
 *>
-fn void Panel.addToPositionV(&self, Vec2f pos) @inline => self.addToPosition(pos.x, pos.y);
+fn void GUIRect.addToPositionV(&self, Vec2f pos) @inline => self.addToPosition(pos.x, pos.y);
 
 <*
-    gets current position of the Panel, vector units is in pixels.
+    gets current position of the GUIRect, vector units is in pixels.
 *>
-fn Vec2f Panel.getPosition(&self) @inline => { self.rect.x, self.rect.y };
+fn Vec2f GUIRect.getPosition(&self) @inline => { self.x, self.y };
 
 <*
-    gets current X position of the Panel, units is in pixels.
+    gets current X position of the GUIRect, units is in pixels.
 *>
-fn float Panel.getX(&self) => self.rect.x;
+fn float GUIRect.getX(&self) => self.x;
 
 <*
-    gets current Y position of the Panel, units is in pixels.
+    gets current Y position of the GUIRect, units is in pixels.
 *>
-fn float Panel.getY(&self) => self.rect.y;
+fn float GUIRect.getY(&self) => self.y;
 
-fn void Panel.setMaterial(&self, String material_name) @inline 
+fn void GUIRect.setMaterial(&self, String material_name) @inline 
 {
     self.mat = mtrmng::getMaterial(material_name);
 }
 
-fn bool Panel.hasMaterial(&self) @inline => self.mat != null;
+fn bool GUIRect.hasMaterial(&self) @inline => self.mat != null;
 
-fn void Panel.fadeIn(&self, float factor) 
+fn void GUIRect.fadeIn(&self, float factor) 
 {
     /*if(self.hasMaterial())
     {
@@ -448,105 +420,41 @@ fn void Panel.fadeIn(&self, float factor)
     //}
 }
 
-fn void Panel.fadeOut(&self, float factor) 
+fn void GUIRect.fadeOut(&self, float factor) 
 {
     //self.color = rl::colorLerp(self.color, misc::INVISIBLE_COLOR, factor);
     //self.color.a = math::lerp(self.color.a, 0, factor);
     self.color.a = (char)misc::move_toward(self.color.a, 0, factor);
 }
 
-fn bool Panel.isValid(&self) @inline 
+fn bool GUIRect.isValid(&self) @inline 
 {
-    if(self.rect.width  >= MIN_PANEL_SIZE && 
-       self.rect.height >= MIN_PANEL_SIZE ) return true;
+    if(self.width  >= MIN_GUIRECT_SIZE && 
+       self.height >= MIN_GUIRECT_SIZE ) return true;
        
     return false;
 }
 
-fn void Panel.hide(&self) @inline 
-{
-    if(self.hidden()) return;
-    self.flags.isHidden = true;
-    self.deactivate();
-}
-
-fn void Panel.show(&self) @inline {
-    if(!self.hidden()) return;
-    self.flags.isHidden = false;
-    self.activate();
-}
-
-fn void Panel.debugBounds(&self, bool choice) @inline {
-    self.flags.showBounds = choice;
-}
-
-fn bool Panel.displayBounds(&self) @inline {
-    return self.flags.showBounds;
-}
-
-fn bool Panel.hidden(&self)  @inline => self.flags.isHidden;
-
-fn void Panel.activate(&self) @inline {
-    if(self.flags.isActive) return;
-    self.flags.isActive = true;
-}
-
-fn void Panel.deactivate(&self) @inline {
-    if(!self.flags.isActive) return;
-    self.flags.isActive = false;
-}
-
-fn bool Panel.active(&self)  @inline => self.flags.isActive;
-
-fn bool Panel.active_visible_infocus(&self) @inline => (self.active() && !self.hidden() && self.asFocus());
-
-//    WARNING(HM)
-//    If the 2D camera view is changed in any way besides moving in x and y
-//    like if the camera is zoomed or the camera is rotated, this will break.
-//    If so it will require conversion from world space coordinates to camera space.
-fn bool Panel.isMouseOver(&self)
-{
-    if (!self.active() || self.hidden() || guieditor::as_focus() || game::pContext.showMessageBox) return false;
-
-    // gets windows mouse position...
-    Vec2f mouseWorldPos = rl::getMousePosition();
-
-    Vec2f mouse_size = game::getGameCursorSize() * 0.5f; // half size of the cursor
-    RLRectangle mouseRect = misc::@recFromVecs(mouseWorldPos, mouse_size);
-
-    if (rl::checkCollisionRecs(mouseRect, self.rect)) return true;
-
-    return false;
-}
-
-fn bool Panel.asFocus(&self)  @inline => self.flags.inFocus;
-
-fn void Panel.update(&self) 
+fn void GUIRect.update(&self) 
 {
     if((guieditor::enabled() && guieditor::as_focus()) || game::pContext.show_microui_test_frames)
     {
        return; // do not update panels when in editor mode
     }
 
-    if(!self.active() || self.hidden()) return;
-
-    self.flags.inFocus = self.isMouseOver();
+	// todo
 }
 
-fn void Panel.draw(&self, bool selected = false)
+fn void GUIRect.draw(&self)
 {
-    if(self.hidden()) return;
-
+    RLColor color = self.color;
     if(self.hasMaterial())
     {
-        // TODO(HM) find how to draw a image on a rounded rectangle!?
-
         RLTexture2D* texture = self.mat.getTexture(MTexture.DIFFUSE);
         Vec2f texture_size = { texture.width, texture.height };
         RLRectangle source = { 0, 0, texture_size.x, texture_size.y };
-        RLRectangle* dist = &self.rect;
+        RLRectangle* dist = &&self.toRLRect();
 
-        RLColor color = (selected) ? self.color_selected : self.color;
 
         RLBlendMode blending = (RLBlendMode)-1;
         Coverage coverage = self.mat.coverage;
@@ -575,7 +483,7 @@ fn void Panel.draw(&self, bool selected = false)
             /*case (bool)(self.mat.coverage & (Coverage.PERFORATED | Coverage.TRANSLUCENT)):
                 blending = RLBlendMode.CUSTOM; // custom blending mode*/
             case (bool)(coverage & Coverage.BAD):
-                log::error(FILE, "Panel with material %s has a bad material coverage type.", self.mat.name);
+                log::error(FILE, "GUIRect with material %s has a bad material coverage type.", self.mat.name);
                 unreachable();
         }
 
@@ -613,104 +521,39 @@ fn void Panel.draw(&self, bool selected = false)
         } else {
             rl::drawTexturePro(*texture, source, *dist, {0, 0}, 0.0f, color);
         }
-    } 
+    }
     else
     {
-        switch(self.shape)
-        {
-            case BOX:         r2d::@drawRect(self.rect, (selected) ? self.color_selected : self.color);
-            case ROUNDED_BOX: r2d::drawRectangleRounded(self.rect, 0.65f, 6, (selected) ? self.color_selected : self.color);
-            default: unreachable();
-        }
-    }
-
-    if(self.displayBounds()) {
-        r2d::drawRectangleLinesEx(self.rect, 1.0f, rl::RED);
+        r2d::@drawRect(self.toRLRect(), color);
     }
 }
 
-//////////////// ******** GUI FRAME && WIDGET'S STRUCTS ******** ////////////////////////
 
-/*
-alias WidgetList = List{any};
-alias MouseOverCallback = fn bool(Widget*);
-// A frame is a top-level panel that contains widgets
-
-struct Frame (SaveSystemInterface)
-{
-    // extends Panel (super/base class)
-    inline Panel super;
-    String name;
-    WidgetList widgets;
-}
-
-fn void Frame.save(&self, SaveFile* file) @dynamic {
-    self.super.save(file);
-    @todo();
-}
-
-fn void Frame.reload(&self, SaveFile* file) @dynamic {
-    self.super.reload(file);
-    @todo();
-}
-
-fn void Frame.init(&self, String name) @inline {
-    assert(rl::isWindowReady() == true);
-
-    // init panel stuff (inits default rect and color)
-    self.super.init();
-
-    // init the frame menbers
-    self.super.name = string::tformat("Frame_%s", name);
-    self.show();
-    
-    // todo
-   // Frame* this = self;
-    //local_manager.register(this);
-}
-
-fn void Frame.deinit(&self) @inline 
-{
-    self.super.deinit();
-    if (self.widgets.len()) 
-    {
-        foreach(widget: self.widgets) 
-        {
-            switch (widget.type) 
-            {
-                case WidgetButton:
-                    ((WidgetButton*)widget.ptr).deinit();
-                case WidgetText:
-                    ((WidgetText*)widget.ptr).deinit();
-                case WidgetContainer:
-                    ((WidgetContainer*)widget.ptr).deinit();
-                default:
-                   ((Widget*)widget.ptr).deinit(); 
-            }
-        }
-    }
-}
-
-fn void Frame.update(&self) 
-{
-    self.super.update();
-}
-
-fn void Frame.draw(&self)
-{
-    self.super.draw();
-}
-
-macro void Frame.@create(&self, $name; @body(Frame* frame))
-{
-    self.init($name);
-    body(frame);
-}
-*/
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////// Widgets ////////////////////////////////////////////////////
 
 // NOTE(HM) Widget is a general data structure representing anything inside a gui, like buttons and such.
+
+constdef GUIColorsID : inline int
+{
+	DEFAULT = 0,
+	SELECTED,
+	OVER,
+	DOWN,
+	GRABBED,
+    CHECKED
+}
+
+const COLORS_COUNT @local = GUIColorsID::values.len;
+
+const RLColor[COLORS_COUNT] COLORS @local = {
+	rl::WHITE,  // DEFAULT
+    rl::BLUE,   // SELECTED
+    rl::RED,    // OVER
+    rl::GREEN,  // DOWN
+    rl::YELLOW,  // GRABBED,
+    rl::GREEN  // CHECKED
+};
 
 const KIND_NONE      = 0;
 const KIND_WIDGET    = 1;
@@ -746,7 +589,7 @@ interface WidgetInterface
     fn void releaseParentUIWindow() @optional;
     fn void connect(WidgetCallback) @optional;
 
-    fn void setColor(rl::RLColor);
+    fn void setColor(GUIColorsID);
 //
     /*fn bool onMouseOver(int x, int y) @optional;
     fn bool onMouseStopOver() @optional;
@@ -759,14 +602,31 @@ interface WidgetInterface
 	fn void onFocus(bool focus) @optional;*/
 }
 
-struct Widget (WidgetInterface) 
+struct GUIWidgetFlags
 {
-    // extends Panel (super/base class)
-    inline Panel super;
-    
+    bool isHidden;
+    bool isActive;
+    // right now in focus and mouse over, mean the same thing 
+    // but in the future we could have a system where they are seperate, 
+    // you have a widget marked in focus but the mouse pointer not ontop of it.  
+    bool inFocus;
+    bool isCaptured; // used to know if the widget is capturing mouse input
+    bool isDestroyed; // used to mark panels that are being destroyed
+    bool showBounds; // used to debug the panel bounds
+    bool selected;  // for the gui editor
+}
+
+struct Widget (WidgetInterface, SaveSystemInterface) 
+{
+    // extends GUIRect (super/base class)
+    inline GUIRect super;
+
+    int id;  // used to uniquily identify each widget
+	String name;
+	GUIWidgetFlags flags;
+
     //int layer;
     int kind;
-    bool selected;  // for the gui editor
 
     UIWindow* parent_window;
     // For binding. One single binding for now, 
@@ -788,9 +648,70 @@ struct Widget (WidgetInterface)
     WidgetCallback onLoad;   // called when the widget is loaded
 }
 
+fn void Widget.save(&self, SaveFile* file) @dynamic 
+{
+	self.super.save();
+    svs::writeInt(file, self.id);
+    svs::writeString(file, self.name);
+	svs::write(file, (void*)&self.flags, GUIWidgetFlags::size);
+    svs::writeInt(file, self.kind);
+    svs::writeBool(file, self.selected());
+    // cannot save pointers so just save the name
+    svs::writeString(file, (self.hasParentUIWindow()) ? self.parent_window.name : "");
+    svs::writeString(file, (self.other != null) ? self.other.name : "");
+    svs::writeString(file, (self.next != null) ? self.next.name : "");
+
+	// cannot save the buttons function pointers 
+	// they are instead redefined at game start at gui recreation time
+}
+
+fn void Widget.reload(&self, SaveFile* file) @dynamic 
+{
+	self.super.reload();
+   	svs::readInt(file, &self.id);
+	svs::readString(file, &self.name);
+	svs::read(file, (void*)&self.flags, GUIWidgetFlags::size);
+    svs::readInt(file, &self.kind);
+    svs::readBool(file, &&self.selected());
+	// set parenting
+    String name;
+    svs::readString(file, &name);
+	UIWindow* parent = uiwin::gpManager.get(name);
+	if(parent) {
+		self.setParentUIWindow(parent);
+	} else {
+		log::warning(FILE, "unable to find parent window '%s' for widget '%s", name, self.name);
+	}
+	Widget* other;
+	svs::readString(file, &name);
+	if(name.len)
+	{
+		other = uiwin::gpManager.findWidget(name);
+		if(other) {
+			self.bindTo(other);
+		} else {
+			log::warning(FILE, "unable to find other widget '%s' to bind to widget '%s", name, self.name);
+		}
+	}
+
+	svs::readString(file, &name);
+	if(name.len)
+	{
+		other = uiwin::gpManager.findWidget(name);
+		if(other) {
+			self.link(other);
+		} else {
+			log::warning(FILE, "unable to find next widget '%s' to link to widget '%s", name, self.name);
+		}
+	}
+
+	// widget button interactions are not reloaded here
+	// they are redefined at game start at gui recreation time 
+}
+
 fn void Widget.init(&self, int kind = KIND_WIDGET) @dynamic 
 {
-    self.super.init();
+    self.super.initDefault();
     self.kind = kind;
 }
 
@@ -808,13 +729,74 @@ fn void Widget.editor_interactions(&self)
     // and they should all be set to not active, as that is part of
     // the gui logic and the editor doesn't care what widget is active
     // or not, no matter their state all will be selectable.
-    if (self.asFocus() && self.isMouseOver())
+    if (self.hasFocus() && isMouseOver(self))
     {
         if (input::Action* action = input::getAction("editor_select")) {
             if(action.fnIsTriggered()) self.toggleSelection();
         }
     }
 }
+
+fn void Widget.hide(&self) @inline 
+{
+    if(self.hidden()) return;
+    self.flags.isHidden = true;
+    self.deactivate();
+}
+
+fn void Widget.show(&self) @inline {
+    if(!self.hidden()) return;
+    self.flags.isHidden = false;
+    self.activate();
+}
+
+fn void Widget.debugBounds(&self, bool choice) @inline {
+    self.flags.showBounds = choice;
+}
+
+fn bool Widget.displayBounds(&self) @inline {
+    return self.flags.showBounds;
+}
+
+fn bool Widget.hidden(&self)  @inline => self.flags.isHidden;
+
+fn void Widget.activate(&self) @inline {
+    if(self.flags.isActive) return;
+    self.flags.isActive = true;
+}
+
+fn void Widget.deactivate(&self) @inline {
+    if(!self.flags.isActive) return;
+    self.flags.isActive = false;
+}
+
+fn bool Widget.active(&self)  @inline => self.flags.isActive;
+
+fn bool Widget.active_visible_infocus(&self) @inline => (self.active() && !self.hidden() && self.hasFocus());
+
+//    WARNING(HM)
+//    If the 2D camera view is changed in any way besides moving in x and y
+//    like if the camera is zoomed or the camera is rotated, this will break.
+//    If so it will require conversion from world space coordinates to camera space.
+<*
+	@param [&in] widget : "is mouse of this widget"
+*>
+fn bool isMouseOver(Widget* widget) @local
+{
+    if (!widget.active() || widget.hidden() || guieditor::as_focus() || game::pContext.showMessageBox) return false;
+
+    // gets windows mouse position...
+    Vec2f mouseWorldPos = rl::getMousePosition();
+
+    Vec2f mouse_size = game::getGameCursorSize() * 0.5f; // half size of the cursor
+    RLRectangle mouseRect = misc::@recFromVecs(mouseWorldPos, mouse_size);
+    RLRectangle* rect = &widget.super.super;
+    if (rl::checkCollisionRecs(mouseRect, *rect)) return true;
+
+    return false;
+}
+
+fn bool Widget.hasFocus(&self)  @inline => self.flags.inFocus;
 
 fn void Widget.update(&self) @dynamic 
 {
@@ -831,7 +813,19 @@ fn void Widget.update(&self) @dynamic
         self.setPositionV(new_offset);
     }
 
-    self.super.update(); // mouse over is done in super update
+    if(!self.active() || self.hidden()) return;
+
+    if(self.selected())
+    {
+        if(self.color != COLORS[GUIColorsID.SELECTED]) self.setColor(SELECTED);
+    }
+
+    self.flags.inFocus = isMouseOver(self);
+
+    if(self.hasFocus())
+    {
+        if(self.color != COLORS[GUIColorsID.OVER]) self.setColor(OVER);
+    }
 
     if((guieditor::enabled() && guieditor::as_focus()) || game::pContext.show_microui_test_frames) { return; }
     else if (!self.active() || self.hidden()) { return; }
@@ -875,7 +869,7 @@ fn RLColor selected_color_anim(Widget* wgt) @inline @local
 *>
 fn void Widget.draw_origin_coordinates(Widget* wgt) @inline 
 {
-    if(!wgt.selected) return;
+    if(!wgt.selected()) return;
     
     int scr_w, scr_h;
     float lineThick  = 1.0f;
@@ -919,9 +913,8 @@ fn void Widget.draw(&self) @dynamic
 {
     if(self.hidden()) return;
     
-    if(self.selected)
+    if(self.selected())
     {
-        self.setSelectedColor(selected_color_anim(self));
         self.draw_origin_coordinates();
     }
     
@@ -938,20 +931,20 @@ fn void Widget.draw(&self) @dynamic
                 {
                 case CENTER:
                     center = {
-                        self.rect.x + self.rect.width / 2,
-                        self.rect.y + self.rect.height / 2
+                        self.x + self.width / 2,
+                        self.y + self.height / 2
                     };
                     center.x -= (float)(this.text_len / 2);
                     center.y -= (float)this.font_size / 2;
                 case LEFT:
                     center = {
-                        self.rect.x,
-                        self.rect.y
+                        self.x,
+                        self.y
                     };
                 case RIGHT:
                     center = {
-                        self.rect.x + self.rect.width,
-                        self.rect.y
+                        self.x + self.width,
+                        self.y
                     };
                     center.x -= this.text_len;
                 }
@@ -962,9 +955,6 @@ fn void Widget.draw(&self) @dynamic
                 else { rl::drawText(text, (int)center.x, (int)center.y, this.font_size, self.color); }
             }
 
-            if(self.displayBounds()) {
-                r2d::drawRectangleLinesEx(self.rect, 1.0f, rl::RED);
-            }
         case KIND_CHECKBOX:
             // draw the checkbox
             WidgetCheckBox* this = (WidgetCheckBox*)self;
@@ -985,8 +975,12 @@ fn void Widget.draw(&self) @dynamic
             }
         case KIND_CONTAINER:
         case KIND_BUTTON:
-            self.super.draw(self.selected);
+            self.draw();
         default: break; // do nothing
+    }
+
+	if(self.displayBounds()) {
+        r2d::drawRectangleLinesEx(self.super, 1.0f, rl::YELLOW);
     }
 }
 
@@ -1001,7 +995,7 @@ fn bool Widget.isWithinScreenBounds(&self) @dynamic
     .height = game::pContext.screen.h
     };
 
-    return rl::checkCollisionRecs(screen_bounds, self.rect) ? true : false;
+    return rl::checkCollisionRecs(screen_bounds, self.super) ? true : false;
 }
 
 fn bool Widget.isWithinCoords(&self, int x, int y) @dynamic
@@ -1009,12 +1003,12 @@ fn bool Widget.isWithinCoords(&self, int x, int y) @dynamic
     if (self.hidden()) return false;
 
     RLVector2 point = { (float)x, (float)y };
-    return rl::checkCollisionPointRec(point, self.rect) ? true : false;
+    return rl::checkCollisionPointRec(point, self.super.super) ? true : false;
 }
 
 fn Vec2f Widget.getAnchor(&self, int idx) @inline 
 {
-    return getAnchor{Panel}(&self.super, idx);
+    return getAnchor{GUIRect}(&self.super, idx);
 }
 
 <*
@@ -1031,18 +1025,18 @@ fn void Widget.addTo(&self, UIWindow* window) @dynamic
         self.activate();
     }
 
-    self.super.id = (int)self.parent_window.childWidgets.len() + 1;
+    self.id = (int)self.parent_window.childWidgets.len() + 1;
     
     // concatenate with window name
-    if (self.super.id < 10) {
-        self.super.name = string::tformat("%s_%s%d", self.parent_window.name, self.super.name.tconcat("0"), self.super.id);
+    if (self.id < 10) {
+        self.name = string::tformat("%s_%s%d", self.parent_window.name, self.name.tconcat("0"), self.id);
         if (self.bound()) {
-            self.super.name = string::tformat("%s_%s_%s%d", self.parent_window.name, self.other.super.name, self.super.name.tconcat("0"), self.super.id);
+            self.name = string::tformat("%s_%s_%s%d", self.parent_window.name, self.other.name, self.name.tconcat("0"), self.id);
         }
     } else {
-      self.super.name = string::tformat("%s_%s%d", self.parent_window.name, self.super.name, self.super.id);
+      self.name = string::tformat("%s_%s%d", self.parent_window.name, self.name, self.id);
       if (self.bound()) {
-          self.super.name = string::tformat("%s_%s_%s%d", self.parent_window.name, self.other.super.name, self.super.name, self.super.id);
+          self.name = string::tformat("%s_%s_%s%d", self.parent_window.name, self.other.name, self.name, self.id);
       }
     }
 }
@@ -1059,7 +1053,7 @@ fn UIWindow* Widget.getParentWindow(&self) @dynamic => self.parent_window;
 fn void Widget.bindTo(&self, Widget* other) @dynamic 
 {
     if(self.bound()) {
-        log::warning(FILE, "Cannot Bind %s to %s because is already bound to %s.", self.super.id, other.super.id, self.other.super.id);
+        log::warning(FILE, "Cannot Bind %s to %s because is already bound to %s.", self.id, other.id, self.other.id);
         return;
     }
     // we are now bound to another widget
@@ -1079,15 +1073,15 @@ fn void Widget.unbind(&self) @dynamic
     self.other = null;
 }
 
-fn String Widget.getName(&self) @inline @dynamic => self.super.name;
-fn void Widget.setName(&self, String name) @inline @dynamic => self.super.name = name.tcopy();
+fn String Widget.getName(&self) @inline @dynamic => self.name;
+fn void Widget.setName(&self, String name) @inline @dynamic => self.name = name.tcopy();
 
 fn void Widget.link(&self, Widget* target) @dynamic 
 {
     if (target == null) return;
 
     if (self.isLinked()) {
-        log::warning(FILE, "Cannot link %s to %s because is already linked to %s.", self.super.id, target.super.id, self.next.id);
+        log::warning(FILE, "Cannot link %s to %s because is already linked to %s.", self.id, target.id, self.next.id);
         return;
     }
     self.next = target;
@@ -1118,20 +1112,16 @@ fn void Widget.releaseParentUIWindow(&self) @inline @dynamic
     self.parent_window = null;
 }
 
-fn void Widget.setColor(&self, RLColor color) @dynamic 
+fn void Widget.setColor(&self, GUIColorsID id) @dynamic 
 {
-    self.super.color = color;
-}
-
-fn void Widget.setSelectedColor(&self, RLColor color) @dynamic 
-{
-    self.super.color_selected = color;
+    self.color = COLORS[id];
 }
 
 // editor functions
-fn void Widget.toggleSelection(&self) @inline => self.selected = !self.selected;
-fn void Widget.select(&self) @inline => self.selected = true;
-fn void Widget.deselect(&self) @inline => self.selected = false;
+fn void Widget.toggleSelection(&self) @inline => self.flags.selected = !self.flags.selected;
+fn void Widget.select(&self) @inline => self.flags.selected = true;
+fn void Widget.deselect(&self) @inline => self.flags.selected = false;
+fn bool Widget.selected(&self) @inline => self.flags.selected;
 
 
 /////////////////////////////////////// extra widgets //////////////////////////////////////////////////////
@@ -1161,11 +1151,10 @@ fn void WidgetText.init(&self) //@inline
 {
     self.super.init(KIND_TEXT);
     self.super.hide(); // don't show the square shape
-    self.super.name = "TextLabel"; // @hardcode
-    self.setColor(rl::CTRANSPARENT); // invisible color for the panel shape
+    self.name = "TextLabel"; // @hardcode
+    self.color = rl::CTRANSPARENT; // invisible color for the panel shape
     self.spacing    = 2.0f; //@hardcode, todo make this int a cvar
     self.font_size  = 20; //@hardcode
-    self.setDefaultColor(rl::WHITE); //@hardcode
     self.align      = WidgetTextAlign.CENTER;
 }
 
@@ -1331,10 +1320,6 @@ struct WidgetButton
     // extends Widget (super/base class)
     inline Widget super;
     
-    // super (panel) already includes a color variable/member
-    // but this is the default color, used when the button color changes 
-	// and we want to reset it to the default color.
-    RLColor default_color;
     int press_count;
     bool pressed;
     bool activated;
@@ -1346,8 +1331,7 @@ struct WidgetButton
 fn void WidgetButton.init(&self, int kind = KIND_BUTTON) @inline
 {
     self.super.init(kind);
-    self.super.name = "Button";
-    self.setDefaultColor(rl::WHITE); //@hardcode
+    self.name = "Button";
     self.setSound(&game::pContext.default_sound); //@hardcode, todo give this a better sound
 }
 
@@ -1357,15 +1341,9 @@ fn void WidgetButton.deinit(&self) @inline
     if (self.interaction_sound) self.interaction_sound = null;
 }
 
-fn void WidgetButton.setColor(&self, RLColor color) @dynamic 
+fn void WidgetButton.setColor(&self, GUIColorsID id) @dynamic 
 {
-    self.super.setColor(color);
-}
-
-fn void WidgetButton.setDefaultColor(&self, RLColor color) @inline 
-{
-    self.default_color = color;
-    self.setColor(color);
+    self.color = COLORS[id];
 }
 
 <*
@@ -1379,7 +1357,7 @@ fn void WidgetButton.setSound(&self, RLSound* sound) @inline
 
 /*
 fn void WidgetButton.onEnterKey(&self) @inline {
-    if (self.isInteractive() == false || self.asFocus() == false) return;
+    if (self.isInteractive() == false || self.hasFocus() == false) return;
     self.onSinglePress();
 }
 */
@@ -1391,7 +1369,7 @@ fn void WidgetButton.manage_interactions(&self)
 	typeid type = WidgetButton;
 	any widget  = any_make(self, type);
 
-	if(self.asFocus() == false) {
+	if(self.hasFocus() == false) {
         if (self.onStopOver) { 
             self.onStopOver(widget);
         }
@@ -1432,7 +1410,7 @@ fn void WidgetButton.manage_interactions(&self)
 	};
 
     //game::log::info(Where.CONSOLE, "Gui: I'm over button: %s", self.super.name);
-	bool btn_selected = (self.selected) ? true : false;
+	bool btn_selected = (self.selected()) ? true : false;
 	bool btn_not_selected = !btn_selected;
 
     if (btn_not_selected)
@@ -1488,7 +1466,7 @@ fn void WidgetButton.update(&self)
 {
     // NOTE(HM) still so much to learn about OOP...
     // I need to manully call the root widget update,
-    // that is the update method from the super class Panel 
+    // that is the update method from the super class GUIRect 
     // for the focus code to work
     self.super.update(); // for isMouseOver to run...
     //
@@ -1497,7 +1475,7 @@ fn void WidgetButton.update(&self)
 
 fn void WidgetButton.draw(&self) 
 {
-    rl::@scissorMode((int)self.rect.x, (int)self.rect.y, (int)self.rect.width, (int)self.rect.height)
+    rl::@scissorMode((int)self.super.x, (int)self.super.y, (int)self.super.width, (int)self.super.height)
     {
         self.super.draw();
     };
@@ -1530,8 +1508,7 @@ struct WidgetCheckBox
 fn void WidgetCheckBox.init(&self, int kind = KIND_CHECKBOX) @inline 
 {
     self.super.init(kind);
-    self.super.name = "CheckBox";
-    self.super.setColor(rl::WHITE);
+    self.name = "CheckBox";
     self.onCheckBoxClicked = (CheckBoxListenerCallback)&WidgetCheckBox.onMouseButton;
 }
 
@@ -1568,7 +1545,11 @@ fn bool WidgetCheckBox.onMouseButton(&self, int x, int y, RLMouseButton button, 
 fn void WidgetCheckBox.setChecked(&self, bool checked) @inline 
 {
     self.checked = checked;
-    self.setColor((checked) ? rl::GREEN : rl::WHITE);
+    if(checked) {
+        self.setColor(CHECKED);
+    } else {
+        self.setColor(DEFAULT);
+    }
 }
 
 fn bool WidgetCheckBox.isChecked(&self) @inline 
@@ -1782,7 +1763,7 @@ import std::collections::list;
 import engine::logging::log;
 import engine::sys::render2d::r2d;
 import engine::gui::container::cont;
-import engine::tools;
+//import engine::tools::editor;
 import engine::gui::guieditor;
 import engine::sys::framework::soundbkd;
 
@@ -2011,7 +1992,7 @@ fn void UIWindow.stateChanged(&self, int _time, bool redraw )
 	if (redraw) {
 		self.redraw(_time);
 	}
-	updateAnchors{UIWindow}(self, self.rect.size);
+	updateAnchors{UIWindow}(self, self.super.size);
 	/*if ( state.GetBool( "noninteractive" ) ) {
 		interactive = false;
 	}
@@ -2117,7 +2098,7 @@ fn void UIWindow.show(&self)
 
 fn void UIWindow.drawCursor(&self) @inline
 {
-    if(tools::isOpen(&game::pContext.editor)) return;
+    if(game::pContext.editor.isOpen()) return;
     
 	if ( self.isInteractive && self.active && self.visible ) {
 		if(game::game_cursor_hidden()) game::show_game_cursor();
@@ -2307,6 +2288,22 @@ fn Widget* UIWindow.getChildWidget(&self, int idx) @nodiscard
 }
 
 <*
+	@param [in] name : "name of widget to fetch/get"
+	@require name.len > 0
+*>
+fn Widget* UIWindow.getChildWidgetByName(&self, String name)
+{
+    foreach(wid : self.childWidgets) {
+        if(wid.name == name) {
+            return wid;
+        }
+    }
+	return null;
+}
+
+fn Widget* UIWindow.hasChildWidget(&self, String name) => self.getChildWidgetByName(name);
+
+<*
     @param idx : "index of the child window to get"
     @ensure return != null
 *>
@@ -2388,13 +2385,13 @@ fn void UIWindow.debug(&self, bool showHidden = true)
         {
             foreach(child: self.childWidgets)
             {
-               if(child.selected) continue;
+               if(child.selected()) continue;
                Vec2f dbg_text_pos = getAnchor{Widget}(child, AnchorType.TOP_LEFT);
                dbg_text_pos = {child.rect.x, child.rect.y};
                dbg_text_pos += misc::VEC_UP * (0.30f * child.rect.height); 
                rl::drawText(
                     string::tformat("(w:%dpx, h:%dpx) : (w:%d%%, h:%d%%)", child.rect.x, child.rect.y, 
-                    ((child.rect.x * 100) / self.rect.w), ((child.rect.y * 100) / self.rect.h)).zstr_tcopy(),
+                    ((child.rect.x * 100) / self.super.w), ((child.rect.y * 100) / self.super.h)).zstr_tcopy(),
                     (int)dbg_text_pos.x, (int)dbg_text_pos.y, 9, rl::RED
                );
                if(!gui::ui_showAnchors.getBool()) {
@@ -2460,12 +2457,28 @@ fn void UIWindowManager.register(&self, UIWindow* _uiwin) @inline
 
 <*
  @param [in] name : "name of window to fetch/get"
+ @require name.len > 0
 *>
 fn UIWindow* UIWindowManager.get(&self, String name) @inline 
 {
     foreach(uiwin : self.windows) {
         if(uiwin.name.strip_start(UIWIN_NAME_PREFIX) == name) {
             return uiwin;
+        }
+    }
+    return null;
+}
+
+<*
+	@param [in] name : "name of widget to fetch/get"
+	@require name.len > 0
+*>
+fn Widget* UIWindowManager.findWidget(&self, String name) @inline 
+{
+	Widget* result;
+    foreach(uiwin : self.windows) {
+        if(result = uiwin.hasChildWidget(name), result) {
+            return result;
         }
     }
     return null;
@@ -2504,7 +2517,7 @@ fn void UIWindowManager.update(&self, int _time)
             if(uiwin.active) 
             {
                 uiwin.update(_time);
-                if(self.mode == EDITOR && !tools::isFocused(&game::pContext.editor)) {
+                if(self.mode == EDITOR && !game::pContext.editor.focused()) {
                     // put something here
                 }
 
@@ -2525,7 +2538,7 @@ fn void UIWindowManager.draw(&self, int screenWidth, int screenHeight) @inline
         {
             uiwin.draw();
             
-            if(self.mode == EDITOR && !tools::isOpen(&game::pContext.editor)) {
+            if(self.mode == EDITOR && !game::pContext.editor.isOpen()) {
                 //drawGuiEditor(uiwin); TODO(HM) draw this through the new editor
             }
 
@@ -2816,7 +2829,6 @@ import thirdparty::raygui5::rgui;
 import engine::logging::log;
 import game::main;
 import engine::misc;
-import engine::tools;
 //import engine::serialize::svs;
 //import std::collections::list;
 
@@ -2854,7 +2866,7 @@ fn bool is_widget_debug_on()   @local @inline => gui::ui_debugDraw.getBool();
 
 fn bool enabled() @inline => uiwin::gpManager.mode == EDITOR;
 fn bool as_focus() @inline {
-    return (enabled() && tools::isFocused(&game.editor));
+    return (enabled() && game.editor.focused());
 }
 
 fn void move_selected(Widget* wgt)
@@ -2882,7 +2894,7 @@ fn void update(UIWindow* mng)
     
     foreach(wgt : mng.childWidgets) 
     {
-        if(wgt.selected) {
+        if(wgt.selected()) {
             if(rl::isKeyPressed(rl::KEY_ESCAPE)) {
                 wgt.deselect();
             } else {

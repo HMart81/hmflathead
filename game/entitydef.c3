@@ -404,7 +404,7 @@ fn void  DEFile.register(&self, EntityDef* def) @inline
 
 // @Performance This will probably be very slow with many entities...
 // TODO(HM) make this faster by using a hash table
-fn EntityDef* DEFile.getEntityDefinition(&self, String name) @inline
+fn EntityDef* DEFile.getEntityDefinition(&self, String name) @inline @Performance("DEFile.getEntityDefinition")
 {
 	foreach(def: self.entdefs) {
 		if(def.name == name) return def;

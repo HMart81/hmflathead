@@ -33,21 +33,22 @@ import std::io;
 import std::core::mem; // for malloc
 import std::math;
 import std::collections::map;
-import game::main;
 import engine::misc;
-import engine::telemetry::telem;
-import game::camview;
-//import engine::assets_api::asset; // for the asset system
-import engine::assets_api::astmng; // asset manager
-import game::material::mat;
-import game::material::manager::mtrmng;
 import engine::logging::log;
 import engine::serialize::svs; // save system
-import game::lowlevel::bounds;
-import game::actors::ent;
-import thirdparty::raylib5::rl;
+import engine::telemetry::telem;
+import engine::assets_api::astmng; // asset manager
 import engine::sys::render2d::r2d; // 2D rendering
+//import engine::assets_api::asset; // for the asset system
+import game::main;
+import game::camview;
+import game::actors::ent;
+import game::sys::update;
+import game::material::mat;
+import game::lowlevel::bounds;
+import game::material::manager::mtrmng;
 import thirdparty::tracy;
+import thirdparty::raylib5::rl;
 // end_region
 
 // region defines
@@ -90,7 +91,7 @@ struct SpriteFlags
 	bool scaled; // if the sprite was scaled
 }
 
-struct HMSprite (SaveSystemInterface)
+struct HMSprite (Updateable, SaveSystemInterface)
 {
     typeid type; // class type (runtime introspection for the win)
     SpriteKind kind; // used to differentiate between different sprite types
@@ -138,9 +139,14 @@ fn void HMSprite.register(&self) @inline
     game::pContext.sprites.push(self);
 }
 
+fn void HMSprite.onStart(&self) @dynamic @inline
+{
+	self.type = HMSprite;
+}
+
 fn void HMSprite.init(&self, float x, float y, float w, float h, RLColor color = rl::WHITE, SpriteKind kind = GENERIC, String material_name = "")
 {
-    self.type  = HMSprite;
+	self.onStart();
     //
     self.kind  = kind;
     self.color = color;
@@ -213,6 +219,11 @@ fn HMSprite* HMSprite.clone(&self) @inline
 fn void HMSprite.deinit(&self) @inline 
 {
     if(self.mat) self.mat = null;
+}
+
+fn void HMSprite.onExit(&self) @dynamic @inline 
+{
+    self.deinit();
 }
 
 /*
@@ -498,7 +509,7 @@ fn bool HMSprite.notActive(&self) @inline
     return !self.flags.isActive;
 }
 
-fn void HMSprite.update(&self) @inline 
+fn void HMSprite.update(&self) @dynamic
 {
     if(self.flags.isHidden) return;
     
@@ -514,7 +525,7 @@ fn void HMSprite.update(&self) @inline
 }
 
 fn Coverage HMSprite.getCoverage(self) @inline @nodiscard => self.mat.coverage;
-fn bool HMSprite.coverageSet(self, Coverage cv) @inline => self.mat.coverageSet(cv);
+fn bool HMSprite.hasCoverage(self, Coverage cv) @inline => self.mat.hasCoverage(cv);
 
 
 macro @drawSprite(#s, #b, #t, #ra, #rb, #c) @local 
@@ -532,7 +543,7 @@ macro @drawSprite(#s, #b, #t, #ra, #rb, #c) @local
     };
 }
 
-fn void HMSprite.draw(&self)  @inline 
+fn void HMSprite.onDraw(&self) @dynamic
 {
     telem::@profile_zone("HMSprite Draw")
     {
@@ -551,7 +562,6 @@ fn void HMSprite.draw(&self)  @inline
 			Vec2f texture_size   = texture.getSize();
             RLRectangle source   = { 0, 0, texture_size.x, texture_size.y };
             
-
             MatStage* diffuse_stage = self.mat.getStage(MStageType.DIFFUSE);
             assert(diffuse_stage != null, "RLMaterial diffuse stage is null for material '%s'.", self.mat.name);
             
@@ -564,10 +574,10 @@ fn void HMSprite.draw(&self)  @inline
 			// This would allow us to have more complex materials.
             RLBlendMode blending;
             Coverage coverage = self.mat.coverage;
-			bool has_alpha_testing = self.coverageSet(Coverage.PERFORATED);
+			bool has_alpha_testing = self.hasCoverage(Coverage.PERFORATED);
 			bool not_has_alpha_testing = !has_alpha_testing;
-			bool is_opaque          = self.coverageSet(Coverage.OPAQUE);
-			bool is_translucent     = self.coverageSet(Coverage.TRANSLUCENT);
+			bool is_opaque          = self.hasCoverage(Coverage.OPAQUE);
+			bool is_translucent     = self.hasCoverage(Coverage.TRANSLUCENT);
 			bool not_is_translucent = !is_translucent;
 			switch
             {
@@ -581,7 +591,7 @@ fn void HMSprite.draw(&self)  @inline
                     blending = RLBlendMode.ALPHA_PREMUL;
                 case is_translucent && has_alpha_testing:
                     blending = RLBlendMode.CUSTOM_SEPARATE; // use the custom blending mode
-                case self.coverageSet(Coverage.BAD):
+                case self.hasCoverage(Coverage.BAD):
                     log::error(FILE, "Sprite material %s has a bad material coverage type.", self.mat.name);
                     unreachable();
             }

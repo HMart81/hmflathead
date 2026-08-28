@@ -56,13 +56,13 @@ import std::core::ascii;
 //alias ListOfShapes = List{SVG_Shape};
 //alias ListOfPaths  = List{SVG_D_Path};
 
-faultdef MALFORMED_SVG_FILE,
+faultdef SVG_MALFORMED_FILE,
          SVG_PARSING_ERROR,
 	     SVG_LOAD_ERROR,
 	     SVG_RETRIVAL_ERROR,
          SVG_VALUE_ERROR,
          SVG_FILE_PATH_EMPTY,
-	     MISSING_SVG;
+	     SVG_MISSING_FILE;
 
 
 <*
@@ -195,8 +195,9 @@ struct SVGAttribute
 
     struct value
     {
-        union {
-             union {
+        union
+		{
+            union {
                 int i;
                 float f;
             }
@@ -204,7 +205,6 @@ struct SVGAttribute
             Vec3f v3;
             Vec4f v4; // this one sets the real union size
         }
-
         String s;
         SVGElement* pelem; // this is used for url(#element_id) support
     }

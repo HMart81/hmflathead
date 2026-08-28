@@ -59,7 +59,7 @@ alias CvarList = List{CVar*};
 // end_region
 
 // region cvars
-CVar cmd_listCVars  @public = { "cmd_listCVars", CvFlag.BOOL | CvFlag.CHEAT, "0", "print all cvars to the console." };
+CVar cmd_listCVars @public = { "cmd_listCVars", CvFlag.BOOL | CvFlag.CHEAT, "0", "print all cvars to the console." };
 
 fn void register_cvars() @public 
 {
@@ -199,7 +199,7 @@ fn int CVar.getBasicType(&self) @MyInline
     }
 }
 
-fn void printflags(uint flags) @inline @local
+fn void print_used_flags(uint flags) @inline @local
 {
     int count;
     foreach(flag : CvFlag::values) {
@@ -208,12 +208,15 @@ fn void printflags(uint flags) @inline @local
 		}
 	}
 
-	foreach(i, flag : CvFlag::values) {
-		if(flags & flag) {
-			io::printf("%s", CvFlag::names[i]);
-			if(count) {
-				io::printf(" %c ", '|');
-                count -= 1;
+	if(count) 
+	{
+		foreach(i, flag : CvFlag::values) {
+			if(flags & flag) {
+				io::printf("%s", CvFlag::names[i]);
+				if(count) {
+					io::printf(" %c ", '|');
+					count -= 1;
+				}
 			}
 		}
 	}
@@ -221,23 +224,20 @@ fn void printflags(uint flags) @inline @local
 
 fn void printCvars() @inline
 {
-	if(cmd_listCVars.getBool())
-	{
-		if(cvars.len() == 0) {
-			io::printfn("No cvars registered.");
-			return;
-		}
-
-		io::printfn("\n============== CONSOLE/FLAGS VARS =====================");
-		foreach(cv: cvars) {
-			io::printf("%s :", cv.name); printflags(cv.flags);
-			io::printfn("\t - desc: %s", cv.description);
-			io::printfn("\t - default: %s", (!(cv.flags & CvFlag.BOOL)) ? cv.value : misc::bool2str(cv.value == "1"));
-			//io::printfn("--------------------------------------------------------");
-		}
-		io::printfn("Total cvars: %d", cvars.len());
-		io::printfn("============== CONSOLE/FLAGS VARS END =====================\n");
+	if(cvars.len() == 0) {
+		io::printfn("No cvars registered.");
+		return;
 	}
+
+	io::printfn("\n============== CONSOLE/FLAGS VARS =====================");
+	foreach(cv: cvars) {
+		io::printf("%s :", cv.name); print_used_flags(cv.flags);
+		io::printfn("\t - desc: %s", cv.description);
+		io::printfn("\t - default: %s", (!(cv.flags & CvFlag.BOOL)) ? cv.value : misc::bool2str(cv.value == "1"));
+		//io::printfn("--------------------------------------------------------");
+	}
+	io::printfn("Total cvars: %d", cvars.len());
+	io::printfn("============== CONSOLE/FLAGS VARS END =====================\n");
 }
 
 /*
@@ -420,7 +420,8 @@ fn void CVar.archive(&self)
 
 	if(try section_ = settings.hasSection(sec_name)) {
 		//section = settings.getSection(sec_name);
-		// got the section so go on
+		// got the section or null but still go on
+		section = section_;
 	} else {
 		section = settings.createSection(sec_name)!!;
 	}
@@ -431,15 +432,15 @@ fn void CVar.archive(&self)
 	}
 
     if(section.hasCmd(self.name)) {
-        // just update cmd value;
-        settings.setValue(self.name, self.value);
+        // just update the existing cmd value;
+        ini::setSectionValue(section, self.name, self.value, settings);
     } 
 	else // create a new cmd for the section
 	{
-        settings.addToSection(section, mem::new(IniCMD, {
+		ini::addCmdToSection(section, mem::new(IniCMD, {
             .type = self.getBasicType(),
             .cmd  = {self.name, self.value}
-        }));
+        }), settings);
     }
 }
 

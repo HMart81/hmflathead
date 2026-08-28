@@ -56,6 +56,7 @@ import thirdparty::raylib5::rmath;
 import engine::serialize::svs; // save system
 import game::lowlevel::bounds;
 import game::material::mat;
+import engine::tools;
 import engine::logging::log;
 import engine::physics::box2d;
 import game::camview::postprocess::pp;
@@ -749,7 +750,7 @@ fn void RenderView.drawWorldSpaceCoords(&self) @if($feature(_DEBUG))
 
 fn void RenderView.drawCameraSpaceCoords(&self) @if($defined(ENABLE_CAMERA_VIEW) &&& $feature(_DEBUG))
 {
-	if(game_context.editor.isOpen()) return;
+	if(tools::isOpen(&game::pContext.editor)) return;
 
     self.showModelViewAxis();
 
@@ -838,7 +839,7 @@ $endif
 				else 
 				{
 					if(sprite.hidden()) sprite.show();
-                    sprite.draw(); 
+                    sprite.onDraw();
                     /*if(sprite.hasMaterial())
                     {
                         int sort = (int)sprite.mat.sort;

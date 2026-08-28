@@ -37,8 +37,9 @@ const String TEXT_NODE_NAME = "#text";
 
 typedef XmlReader = void;
 
-enum ReaderState @local {
-	BEGIN_READ_TAG,
+constdef ReaderState @local 
+{
+	BEGIN_READ_TAG = 0,
 	READ_HEADER,
 	END_READ_TAG,
 	READ_TAG_NAME,
@@ -50,7 +51,8 @@ enum ReaderState @local {
 	READ_COMMENT,
 }
 
-struct XmlReaderImpl @local {
+struct XmlReaderImpl @local
+{
 	ReaderState state;
 	usz readHead;
 	usz writeHead;
@@ -60,7 +62,8 @@ struct XmlReaderImpl @local {
 	XmlAttribute* attributeBeingParsed;
 }
 
-fn XmlReader* new_reader(XmlDoc* doc) {
+fn XmlReader* new_reader(XmlDoc* doc)
+{
 	XmlReaderImpl* reader = alloc::new(mem, XmlReaderImpl);
 	reader.doc = doc;
 	reader.buffer = alloc::new_array(mem, char, (sz)doc.contents_size);
@@ -68,7 +71,8 @@ fn XmlReader* new_reader(XmlDoc* doc) {
 	return (XmlReader*)reader;
 }
 
-fn void XmlReader.free(&this) {
+fn void XmlReader.free(&this)
+{
 	XmlReaderImpl* self = (XmlReaderImpl*)this;
 	self.attributeBeingParsed = null;
 	self.doc = null;
@@ -79,10 +83,12 @@ fn void XmlReader.free(&this) {
 	alloc::free(mem, self);
 }
 
-fn void XmlReader.read(&this, char[] slice) {
+fn void XmlReader.read(&this, char[] slice)
+{
 	XmlReaderImpl* self = (XmlReaderImpl*)this;
 	self.readHead = 0;
-	while (self.readHead < slice.len) {
+	while (self.readHead < slice.len)
+	{
 		char c = self.readChar(slice)!!;
 		switch (self.state) {
 			case READ_HEADER:

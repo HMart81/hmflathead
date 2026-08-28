@@ -60,7 +60,7 @@ const VERSION_MINOR   = "5";
 const VERSION_RELEASE = "4";
 
 const VERSION_NUM = 154;
-macro version() => VERSION_NUM;
+macro version() @const => VERSION_NUM;
 
 // A human-friendly string representation of the version.
 const VERSION_STR =	"umka " +++ VERSION_MAJOR +++ "." +++ VERSION_MINOR;
@@ -75,7 +75,7 @@ alias UmkaReal32  = float;
 alias UmkaReal    = double;
 alias UmkaVoid    = void;
 
-// opaque pointer
+// opaque type
 typedef Umka = void;
 
 union UmkaStackSlot
@@ -201,8 +201,8 @@ alias GetResultCallback       = fn UmkaStackSlot *(UmkaStackSlot *params, UmkaSt
 alias GetMetadataCallback     = fn void*(void *umka);
 alias SetMetadataCallback     = fn void(void *umka, void *metadata);
 
-faultdef INIT_FAILED, 
-         COMPILE_FAILED;
+faultdef UMKA_INIT_FAILED, 
+         UMKA_COMPILE_FAILED;
 
 extern fn Umka* alloc() @cname("umkaAlloc");
 extern fn bool Umka._init(&self, ZString fileName, ZString sourceString, int stackSize, void *reserved, int argc, ZString *argv, bool fileSystemEnabled, bool implLibsEnabled, WarningCallback warningCallback = &umkaWarning) @cname("umkaInit");
@@ -230,14 +230,15 @@ fn bool? Umka.init(&self, UmkaScriptInitData* inidata)
                        inidata.implLibsEnabled);
   if(ok) return ok; 
 
-  return INIT_FAILED~;
+  return UMKA_INIT_FAILED~;
 }
 
 extern fn bool _compile(Umka *umka) @local @cname("umkaCompile");
 macro bool? Umka.compile(&self) {
   if(_compile(self)) return true;
-  return COMPILE_FAILED~;
+  return UMKA_COMPILE_FAILED~;
 }
+
 extern fn int  Umka.run(&self) @cname("umkaRun");
 extern fn int  Umka.call(&self, UmkaFuncContext *func) @cname("umkaCall");
 extern fn void Umka.free(&self) @cname("umkaFree");

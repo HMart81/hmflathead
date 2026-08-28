@@ -1629,15 +1629,31 @@ fn void imageDrawText(RLImage* dst, ZString text, CInt posX, CInt posY, CInt fon
 // Draw text (custom sprite font) within an image (destination)
 fn void imageDrawTextEx(RLImage* dst, RLFont font, ZString text, RLVector2 position, float fontSize, float spacing, RLColor tint) @cname("ImageDrawTextEx");
 
-// RLTexture loading functions
-// NOTE: These functions require GPU access
-// Load texture from file into GPU memory (VRAM)
+<*
+	RLTexture loading functions
+	NOTE: These functions require GPU access
+	Load texture from file into GPU memory (VRAM)
+	Textures MUST be loaded after Window initialization (OpenGL context is required)
+	@require rl::isWindowReady() == true
+*>
 fn RLTexture2D loadTexture(ZString fileName) @cname("LoadTexture");
-// Load texture from image data
+<*
+	Load texture from image data
+	Textures MUST be loaded after Window initialization (OpenGL context is required)
+	@require rl::isWindowReady() == true
+*>
 fn RLTexture2D loadTextureFromImage(RLImage image) @cname("LoadTextureFromImage");
-// Load cubemap from image, multiple image cubemap layouts supported
+<*
+	Load cubemap from image, multiple image cubemap layouts supported
+	Textures MUST be loaded after Window initialization (OpenGL context is required)
+	@require rl::isWindowReady() == true
+*>
 fn RLTextureCubemap loadTextureCubemap(RLImage image, CInt layout) @cname("LoadTextureCubemap");
-// Load texture for rendering (framebuffer)
+<*
+	Load texture for rendering (framebuffer)
+	Textures MUST be loaded after Window initialization (OpenGL context is required)
+	@require rl::isWindowReady() == true
+*>
 fn RLRenderTexture2D loadRenderTexture(CInt width, CInt height) @cname("LoadRenderTexture");
 // Check if a texture is valid (loaded in GPU)
 fn bool isTextureValid(RLTexture2D texture) @cname("IsTextureValid");

@@ -318,17 +318,15 @@ fn void	writeRect(SaveFile* savefile, Type rect) <Type>
     writeFloat(savefile, rect.height);
 }
 
-/*
 <*
- @param [inout] savefile : "the file to write the data to"
- @param rect : "the data to save"
- @require savefile != null
+	@param [&inout] savefile : "the file to write the data to"
+	@param vec : "the data to save"
 *>
-fn void	writeHMRect(SaveFile* savefile, HMRect rect) @if(game::UNITS == METER)
+fn void	writeVector(SaveFile* savefile, Type vec) <Type>
 {
-    writeRect(savefile, *(RLRectangle*)(&rect));
+    write(savefile, (void*)&vec, Type::size);
 }
-*/
+
 
 <*
  @param [inout] savefile : "the file to write the data to"
@@ -460,17 +458,13 @@ fn void readBool(SaveFile* file, bool* value) {
 *>
 fn void readString(SaveFile* savefile, String* string) {
 	char[1024] buffer;
-    /*if(@catch(savefile.file.read(*string))) {
-        log::warning(Where.CONSOLE, "failed to read data from file %s! : %s:%s", savefile.path, $$FUNC, $$LINE);
-        return;
-    }*/
 	sz? bytesRead = savefile.file.read(buffer[..]);
     if(catch excuse = bytesRead) {
-        log::warning(Where.CONSOLE, "failed to read data from file %s! with excuse %s : %s:%s", savefile.path, excuse, $$FUNC, $$LINE);
-        return;
+        log::warning(FILE, "failed to read string from save file %s! with excuse %s : %s:%s", savefile.path, excuse, $$FUNC, $$LINE);
+        (*string) = "";
+		return;
     }
 	(*string) = ((String)buffer[:bytesRead]).tcopy();
-    // advance_reading_position(savefile, string.len);
 }
 
 fn void readZString(SaveFile* savefile, ZString* string) {
@@ -483,7 +477,8 @@ fn void readZString(SaveFile* savefile, ZString* string) {
 }
 
 <*
- @param [&inout] savefile : "the file to read the data from"
+ @param [&in] savefile : "the file to read the data from"
+ @param [&inout] type : "the type \"class\" we desire"
 *>
 fn void	readTypeid(SaveFile* savefile, typeid* type) {
     read(savefile, (void*)type, typeid::size);
@@ -506,9 +501,8 @@ fn void readAsset(SaveFile* savefile, Asset{Type}** asset) <Type>
 fn void readTexture2D(SaveFile* file, RLTexture2D* tex ) { @todo(); }
 
 <*
- @param [inout] savefile :  "the file to read the data from"
- @param [inout] rect : "the adress to place the data into"
- @require savefile != null && rect != null
+	@param [&in] savefile :  "the file to read the data from"
+	@param [&inout] rect : "the adress to place the data into"
 *>
 fn void	readRect(SaveFile* savefile, Type* rect) <Type>
 {
@@ -519,9 +513,17 @@ fn void	readRect(SaveFile* savefile, Type* rect) <Type>
 }
 
 <*
- @param [inout] savefile :   "the file to read the data from"
- @param [inout] clr : "the adress to place the data into"
- @require savefile != null && clr != null
+	@param [&in] savefile : "the file to write the data to"
+	@param [&inout] vec : "the adress to place the data into"
+*>
+fn void	readVector(SaveFile* savefile, Type* vec) <Type>
+{
+    read(savefile, (void*)vec, Type::size);
+}
+
+<*
+ @param [&in] savefile :   "the file to read the data from"
+ @param [&inout] clr : "the adress to place the data into"
 *>
 fn void	readColor(SaveFile* savefile, RLColor* clr) {
     readChar(savefile, &clr.r);

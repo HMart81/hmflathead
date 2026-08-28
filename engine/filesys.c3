@@ -83,28 +83,68 @@ const FileMode FILE_READ_WRITE_BINARY = "r+b";
 
 
 const MAX_SEARCH_DEPTH = 6; // how deep to search for directories
-const DIR_COUNT = 3;
-const BASE_DIR = 0;
-const WORK_DIR = 1;
-const SAVE_DIR = 2;
+
+module engine::filesystem::fs @if($defined(NEW_DIRECTORY_SYSTEM));
+
+// region modules
+import std::os;
+import libc;
+import game::main;
+import engine::misc;
+import std::io, std::io::path;
+import std::collections::list;
+import thirdparty::raylib5::rl;
+import engine::logging::log;
+import engine::sys::cvar;
+import engine::sys::framework::platform::platf;
+// end_region
+
+constdef AppDir : inline int
+{
+    EXE = 0,
+	WORK,
+	BASE,
+	SAVE,
+	MODS,
+	SCREENSHOTS
+}
+const DIR_COUNT = AppDir::values.len;
+
+alias ListFiles @local = List { HMFile* };
+
+struct HMFile
+{
+	Path path;
+	String name;
+}
+
+alias DirList @local = List { HMDirectory* };
 
 struct HMDirectory
 {
+    int id;
     Path path;
     String name;
-    PathList files;
-    PathList directories; // child directories
-    int id;
 }
 
-fn void HMDirectory.clear(&self) {
+fn void HMDirectory.clear(&self) @inline
+{
     self.path.free(tmem);
     self.name = "";
-    self.files.free();
-    self.directories.free();
 }
 
 fn bool HMDirectory.exists(self) => directoryExists(self.path);
+
+fn bool? HMDirectory.contains(self, Path _path)
+{
+	PathList paths = listDirectoryPaths(self.path)!;
+	foreach(pth : paths) 
+    {
+		if(pth == _path) return true;
+	}
+	return false;
+}
+
 
 /*
 TraverseCallback fnwalk = fn bool?(Path p, bool is_dir, any d) {
@@ -146,10 +186,10 @@ TraverseCallback fnwalk = fn bool?(Path p, bool is_dir, any d) {
 };
 */
 
-fn bool? traverse(Path p, bool is_dir, HMDirectory* dr) @local
+fn bool? traverse(Path pth) @local
 {
-    PathList paths = listDirectoryPaths(p)!;
-    foreach(_path : paths) 
+    PathList paths = listDirectoryPaths(pth)!;
+    foreach(_path : paths)
     {
         bool is_hidden_file_or_folder;
         $if env::WIN32:
@@ -164,12 +204,21 @@ fn bool? traverse(Path p, bool is_dir, HMDirectory* dr) @local
         if(path::is_dir(_path))
         {
             if(is_hidden_file_or_folder || _path.basename().starts_with(".")) {
-                continue;
+                continue; // ignore
             } else {
-                if(traverse(_path, true, dr)!) break;
+				// do something with the folder info
+				// ...
+
+				// go on traversing the directory tree
+                if(traverse(_path)!) break;
             }
-        } else {
-            dr.files.push(_path);
+        } else { // is a file
+			if(is_hidden_file_or_folder) {
+                continue; // ignore file
+            }
+
+			// do something with the file
+			// ...
         }
     }
     return true; // abort traverse
@@ -193,52 +242,57 @@ fn bool? is_hidden_file_or_folder(Path path) @local
     $endif
 }
 
-fn HMDirectory*? addDirectory(String folder_path, String root = "",  bool add_child_dirs = false) {
-    HMDirectory* dir = mem::new(HMDirectory);
-	String full_path;
-	if(root != "") {
-		full_path = root.tconcat("//").tconcat(folder_path);
-	} else {
-		full_path = folder_path;
-	}
-    dir.path = path::normalize(path::tnew(full_path)!).to_tpath()!;
-    dir.name = dir.path.basename();
+fn HMDirectory* create_HMDirectory(Path path) @local
+{
+	HMDirectory* dir = mem::new(HMDirectory);
+    dir.path = path::normalize((String)path).to_tpath()!!;
+    dir.name = path.basename().tcopy();
     dir.id   = (int)local_directories.len();
-    defer local_directories.push(dir);
-
-    PathList child_paths = listDirectoryPaths(dir.path)!;
-	if(child_paths.len() && add_child_dirs) 
-	{
-		foreach(it : child_paths)
-		{
-			if(path::is_dir(it))
-			{
-				if(is_hidden_file_or_folder(it)!) {
-					continue; // is not a valid folder ignore it
-				} else {
-					dir.directories.push(it);
-				}
-			} else {
-				dir.files.push(it);
-			}
-		}
-	}
-    return dir;
+	if(dir.id == 0) dir.id += 1;
+	return dir;
 }
 
-fn HMDirectory*? getDirectoryByid(int id) {
+fn void registerDirectory(Path folder_path, int idx) @inline
+{
+	local_directories[idx].path = folder_path.tcopy();
+	local_directories[idx].name = folder_path.basename().tcopy();
+}
+
+<* 
+	@param idx : "index of directory"
+	@require idx >= 0 && idx < local_directories.len()
+	@ensure return != null
+*>
+fn HMDirectory* getDirectory(int idx)
+{
+    return local_directories[idx];
+}
+
+fn Path getWorkDirectory(int idx) => getDirectory(AppDir.WORK).path;
+fn Path getBaseDirectory(int idx) => getDirectory(AppDir.BASE).path;
+fn Path getSaveDirectory(int idx) => getDirectory(AppDir.SAVE).path;
+fn Path getModsDirectory(int idx) => getDirectory(AppDir.MODS).path;
+fn Path getShotsDirectory(int idx) => getDirectory(AppDir.SCREENSHOTS).path;
+
+<*
+	Use getDirectoryByid in performance sensitive code... 
+	@param id : "name of directory"
+	@require id >= 1 && id <= local_directories.len()
+*>
+fn HMDirectory*? getDirectoryByid(int id)
+{
     foreach(dir : local_directories) {
         if(dir.id == id) return dir;
     }
     return FS_FAILED_GET_DIR~;
 }
 
-<*
-	Use getDirectoryByid in performance sensitive code... 
+<* 
 	@param [in] name : "name of directory"
 	@require name.len > 0
 *>
-fn HMDirectory*? getDirectoryByName(String name) {
+fn HMDirectory*? getDirectoryByName(String name)
+{
     foreach(dir : local_directories) {
         if(dir.name == name) return dir;
     }
@@ -246,37 +300,47 @@ fn HMDirectory*? getDirectoryByName(String name) {
 }
 
 //@performance!!!! May be slow for large paths...
-fn HMDirectory*? getDirectoryByPath(Path path) {
+fn HMDirectory*? getDirectoryByPath(Path path)
+{
     foreach(dir : local_directories) {
         if(dir.path == path) return dir;
     }
     return FS_FAILED_GET_DIR~;
 }
 
-/*fn void init_game_directories() @inline {
-    // if DIR_COUNT is less than local_directories.capacity will do nothing
-    local_directories.reserve(DIR_COUNT);
-    //
-    local_directories.push(mem::new(HMDirectory, {
-        .path = "/base/"
-        .name = "base"
-        .files.clear();
-        .directories.clear();
-    }));
-}*/
+fn void init_game_directories_defaults() @inline
+{
+    // will reserve 16 slots as minimum
+    // no matter if the dir count is less...
+	local_directories.reserve(DIR_COUNT);
+}
 
-fn void clearGameDirectories() {
+fn void clearGameDirectories() 
+{
     foreach(dir : local_directories) {
-        dir.clear();
+        if(dir.name.len) dir.clear();
     }
     local_directories.free();
     pGameDirs = null;
 }
 
-alias DirList @local = List{HMDirectory*};
-
 DirList local_directories @local;
 DirList* pGameDirs = &local_directories;
+
+module engine::filesystem::fs;
+
+// region modules
+import std::os;
+import libc;
+import game::main;
+import engine::misc;
+import std::io, std::io::path;
+import std::collections::list;
+import thirdparty::raylib5::rl;
+import engine::logging::log;
+import engine::sys::cvar;
+import engine::sys::framework::platform::platf;
+// end_region
 
 alias StringList @local = List{String};
 
@@ -437,6 +501,7 @@ fn ModList* listMods()
 
 	return list;
     */
+	return null;
 }
 //////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////

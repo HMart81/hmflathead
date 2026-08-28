@@ -420,3 +420,61 @@ $else
     return rl::loadTexture(path.zstr_tcopy());
 $endif
 }
+
+/*
+// RLTexture parameters: wrap mode
+constdef RLTextureWrap : inline int
+{
+    REPEAT = 0,    // Repeats texture in tiled mode
+    CLAMP,         // Clamps texture to edge pixel in tiled mode
+    MIRROR_REPEAT, // Mirrors and repeats the texture in tiled mode
+    MIRROR_CLAMP   // Mirrors and clamps to border the texture in tiled mode
+}
+*/
+
+<*
+	Set texture wrapping mode to clamp to be confined within 0 to 1 uv area
+    @param texture : `the texture in VRAM to clamp`
+    @require rl::isTextureValid(texture) == true && rl::isWindowReady() == true
+*>
+fn void clampTexture(RLTexture2D texture) => rl::setTextureWrap(texture, RLTextureWrap.CLAMP);
+
+<*
+	Set texture to tiling mode, goes outside the uv 0 to 1 area
+    @param texture : `the texture in VRAM to clamp`
+    @require rl::isTextureValid(texture) == true && rl::isWindowReady() == true
+*>
+fn void tileTexture(RLTexture2D texture) => rl::setTextureWrap(texture, RLTextureWrap.REPEAT);
+
+<*
+	Set texture wrapping mirror mode
+    @param texture : `the texture in VRAM to clamp`
+    @require rl::isTextureValid(texture) == true && rl::isWindowReady() == true
+*>
+fn void mirrorTexture(RLTexture2D texture, RLTextureWrap mode) 
+{
+	if(mode != RLTextureWrap.MIRROR_REPEAT && mode != RLTextureWrap.MIRROR_CLAMP) {
+		log::warning(FILE, "Trying to set an unsupported mirror option for a texture with OGL id(%s)", texture.id);
+		return;
+	}
+	rl::setTextureWrap(texture, mode);
+}
+
+<*
+	scrool texture in the X coordinate
+    @param texture : `the texture in VRAM to clamp`
+    @require rl::isTextureValid(texture) == true && rl::isWindowReady() == true
+*>
+fn void scroolTexture_X(RLTexture2D texture)
+{
+	@todo();
+	/*RLImage* image = rl::loadImageFromTexture(texture);
+	defer {
+		rl::updateTexture(texture, image.data);
+		rl::unloadImage(image);
+	}
+
+	for(sz i; i < image.width; i++) {
+		image.data[i]
+	}*/
+}
