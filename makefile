@@ -74,7 +74,8 @@ ADVAPI32_LIB := $(MSVC_SDK_PATH)\Advapi32.lib
 RAYLIB := raylib55\lib\raylib.lib
 BOX2D := box2d\box2d.lib
 RAYGUI := raygui\raygui.lib
-TSOD_FLAG := flaglib\flaglib.lib
+TSOD_FLAG := tsoding\flaglib\flaglib.lib
+TSOD_SHLEX := tsoding\shlex\shlex.lib
 TRACY := tracy\TracyClient.lib
 MICROUI := microui\microui.lib
 WREN := wren\wren_d.lib
@@ -91,9 +92,10 @@ LIBS=\
 	-l $(RAYGUI)\
 	-l $(MICROUI)\
 	-l $(TSOD_FLAG)\
+	-l $(TSOD_SHLEX)\
 	-l $(SQLITE3)\
-	-l $(TRACY)\
 	-l $(PLMPEG)
+#	-l $(TRACY)\
 #-l kernel32.lib
 ###############
 # Define scripting language to use
@@ -151,11 +153,12 @@ RELEASE_GAME_ARGUMENTS := +r_fullscreen 1 +r_mode 23
 # C3 $defined() doesn't work for this...
 # example $feature(MICROUI_ENABLE)
 FEATURES :=\
-	-D RGUI_ENABLE\
 	-D VMEM_TEMP\
 	-D MICROUI_ENABLE\
 	-D BACKEND_RAYLIB\
+	-D TSODING_SHLEX\
 	-D VIDEO_PLAYBACK_ENABLE
+#	-D RGUI_ENABLE\
 
 ifeq ($(SCRIPT_LANG), umka)
 DEBUG_DEFINES := -D _DEBUG $(FEATURES) -D UMKA_ENABLE

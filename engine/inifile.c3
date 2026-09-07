@@ -1039,7 +1039,7 @@ fn String[]? openConfigfileAndCutDataByLines(String filepath, bool isrelative) @
     }
     
     // cut the data into individual string slices
-    String[] lines = misc::cut_by_newline(entire_file);
+    String[] lines = string::cut_by_newline(entire_file);
     // remove any empty char for the start or end of each line
     foreach( &line : lines) {
         (*line) = line.trim();
@@ -1407,7 +1407,6 @@ fn void ConfigFile.reload(&self)
 
 fn bool? ConfigFile.update(&self)
 {
-	@todo();
 	/*
     if(self.isModified() == false) return false; // nothing to save, the file is not modified
 
@@ -1575,7 +1574,7 @@ fn bool? populate(ConfigFile* file_data, String path) @deprecated {
     if(entire_data.len)
     {
         // now cut the data into individual strings
-        String[] lines = misc::cut_by_newline(entire_data);
+        String[] lines = string::cut_by_newline(entire_data);
         
         if(lines.len == 0) {
             return MALFORMED_FILE~;

@@ -1,0 +1,126 @@
+/************************************ LICENSE *******************************************
+# hmflathead GPL Source Code
+# Copyright (C) 2025 Hilario Martins.
+# 
+# This file is part of the hmflathead GPL Source Code ("hmflathead Source Code")
+# 
+# hmflathead Source Code is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# hmflathead Source Code is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with hmflathead Source Code.  If not, see <http://www.gnu.org/licenses/>.
+# 
+# In addition, the hmflathead Source Code is also subject to certain additional terms. 
+# You should have received a copy of these additional terms immediately following the terms and conditions of the GNU General Public License 
+# which accompanied the hmflathead Source Code.  If not, please request a copy in writing from me at the address below.
+# 
+# If you have questions concerning this license or the applicable additional terms, you may contact in writing 
+# Hilario Martins, Rua de Sanguinhedo 1010 4850-545 Vieira Do Minho Portugal.
+# 
+*********************************************************************************************************************************************/
+
+// Copyright 2021 Alexey Kutepov <reximkut@gmail.com>
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to
+// deal in the Software without restriction, including without limitation the
+// rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+// sell copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+// FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+// IN THE SOFTWARE.
+
+module thirdparty::tsoding::shlex @if($feature(TSODING_SHLEX));
+
+import std::io;
+import libc;
+
+// # The Shlex
+//
+// Both a Lexer and a String Builder which is somewhat POSIX Shell syntax aware.
+//
+// ## Splitting
+//
+// ```c3
+// Shlex s;
+// shlex::init(&s, source, source_len);
+// while (shlex::next(&s)) {
+//     io::println("%s", s.string);
+// }
+// shlex::free(&s);
+// ```
+//
+// ## Joining
+//
+// ```c
+// Shlex s;
+// shlex::append_quoted(&s, "foo");
+// shlex::append_quoted(&s, "bar");
+// shlex::append_quoted(&s, "baz");
+// shlex::append_quoted(&s, "Hello, World");
+// io::println("%s", shlex::join(&s));
+// shlex::free(&s);
+// `
+
+struct Shlex
+{
+    // The source which shlex_next(..) is splitting the tokens from.
+    ZString source;
+    ZString source_end;
+    ZString point;
+
+    // An automatically growing string storage which is used for returning tokens by shlex_next(..)
+    // and collecting joined strings by shlex_append_quoted[_sized](..).
+    CChar *string;
+    usz string_count;
+    usz string_capacity;
+}
+
+// Sets the source. It also implies shlex_reset(..), so you don't have to call it explicitly.
+fn void init(Shlex *s, ZString source, ZString source_end) @cname("shlex_init");
+
+// Resets the string storage then chops off a token from the source and appends it to the storage
+// with NULL-terminator so you can access it via s.string as a C string.
+//
+// It also returns s.string as the result on success. Return NULL means ran out of tokens.
+fn CChar *next(Shlex *s) @cname("shlex_next");
+
+// Resets the state of the shlex removing the source but without deallocating memory of the string
+// storage so it can be reused. You usually wanna use this function before calling
+// shlex_append_quoted[_sized](..) after doing some splitting with shlex_init(..) and shlex_init(..).
+fn void reset(Shlex *s) @cname("shlex_reset");
+
+// Appends a C string to the string storage quoting all the shell unsafe character.
+fn void append_quoted(Shlex *s, ZString cstr) @cname("shlex_append_quoted");
+
+// Same as shlex_append_quoted(..) but for sized strings instead of NULL-terminated ones.
+fn void append_quoted_sized(Shlex *s, ZString str, usz n) @cname("shlex_append_quoted_sized");
+
+// Appends a NULL-terminator to the string storage, resets the size of the storage and returns the pointer
+// to the C string in the string storage. Usually called after a bunch of calls to
+// shlex_append_quoted[_sized](..) to finalize and acquire the result of appending.
+// Do not keep the result for too long as it will be very quickly invalidated by pretty much any call to shlex_*(..).
+// strdup(..) it to prolong its lifetime.
+fn CChar *join(Shlex *s) @cname("shlex_join");
+
+// Deallocates the memory of the string storage and completely zeroes out the shlex.
+// Generally you don't need to free the shlex like that if you plan to reuse it several times.
+// Just do shlex_init(..) or shlex_reset(..) for each input you need to process and it
+// is going to reuse the memory it allocated for the string storage every time.
+fn void free(Shlex *s) @cname("shlex_free");

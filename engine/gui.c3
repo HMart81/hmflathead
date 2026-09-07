@@ -63,9 +63,9 @@ import engine::sys::render2d::r2d; // 2D rendering
 // end_region
 
 // region cvars
-CVar ui_debugDraw   @public = { "ui_debugDraw",   CvFlag.BOOL, "1", "show debug visualization for gui development, 0, 1, true, false" };
+CVar ui_debugDraw   @public = { "ui_debugDraw",   CvFlag.BOOL, "0", "show debug visualization for gui development, 0, 1, true, false" };
 CVar ui_editGui     @public = { "ui_editGui",     CvFlag.BOOL, "0", "turn on gui editing functionality for gui development, 0, 1, true, false" };
-CVar ui_showAnchors @public = { "ui_showAnchors", CvFlag.BOOL, "1", "toggles the view of the anchor points on each gui widget, requires ui_debugDraw to be on as well." };
+CVar ui_showAnchors @public = { "ui_showAnchors", CvFlag.BOOL, "0", "toggles the view of the anchor points on each gui widget, requires ui_debugDraw to be on as well." };
 
 fn void register_cvars() @public 
 {
@@ -2170,13 +2170,13 @@ fn void UIWindow.update(&self, int _time)
 		{
 			if(music.audio.isPlaying())
 			{
-				if(game::pContext.pause_all_music) {
+				if(game::pContext.pause_all_music || game::s_noaudio.getBool()) {
 					music.audio.pause();
 				} else {
 					music.audio.update();
 				}
 			} 
-			else if (!game::pContext.pause_all_music)
+			else if (!game::pContext.pause_all_music && !game::s_noaudio.getBool())
 			{
 				music.audio.resume();
 			}

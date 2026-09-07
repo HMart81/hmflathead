@@ -612,17 +612,20 @@ fn void HMSprite.onDraw(&self) @dynamic
                     blending_on = false;
             }
 
-            if(blending_on) {
+            if(blending_on)
+			{
                 rl::@blendMode(blending)
                 {
                     // NOTE(HM) center of the texture (rotation/scale point), 
                     // it's relative to destination rectangle dimentions, not the screen dimentions.
                     rl::drawTexturePro(*texture, source, *rect, {0, 0}, 0.0f, color);
                 };
-            } else { // no blending/Opaque (or perfurated as well)
+            } 
+			else
+			{ // no blending/Opaque (or perfurated as well)
                 rl::drawTexturePro(*texture, source, *rect, {0, 0}, 0.0f, color);
             }
-        } 
+        }
         else // draw simple flat shape
         {
             r2d::drawRectangleRec(self.rect, self.color);

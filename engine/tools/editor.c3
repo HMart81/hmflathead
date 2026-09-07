@@ -53,6 +53,7 @@ module engine::tools @private @if($feature(MICROUI_ENABLE) &&& !$feature(RGUI_EN
 
 
 import std::io, std::core::ascii, std::collections::list;
+import std::math;
 import engine::gui;
 import engine::misc;
 import engine::sys::cvar;
@@ -66,6 +67,9 @@ import game::main;
 const CInt CONSOLE_FONT_SIZE @local = 12;
 const CInt CONSOLE_MAX_LINES @local = 1000;
 const CInt CONSOLE_INPUT_MAX_LINE_LENGTH @local = 1024;
+
+const AUTO_SIZE @local = -1;
+const DEFAULT_SIZE @local = 0;
 
 CVar con_debug @public = { "con_debug", CvFlag.BOOL|CvFlag.TOOL, "0", "enables console debugging mode"};
 
@@ -117,6 +121,7 @@ alias ConsoleHistory = List{String};
 struct EditorFlags @local
 {
     bool is_opened;
+    bool is_initialized;
     bool is_active;
     bool is_visible;
     bool is_focused;
@@ -135,8 +140,8 @@ struct Editor @public
 
     // gui context
     RLColor background_color;
-    RLRectangle main_window_rect;
-    MU_Context ctx;
+    MU_Rect main_window_rect;
+    MU_Context* ctx;
 
     EditorKind kind; // the kind of editor currently opened
     EditorKind prev_kind; // the editor type that was previously opened
@@ -162,27 +167,40 @@ struct Editor @public
 <*
 	Initialize all default setting the editor needs at start
 	@param [&inout] editor : "the editor context/data structure"
+	@require rl::isWindowReady() == true
 *>
-fn void initDefaults(Editor* editor) @inline @public
+fn void initDefaults(Editor* editor) @public
 {
     editor.flags.is_minimizable = true;
     editor.flags.is_maximizable = true;
-    editor.flags.is_closable = true;
+    editor.flags.is_closable    = true;
+    editor.flags.is_initialized = true;
 
-    editor.background_color = {0x18, 0x18, 0x18, 0xFF};
+	// final color
+    //editor.background_color = {0x18, 0x18, 0x18, 0xFF};
+	// test color
+    editor.background_color = rl::PINK;
 
     float scr_width = (float)rl::getScreenWidth();
     float scr_height = (float)rl::getScreenHeight();
     editor.main_window_rect = {
-        .x = 0.25f * scr_width,
-        .y = 0.05f * scr_height,
-        .w = scr_width / 2.0f,
-        .h = scr_height / 2.0f
+		.x = 0,
+        .y = 0,
+        .w = (int)math::floor(scr_width),
+        .h = (int)math::floor(scr_height)
+		/*
+        .x = (int)math::floor(0.25f * scr_width),
+        .y = (int)math::floor(0.05f * scr_height),
+        .w = (int)math::floor(scr_width / 2.0f),
+        .h = (int)math::floor(scr_height / 2.0f)
+		*/
     };
 
     editor.con_input_edit_mode = true; // the console input is in edit mode by default
     editor.listView_Active = 1; // the active item in the list view of the console history
     editor.listView_Focus = -1; // the focused item in the list view of the console history
+    
+    editor.ctx = game::pContext.mu_ctx;
 }
 
 <*
@@ -201,13 +219,15 @@ fn void deinit(Editor* editor) @inline @public
     mem::clear(&editor.con_input_buffer, CONSOLE_INPUT_MAX_LINE_LENGTH);
     // clear the auto complete buffer
     editor.autoCompleteClear();
+    if(editor.ctx) editor.ctx = null;
+    editor.flags.is_initialized = false;
 }
 
 <*
 	Open the editor
 	@param [&inout] editor : "the editor context/data structure"
 *>
-fn void open(Editor* editor) @inline @public
+fn void open(Editor* editor) @public //@inline
 {
     if (isOpen(editor)) return;
     
@@ -221,7 +241,7 @@ fn void open(Editor* editor) @inline @public
 	Close the editor
 	@param [&inout] editor : "the editor context/data structure"
 *>
-fn void close(Editor* editor) @inline @public
+fn void close(Editor* editor) @public //@inline
 {
     if (!isOpen(editor)) return;
     
@@ -252,8 +272,13 @@ fn EditorKind getOpenEditorKind(Editor* editor) => editor.kind;
 *>
 fn void setfocus(Editor* editor, bool choice = true) @inline
 {
+	MU_Context* context = editor.ctx;
     editor.flags.is_focused = choice;
-    if(choice) editor.ctx.set_focus((MU_Id)0);
+    if(editor.flags.is_focused) {
+		if(context.hover != context.focus) {
+			context.set_focus(context.hover);
+		}
+	}
 }
 
 <*
@@ -271,7 +296,6 @@ fn void setActive(Editor* editor) @inline
 {
     if (isActive(editor)) return;
     editor.flags.is_active = true;
-    rgui::enable();
 }
 
 <*
@@ -290,7 +314,6 @@ fn void deactivate(Editor* editor) @inline
         return;
     }
     editor.flags.is_active = false;
-    rgui::disable();
 }
 
 <*
@@ -334,7 +357,7 @@ fn void setResizable(Editor* editor) @inline
     if (isResizable(editor)) return;
     
     editor.flags.is_resizable = true;
-    rgui::unlock();
+    //rgui::unlock();
 }
 
 <*
@@ -346,7 +369,7 @@ fn void lockSize(Editor* editor) @inline
     if (isResizable(editor) == false) return;
     
     editor.flags.is_resizable = false;
-    rgui::lock();
+    //rgui::lock();
 }
 
 <*
@@ -426,20 +449,7 @@ fn bool isDockable(Editor* editor) @inline => editor.flags.is_dockable;
 fn bool isMouseOver(Editor* editor)
 {
     if (isVisible(editor) == false) return false;
-
-    // gets mouse position in pixel coordinates...
-    Vec2f mouseWorldPos = rl::getMousePosition();
-
-    Vec2f mouse_rect_size = game::getGameCursorSize() * 0.5f; // half the size of the game cursor
-    //RLRectangle mouseRect = misc::@recFromVecs(mouseWorldPos, mouse_rect_size);
-    RLRectangle mouseRect = {
-        .pos  = mouseWorldPos, 
-        .size = mouse_rect_size
-    };
-
-    if (rl::checkCollisionRecs(mouseRect, editor.main_window_rect)) return true;
-
-    return false;
+	return editor.ctx.mouse_over(editor.main_window_rect) != 0;
 }
 
 macro @noUpdate(#editor) @local => (!isVisible(#editor) || !isOpen(#editor) || !isActive(#editor));
@@ -451,31 +461,31 @@ fn void update(Editor* editor) @public
 {
     if (@noUpdate(editor)) return;
 
-    if (setfocus(editor, isMouseOver(editor)))
+    /*if (isMouseOver(editor))
     {
         if(game::game_cursor_visible()) game::hide_game_cursor();
         if(!game::system_cursor_visible()) game::show_system_cursor();
     } else {
         if(game::system_cursor_visible()) game::hide_system_cursor();
-        game::show_game_cursor();
-    }
+        if(!game::game_cursor_visible()) game::show_game_cursor();
+    }*/
 
     if(editor.input_dialog_open_count > 1) {
         unreachable("input_dialog_open_count > 1, this should never happen.");
     }
 }
 
-
 macro @noDraw(#editor) @local => (!isVisible(#editor) || !isOpen(#editor));
 
 <*
 	@param [&inout] editor : "the editor context/data structure"
+    @require editor.flags.is_initialized == true
 *>
 fn void draw(Editor* editor) @public
 {
     if (@noDraw(editor)) return;
 
-    switch(editor.kind) 
+	switch(editor.kind)
     {
         case MAIN_EDITOR:      drawMainEditor(editor);
         case MATERIAL_EDITOR:  drawMaterialEditor(editor);
@@ -490,25 +500,212 @@ fn void draw(Editor* editor) @public
 <* 
     Draws the main editor window.
     @param [&inout] editor: "the editor to draw."
+    @require editor.ctx != null
 *>
-fn void drawMainEditor(Editor* editor) @inline
+fn void drawMainEditor(Editor* editor)
 {
-    // TODO(HM): Implement the main editor drawing logic.
-    //io::printfn("Drawing main editor...");
-
-    // draw the background
-    rl::drawRectangleRec(editor.main_window_rect, editor.background_color);
-
+	// draw a background
+	mu::draw_rect(editor.main_window_rect, editor.background_color);
+        
     // draw the main editor window
-    bool _close = rgui::windowBox(editor.main_window_rect, "Editor");
-    if(_close) close(editor);
+    bool open = mu::@doWindow(editor.ctx, "FlatHead Editor", editor.main_window_rect, false)
+	{
+        MU_Container* window = editor.ctx.get_current_container();
+        assert(window != null);
 
-    // draw the main editor tool bar
-    drawEditorMainToolBar(editor);
-    // draw the main editor console
-    drawEditorConsole(editor);
-	// draw color border
+        editor.ctx.@make_rows(1, (int[]){ AUTO_SIZE }, (int)(0.25f*window.rect.h))
+	    {
+            drawEditorMainToolBar(editor, window);
+        };
+        editor.ctx.@make_rows(1, (int[]){ AUTO_SIZE }, -25)
+	    {
+            drawEditorMainWorkArea(editor, window);
+        };
+        editor.ctx.@make_rows(1, (int[]){ AUTO_SIZE }, 0)
+	    {
+            drawEditorMainInfoArea(editor, window);
+        };
+        // draw the main editor tool bar
+        // draw the main editor console
+        drawEditorConsole(editor);
+	};
+
+    // draw color border
     drawOpenEditorBorder(editor);
+
+    if(open == false) {
+        close(editor);
+    }
+}
+
+const String[*] TOOLBAR_BTN_NAMES = {
+    "File",
+    "Edit",
+    "Selection",
+    "View",
+    "Help"
+};
+
+<* 
+    Draws the main editor tool bar.
+    @param [&inout] editor: "the editor to draw the tool bar for."
+    @param [&in] window: "the main window."
+*>
+fn void drawEditorMainToolBar(Editor* editor, MU_Container* window)
+{
+    MU_Context* ctx = editor.ctx;
+
+	MU_Container* toolbar_panel;
+    //editor.ctx.layout_height(25);
+    ctx.layout_row(1, (int[]) { -1 }, 25);
+    ctx.@make_panel("Toolbar")
+    {
+        toolbar_panel = ctx.get_current_container();
+        // draw a background
+        //mu::draw_rect(toolbar_panel.body, rl::RAYWHITE);
+        /*int btn_w, btn_h;
+        btn_w = (int)(0.03f * toolbar_panel.body.w);
+        btn_h = -1;*/
+
+        ctx.@make_popup("File Options")
+        {
+            if(ctx.button("New:") == MU_Res.SUBMIT) {
+                io::printfn("Editor Pressed new");
+            }
+            if(ctx.button("Open:") == MU_Res.SUBMIT) {
+                io::printfn("Editor Pressed open");
+            }
+            if(ctx.button("Save:") == MU_Res.SUBMIT) {
+                io::printfn("Editor Pressed save");
+            }
+            if(ctx.button("Quit:") == MU_Res.SUBMIT) {
+                close(editor);
+            }
+        };
+
+        int btn_count = TOOLBAR_BTN_NAMES.len;
+        ctx.layout_row(btn_count, null, 25);
+        ctx.layout_width(AUTO_SIZE/btn_count);
+        for(int i = 0; i < btn_count; i++)
+        {
+            if (ctx.button(TOOLBAR_BTN_NAMES[i], MU_Icon.EXPANDED, 0) == MU_Res.SUBMIT)
+            {
+                if(TOOLBAR_BTN_NAMES[i] == "File") ctx.open_popup("File Options");
+            }
+        }
+    };
+/*
+    MU_Rect area = editor.main_window_rect;
+
+    Vec2i anchor = {area.x, area.y};
+    float tb_y_anchor = 0.0075f * area.h;
+    Vec2i btn_size = {20, 20};
+    // Open Folder Button
+    Vec2f btn0_pos = anchor + misc::VEC_RIGHT * 0.08f * area.width;
+    btn0_pos.y += tb_y_anchor;
+    @button(btn0_pos, btn_size, Icon.FOLDER_OPEN, &openFolderButtonCallback){};
+
+    // Save Button
+    Vec2f btn1_pos = btn0_pos + misc::VEC_RIGHT * btn_size.x * 1.5f;
+    @button(btn1_pos, btn_size, Icon.FILE_SAVE_CLASSIC, &saveButtonCallback){};
+
+    // Undo Button
+    Vec2f btn2_pos = btn1_pos + misc::VEC_RIGHT * btn_size.x * 1.5f;
+    @button(btn2_pos, btn_size, Icon.UNDO, &undoButtonCallback){};
+
+    // Redo Button
+    Vec2f btn3_pos = btn2_pos + misc::VEC_RIGHT * btn_size.x * 1.5f;
+    @button(btn3_pos, btn_size, Icon.REDO, &redoButtonCallback){};
+*/
+$if $defined(TextInputBox):
+    // open Console Button
+    // TODO(HM): this should open the console window only, 
+	// but for now it will open the console input box.
+    Vec2f btn4_pos = btn3_pos + misc::VEC_RIGHT * btn_size.x * 1.5f;
+    /*@button(btn4_pos, btn_size, Icon.WINDOW) {
+        // open console window
+        editor.con_input_showWindow = !editor.con_input_showWindow;
+    };*/
+$endif
+}
+
+<* 
+    Draws the main editor tool bar.
+    @param [&inout] editor: "the editor to draw the tool bar for."
+    @param [&in] window: "the main window."
+*>
+fn void drawEditorMainWorkArea(Editor* editor, MU_Container* window)
+{
+    MU_Context* ctx = editor.ctx;
+
+	MU_Container* work_panel;
+    ctx.@make_panel("WorkArea")
+    {
+        work_panel = ctx.get_current_container();
+        // left side column
+        int w = work_panel.body.w;
+        ctx.layout_row(3, (int[]) { (int)(0.15f*w), (int)(0.60f*w), -1 }, -1);
+        ctx.@layout_make_column()
+	    {
+            MU_Container* left_panel;
+            ctx.layout_row(1, (int[]) { -1 }, -1);
+            ctx.@make_panel("WorkArea_Left") // todo rename to a better name...
+            {
+                left_panel = ctx.get_current_container();
+                int h = left_panel.body.h;
+                ctx.layout_row(1, (int[]) { -1 }, -h/2);
+                ctx.@make_panel("WorkArea_Left_top") // todo rename to a better name...
+                {
+                };
+                ctx.layout_row(1, (int[]) { -1 }, -1);
+                ctx.@make_panel("WorkArea_Left_bottom") // todo rename to a better name...
+                {
+                };
+            };
+        };
+        // middle column
+        ctx.@layout_make_column()
+	    {
+            MU_Container* col_m;
+            ctx.layout_row(1, (int[]) { -1 }, -1);
+            ctx.@make_panel("WorkArea_Middle")
+            {
+                col_m = ctx.get_current_container();
+                /*ctx.@make_rows(2, (int[]){ AUTO_SIZE }, (int)(0.25f*col_m.rect.h))
+                {
+                    
+                };*/
+            };
+        };
+        // right side column
+        ctx.@layout_make_column()
+	    {
+            MU_Container* col_r;
+            ctx.layout_row(1, (int[]) { -1 }, -1);
+            ctx.@make_panel("WorkArea_Right")
+            {
+                col_r = ctx.get_current_container();
+                /*ctx.@make_rows(2, (int[]){ AUTO_SIZE }, (int)(0.25f*col_r.rect.h))
+                {
+                    
+                };*/
+            };
+        };
+    };
+}
+
+<* 
+    Draws the main editor tool bar.
+    @param [&inout] editor: "the editor to draw the tool bar for."
+    @param [&in] window: "the main window."
+*>
+fn void drawEditorMainInfoArea(Editor* editor, MU_Container* window)
+{
+	MU_Container* info_panel;
+    editor.ctx.@make_panel("InfoArea")
+    {
+        info_panel = editor.ctx.get_current_container();
+    };
 }
 
 <* 
@@ -571,46 +768,6 @@ fn void drawScriptEditor(Editor* editor) @inline
     io::printfn("Drawing script editor...");
 }
 
-<* 
-    Draws the main editor tool bar.
-    @param [&in] editor: "the editor to draw the tool bar for."
-*>
-fn void drawEditorMainToolBar(Editor* editor)
-{
-    RLRectangle area = editor.main_window_rect;
-
-    Vec2f anchor = {area.x, area.y};
-    float tb_y_anchor = 0.0075f * area.height;
-    Vec2f btn_size = {20.0f, 20.0f};
-
-    // Open Folder Button
-    Vec2f btn0_pos = anchor + misc::VEC_RIGHT * 0.08f * area.width;
-    btn0_pos.y += tb_y_anchor;
-    @button(btn0_pos, btn_size, Icon.FOLDER_OPEN, &openFolderButtonCallback){};
-
-    // Save Button
-    Vec2f btn1_pos = btn0_pos + misc::VEC_RIGHT * btn_size.x * 1.5f;
-    @button(btn1_pos, btn_size, Icon.FILE_SAVE_CLASSIC, &saveButtonCallback){};
-
-    // Undo Button
-    Vec2f btn2_pos = btn1_pos + misc::VEC_RIGHT * btn_size.x * 1.5f;
-    @button(btn2_pos, btn_size, Icon.UNDO, &undoButtonCallback){};
-
-    // Redo Button
-    Vec2f btn3_pos = btn2_pos + misc::VEC_RIGHT * btn_size.x * 1.5f;
-    @button(btn3_pos, btn_size, Icon.REDO, &redoButtonCallback){};
-
-$if $defined(TextInputBox):
-    // open Console Button
-    // TODO(HM): this should open the console window only, but for now it will open the console input box.
-    Vec2f btn4_pos = btn3_pos + misc::VEC_RIGHT * btn_size.x * 1.5f;
-    @button(btn4_pos, btn_size, Icon.WINDOW) {
-        // open console window
-        editor.con_input_showWindow = !editor.con_input_showWindow;
-    };
-$endif
-}
-
 
 // #region editor console
 <* 
@@ -619,8 +776,8 @@ $endif
 *>
 fn void drawEditorConsole(Editor* editor)
 {
-    RLRectangle area = editor.main_window_rect;
-
+    MU_Rect area = editor.main_window_rect;
+/*
     // top left corner of the editor window
     Vec2f anchor = {area.x, area.y};
     float lft_lip = 0.008f * area.width;
@@ -736,6 +893,7 @@ $else
         //editor.con_input_edit_mode = !editor.con_input_edit_mode;
     }
 $endif
+*/
 }
 
 <* 
@@ -774,7 +932,7 @@ fn void exitConsoleInput(Editor* editor) @inline @if($defined(TextInputBox))
 
 fn void addToConsoleHistory(Editor* editor, String input_text) //@inline
 {
-    float console_size_y = 0.25f * editor.main_window_rect.height;
+    float console_size_y = 0.25f * editor.main_window_rect.h;
     int max_lines = ((int)console_size_y / CONSOLE_FONT_SIZE) - 1; // -1 to account for the input box line
     if (editor.con_history.len() >= max_lines) {
         editor.con_history.pop()!!;
@@ -853,7 +1011,7 @@ $endif
     This is used to visually distinguish between different editor windows.
     @param [&inout] editor: "the editor to draw the border for."
 *>
-fn void drawOpenEditorBorder(Editor* editor) @inline
+fn void drawOpenEditorBorder(Editor* editor)
 {
     switch(editor.kind) 
     {
@@ -889,22 +1047,18 @@ fn void drawOpenEditorBorder(Editor* editor) @inline
 // #region DRAWING HELPERS
 
 // coordinates are in pixels
-fn void drawVerticalLine(Vec2f start, float lenght) @inline @local
+fn void drawVerticalLine(Vec2f start, float lenght, float thickness = 2.0f) @inline @local
 {
-    float w = 2.0f;
     start += misc::VEC_DOWN * lenght;
     Vec2f end = start + misc::VEC_DOWN * lenght;
-
-    rgui::line({ start.x, start.y, w, end.y }, "");
+	mu::draw_rect(mu::rlRectToMURect({ start.x, start.y, thickness, end.y  }), rl::BLACK);
 }
 
-fn void drawHorizontalLine(Vec2f start, float lenght) @inline @local
+fn void drawHorizontalLine(Vec2f start, float lenght, float thickness = 2.0f) @inline @local
 {
-    float h = 2.0f;
     start += misc::VEC_RIGHT * lenght;
     Vec2f end = start + misc::VEC_RIGHT * lenght;
-
-    rgui::line({ start.x, start.y, end.x, h }, "");
+	mu::draw_rect(mu::rlRectToMURect({ start.x, start.y, end.x, thickness }), rl::BLACK);
 }
 
 alias ButtonfuncCallback = fn void(void*);
@@ -1780,7 +1934,7 @@ fn void exitConsoleInput(Editor* editor) @inline @if($defined(TextInputBox))
 
 fn void addToConsoleHistory(Editor* editor, String input_text) //@inline
 {
-    float console_size_y = 0.25f * editor.main_window_rect.height;
+    float console_size_y = 0.25f * editor.main_window_rect.h;
     int max_lines = ((int)console_size_y / CONSOLE_FONT_SIZE) - 1; // -1 to account for the input box line
     if (editor.con_history.len() >= max_lines) {
         editor.con_history.pop()!!;

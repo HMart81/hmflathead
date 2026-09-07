@@ -413,7 +413,6 @@ const MODS_MAX_DESCRIPTION = 256;
 *>
 fn ModList* listMods() 
 {
-    @todo();
     /*
 	char[ MODS_MAX_DESCRIPTION ] desc;
 

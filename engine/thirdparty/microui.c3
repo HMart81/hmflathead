@@ -40,27 +40,27 @@ module thirdparty::microui::mu @if($feature(MICROUI_ENABLE));
 
 import std::io;
 import std::core::string::conv;
-import thirdparty::raylib5::rl;
 import std::collections::list;
-//import std::collections::elastic_array;
 import engine::logging::log;
+import engine::tools;
 import game::main;
+import thirdparty::raylib5::rl;
 import thirdparty::microui::mu_stack @public;
 
-const MU_VERSION = "2.02";
+const VERSION = "2.02";
 
-const MU_COMMANDLIST_SIZE     =  (256 * 1024);
-const MU_ROOTLIST_SIZE        = 32;
-const MU_CONTAINERSTACK_SIZE  = 32;
-const MU_CLIPSTACK_SIZE       = 32;
-const MU_IDSTACK_SIZE         = 32;
-const MU_LAYOUTSTACK_SIZE     = 16;
-const MU_CONTAINERPOOL_SIZE   = 48;
-const MU_TREENODEPOOL_SIZE    = 48;
-const MU_MAX_WIDTHS           = 16;
-const MU_REAL_FMT             = "%.3g";
-const MU_SLIDER_FMT           = "%.2f";
-const MU_MAX_FMT              = 127;
+const COMMANDLIST_SIZE     =  (256 * 1024);
+const ROOTLIST_SIZE        = 32;
+const CONTAINERSTACK_SIZE  = 32;
+const CLIPSTACK_SIZE       = 32;
+const IDSTACK_SIZE         = 32;
+const LAYOUTSTACK_SIZE     = 16;
+const CONTAINERPOOL_SIZE   = 48;
+const TREENODEPOOL_SIZE    = 48;
+const MAX_WIDTHS           = 16;
+const REAL_FMT             = "%.3g";
+const SLIDER_FMT           = "%.2f";
+const MAX_FMT              = 127;
 
 const MU_Rect UNCLIPPED_RECT = {0, 0, 0x1000000, 0x1000000 };
 
@@ -69,12 +69,14 @@ const MICROUI_FONT_SIZE 	    = 9;
 const MICROUI_FONT_SPACING    = 1; // This is the spacing between characters in the font, used for text rendering.
 const MAX_INPUT_TEXT          = 32; // Maximum length of input text in MicroUI text box's.
 
-const MU_COMMAND_JUMP = 1;
-const MU_COMMAND_CLIP = 2;
-const MU_COMMAND_RECT = 3;
-const MU_COMMAND_TEXT = 4;
-const MU_COMMAND_ICON = 5;
-const MU_COMMAND_MAX  = 6;
+// type of commands/interactions done on the gui
+const COMMAND_JUMP = 1;
+const COMMAND_CLIP = 2;
+const COMMAND_RECT = 3;
+const COMMAND_TEXT = 4;
+const COMMAND_ICON = 5;
+const COMMAND_MAX  = 6;
+//////////////////////////
 
 alias Colorid = int;
 const Colorid MU_COLOR_TEXT        = 0;
@@ -93,12 +95,12 @@ const Colorid MU_COLOR_SCROLLBASE  = 12;
 const Colorid MU_COLOR_SCROLLTHUMB = 13;
 const Colorid MU_COLOR_MAX         = 14;
 
-alias MU_Stack_Chars             @local = MU_Stack{char, MU_COMMANDLIST_SIZE};
-alias MU_Stack_ContainerPtrsRoot @local = MU_Stack{MU_Container*, MU_ROOTLIST_SIZE};
-alias MU_Stack_ContainerPtrs     @local = MU_Stack{MU_Container*, MU_CONTAINERSTACK_SIZE};
-alias MU_Stack_Rect              @local = MU_Stack{MU_Rect, MU_CLIPSTACK_SIZE};
-alias MU_Stack_ID                @local = MU_Stack{MU_Id, MU_IDSTACK_SIZE};
-alias MU_Stack_Layout            @local = MU_Stack{MU_Layout, MU_LAYOUTSTACK_SIZE};
+alias MU_Stack_Chars             @local = MU_Stack{char, COMMANDLIST_SIZE};
+alias MU_Stack_ContainerPtrsRoot @local = MU_Stack{MU_Container*, ROOTLIST_SIZE};
+alias MU_Stack_ContainerPtrs     @local = MU_Stack{MU_Container*, CONTAINERSTACK_SIZE};
+alias MU_Stack_Rect              @local = MU_Stack{MU_Rect, CLIPSTACK_SIZE};
+alias MU_Stack_ID                @local = MU_Stack{MU_Id, IDSTACK_SIZE};
+alias MU_Stack_Layout            @local = MU_Stack{MU_Layout, LAYOUTSTACK_SIZE};
 
 macro min(a, b) @private => ((a) < (b) ? (a) : (b));
 macro max(a, b) @private => ((a) > (b) ? (a) : (b));
@@ -173,11 +175,11 @@ constdef MU_Key : inline int
 }
 
 
-alias MU_Id   = uint;
-alias MU_Real = float;
-alias MU_Font = void*;
-
-alias MU_Vec2 = int[<2>];
+alias MU_Id    = uint;
+alias MU_Real  = float;
+alias MU_Font  = void*;
+alias MU_Color = RLColor;
+alias MU_Vec2  = int[<2>];
 
 struct MU_Rect
 { 
@@ -194,7 +196,7 @@ fn bool MU_Rect.equal(&self, MU_Rect other) @operator(==)
   );
 }
 
-fn bool MU_Rect.nequal(&self, MU_Rect other) @operator(<)
+fn bool MU_Rect.less(&self, MU_Rect other) @operator(<)
 {
   return (
       self.x < other.x &&
@@ -204,20 +206,20 @@ fn bool MU_Rect.nequal(&self, MU_Rect other) @operator(<)
     );
 }
 
-fn MU_Rect MU_Rect.fromRLRectangle(self, RLRectangle r) {
-  return { (int)r.x, (int)r.y, (int)r.width, (int)r.height };
+fn MU_Rect rlRectToMURect(RLRectangle r) @inline
+{
+	return { (int)r.x, (int)r.y, (int)r.width, (int)r.height };
 }
 
-fn RLRectangle MU_Rect.toRLRectangle(self) {
+fn RLRectangle MU_Rect.toRLRect(self) @inline
+{
   return { (float)self.x, (float)self.y, (float)self.w, (float)self.h };
 }
-
-alias MU_Color = RLColor;
 
 struct MU_PoolItem
 { 
 	MU_Id id; 
-	int last_update; 
+	int last_update;
 }
 
 fn bool MU_PoolItem.equal(&self, MU_PoolItem other) @operator(==)
@@ -288,7 +290,7 @@ struct MU_Layout
   MU_Vec2 position;
   MU_Vec2 size;
   MU_Vec2 max;
-  int[MU_MAX_WIDTHS] widths;
+  int[MAX_WIDTHS] widths;
   int items;
   int item_index;
   int next_row;
@@ -296,16 +298,22 @@ struct MU_Layout
   int indent;
 }
 
+/*
+Windows are the primary container type in MicroUI. 
+They appear as independent, movable, and resizable 
+rectangles that can contain UI controls and other 
+containers.
+*/
 struct MU_Container
 {
   MU_Command* head; 
   MU_Command* tail;
-  MU_Rect rect;
-  MU_Rect body;
-  MU_Vec2 content_size;
-  MU_Vec2 scroll;
-  int zindex;
-  int open;
+  MU_Rect rect;         // The full rectangle of the container, including title bar and borders
+  MU_Rect body;         // The inner content area where controls are placed
+  MU_Vec2 content_size; // The size of the content within the container
+  MU_Vec2 scroll;       // The current scroll position
+  int zindex;           // Determines the stacking order of containers
+  int open;             // Whether the container is currently open
 }
 
 struct MU_Style
@@ -334,9 +342,9 @@ struct MU_Context
   /* core state */
 	MU_Style _style;
 	MU_Style* style;
-	MU_Id hover;
-	MU_Id focus;
-	MU_Id last_id;
+	MU_Id hover; // ID of control being hovered
+	MU_Id focus; // ID of control with input focus
+	MU_Id last_id; // Most recently generated ID   
 	MU_Rect last_rect;
 	int last_zindex;
 	int updated_focus;
@@ -344,7 +352,7 @@ struct MU_Context
 	MU_Container* hover_root;
 	MU_Container* next_hover_root;
 	MU_Container* scroll_target;
-	char[MU_MAX_FMT] number_edit_buf;
+	char[MAX_FMT] number_edit_buf;
 	MU_Id number_edit;
 	/* stacks */
 	MU_Stack_Chars command_list;
@@ -354,9 +362,9 @@ struct MU_Context
 	MU_Stack_ID id_stack;
 	MU_Stack_Layout layout_stack;
 	/* retained state pools */
-	MU_PoolItem[MU_CONTAINERPOOL_SIZE] container_pool;
-	MU_Container[MU_CONTAINERPOOL_SIZE] containers;
-	MU_PoolItem[MU_TREENODEPOOL_SIZE] treenode_pool;
+	MU_PoolItem[CONTAINERPOOL_SIZE] container_pool;
+	MU_Container[CONTAINERPOOL_SIZE] containers;
+	MU_PoolItem[TREENODEPOOL_SIZE] treenode_pool;
 	/* input state */
 	MU_Vec2 mouse_pos;
 	MU_Vec2 last_mouse_pos;
@@ -369,22 +377,22 @@ struct MU_Context
 	char[MAX_INPUT_TEXT] input_text;
 }
 
-
 extern fn MU_Vec2 vec2(int x, int y)  @cname("mu_vec2");
 extern fn MU_Rect rect(int x, int y, int w, int h) @cname("mu_rect");
 extern fn MU_Color color(int r, int g, int b, int a) @cname("mu_color");
 
+// init microui context
 extern fn void MU_Context.init(&self) @cname("mu_init");
+
+// render a microui frame/window
 extern fn void MU_Context.begin(&self) @cname("mu_begin");
 extern fn void MU_Context.end(&self) @cname("mu_end");
+//
+
 extern fn void MU_Context.set_focus(&self, MU_Id id) @cname("mu_set_focus");
 extern fn MU_Id MU_Context.get_id(&self, void* data, int size) @cname("mu_get_id");
 extern fn void MU_Context.push_id(&self, void* data, int size) @cname("mu_push_id");
 extern fn void MU_Context.pop_id(&self) @cname("mu_pop_id");
-extern fn void MU_Context.push_clip_rect(&self, MU_Rect rect) @cname("mu_push_clip_rect");
-extern fn void MU_Context.pop_clip_rect(&self) @cname("mu_pop_clip_rect");
-extern fn MU_Rect MU_Context.get_clip_rect(&self) @cname("mu_get_clip_rect");
-extern fn int MU_Context.check_clip(&self, MU_Rect r) @cname("mu_check_clip");
 extern fn MU_Container* MU_Context.get_current_container(&self) @cname("mu_get_current_container");
 extern fn MU_Container* MU_Context.get_container(&self, ZString name) @cname("mu_get_container");
 extern fn void MU_Context.bring_to_front(&self, MU_Container *cnt) @cname("mu_bring_to_front");
@@ -393,6 +401,7 @@ extern fn int MU_Context.pool_init(&self, MU_PoolItem *items, int len, MU_Id id)
 extern fn int MU_Context.pool_get(&self, MU_PoolItem *items, int len, MU_Id id) @cname("mu_pool_get");
 extern fn void MU_Context.pool_update(&self, MU_PoolItem *items, int idx) @cname("mu_pool_update");
 
+// INPUT functions ///////////////////////////////////////////////////////////////////////////
 extern fn void MU_Context.input_mousemove(&self, int x, int y) @cname("mu_input_mousemove");
 extern fn void MU_Context.input_mousedown(&self, int x, int y, int btn) @cname("mu_input_mousedown");
 extern fn void MU_Context.input_mouseup(&self, int x, int y, int btn) @cname("mu_input_mouseup");
@@ -400,15 +409,41 @@ extern fn void MU_Context.input_scroll(&self, int x, int y) @cname("mu_input_scr
 extern fn void MU_Context.input_keydown(&self, int key) @cname("mu_input_keydown");
 extern fn void MU_Context.input_keyup(&self, int key) @cname("mu_input_keyup");
 extern fn void MU_Context.input_textfn(&self, ZString text) @cname("mu_input_text");
+//
+
 
 extern fn MU_Command* MU_Context.push_command(&self, int type, int size) @cname("mu_push_command");
 extern fn int MU_Context.next_command(&self, MU_Command** cmd) @cname("mu_next_command");
+
+// CLIP functions ///////////////////////////////////////////////////////////////
+// Generate a clip command
 extern fn void MU_Context.set_clip(&self, MU_Rect rect) @cname("mu_set_clip");
+// Push a new clip rectangle onto the stack
+extern fn void MU_Context.push_clip_rect(&self, MU_Rect rect) @cname("mu_push_clip_rect");
+// Pop a clip rectangle from the stack
+extern fn void MU_Context.pop_clip_rect(&self) @cname("mu_pop_clip_rect");
+// Get the current clip rectangle
+extern fn MU_Rect MU_Context.get_clip_rect(&self) @cname("mu_get_clip_rect");
+// Check if a rectangle is clipped
+extern fn int MU_Context.check_clip(&self, MU_Rect r) @cname("mu_check_clip");
+/*
+  Restricts drawing operations to specific regions of the screen, 
+  preventing elements from drawing outside their containers and 
+  improving performance by skipping off-screen elements.
+*/
+///////////
+
+// DRAWING functions ///////////////////////////////////////////////////////////////////////////
 extern fn void MU_Context.draw_rect(&self, MU_Rect rect, MU_Color color) @cname("mu_draw_rect");
 extern fn void MU_Context.draw_box(&self, MU_Rect rect, MU_Color color) @cname("mu_draw_box");
 extern fn void MU_Context.draw_text(&self, MU_Font font, ZString str, int len, MU_Vec2 pos, MU_Color color) @cname("mu_draw_text");
 extern fn void MU_Context.draw_icon(&self, int id, MU_Rect rect, MU_Color color) @cname("mu_draw_icon");
+extern fn void MU_Context.draw_control_frame(&self, MU_Id id, MU_Rect rect, int colorid, int opt) @cname("mu_draw_control_frame");
+extern fn void MU_Context.draw_control_text(&self, ZString str, MU_Rect rect, int colorid, int opt) @cname("mu_draw_control_text");
+macro draw_rect_bounds(MU_Rect rect) => rl::drawRectangleLinesEx(rect.toRLRect(), lineThick: 2.0f, color: rl::YELLOW);
+//
 
+// LAYOUT functions ///////////////////////////////////////////////////////////////////////////////////
 extern fn void MU_Context.layout_row(&self, int items, int* widths, int height) @cname("mu_layout_row");
 extern fn void MU_Context.layout_width(&self, int width) @cname("mu_layout_width");
 extern fn void MU_Context.layout_height(&self, int height) @cname("mu_layout_height");
@@ -417,18 +452,17 @@ extern fn void MU_Context.layout_end_column(&self) @cname("mu_layout_end_column"
 extern fn void MU_Context.layout_set_next(&self, MU_Rect r, int relative) @cname("mu_layout_set_next");
 extern fn MU_Rect MU_Context.layout_next(&self) @cname("mu_layout_next");
 
-extern fn void MU_Context.draw_control_frame(&self, MU_Id id, MU_Rect rect, int colorid, int opt) @cname("mu_draw_control_frame");
-extern fn void MU_Context.draw_control_text(&self, ZString str, MU_Rect rect, int colorid, int opt) @cname("mu_draw_control_text");
+//
 extern fn int MU_Context.mouse_over(&self, MU_Rect rect) @cname("mu_mouse_over");
 extern fn void MU_Context.update_control(&self, MU_Id id, MU_Rect rect, int opt) @cname("mu_update_control");
 
-macro MU_Context.button(&self, label)             => self.button_ex(label.zstr_tcopy(), 0, MU_Opt.ALIGNCENTER);
+macro MU_Context.button(&self, label, icon = 0, opt = MU_Opt.ALIGNCENTER)   => self.button_ex(label.zstr_tcopy(), icon, opt);
 macro MU_Context.textbox(&self, buf, bufsz)       => self.textbox_ex(buf, bufsz, 0);
-macro MU_Context.slider(&self, value, lo, hi)     => self.slider_ex(value, lo, hi, 0, MU_SLIDER_FMT, MU_Opt.ALIGNCENTER);
-macro MU_Context.number(&self, value, step)       => self.number_ex(value, step, MU_SLIDER_FMT, MU_Opt.ALIGNCENTER);
+macro MU_Context.slider(&self, value, lo, hi)     => self.slider_ex(value, lo, hi, 0, SLIDER_FMT, MU_Opt.ALIGNCENTER);
+macro MU_Context.number(&self, value, step)       => self.number_ex(value, step, SLIDER_FMT, MU_Opt.ALIGNCENTER);
 macro MU_Context.header(&self, label)             => self.header_ex(label.zstr_tcopy(), 0);
 macro MU_Context.begin_treenode(&self, label)     => self.begin_treenode_ex(label.zstr_tcopy(), 0);
-macro MU_Context.begin_window(&self, title, rect) => self.begin_window_ex(title.zstr_tcopy(), rect, 0);
+macro MU_Context.begin_window(&self, title, rect, MU_Opt opt = (MU_Opt)0) => self.begin_window_ex(title.zstr_tcopy(), rect, (int)opt);
 macro MU_Context.begin_panel(&self, name)         => self.begin_panel_ex(name.zstr_tcopy(), 0);
 
 extern fn void MU_Context.text(&self, ZString text) @cname("mu_text");
@@ -450,48 +484,88 @@ extern fn void MU_Context.end_popup(&self) @cname("mu_end_popup");
 extern fn void MU_Context.begin_panel_ex(&self, ZString name, int opt) @cname("mu_begin_panel_ex");
 extern fn void MU_Context.end_panel(&self) @cname("mu_end_panel");
 
-alias OpenMicroUIFrames = List{String};
+struct MU_Open_ID @local
+{
+	String name;
+	MU_Id id;
+}
+alias OpenMicroUIFrames = List{MU_Open_ID*};
 OpenMicroUIFrames open_frames @public;
 
-fn void register_open_window(String _name) @local
+fn void register_open_window(String _name, MU_Id _id) @local
 {
-  foreach(&name : open_frames) 
-  {
-    if ((*name) == _name) {
-      return; // already registered
-    }
-  }
-  open_frames.push(_name.copy(mem));
+	foreach(it : open_frames)
+	{
+		if (it.id == _id) {
+			return; // already registered
+		}
+	}
+
+	open_frames.push( mem::new(MU_Open_ID, {
+		.name = _name.tcopy(),
+		.id = _id
+	}));
 }
 
 fn void unregister_open_window(String _name) @local
 {
-  bool found;
-  foreach(&name : open_frames) 
-  {
-    if ((*name) == _name) 
-    {
-      found = true;
-      break; // found the frame to unregister
-    }
-  }
-  if(found) open_frames.remove_item(_name);
+	MU_Open_ID* item;
+	foreach(i, it : open_frames)
+	{
+		if (it.name == _name)
+		{
+			item = open_frames[i];
+			break; // found the frame to unregister
+		}
+	}
+	if(item) open_frames.remove_item(item);
 }
 
-macro bool MU_Context.@make_window(&self, $title, #rect; @body) 
+<*
+    @require($Typeof($title) == String)
+    @require($Typeof(#rect) == MU_Rect)
+    @require($Typeof($opt) == MU_Opt)
+*>
+macro bool MU_Context.@make_window(&self, $title, #rect, bool register = true, $opt = (MU_Opt)0; @body) 
 {
-  $assert($Typeof($title) == String);
-  $assert($Typeof(#rect) == MU_Rect);
+    if (self.begin_window($title, #rect, $opt) == MU_Res.ACTIVE)
+    {
+        if(register) register_open_window($title, self.last_id); // Register the window as open
+        defer self.end_window();
+        @body();
+    }
+    else
+    {
+        if(register) unregister_open_window($title.tcopy()); // Unregister the window as it is closed
+        return false; // The window should close.
+    }
+    return true; // The window is open.
+}
 
-  if (self.begin_window($title, #rect)) {
-    register_open_window($title.tcopy()); // Register the window as open
-		defer self.end_window();
-		@body();
-	} else {
-    unregister_open_window($title.tcopy()); // Unregister the window as it is closed
-    return false; // The window should close.
-  }
-  return true; // The window is open.
+<*
+    @require($Typeof($title) == String)
+    @require($Typeof(#rect) == MU_Rect)
+    @require($Typeof($opt) == MU_Opt)
+*>
+macro bool @doWindow(
+  MU_Context* ctx, 
+  $title, 
+  #rect, 
+  bool register = true, 
+  $opt = (MU_Opt)0; @body) 
+{
+    if (ctx.begin_window($title, #rect, $opt) == MU_Res.ACTIVE)
+    {
+        if(register) register_open_window($title, ctx.last_id); // Register the window as open
+        defer ctx.end_window();
+        @body();
+    }
+    else
+    {
+        if(register) unregister_open_window($title.tcopy()); // Unregister the window as it is closed
+        return false; // The window should close.
+    }
+    return true; // The window is open.
 }
 
 macro void @render(MU_Context* ctx; @body)
@@ -571,16 +645,16 @@ fn void log_window(MU_Context *ctx)
   bool open = ctx.@make_window("Log Window", rect(350, 40, 300, 200)) 
   {
     /* output text panel */
-    ctx.layout_row(1, &&(int[*]) { -1 }, -25);
+    ctx.layout_row(1, (int[]) { -1 }, -25);
     MU_Container *panel;
     ctx.@make_panel("Log Output")
     {
       panel = ctx.get_current_container();
-      ctx.layout_row(1, &&(int[*]) { -1 }, -1);
+      ctx.layout_row(1, (int[]) { -1 }, -1);
       ctx.text(logbuf.zstr_tcopy());
     }; // end of log output panel
 
-    if (logbuf_updated) 
+    if (logbuf_updated)
     {
       panel.scroll.y = panel.content_size.y;
       logbuf_updated = 0;
@@ -588,7 +662,7 @@ fn void log_window(MU_Context *ctx)
 
     /* input textbox + submit button */
     int submitted;
-    ctx.layout_row(2, &&(int[*]) { -70, -1 }, 0);
+    ctx.layout_row(2, (int[]) { -70, -1 }, 0);
     if (ctx.textbox(&input_buf[0], (int)input_buf.len) & MU_Res.SUBMIT)
     {
       ctx.set_focus(ctx.last_id);
@@ -630,9 +704,12 @@ fn void test_window(MU_Context* ctx)
       ZString buf;
       ctx.layout_row(2, (int[]) { 54, -1 }, 0);
       ctx.label("Position:");
-      buf = string::tformat_zstr("%d, %d", win.rect.x, win.rect.y); ctx.label(buf);
+      buf = string::tformat_zstr("%d, %d", win.rect.x, win.rect.y); 
+      ctx.label(buf);
+
       ctx.label("Size:");
-      buf = string::tformat_zstr("%d, %d", win.rect.w, win.rect.h); ctx.label(buf);
+      buf = string::tformat_zstr("%d, %d", win.rect.w, win.rect.h); 
+      ctx.label(buf);
     }
 
     /* labels + buttons */
@@ -732,7 +809,7 @@ fn void debug_window(MU_Context* ctx) @inline
 	{
 		// Here you can add UI elements and logic for the test window
 		ctx.text("Put here any debug stuff you need.");
-    ctx.@make_rows(1, &&(int[*]) { 100 }) 
+    ctx.@make_rows(1, (int[]) { 100 }, -1) 
     {
       ctx.checkbox("Pause RLMusic:", &game::pContext.pause_all_music);
     };
@@ -748,13 +825,13 @@ fn void statistics_window(MU_Context* ctx) @inline
 {
 	bool open = ctx.@make_window("stats_window", mu::rect(100, 50, 400, 300))
 	{
-    ctx.@make_rows(1, &&(int[*]) { -1 }, -25)
+    ctx.@make_rows(1, (int[]) { -1 }, -25)
     {
       MU_Container *panel;
       ctx.@make_panel("Frame Statistics")
       {
         panel = ctx.get_current_container();
-        ctx.@make_rows(1, &&(int[*]) { -1 }, -1)
+        ctx.@make_rows(1, (int[]) { -1 }, -1)
         {
           int fps = rl::getFPS();
           float frame_time = rl::getFrameTime();
@@ -789,6 +866,10 @@ fn void run_microui_frames(MU_Context* ctx) @inline
   {
     ctx.run(&statistics_window);
   }
+
+  if(game::developer.getBool() && game::editor.getBool()) {
+	    tools::draw(&game::pContext.editor);
+	}
 }
 
 /////////////////////////////////////////////////////////////////////////////////////
@@ -853,16 +934,16 @@ fn void draw_icon(int id, MU_Rect rect, MU_Color color)
 
 fn void set_clip_rect(MU_Rect rect) @inline
 {
-  if(rect == UNCLIPPED_RECT)
-  {
-    // End any previous scissor mode to reset the clipping state
-	  rl::endScissorMode();
-  }
-  else
-  {
-    // Set the clipping rectangle for drawing operations
-	  rl::beginScissorMode(rect.x, rect.y, rect.w, rect.h);
-  }
+	if(rect == UNCLIPPED_RECT)
+	{
+	// End any previous scissor mode to reset the clipping state
+		rl::endScissorMode();
+	}
+	else
+	{
+	// Set the clipping rectangle for drawing operations
+		rl::beginScissorMode(rect.x, rect.y, rect.w, rect.h);
+	}
 }
 
 // NOTE(HM) this is the "buffer" for the input text
@@ -1061,24 +1142,26 @@ fn void MU_Context.forward_keyboard_input(MU_Context* ctx)
 ////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////
 // micro ui icons 
+<*
+  @require rl::isTextureValid(game::pContext.mu_font_atlas) : "MicroUI font texture is not initialized."
+*>
 fn void r_draw_icon(int id, MU_Rect _rect, MU_Color color) @local 
 {
-  assert(rl::isTextureValid(game::pContext.mu_font_atlas), "MicroUI font texture is not initialized.");
-  MU_Rect src = mu::ICONS[id]; //atlas[id].rect;
-  int x = _rect.x + (_rect.w - src.w) / 2;
-  int y = _rect.y + (_rect.h - src.h) / 2;
-   // Assuming cmd->icon.id corresponds to a valid icon in the MicroUI icon set
-  // Here we would draw the icon based on its ID and rectangle
-  // For simplicity, we can use a placeholder drawing function
-  //draw_rect(rect(x, y, src.w, src.h), color); // Placeholder for actual icon drawing logic
-  rl::setBlendFactors(rl::RL_ONE, rl::RL_ONE, rl::RL_FUNC_ADD);
-  rl::@blendMode(RLBlendMode.CUSTOM) 
-  {
-    rl::drawTexturePro(game::pContext.mu_font_atlas,
-      (RLRectangle){src.x, src.y, src.w, src.h},
-      (RLRectangle){x, y, src.w, src.h},
-      (RLVector2){0, 0}, 0.0f, color);
-  };
+	MU_Rect src = mu::ICONS[id]; //atlas[id].rect;
+	int x = _rect.x + (_rect.w - src.w) / 2;
+	int y = _rect.y + (_rect.h - src.h) / 2;
+	// Assuming cmd->icon.id corresponds to a valid icon in the MicroUI icon set
+	// Here we would draw the icon based on its ID and rectangle
+	// For simplicity, we can use a placeholder drawing function
+	//draw_rect(rect(x, y, src.w, src.h), color); // Placeholder for actual icon drawing logic
+	rl::setBlendFactors(rl::RL_ONE, rl::RL_ONE, rl::RL_FUNC_ADD);
+	rl::@blendMode(RLBlendMode.CUSTOM) 
+	{
+	rl::drawTexturePro(game::pContext.mu_font_atlas,
+		(RLRectangle){src.x, src.y, src.w, src.h},
+		(RLRectangle){x, y, src.w, src.h},
+		(RLVector2){0, 0}, 0.0f, color);
+	};
 }
 
 // Define the icon atlas

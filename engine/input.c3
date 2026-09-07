@@ -149,7 +149,9 @@ fn bool Action.fnIsTriggered(&self) @dynamic @nodiscard
                 return true;
             }
         case GAMEPAD:
+			@todo();
         case MOBILE:
+			@todo();
         default:
             return false;
     }
@@ -253,17 +255,16 @@ fn void Action.updateLogic(&self, float timeStep) @dynamic
 fn String Action.getName(&self) => self.name;
 
 <*
- @param name : "the name of the action to create"
+ @param [in] name : "the name of the action to create"
  @param key1 : "the main key for the action"
  @param key2 : "an optional secondary key for the action, like alt, shift, ctrl, etc..."
  @param func : "an optional callback function to call when the action is triggered"
- @require name != ""
- @require key1 != rl::KEY_NULL && key2 != key1
+ @require name != "" && key1 != rl::KEY_NULL && key2 != key1
 *>
 fn void makeKeyboardAction(String name, int key1, int key2 = rl::KEY_NULL, ActionCallBack func = null)  @inline
 {
 	if(key1 == rl::KEY_F12 || key2 == rl::KEY_F12) {
-        log::warning(FILE, "Cannot assing key function 'F12' to keyboard action '%s' because is the screenshot key.", name);
+        log::warning(FILE, "Cannot assing key function 'F12' to keyboard action '%s' because is the reserved to screenshot key.", name);
         return;
     }
 
@@ -277,18 +278,24 @@ fn void makeKeyboardAction(String name, int key1, int key2 = rl::KEY_NULL, Actio
         return;
     }
 
-    foreach(act : local_manager.actions)
-	{
-		if(act.name == name) {
-        	log::warning(FILE, "Cannot define another action named \"%s\" that is not supported.", name);
-       		return;
-    	}
+	if(actionExists(name, &local_manager)) {
+		log::warning(FILE, "Cannot define another action named \"%s\" that is not supported.", name);
+       	return;
+	}
 
+	Action* other;
+	if(already_in_use(KEYBOARD, key1, &local_manager, other)) {
+		log::warning(FILE, "Cannot give key1 \"%s\" to action \"%s\", is already taken by action \"%s\".", getKeyboardKeyName(key1), name, other.name);
+		return;
+	}
+
+    /*foreach(act : local_manager.actions)
+	{
         if(act.kind == ActionKind.KEYBOARD && act.keyboard.key1 == key1 && act.keyboard.key2 == key2) {
             log::warning(FILE, "Cannot give key1 \"%s\" and key2 \"%s\" to action \"%s\", they are already taken by action \"%s\".", getKeyboardKeyName(key1), getKeyboardKeyName(key2), name, act.name);
             return;
         }
-    }
+    }*/
 
     Action* action       = mem::new(Action);
     action.type          = Action;
@@ -491,7 +498,7 @@ fn int getKeyCodeFromStr(String name) @inline
 *>
 fn Action* getAction(String name) @inline 
 {
-    return _getActionByName(&local_manager, name);
+    return getActionByName(&local_manager, name);
 }
 
 fn void removeAction(String name) @inline 
@@ -699,20 +706,82 @@ fn void ActionManager.register(&self, Action* action) @inline
 }
 
 <*
-	@param name : "the name of the action to retrieve"
+	@param [&in] actdb : "the action manager"
+	@param [in] name : "the name of the action to retrieve"
 	@require name != ""
 *>
-fn Action* _getActionByName(ActionManager* actdb, String name) @inline @local @nodiscard
+fn Action* getActionByName(ActionManager* actdb, String name) @inline @local @nodiscard
 {
-    if(name == "") return null;
-    
     foreach(action : actdb.actions) {
         if(action.name == name) {
             return action;
         }
     }
-    
     return null;
+}
+
+<*
+	@param [in] name : "the name of the action to search for"
+	@param [&in] mng : "the action manager"
+	@require name != ""
+*>
+fn bool actionExists(String name, ActionManager* mng) @inline @local @nodiscard
+{
+    foreach(action : mng.actions) {
+        if(action.name == name) {
+            return true;
+        }
+    }
+    return false;
+}
+
+<*
+	@param kind : "the input kind being used"
+	@param key : "the input key to search for"
+	@param [&in] mng : "the action manager"
+	@param [inout] out : "optional action found to return out"
+	@require kind != ActionKind.UNKNOWN
+*>
+fn bool already_in_use(ActionKind kind, int key, ActionManager* mng, Action* out = null) @inline @local @nodiscard
+{
+	bool key_found;
+	Action* other @noinit;
+    foreach(action : mng.actions) 
+	{
+        if(action.kind == kind) 
+		{
+			if(action.keyboard.key2 == key) {
+				key_found = true;
+				other = action;
+			}
+			switch(kind)
+			{
+				case ActionKind.KEYBOARD:
+					if(action.keyboard.key1 == key) 
+					{
+						key_found = true;
+						other = action;
+					}
+				case ActionKind.MOUSE:
+					if(action.mouse.btn == key) 
+					{
+						key_found = true;
+						other = action;
+					}
+    			case ActionKind.GAMEPAD:
+    			case ActionKind.MOBILE:
+					@todo();
+				default: unreachable();
+			}
+        }
+    }
+
+	if(key_found && other) {
+		out = other;
+		return true;
+	}
+
+    return false;
 }
 
 

@@ -51,8 +51,7 @@ import engine::sys::framework::hmdict;
 // end_region
 
 // region cvars
-CVar debugBounds @if($feature(_DEBUG)) = { "ent_debugBounds", CvFlag.BOOL | CvFlag.TOOL, "1", "show debug visualization for entity bounding box" };
-CVar debugBounds @if($feature(_RELEASE)) = { "ent_debugBounds", CvFlag.BOOL | CvFlag.TOOL, "0", "show debug visualization for entity bounding box" };
+CVar debugBounds = { "ent_debugBounds", CvFlag.BOOL | CvFlag.TOOL, "0", "show debug visualization for entity bounding box" };
 
 // NOTE(HM) this is called in main.c3
 fn void register_cvars() @inline 
@@ -297,6 +296,10 @@ fn void HMEntity.addToSizeV(&self, Vec2i size) @inline {
 
 fn Vec2f HMEntity.getSize(&self) @inline => self.vs.getSize();
 
+fn float HMEntity.getWidth(&self) @inline => self.vs.getSize().x;
+
+fn float HMEntity.getHeight(&self) @inline => self.vs.getSize().y;
+
 fn void HMEntity.scale(&self, float w, float h) @inline {
 	self.vs.scale(w, h);
 }
@@ -348,6 +351,8 @@ fn Vec2f HMEntity.getPosition(&self) @inline
 	$endif
 }
 
+fn Vec2f HMEntity.getOrigin(&self) @inline => self.getPosition();
+
 fn void HMEntity.setBounds(&self, Bounds bb) @inline {
     self.vs.bounds = {
         .minc = bb.minc,
@@ -389,9 +394,17 @@ fn Coverage HMEntity.getCoverage(&self) @inline => self.vs.mat.coverage;
 
 fn bool HMEntity.hasCoverage(self, Coverage cv) @inline => self.vs.hasCoverage(cv);
 
-fn void HMEntity.hide(&self) @inline => self.vs.hide();
+fn void HMEntity.hide(&self) @inline
+{
+	self.vs.hide();
+	self.stopThinking();
+}
 
-fn void HMEntity.show(&self) @inline => self.vs.show();
+fn void HMEntity.show(&self) @inline
+{
+	self.vs.show();
+	self.startThinking();
+}
 
 fn bool HMEntity.hidden(&self) @inline => self.vs.hidden();
 
@@ -400,7 +413,9 @@ fn void HMEntity.setname(&self, String* aname) @inline
 	if(aname)
 	{
 		self.name = aname.tcopy();
-	} else {
+	} 
+	else
+	{
 		unreachable("Failed to give name to entity.");
 	}
 }
@@ -545,7 +560,8 @@ fn HMEntity* findradius(HMEntity *startent, Vec2f* org, float rad )
 	return null;
 }
 
-fn void HMEntity.setAlive(&self, bool live = true, bool shouldRemove = false) @inline {
+fn void HMEntity.setAlive(&self, bool live = true, bool shouldRemove = false)
+{
 	if (live) 
 	{
 		if (!self.flags.alive) {
@@ -574,7 +590,7 @@ fn void HMEntity.setAlive(&self, bool live = true, bool shouldRemove = false) @i
 	}
 }
 
-fn void HMEntity.born(&self) @inline
+fn void HMEntity.born(&self)
 { 
 	self.setAlive(true);
 
@@ -605,9 +621,12 @@ fn void HMEntity.kill(&self)
 		// activate our targets, if they are not already activated
 		foreach(target : self.targets)
 		{
-			if(target.isAlive() && target.notOnActiveList()) {
+			if(target.isAlive() && target.notOnActiveList())
+			{
 				target.setActive(true);
-			} else { 
+			} 
+			else
+			{ 
 				target.born(); // revive the target entity
 			}
 		}
@@ -619,7 +638,6 @@ fn void HMEntity.kill(&self)
 	}
 
 	self.clearSpawnArgs();
-
 	self.setAlive(false);
 }
 
@@ -694,7 +712,8 @@ fn bool HMEntity.isActive(&self) @inline {
 
 fn void HMEntity.becomeInactive(&self, int flags) 
 {
-	if ((flags & EntTh.PHYSICS)) {
+	if ((flags & EntTh.PHYSICS))
+	{
 		flags &= ~EntTh.PHYSICS;
 		return;
 		// may only disable physics on a team master if no team members are running physics or bound to a joints
@@ -708,9 +727,11 @@ fn void HMEntity.becomeInactive(&self, int flags)
 		}*/
 	}
 
-	if (self.thinkflags) {
+	if (self.thinkflags)
+	{
 		self.thinkflags &= ~flags;
-		if (!self.thinkflags && self.isActive()) {
+		if (!self.thinkflags && self.isActive())
+		{
 			//gameLocal.numEntitiesToDeactivate++;
 			self.setActive(false);
 		}
@@ -729,7 +750,8 @@ fn void HMEntity.becomeInactive(&self, int flags)
 
 fn void HMEntity.becomeActive(&self, int flags) 
 {
-	if ((flags & EntTh.PHYSICS)) {
+	if ((flags & EntTh.PHYSICS))
+	{
 		// enable the team master if this entity is part of a physics team
 		/*if (teamMaster && teamMaster != this) {
 			teamMaster->BecomeActive(EntTh.PHYSICS);
@@ -744,11 +766,14 @@ fn void HMEntity.becomeActive(&self, int flags)
 
 	int oldFlags = self.thinkflags;
 	self.thinkflags |= flags;
-	if (self.thinkflags) {
-		if (!self.isActive()) {
+	if (self.thinkflags)
+	{
+		if (!self.isActive())
+		{
 			self.setActive(true);
 		}
-		else if (!oldFlags) {
+		else if (!oldFlags)
+		{
 			// we became inactive this frame, so we have to decrease the count of entities to deactivate
 			//gameLocal.numEntitiesToDeactivate--;
 			self.setActive(false);
@@ -757,7 +782,11 @@ fn void HMEntity.becomeActive(&self, int flags)
 }
 
 
-fn void HMEntity.move(&self) {
+fn void HMEntity.move(&self)
+{
+	if(self.hidden()) return;
+	if(self.isDead()) return;
+
 	$if $feature(PHYSICS_BOX2D):
     // update visuals based on physics movement
     // && box2d::body_GetType(self.physics) == box2d::DYNAMIC
@@ -768,9 +797,9 @@ fn void HMEntity.move(&self) {
         self.updateBounds(new_pos);
 		self.updateVisuals();
     }
-	$endif
-
+	$else
 	// todo movement not based on Box2D physics but inhouse one
+	$endif
 }
 
 fn void HMEntity.think(&self, float dt) // update in other engines
@@ -788,7 +817,8 @@ fn void HMEntity.think(&self, float dt) // update in other engines
 
     }
 	
-	if(bounds::db_showBounds.getBool()) {
+	if(bounds::db_showBounds.getBool())
+	{
 		self.vs.bounds.debugDraw();
 	}
 }
@@ -800,7 +830,12 @@ fn void HMEntity.updateVisuals(&self)
 
 fn void HMEntity.draw(&self) 
 {
-	if(self.hidden() || self.isDead()) return;
+	if(self.hidden()) return;
+	if(self.isDead()) 
+	{
+		self.hide();
+		return;
+	}
 
 	if(!(self.thinkflags & EntTh.UPDATEVISUALS)) {
 		return;
@@ -809,10 +844,10 @@ fn void HMEntity.draw(&self)
 	
 	RLRectangle rect = self.vs.rect;
 
+	self.vs.onDraw();
 	//
 	// TODO rethink this, I should maybe reuse the sprite draw code
 	// not override it here!!!
-	self.vs.onDraw();
 	/*if(self.vs.hasMaterial())
     {
         // TODO(HM) find how to draw a image on a rounded rectangle!?

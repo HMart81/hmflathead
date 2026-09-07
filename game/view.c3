@@ -128,7 +128,7 @@ import game::camview::postprocess::pp;
 
 alias game_context = game::pContext;
 
-const int ENABLE_CAMERA_VIEW @public = 1;
+const ENABLE_CAMERA_VIEW @public = 1;
 
 // NOTE(HM) top left corner of screen.
 // (this is contrary to OpenGL that is lower left corner)
@@ -227,6 +227,9 @@ fn RenderTexture loadHDR_RenderTexture(int width, int height) @local // todo put
     return target;
 }
 
+<*
+	@ensure rl::isRenderTextureValid(return)
+*>
 fn RenderTexture initFrameBufferLayer(int width, int height, bool hdr = false) @local @inline
 {
 	if(hdr) {
@@ -274,9 +277,10 @@ fn void RenderView.reload(&self, SaveFile* file) @dynamic {
 fn void RenderView.init(&self, int screenWidth, int screenHeight) @inline 
 {
     // @testing...
-    foreach(ViewLayerID id, &layer : layers) {
-		layer.data = initFrameBufferLayer(screenWidth, screenHeight, hdr: true); //(RenderTexture)rl::loadRenderTexture(screenWidth, screenHeight);
-		rl::genTextureMipmaps(&layer.data.texture);
+    foreach(ViewLayerID id, &layer : layers)
+	{
+		layer.data = initFrameBufferLayer(screenWidth, screenHeight, hdr: false); //(RenderTexture)rl::loadRenderTexture(screenWidth, screenHeight);
+		//rl::genTextureMipmaps(&layer.data.texture);
 		rl::setTextureWrap(layer.data.texture, RLTextureWrap.CLAMP);
 		switch(id)
 		{
@@ -652,9 +656,12 @@ fn B2AABBox RenderView.fromBoundsToPhysicsAABB(&self) @if($feature(PHYSICS_BOX2D
 	return bb;
 }
 
-fn void RenderView.renderFrameBuffersObjects(&self) 
+<*
+	@param [&in] view : "the game/player view"
+*>
+fn void renderFrameBuffersObjects(RenderView* view) @inline @public
 {
-    renderLayersFBOs(self);
+    renderLayersFBOs(view);
 
     /*// render to the game layer
     if(self.enable_grayscale) {
@@ -785,7 +792,7 @@ int old_sort @local; // used to sort the sprites by their sort value
     This renders the framebuffer layers.
     @param [&in] view : "the view to render to the framebuffer layer" 
 *>
-fn void renderLayersFBOs(RenderView* view) @local 
+fn void renderLayersFBOs(RenderView* view) @local @inline
 {
     foreach(ViewLayerID idx, &layer : layers) 
     {
@@ -826,17 +833,18 @@ $if $defined(ENABLE_CAMERA_VIEW):
         rl::beginMode2D(view.camera);
 $endif
         // draw general game sprites
-        if(game_context.sprites.len()) 
+        if(game_context.sprites.len())
         {
             foreach(sprite : game_context.sprites)
             {
                 if(sprite.kind == SpriteKind.CURSOR) { continue; } // skip game cursor sprite
                 
                 bool out_of_view = !view.bounds.intersectsOther(&sprite.bounds);
-                if(out_of_view) {
+                if(out_of_view)
+				{
                     sprite.hide();
                 } 
-				else 
+				else
 				{
 					if(sprite.hidden()) sprite.show();
                     sprite.onDraw();
@@ -866,17 +874,17 @@ $endif
         }
             
         // draw game entities
-        if(game_context.entityList.len()) 
+        if(game_context.entityList.len())
         {
-            foreach(ent : game_context.entityList) 
+            foreach(ent : game_context.entityList)
             {
                 bool ent_out_of_view = !view.bounds.intersectsOther(&ent.vs.bounds);
-                if(ent_out_of_view) {
+                if(ent_out_of_view)
+				{
                     ent.hide();
-                } else if(ent.hidden()) { 
-                    ent.show(); 
                 }
-                if(!ent.hidden()) ent.draw();
+				
+                ent.draw();
             }
         }
         
@@ -921,8 +929,9 @@ $endif
 fn void renderGuiLayer(RenderView* view) @local 
 {
 $if $defined(ENABLE_CAMERA_VIEW):
-        rl::@mode2D(view.camera) {
-$if $feature(_DEBUG):
+        rl::@mode2D(view.camera)
+		{
+$if $feature(_DEBUG) &&& $defined(DEBUG_VIEW):
             //view.debug();
             //view.drawWorldSpaceCoords();
             view.drawCameraSpaceCoords();

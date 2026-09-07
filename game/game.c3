@@ -148,7 +148,7 @@ CVar r_fullscreen     @public = { "r_fullscreen"  , CvFlag.INT | CvFlag.ARCHIVE,
 CVar r_fps_unlocked   @public = { "r_unlockFps"   , CvFlag.BOOL | CvFlag.ARCHIVE,   "false", "sets if the fps is unlocked (true) or locked to the monitor refresh rate (false)"};
 CVar r_max_fps        @public = { "r_max_fps"     , CvFlag.INT | CvFlag.ARCHIVE,    "-1",    "sets the maximum fps when fps is unlocked, -1 = monitor refresh rate"};
 CVar db_drawPhysics   @public = { "db_drawPhysics", CvFlag.BOOL | CvFlag.TOOL,   "1",     "show debug visualization for world physics" };
-CVar s_noaudio        @public = { "s_noaudio"     , CvFlag.BOOL | CvFlag.ARCHIVE | CvFlag.SOUND,   "0",     "disables all audio"};
+CVar s_noaudio        @public = { "s_noaudio"     , CvFlag.BOOL | CvFlag.ARCHIVE | CvFlag.SOUND,   "1",     "disables all audio"};
 CVar fl_help          @public = { "help"          , CvFlag.BOOL | CvFlag.TOOL,   "0",     "shows help message"};
 CVar dbg_stats        @public = { "dbg_stats"     , CvFlag.BOOL | CvFlag.TOOL,   "0",     "shows various debug things on screen"};
 CVar skip_config      @public = { "skip_config"   , CvFlag.BOOL | CvFlag.TOOL,   "1",     "skips the configuarator at game start" };
@@ -1177,24 +1177,40 @@ fn void gameHandleGeneralControls() @local
     }
 	$endif
 
-    if(input::getAction("toggle_editor").fnBecameTriggered()) {
-        if((local_game.mode != STARTING && local_game.mode != INTRO)) {
-            if(editor.getBool() == true) {
-				Editor* ed = &local_game.editor;
-                (tools::isOpen(ed)) ? tools::close(ed) : tools::open(ed);
+    $if $feature(MICROUI_ENABLE):
+    // #region MicroUI initialization
+    if(local_game.mu_ctx != null) 
+    {
+        //float scroll_speed = -30.0f; // scroll speed for mouse wheel.
+        local_game.mu_ctx.forward_mouse_input();
+        local_game.mu_ctx.forward_text_input();
+        local_game.mu_ctx.forward_keyboard_input();
+    }
+
+    if(input::getAction("toggle_editor").fnBecameTriggered() && 
+       local_game.mode != STARTING && local_game.mode != INTRO)
+	{
+        if(editor.getBool() == true)
+        {
+            if(tools::isOpen(&local_game.editor))
+            {
+                tools::close(&local_game.editor);
+            }
+            else
+            {
+                tools::open(&local_game.editor);
             }
         }
     }
 
-    $if $feature(MICROUI_ENABLE):
-        if(rl::isKeyPressed(rl::KEY_F2)) {
-            local_game.show_microui_test_frames = !local_game.show_microui_test_frames;
-        }
+    if(rl::isKeyPressed(rl::KEY_F2)) {
+        local_game.show_microui_test_frames = !local_game.show_microui_test_frames;
+    }
 
-        if(rl::isKeyPressed(rl::KEY_F4)) {
-            local_game.show_statistics = !local_game.show_statistics;
-        }
-   $endif
+    if(rl::isKeyPressed(rl::KEY_F4)) {
+        local_game.show_statistics = !local_game.show_statistics;
+    }
+$endif
     
     // handle ESC key press
     if (!local_game.guiActive && rl::isKeyPressed(rl::KEY_ESCAPE) &&
@@ -1210,17 +1226,6 @@ fn void gameHandleGeneralControls() @local
             menu::setGUI(null); // disable any gui
         }
 	}
-
-$if $feature(MICROUI_ENABLE):
-    // #region MicroUI initialization
-    if(local_game.mu_ctx != null) 
-    {
-        //float scroll_speed = -30.0f; // scroll speed for mouse wheel.
-        local_game.mu_ctx.forward_mouse_input();
-        local_game.mu_ctx.forward_text_input();
-        local_game.mu_ctx.forward_keyboard_input();
-    }
-$endif
     
     /*
     if(rl::isKeyPressed(rl::KEY_SPACE)) {
@@ -1323,12 +1328,7 @@ fn void onUpdate() @local
 {
     telem::@profile_zone("Game Update")
     {
-    $if $feature(_DEBUG):
-        const CHOICE = 0;
-    $else
-        const CHOICE = 0;
-    $endif
-    tracy::@zoneN("gameUpdate", CHOICE)
+    tracy::@zoneN("gameUpdate", 0)
     {
         // make game run at lower rate in case window loses focus
 		int runningHz = (int)local_game.render.getFPS();
@@ -1550,20 +1550,24 @@ fn void drawGameVersion(Vec2i at_pos) @MyInline @local
     const VERSION_FONT_SCALE = 12;
     //ZString game_version     = string::tformat_zstr("version: (%s, %s, %s)", lic::MAX_VERSION, lic::MIN_VERSION, lic::BABY_VERSION);
     //int version_text_len     = rl::measureText(game_version, VERSION_FONT_SCALE);
-    rl::drawText(
-        string::tformat_zstr("game version: %s", lic::GAME_VERSION),
-        //(int)(screenWidth - (2.0f * version_text_len)), //(float)(font_w * libc::strlen(game_version))),
-        //(int)0.25f*screenHeight,
-        at_pos.x,
-        at_pos.y,
-        VERSION_FONT_SCALE,
-        COLOR
-    );
+    rl::@blendMode(RLBlendMode.ALPHA_PREMUL)
+	{
+		rl::drawText(
+			string::tformat_zstr("game version: %s", lic::GAME_VERSION),
+			//(int)(screenWidth - (2.0f * version_text_len)), //(float)(font_w * libc::strlen(game_version))),
+			//(int)0.25f*screenHeight,
+			at_pos.x,
+			at_pos.y,
+			VERSION_FONT_SCALE,
+			COLOR
+		);
+	};
 }
 
 fn void drawWorkInProgressMessage(int screen_w, int screen_h) @local 
 {
-    const RLColor COLOR @Hardcode = {223, 196, 125, 127};
+    const RLColor COLOR @Hardcode = {223, 196, 125, 180};
+	const WP_FONT_SIZE = 16;
     RLFont* font = local_game.candara_font;
     if(!font) unreachable("Required font for WIP message is missing!");
     if(!rl::isFontValid(*font))  font = &local_game.default_font;
@@ -1573,14 +1577,26 @@ fn void drawWorkInProgressMessage(int screen_w, int screen_h) @local
 
     //String message   = string::tformat_zstr("Total entities alive: None");
     String message    = "WORK IN PROGRESS";
-    int text_len      = rl::measureText(message.zstr_tcopy(), 12);
+    int text_len      = rl::measureText(message.zstr_tcopy(), WP_FONT_SIZE);
     int screen_middle = (int)math::floor(0.5f*screen_w);
     //int x = (int)(0.65f * ((float)(screen_middle + (font_w * message.len))));
     int x = (int)(0.60f * ((float)(screen_middle + text_len)));
     int y = (int)math::floor(0.01f*screen_h);
-    rl::drawText(string::tformat_zstr("%s (uses Raylib %s)", message, rl::VERSION), x, y, 12, COLOR);
-    //rl::drawTextEx(*font, string::tformat_zstr("%s (Raylib %s)", message, rl::VERSION), {x, y}, 12, 1.0f, rl::RED);
-    drawGameVersion({x, y + 16});
+	rl::@blendMode(RLBlendMode.ALPHA_PREMUL)
+	{
+    	rl::drawText(string::tformat_zstr("%s (uses Raylib %s)", message, rl::VERSION), x, y, WP_FONT_SIZE, COLOR);
+    	//rl::drawTextEx(*font, string::tformat_zstr("%s (Raylib %s)", message, rl::VERSION), {x, y}, 12, 1.0f, rl::RED);
+	};
+	drawGameVersion({x, y + 16});
+
+	if(s_noaudio.getBool())
+	{
+		message = "Audio Disabled";
+		rl::@blendMode(RLBlendMode.ALPHA_PREMUL)
+		{
+			rl::drawText(string::tformat_zstr("%s (s_noaudio = 1)", message), x, y + 32, WP_FONT_SIZE, rl::RED);
+		};
+	}
 }
 
 fn void drawGameOnScreenDebugInfo(int screen_w, int screen_h) @local
@@ -1654,20 +1670,22 @@ fn void drawGameOnScreenDebugInfo(int screen_w, int screen_h) @local
     int x = (int)math::floor(0.01f*view.w);
     int y = view.h;
     
-    rl::drawText(slot1, x, (int)math::floor(0.01f*y), SMALL_FONT_SIZE, *COLOR);
-    rl::drawText(slot2, x, (int)math::floor(0.03f*y), SMALL_FONT_SIZE, *COLOR);
-    rl::drawText(slot3, x, (int)math::floor(0.05f*y), SMALL_FONT_SIZE, *COLOR);
-    rl::drawText(slot4, x, (int)math::floor(0.07f*y), SMALL_FONT_SIZE, *COLOR);
-    rl::drawText(slot5, x, (int)math::floor(0.09f*y), SMALL_FONT_SIZE, *COLOR);
-    rl::drawText(slot6, x, (int)math::floor(0.11f*y), SMALL_FONT_SIZE, *COLOR);
-    rl::drawText(slot7, x, (int)math::floor(0.13f*y), SMALL_FONT_SIZE, *COLOR);
-    rl::drawText(slot8, x, (int)math::floor(0.15f*y), SMALL_FONT_SIZE, *COLOR);
-    rl::drawText(slot9, x, (int)math::floor(0.17f*y), SMALL_FONT_SIZE, *COLOR);
-    rl::drawText(slot10, x, (int)math::floor(0.19f*y), SMALL_FONT_SIZE, *COLOR);
-    rl::drawText(slot11, x, (int)math::floor(0.21f*y), SMALL_FONT_SIZE, *COLOR);
-    rl::drawText(slot12, x, (int)math::floor(0.23f*y), SMALL_FONT_SIZE, *COLOR);
+	rl::@blendMode(RLBlendMode.ALPHA_PREMUL)
+	{
+    	rl::drawText(slot1, x, (int)math::floor(0.01f*y), SMALL_FONT_SIZE, *COLOR);
+    	rl::drawText(slot2, x, (int)math::floor(0.03f*y), SMALL_FONT_SIZE, *COLOR);
+    	rl::drawText(slot3, x, (int)math::floor(0.05f*y), SMALL_FONT_SIZE, *COLOR);
+    	rl::drawText(slot4, x, (int)math::floor(0.07f*y), SMALL_FONT_SIZE, *COLOR);
+    	rl::drawText(slot5, x, (int)math::floor(0.09f*y), SMALL_FONT_SIZE, *COLOR);
+    	rl::drawText(slot6, x, (int)math::floor(0.11f*y), SMALL_FONT_SIZE, *COLOR);
+    	rl::drawText(slot7, x, (int)math::floor(0.13f*y), SMALL_FONT_SIZE, *COLOR);
+    	rl::drawText(slot8, x, (int)math::floor(0.15f*y), SMALL_FONT_SIZE, *COLOR);
+    	rl::drawText(slot9, x, (int)math::floor(0.17f*y), SMALL_FONT_SIZE, *COLOR);
+    	rl::drawText(slot10, x, (int)math::floor(0.19f*y), SMALL_FONT_SIZE, *COLOR);
+    	rl::drawText(slot11, x, (int)math::floor(0.21f*y), SMALL_FONT_SIZE, *COLOR);
+    	rl::drawText(slot12, x, (int)math::floor(0.23f*y), SMALL_FONT_SIZE, *COLOR);
     //***************************************************************************************************************************************
-    
+	};
     // draw gui coords
     /*rl::drawRectangle(0, 0, 8, 8, rl::SKYBLUE);
     Vec2f x_line_end = {0.85f*screen_w, 0.0f};
@@ -1687,12 +1705,10 @@ fn void drawGameOnScreenDebugInfo(int screen_w, int screen_h) @local
 // local Game functions NOTE(HM) local cannot be overriden when importing modules
 fn void onDraw(int screenWidth, int screenHeight) @local 
 {
-    //float gameDraw_start = @start_profile_zone();
-    //defer @end_profile_zone(gameDraw_start);
     telem::@profile_zone("Game Draw", OFF)
     {
         // 1) render to "offline" frame buffer objects/images in the background
-        local_game.view.renderFrameBuffersObjects();
+        camview::renderFrameBuffersObjects(&local_game.view);
         
         // Main Basic rendering
         rl::@drawing(clear_color: {0x18, 0x18, 0x18, 0xFF})
@@ -1758,21 +1774,25 @@ fn void onPostSceneDraw(int screenWidth, int screenHeight) @public //@local
 fn void onPostGUIDraw(int screenWidth, int screenHeight) @public 
 {
     // draw game fps and frametime
-    if(r_showFPS.getBool()) {
-        int x = (int)((0.93f * screenWidth) - 120.0f);
-        int y = (int)(0.02f * screenHeight);
-        rl::drawTextEx(
-            *local_game.candara_font,
-            string::tformat_zstr("OpenGL v%s, FPS: %d", rl::glsl_version(), rl::getFPS()), 
-            (RLVector2){(float)x, (float)y}, 18.0f, 1.0f, 
-            rl::LIME
-        );
-        rl::drawTextEx(
-            *local_game.candara_font,
-            string::tformat_zstr("frametime: %.2f ms", rl::getFrameTime()*1000), 
-            (RLVector2){(float)x, (float)y + 18}, 16.0f, 1.0f, 
-            rl::LIME
-        );
+    if(r_showFPS.getBool())
+    {
+		rl::@blendMode(RLBlendMode.ALPHA_PREMUL)
+		{
+			int x = (int)((0.93f * screenWidth) - 120.0f);
+			int y = (int)(0.02f * screenHeight);
+			rl::drawTextEx(
+				*local_game.candara_font,
+				string::tformat_zstr("OpenGL v%s, FPS: %d", rl::glsl_version(), rl::getFPS()), 
+				(RLVector2){(float)x, (float)y}, 20.0f, 1.0f, 
+				rl::LIME
+			);
+			rl::drawTextEx(
+				*local_game.candara_font,
+				string::tformat_zstr("frametime: %.2f ms", rl::getFrameTime()*1000), 
+				(RLVector2){(float)x, (float)y + 18}, 18.0f, 1.0f, 
+				rl::LIME
+			);
+		};
         //rl::drawFPS((int)(0.93f * screenWidth), (int)(0.02f * screenHeight));
     }
 
@@ -1787,10 +1807,6 @@ fn void onPostGUIDraw(int screenWidth, int screenHeight) @public
     if(developer.getBool())
     {
         drawWorkInProgressMessage(screenWidth, screenHeight);
-
-        if(editor.getBool()) {
-            tools::draw(&local_game.editor);
-        }
         
         if(local_game.mode == EDITOR || local_game.mode == PLAYING) {
             drawGameOnScreenDebugInfo(screenWidth, screenHeight);
@@ -1810,7 +1826,7 @@ fn void onPostGUIDraw(int screenWidth, int screenHeight) @public
 
 
     // draw entities bounds
-    if(ent::debugBounds.getBool() && local_game.mode == EDITOR || local_game.mode == PLAYING)
+    if(ent::debugBounds.getBool() || local_game.mode == EDITOR)
 	{
         if(local_game.entityList.len())
         {
@@ -1842,6 +1858,7 @@ fn void onGuiDraw(int screenWidth, int screenHeight) @public @MyInline
 
     $if $feature(MICROUI_ENABLE):
         // process microui panels/frames
+		// NOTE(HM) If enabled, the game editor drawing is also called by process_frames
         mu::process_frames(local_game.mu_ctx, rl::getFrameTime());
 
         if(local_game.show_microui_test_frames && mu::open_frames.len() == 0) {
@@ -1851,16 +1868,16 @@ fn void onGuiDraw(int screenWidth, int screenHeight) @public @MyInline
         // before calling the followiong microui commands
         // that is done inside mu::process_frames()::@render() function.
 
-        MU_Command * cmd = null;
+        MU_Command* cmd;
         while (local_game.mu_ctx.next_command(&cmd))
         {
             switch (cmd.type)
             {
-                case mu::MU_COMMAND_JUMP: io::printfn("MU_COMMAND_JUMP");
-                case mu::MU_COMMAND_TEXT: mu::draw_text((ZString)&cmd.text.str, cmd.text.pos, cmd.text.color);
-                case mu::MU_COMMAND_RECT: mu::draw_rect(cmd.rect.rect, cmd.rect.color);
-                case mu::MU_COMMAND_ICON: mu::draw_icon(cmd.icon.id, cmd.icon.rect, cmd.icon.color);
-                case mu::MU_COMMAND_CLIP: mu::set_clip_rect(cmd.clip.rect);
+                case mu::COMMAND_JUMP: io::printfn("MU::COMMAND_JUMP Called.");
+                case mu::COMMAND_TEXT: mu::draw_text((ZString)&cmd.text.str, cmd.text.pos, cmd.text.color);
+                case mu::COMMAND_RECT: mu::draw_rect(cmd.rect.rect, cmd.rect.color);
+                case mu::COMMAND_ICON: mu::draw_icon(cmd.icon.id, cmd.icon.rect, cmd.icon.color);
+                case mu::COMMAND_CLIP: mu::set_clip_rect(cmd.clip.rect);
             }
         }
         // Make sure we end any lingering scissor mode.
@@ -1981,11 +1998,11 @@ fn void handle_standalone_cmd(String cmd) @deprecated
     }
 }
 
-macro @isValidInteger(#x) @local 
+macro @isValidNumber(#x) @local 
 {
-	for(usz i = 1; i < #x.len; i++)
+	for(usz i = 0; i < #x.len; i++)
 	{
-		if(ascii::is_digit(#x[i]) == false && #x[i] != '.') 
+		if(ascii::is_digit(#x[i]) == false && #x[i] != '.' && #x[i] != '-') 
 		{
 			return false;
 		}
@@ -2065,7 +2082,7 @@ fn void handle_cmdline(String[] args) @deprecated
                 arg_is_number = true;
                 if(single_char_value) break;
                 // else is a bigger integer number need to see if is a valid integer
-				arg_is_number = @isValidInteger(arg);
+				arg_is_number = @isValidNumber(arg);
                 if(!arg_is_number) nextcase default;
             case arg.starts_with("-"): // negative numbers
                 if(single_char_value) 
@@ -2074,7 +2091,7 @@ fn void handle_cmdline(String[] args) @deprecated
 					cmd_arg = ""; // clear cmd to ignore it in next pass
                     continue; // skip to next argument
                 }
-                arg_is_number = @isValidInteger(arg);
+                arg_is_number = @isValidNumber(arg);
                 if(!arg_is_number) nextcase default;
             case arg.starts_with("\""):
                 if(!single_char_value && arg.ends_with("\"")) 
@@ -2210,6 +2227,7 @@ fn void handle_cmdline_new(String[] args)
 	// their existance is enough to enable stuff
 	bool cmd_is_standalone;
 	bool arg_is_value;
+	const COMMAND_CHAR = "+";
 
     foreach(arg_index, arg : args)
     {
@@ -2220,49 +2238,59 @@ fn void handle_cmdline_new(String[] args)
 		$endif
         
         // skip the equals sign and or spaces
-        if(arg == "=" || arg == " ") continue;
+        if(arg == " ") continue; 
+		if(arg == "=")
+		{
+			if(arg_is_value == false) arg_is_value = true;
+			continue;
+		}
 
 		/////////////////////
         // Argument is a COMMAND
-        if(arg.starts_with("+"))
+        if(arg.starts_with(COMMAND_CHAR))
         {
 			if(arg_is_value) arg_is_value = false;
             if(arg.has_spaces()) arg.remove_spaces();
 
             // set the next command strip the plus sign...
-			cmd_arg = arg.trim("+");
+			cmd_arg = arg.trim(COMMAND_CHAR);
 
 			// now look ahead to see what kind of arg comes next
             // so we know what command we are dealing with...
 			int i = (int)arg_index;
             String next = args[i + 1];
 
-            if(next.starts_with("+")) {
+            if(next.starts_with(COMMAND_CHAR)) {
                 cmd_is_standalone = true;
                 // so go on parsing this command...
             }
             else if( next == "=" ) {
                 arg_is_value = true;
-                // if equals is expected to next arg to be a value 
-                // so just skip this argument.
-                // WARMING(HM) makes no testing to see if there's nothing
-                // after the equals!!
-                continue; // to next arg to get the value
+                // if we are equals, is expected the next arg to be a value 
+                // so just skip us.
+                // WARMING(HM) makes no testing here 
+				// to see if there's something valid after the equals!!
+                continue; // to next arg to parse the value
             }
-            else
+            else // we assume the next argument is a value, 
             {
-                // we assume next argument is a value, 
+                
                 // we will look later if is a valid one...
                 arg_is_value = true;
-                continue; // to next argument to get the value
+                continue; // to next argument to parse the value
             }
         }
 
-        // just in case...
+		assert(cmd_arg.len > 0);
+
+        // if is a command argument but not a standalone one
+		// do not go on right now and instead skip to the next argument 
+		// to handle the value
 		if(!arg_is_value && !cmd_is_standalone) continue;
+
         
 		/////////////////////////////////////////////////
-        // from here should be a value assigned to a cmd
+        // from here should be the VALUE assigned to a cmd
 		// or a standalone cmd with no value (a boolean by nature)
         bool arg_is_number, arg_is_float, single_char_value;
 		int ivalue;
@@ -2279,12 +2307,16 @@ fn void handle_cmdline_new(String[] args)
 					nextcase default;
 				case ascii::is_digit(arg[0]):
 					if(single_char_value) break;
-					// else is a bigger integer number, 
+					// else 
+					// is a bigger number, 
                     // need to see if is a valid one
-					if(!@isValidInteger(arg)) nextcase default;
+					if(!@isValidNumber(arg)) nextcase default;
 				case arg.starts_with("-"): // negative numbers
 					if(single_char_value) nextcase default;
-					if(!@isValidInteger(arg)) nextcase default;
+					// else 
+					// is a negative number, 
+                    // need to see if is a valid one
+					if(!@isValidNumber(arg)) nextcase default;
 				case arg.starts_with("\""):
 					if(!single_char_value && arg.ends_with("\"")) {
 						arg_is_number = false; // is a string
@@ -2303,7 +2335,7 @@ fn void handle_cmdline_new(String[] args)
 				if(single_char_value) {
                     // is obviously a integer so nothing to do, go on.
                 } 
-                else // is a big number, see if is a float or something else
+                else // is a big number, see if is a float
                 { 
 					int dot_count = (int)arg.count(".");
                     if(dot_count == 1) {
@@ -2315,12 +2347,14 @@ fn void handle_cmdline_new(String[] args)
                         cmd_arg = "";
                         continue; // skip bad cmd
                     }
-                    else //if(arg_is_number) 
+                    else
                     {
                         bool error_found;
-                        foreach(c : arg) { 
-                            if (ascii::is_digit(c) == false) {
-                                log::warning(FILE, "cmd %s value in cmdline has one or more comma ',' seperators.\n   -That is not supported for numbers, for float's please use dot instead.", cmd_arg, arg);
+                        foreach(c : arg)
+						{ 
+                            if (ascii::is_digit(c) == false && c != '-')
+							{
+                                log::warning(FILE, "cmd %s assigned value of '%s' is a invalid number.", cmd_arg, arg);
                                 cmd_arg = "";
                                 error_found = true;
                                 break;
@@ -2427,18 +2461,34 @@ fn void handle_cmdline_new(String[] args)
     }
 }
 
-fn void print_engine_version() @local @inline 
+import engine::sys::framework::hmdict;
+const PRINT_INTERNAL_GAME_VERSION = 0;
+fn void print_engine_version() @local
 {
     log::tofile("---------------------------------------------");
-    log::tofile("%s", version::ENGINE);
+	File? f = file::open(local_game.app_exe_dir.tconcat("version.dta"), "r");
+	if(catch excuse = f) {
+    	log::tofile("%s", version::ENGINE);
+	} else {
+		char[100] buffer;
+		@catch(f.read(buffer[..]));
+		String st = string::tformat("%s", (String)buffer[..]);
+		String[] lines = string::cut_by_newline(st);
+		foreach(line : lines) {
+			HMKeyValue kv = hmdict::makeKeyVal(line.tsplit(":"));
+			log::tofile("[%s => %s]", kv.key, kv.value);
+		}
+	}
     log::tofile("---------------------------------------------\n");
 }
 
 fn void print_game_version() @local @inline 
 {
+	$if PRINT_INTERNAL_GAME_VERSION > 0:
     log::tofile("---------------------------------------------");
     log::tofile("%s", lic::GAME_VERSION);
     log::tofile("---------------------------------------------\n");
+	$endif
 }
 
 // #endregion ARGS HANDLING ******************
@@ -3598,10 +3648,8 @@ $endif
     // but right now, I don't have a concept of a "level" or game World.
     // TODO(HM) when possible make a dedicated spawn point entity for the player.
     log::tofile( "** Creating test player. **");
-    local_game.player1 = plyr::makePlayer(id: 1, color: rl::RED);
+    local_game.player1 = plyr::makePlayer(id: 1);
     local_game.player1.setMaterial("figure");
-    //local_game.player2 = plyr::makePlayer(id: 2, color: rl::BLUE);
-    //local_game.player2.setMaterial("figure");
     // NOTE(HM) The first entities are always the players
     local_game.entityList.push((HMEntity*)local_game.player1);
     //local_game.entityList.push((HMEntity*)local_game.player2);
@@ -3614,10 +3662,10 @@ $endif
     
     // Create test entities @delete
     log::tofile( "** Creating test entities. **");
-    for(int i = 1; i <= 2; i++) 
+    for(int i = 0; i < 4; i++)
     {
         $if $defined(camview::ENABLE_CAMERA_VIEW):
-            Vec2f origin = local_game.view.origin;
+            Vec2f origin = local_game.player1.getOrigin() + misc::VEC_UP * local_game.player1.getHeight(); //local_game.view.origin;
             @debug_break(OFF);
         $else
             Vec2f origin;
@@ -4328,13 +4376,13 @@ $if $feature(MICROUI_ENABLE):
             {
                 switch (cmd.type)
                 {
-                    case mu::MU_COMMAND_JUMP: io::printfn("MU_COMMAND_JUMP");
-                    case mu::MU_COMMAND_TEXT: mu::draw_text((ZString)&cmd.text.str, cmd.text.pos, cmd.text.color);
-                    case mu::MU_COMMAND_RECT: 
+                    case mu::COMMAND_JUMP: io::printfn("MU_COMMAND_JUMP");
+                    case mu::COMMAND_TEXT: mu::draw_text((ZString)&cmd.text.str, cmd.text.pos, cmd.text.color);
+                    case mu::COMMAND_RECT: 
                     {
                         mu::draw_rect(cmd.rect.rect, cmd.rect.color);
                     } 
-                    case mu::MU_COMMAND_ICON: 
+                    case mu::COMMAND_ICON: 
                     {
                         //mu::draw_icon(cmd.icon.id, cmd.icon.rect, cmd.icon.color);
                         int id = cmd.icon.id;
@@ -4361,7 +4409,7 @@ $if $feature(MICROUI_ENABLE):
                              tint: color);
                         };
                     }
-                    case mu::MU_COMMAND_CLIP: mu::set_clip_rect(cmd.clip.rect);
+                    case mu::COMMAND_CLIP: mu::set_clip_rect(cmd.clip.rect);
                 }
             }
         };

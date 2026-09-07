@@ -612,6 +612,8 @@ fn void? loadAssetsRecursively(String basepath, String parent_folder = "") /*@in
 		if(fs::isFile(path_)) // try to load the file
         {
 			String extension_str = fs::getFileExtension(path_);
+			if (extension_str == ".bkp") continue; // ignore files marked as backup
+
 			String file_name = fs::getFileName(path_);
 			// NOTE(HM) ignore any default asset those are handled directly
 			if (file_name.strip_extension() == "default" || 

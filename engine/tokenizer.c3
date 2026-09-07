@@ -64,6 +64,7 @@ fn int charToInt(char c)  @inline
 	return  c - '0';
 }
 
+<*
 // When parsing a string for tokens, you can skip a separator and or white space, 
 // only by testing if the character (token) is inferior to ' ' (space).
 // Is like advance but stops at first space character
@@ -71,19 +72,48 @@ fn int charToInt(char c)  @inline
 // String is a char[] SLICE ( a struct with a pointer and a len)
 // not a array like in C.
 // In C a const char* is a pointer to the start of a contiguous peace of memory.
+	@param [in] str : "the string we are looking at"
+	@param curr_index : "the current char index we are at"
+	@require str.len > 0 && curr_index >= 0 && curr_index < str.len
+	@ensure return >= 0 && return < 256
+*>
 fn char returnNextToken(String str, int curr_index)  @inline
 {
-	return *(str.ptr + curr_index + 1);
+	if(true) {
+		int i = curr_index + 1;
+		return str[i:1][0];
+	} else {
+		return *(str.ptr + curr_index + 1);
+	}
 }
 
 <*
-	@param cur_index : "where the cursor is currently in the string"
+	@param curr_index : "where the cursor is currently in the string"
 	@param [in] str : "the string to peak at"
+	@require str.len > 0 && curr_index >= 0 && curr_index < str.len
 	@ensure return != null : "make sure we got a valid char* not null"
 *>
-fn char* peakAtNextToken(int cur_index, String str)  @inline
+fn char* peakAtNextToken(int curr_index, String str)  @inline
 {
-	return (char*)(str.ptr + cur_index + 1);
+	if(true) {
+		int i = curr_index + 1;
+		return &str[i:1][0];
+	} else {
+		return (char*)(str.ptr + curr_index + 1);
+	}
+}
+
+<*
+	@param [in] str : "the string to peak at"
+	@param c : "the character to look for"
+	@require str.len > 0 && c && c < 256
+*>
+fn bool expect_char(String str, char c)  @inline
+{
+	if(str.len && str[0] == c) {
+		return true;
+	}
+	return false;
 }
 
 <*
@@ -151,10 +181,20 @@ fn void remove_all_spaces(String* str)  //@inline
     (*str) = _str.str_view().tcopy();
 }
 
-
-fn String String.removeSpaces(self) @inline
+<*
+	@param [in] str : "the string were are removing spaces from"
+	@require str.len > 0
+*>
+fn String remove_all_white_space(String str) @inline
 {
-	return string::tjoin(self.tsplit(" "), "");
+	//return string::tjoin(self.tsplit(" "), "");
+	String result;
+	foreach(c : str)
+	{
+		if(isWhiteSpace(str[0])) continue;
+		result.tconcat(string::tformat("%c", c));
+	}
+	return result.tcopy();
 }
 
 

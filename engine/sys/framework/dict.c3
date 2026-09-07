@@ -66,6 +66,19 @@ fn bool HMKeyValue.equal(&self, HMKeyValue kv ) @operator(==) {
 	return self.key == kv.key && self.value == kv.value; 
 }
 
+<*
+	@param [in] str : "string to split into a kv"
+	@require str.len > 0
+*>
+fn HMKeyValue makeKeyVal(String[] str) { 
+	return {.key = str[0].tcopy(), .value = str[1].tcopy()};
+}
+
+//////////////////////////////////////////////////
+////////////////////// HMDict ////////////////////
+/////////////////////////////////////////////////
+
+
 fn void HMDict.set_at(&self, sz i, HMKeyValue* new_kv) @operator([]=)
 {
     return self.args.set_at(i, new_kv);
