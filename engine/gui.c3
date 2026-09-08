@@ -879,8 +879,8 @@ fn void Widget.draw_origin_coordinates(Widget* wgt) @inline
     
     int scr_w, scr_h;
     float lineThick  = 1.0f;
-    scr_w = game::pContext.screen.w;
-    scr_h = game::pContext.screen.h;
+    scr_w = game::getScreenWidth();
+    scr_h = game::getScreenHeight();
     
     Vec2f widget_center = wgt.getPosition();
     Vec2f widget_size   = wgt.getSize();
@@ -997,8 +997,8 @@ fn bool Widget.isWithinScreenBounds(&self) @dynamic
     RLRectangle screen_bounds = {
     .x      = 0,
     .y      = 0,
-    .width  = game::pContext.screen.w,
-    .height = game::pContext.screen.h
+    .width  = game::getScreenWidth(),
+    .height = game::getScreenHeight()
     };
 
     return rl::checkCollisionRecs(screen_bounds, self.rect) ? true : false;
@@ -1882,11 +1882,11 @@ fn void UIWindow.init(&self, String name, bool isDesktop = false, int w = 800, i
     RLRectangle rect;
     if(isDesktop) {
         self.isDesktop = isDesktop;
-		assert(game::pContext.screen.w > 0 && game::pContext.screen.h > 0, 
+		assert(game::getScreenWidth() > 0 && game::getScreenHeight() > 0, 
 			"UIWindow.init: Cannot set window desktop to fullscreen because screen width or height is zero!!"
 		);
-        rect.w = game::pContext.screen.w;
-        rect.h = game::pContext.screen.h;
+        rect.w = game::getScreenWidth();
+        rect.h = game::getScreenHeight();
     } else {
         rect.w = w;
         rect.h = h;

@@ -185,8 +185,8 @@ $if $feature(_DEBUG):
 $endif
     
 	//
-	//float x_meters = game::pContext.screen.width_in_meters;
-	//float y_meters = game::pContext.screen.height_in_meters;
+	//float x_meters = game::getScreenWidth()idth_in_meters;
+	//float y_meters = game::getScreenHeight()eight_in_meters;
 	// visuals
     self.vs.initV( origin, 
 	{ // entity visual size
@@ -450,6 +450,8 @@ fn bool HMEntity.hasTarget(&self, HMEntity* other) @inline
 	return false;
 }
 
+fn bool HMEntity.hasTargets(self) @inline => self.targets.len() > 0;
+
 fn HMEntity* HMEntity.getTarget(&self, int index) @inline
 {
 	if(index < 0 || index >= self.targets.len()) {
@@ -616,7 +618,7 @@ fn void HMEntity.kill(&self)
     self.hide();
 
 	// activate targets on death
-	if(self.targets.len() > 0) 
+	if(self.hasTargets()) 
 	{
 		// activate our targets, if they are not already activated
 		foreach(target : self.targets)
@@ -633,7 +635,7 @@ fn void HMEntity.kill(&self)
 
 		// then free the targets list we don't need it anymore
 		// clear the targets list, but not free the entities themselves
-		// that is done elsewhere
+		// that is done by the game context later
 		self.targets.clear();
 	}
 

@@ -976,6 +976,21 @@ $else
 $endif
 }
 
+fn bool isPointInside(Vec2f point, RenderView* view)
+{
+    /*int w = game::getScreenWidth();
+    int h = game::getScreenHeight();
+    
+    RLRectangle rec = {
+		.x = 0,
+		.y = 0,
+		.width  = w,
+		.height = h
+    };*/
+    
+    return rl::checkCollisionPointRec(point, view.bounds.toRect());
+}
+
 module game::camview::postprocess::pp;
 
 import std::io;

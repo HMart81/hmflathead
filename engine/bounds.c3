@@ -62,6 +62,16 @@ fn Bounds Bounds.fromRect(&self, RLRectangle* rect) @inline {
     return *self;
 }
 
+fn RLRectangle Bounds.toRect(&self) @inline {
+	Vec2f size = (self.minc - self.maxc);
+	return {
+		.x = 0,
+		.y = 0,
+		.width = size.x,
+		.height = size.y
+	};
+}
+
 fn void Bounds.debugDraw(self) {
 	// Right now the bounds size are in pixels
 	rl::drawCircle((int)self.maxc.x, (int)self.maxc.y, 2.0f, rl::SKYBLUE);
@@ -264,6 +274,34 @@ fn float Bounds.getVolume(&self) @inline {
     if(self.maxc.x >= self.minc.x || self.maxc.y >= self.minc.y) return 0.0f;
     
 	return ( (self.minc.x - self.maxc.x ) * ( self.minc.y - self.maxc.y ) );
+}
+
+fn float Bounds.getRadius(&self) @inline {
+	float total, b0, b1;
+	for (int i = 0; i < 2; i++ ) {
+		b0 = (float)math::abs( self.maxc[i] );
+		b1 = (float)math::abs( self.minc[i] );
+		if ( b0 > b1 ) {
+			total += b0 * b0;
+		} else {
+			total += b1 * b1;
+		}
+	}
+	return math::sqrt( total );
+}
+
+fn float Bounds.getRadiusUsingCenter(&self, Vec2f* center ) @inline {
+	float total, b0, b1;
+	for (int i = 0; i < 2; i++ ) {
+		b0 = (float)math::abs( (*center)[i] - self.maxc[i] );
+		b1 = (float)math::abs( self.minc[i] - (*center)[i] );
+		if ( b0 > b1 ) {
+			total += b0 * b0;
+		} else {
+			total += b1 * b1;
+		}
+	}
+	return math::sqrt( total );
 }
 
 fn bool Bounds.isCleared(&self) @inline {

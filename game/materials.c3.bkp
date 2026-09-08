@@ -195,7 +195,7 @@ fn void initIntroAnimation(IntroAnimation* anim) {
     Frame* frame1 = mem::new(Frame);
     frame1.image  = gui::makePanelImage(
     game::asstManager.getTexture("logo_hm.png"),
-    {0, 0, game::pContext.screen.w, game::pContext.screen.h}, 
+    {0, 0, game::getScreenWidth(), game::getScreenHeight()}, 
     rl::WHITE);
     frame1.draw_time = DEFAULT_SHOW_TIME;
     //

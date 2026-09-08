@@ -520,7 +520,7 @@ fn void HMSprite.update(&self) @dynamic
 
     // update the in-game cursor
     if(self.kind == SpriteKind.CURSOR) {
-        game::update_game_cursor(game::pContext.screen.w, game::pContext.screen.h);
+        game::update_game_cursor(game::getScreenWidth(), game::getScreenHeight());
     }
 }
 

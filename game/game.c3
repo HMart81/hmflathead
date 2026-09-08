@@ -518,7 +518,8 @@ Game* pContext @public = &local_game;
 VideoCabinet* vidCabinet @public @if($feature(VIDEO_PLAYBACK_ENABLE));
 // end
 
-fn void Game.save(&self, SaveFile* file) @dynamic {
+fn void Game.save(&self, SaveFile* file) @dynamic
+{
     svs::writeBool(file, self.should_update_entities);
     svs::writeBool(file, self.system_cursor_enabled);
     svs::writeBool(file, self.should_quit);
@@ -570,7 +571,8 @@ fn void Game.save(&self, SaveFile* file) @dynamic {
     //self.testTimer.save(file);
 }
 
-fn void Game.reload(&self, SaveFile* file) @dynamic {
+fn void Game.reload(&self, SaveFile* file) @dynamic
+{
     svs::readBool(file, &self.should_update_entities);
     svs::readBool(file, &self.system_cursor_enabled);
     svs::readBool(file, &self.should_quit);
@@ -621,6 +623,8 @@ fn void Game.reload(&self, SaveFile* file) @dynamic {
     */
 }
 
+
+////////////////// PUBLIC FUNCTIONS ///////////////////////
 <*
     Get a pointer to the a player, 
     @param id : "id of player, if none is passed, gets player1 by default"
@@ -632,25 +636,42 @@ fn Player* getLocalPlayer(int id = 1) @MyInline @public
     return (Player*)local_game.entityList[idx];
 }
 
-fn void Game.freeGameEntities(&self) @MyInline 
+<*
+    Point to a entity in the game entity list
+    @require(local_game.entityList.len() >= 2)
+*>
+fn HMEntity* getEntityByName(String name) @inline @public
 {
-    if(int count = (int)self.entityList.len()) 
+    foreach(i, ent : local_game.entityList) {
+        if(ent.name == name) return local_game.entityList[i];
+    }
+    
+    return null;
+}
+
+<*
+    Free all game entities 
+    @param [&inout] game : "a pointer to the running game context"
+*>
+fn void freeEntities(Game* game) @MyInline 
+{
+    if(int count = (int)game.entityList.len())
     {
-        foreach(&it: self.entityList) if(it) (*it).kill();
-        self.entityList.free();
+        foreach(&it: game.entityList) if(it) (*it).kill();
+        game.entityList.free();
         log::tofile("['%s'] Entities were cleared!", count);
         //log::tofile( "Done.");
     }
 }
 
-fn RLShader getDefaultShaderCopy() @MyInline @public 
-{
-    return local_game.default_shader;
-}
-
 fn RLShader* getDefaultShader() @MyInline @public 
 {
     return &local_game.default_shader;
+}
+
+fn RLShader getDefaultShaderCopy() @MyInline @public 
+{
+    return local_game.default_shader;
 }
 
 fn RLShader* getCurrentGlobalShader() @MyInline @public 
@@ -667,33 +688,22 @@ fn Vec2i getScreenCenterPosI() @MyInline @public
 }
 
 <*
- @require(self.entityList.len() >= 2)
+    @require rl::isWindowReady() == true
+    @ensure return > 0
 *>
-fn HMEntity* Game.getEntityByName(&self, String name) 
+fn int getScreenWidth() @inline @public
 {
-    foreach(i, ent : self.entityList) {
-        if(ent.name == name) return self.entityList[i];
-    }
-    
-    return null;
+    return local_game.screen.w;
 }
 
-fn bool Game.isPointInsideScreenView(&self, RLVector2 point) 
+<*
+    @require rl::isWindowReady() == true
+    @ensure return > 0
+*>
+fn int getScreenHeight() @inline @public
 {
-    int w, h;
-    w = self.screen.w;
-    h = self.screen.h;
-    
-    RLRectangle rec = {
-    .x = 0,
-    .y = 0,
-    .width  = w,
-    .height = h
-    };
-    
-    return rl::checkCollisionPointRec(point, rec);
+    return local_game.screen.h;
 }
-
 
 //////////// Message box stuff based on raygui
 
@@ -961,7 +971,7 @@ fn void Game.unload(&self) {
     // clear material database
     mtrmng::mtrDB.clear();
 	//
-    self.freeGameEntities();
+    game::freeEntities(self);
     self.unloadDefaultAssets();
 
 $if $feature(MICROUI_ENABLE):
@@ -2462,23 +2472,27 @@ fn void handle_cmdline_new(String[] args)
 }
 
 import engine::sys::framework::hmdict;
-const PRINT_INTERNAL_GAME_VERSION = 0;
+const PRINT_INTERNAL_GAME_VERSION = 1;
 fn void print_engine_version() @local
 {
     log::tofile("---------------------------------------------");
-	File? f = file::open(local_game.app_exe_dir.tconcat("version.dta"), "r");
-	if(catch excuse = f) {
+    $if PRINT_INTERNAL_GAME_VERSION > 0:
     	log::tofile("%s", version::ENGINE);
-	} else {
-		char[100] buffer;
-		@catch(f.read(buffer[..]));
-		String st = string::tformat("%s", (String)buffer[..]);
-		String[] lines = string::cut_by_newline(st);
-		foreach(line : lines) {
-			HMKeyValue kv = hmdict::makeKeyVal(line.tsplit(":"));
-			log::tofile("[%s => %s]", kv.key, kv.value);
-		}
-	}
+    $else
+        File? f = file::open(local_game.app_exe_dir.tconcat("version.dta"), "r");
+        if(catch excuse = f) {
+            log::tofile("%s", version::ENGINE);
+        } else {
+            char[100] buffer;
+            @catch(f.read(buffer[..]));
+            String st = string::tformat("%s", (String)buffer[..]);
+            String[] lines = string::cut_by_newline(st);
+            foreach(line : lines) {
+                HMKeyValue kv = hmdict::makeKeyVal(line.tsplit(":"));
+                log::tofile("[%s => %s]", kv.key, kv.value);
+            }
+        }
+	$endif
     log::tofile("---------------------------------------------\n");
 }
 

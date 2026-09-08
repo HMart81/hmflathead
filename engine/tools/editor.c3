@@ -1039,8 +1039,8 @@ fn void drawOpenEditorBorder(Editor* editor)
     }
 
     int w, h;
-    w = (int)game::pContext.screen.w;
-    h = (int)game::pContext.screen.h;
+    w = (int)game::getScreenWidth();
+    h = (int)game::getScreenHeight();
     rl::drawRectangleLinesEx({0, 0, w, h}, 2.0f, *editor.border_color);
 }
 
@@ -2041,8 +2041,8 @@ fn void drawOpenEditorBorder(Editor* editor) @inline
     }
 
     int w, h;
-    w = (int)game::pContext.screen.w;
-    h = (int)game::pContext.screen.h;
+    w = (int)game::getScreenWidth();
+    h = (int)game::getScreenHeight();
     rl::drawRectangleLinesEx({0, 0, w, h}, 2.0f, *editor.border_color);
 }
 

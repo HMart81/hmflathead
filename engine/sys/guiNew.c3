@@ -116,8 +116,8 @@ fn void drawImage(RLTexture2D* tex, float w, float h) @public
 
     if(w <= 0 || h <= 0) {
         log::warning(FILE, "Invalid width or height for background image! width: %f, height: %f. Using screen dimensions instead.", w, h);
-        w = (float)game::pContext.screen.w;
-        h = (float)game::pContext.screen.h;
+        w = (float)game::getScreenWidth();
+        h = (float)game::getScreenHeight();
     }
 
 	rl::drawTexturePro(*tex, 
@@ -139,8 +139,8 @@ fn void drawImageFullScreen(RLTexture2D* tex) @public
         tex = &game::pContext.default_texture;
 	}
 
-    float w = (float)game::pContext.screen.w;
-    float h = (float)game::pContext.screen.h;
+    float w = (float)game::getScreenWidth();
+    float h = (float)game::getScreenHeight();
 
 	rl::drawTexturePro(*tex, 
 		{0, 0, (float)(*tex).width, (float)(*tex).height}, 
@@ -279,13 +279,13 @@ fn void UIRectangle.setcolors(&self, UIRectangleColors colors) @inline
     @param [inout] typ : "the user interface type to initialize"
     @require typ != null
 	@require rl::isWindowReady() == true : "needs the window to be already started."
-	@require game::pContext.screen.w >= 600 && game::pContext.screen.h >= 400 : "because it uses the screen size to set the default size of the quad."
+	@require game::getScreenWidth() >= 600 && game::getScreenHeight() >= 400 : "because it uses the screen size to set the default size of the quad."
 *>
 fn void init(Type* typ) <Type> @inline @public
 {
     switch((*typ).typeid) {
         case UIRectangle.typeid:
-            (*typ).initQuad({0, 0, 0.20f*game::pContext.screen.w, 0.20f*game::pContext.screen.h}, 
+            (*typ).initQuad({0, 0, 0.20f*game::getScreenWidth(), 0.20f*game::getScreenHeight()}, 
                             {
                                 .normal   = rl::WHITE,
                                 .selected = rl::GRAY,
@@ -910,8 +910,8 @@ fn void Widget.draw_origin_coordinates(Widget* wgt) @local @inline
     
     int scr_w, scr_h;
     float lineThick  = 1.0f;
-    scr_w = game::pContext.screen.w;
-    scr_h = game::pContext.screen.h;
+    scr_w = game::getScreenWidth();
+    scr_h = game::getScreenHeight();
     
     Vec2f widget_center = wgt.getPosition();
     Vec2f widget_size   = wgt.getSize();
@@ -1028,8 +1028,8 @@ fn bool Widget.isWithinScreenBounds(&self) @dynamic
     RLRectangle screen_bounds = {
     .x      = 0,
     .y      = 0,
-    .width  = game::pContext.screen.w,
-    .height = game::pContext.screen.h
+    .width  = game::getScreenWidth(),
+    .height = game::getScreenHeight()
     };
 
     return rl::checkCollisionRecs(screen_bounds, self.quad) ? true : false;
@@ -1846,14 +1846,14 @@ fn void UIWindow.init(&self, String name, bool isFullscreen = true, int w = 800,
     //
     if(isFullscreen)
     {
-		assert(game::pContext.screen.w > 0 && game::pContext.screen.h > 0, 
+		assert(game::getScreenWidth() > 0 && game::getScreenHeight() > 0, 
 			"UIWindow.init: Cannot initialize fullscreen window when screen width or height is zero."
 		);
         self.quad = { // @hardcode
             .x      = 0,
             .y      = 0, 
-            .width  = game::pContext.screen.w,
-            .height = game::pContext.screen.h,
+            .width  = game::getScreenWidth(),
+            .height = game::getScreenHeight(),
         };
     } 
     else 
@@ -2198,8 +2198,8 @@ fn void UIWindow.debug(&self)
     {
         int scr_w, scr_h;
         float lineThick  = 1.0f;
-        scr_w = game::pContext.screen.w;
-        scr_h = game::pContext.screen.h;
+        scr_w = game::getScreenWidth();
+        scr_h = game::getScreenHeight();
 /*
         Vec2f w_startPos; // = {0, 0};
         Vec2f h_startPos; // = {0, 0};
