@@ -55,7 +55,9 @@ faultdef ASSETS_MALFORMED_PATH_STRING,
 	// Should use file extension to support diferent types of assets 
 	// with the same name.
 	// Support more asset types, like the new HMaterial, etc.
-
+/*
+	A Asset is any visual or auditory data to be used by the game.
+*/
 struct Asset <Type>
 {
 	String name;
@@ -75,6 +77,10 @@ alias AssetMusicListPtr   @local = List{AssetMusic*};
 alias AssetFontListPtr    @local = List{AssetFont*};
 alias AssetShaderListPtr  @local = List{AssetShader*};
 
+/*
+	The entire library of assets loaded at game start 
+	and ready to be used by the game
+*/
 struct AssetLibrary
 {
 	AssetTextureListPtr textures; // list of texture assets
@@ -257,6 +263,9 @@ fn any AssetLibrary.getAsset(&self, String name, typeid type)
     }
 }
 
+<*
+    @param [in] name : "name of the asset to get data from, needs file extension"
+*>
 fn Type* get_asset_data(String name) <Type>
 {
 	AssetLibrary* lib = pAssetsLib;
@@ -313,9 +322,9 @@ fn Type* get_asset_data(String name) <Type>
 	returns asset index. 
 	Is a linear search so it will be 0-n in performance
 
-	@param name : "name of the asset"
+	@param [in] name : "name of the asset with extension"
 	@param type : "type identification of the asset being serched for"
-	@require name != ""
+	@require name.len > 0 && name.contains(".") && name.count(".") == 1
 *>
 fn bool AssetLibrary.hasAsset(&self, String name, typeid type, int* index_out = null) /*@inline*/ @nodiscard
 {
@@ -440,7 +449,7 @@ fn RLFont* AssetLibrary.getFont(&self, String name) @nodiscard /*@inline*/
     }
 
 	log::warning(FILE,  "[AssetLibrary]: Requested font %s but it was null, returning default font instead.", name);
-    return &game::pContext.default_font;
+    return &game::pContext.font_default;
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -453,22 +462,42 @@ fn RLFont* AssetLibrary.getFont(&self, String name) @nodiscard /*@inline*/
     Invalid assets, will not cause a error will just be ignored.
 
 	@param [in] path : "the path to the asset to load, must be a valid path to an existing file, with a supported extension, like .png for example."
-	@param [in] asset_name : "the name of the asset to load."
-	@param extension : "the file extension to load."
-	@require path != "" && path.len >= 5 
-	@require asset_name != "" && asset_name.len >= 1
-	@require fs::fileExists(path) && path.contains(".") : "if the file doesn't exist or doesn't have an extension, it can't be a valid asset file."
+	@require path.len >= 5 
+	@require fs::fileExists(path) && path::is_file(path.to_tpath())!! : "if the file doesn't exist or doesn't have an extension, it can't be a valid asset file."
 *>
-fn void loadAsset(String path, String asset_name, FileExtension extension)
+fn void loadAsset(String path) @local
 {
-    foreach(i, ext : FileExtension::values) {
-        if(extension == ext) break;
-        if(i == (FileExtension::values.len - 1) && extension != ext) {
+    // NOTE(HM) ignore any special default asset, those are handled directly
+	String asset_name = fs::getFileName(path).strip_extension();
+    if (asset_name == "default" || 
+        asset_name == "splash") return; // should go to next file
+			
+
+    FileExtension extension = (FileExtension)fs::getFileExtension(path);
+    int last_ext_index = (FileExtension::values.len - 1);
+    foreach(i, ext : FileExtension::values)
+    {
+        
+        if (extension == ext && (
+            extension != ".bkp" &&  // ignore files marked as backup
+            extension != ".ini" && // initialization files are ignored as well
+            extension != ".def" )) // as is definition files
+        {
+            // no need for warnings in this cases just return
+           break;
+        }
+        else if (i == last_ext_index && extension != ext)
+        {
             String p = path.strip_start(game::pContext.app_base_folder);
             log::warning(FILE, "Ignoring File \"%s\", because is not a valid asset type.", p);
             return;
         }
     }
+
+    // NOTE(HM) Extensions has to be added again because is required to
+    // support multiple assets with the same name but diferent extensions
+    // this means guetting a asset from the library through the name requires the extension.
+    asset_name = asset_name.tconcat(extension);
   
     bool should_load;
 	switch(extension)
@@ -532,7 +561,15 @@ fn void loadAsset(String path, String asset_name, FileExtension extension)
             {
                 unreachable("RLShader path must end with either \".fs\" or \".vs\", got: %s", path);
             }
-            local_library.register(any_make(new_asset, RLShader));
+
+            if(rl::isShaderValid(new_asset.data))
+            {
+                local_library.register(any_make(new_asset, RLShader));
+            }
+            else
+            {
+                log::warning(FILE, "Failed to load shader: %s", path);
+            }
         }
 	case MP3: nextcase;
 	case OGG:
@@ -545,7 +582,15 @@ fn void loadAsset(String path, String asset_name, FileExtension extension)
                 .path = path, 
                 .data = rl::loadMusicStream(path.zstr_tcopy())
             });
-            local_library.register(any_make(new_asset, RLMusic));
+
+            if(rl::isMusicValid(new_asset.data))
+            {
+                local_library.register(any_make(new_asset, RLMusic));
+            }
+            else
+            {
+                log::warning(FILE, "Failed to load music: %s", path);
+            }
         }
 	case WAV:
 		should_load = !local_library.hasAsset(asset_name, RLSound);
@@ -557,7 +602,15 @@ fn void loadAsset(String path, String asset_name, FileExtension extension)
                 .path = path, 
                 .data = rl::loadSound(path.zstr_tcopy())
             });
-            local_library.register(any_make(new_asset, RLSound));
+
+            if(rl::isSoundValid(new_asset.data))
+            {
+                local_library.register(any_make(new_asset, RLSound));
+            }
+            else
+            {
+                log::warning(FILE, "Failed to load sound: %s", path);
+            }
         }
 	case FNT:
 		should_load = !local_library.hasAsset(asset_name, RLFont);
@@ -566,15 +619,22 @@ fn void loadAsset(String path, String asset_name, FileExtension extension)
             assert(rl::isWindowReady() == true);
             //path = path.trim_right(extension);
             AssetFont* new_asset = mem::new(AssetFont, { 
-                .name = asset_name.tcopy(),
-                .path = path.tcopy(), 
+                .name = asset_name,
+                .path = path, 
                 // NOTE(HM) This was always loading the default font data because of the 
                 // null and 0 in the call!! I forgot about the loadFontEx comment...
                 //.data = rl::loadFontEx(path.zstr_tcopy(), game::DEFAULT_FONT_SIZE, null, 0)
                 .data = rl::loadFont(path.zstr_tcopy())
             });
-            assert(rl::isFontValid(new_asset.data), "Failed to load font from path: %s", path);
-            local_library.register(any_make(new_asset, RLFont));
+
+            if(rl::isFontValid(new_asset.data))
+            {
+                local_library.register(any_make(new_asset, RLFont));
+            }
+            else
+            {
+                log::warning(FILE, "Failed to load font: %s", path);
+            }
         }
 	case DDS: nextcase;
 	case BMP: nextcase;
@@ -611,20 +671,11 @@ fn void? loadAssetsRecursively(String basepath, String parent_folder = "") /*@in
 		String path_ = search_path.tconcat(path);
 		if(fs::isFile(path_)) // try to load the file
         {
-			String extension_str = fs::getFileExtension(path_);
-			if (extension_str == ".bkp") continue; // ignore files marked as backup
-
-			String file_name = fs::getFileName(path_);
-			// NOTE(HM) ignore any default asset those are handled directly
-			if (file_name.strip_extension() == "default" || 
-                file_name.strip_extension() == "splash") continue; // to next file
-			
-            //////////////////////////////////////////////////////////////////
-			// from here should be a valid file
-			String asset_path = path_;
-			loadAsset(asset_path, file_name, (FileExtension)extension_str);
+			loadAsset(path_);
 			continue; // to next file
-		} else { // is a child folder/Directory so do recursive a call
+		} 
+        else // is a child folder/Directory so do recursive a call
+        {
 			loadAssetsRecursively(path, search_path)!;
 		}
 	}

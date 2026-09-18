@@ -401,16 +401,16 @@ struct Game (SaveSystemInterface) @local
 	AudioDevice audio_device;
     RLSound     default_sound;
     RLMusic     default_music;
-    RLFont      default_font;
+    RLFont      font_default;
     int      pause_all_music; // to pause all music on demand
 	HMSoundWorld* current_sound_world;
     //
     
     // game fonts TODO(HM) We should only chose 2 for the final game...
-    RLFont* candara_font;
-    RLFont* candara_light_font;
-    RLFont* lucida_font;
-    RLFont* trojan_pro_font;
+    RLFont* font_candara;
+    RLFont* font_candara_light;
+    RLFont* font_lucida;
+    RLFont* font_trojan_pro;
     //
     
     //String[] cursors; // list of game cursors, used to load the game cursors from the assets folder
@@ -532,14 +532,14 @@ fn void Game.save(&self, SaveFile* file) @dynamic
     //RLShader*   current_global_shader;
     svs::writeSound(file, &self.default_sound);
     svs::writeMusic(file, &self.default_music);
-    svs::writeFont(file,  &self.default_font);
+    svs::writeFont(file,  &self.font_default);
     //
     
     // game fonts TODO(HM) We should chose only 2 for the final game...
-    //RLFont*  candara_font;
-    //RLFont*  candara_light_font;
-    //RLFont*  lucida_font;
-    //RLFont*  trojan_pro_font;
+    //RLFont*  font_candara;
+    //RLFont*  font_candara_light;
+    //RLFont*  font_lucida;
+    //RLFont*  font_trojan_pro;
     //
     
     //svs::write(file, &self.cursors, self.cursors.len);
@@ -586,14 +586,14 @@ fn void Game.reload(&self, SaveFile* file) @dynamic
     //RLShader*   current_global_shader;
     svs::readSound(file, &self.default_sound);
     svs::readMusic(file, &self.default_music);
-    svs::readFont(file,  &self.default_font);
+    svs::readFont(file,  &self.font_default);
     //
     
     // game fonts TODO(HM) We should chose only 2 for the final game...
-    //RLFont*  candara_font;
-    //RLFont*  candara_light_font;
-    //RLFont*  lucida_font;
-    //RLFont*  trojan_pro_font;
+    //RLFont*  font_candara;
+    //RLFont*  font_candara_light;
+    //RLFont*  font_lucida;
+    //RLFont*  font_trojan_pro;
     //
     
     svs::readSlice(file, &self.cursors);
@@ -679,6 +679,8 @@ fn RLShader* getCurrentGlobalShader() @MyInline @public
     return local_game.current_global_shader;
 }
 
+// NOTE(HM) this can also be done using
+// local_game.view.origin
 fn Vec2f getScreenCenterPos() @MyInline @public => local_game.screen.center;
 
 fn Vec2i getScreenCenterPosI() @MyInline @public 
@@ -817,23 +819,23 @@ fn void drawMsgBox(int w, int h) @public
 ///////////////////////////////////////////////////
 
 
-fn void Game.initFonts(&self) @MyInline 
+fn void initFonts() @local @MyInline 
 {
-    self.candara_font       = asstManager.getFont("candara.fnt");
-    self.candara_light_font = asstManager.getFont("candara_light.fnt");
-    self.lucida_font        = asstManager.getFont("lucida.fnt");
-    self.trojan_pro_font    = asstManager.getFont("trojan_pro.fnt");
+    local_game.font_candara       = asstManager.getFont("candara.fnt");
+    local_game.font_candara_light = asstManager.getFont("candara_light.fnt");
+    local_game.font_lucida        = asstManager.getFont("lucida.fnt");
+    local_game.font_trojan_pro    = asstManager.getFont("trojan_pro.fnt");
 }
 
-fn void Game.clearFonts(&self) @MyInline 
+fn void clearFonts() @local @MyInline 
 {
     // NOTE(HM) 
     // we dont unload the fonts here, 
     // they are unloaded by the asset manager instead
-    self.candara_font       = null;
-    self.candara_light_font = null;
-    self.lucida_font        = null;
-    self.trojan_pro_font    = null;
+    local_game.font_candara       = null;
+    local_game.font_candara_light = null;
+    local_game.font_lucida        = null;
+    local_game.font_trojan_pro    = null;
 }
 
 <*
@@ -845,10 +847,10 @@ fn RLFont* Game.getfont(&self, String font_name) @MyInline
 {
 	switch(font_name)
 	{
-    	case "candara":       return self.candara_font;      
-    	case "candara_light": return self.candara_light_font;
-    	case "lucida":        return self.lucida_font;       
-    	case "trojan_pro":    return self.trojan_pro_font;   
+    	case "candara":       return self.font_candara;      
+    	case "candara_light": return self.font_candara_light;
+    	case "lucida":        return self.font_lucida;       
+    	case "trojan_pro":    return self.font_trojan_pro;   
 		default: unreachable();
 	}
 }
@@ -917,7 +919,7 @@ fn void? Game.loadDefaultAssets(&self)
     }
     
     // get the default game font
-    local_game.default_font = vidbkd::getFontDefault();
+    local_game.font_default = vidbkd::getFontDefault();
 }
 
 fn void Game.unloadDefaultAssets(&self) {
@@ -929,7 +931,7 @@ fn void Game.unloadDefaultAssets(&self) {
     self.current_global_shader = null;
     rl::unloadSound(self.default_sound);
     rl::unloadMusicStream(self.default_music);
-    rl::unloadFont(self.default_font);
+    rl::unloadFont(self.font_default);
 }
 
 fn void? Game.loadSettingsFile(&self)
@@ -966,12 +968,13 @@ fn void? Game.loadSettingsFile(&self)
     }
 }
 
-fn void Game.unload(&self) {
-    self.clearFonts();
+fn void Game.unload(&self)
+{
+    clearFonts();
     // clear material database
     mtrmng::mtrDB.clear();
 	//
-    game::freeEntities(self);
+    freeEntities(self);
     self.unloadDefaultAssets();
 
 $if $feature(MICROUI_ENABLE):
@@ -1371,7 +1374,7 @@ fn void onUpdate() @local
 			local_game.default_shader.setValue(local_game.default_shader_resolution_loc, &local_game.screen.size, RLShdUniTyp.VEC2);
 		}
         
-        input::gpManager.update();
+        input::manager.update();
         gameHandleGeneralControls();
 
         if(rl::getMouseDelta().length_sq() > 0) {
@@ -1578,9 +1581,9 @@ fn void drawWorkInProgressMessage(int screen_w, int screen_h) @local
 {
     const RLColor COLOR @Hardcode = {223, 196, 125, 180};
 	const WP_FONT_SIZE = 16;
-    RLFont* font = local_game.candara_font;
+    RLFont* font = local_game.font_candara;
     if(!font) unreachable("Required font for WIP message is missing!");
-    if(!rl::isFontValid(*font))  font = &local_game.default_font;
+    if(!rl::isFontValid(*font))  font = &local_game.font_default;
     if(!font) unreachable("Trying to use default font for WIP message but it is missing!");
     
     //int font_w = (int)font.recs.width;
@@ -1791,13 +1794,13 @@ fn void onPostGUIDraw(int screenWidth, int screenHeight) @public
 			int x = (int)((0.93f * screenWidth) - 120.0f);
 			int y = (int)(0.02f * screenHeight);
 			rl::drawTextEx(
-				*local_game.candara_font,
+				*local_game.font_candara,
 				string::tformat_zstr("OpenGL v%s, FPS: %d", rl::glsl_version(), rl::getFPS()), 
 				(RLVector2){(float)x, (float)y}, 20.0f, 1.0f, 
 				rl::LIME
 			);
 			rl::drawTextEx(
-				*local_game.candara_font,
+				*local_game.font_candara,
 				string::tformat_zstr("frametime: %.2f ms", rl::getFrameTime()*1000), 
 				(RLVector2){(float)x, (float)y + 18}, 18.0f, 1.0f, 
 				rl::LIME
@@ -1884,10 +1887,14 @@ fn void onGuiDraw(int screenWidth, int screenHeight) @public @MyInline
             switch (cmd.type)
             {
                 case mu::COMMAND_JUMP: io::printfn("MU::COMMAND_JUMP Called.");
-                case mu::COMMAND_TEXT: mu::draw_text((ZString)&cmd.text.str, cmd.text.pos, cmd.text.color);
-                case mu::COMMAND_RECT: mu::draw_rect(cmd.rect.rect, cmd.rect.color);
-                case mu::COMMAND_ICON: mu::draw_icon(cmd.icon.id, cmd.icon.rect, cmd.icon.color);
-                case mu::COMMAND_CLIP: mu::set_clip_rect(cmd.clip.rect);
+                case mu::COMMAND_TEXT: 
+				{
+					cmd.text.font = local_game.mu_ctx.style.font;
+					mu::callback_draw_text(cmd.text.font, (ZString)&cmd.text.str, cmd.text.pos, cmd.text.color);
+				}
+                case mu::COMMAND_RECT: mu::callback_draw_rect(cmd.rect.rect, cmd.rect.color);
+                case mu::COMMAND_ICON: mu::callback_draw_icon(cmd.icon.id, cmd.icon.rect, cmd.icon.color);
+                case mu::COMMAND_CLIP: mu::callback_set_clip_rect(cmd.clip.rect);
             }
         }
         // Make sure we end any lingering scissor mode.
@@ -1912,7 +1919,7 @@ fn void onGuiDraw(int screenWidth, int screenHeight) @public @MyInline
         int x = screenWidth / 2 - (text_size / 2);
         int y = screenHeight / 2 - 10;
         rl::drawTextEx(
-            *local_game.candara_font,
+            *local_game.font_candara,
             string::tformat_zstr("%s", message), 
             (RLVector2){(float)x, (float)y}, 20.0f, 1.0f, 
             rl::LIME
@@ -2551,6 +2558,7 @@ $else
 	// needs more testing
     handle_cmdline_new(args);
 $endif
+
     // NOTE(HM) 
     // This will save cvars in a global array 
     // for later looping through if necessary...
@@ -2594,7 +2602,7 @@ $endif
     if(fl_help.getBool() || cvar::cmd_listCVars.getBool()) 
     {
 		// TODO(HM) print this cvars also on the developer console when
-        // if and when it exists...
+        // and if it is ever done...
         cvar::printCvars();
         // TODO(HM) print key actions and cmdline args as well
         // usage(); todo make this function a reality...
@@ -2766,7 +2774,8 @@ $endif
 // #endregion
 
 ////////////////////////////////////////////////////
-    // if enabled, show a splash screen. Btw this delays the game start for a few seconds
+    // if enabled, show a simple splash screen. 
+	// this right now delays the game start for a few seconds
 	// so not sure if really something I want to have, but is here for others if they want it.
     if(r_showSplashPic.getBool()) showSplashScreenImage();
 ////////////////////////////////////////////////////
@@ -2792,8 +2801,11 @@ $endif
     log::tofile("Loading settings file:");
     log::tofile("---------------------------------------------");
     String ini_file_path = local_game.app_base_folder.tconcat(ini::SETTINGS_FILE_NAME);
-    bool settings_file_missing = fs::fileExists(ini_file_path) == false;
-    if (settings_file_missing) // create it with default settings
+    if (fs::fileExists(ini_file_path))
+	{
+		// go on
+	}
+	else // create it with default settings
     {
         ini::create_default_settings_file(ini_file_path);
     }
@@ -2813,14 +2825,14 @@ $endif
         // Test json file reading
         File? file = fs::openFile(local_game.app_root_dir.tconcat("prefs.data"));
         if( catch excuse = file) {
-            log::warning(FILE, "Failed to load json file with excuse: %s", excuse);
+            log::warning(FILE, "Failed to load prefs.data file with excuse: %s", excuse);
             return excuse~;
         }
         //String jstext = fs::fileLoadEntireText(local_game.app_root_dir.tconcat("prefs.data"));
         Object*? config = json::tparse(&file);
         //Object*? config = json::tparse_string(jstext)!;
         if(catch excuse = config) {
-            log::warning(FILE, "Failed to parse json file with excuse: %s", excuse);
+            log::warning(FILE, "Failed to parse prefs.data file with excuse: %s", excuse);
             return excuse~;
         }
         config.map.@each(; String key, value) {
@@ -2829,7 +2841,7 @@ $endif
         // !json
     };
 
-    log::tofile("Settings file data loaded into RAM with sucess: %s", ini_file_path);
+    log::tofile("Settings file '%s' loaded into RAM with sucess:", ini_file_path);
     log::tofile("---------------------------------------------\n");
 
     // test writting to the register
@@ -2881,41 +2893,42 @@ $endif
 // #endregion Ini file handling
 
     // set game language
-    if(try settings_data.hasSection("game"))
-    {
-        local_game.language = settings_data.getString("language");
-        assert(local_game.language.len > 0);
-        $if $defined(env::WIN32):
+	Path? langs_path = path::tnew(local_game.app_base_folder.tconcat("langs\\local.lang"))!;
+	if(try lang::dict.load(langs_path)) {
+		log::tofile("languages data file loaded sucessfully.\n\t-> %s", langs_path!);
+	} else {
+		unreachable("failed to load required languages data file: %s!!", langs_path!);
+	}
+
+	local_game.language = settings_data.getvar("game", "language");
+	if(local_game.language.is_empty() == false)
+	{
+		$if $defined(env::WIN32):
             Win32_HKEY k = win32::getGameRegSettingsPath()!;
             @catch(k.setValue("language", &local_game.language, String, close_key: true));
         $endif
-        Path? langs_path = path::tnew(local_game.app_base_folder.tconcat("langs\\local.lang"))!;
-        if(try lang::dict.load(langs_path)) {
-            log::tofile("languages data file loaded sucessfully.\n\t-> %s", langs_path!);
-            log::tofile("---------------------------------------------\n");
-        } else {
-            unreachable("failed to load languages data file: %s!!", langs_path!);
-        }
-    } else {
-        //settings_data.addSection(settings_data.createSection("game"));
-        //settings_data.addToSection("game", mem::new(IniCMD, {"language", "pt"}));
-        unreachable("invalid ini file, required [game] section was not found!!");
+		log::tofile("language set to -> %s", local_game.language);
+		log::tofile("---------------------------------------------\n");
+	}
+	else
+	{
+        unreachable("required language string is empty!!");
     }
 
     // change logging level
     // NOTE(HM) this will override the default log level set before in pre_InitFunc()
     if(settings_data.getBool("developer", "log")! == true)
     {
-		RLTraceLogLevel level = log::getLevelFromString(settings_data.getString("log_level"));
-		if(log::getLogLevel() != level)
+		RLTraceLogLevel log_level = log::getLevelFromString(settings_data.getString("developer", "log_level"));
+		if(log::getLogLevel() != log_level)
 		{
 			log::tofile("Ini file overriding prior Logging level!");
 			log::tofile("\t- prior level was '%s' new level will be: '%s'", 
 			log::levelToString(log::getLogLevel()), 
-			log::levelToString(level));
+			log::levelToString(log_level));
 
-			log::setLogLevel(level);
-			log::tofile("Logging set to: %s\n", log::levelToString(level));
+			log::setLogLevel(log_level);
+			log::tofile("Logging set to: %s\n", log::levelToString(log_level));
 		}
     }
     else if(settings_data.getBool("developer", "log")! == false)
@@ -2937,8 +2950,8 @@ $endif
     
     // NOTE(HM): 
     // If we set r_mode at game start in the cmdline, it will have top priority 
-    // and will override the value, written in the ini file 
-    // and also replace the value, originally assigned to the r_mode cvar.
+    // and will ignore the value, written in the ini file, 
+    // and override the value, originally assigned to the r_mode cvar during gameplay.
     int res_index = r_mode.getInt();
     if(res_index != -1)
     {
@@ -3267,19 +3280,6 @@ $endif
 
     log::tofile("---------------------------------------------\n");
 // #endregion MONITOR STATES
-
-$if $feature(MICROUI_ENABLE):
-    // #region MicroUI initialization
-    log::tofile("Initializing MicroUI:");
-    log::tofile("---------------------------------------------");
-    // NOTE(HM) This needs to be done before any microUI function requiring units is used!!!
-    local_game.mu_ctx = mem::new(MU_Context);
-    local_game.mu_ctx.init();
-    local_game.mu_ctx.text_width  = &mu::text_width;
-    local_game.mu_ctx.text_height = &mu::text_height;
-    local_game.mu_font_atlas = rl::loadTexture(local_game.app_base_folder.tconcat("images\\mu_atlas.png").zstr_tcopy());
-    log::tofile("---------------------------------------------\n");
-$endif
     
     log::tofile("Setting up game view:");
     log::tofile("---------------------------------------------");
@@ -3292,7 +3292,7 @@ $if $feature(_DEBUG):
     // NOTE(HM) This needs to run after initWindow,
     // it changes the default exit key (default was ESC key)
     //rl::setExitKey(rl::KEY_F10);
-    String key_name = settings_data.getString("quit", default_value: "KEY_ESCAPE");
+    String key_name = settings_data.getString("keys", "quit", default_value: "KEY_ESCAPE");
     rl::setExitKey(input::getKeyCodeFromStr(key_name));
     log::tofile("Exit key set to: %s", key_name);
     log::tofile("---------------------------------------------\n");
@@ -3401,8 +3401,24 @@ $endif
     //defer default_mat.free();
     
     // now that the assets are loaded get a pointer to the game fonts
-    local_game.initFonts();
+    initFonts();
     //
+
+$if $feature(MICROUI_ENABLE):
+    // #region MicroUI initialization
+    log::tofile("Initializing MicroUI:");
+    log::tofile("---------------------------------------------");
+    // NOTE(HM) This needs to be done before any microUI function requiring units is used!!!
+    local_game.mu_ctx = mem::new(MU_Context);
+	mu::init(local_game.mu_ctx, 
+	font: &local_game.font_default,
+	atlas: rl::loadTexture(local_game.app_base_folder.tconcat("images\\mu_atlas.png").zstr_tcopy())
+	);
+    //local_game.mu_font_atlas = rl::loadTexture(local_game.app_base_folder.tconcat("images\\mu_atlas.png").zstr_tcopy());
+    local_game.mu_ctx.text_width  = &mu::callback_text_width;
+    local_game.mu_ctx.text_height = &mu::callback_text_height;
+	log::tofile("---------------------------------------------\n");
+$endif
 
     svg::SVGData svgfile;
     svgfile.path = local_game.app_base_folder.tconcat("levels/test.svg").copy(mem);
@@ -3734,20 +3750,6 @@ $endif
 
 fn void onExit()
 {
-	// save cvars marked as archive to config data (settings file below)
-	/*foreach(cv : cvar::cvars) {
-		cv.archive();
-	}
-
-    //
-    if(try local_game.settings_data.save())
-    {
-        // save the settings file
-        log::tofile("Updated settings file: %s", local_game.settings_data.path);
-    }
-    ini::unload(&local_game.settings_data);*/
-    //
-
     log::tofile( "Game shutdown starting.");
     deinit_game_cursor();
     // make sure to release all assets last, so you don't try to release a asset that is already released.
@@ -3872,19 +3874,36 @@ $endif
     //log::tofile( "clearing game singletons and log system!\n\t** Printing done on OS terminal from this point on **");
     log::tofile( "clearing game singletons!");
     clear_game_singletons();
-    log::tofile( "Game shutdown done!!");
+
+	// save cvars marked as archive to config data (settings file below)
+	/*foreach(cv : cvar::cvars) {
+		cv.archive();
+	}*/
+
+    //
+    if(try local_game.settings_data.save())
+    {
+        // save the settings file
+        log::tofile("Saved modified settings data user file: %s", local_game.settings_data.path);
+    }
+    ini::unload(&local_game.settings_data);
+    //
+	log::tofile( "**Game shutdown done**");
     log::closeLogFile();
 }
 
 fn void clear_game_singletons() @MyInline {
-    pContext = null; // clear pointer to game singleton
     //
-    input::gpManager.free();
-    input::gpManager = null;
+	input::save_actions_to_user_file(&local_game.settings_data);
+    input::manager.free();
+    input::manager = null;
     //
     uiwin::gpManager.free();
     uiwin::gpManager = null;
-    log::tofile( "**done**");
+	// clear pointer to our own game singleton
+	// this will NOT free or clear the game singleton data, 
+	// but that is done by the OS at full exit anyway
+    pContext = null;
 }
 
 <*
@@ -4049,8 +4068,8 @@ $if !$feature(_DEBUG):
 		.func = (ActionCallBack)&quitGame});
 $endif
 
-    input::makeKeyboardAction("quicksave", input::getKeyCodeFromStr(settings_data.getString("quicksave")), rl::KEY_NULL, (ActionCallBack)&saveGame);
-    input::makeKeyboardAction("quickload", input::getKeyCodeFromStr(settings_data.getString("quickload")), rl::KEY_NULL, (ActionCallBack)&loadGame);
+    input::makeKeyboardAction("quicksave", input::getKeyCodeFromStr(settings_data.getString("keys", "quicksave")), rl::KEY_NULL, (ActionCallBack)&saveGame);
+    input::makeKeyboardAction("quickload", input::getKeyCodeFromStr(settings_data.getString("keys", "quickload")), rl::KEY_NULL, (ActionCallBack)&loadGame);
     
     input::makeKeyboardAction("particles", rl::KEY_INSERT);
 
@@ -4354,8 +4373,9 @@ $if $feature(MICROUI_ENABLE):
 
     MU_Context* mu_ctx = mem::tnew(MU_Context);
     mu_ctx.init();
-    mu_ctx.text_width  = &mu::text_width;
-    mu_ctx.text_height = &mu::text_height;
+	mu_ctx.style.font = local_game.font_candara;
+    mu_ctx.text_width  = &mu::callback_text_width;
+    mu_ctx.text_height = &mu::callback_text_height;
 
     int flags;
     flags |= (int)rl::FLAG_WINDOW_UNDECORATED;
@@ -4391,39 +4411,19 @@ $if $feature(MICROUI_ENABLE):
                 switch (cmd.type)
                 {
                     case mu::COMMAND_JUMP: io::printfn("MU_COMMAND_JUMP");
-                    case mu::COMMAND_TEXT: mu::draw_text((ZString)&cmd.text.str, cmd.text.pos, cmd.text.color);
+                    case mu::COMMAND_TEXT: 
+					{
+						mu::callback_draw_text(cmd.text.font, (ZString)&cmd.text.str, cmd.text.pos, cmd.text.color);
+					}
                     case mu::COMMAND_RECT: 
                     {
-                        mu::draw_rect(cmd.rect.rect, cmd.rect.color);
+                        mu::callback_draw_rect(cmd.rect.rect, cmd.rect.color);
                     } 
                     case mu::COMMAND_ICON: 
                     {
-                        //mu::draw_icon(cmd.icon.id, cmd.icon.rect, cmd.icon.color);
-                        int id = cmd.icon.id;
-                        MU_Rect _rect = cmd.icon.rect;
-                        RLColor color = cmd.icon.color;
-
-                        MU_Rect src = mu::ICONS[id];
-                        int x = _rect.x + (_rect.w - src.w) / 2;
-                        int y = _rect.y + (_rect.h - src.h) / 2;
-                        // Assuming cmd->icon.id corresponds to a valid icon in the MicroUI icon set
-                        // Here we would draw the icon based on its ID and rectangle
-                        // For simplicity, we can use a placeholder drawing function
-                        //draw_rect(rect(x, y, src.w, src.h), color); // Placeholder for actual icon drawing logic
-                        rl::setBlendFactors(rl::RL_ONE, rl::RL_ONE, rl::RL_FUNC_ADD);
-                        rl::@blendMode(RLBlendMode.CUSTOM) 
-                        //rl::@blendMode(RLBlendMode.ALPHA_PREMUL) 
-                        {
-                            rl::drawTexturePro(
-                             texture: mu_font_atlas,
-                             source: (RLRectangle){src.x, src.y, src.w, src.h},
-                             dest: (RLRectangle){x, y, src.w, src.h},
-                             origin: (RLVector2){0, 0}, 
-                             rotation: 0.0f, 
-                             tint: color);
-                        };
+                        mu::callback_draw_icon(cmd.icon.id, cmd.icon.rect, cmd.icon.color);
                     }
-                    case mu::COMMAND_CLIP: mu::set_clip_rect(cmd.clip.rect);
+                    case mu::COMMAND_CLIP: mu::callback_set_clip_rect(cmd.clip.rect);
                 }
             }
         };

@@ -194,12 +194,6 @@ macro scale(Type1 ojb, Vec2f dim) <Type1, Type2>
 	}
 }
 
-constdef PanelShape : inline int
-{
-    BOX = 0,
-    ROUNDED_BOX // with rounded corners (unused right now)
-}
-
 struct PanelFlags
 {
     bool isHidden;
@@ -221,14 +215,15 @@ struct PanelFlags
 	I wanted to use Rectangle as name but it was already taken by raylib...
 */
 ///////////////////////////////////////////////////////////////////////////
+import game::lowlevel::bounds;
 
 struct Panel (SaveSystemInterface, Printable)
 {
     int             id;  // used to uniquily identify each panel
     String          name;
     PanelFlags      flags;
-    PanelShape      shape; // default is BOX
     RLRectangle     rect; // x, y, width, height
+    //Bounds          bounds; todo change to this bounds
 	List{GuiAnchor} anchor;
     RLColor 		color; // current color, material color overrides this color
     RLColor         color_selected; // for gui editor functionality
@@ -240,8 +235,8 @@ fn void Panel.save(&self, SaveFile* file) @dynamic
     svs::writeInt(file, self.id);
     svs::writeString(file, self.name);
 	svs::write(file, (void*)&self.flags, PanelFlags::size);
-    svs::writeInt(file, self.shape);
     svs::writeRect{RLRectangle}(file, self.rect);
+    //svs::writeBounds(file, self.bounds);
     svs::writeColor(file, self.color);
     svs::writeColor(file, self.color_selected);
     // cannot save pointers so just save the material name
@@ -256,8 +251,6 @@ fn void Panel.reload(&self, SaveFile* file) @dynamic
 	self.id = value;
 	svs::readString(file, &self.name);
 	svs::read(file, (void*)&self.flags, PanelFlags::size);
-    svs::readInt(file, &value);
-    self.shape = (PanelShape)value;
     svs::readRect{RLRectangle}(file, &self.rect);
     svs::readColor(file, &self.color);
     svs::readColor(file, &self.color_selected);
@@ -269,8 +262,8 @@ fn void Panel.reload(&self, SaveFile* file) @dynamic
 fn sz? Panel.to_format(&self, Formatter* f) @dynamic 
 {
     return f.printf(`Panel { 
-    "id" = %s,\n"name" = %s,\n"shape" = %s,\n"rect" = { x: %s, y: %s, width: %s, height: %s  },\n"color" = { r: %s, g: %s, b: %s, a: %s  },\n"material" = %s 
-    }`, self.id, self.name, self.shape, self.rect.x, self.rect.y, self.rect.width, self.rect.height, self.color.r, self.color.g, self.color.b, self.color.a, (self.mat != null) ? self.mat.name : "null");
+    "id" = %s,\n"name" = %s,\n"rect" = { x: %s, y: %s, width: %s, height: %s  },\n"color" = { r: %s, g: %s, b: %s, a: %s  },\n"material" = %s 
+    }`, self.id, self.name, self.rect.x, self.rect.y, self.rect.width, self.rect.height, self.color.r, self.color.g, self.color.b, self.color.a, (self.mat != null) ? self.mat.name : "null");
 }
 
 fn void Panel.initRec(&self, RLRectangle rect, RLColor color) @inline
@@ -295,8 +288,6 @@ fn void Panel.deinit(&self) @inline
     if(self.mat) self.mat = null;
     self.anchor.clear();
 }
-
-fn void Panel.setShape(&self, PanelShape shape) @inline => self.shape = shape;
 
 <*
     Todo(HM) Make a way to select or view pannels with very low sizes or huge sizes
@@ -616,12 +607,7 @@ fn void Panel.draw(&self, bool selected = false)
     } 
     else
     {
-        switch(self.shape)
-        {
-            case BOX:         r2d::@drawRect(self.rect, (selected) ? self.color_selected : self.color);
-            case ROUNDED_BOX: r2d::drawRectangleRounded(self.rect, 0.65f, 6, (selected) ? self.color_selected : self.color);
-            default: unreachable();
-        }
+        r2d::@drawRect(self.rect, (selected) ? self.color_selected : self.color);
     }
 
     if(self.displayBounds()) {
@@ -925,12 +911,13 @@ fn void Widget.draw(&self) @dynamic
         self.draw_origin_coordinates();
     }
     
+    Vec2f center;
+
     switch (self.kind)
     {
         case KIND_TEXT:
             // draw text label
             WidgetText* this = (WidgetText*)self;
-            Vec2f center;
             ZString text = this.text.zstr_tcopy();
             if(text.len() > 0) 
             {
@@ -938,8 +925,8 @@ fn void Widget.draw(&self) @dynamic
                 {
                 case CENTER:
                     center = {
-                        self.rect.x + self.rect.width / 2,
-                        self.rect.y + self.rect.height / 2
+                        .x = self.rect.x + self.rect.width / 2,
+                        .y = self.rect.y + self.rect.height / 2
                     };
                     center.x -= (float)(this.text_len / 2);
                     center.y -= (float)this.font_size / 2;
@@ -961,6 +948,10 @@ fn void Widget.draw(&self) @dynamic
                 }
                 else { rl::drawText(text, (int)center.x, (int)center.y, this.font_size, self.color); }
             }
+            else
+            {
+                unreachable("cannot draw gui label '%s' because its size is zero!", self.name);
+            }
 
             if(self.displayBounds()) {
                 r2d::drawRectangleLinesEx(self.rect, 1.0f, rl::RED);
@@ -968,9 +959,12 @@ fn void Widget.draw(&self) @dynamic
         case KIND_CHECKBOX:
             // draw the checkbox
             WidgetCheckBox* this = (WidgetCheckBox*)self;
-            Vec2f center = this.getPosition(); //+ misc::VEC_LEFT * (this.getWidth() / 2.0f);
+            center = this.getPosition(); //+ misc::VEC_LEFT * (this.getWidth() / 2.0f);
             //center += misc::VEC_DOWN * (this.getHeight() / 2.0f);
-            r2d::drawRectangle((int)center.x, (int)center.y, 20, 20, this.color);
+            int w, h;
+            w = (int)this.rect.w;
+            h = (int)this.rect.h;
+            r2d::drawRectangle((int)center.x, (int)center.y, w, h, this.color);
 
             // draw the label
             if(this.label.len > 0) {
@@ -979,9 +973,9 @@ fn void Widget.draw(&self) @dynamic
             }
             
             if(this.isChecked()) {
-                r2d::drawRectangleLines((int)center.x, (int)center.y, 20, 20, rl::BLACK);
-                r2d::drawLineEx(center, (center + misc::VEC_RIGHT * 20), 2.0f, rl::GREEN);
-                r2d::drawLineEx(center, (center + misc::VEC_DOWN * 20), 2.0f, rl::GREEN);
+                r2d::drawRectangleLines((int)center.x, (int)center.y, w, h, rl::BLACK);
+                r2d::drawLineEx(center, (center + misc::VEC_RIGHT * w), 2.0f, rl::GREEN);
+                r2d::drawLineEx(center, (center + misc::VEC_DOWN * h), 2.0f, rl::GREEN);
             }
         case KIND_CONTAINER:
         case KIND_BUTTON:
@@ -1136,7 +1130,7 @@ fn void Widget.deselect(&self) @inline => self.selected = false;
 
 /////////////////////////////////////// extra widgets //////////////////////////////////////////////////////
 
-enum WidgetTextAlign
+enum TextAlign
 {
     CENTER,
     LEFT,
@@ -1153,7 +1147,7 @@ struct WidgetText
     RLFont* font;
     float spacing; // spacing between characters, used for text rendering
     int font_size;
-    WidgetTextAlign align;
+    TextAlign align;
 }
 
 
@@ -1166,7 +1160,7 @@ fn void WidgetText.init(&self) //@inline
     self.spacing    = 2.0f; //@hardcode, todo make this int a cvar
     self.font_size  = 20; //@hardcode
     self.setDefaultColor(rl::WHITE); //@hardcode
-    self.align      = WidgetTextAlign.CENTER;
+    self.align      = TextAlign.CENTER;
 }
 
 fn void WidgetText.deinit(&self) @inline 
@@ -1202,6 +1196,9 @@ fn void WidgetText.updateBounds(&self)
     }
 }
 
+<*
+    @ensure return != VEC2_ZERO
+*>
 fn Vec2f WidgetText.getBounds(&self) @inline 
 {
     // returns the bounds of the text, not the widget itself
@@ -1209,8 +1206,7 @@ fn Vec2f WidgetText.getBounds(&self) @inline
 }
 
 <*
-	@param [in] font : "font to set"
-	@require font != null
+	@param [&in] font : "font to set"
 *>
 fn void WidgetText.setFont(&self, RLFont* font) @inline 
 {
@@ -1218,15 +1214,22 @@ fn void WidgetText.setFont(&self, RLFont* font) @inline
     self.updateBounds();
 }
 
+<*
+    @param [in] text : "the text being set"
+    @require text.len > 0
+*>
 fn void WidgetText.setText(&self, String text) @inline
 {
     self.text = text;
     self.updateBounds();
 }
 
+<*
+    @ensure return > 0
+*>
 fn float WidgetText.textlen(&self) @inline 
 {
-    return (float)rl::measureText(self.text.zstr_tcopy(), self.font_size);
+    return self.text_len;
 }
 
 fn void WidgetText.setTextColor(&self, RLColor color) @inline 
@@ -1234,14 +1237,18 @@ fn void WidgetText.setTextColor(&self, RLColor color) @inline
     self.color = color;
 }
 
-fn void WidgetText.setAlign(&self, WidgetTextAlign align) @inline 
+fn void WidgetText.setAlign(&self, TextAlign align) @inline 
 {
     self.align = align;
 }
 
-fn void WidgetText.setFontSize(&self, int size) @inline 
+<*
+    @param size : "how big is the text"
+    @require size > 0
+*>
+fn void WidgetText.setFontSize(&self, uint size) @inline 
 {
-    self.font_size = size;
+    self.font_size = (int)size;
     self.updateBounds();
 }
 
@@ -1262,13 +1269,13 @@ fn void WidgetText.draw(&self) //@inline
     The label will also be shown by default.
     Don't forget to free the label memory when you are done with it.
 
-    @param text : "text to display on the label"
-    @param font : "font to use for the label, can be null"
+    @param [in] text : "text to display on the label"
+    @param [in] font : "font to use for the label, can be null"
     @param font_size : "font size to use for the label, must be greater than 0 to be applied"
     @param text_color : "color of the text"
 	@ensure return != null
 *>
-fn WidgetText* createLabel(String text, RLFont* font, int font_size, RLColor text_color) @nodiscard
+fn WidgetText* createLabel(String text, RLFont* font, int font_size = 12, RLColor text_color = rl::DARK_GRAY) @nodiscard
 {
     WidgetText* label = mem::new(WidgetText);
     label.init();
@@ -1279,7 +1286,7 @@ fn WidgetText* createLabel(String text, RLFont* font, int font_size, RLColor tex
         label.setFont(font);
     }
     if (font_size > 0) {
-        label.setFontSize(font_size);
+        label.setFontSize((uint)font_size);
     }
     // labels shouldn't be interactive (to save perf...)
     label.deactivate();
@@ -1293,14 +1300,12 @@ fn WidgetText* createLabel(String text, RLFont* font, int font_size, RLColor tex
 	The label will be deactivated by default, so it won't be interactive.
 	The label will also be shown by default.
 
-	@param label : "label widget to initialize"
-	@param text : "text to display on the label"
-	@param font : "font to use for the label, can be null"
+	@param [&inout] label : "label widget to initialize"
+	@param [in] text : "text to display on the label"
+	@param [in] font : "font to use for the label, can be null"
 	@param font_size : "font size to use for the label, must be greater than 0 to be applied"
 	@param text_color : "color of the text"
-	@param uiwin : "window to add the label to"
-	@require uiwin != null
-	@require label != null
+	@param [&inout] uiwin : "window to add the label to"
 *>
 fn void init_label(WidgetText* label, String text, RLFont* font, int font_size, RLColor text_color, UIWindow* uiwin) @inline 
 {
@@ -1312,7 +1317,7 @@ fn void init_label(WidgetText* label, String text, RLFont* font, int font_size, 
 		label.setFont(font);
 	}
 	if (font_size > 0) {
-		label.setFontSize(font_size);
+		label.setFontSize((uint)font_size);
 	}
 	// labels shouldn't be interactive (to save perf...)
 	label.deactivate();
@@ -1824,14 +1829,16 @@ struct UIWindow (SaveSystemInterface)
     //
     
     // flags
-    bool isInteractive;
-    bool isDesktop;
-    bool visible;
-    bool active;
-	bool selected; // for editor stuff
-    bool loading; // when eventually we load guis from a file
-    bool keyboardInput_enabled; // if true, the window will receive keyboard input, otherwise it will ignore it
-    bool mouse_is_moving; // to detect mouse movement and implement hover effects
+    struct {
+        bool isInteractive;
+        bool isDesktop;
+        bool visible;
+        bool active;
+	    bool selected; // for editor stuff
+        bool loading; // when eventually we load guis from a file
+        bool keyboardInput_enabled; // if true, the window will receive keyboard input, otherwise it will ignore it
+        bool mouse_is_moving; // to detect mouse movement and implement hover effects
+    }
     //
     // to handle timing while the window is open/active
     int time; // milliseconds
@@ -1847,7 +1854,7 @@ struct UIWindow (SaveSystemInterface)
     ChildrenWidgetQueue childWidgets;
     // todo make a queue for hidden childWidgets to better control what to hide and show.
     ChildrenUIWindowQueue childWindows;
-    UIWindow* home; // the home window, where we can return to
+    UIWindow* desktop; // the home window, where we can return to
     UIWindow* previous; // for window linkage, so we can go back to the previous window
     UIWindow* next;     // for window linkage, so we can go to the next
 }
@@ -1873,7 +1880,13 @@ const UIWIN_NAME_PREFIX = "UIWindow_";
     @param h : "height of the window, used only if isDesktop is false"
     @require rl::isWindowReady() == true
 *>
-fn void UIWindow.init(&self, String name, bool isDesktop = false, int w = 800, int h = 600, bool shouldRegister = true) @inline 
+fn void UIWindow.init(&self, 
+String name, 
+bool isDesktop = false, 
+int w = 800, 
+int h = 600, 
+bool shouldRegister = true
+) @inline 
 {
     self.name = string::tformat("%s%s", UIWIN_NAME_PREFIX, name);
     self.number = (int)local_manager.windows.len() + 1;
@@ -1882,6 +1895,7 @@ fn void UIWindow.init(&self, String name, bool isDesktop = false, int w = 800, i
     RLRectangle rect;
     if(isDesktop) {
         self.isDesktop = isDesktop;
+        self.desktop   = self;
 		assert(game::getScreenWidth() > 0 && game::getScreenHeight() > 0, 
 			"UIWindow.init: Cannot set window desktop to fullscreen because screen width or height is zero!!"
 		);
@@ -1940,7 +1954,7 @@ fn void UIWindow.clear(&self) @inline
 		}
 		self.childWindows.clear();
 	}
-    if(self.home     != null) self.home     = null;
+    if(self.desktop  != null) self.desktop  = null;
     if(self.previous != null) self.previous = null;
     if(self.next     != null) self.next     = null;
 }
@@ -2244,7 +2258,8 @@ fn void UIWindow.redraw(&self, int _time)
     if not draws the other active window instead.
     This is a function that should be called from the main game loop.   
 */
-fn void UIWindow.draw(&this) {
+fn void UIWindow.draw(&this)
+{
     UIWindow* guiActive = game::pContext.guiActive;
 
     if ( guiActive == this ) {
@@ -2255,7 +2270,9 @@ fn void UIWindow.draw(&this) {
 macro UIWindow.getDesktop(&self)
 {
     if(self.isDesktop) return self;
-    foreach(uiwin : local_manager.windows) {
+
+    return self.desktop;
+    /*foreach(uiwin : local_manager.windows) {
         if(uiwin.isDesktop && uiwin.childWindows.len()) 
         { // see if this window is a child of the found desktop
             foreach(child : uiwin.childWindows) {
@@ -2264,7 +2281,7 @@ macro UIWindow.getDesktop(&self)
                 }
             }
         }
-    }
+    }*/
 }
 
 // set how many child windows are inside this other window (imagined as "pages")
@@ -2289,6 +2306,7 @@ fn void UIWindow.addChildWidget(&self, Widget* child, int idx = -1 )
 *>
 fn UIWindow* UIWindow.addChildWindow(&self, UIWindow* child, int idx = -1 )
 {
+    if(self.isDesktop) child.desktop = self;
     if(idx >= 0) {
         self.childWindows.insert_at(idx, child);
     } else {
@@ -2384,7 +2402,7 @@ fn void UIWindow.debug(&self, bool showHidden = true)
 		self.debugDrawCoords();
 
         // draw the childWidgets BBox
-        if (self.childWidgets.len()) 
+        if (self.childWidgets.len())
         {
             foreach(child: self.childWidgets)
             {
@@ -2393,7 +2411,7 @@ fn void UIWindow.debug(&self, bool showHidden = true)
                dbg_text_pos = {child.rect.x, child.rect.y};
                dbg_text_pos += misc::VEC_UP * (0.30f * child.rect.height); 
                rl::drawText(
-                    string::tformat("(w:%dpx, h:%dpx) : (w:%d%%, h:%d%%)", child.rect.x, child.rect.y, 
+                    string::tformat("[%s] = (w:%dpx, h:%dpx) : (w:%d%%, h:%d%%)", child.getName(), child.rect.x, child.rect.y, 
                     ((child.rect.x * 100) / self.rect.w), ((child.rect.y * 100) / self.rect.h)).zstr_tcopy(),
                     (int)dbg_text_pos.x, (int)dbg_text_pos.y, 9, rl::RED
                );

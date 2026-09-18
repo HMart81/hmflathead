@@ -310,12 +310,22 @@ fn void	writeTexture2D(SaveFile* savefile, RLTexture2D* tex) {
  @param rect : "the data to save"
  @require savefile != null
 *>
-fn void	writeRect(SaveFile* savefile, Type rect) <Type>
+fn void	writeRect(SaveFile* savefile, Type2 rect) <Type2>
 {
     writeFloat(savefile, rect.x);
     writeFloat(savefile, rect.y);
     writeFloat(savefile, rect.width);
     writeFloat(savefile, rect.height);
+}
+
+<*
+ @param [&inout] savefile : "the file to write the data to"
+ @param [&in] bounds : "the data to save"
+*>
+fn void writeBounds(SaveFile* savefile, Bounds* bounds )
+{
+	writeVector{Vec2f}(savefile, bounds.maxc);
+	writeVector{Vec2f}(savefile, bounds.minc);
 }
 
 <*
@@ -504,12 +514,22 @@ fn void readTexture2D(SaveFile* file, RLTexture2D* tex ) { @todo(); }
 	@param [&in] savefile :  "the file to read the data from"
 	@param [&inout] rect : "the adress to place the data into"
 *>
-fn void	readRect(SaveFile* savefile, Type* rect) <Type>
+fn void	readRect(SaveFile* savefile, Type2* rect) <Type2>
 {
     readFloat(savefile, &rect.x);
     readFloat(savefile, &rect.y);
     readFloat(savefile, &rect.width);
     readFloat(savefile, &rect.height);
+}
+
+<*
+ @param [&inout] savefile : "the file to write the data to"
+ @param [&in] bounds : "the data to save"
+*>
+fn void readBounds(SaveFile* savefile, Bounds* bounds )
+{
+	readVector{Vec2f}(savefile, &bounds.maxc);
+	readVector{Vec2f}(savefile, &bounds.minc);
 }
 
 <*

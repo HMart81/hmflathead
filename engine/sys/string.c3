@@ -52,7 +52,9 @@ constdef FileExtension : inline String @constinit
 	ZIP  = ".zip",
     ZIP7 = ".7zip",
     MPG  = ".mpg", // mpeg videos
-    INI  = ".ini"
+    INI  = ".ini",
+	BKP  = ".bkp",
+	DEF  = ".def"
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -83,13 +85,8 @@ macro String zstringTostring(x) => x.zstr_view();
 macro String zstringTotempstring(x) => string::tformat(x);
 macro String numbToStr(n) => string::new_format("%s", n);
 
-macro bool String.is_empty(self)
-{
-    if (self.len == 0) {
-        return true;
-    }
-    return false;
-}
+macro bool String.is_empty(self) => (self.len == 0) ? true : false;
+
 
 // NOTE(HM) helper-function that returns true if the character c is a directory separator
 //     on the current platform
@@ -202,8 +199,12 @@ macro void String.remove_spaces(&self)
     }
 }
 
+<*
+	Extracts the name of a file including extension
+	@ensure return != ""
+*>
 fn String String.extractFileBaseByCopy(self) 
-{ // using self you are passing by value use &self to pass by ref
+{
 
     //back up until a \ or the start
     int pos = self.len - 1;

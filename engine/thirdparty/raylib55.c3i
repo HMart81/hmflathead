@@ -1209,6 +1209,8 @@ fn bool isKeyReleased(CInt key) @cname("IsKeyReleased");
 // Check if a key is NOT being pressed
 fn bool isKeyUp(CInt key) @cname("IsKeyUp");
 // Get key pressed (keycode), call it multiple times for keys queued, returns 0 when the queue is empty
+// NOTE(HM) if called once retrieves the last key that was pressed during the last frame
+// and removes it from the queue, aparantly is NOT equivalent to isKeyPressed()
 fn CInt getKeyPressed() @cname("GetKeyPressed");
 // Get char pressed (unicode), call it multiple times for chars queued, returns 0 when the queue is empty
 fn CInt getCharPressed() @cname("GetCharPressed");
@@ -2331,7 +2333,7 @@ const RLConfigFlag FLAG_MSAA_4X_HINT       = 0x00000020;   // Set to try enablin
 const RLConfigFlag FLAG_INTERLACED_HINT    = 0x00010000;   // Set to try enabling interlaced video format (for V3D)
 
 // Keyboard keys (US keyboard layout)
-// NOTE: Use GetKeyPressed() to allow redefining
+// NOTE: Use getKeyPressed() to allow redefining
 // required keys for alternative layouts
 const CInt KEY_NULL            = 0;        // Key: NULL; used for no key pressed
 // Alphanumeric keys

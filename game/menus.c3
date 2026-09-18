@@ -81,7 +81,7 @@ import engine::assets_api::astmng;
 // end_region
 
 // region alias
-alias pContext @local = game::pContext;
+alias pGameContext @local  = game::pContext;
 // end_region
 
 // region constants
@@ -95,7 +95,7 @@ const SCREEN_TOP_CORNER = (Vec2f) {0.0f, 0.0f};
 
 fn UIWindow* getActiveMenu() @local @inline 
 {
-	return game::pContext.guiActive;
+	return pGameContext.guiActive;
 }
 
 fn void setGUI(UIWindow* menu) 
@@ -109,7 +109,7 @@ fn void setGUI(UIWindow* menu)
         if ( guiActive != null ) {
             guiActive.deactivate();
         }
-        game::pContext.guiActive = null;
+        pGameContext.guiActive = null;
 		return;
 	}
 
@@ -119,15 +119,15 @@ fn void setGUI(UIWindow* menu)
         guiActive.show();
     }
     // update the global game pointer to the gui
-	game::pContext.guiActive = guiActive;
+	pGameContext.guiActive = guiActive;
 
-	if (guiActive == game::pContext.main_menu)
+	if (guiActive == pGameContext.main_menu)
     {
-        if(game::pContext.mode != game::GameMode.MENU) {
-			game::pContext.mode = game::GameMode.MENU;
+        if(pGameContext.mode != game::GameMode.MENU) {
+			pGameContext.mode = game::GameMode.MENU;
 		}
 
-        if(tools::isOpen(&game::pContext.editor)) {
+        if(tools::isOpen(&pGameContext.editor)) {
             if(game::game_cursor_visible()) game::hide_game_cursor();
         } else {
            if(game::game_cursor_hidden()) game::show_game_cursor();
@@ -151,7 +151,7 @@ fn void start(UIWindow* gui)
 
 	// start playing the menu sounds
 	soundbkd::setPlayingSoundWorld( &main_menu_sound_world );
-	if(!game::pContext.pause_all_music) {
+	if(!pGameContext.pause_all_music) {
 		main_menu_sound_world.playSound("Swallow", is_music: true);
 	}
 
@@ -185,7 +185,7 @@ fn void exit()
     // TODO(HM) This should be set ONLY when we are sure we are ingame and not
     // in some other state, right now is set when all menus exit what is not 
 	// total guarantie that we are returning to the game world.
-    game::pContext.mode = GameMode.PLAYING;
+    pGameContext.mode = GameMode.PLAYING;
 
 	// go back to the game sounds
 	//soundSystem->SetPlayingSoundWorld( sw );
@@ -281,7 +281,7 @@ struct MenuButtonDef
     RLColor default_color;
     RLColor over_color;
     RLColor label_color;
-    WidgetTextAlign label_align;
+    TextAlign label_align;
     WidgetCallback[CallBack::len] cbs;
 }
 
@@ -306,7 +306,7 @@ macro WidgetButton* UIWindow.create_menu_button(&self, Vec2f pos, String text, M
     float button_width  = bdef.size.x;
     float button_height = bdef.size.y;
     WidgetText* label   = mem::new(WidgetText);
-    gui::init_label(label, text, game::pContext.candara_font, 0, bdef.label_color, self);
+    gui::init_label(label, text, pGameContext.font_candara, 0, bdef.label_color, self);
     // set the label properties
     Vec2f label_offset  = pos;
     /*Vec2f label_offset  = pos + misc::VEC_RIGHT * (button_width / 2);
@@ -344,7 +344,7 @@ const MAINMENU_PAGE_COUNT = 2; // update this is more consts are define above th
 fn UIWindow* mainMenuCreate(int screenWidth, int screenHeight)
 {
     // Menu creation
-    Vec2f screen_center       = game::pContext.view.origin; //(Vec2f) {(float)screenWidth/2.0f, (float)screenHeight / 2.0f};
+    Vec2f screen_center       = game::getScreenCenterPos();
     float screen_half_width   = screen_center.x;
     float screen_half_height  = screen_center.y;
     Vec2f screen_top_center   = {screen_half_width, 0.0f};
@@ -353,39 +353,39 @@ fn UIWindow* mainMenuCreate(int screenWidth, int screenHeight)
     desk_main.init("MainMenu", isDesktop: true);
     desk_main.setColor(rl::DARKGRAY);
 	desk_main.setPageCount(MAINMENU_PAGE_COUNT);
+
 	// create window options
     UIWindow* window_options = desk_main.addChildWindow(mem::new(UIWindow), MAINMENU_OPTIONS);
     //UIWindow* window_options = desk_main.getChildWindow(MAINMENU_OPTIONS);
     window_options.init("OptionsMenu");
-    Vec2f desk_options_center = screen_center - window_options.getSize() / 2.0f; 
-    window_options.setPositionV({
-        desk_options_center.x,
-        desk_options_center.y
-    });
     window_options.setColor(rl::GRAY);
-    window_options.hide();
+    Vec2f desk_options_center = screen_center - window_options.getSize() / 2.0f;
+    window_options.setPositionV({
+        .x = desk_options_center.x,
+        .y = desk_options_center.y
+    });
     // link the menus
 	// TODO change this to a virtual machine of states
 	// or a particular menu current state
 	// like case OPTIONS_OPEN: we are seeing the options page
 	// or even UIWindow* current_page = &desk_main;
     desk_main.next = window_options;
-    window_options.home = desk_main;
     window_options.previous = desk_main;
+    window_options.hide();
 
 	// create window extra
     UIWindow* window_extra = desk_main.addChildWindow(mem::new(UIWindow), MAINMENU_EXTRA);
     window_extra.init("ExtraMenu");
+    window_extra.setColor(rl::GRAY);
     window_extra.setPositionV({
         desk_options_center.x,
         desk_options_center.y
     });
-    window_extra.setColor(rl::GRAY);
     window_extra.hide();
     
 	// relative to the music folder inside data folder
     String music_path = "main_menu\\Swallow.ogg";
-	String fullpath = game::pContext.app_base_folder.tconcat("music\\").tconcat(music_path);
+	String fullpath = pGameContext.app_base_folder.tconcat("music\\").tconcat(music_path);
     if(fs::fileExists(fullpath)) {
         log::info(FILE, "\tloading %s music: %s", desk_main.name, fullpath);
     } else { 
@@ -431,27 +431,27 @@ fn UIWindow* mainMenuCreate(int screenWidth, int screenHeight)
     //*************
     const TITLE           = "FlatHead";
     const TITLE_FONT_SIZE = 50;
-    RLFont* title_font = game::pContext.trojan_pro_font;
+    RLFont* title_font = pGameContext.font_trojan_pro;
     WidgetText* title_label = mem::new(WidgetText);
 	gui::init_label(title_label, TITLE, title_font, TITLE_FONT_SIZE, rl::GRAY, desk_main);
     Vec2f title_offset = misc::VEC_RIGHT * screen_top_center.x;
     title_offset -= {title_label.text_len / 2.0f, 0.0f};
     title_offset += misc::VEC_DOWN * (0.10f * screenHeight);
     title_label.setPositionV(title_offset);
-    title_label.setAlign(gui::WidgetTextAlign.LEFT);
+    title_label.setAlign(TextAlign.LEFT);
     //*************
     // SUBTITLE
     //*************
     const SUBTITLE           = "engine";
     const SUBTITLE_FONT_SIZE = 16;
-    RLFont* subtitle_font = game::pContext.lucida_font;
+    RLFont* subtitle_font = pGameContext.font_lucida;
     WidgetText* subtitle_label = mem::new(WidgetText);
 	gui::init_label(subtitle_label, SUBTITLE, subtitle_font, SUBTITLE_FONT_SIZE, rl::RAYWHITE, desk_main);
     Vec2f subtitle_offset = misc::VEC_RIGHT * screen_top_center.x;
     subtitle_offset -= {subtitle_label.text_len / 2.0f, 0.0f};
-    subtitle_offset += misc::VEC_DOWN * (0.18f * screenHeight);
+    subtitle_offset += misc::VEC_DOWN * (0.145f * screenHeight);
     subtitle_label.setPositionV(subtitle_offset);
-    subtitle_label.setAlign(gui::WidgetTextAlign.LEFT);
+    subtitle_label.setAlign(TextAlign.LEFT);
     // end_region LABELS
     
     // region BUTTONS
@@ -516,7 +516,7 @@ fn UIWindow* mainMenuCreate(int screenWidth, int screenHeight)
     offset += misc::VEC_RIGHT * (window_options.getSize().x / 2);
     offset += misc::VEC_DOWN * (0.20f * window_options.getSize().y);
     checkbox1.setPositionV(offset);
-    //checkbox1.setPositionV(desk_options_center);
+    checkbox1.setSize(20, 20);
     //************
     // GO TO MAIN MENU
     //************
@@ -543,9 +543,11 @@ fn UIWindow* mainMenuCreate(int screenWidth, int screenHeight)
 /* #region  ################ Button callbacks ########################## */
 
 // generic button callbacks
+<*
+    @param [&in] widget : "the widget we are dealing with"
+*>
 fn void button_onLoad(any widget) 
 {
-    assert(widget.ptr != null);
     switch (widget.type)
     {
         case WidgetButton:
@@ -567,29 +569,40 @@ fn void button_onLoad(any widget)
 }
 
 // generic button callbacks
+<*
+    @param [&in] widget : "the widget we are dealing with"
+*>
 fn void button_onOver(any widget/*Widget* widget*/) 
 {
-    assert(widget.ptr != null);
     switch (widget.type)
     {
         case WidgetButton:
         {
             WidgetButton* self = (WidgetButton*)widget.ptr;
-            if(self.active_visible_infocus() && self.asFocus()) {
+            if(self.active_visible_infocus() && 
+            self.asFocus() &&
+            !rl::isMouseButtonDown(RLMouseButton.LEFT))
+            {
                 self.setColor(rl::RED);
             }
         }
         case WidgetCheckBox:
         {
             WidgetCheckBox* self = (WidgetCheckBox*)widget.ptr;
-            if(self.active_visible_infocus() && self.asFocus()) {
+            if(self.active_visible_infocus() && 
+               self.asFocus() && 
+               !rl::isMouseButtonDown(RLMouseButton.LEFT)) 
+            {
                 self.setColor(rl::RED);
             }
         }
         case WidgetText:
         {
             WidgetText* self = (WidgetText*)widget.ptr;
-            if(self.active_visible_infocus() && self.asFocus()) {
+            if(self.active_visible_infocus() && 
+            self.asFocus() &&
+            !rl::isMouseButtonDown(RLMouseButton.LEFT))
+            {
                 self.setColor(rl::RED);
             }
         }
@@ -613,9 +626,11 @@ fn void button_onOver(any widget/*Widget* widget*/)
 }
 
 // generic button callbacks
+<*
+    @param [&in] widget : "the widget we are dealing with"
+*>
 fn void button_onStopOver(/*Widget* widget*/ any widget) 
 {
-    assert(widget.ptr != null);
     if(widget.type == WidgetButton) {
         WidgetButton* self = (WidgetButton*)widget.ptr;
         if(self.color != self.default_color) self.setColor(self.default_color);
@@ -628,9 +643,11 @@ fn void button_onStopOver(/*Widget* widget*/ any widget)
 }
 
 // generic button callbacks
+<*
+    @param [&in] widget : "the widget we are dealing with"
+*>
 fn void button_onRelease(/*Widget* widget*/ any widget) 
 {
-    assert(widget.ptr != null);
     if(widget.type == WidgetButton) {
         WidgetButton* self = (WidgetButton*)widget.ptr;
         if (self.active_visible_infocus() && self.asFocus()) {
@@ -653,8 +670,7 @@ fn void button_onRelease(/*Widget* widget*/ any widget)
 <*
     generic button callback
     
-    @param [in] widget : "widget calling this function"
-    @require widget != null
+    @param [&in] widget : "widget calling this function"
 *>
 fn void button_onPress(/*Widget* widget*/ any widget) 
 {
@@ -691,8 +707,7 @@ fn void button_onPress(/*Widget* widget*/ any widget)
 <*
     generic button callback
     
-    @param [in] widget : "widget calling this function"
-    @require widget.ptr != null
+    @param [&in] widget : "widget calling this function"
 *>
 fn void button_onSinglePress(any widget) 
 {
@@ -712,33 +727,51 @@ fn void button_onSinglePress(any widget)
 }
 
 // while the button is kept pressed
+<*
+    @param [&in] widget : "the widget we are dealing with"
+*>
 fn void start_button_onPress(/*Widget* widget*/ any widget) 
 {
     button_onPress(widget);
 }
 
+<*
+    @param [&in] widget : "the widget we are dealing with"
+*>
 fn void start_button_onSinglePress(any widget) 
 {
     button_onSinglePress(widget);
     menu::exit();
 }
 
+<*
+    @param [&in] widget : "the widget we are dealing with"
+*>
 fn void quit_button_onPress(any widget) 
 {
     button_onPress(widget);
 }
 
+<*
+    @param [&in] widget : "the widget we are dealing with"
+*>
 fn void quit_button_onSinglePress(any widget) 
 {
     button_onSinglePress(widget);
     game::quitGame();
 }
 
+<*
+    @param [&in] widget : "the widget we are dealing with"
+*>
 fn void options_button_onPress(any widget) 
 {
     button_onPress(widget);
 }
 
+<*
+    @param [&in] widget : "the widget we are dealing with"
+*>
 fn void options_button_onSinglePress(any widget) 
 {
     button_onSinglePress(widget);
@@ -771,6 +804,9 @@ fn void options_button_onSinglePress(any widget)
     //gui::setGui();
 }
 
+<*
+    @param [&in] widget : "the widget we are dealing with"
+*>
 fn void back_button_options_onPress(any widget) 
 {
     button_onPress(widget);
@@ -801,9 +837,11 @@ fn void back_button_options_onPress(any widget)
     }*/
 }
 
+<*
+    @param [&in] widget : "the widget we are dealing with"
+*>
 fn void back_button_options_onSinglePress(any widget) 
 {
-    assert(widget.ptr != null);
     back_button_options_onPress(widget);
 }
 
@@ -812,38 +850,48 @@ fn void checkbox1_onPress(any widget)
     //
 }
 
+<*
+    @param [&in] widget : "the widget we are dealing with"
+*>
 fn void checkbox1_onSinglePress(any widget) 
 {
-    assert(widget.ptr != null);
     if(widget.type == WidgetButton)
     {
         WidgetCheckBox* this = (WidgetCheckBox*)widget.ptr;
         this.setChecked(!this.checked);
         //log::info(CONSOLE, "Checkbox 1 is now %s.", this.isChecked() ? "checked" : "unchecked");
-		if(this.isChecked()) {
-			log::info(CONSOLE, "Checkbox 1 is now checked.");
-			game::pContext.pause_all_music = 1;
-			if(game::pContext.guiActive) {
-				HMSoundWorld* current_sound_world = game::pContext.guiActive.sound_world;
-				if(current_sound_world) {
-					if(current_sound_world.hasSoundsPlaying()) {
+		if(this.isChecked())
+        {
+			//log::info(CONSOLE, "Checkbox 1 is now checked.");
+			pGameContext.pause_all_music = 1;
+			if(pGameContext.guiActive)
+            {
+				HMSoundWorld* current_sound_world = pGameContext.guiActive.sound_world;
+				if(current_sound_world)
+                {
+					if(current_sound_world.hasSoundsPlaying())
+                    {
 						//HMSpeaker{HMMusic*}[] = current_sound_world.getPlayingMusic();
 						current_sound_world.pause();
 					}
 				}
 			}
-		} else {
-			log::info(CONSOLE, "Checkbox 1 is now unchecked.");
-			game::pContext.pause_all_music = 0;
-			if(game::pContext.guiActive) {
-				HMSoundWorld* current_sound_world = game::pContext.guiActive.sound_world;
+		} 
+        else // not checked state
+        {
+			//log::info(CONSOLE, "Checkbox 1 is now unchecked.");
+			pGameContext.pause_all_music = 0;
+			if(pGameContext.guiActive)
+            {
+				HMSoundWorld* current_sound_world = pGameContext.guiActive.sound_world;
 				if(current_sound_world) {
 					current_sound_world.resumeSound("Swallow", is_music: true);
 				}
 			}
 		}
-        // TODO(HM) do something with checkbox state
-    } else {
+    } 
+    else 
+    {
         unreachable("widget %s is not a valid button!", ((Widget*)widget.ptr).name);
     }
 }

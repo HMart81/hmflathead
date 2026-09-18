@@ -60,6 +60,7 @@ import engine::sys::cvar;
 import thirdparty::raylib5::rl;
 import thirdparty::microui::mu;  // micro ui
 import engine::filesystem::fs::win32;
+import engine::sys::render2d::r2d;
 import std::os::win32;
 import engine::logging::log;
 import game::main;
@@ -505,26 +506,31 @@ fn void draw(Editor* editor) @public
 fn void drawMainEditor(Editor* editor)
 {
 	// draw a background
-	mu::draw_rect(editor.main_window_rect, editor.background_color);
-        
+	r2d::@drawRect(editor.main_window_rect.toRLRect(), editor.background_color);
+    
+    MU_Context* ctx = editor.ctx;
+
     // draw the main editor window
-    bool open = mu::@doWindow(editor.ctx, "FlatHead Editor", editor.main_window_rect, false)
+    bool open = mu::@doWindow(ctx, "FlatHead Editor", editor.main_window_rect, false)
 	{
-        MU_Container* window = editor.ctx.get_current_container();
+        MU_Container* window = ctx.get_current_container();
         assert(window != null);
 
-        editor.ctx.@make_rows(1, (int[]){ AUTO_SIZE }, (int)(0.25f*window.rect.h))
+        drawEditorMenuBar(editor, window);
+        //drawEditorMainToolBar(editor, window);
+
+        /*ctx.@make_rows(2, (int[]){ AUTO_SIZE }, (int)(0.25f*window.rect.h))
 	    {
             drawEditorMainToolBar(editor, window);
         };
-        editor.ctx.@make_rows(1, (int[]){ AUTO_SIZE }, -25)
+        ctx.@make_rows(1, (int[]){ AUTO_SIZE }, -25)
 	    {
             drawEditorMainWorkArea(editor, window);
         };
-        editor.ctx.@make_rows(1, (int[]){ AUTO_SIZE }, 0)
+        ctx.@make_rows(1, (int[]){ AUTO_SIZE }, 0)
 	    {
             drawEditorMainInfoArea(editor, window);
-        };
+        };*/
         // draw the main editor tool bar
         // draw the main editor console
         drawEditorConsole(editor);
@@ -538,29 +544,30 @@ fn void drawMainEditor(Editor* editor)
     }
 }
 
-const String[*] TOOLBAR_BTN_NAMES = {
+const String[*] MENU_BTN_NAMES = {
     "File",
     "Edit",
     "Selection",
     "View",
     "Help"
 };
+const MENU_BTN_NAMES_LEN = MENU_BTN_NAMES.len;
 
 <* 
     Draws the main editor tool bar.
     @param [&inout] editor: "the editor to draw the tool bar for."
     @param [&in] window: "the main window."
 *>
-fn void drawEditorMainToolBar(Editor* editor, MU_Container* window)
+fn void drawEditorMenuBar(Editor* editor, MU_Container* window)
 {
     MU_Context* ctx = editor.ctx;
+	MU_Container* menu_panel;
 
-	MU_Container* toolbar_panel;
-    //editor.ctx.layout_height(25);
-    ctx.layout_row(1, (int[]) { -1 }, 25);
-    ctx.@make_panel("Toolbar")
+	int panel_height = 30;
+    ctx.layout_row(1, (int[]){ AUTO_SIZE }, 0);
+    ctx.@make_panel("Menu", MU_Opt.NOSCROLL | MU_Opt.NOINTERACT)
     {
-        toolbar_panel = ctx.get_current_container();
+        menu_panel = ctx.get_current_container();
         // draw a background
         //mu::draw_rect(toolbar_panel.body, rl::RAYWHITE);
         /*int btn_w, btn_h;
@@ -583,16 +590,42 @@ fn void drawEditorMainToolBar(Editor* editor, MU_Container* window)
             }
         };
 
-        int btn_count = TOOLBAR_BTN_NAMES.len;
-        ctx.layout_row(btn_count, null, 25);
-        ctx.layout_width(AUTO_SIZE/btn_count);
-        for(int i = 0; i < btn_count; i++)
+        const int BTN_COUNT = MENU_BTN_NAMES_LEN;
+        //ctx.layout_row(BTN_COUNT, (int[]){[0] = 55, [1..BTN_COUNT-1] = -1 }, 0);
+        //ctx.layout_width(AUTO_SIZE/btn_count);
+        for(int i = 0; i < BTN_COUNT; i++)
         {
-            if (ctx.button(TOOLBAR_BTN_NAMES[i], MU_Icon.EXPANDED, 0) == MU_Res.SUBMIT)
+			int btn_len = rl::measureText(MENU_BTN_NAMES[i].zstr_tcopy(), mu::MICROUI_FONT_SIZE);
+        	ctx.layout_row(1, (int[]){btn_len + 10}, 0);
+            if (ctx.button(MENU_BTN_NAMES[i], MU_Icon.EXPANDED, MU_Opt.NOFRAME) == MU_Res.SUBMIT)
             {
-                if(TOOLBAR_BTN_NAMES[i] == "File") ctx.open_popup("File Options");
+                if(MENU_BTN_NAMES[i] == "File") ctx.open_popup("File Options");
             }
         }
+    };
+}
+
+<* 
+    Draws the main editor tool bar.
+    @param [&inout] editor: "the editor to draw the tool bar for."
+    @param [&in] window: "the main window."
+*>
+fn void drawEditorMainToolBar(Editor* editor, MU_Container* window)
+{
+    MU_Context* ctx = editor.ctx;
+
+	MU_Container* toolbar_panel;
+    //editor.ctx.layout_height(25);
+    ctx.layout_row(1, (int[]) { -1 }, 25);
+    ctx.@make_panel("Toolbar")
+    {
+        toolbar_panel = ctx.get_current_container();
+        // draw a background
+        //mu::draw_rect(toolbar_panel.body, rl::RAYWHITE);
+        /*int btn_w, btn_h;
+        btn_w = (int)(0.03f * toolbar_panel.body.w);
+        btn_h = -1;*/
+
     };
 /*
     MU_Rect area = editor.main_window_rect;
@@ -1051,14 +1084,14 @@ fn void drawVerticalLine(Vec2f start, float lenght, float thickness = 2.0f) @inl
 {
     start += misc::VEC_DOWN * lenght;
     Vec2f end = start + misc::VEC_DOWN * lenght;
-	mu::draw_rect(mu::rlRectToMURect({ start.x, start.y, thickness, end.y  }), rl::BLACK);
+	r2d::@drawRect({ start.x, start.y, thickness, end.y  }, rl::BLACK);
 }
 
 fn void drawHorizontalLine(Vec2f start, float lenght, float thickness = 2.0f) @inline @local
 {
     start += misc::VEC_RIGHT * lenght;
     Vec2f end = start + misc::VEC_RIGHT * lenght;
-	mu::draw_rect(mu::rlRectToMURect({ start.x, start.y, end.x, thickness }), rl::BLACK);
+	r2d::@drawRect({ start.x, start.y, end.x, thickness }, rl::BLACK);
 }
 
 alias ButtonfuncCallback = fn void(void*);

@@ -320,7 +320,7 @@ fn void parse_pair(XmlNode* node, String win_name, String file_path, UIWindow** 
             label.addTo(*uiwin);
     	case GUIPWinParm.TEXTSCALE:
             if(try value = arg.second.to_int()) {
-                if(label) label.setFontSize(value);
+                if(label) label.setFontSize((uint)value);
 			} else {
 				arg_read_warn = true;
 			}

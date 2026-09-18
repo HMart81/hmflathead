@@ -41,6 +41,7 @@ import std::io;
 //import std::math;
 import std::collections::list;
 import game::main;
+import game::files::ini;
 //import game::actors::ent;
 import thirdparty::raylib5::rl;
 //import raygui;
@@ -124,22 +125,48 @@ struct Action (ActionInterface)
 	double timeCount;
 }
 
+const Action NULL_ACTION = {
+    .type = Action,
+    .name = "NULL",
+    .kind = ActionKind.UNKNOWN,
+    .keyboard.key1 = rl::KEY_NULL,
+    .keyboard.key2 = rl::KEY_NULL,
+    .mouse.btn = (RLMouseButton)rl::KEY_NULL,
+    .gamepad.btn = (RLGamepadButton)rl::KEY_NULL,
+    .gamepad.axis = (RLGamepadAxis)rl::KEY_NULL,
+    .gesture = rl::KEY_NULL,
+    .callback = null,
+	.becameTriggered = false,
+	.isTriggered = false,
+	.triggerDown = false,
+	.timeCount = 0.0
+};
+
 fn bool Action.fnIsTriggered(&self) @dynamic @nodiscard
 {
+    bool hasExtKey = self.keyboard.key2 != rl::KEY_NULL;
     switch (self.kind) 
     {
         case KEYBOARD:
-            bool hasExtKey = self.keyboard.key2 != rl::KEY_NULL;
             if (hasExtKey) 
             {
-				return (rl::isKeyPressed(self.keyboard.key1) && rl::isKeyDown(self.keyboard.key2)) ? true : false; 
+				return (rl::isKeyDown(self.keyboard.key2) && rl::isKeyPressed(self.keyboard.key1)); 
             }
-            else if(rl::isKeyDown(self.keyboard.key1))
+            //else if(rl::isKeyDown(self.keyboard.key1))
+            else if(rl::isKeyPressed(self.keyboard.key1))
             {
                 return true;
             }
         case MOUSE:
-            if (rl::isMouseButtonDown(self.mouse.btn))
+            if (rl::isMouseButtonPressed(self.mouse.btn))
+            {
+                if (hasExtKey) {
+                   return rl::isKeyDown(self.keyboard.key2);
+                }
+                
+                return true;
+            }
+            /*if (rl::isMouseButtonDown(self.mouse.btn))
             {
                 bool hasExtKey = self.keyboard.key2 != rl::KEY_NULL;
                 if(hasExtKey) {
@@ -147,13 +174,13 @@ fn bool Action.fnIsTriggered(&self) @dynamic @nodiscard
                 }
                 
                 return true;
-            }
+            }*/
         case GAMEPAD:
 			@todo();
         case MOBILE:
 			@todo();
         default:
-            return false;
+            return false; // this will handle NULL_ACTIONS so should fail "gracefully"
     }
     
     return false;
@@ -214,6 +241,8 @@ fn bool Action.fnDoubleTriggered(&self, float limit)
 */
 fn void Action.update(&self, float timeStep)
 {
+    if(self.kind == ActionKind.UNKNOWN) return; // NULL_ACTION?
+
     self.updateLogic(timeStep);
 
     if(!self.fnIsTriggered()) {
@@ -263,13 +292,31 @@ fn String Action.getName(&self) => self.name;
 *>
 fn void makeKeyboardAction(String name, int key1, int key2 = rl::KEY_NULL, ActionCallBack func = null)  @inline
 {
-	if(key1 == rl::KEY_F12 || key2 == rl::KEY_F12) {
-        log::warning(FILE, "Cannot assing key function 'F12' to keyboard action '%s' because is the reserved to screenshot key.", name);
+	if(key1 == rl::KEY_F12 || 
+       key1 != rl::KEY_F12 && key2 == rl::KEY_F12) {
+        log::error(FILE, "Cannot assing key function 'F12' to keyboard action '%s' because is a reserved key for screenshot functionality.", name);
         return;
     }
 
-    if(name == "" || key1 == rl::KEY_NULL) {
-        log::warning(FILE, "Cannot create keyboard action with empty name or KEY_NULL as main key.");
+    if(name == "") {
+        log::warning(FILE, "Cannot create a key input action with a empty name.");
+        return;
+    }
+
+    if(key1 == rl::KEY_NULL) {
+        log::warning(FILE, "Cannot create keyboard action with KEY_NULL as main key.");
+        return;
+    }
+
+    if(key2 && 
+      (key2 != rl::KEY_LEFT_SHIFT &&
+       key2 != rl::KEY_RIGHT_SHIFT &&
+       key2 != rl::KEY_LEFT_CONTROL &&
+       key2 != rl::KEY_RIGHT_CONTROL &&
+       key2 != rl::KEY_LEFT_ALT &&
+       key2 != rl::KEY_RIGHT_ALT))
+    {
+        log::warning(FILE, "Cannot assign any other keys to alternative key but, ctrl, shift and alt, be it left or right keys.");
         return;
     }
 
@@ -364,7 +411,7 @@ macro void @makeAction(Input_Action_Entry entry)
 			case GAMEPAD:
 				makeGamepadAction(e.name, e.gbtn, e.axis, e.func);
 			default:
-				log::warning(Where.CONSOLE, "Cannot create action \"%s\", unknown kind.", e.name);
+				log::warning(CONSOLE, "Cannot create action \"%s\", unknown kind.", e.name);
 		}
 	});
 }
@@ -683,7 +730,7 @@ struct ActionManager {
 }
 
 ActionManager local_manager @local;
-ActionManager* gpManager = &local_manager;
+ActionManager* manager = &local_manager;
 
 <*
  @param [&in] action : "the action to register"
@@ -717,7 +764,7 @@ fn Action* getActionByName(ActionManager* actdb, String name) @inline @local @no
             return action;
         }
     }
-    return null;
+    return &NULL_ACTION;
 }
 
 <*
@@ -785,7 +832,8 @@ fn bool already_in_use(ActionKind kind, int key, ActionManager* mng, Action* out
 }
 
 
-fn ActionQueue ActionManager.getActionsByKind(&self, ActionKind kind) @inline {
+fn ActionQueue ActionManager.getActionsByKind(&self, ActionKind kind) @inline
+{
    assert(kind != UNKNOWN);
     
    ActionQueue actions;
@@ -799,7 +847,8 @@ fn ActionQueue ActionManager.getActionsByKind(&self, ActionKind kind) @inline {
     return actions;
 }
 
-fn void _unregister_action(ActionManager* actdb, Action* action) @inline @local {
+fn void _unregister_action(ActionManager* actdb, Action* action) @inline @local
+{
     if(action == null) return;
     
     foreach(act : actdb.actions) {
@@ -811,7 +860,8 @@ fn void _unregister_action(ActionManager* actdb, Action* action) @inline @local 
     }
 }
 
-fn void ActionManager.remove(&self, Action* action) @inline {
+fn void ActionManager.remove(&self, Action* action) @inline
+{
     _unregister_action(self, action);
 }
 
@@ -840,15 +890,116 @@ fn void ActionManager.free(&self)
 
 fn void _listActions(ActionManager* actdb) @local @inline
 {
-    if(actdb.actions.len()) {
+	int k1,k2;
+    if(actdb.actions.len())
+	{
         log::info(FILE, "[ KEY ACTIONS ]");
-        foreach(action: actdb.actions) {
-           log::info(FILE, "\t-> \"%s\" : {%s, %s},", action.name, getKeyboardKeyName(action.keyboard.key1), getKeyboardKeyName(action.keyboard.key2));
+        foreach(action: actdb.actions)
+		{
+			k1 = action.keyboard.key1;
+			k2 = action.keyboard.key2;
+
+			/*switch (action.kind) {
+				case ActionKind.KEYBOARD:
+					log::info(FILE, "**KEYBOARD ACTIONS**");
+    			case ActionKind.MOUSE:
+					log::info(FILE, "**MOUSE ACTIONS**");
+    			case ActionKind.GAMEPAD:
+					log::info(FILE, "**GAMEPAD ACTIONS**");
+    			case ActionKind.MOBILE:
+					log::info(FILE, "**MOBILE ACTIONS**");
+				default: unreachable();
+			}*/
+			
+			if(k2 == rl::KEY_NULL)
+			{
+           		log::info(FILE, "\t-> \"%s\" : {%s},", action.name, getKeyboardKeyName(k1));
+			}
+			else 
+			{
+           		log::info(FILE, "\t-> \"%s\" : {%s, %s},", action.name, getKeyboardKeyName(k1), getKeyboardKeyName(k2));
+			}
         }
         log::info(FILE, "[ END ACTIONS ]]");
     }
 }
 
+<*
+    @param [&inout] userfile : "pointer to the user ini file data in RAM"
+*>
+fn void save_actions_to_user_file(ConfigFile* userfile)
+{
+    if(local_manager.actions.len())
+	{
+        foreach(action: local_manager.actions)
+		{
+            String key1, key2;
+            bool has_ext_key = action.keyboard.key2 != rl::KEY_NULL;
+            key1 = getMainBtnNameFrom(action);
+            if(has_ext_key) key2 = getKeyboardKeyName(action.keyboard.key2);
+
+            IniSection* sect;
+			if(sect = userfile.hasSection("keys")!!, sect)
+            {
+                //IniSection* sect = userfile.getSection("keys")!!;
+                IniCMD* cmd;
+                if(cmd = sect.hasCmd(action.name), cmd) {
+                    if(has_ext_key) {
+                        cmd.setValue(string::tformat("%s,%s", key2, key1), userfile);
+                    } else {
+                        cmd.setValue(string::tformat("%s", key1), userfile);
+                    }
+                } 
+                else // append a new cmd
+                {
+                    if(has_ext_key) 
+                    {
+                        userfile.addToSection(sect, mem::new( IniCMD,
+                            {
+                                .type = ini::STRING,
+                                .cmd = {action.name, string::tformat("%s,%s", key2, key1)}
+                            }
+                        ));
+                    } 
+                    else
+                    {
+                        userfile.addToSection(sect, mem::new( IniCMD,
+                            {
+                                .type = ini::STRING,
+                                .cmd = {action.name, string::tformat("%s", key1)}
+                            }
+                        ));
+                    }
+                }
+            }
+            else // create sections keys anew
+            {
+                sect = userfile.createSection("keys")!!;
+                assert(sect != null);
+                if(has_ext_key) 
+                {
+                    userfile.addToSection(sect, mem::new( IniCMD,
+                        {
+                            .type = ini::STRING,
+                            .cmd = {action.name, string::tformat("%s,%s", key2, key1)}
+                        }
+                    ));
+                } 
+                else
+                {
+                    userfile.addToSection(sect, mem::new( IniCMD,
+                        {
+                            .type = ini::STRING,
+                            .cmd = {action.name, string::tformat("%s", key1)}
+                        }
+                    ));
+                }
+            }
+        }
+    }
+}
+
+//////// SPECIAL GAME ACTIONS /////////////////////
 // TODO(HM) Move this to the cmds module
 // region input cmds
 fn void quitGame() {

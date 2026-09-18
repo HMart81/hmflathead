@@ -355,14 +355,14 @@ fn void init_view_key_actions() @local @inline
 {
     if(game::developer.getBool())
     {
-        input::makeKeyboardAction("cam_move_up",    rl::KEY_W);
-        input::makeKeyboardAction("cam_move_left",  rl::KEY_A);
-        input::makeKeyboardAction("cam_move_down",  rl::KEY_S);
-        input::makeKeyboardAction("cam_move_right", rl::KEY_D);
-        input::makeKeyboardAction("cam_zoom",       rl::KEY_Z);
+        input::makeKeyboardAction("cam_move_up",    rl::KEY_W, rl::KEY_LEFT_SHIFT);
+        input::makeKeyboardAction("cam_move_left",  rl::KEY_A, rl::KEY_LEFT_SHIFT);
+        input::makeKeyboardAction("cam_move_down",  rl::KEY_S, rl::KEY_LEFT_SHIFT);
+        input::makeKeyboardAction("cam_move_right", rl::KEY_D, rl::KEY_LEFT_SHIFT);
+        //input::makeKeyboardAction("cam_zoom",       rl::KEY_Z);
         input::makeKeyboardAction("cam_reset",      rl::KEY_R);
     }
-    input::makeKeyboardAction("pp_graysacle",   rl::KEY_G);
+    input::makeKeyboardAction("pp_grayscale",   rl::KEY_G);
 }
 
 fn void RenderView.deinit(&self)
@@ -386,7 +386,7 @@ fn void RenderView.debug(&self)
     rl::drawRectangleLinesEx(rec, 2.5f, rl::RED);
     String view_data_text = string::tformat("Screen Size: {%.2f, %.2f}", rec.width, rec.height);
     rl::drawText(view_data_text.zstr_tcopy(), 100, 10, 30, rl::RED);
-    //rl::drawTextEx(*game_context.candara_font, "TEXT DRAWN IN RENDER TEXTURE", {10, 30}, 16.0f, 2.0f, rl::COLOR_RED);
+    //rl::drawTextEx(*game_context.font_candara, "TEXT DRAWN IN RENDER TEXTURE", {10, 30}, 16.0f, 2.0f, rl::COLOR_RED);
     //rl::drawLine((int)self.camera.target.x, -(int)rec.height*10, (int)self.camera.target.x, (int)rec.height*10, rl::COLOR_GREEN);
     //rl::drawCircleV(self.camera.target, 16.0f, rl::COLOR_RED);
     //rl::drawRectangle(-6000, 320, 13000, 8000, rl::DARKGRAY);*/

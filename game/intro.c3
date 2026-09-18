@@ -126,7 +126,7 @@ fn void draw(Frame* frame) @local
 	}
 
 	if(frame.text.msg != "") {
-		frame.text.font = pGame.candara_font;
+		frame.text.font = pGame.font_candara;
 		frame.text.font_size = 20.0f;
 		frame.text.spacing = 1.0f;
 		frame.text.color = rl::LIME;
@@ -566,7 +566,7 @@ fn void drawEpilepsyWarning(int w, int h) @local //@deprecated("use the new mpg 
 	/////////
 	// Title
 	float title_size = 0.05f*h;
-	RLFont* _font  = pGame.candara_font;
+	RLFont* _font  = pGame.font_candara;
 	float fontSize = title_size;
 	ZString text   = string::tformat_zstr("%s", "PHOTOSENSITIVITY / EPILEPSY SEIZURES");
     Vec2f textDimensions = rl::measureTextEx(*_font, text, fontSize, FONT_SPACING);
@@ -584,7 +584,7 @@ fn void drawEpilepsyWarning(int w, int h) @local //@deprecated("use the new mpg 
         );
 	///////////
     // Subtile
-    _font    = pGame.candara_light_font;
+    _font    = pGame.font_candara_light;
 	fontSize = 0.85f*title_size;
 	text     = string::tformat_zstr("%s", "READ THIS NOTICE BEFORE PLAYING");
     textDimensions = rl::measureTextEx(*_font, text, fontSize, FONT_SPACING);
@@ -620,7 +620,7 @@ fn void drawEpilepsyWarning(int w, int h) @local //@deprecated("use the new mpg 
 		do not play when you are drowsy or fatigued.`;
 	
 
-    _font    = pGame.trojan_pro_font;
+    _font    = pGame.font_trojan_pro;
 	text     = string::tformat_zstr("%s", MESSAGE); 
 	fontSize = 0.50f*title_size;
     textDimensions = rl::measureTextEx(*_font, text, fontSize, FONT_SPACING);

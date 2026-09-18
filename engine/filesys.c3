@@ -30,7 +30,7 @@ module engine::filesystem::fs;
 // just a wrapper to some raylib functions
 
 // region modules
-import std::os;
+import std::os, std::core::mem;
 import libc;
 import game::main;
 import engine::misc;
@@ -539,11 +539,21 @@ fn String? readEntireFileX(String filepath)
     return (String)"";
 }
 
-fn String? readEntireFile(String filepath) @inline {
+fn String? readEntireFile(String filepath) @inline
+{
     char[] buffer;
     fault excuse = @catch(file::load_buffer(filepath, buffer));
     
     return string::format(mem, "%s", buffer);
+}
+
+fn String? readEntireFile2(File file) @inline 
+{
+    usz contents_size = (usz)file.size()!;
+    file.seek(0, FROM_START)!; // return to the start
+    char[] buffer = mem::temp_array(char, char::size * (sz)contents_size);
+    file.read(buffer[:contents_size])!;
+    return ((String)buffer).tcopy();
 }
 
 <*
