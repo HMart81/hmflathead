@@ -46,6 +46,7 @@ import game::files::ini;
 import thirdparty::raylib5::rl;
 //import raygui;
 import engine::misc;
+import engine::sys::cvar;
 import engine::logging::log;
 //import game::assets_api::astmng; // asset manager
 // end_region
@@ -61,6 +62,15 @@ alias ActionCallBack = fn void(args...);
 // region constants
 const MAX_ACTION_COUNT @local = 1024;
 
+const NEW_CODE_EXTENSIONS = 1;
+
+CVar in_list_keys  @public = { "in_list_keys", CvFlag.BOOL | CvFlag.SYSTEM, "0", "prints all used keys in the console"};
+
+fn void register_cvars() @inline
+{
+    cvar::@register(&in_list_keys);
+}
+
 enum ActionKind : char (String str)
 {
     UNKNOWN  {"UNKNOWN"},
@@ -69,7 +79,177 @@ enum ActionKind : char (String str)
     GAMEPAD  {"GAMEPAD"},
     MOBILE   {"MOBILE"}
 }
+
+///////////////////////////////////////////////////////////////////////
+// Gamepad layout
+// ----------Buttons---------
+// 0 --> ERROR
+// RIGHT_FACE_UP --> ▲ or Y
+// RIGHT_FACE_RIGHT --> ■ or X
+// RIGHT_FACE_DOWN --> ✕ or A
+// RIGHT_FACE_LEFT --> ◯ or B
+// LEFT_TRIGGER_1 --> LB1
+// LEFT_TRIGGER_2 --> LB2
+// RIGHT_TRIGGER_1 --> RB1
+// RIGHT_TRIGGER_2 --> RB2
+// MIDDLE_LEFT --> PS3: Select
+// MIDDLE --> PS3: PS, Xbox: XBOX
+// MIDDLE_RIGHT --> PS3: Start
+// LEFT_THUMB --> Gamepad joystick pressed down
+// RIGHT_THUMB --> Gamepad joystick pressed down
+//
+// LEFT_FACE_UP --> DPAD-Up
+// LEFT_FACE_DOWN --> DPAD-Down
+// LEFT_FACE_LEFT --> DPAD-Left
+// LEFT_FACE_RIGHT --> DPAD-Right
+// -----------------------------
+// ------------Axis-------------
+// -----------------------------
+// **Left Stick**
+// LEFT_X --> X axis (-) left and (+) right
+// LEFT_Y --> Y axis (-) Forward, (+) Back
+//
+// **Right Stick**
+// RIGHT_X --> X axis (-) left and (+) right
+// RIGHT_Y --> Y axis (-) Forward, (+) Back
+//
+// LEFT_TRIGGER --> pressure level: [1..-1]
+// RIGHT_TRIGGER --> pressure level: [1..-1]
+
+constdef InputKind : inline int @if(NEW_CODE_EXTENSIONS == 1)
+{
+    KEYBOARD = 1,
+    MOUSE,
+    // btn
+    GAMEPAD_LEFT_FACE_UP,        // Gamepad left DPAD up button
+    GAMEPAD_LEFT_FACE_RIGHT,     // Gamepad left DPAD right button
+    GAMEPAD_LEFT_FACE_DOWN,      // Gamepad left DPAD down button
+    GAMEPAD_LEFT_FACE_LEFT,      // Gamepad left DPAD left button
+    GAMEPAD_RIGHT_FACE_UP,       // Gamepad right button up (i.e. PS3: Triangle, Xbox: Y)
+    GAMEPAD_RIGHT_FACE_RIGHT,    // Gamepad right button right (i.e. PS3: Square, Xbox: X)
+    GAMEPAD_RIGHT_FACE_DOWN,     // Gamepad right button down (i.e. PS3: Cross, Xbox: A)
+    GAMEPAD_RIGHT_FACE_LEFT,     // Gamepad right button left (i.e. PS3: Circle, Xbox: B)
+    GAMEPAD_LEFT_TRIGGER_1,      // Gamepad top/back trigger left (first), it could be a trailing button
+    GAMEPAD_LEFT_TRIGGER_2,      // Gamepad top/back trigger left (second), it could be a trailing button
+    GAMEPAD_RIGHT_TRIGGER_1,     // Gamepad top/back trigger right (one), it could be a trailing button
+    GAMEPAD_RIGHT_TRIGGER_2,     // Gamepad top/back trigger right (second), it could be a trailing button
+    GAMEPAD_MIDDLE_LEFT,         // Gamepad center buttons, left one (i.e. PS3: Select)
+    GAMEPAD_MIDDLE,              // Gamepad center buttons, middle one (i.e. PS3: PS, Xbox: XBOX)
+    GAMEPAD_MIDDLE_RIGHT,        // Gamepad center buttons, right one (i.e. PS3: Start)
+    GAMEPAD_LEFT_THUMB,          // Gamepad joystick pressed button left
+    GAMEPAD_RIGHT_THUMB,         // Gamepad joystick pressed button right
+    // axis
+    GAMEPAD_LEFT_X,              // Gamepad left stick X axis
+    GAMEPAD_LEFT_Y,              // Gamepad left stick Y axis
+    GAMEPAD_RIGHT_X,             // Gamepad right stick X axis
+    GAMEPAD_RIGHT_Y,             // Gamepad right stick Y axis
+    GAMEPAD_LEFT_TRIGGER,        // Gamepad back trigger left, pressure level: [1..-1]
+    GAMEPAD_RIGHT_TRIGGER,       // Gamepad back trigger right, pressure level: [1..-1]
+    MOBILE
+}
+
+constdef InputCat : inline int @if(NEW_CODE_EXTENSIONS == 1)
+{
+    UNKNOWN = 0,
+    SYSTEM,
+    MISC,
+    MOVEMENT,
+    ACTION
+}
+
+constdef InputId : inline int @if(NEW_CODE_EXTENSIONS == 1)
+{
+	EXIT = 1,
+	EXIT_DIRECT,
+	SCREENSHOT,
+	PRINT_INFO,
+
+	LEFT_CLICK,
+	RIGHT_CLICK,
+	MIDDLE_CLICK,
+	MOUSE_BUTTON4_CLICK,
+	MOUSE_BUTTON5_CLICK,
+	MOUSE_BUTTON6_CLICK,
+	MOUSE_BUTTON7_CLICK,
+	SCROLLUP,
+	SCROLLDOWN,
+
+	UI_ARROWUP,
+	UI_ARROWDOWN,
+	UI_ARROWLEFT,
+	UI_ARROWRIGHT,
+
+	UI_PRIMARY,
+	UI_SECONDARY,
+	UI_PREVPAGE,
+	UI_NEXTPAGE,
+	UI_DELETE,
+	UI_CLEAR,
+
+	OPEN_DEBUG,
+	RELOAD_MAP,
+	QUICKSAVE,
+	QUICKLOAD,
+
+	RECENT_TEXT,
+	CROSSHAIR_TOGGLE,
+
+	FORWARD,
+	BACKWARD,
+	RIGHT,
+	LEFT,
+
+	ATTACK,
+	INTERACT,
+	ROTATE,
+	LANTERN,
+
+	RUN,
+	JUMP,
+	CROUCH
+}
+
+macro isValidModifier(CInt key) @if(NEW_CODE_EXTENSIONS == 1)
+{
+    switch (key)
+    {
+    case rl::KEY_LEFT_SHIFT:
+    case rl::KEY_RIGHT_SHIFT:
+    case rl::KEY_LEFT_CONTROL:
+    case rl::KEY_RIGHT_CONTROL:
+    case rl::KEY_LEFT_ALT:
+    case rl::KEY_RIGHT_ALT:
+        return true;
+    default: 
+        return false;
+    }
+}
+
 // end_region
+
+<*
+    return The name of the key as a string. 
+    @param key : "The key to change to string."
+*>
+fn String keyToString(CInt key)
+{
+    return rl::getKeyName(key).str_view();
+}
+
+<*
+    return enum of the key.
+    @param [in] key_name : "Name of the key"
+    @require key_name.len > 0
+*>
+fn CInt stringToKey(String key_name)
+{
+    return getKeyCodeFromStr(key_name);
+}
+
+alias KeysList @if(NEW_CODE_EXTENSIONS == 1) = List{CInt};
+alias MbtnList @if(NEW_CODE_EXTENSIONS == 1) = List{CInt};
+alias PADbtnList @if(NEW_CODE_EXTENSIONS == 1) = List{CInt};
+alias PADaxisList @if(NEW_CODE_EXTENSIONS == 1) = List{CInt};
 
 interface ActionInterface 
 {
@@ -92,16 +272,21 @@ struct Action (ActionInterface)
     String name;
 
     ActionKind kind;
+    InputCat cat @if(NEW_CODE_EXTENSIONS == 1);
+    InputId id @if(NEW_CODE_EXTENSIONS == 1);
     
     struct keyboard @packed {
         int key1;
         int key2;  // for alternative keys like alt, shift, ctrl, etc...
+        KeysList keys @if(NEW_CODE_EXTENSIONS == 1);
     }
     struct mouse {
         RLMouseButton btn;
+        MbtnList btns @if(NEW_CODE_EXTENSIONS == 1);
     }
     struct gamepad {
         RLGamepadButton btn;
+        PADbtnList btns @if(NEW_CODE_EXTENSIONS == 1);
         /*
         LEFT_X,           // Gamepad left stick X axis
         LEFT_Y,           // Gamepad left stick Y axis
@@ -111,9 +296,10 @@ struct Action (ActionInterface)
         RIGHT_TRIGGER     // Gamepad back trigger right, pressure level: [1..-1]
         */
         RLGamepadAxis   axis;
+        PADaxisList   _axis @if(NEW_CODE_EXTENSIONS == 1);
     }
     //
-    int gesture;  // for mobile phones
+    int gesture;  // for mobile phones (todo)
     
     // pointer to a function this action should trigger
     ActionCallBack callback;
@@ -122,24 +308,13 @@ struct Action (ActionInterface)
 	bool isTriggered;
     //
 	bool triggerDown;
+    bool modifiable @if(NEW_CODE_EXTENSIONS == 1); // can be modified/binded a new by the player
 	double timeCount;
 }
 
 const Action NULL_ACTION = {
     .type = Action,
-    .name = "NULL",
-    .kind = ActionKind.UNKNOWN,
-    .keyboard.key1 = rl::KEY_NULL,
-    .keyboard.key2 = rl::KEY_NULL,
-    .mouse.btn = (RLMouseButton)rl::KEY_NULL,
-    .gamepad.btn = (RLGamepadButton)rl::KEY_NULL,
-    .gamepad.axis = (RLGamepadAxis)rl::KEY_NULL,
-    .gesture = rl::KEY_NULL,
-    .callback = null,
-	.becameTriggered = false,
-	.isTriggered = false,
-	.triggerDown = false,
-	.timeCount = 0.0
+    .name = "NULL"
 };
 
 fn bool Action.fnIsTriggered(&self) @dynamic @nodiscard
@@ -157,6 +332,30 @@ fn bool Action.fnIsTriggered(&self) @dynamic @nodiscard
             {
                 return true;
             }
+
+$if NEW_CODE_EXTENSIONS == 1:
+            int key_count = (int)self.keyboard.keys.len();
+            if(key_count > 1) {
+                bool sucess;
+                foreach(key : self.keyboard.keys)
+                {
+                    if(!isValidModifier(key) && rl::isKeyPressed(key)) {
+                        sucess = true;
+                    }
+                    if(isValidModifier(key) && !rl::isKeyDown(key)) {
+                        if(sucess) sucess = false;
+                    }
+                }
+                return sucess;
+            } 
+            else if(key_count)
+            {
+                if(rl::isKeyPressed(self.keyboard.keys[0]))
+                {
+                    return true;
+                }
+            }
+$endif
         case MOUSE:
             if (rl::isMouseButtonPressed(self.mouse.btn))
             {
@@ -186,6 +385,35 @@ fn bool Action.fnIsTriggered(&self) @dynamic @nodiscard
     return false;
 }
 
+fn void Action.addkey(&self, CInt key) @inline  @if(NEW_CODE_EXTENSIONS == 1)
+{
+    self.keyboard.keys.push(key);
+}
+
+fn void Action.addMouseBtn(&self, RLMouseButton btn) @inline  @if(NEW_CODE_EXTENSIONS == 1)
+{
+    self.mouse.btns.push(btn);
+}
+
+fn void Action.addPadBtn(&self, RLGamepadButton btn) @inline  @if(NEW_CODE_EXTENSIONS == 1)
+{
+    self.gamepad.btns.push(btn);
+}
+
+fn void Action.addPadAxis(&self, RLGamepadAxis axis) @inline  @if(NEW_CODE_EXTENSIONS == 1)
+{
+    self.gamepad._axis.push(axis);
+}
+
+fn bool isTriggerd(InputId id) @if(NEW_CODE_EXTENSIONS == 1)
+{
+    Action* action = getActionId(id);
+    if(action == null) { 
+        return false;
+    }
+    return action.fnIsTriggered();
+}
+
 /*
  * returns true if the action was just triggered, else false
  */
@@ -201,6 +429,15 @@ fn bool Action.wasTriggered(&self)
     return false;
 }
 
+fn bool wasTriggered(InputId id) @if(NEW_CODE_EXTENSIONS == 1)
+{
+    Action* action = getActionById(id);
+    if(action == null) { 
+        return false;
+    }
+    return action.wasTriggered();
+}
+
 /*
  * return true if the action just became triggered, else false
  */
@@ -212,6 +449,15 @@ fn bool Action.fnBecameTriggered(&self)
     }
 
     return false;
+}
+
+fn bool becameTriggered(InputId id) @if(NEW_CODE_EXTENSIONS == 1)
+{
+    Action* action = getActionById(id);
+    if(action == null) { 
+        return false;
+    }
+    return action.fnBecameTriggered();
 }
 
 /*
@@ -234,6 +480,15 @@ fn bool Action.fnDoubleTriggered(&self, float limit)
     }
 
     return false;
+}
+
+fn bool doubleTriggered(InputId id, float limit) @if(NEW_CODE_EXTENSIONS == 1)
+{
+    Action* action = getActionById(id);
+    if(action == null) { 
+        return false;
+    }
+    return action.fnDoubleTriggered(limit);
 }
 
 /*
@@ -259,8 +514,20 @@ fn void Action.update(&self, float timeStep)
 
 fn void Action.handleInput(&self) 
 {
-    if (self.isTriggered /*self.wasTriggered()*/) {
-        if(self.callback != null) self.callback();
+    if(self.callback != null)
+    {
+        if (self.isTriggered)
+        {
+            self.callback();
+        }
+        /*if (self.becameTriggered)
+        {
+            self.callback();
+        } 
+        else if (self.isTriggered && !self.becameTriggered)
+        {
+            self.callback();
+        }*/
     }
 
     /*
@@ -325,13 +592,13 @@ fn void makeKeyboardAction(String name, int key1, int key2 = rl::KEY_NULL, Actio
         return;
     }
 
-	if(actionExists(name, &local_manager)) {
+	if(actionExists(name)) {
 		log::warning(FILE, "Cannot define another action named \"%s\" that is not supported.", name);
        	return;
 	}
 
 	Action* other;
-	if(already_in_use(KEYBOARD, key1, &local_manager, other)) {
+	if(already_in_use(KEYBOARD, key1, other)) {
 		log::warning(FILE, "Cannot give key1 \"%s\" to action \"%s\", is already taken by action \"%s\".", getKeyboardKeyName(key1), name, other.name);
 		return;
 	}
@@ -539,15 +806,6 @@ fn int getKeyCodeFromStr(String name) @inline
     }
 }
 
-<*
- @param name : "the name of the action to retrieve"
- @require name != ""
-*>
-fn Action* getAction(String name) @inline 
-{
-    return getActionByName(&local_manager, name);
-}
-
 fn void removeAction(String name) @inline 
 {
     if(name == "") return;
@@ -695,6 +953,28 @@ fn String getMouseBtnName(RLMouseButton btn) @inline @local
 }
 
 <*
+    Gets a single keycode from the user ini file
+    used for mouse btn actions that have no second key
+    @param [in] key : "the key action to retrieve from user settings"
+    @param [&in] settings_data : "the user settings data in RAM"
+*>
+fn RLMouseButton getMouseBtnCode(String key, ConfigFile* settings_data) 
+{
+    String result = settings_data.getString("keys", key);
+    switch (result)
+    {
+        case "MOUSE_BUTTON_LEFT": return RLMouseButton.LEFT;
+        case "MOUSE_BUTTON_RIGHT": return RLMouseButton.RIGHT;  
+        case "MOUSE_BUTTON_MIDDLE": return RLMouseButton.MIDDLE;  
+        case "MOUSE_BUTTON_SIDE": return RLMouseButton.SIDE; 
+        case "MOUSE_BUTTON_EXTRA": return RLMouseButton.EXTRA;  
+        case "MOUSE_BUTTON_FORWARD": return RLMouseButton.FORWARD; 
+        case "MOUSE_BUTTON_BACK": return RLMouseButton.BACK; 
+        default: unreachable("Unknown mouse botton assigned to action '%s'", key);
+    }
+}
+
+<*
     @param [&in] action : "the action to retrieve the main button name from"
 *>
 fn String getMainBtnNameFrom(Action* action) @inline @local 
@@ -709,33 +989,250 @@ fn String getMainBtnNameFrom(Action* action) @inline @local
     }
 }
 
+
+const int[] NULL_KEY_CODES @local = { [0] = rl::KEY_NULL, [1] = rl::KEY_NULL };
+<*
+    @param [in] key : "the key action to retrieve from user settings"
+    @param [&in] settings_data : "the user settings data in RAM"
+*>
+fn int[] getkeyCodesFrom(String key, ConfigFile* settings_data) 
+{
+    String result = settings_data.getString("keys", key);
+    if(result.len > 0)
+    {
+        if(result.contains(","))
+        {
+            String[] keys;
+            keys = result.tsplit(",");
+            assert(keys.len == 2);
+            int key1, key2;
+            key1 = input::getKeyCodeFromStr(keys[0]);
+            key2 = input::getKeyCodeFromStr(keys[1]);
+            return (int[]) { [0] = key1, [1] = key2 };
+        } 
+        else
+        {
+            int key1 = input::getKeyCodeFromStr(result);
+            return (int[]) { [0] = key1, [1] = rl::KEY_NULL };
+        }
+    }
+
+    return NULL_KEY_CODES;
+}
+
+<*
+    Gets a single keycode from the user ini file
+    used for key actions that have no second key
+    @param [in] key : "the key action to retrieve from user settings"
+    @param [&in] settings_data : "the user settings data in RAM"
+*>
+fn int getkeycode(String key, ConfigFile* settings_data) @inline
+{
+    String result = settings_data.getString("keys", key);
+    return input::getKeyCodeFromStr(result);
+}
+
 fn void printKeyActions() @inline
 {
-    io::printfn("\n============== Input Actions =====================");
-    sz count = local_manager.actions.len();
-    if(count == 0) {
-        io::printfn("No input actions to print found.");
-    } else {
-        foreach(act: local_manager.actions) {
-            io::printfn("\t-> %s Action: \"%s\" - Key1: %s - Key2: %s", act.kind.str, act.name, getMainBtnNameFrom(act), getKeyboardKeyName(act.keyboard.key2));
-        }
-        io::printfn("Total actions: %d", count);
-    }
-    io::printfn("============== Input Actions END =====================\n");
+	if(in_list_keys.getBool())
+	{
+		io::printfn("\n============== Input Actions =====================");
+		sz count = local_manager.actions.len();
+		if(count == 0) {
+			io::printfn("No input actions to print found.");
+		} else {
+			foreach(act: local_manager.actions) {
+				io::printfn("\t-> %s Action: \"%s\" - Key1: %s - Key2: %s", act.kind.str, act.name, getMainBtnNameFrom(act), getKeyboardKeyName(act.keyboard.key2));
+			}
+			io::printfn("Total actions: %d", count);
+		}
+		io::printfn("============== Input Actions END =====================\n");
+	}
 }
 
 
-struct ActionManager {
+struct InputManager
+{
+    KeyboardDevice keyboard @if($feature(USE_INPUT_DEVICES));
     ActionQueue actions;
 }
 
-ActionManager local_manager @local;
-ActionManager* manager = &local_manager;
+/// Singleton
+InputManager local_manager @local;
+InputManager* manager = &local_manager;
+
+////////////////////////////////////////////////////
+///////////////////////////////////////////////////
+//////////////////////////////////////////////////
+fn void createAction(String name, InputId id) @if(NEW_CODE_EXTENSIONS == 1)
+{
+    InputDef* inp;
+    foreach(it : INPUT_LIST)
+    {
+        if(it.id == id) {
+            inp = &it;
+            break;
+        }
+    }
+
+    Action* action       = mem::new(Action);
+    action.type          = Action;
+    action.name          = name;
+    action.id            = id;
+    switch(inp.type)
+    {
+    case InputKind.KEYBOARD:
+        action.kind = ActionKind.KEYBOARD;
+    case InputKind.MOUSE:
+        action.kind = ActionKind.MOUSE;
+    case InputKind.GAMEPAD_LEFT_FACE_UP:
+    case InputKind.GAMEPAD_LEFT_FACE_RIGHT:
+    case InputKind.GAMEPAD_LEFT_FACE_DOWN:
+    case InputKind.GAMEPAD_LEFT_FACE_LEFT:
+    case InputKind.GAMEPAD_RIGHT_FACE_UP:
+    case InputKind.GAMEPAD_RIGHT_FACE_RIGHT:
+    case InputKind.GAMEPAD_RIGHT_FACE_DOWN:
+    case InputKind.GAMEPAD_RIGHT_FACE_LEFT:
+    case InputKind.GAMEPAD_LEFT_TRIGGER_1:
+    case InputKind.GAMEPAD_LEFT_TRIGGER_2:
+    case InputKind.GAMEPAD_RIGHT_TRIGGER_1:
+    case InputKind.GAMEPAD_RIGHT_TRIGGER_2:
+    case InputKind.GAMEPAD_MIDDLE_LEFT:
+    case InputKind.GAMEPAD_MIDDLE:
+    case InputKind.GAMEPAD_MIDDLE_RIGHT:
+    case InputKind.GAMEPAD_LEFT_THUMB:
+    case InputKind.GAMEPAD_RIGHT_THUMB:
+    case InputKind.GAMEPAD_LEFT_X:
+    case InputKind.GAMEPAD_LEFT_Y:
+    case InputKind.GAMEPAD_RIGHT_X:
+    case InputKind.GAMEPAD_RIGHT_Y:
+    case InputKind.GAMEPAD_LEFT_TRIGGER:
+    case InputKind.GAMEPAD_RIGHT_TRIGGER:
+        action.kind = ActionKind.GAMEPAD;
+    case InputKind.MOBILE:
+        action.kind = ActionKind.MOBILE;
+    }
+    action.timeCount     = -1.0;
+    local_manager.actions.push(action);
+}
+
+struct ActionDef @local @if(NEW_CODE_EXTENSIONS == 1)
+{	
+	String name;
+	int id;
+	bool configurable; // if can be rebinded
+	InputCat cat; // category of input ex: movement input
+}
+
+const ActionDef[*] ACTIONS_LIST @if(NEW_CODE_EXTENSIONS == 1)
+= {
+    {"Exit", InputId.EXIT, false, InputCat.SYSTEM},
+    {"ExitDirect", InputId.EXIT_DIRECT, false, InputCat.SYSTEM},
+    {"MoveScreenshots", InputId.SCREENSHOT, false, InputCat.SYSTEM},
+    {"PrintInfo", InputId.PRINT_INFO, false, InputCat.SYSTEM},
+    {"LeftClick", InputId.LEFT_CLICK, false, InputCat.SYSTEM},
+    {"RightClick", InputId.RIGHT_CLICK, false, InputCat.SYSTEM},
+    {"MiddleClick", InputId.MIDDLE_CLICK, false, InputCat.SYSTEM},
+    {"MouseButton4", InputId.MOUSE_BUTTON4_CLICK, false, InputCat.SYSTEM},
+    {"MouseButton5", InputId.MOUSE_BUTTON5_CLICK, false, InputCat.SYSTEM}
+};
+
+struct InputDef @packed @if(NEW_CODE_EXTENSIONS == 1)
+{
+    InputKind type;
+    CInt key;
+    InputId id;
+}
+
+const InputDef[*] INPUT_LIST @if(NEW_CODE_EXTENSIONS == 1)
+= {
+    {InputKind.KEYBOARD, rl::KEY_ESCAPE, InputId.EXIT},
+    {InputKind.KEYBOARD, rl::KEY_F10, InputId.EXIT_DIRECT},
+    {InputKind.KEYBOARD, rl::KEY_F12, InputId.SCREENSHOT},
+    {InputKind.KEYBOARD, rl::KEY_LEFT_SHIFT, InputId.SCREENSHOT},
+    {InputKind.KEYBOARD, rl::KEY_F8, InputId.PRINT_INFO},
+    {InputKind.MOUSE, RLMouseButton.LEFT, InputId.LEFT_CLICK},
+    {InputKind.MOUSE, RLMouseButton.RIGHT, InputId.RIGHT_CLICK},
+    {InputKind.MOUSE, RLMouseButton.MIDDLE, InputId.MIDDLE_CLICK},
+    {InputKind.MOUSE, RLMouseButton.SIDE, InputId.MOUSE_BUTTON4_CLICK},
+    {InputKind.MOUSE, RLMouseButton.EXTRA, InputId.MOUSE_BUTTON5_CLICK}
+};
+
+<*
+    adds input to a action depending on type of input
+    @param [&inout] action : "action to modify"
+    @param type : "what type of action/input done"
+    @param key : "the key/btn/axis pressed to give to the action"
+*>
+fn void bindInputToAction(Action *action, InputKind type, CInt key) @if(NEW_CODE_EXTENSIONS == 1)
+{
+    switch (type)
+    {
+    case InputKind.KEYBOARD:
+        action.addkey(key);
+    case InputKind.MOUSE:
+        action.addMouseBtn((RLMouseButton)key);
+	case GAMEPAD_LEFT_FACE_UP:
+    case GAMEPAD_LEFT_FACE_RIGHT:
+    case GAMEPAD_LEFT_FACE_DOWN:
+    case GAMEPAD_LEFT_FACE_LEFT:
+    case GAMEPAD_RIGHT_FACE_UP:
+    case GAMEPAD_RIGHT_FACE_RIGHT:
+    case GAMEPAD_RIGHT_FACE_DOWN:
+    case GAMEPAD_RIGHT_FACE_LEFT:
+    case GAMEPAD_LEFT_TRIGGER_1:
+    case GAMEPAD_LEFT_TRIGGER_2:
+    case GAMEPAD_RIGHT_TRIGGER_1:
+    case GAMEPAD_RIGHT_TRIGGER_2:
+    case GAMEPAD_MIDDLE_LEFT:
+    case GAMEPAD_MIDDLE:
+    case GAMEPAD_MIDDLE_RIGHT:
+    case GAMEPAD_LEFT_THUMB:  
+    case GAMEPAD_RIGHT_THUMB:      
+	{
+$if $feature(USE_GAMEPAD):
+		action.addPadBtn(key);
+$else
+    nextcase default;
+$endif
+	}
+    case GAMEPAD_LEFT_X:
+    case GAMEPAD_LEFT_Y:
+    case GAMEPAD_RIGHT_X:
+    case GAMEPAD_RIGHT_Y:
+    case GAMEPAD_LEFT_TRIGGER:
+    case GAMEPAD_RIGHT_TRIGGER:
+    {
+$if $feature(USE_GAMEPAD):
+        action.addPadAxis(key);
+$else
+    nextcase default;
+$endif
+    }
+    default:
+        unreachable();
+    }
+}
+
+fn void createActions() @if(NEW_CODE_EXTENSIONS == 1)
+{
+	//////////////////////////////////
+	// Loop through all defined actions and create them
+	foreach(action : ACTIONS_LIST) createAction(action.name, (InputId)action.id);
+
+	//////////////////////////////////
+	// Now loop through all defined inputs and bind them to the actions
+	foreach(input : INPUT_LIST)
+	{
+        Action *action = getActionById(input.id);
+		bindInputToAction(action, input.type, input.key);
+	}
+}
 
 <*
  @param [&in] action : "the action to register"
 *>
-fn void ActionManager.register(&self, Action* action) @inline 
+fn void InputManager.register(&self, Action* action) @inline 
 {
     foreach(act : self.actions) 
     {
@@ -753,13 +1250,26 @@ fn void ActionManager.register(&self, Action* action) @inline
 }
 
 <*
-	@param [&in] actdb : "the action manager"
+ @param name : "the name of the action to retrieve"
+ @require name != ""
+*>
+fn Action* getAction(String name) @inline
+{
+    return getActionByName(name);
+}
+
+fn Action* getActionId(InputId id) @inline
+{
+    return getActionById(id);
+}
+
+<*
 	@param [in] name : "the name of the action to retrieve"
 	@require name != ""
 *>
-fn Action* getActionByName(ActionManager* actdb, String name) @inline @local @nodiscard
+fn Action* getActionByName(String name) @inline @local @nodiscard
 {
-    foreach(action : actdb.actions) {
+    foreach(action : local_manager.actions) {
         if(action.name == name) {
             return action;
         }
@@ -767,14 +1277,37 @@ fn Action* getActionByName(ActionManager* actdb, String name) @inline @local @no
     return &NULL_ACTION;
 }
 
+fn Action* getActionById(InputId id) @nodiscard @if(NEW_CODE_EXTENSIONS == 1)
+{
+    foreach(action : local_manager.actions) 
+    {
+        if(action && action.id == id) return action;
+    }
+
+    return &NULL_ACTION;
+}
+
+fn ActionQueue getActionsByKind(ActionKind kind) @nodiscard
+{
+   assert(kind != UNKNOWN);
+    
+   ActionQueue result;
+    
+    foreach(action : local_manager.actions) {
+        if(action.kind == kind) {
+            result.push(action);
+        }
+    }  
+    return result;
+}
+
 <*
 	@param [in] name : "the name of the action to search for"
-	@param [&in] mng : "the action manager"
 	@require name != ""
 *>
-fn bool actionExists(String name, ActionManager* mng) @inline @local @nodiscard
+fn bool actionExists(String name) @inline @local @nodiscard
 {
-    foreach(action : mng.actions) {
+    foreach(action : local_manager.actions) {
         if(action.name == name) {
             return true;
         }
@@ -785,15 +1318,14 @@ fn bool actionExists(String name, ActionManager* mng) @inline @local @nodiscard
 <*
 	@param kind : "the input kind being used"
 	@param key : "the input key to search for"
-	@param [&in] mng : "the action manager"
 	@param [inout] out : "optional action found to return out"
 	@require kind != ActionKind.UNKNOWN
 *>
-fn bool already_in_use(ActionKind kind, int key, ActionManager* mng, Action* out = null) @inline @local @nodiscard
+fn bool already_in_use(ActionKind kind, int key, Action* out = null) @inline @local @nodiscard
 {
 	bool key_found;
 	Action* other @noinit;
-    foreach(action : mng.actions) 
+    foreach(action : local_manager.actions) 
 	{
         if(action.kind == kind) 
 		{
@@ -831,23 +1363,7 @@ fn bool already_in_use(ActionKind kind, int key, ActionManager* mng, Action* out
     return false;
 }
 
-
-fn ActionQueue ActionManager.getActionsByKind(&self, ActionKind kind) @inline
-{
-   assert(kind != UNKNOWN);
-    
-   ActionQueue actions;
-    
-    foreach(action : self.actions) {
-        if(action.kind == kind) {
-            actions.push(action);
-        }
-    }
-    
-    return actions;
-}
-
-fn void _unregister_action(ActionManager* actdb, Action* action) @inline @local
+fn void _unregister_action(InputManager* actdb, Action* action) @inline @local
 {
     if(action == null) return;
     
@@ -860,12 +1376,12 @@ fn void _unregister_action(ActionManager* actdb, Action* action) @inline @local
     }
 }
 
-fn void ActionManager.remove(&self, Action* action) @inline
+fn void InputManager.remove(&self, Action* action) @inline
 {
     _unregister_action(self, action);
 }
 
-fn void ActionManager.update(&self) 
+fn void InputManager.update(&self) 
 {
     if(self.actions.len())
     {
@@ -877,7 +1393,7 @@ fn void ActionManager.update(&self)
     // todo detect actions with the same keys
 }
 
-fn void ActionManager.free(&self) 
+fn void InputManager.free(&self) 
 {
     if(self.actions.len()) {
         foreach(action: self.actions) {
@@ -888,7 +1404,7 @@ fn void ActionManager.free(&self)
     self.actions.free();
 }
 
-fn void _listActions(ActionManager* actdb) @local @inline
+fn void _listActions(InputManager* actdb) @local @inline
 {
 	int k1,k2;
     if(actdb.actions.len())
@@ -913,7 +1429,7 @@ fn void _listActions(ActionManager* actdb) @local @inline
 			
 			if(k2 == rl::KEY_NULL)
 			{
-           		log::info(FILE, "\t-> \"%s\" : {%s},", action.name, getKeyboardKeyName(k1));
+           		log::info(FILE, "\t-> \"%s\" : {%s},", action.name, (action.kind == ActionKind.MOUSE) ? getMouseBtnName((RLMouseButton)k1) : getKeyboardKeyName(k1));
 			}
 			else 
 			{
@@ -938,8 +1454,8 @@ fn void save_actions_to_user_file(ConfigFile* userfile)
             key1 = getMainBtnNameFrom(action);
             if(has_ext_key) key2 = getKeyboardKeyName(action.keyboard.key2);
 
-            IniSection* sect;
-			if(sect = userfile.hasSection("keys")!!, sect)
+            IniSection* sect = userfile.hasSection("keys");
+			if(sect)
             {
                 //IniSection* sect = userfile.getSection("keys")!!;
                 IniCMD* cmd;
@@ -974,8 +1490,7 @@ fn void save_actions_to_user_file(ConfigFile* userfile)
             }
             else // create sections keys anew
             {
-                sect = userfile.createSection("keys")!!;
-                assert(sect != null);
+                sect = userfile.createSection("keys");
                 if(has_ext_key) 
                 {
                     userfile.addToSection(sect, mem::new( IniCMD,

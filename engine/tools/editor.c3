@@ -59,7 +59,7 @@ import engine::misc;
 import engine::sys::cvar;
 import thirdparty::raylib5::rl;
 import thirdparty::microui::mu;  // micro ui
-import engine::filesystem::fs::win32;
+import engine::platform::win32;
 import engine::sys::render2d::r2d;
 import std::os::win32;
 import engine::logging::log;
@@ -1201,9 +1201,10 @@ fn void printMatches( String s ) {
 }
 
 
-fn void printCvarMatches( String s ) {
+fn void printCvarMatches( String s )
+{
     if ( s == globalAutoComplete.currentMatch[..] ) {
-		io::printfn( "    %s = \"%s\"", s, cvar::getCVarString( s ) );
+		io::printfn( "    %s = \"%s\"", s, cvar::get_string( s ) );
 	}
 }
 // #endregion CONSOLE INPUT

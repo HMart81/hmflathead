@@ -554,10 +554,13 @@ constdef RLTraceLogLevel : inline CInt
     NONE            // Disable logging
 }
 
-// Mouse buttons
+// Mouse buttons 
+// NOTE(HM) As GLFW backend maps it, 
+// if using optional SDL2 backend it follows same pattern, 
+// even thou SDL2 itself internally uses diferent mappings.
 constdef RLMouseButton : inline CInt
 {
-    LEFT = 0,       // Mouse button left
+    LEFT = 0,   // Mouse button left
     RIGHT,      // Mouse button right
     MIDDLE,     // Mouse button middle (pressed wheel)
     SIDE,       // Mouse button side (advanced mouse device)
@@ -585,7 +588,7 @@ constdef RLMouseCursor : inline CInt
 // Gamepad buttons
 constdef RLGamepadButton : inline CInt
 {
-    UNKNOWN = 0,             // Unknown button, just for error checking
+    UNKNOWN = 0,         // Unknown button, just for error checking
     LEFT_FACE_UP,        // Gamepad left DPAD up button
     LEFT_FACE_RIGHT,     // Gamepad left DPAD right button
     LEFT_FACE_DOWN,      // Gamepad left DPAD down button
@@ -607,7 +610,7 @@ constdef RLGamepadButton : inline CInt
 
 constdef RLGamepadAxis : inline CInt
 {
-    LEFT_X = 0,           // Gamepad left stick X axis
+    LEFT_X = 0,       // Gamepad left stick X axis
     LEFT_Y,           // Gamepad left stick Y axis
     RIGHT_X,          // Gamepad right stick X axis
     RIGHT_Y,          // Gamepad right stick Y axis
@@ -1214,7 +1217,13 @@ fn bool isKeyUp(CInt key) @cname("IsKeyUp");
 fn CInt getKeyPressed() @cname("GetKeyPressed");
 // Get char pressed (unicode), call it multiple times for chars queued, returns 0 when the queue is empty
 fn CInt getCharPressed() @cname("GetCharPressed");
-// Set a custom key to exit program (default is ESC)
+// Get name of a QWERTY key on the current keyboard layout (eg returns string 'q' for KEY_A on an AZERTY keyboard)
+fn ZString getKeyName(CInt key) @cname("GetKeyName");
+
+<*
+	Set a custom key to exit program (default is ESC)
+	@require isWindowReady() == true
+*>
 fn void setExitKey(CInt key) @cname("SetExitKey");
 
 // Input-related functions: gamepads
@@ -2230,8 +2239,8 @@ macro void @mode2D(RLCamera2D camera;@body)
 }
 
 /**
- * Setup 3D mode with custom camera to start 2D Mode, then calls [block].
- * Mode2D will end after [block] has finished.
+ * Setup 3D mode with custom camera to start 3D Mode, then calls [block].
+ * Mode3D will end after [block] has finished.
  */
 macro void @mode3D(RLCamera3D camera;@body)
 {
@@ -2467,9 +2476,10 @@ const CInt GESTURE_PINCH_OUT   = 512;      // Pinch out gesture
 // NOTE(HM) right now, rlgl module is somewhat broken 
 // some funcs don't seem to work and others crash the application, 
 // so when using this care most be taken, not sure if should be used at all... 
-module thirdparty::raylib5::rl::rlgl; // rlgl.h
+module thirdparty::raylib5::rlgl; // rlgl.h
 
 import thirdparty::raylib5::rl;
+import engine::misc;
 
 typedef FBOId = inline uint;
 
@@ -2504,54 +2514,73 @@ const RL_QUADS     = 0x0007;    // GL_QUADS
 //------------------------------------------------------------------------------------
 // Functions Declaration - RLMatrix operations
 //------------------------------------------------------------------------------------
-fn void matrixMode(CInt mode) @cname("rlMatrixMode");       // Choose the current matrix to be transformed
-fn void pushMatrix() @cname("rlPushMatrix");                // Push the current matrix to stack
-fn void popMatrix() @cname("rlPopMatrix");                  // Pop latest inserted matrix from stack
-fn void loadIdentity() @cname("rlLoadIdentity");                        // Reset current matrix to identity matrix
-fn void translatef(float x, float y, float z) @cname("rlTranslatef");     // Multiply the current matrix by a translation matrix
+fn void matrix_mode(CInt mode) @cname("rlMatrixMode");                       // Choose the current matrix to be transformed
+fn void push_matrix() @cname("rlPushMatrix");                                // Push the current matrix to stack
+fn void pop_matrix() @cname("rlPopMatrix");                                  // Pop latest inserted matrix from stack
+fn void load_identity() @cname("rlLoadIdentity");                            // Reset current matrix to identity matrix
+fn void translatef(float x, float y, float z) @cname("rlTranslatef");        // Multiply the current matrix by a translation matrix
 fn void rotatef(float angle, float x, float y, float z) @cname("rlRotatef"); // Multiply the current matrix by a rotation matrix
-fn void scalef(float x, float y, float z) @cname("rlScalef");         // Multiply the current matrix by a scaling matrix
-fn void multMatrixf(float *matf) @cname("rlMultMatrixf");            // Multiply the current matrix by another matrix
-fn void frustum(double left, double right, double bottom, double top, double znear, double zfar) @cname("rlFrustum"); // set frustum area
-fn void ortho(double left, double right, double bottom, double top, double znear, double zfar) @cname("rlOrtho");    // set to ortographic projection
-fn void viewport(CInt x, CInt y, CInt width, CInt height) @cname("rlViewport"); // Set the viewport area
-fn void setClipPlanes(double nearPlane, double farPlane) @cname("rlSetClipPlanes");
-fn double getCullDistanceNear() @cname("rlGetCullDistanceNear"); // Get cull plane distance near
-fn double getCullDistanceFar()  @cname("rlGetCullDistanceFar"); // Get cull plane distance far
+fn void scalef(float x, float y, float z) @cname("rlScalef");                // Multiply the current matrix by a scaling matrix
+fn void mult_matrixf(float* matf) @cname("rlMultMatrixf");                   // Multiply the current matrix by another matrix
+fn void frustum(double left, double right, double bottom, double top, double znear, double zfar) @cname("rlFrustum");
+fn void ortho(double left, double right, double bottom, double top, double znear, double zfar) @cname("rlOrtho");
+fn void viewport(CInt x, CInt y, CInt width, CInt height) @cname("rlViewport");  // Set the viewport area
+fn void set_clip_planes(double near_plane, double far_plane) @cname("rlSetClipPlanes"); // Set clip planes distances
+fn double get_cull_distance_near() @cname("rlGetCullDistanceNear");                        // Get cull plane distance near
+fn double get_cull_distance_far() @cname("rlGetCullDistanceFar");                    // Get cull plane distance far
 
 //------------------------------------------------------------------------------------
 // Functions Declaration - Vertex level operations
 //------------------------------------------------------------------------------------
-fn void begin(CInt mode) @cname("rlBegin");     // Initialize drawing mode (how to organize vertex)
-fn void end() @cname("rlEnd");                 // Finish vertex providing
-fn void vertex2i(CInt x, CInt y) @cname("rlVertex2i");                    // Define one vertex (position) - 2 CInt
-fn void vertex2f(float x, float y) @cname("rlVertex2f");                // Define one vertex (position) - 2 float
-fn void vertex3f(float x, float y, float z) @cname("rlVertex3f");       // Define one vertex (position) - 3 float
-fn void texCoord2f(float x, float y) @cname("rlTexCoord2f");              // Define one vertex (texture coordinate) - 2 float
-fn void normal3f(float x, float y, float z) @cname("rlNormal3f");       // Define one vertex (normal) - 3 float
-fn void color4ub(char r, char g, char b, char a) @cname("rlColor4ub"); // Define one vertex (color) - 4 byte
-fn void color3f(float x, float y, float z) @cname("rlColor3f");        // Define one vertex (color) - 3 float
+fn void begin(CInt mode) @cname("rlBegin");                 // Initialize drawing mode (how to organize vertex)
+fn void end() @cname("rlEnd");                             // Finish vertex providing
+fn void vertex2i(CInt x, CInt y) @cname("rlVertex2i");                       // Define one vertex (position) - 2 CInt
+fn void vertex2f(float x, float y) @cname("rlVertex2f");                       // Define one vertex (position) - 2 float
+fn void vertex3f(float x, float y, float z) @cname("rlVertex3f");         // Define one vertex (position) - 3 float
+fn void tex_coord2f(float x, float y) @cname("rlTexCoord2f");               // Define one vertex (texture coordinate) - 2 float
+fn void normal3f(float x, float y, float z) @cname("rlNormal3f");         // Define one vertex (normal) - 3 float
+fn void color4ub(char r, char g, char b, char a) @cname("rlColor4ub");  // Define one vertex (color) - 4 byte
+fn void color3f(float x, float y, float z) @cname("rlColor3f");          // Define one vertex (color) - 3 float
 fn void color4f(float x, float y, float z, float w) @cname("rlColor4f"); // Define one vertex (color) - 4 float
+macro vec2f(Vec2f v) => vertex2f(v.x, v.y);
+macro vec2i(Vec2i v) => vertex2i(v.x, v.y);
+macro color(RLColor c) => color4ub(c.r, c.g, c.b, c.a);
 
-macro @primitive($type;@body) {
+
+<*
+ Setup gl fixed function drawing mode, then calls [block].
+ gl_begin will end after [block] has finished.
+*>
+macro void @gl_mode(int mode ;@body)
+{
+	begin(mode);
+	defer end();
+	@body();
+}
+
+macro @primitive($type;@body)
+{
     begin($type);
     defer end();
     @body();
 }
 
-macro @lines(;@body) {
+macro @lines(;@body)
+{
     begin(RL_LINES);
     defer end();
     @body();
 }
 
-macro @tris(;@body) {
+macro @tris(;@body)
+{
     begin(RL_TRIANGLES);
     defer end();
     @body();
 }
 
-macro @quads(;@body) {
+macro @quads(;@body)
+{
     begin(RL_QUADS);
     defer end();
     @body();

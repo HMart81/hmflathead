@@ -59,13 +59,14 @@ import engine::serialize::svs; // save system
 import engine::sys::cvar;
 import thirdparty::raylib5::rl;
 import thirdparty::raygui5::rgui;
+import thirdparty::raylib5::rlgl;
 import engine::sys::render2d::r2d; // 2D rendering
 // end_region
 
 // region cvars
-CVar ui_debugDraw   @public = { "ui_debugDraw",   CvFlag.BOOL, "0", "show debug visualization for gui development, 0, 1, true, false" };
-CVar ui_editGui     @public = { "ui_editGui",     CvFlag.BOOL, "0", "turn on gui editing functionality for gui development, 0, 1, true, false" };
-CVar ui_showAnchors @public = { "ui_showAnchors", CvFlag.BOOL, "0", "toggles the view of the anchor points on each gui widget, requires ui_debugDraw to be on as well." };
+CVar ui_debugDraw   @public = { "ui_debugDraw",   CvFlag.BOOL | CvFlag.TOOL, "0", "show debug visualization for gui development, 0, 1, true, false" };
+CVar ui_editGui     @public = { "ui_editGui",     CvFlag.BOOL | CvFlag.TOOL, "0", "turn on gui editing functionality for gui development, 0, 1, true, false" };
+CVar ui_showAnchors @public = { "ui_showAnchors", CvFlag.BOOL | CvFlag.TOOL, "0", "toggles the view of the anchor points on each gui widget, requires ui_debugDraw to be on as well." };
 
 fn void register_cvars() @public 
 {
@@ -608,6 +609,27 @@ fn void Panel.draw(&self, bool selected = false)
     else
     {
         r2d::@drawRect(self.rect, (selected) ? self.color_selected : self.color);
+
+		/*Vec2f v1,v2,v3,v4;
+		float x, y, w, h;
+		x = self.rect.x;
+		y = self.rect.y;
+		w = self.rect.w;
+		h = self.rect.h;
+
+		v1 = self.rect.pos;
+		v2 = v1 + misc::VEC_DOWN * h;
+		v3 = v2 + misc::VEC_RIGHT * w;
+		v4 = v3 + misc::VEC_UP * h;
+		rlgl::@quads()
+		{
+			rlgl::normal3f(0, 0, 1);
+			rlgl::color(self.color);
+			rlgl::vec2f(v1);
+			rlgl::vec2f(v2);
+			rlgl::vec2f(v3);
+			rlgl::vec2f(v4);
+		};*/
     }
 
     if(self.displayBounds()) {
@@ -1458,13 +1480,13 @@ fn void WidgetButton.manage_interactions(&self)
                 }
             }
             
-            if (Action* action = input::getAction("Double Press")) {
+            if (Action* action = input::getAction("mouse_double_press")) {
                 if (action.fnDoubleTriggered(0.250f) && self.onDoublePress) { 
                     self.onDoublePress(widget);
                 }
             }
             
-            if (Action* action = input::getAction("Single Press")) {
+            if (Action* action = input::getAction("mouse_single_press")) {
                 if (action.fnBecameTriggered() && self.onSinglePress) { 
                     self.onSinglePress(widget); 
                 }

@@ -755,18 +755,18 @@ fn void makeGamepadAction(String name, ActionCallBack func, RLGamepadButton btn,
     local_manager.actions.push(action) {}
 }
 
-struct ActionManager {
+struct InputManager {
     ActionQueue actions;
 }
 
-ActionManager local_manager @local;
-ActionManager* gpActnMnagr = &local_manager;
+InputManager local_manager @local;
+InputManager* gpActnMnagr = &local_manager;
 
 <*
  @param in action "the action to register"
  @require action != null
 *>
-fn void ActionManager.register(&self, Action* action) @inline {
+fn void InputManager.register(&self, Action* action) @inline {
     foreach(act : self.actions) {
         if(act.name == action.name) {
             game::log::warning(Where.CONSOLE, "Cannot register \"%s\" because is already registered.", action.name) {}
@@ -777,7 +777,7 @@ fn void ActionManager.register(&self, Action* action) @inline {
     self.actions.push(action) {}
 }
 
-fn void ActionManager.unregister(&self, Action* action) @inline {
+fn void InputManager.unregister(&self, Action* action) @inline {
     if(action == null) return;
     
     foreach(act : self.actions) {
@@ -789,7 +789,7 @@ fn void ActionManager.unregister(&self, Action* action) @inline {
     }
 }
 
-fn void ActionManager.update(&self, float dt) @inline {
+fn void InputManager.update(&self, float dt) @inline {
 
 $if $defined(ACTION_PROFILE):
     ProfileInfo* info = @start_profile_zone("Actions update") {}
@@ -804,7 +804,7 @@ $endif
     }
 }
 
-fn void ActionManager.free(&self) {
+fn void InputManager.free(&self) {
     if(self.actions.len()) foreach(act: self.actions) act.deinit() {}
     
     self.actions.free() {}

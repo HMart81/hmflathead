@@ -35,7 +35,7 @@ import engine::filesystem::fs;
 import engine::logging::log;
 import game::assets::sprite;
 import game::main;
-import thirdparty::raylib5::rl;
+import thirdparty::raylib5::rl; 
 
 faultdef WINDOW_CREATION_FAILED, 
          FAILED_TO_GET_WINDOW_HANDLE;

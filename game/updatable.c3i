@@ -33,12 +33,12 @@ module game::sys::update;
 
 interface Updateable
 {
-	fn void onDraw();
+	fn void onStart();
+	fn void onUpdate();
+	fn void onDraw(); //@optional;
 	fn void onPostSceneDraw() @optional;
 	fn void onPostGUIDraw() @optional;
 	fn void onPostBufferSwap() @optional;
-	fn void onStart();
-	fn void update();
+	fn void onReset() @optional;
 	fn void onExit();
-	fn void reset() @optional;
 }

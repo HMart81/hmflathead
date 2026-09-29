@@ -66,6 +66,7 @@ import thirdparty::angel; // AngelScript engine
 import game::assets::sprite;
 //import game::assets::part; // particles
 import engine::serialize::svs; // save system
+import engine::platform::win32;
 import game::logic::timer;
 import engine::tools;
 import engine::logging::log;
@@ -81,7 +82,7 @@ import std::encoding::json;
 import game::effects::boid;
 import game::lowlevel::bounds;
 // third party libraries
-import thirdparty::raylib5::rl, thirdparty::raylib5::rl::rlgl;
+import thirdparty::raylib5::rl, thirdparty::raylib5::rlgl;
 import thirdparty::raygui5::rgui, thirdparty::raygui5::rgui::style::dark;
 import thirdparty::library::xml;
 import thirdparty::microui::mu;  // micro ui
@@ -110,9 +111,10 @@ constdef Units : inline int @public
 	METER = 1,
 	PIXEL,
 }
-// default units are pixels because I did this before even thinking
-// about units, so I made a bunch of stuff based on pixel units, 
-// things that are now hard to change. :(
+// default units are still pixels because by lack of experience, 
+// I did a ton of code before even thinking about units, 
+// so I made a bunch of stuff based on pixel units, 
+// things that are now very hard to change. :(
 // TODO(HM) (one day change this to meters please)
 const UNITS @public = Units.PIXEL;
 
@@ -131,7 +133,7 @@ const MAX_DISPLAY_HZ  @Hardcode = 500;  // maximum display hz
 
 constdef PerfOption : inline int
 {
-    LOW = 1,
+    LOW = 0,
     MEDIUM,
     HIGH,
     ULTRA
@@ -139,30 +141,30 @@ constdef PerfOption : inline int
 
 
 // #region Cvars
-CVar developer        @public = { "developer"     , CvFlag.BOOL | CvFlag.TOOL | CvFlag.CHEAT,   "0",     "enables developer mode"};
-CVar editor           @public = { "editor"        , CvFlag.BOOL | CvFlag.TOOL,   "0",     "enables the game editor (requires developer mode)"};
-CVar r_mode           @public = { "r_mode"        , CvFlag.INT | CvFlag.ARCHIVE,    "-1",    "index of window resolution [0 to 32], -1 = ini file setting"};
-CVar r_showFPS        @public = { "r_showFPS"     , CvFlag.BOOL | CvFlag.ARCHIVE,   "1",     "draws framerate on screen"};
-CVar r_showSplashPic  @public = { "r_showSplashPic", CvFlag.BOOL | CvFlag.ARCHIVE,   "0",     "enables the splash image at game start"};
-CVar r_fullscreen     @public = { "r_fullscreen"  , CvFlag.INT | CvFlag.ARCHIVE,    "-1",    "screen mode 0 = window, 1 = borderless, 2 = dedicated, -1 = ini file setting"};
-CVar r_fps_unlocked   @public = { "r_unlockFps"   , CvFlag.BOOL | CvFlag.ARCHIVE,   "false", "sets if the fps is unlocked (true) or locked to the monitor refresh rate (false)"};
-CVar r_max_fps        @public = { "r_max_fps"     , CvFlag.INT | CvFlag.ARCHIVE,    "-1",    "sets the maximum fps when fps is unlocked, -1 = monitor refresh rate"};
+CVar developer        @public = { "developer"     , CvFlag.BOOL | CvFlag.TOOL | CvFlag.CHEAT | CvFlag.SYSTEM,   "0",     "enables developer mode"};
+CVar editor           @public = { "editor"        , CvFlag.BOOL | CvFlag.TOOL | CvFlag.TOOL,   "0",     "enables the game editor (requires developer mode)"};
+CVar r_mode           @public = { "r_mode"        , CvFlag.INT | CvFlag.ARCHIVE | CvFlag.RENDERER,    "-1",    "index of window resolution [0 to 32], -1 = ini file setting"};
+CVar r_showFPS        @public = { "r_showFPS"     , CvFlag.BOOL | CvFlag.ARCHIVE | CvFlag.RENDERER,   "1",     "draws framerate on screen"};
+CVar g_showSplashPic  @public = { "g_showSplashPic", CvFlag.BOOL | CvFlag.ARCHIVE | CvFlag.GAME,   "0",     "enables the splash image at game start"};
+CVar r_fullscreen     @public = { "r_fullscreen"  , CvFlag.INT | CvFlag.ARCHIVE | CvFlag.RENDERER,    "-1",    "screen mode 0 = window, 1 = borderless, 2 = dedicated, -1 = ini file setting"};
+CVar r_fps_unlocked   @public = { "r_unlockFps"   , CvFlag.BOOL | CvFlag.ARCHIVE | CvFlag.RENDERER,   "false", "sets if the fps is unlocked (true) or locked to the monitor refresh rate (false)"};
+CVar r_max_fps        @public = { "r_max_fps"     , CvFlag.INT | CvFlag.ARCHIVE | CvFlag.RENDERER,    "-1",    "sets the maximum fps when fps is unlocked, -1 = monitor refresh rate"};
 CVar db_drawPhysics   @public = { "db_drawPhysics", CvFlag.BOOL | CvFlag.TOOL,   "1",     "show debug visualization for world physics" };
 CVar s_noaudio        @public = { "s_noaudio"     , CvFlag.BOOL | CvFlag.ARCHIVE | CvFlag.SOUND,   "1",     "disables all audio"};
 CVar fl_help          @public = { "help"          , CvFlag.BOOL | CvFlag.TOOL,   "0",     "shows help message"};
 CVar dbg_stats        @public = { "dbg_stats"     , CvFlag.BOOL | CvFlag.TOOL,   "0",     "shows various debug things on screen"};
 CVar skip_config      @public = { "skip_config"   , CvFlag.BOOL | CvFlag.TOOL,   "1",     "skips the configuarator at game start" };
-CVar script_engine    @public = {"cmd_useScptEngine", CvFlag.BOOL | CvFlag.ARCHIVE, "0", "enables the script engine"};
-CVar perf_option      @public = {"g_perfOption", CvFlag.INT | CvFlag.ARCHIVE, "3", "sets the game performance levels, <1 to 4> = 'low, medium, high, ultra'."};
+CVar script_engine    @public = {"cmd_useScptEngine", CvFlag.BOOL | CvFlag.ARCHIVE | CvFlag.SYSTEM, "0", "enables the script engine"};
+CVar perf_option      @public = {"g_perfOption", CvFlag.INT | CvFlag.ARCHIVE | CvFlag.GAME, "3", "sets the game performance levels, <1 to 4> = 'low, medium, high, ultra', zero or bellow means use the cvar value."};
 
 
-fn void register_cvars() @local
+fn void register_cvars() @inline @local
 {
     cvar::@register(&developer);
     cvar::@register(&editor);
     cvar::@register(&r_mode);
     cvar::@register(&r_showFPS);
-    cvar::@register(&r_showSplashPic);
+    cvar::@register(&g_showSplashPic);
     cvar::@register(&r_fullscreen);
     cvar::@register(&r_fps_unlocked);
     cvar::@register(&r_max_fps);
@@ -175,10 +177,12 @@ fn void register_cvars() @local
 	cvar::@register(&perf_option);
 }
 
-fn void register_modulo_cvars() @local {
+fn void register_modulo_cvars() @local 
+{
     register_cvars(); // this module cvars (game module)
 	cvar::register_cvars();
 	fs::register_cvars();
+    input::register_cvars();
     gui::register_cvars();
 	vid::register_cvars();
     intro::register_cvars();
@@ -320,7 +324,7 @@ faultdef GAME_WINDOW_INIT_FAILED,
          GAME_NO_USER_SAVE_FOLDER,
          GAME_NO_DATA_FOLDER;
 
-enum GameMode @public 
+enum GameMode : char @public 
 {
     NONE,
     STARTING,
@@ -377,6 +381,7 @@ struct Game (SaveSystemInterface) @local
     //
 
     GameMode mode;
+	PerfOption quality;
 
     // Game editor
     Editor editor @if($feature(MICROUI_ENABLE));
@@ -401,12 +406,12 @@ struct Game (SaveSystemInterface) @local
 	AudioDevice audio_device;
     RLSound     default_sound;
     RLMusic     default_music;
-    RLFont      font_default;
     int      pause_all_music; // to pause all music on demand
 	HMSoundWorld* current_sound_world;
     //
     
     // game fonts TODO(HM) We should only chose 2 for the final game...
+    RLFont  font_default;
     RLFont* font_candara;
     RLFont* font_candara_light;
     RLFont* font_lucida;
@@ -423,7 +428,8 @@ struct Game (SaveSystemInterface) @local
     RenderView view;
 
     BackendRender render; // graphics backend interface
-    struct screen 
+
+    struct screen
     {
         int index; // monitor index
         int id; // monitor id (index + 1)
@@ -434,7 +440,7 @@ struct Game (SaveSystemInterface) @local
         		int  h;
 			}
 		}
-        Vec2f center;
+        Vec2i center;
 
         struct state {
             bool window;
@@ -578,7 +584,7 @@ fn void Game.reload(&self, SaveFile* file) @dynamic
     svs::readBool(file, &self.should_quit);
     svs::readBool(file, &self.msgbox_showing);
     svs::readBool(file, &self.is_modded_game);
-    svs::readInt(file, &self.mode.ordinal);
+    svs::readChar(file, &self.mode.ordinal);
     svs::readTexture2D(file, &self.default_texture);
     /*
     svs::readShader(file, &self.default_shader);
@@ -1183,7 +1189,7 @@ fn void gameHandleGeneralControls() @local
     //if(rl::isKeyPressed(rl::KEY_F1) && !local_game.msgbox_showing) {
         //local_game.msgbox_showing = true;
     //}
-    
+
 	$if $feature(PHYSICS_BOX2D):
     if (rl::isKeyPressed(rl::KEY_P)) {
         local_game.pause_phys_simulation = !local_game.pause_phys_simulation;
@@ -1323,18 +1329,8 @@ $endif
             //log::info(Where.CONSOLE, "Action BECAME triggered!!!!!!");
         }
     }
-    /*
-    if(input::gpManager.getActionByName("quit").fnDoubleTriggered(0.250f)) {
-        log::info(Where.CONSOLE, "Quit Action DOUBLE triggered!!!!!!");
-    }
     
-    if(input::gpManager.getActionByName("quit").wasTriggered()) {
-        log::info(Where.CONSOLE, "Quit Action WAS triggered!!!!!!");
-    }*/
-    
-    if(rl::getKeyPressed()) {
-        local_game.last_key_pressed = rl::getKeyPressed();
-    }
+    local_game.last_key_pressed = rl::getKeyPressed();
 }
 
 fn void onUpdate() @local 
@@ -1476,7 +1472,7 @@ $endif
                     //sprite.update();
                 //} else {
                     // generic sprite
-                    sprite.update();
+                    sprite.onUpdate();
                 //}
             }
         }
@@ -1953,8 +1949,8 @@ fn void onGuiDraw(int screenWidth, int screenHeight) @public @MyInline
        local_game.mode == PLAYING)
     {
 		RLRectangle frame_rect = {
-			.x = local_game.screen.center.x + 100, 
-			.y = local_game.screen.center.y + 100,
+			.x = local_game.screen.center.x + 100.0f, 
+			.y = local_game.screen.center.y + 100.0f,
 		    .width = 500, .height = 200
 		};
 
@@ -2777,7 +2773,7 @@ $endif
     // if enabled, show a simple splash screen. 
 	// this right now delays the game start for a few seconds
 	// so not sure if really something I want to have, but is here for others if they want it.
-    if(r_showSplashPic.getBool()) showSplashScreenImage();
+    if(g_showSplashPic.getBool()) showSplashScreenImage();
 ////////////////////////////////////////////////////
 
 // #region InitRaylib library stuff
@@ -2844,7 +2840,16 @@ $endif
     log::tofile("Settings file '%s' loaded into RAM with sucess:", ini_file_path);
     log::tofile("---------------------------------------------\n");
 
+	// set game quality
+	// ini file value has precedence over cvar value, unless set to zero or less
+	local_game.quality = (PerfOption)settings_data.getInt("game", "g_perfOption")!;
+	if(local_game.quality <= 0)
+	{
+		local_game.quality = (PerfOption)perf_option.getInt();
+	}
+
     // test writting to the register
+    log::tofile("Writting data to Operating System registry:");
     $if $defined(env::WIN32):
     {
         //log::tofile("Saving registry data:");
@@ -2854,40 +2859,56 @@ $endif
 		if(win32::getRegistryPath(win32::HKEY_LOCAL_MACHINE, "SOFTWARE\\GitForWindows", "InstallPath", &path)) {
 			log::warning(FILE, "Found path from registry: %s", path);
 		}*/
+
 		Win32_HKEY? currentUserKey = win32::regOpenCurrentUser(win32::KEY_WRITE | win32::KEY_WOW64_64KEY);
-		if(catch excuse = currentUserKey) {
+		if(catch excuse = currentUserKey)
+        {
 			log::warning(FILE, "Unable to open current user key from registry, see if you have required elevated permissions. : excuse > %s", excuse);
-		} else {
+		}
+        else
+        {
     	    defer win32::regCloseKey(currentUserKey);
+
 			String sub_key = "Software";
 			Win32_HKEY? root = win32::regOpenKey(currentUserKey, sub_key, win32::KEY_WRITE);
-			if( catch excuse2 = root) {
+			if( catch excuse2 = root)
+            {
 				log::warning(FILE, "Failed to open key \"%s\" inside registry 'HKEY_CURRENT_USER' with: excuse > %s", sub_key, excuse2);
-			} else {
+			} 
+            else
+            {
 			    defer win32::regCloseKey(root);
+
 				String reg_key   = "HMartSoftware\\unnnamed\\settings\\";
-				Win32_DWORD sam = win32::KEY_WRITE | win32::KEY_WOW64_64KEY;
+				Win32_DWORD sam  = win32::KEY_WRITE | win32::KEY_WOW64_64KEY;
 				Win32_HKEY folder_key;
+
 				bool? rs = win32::regCreateKey(root, reg_key, 0, sam, &folder_key);
-				if(catch excuse3 = rs) {
+				if(catch excuse3 = rs)
+                {
 					log::warning(FILE, "Failed to create key \"%s\" inside registry 'HKEY_CURRENT_USER/Software' key with: excuse > %s", reg_key, excuse3);
-				} else {
+				} 
+                else
+                {
     			    defer win32::regCloseKey(folder_key);
-                    //log::tofile("Saving required registry data to: \"HKEY_CURRENT_USER\\Software\\HMartSoftware\\unnnamed\\settings\"");
+
+                    log::tofile("\tRegistry path: \"HKEY_CURRENT_USER\\Software\\HMartSoftware\\unnnamed\\settings\"");
+                    
 					// now save values into the path
-                    ;
-                    if(!win32::regSetValue(folder_key, "baseDir", any_make(&local_game.app_base_folder, String))) {
+                    if(win32::regSetValue(folder_key, "baseDir", any_make(&local_game.app_base_folder, String)) != win32::ERROR_SUCCESS)
+                    {
                         log::warning(FILE, "failed to write baseDir path to registry.");
                     }
-                    if(!win32::regSetValue(folder_key, "saveDir", any_make(&local_game.app_save_folder, String))) {
+
+                    if(win32::regSetValue(folder_key, "saveDir", any_make(&local_game.app_save_folder, String)) != win32::ERROR_SUCCESS) {
                         log::warning(FILE, "failed to write saveDir path to registry.");
                     }
 				}
 			}
 		}
     }
-    //log::tofile("Done.")
-    //log::tofile("---------------------------------------------\n")
+    log::tofile("Done.");
+    log::tofile("---------------------------------------------\n");
     $endif // $if $defined(env::WIN32)
 
 // #endregion Ini file handling
@@ -3132,10 +3153,8 @@ $endif
     local_game.time_ms  = misc::@sec2ms(local_game.time_sec);
 	// end timing initialization
 
-    local_game.screen.center = {screenWidth/2.0f,screenHeight/2.0f};
+    local_game.screen.center = {screenWidth/2,screenHeight/2};
 
-    // rlgl init
-    //rlgl::init(screenWidth, screenHeight);
 	local_game.default_shader_resolution_loc = local_game.default_shader.getUniformLocation("resolution");
 	local_game.default_shader.setValue(local_game.default_shader_resolution_loc, &local_game.screen.size, RLShdUniTyp.VEC2);
 	// shader timing
@@ -3242,7 +3261,9 @@ $endif
 
     local_game.fps_unlocked = r_fps_unlocked.getBool();
 
-	int max_fps = r_max_fps.getInt();
+	// settings file has precedence
+	int max_fps = settings_data.getInt("video", "r_max_fps")!;
+	if(max_fps > 0) cvar::set{int}(&r_max_fps, max_fps);
     local_game.max_fps = (max_fps < MIN_DISPLAY_HZ) ? local_game.screen.displayHz : max_fps;
 	if(local_game.max_fps > MAX_DISPLAY_HZ) {
         local_game.max_fps = MAX_DISPLAY_HZ; // to prevent extreme values
@@ -3289,14 +3310,14 @@ $endif
 
 $if $feature(_DEBUG):
     // TODO(HM) On release version quit should only be done from main menu (or alt+f4...).
-    // NOTE(HM) This needs to run after initWindow,
     // it changes the default exit key (default was ESC key)
-    //rl::setExitKey(rl::KEY_F10);
     String key_name = settings_data.getString("keys", "quit", default_value: "KEY_ESCAPE");
-    rl::setExitKey(input::getKeyCodeFromStr(key_name));
+    rl::setExitKey(input::stringToKey(key_name));
+$else
+    rl::setExitKey(rl::KEY_NULL); // disable the ability to quit the window by pressing a key
+$endif
     log::tofile("Exit key set to: %s", key_name);
     log::tofile("---------------------------------------------\n");
-$endif
 
 // #endregion Window initialization
 
@@ -3652,6 +3673,10 @@ $endif
 
     if(fl_help.getBool())
     {
+        if(input::in_list_keys.getBool() == false)
+        {
+            input::in_list_keys.setBool(true);
+        }
         input::printKeyActions();
     }
 
@@ -3671,7 +3696,6 @@ $endif
     else {
         intro::play(&local_game.intro);
     }
-
 
     // Create the main Single Player
     // NOTE(HM) todo: the player and ingame entities should be created only at spawn of a level 
@@ -3846,7 +3870,6 @@ $endif
     $if $feature(BACKEND_RAYLIB) || $feature(BACKEND_RGFW):
         local_game.render.shutdown();
     $else
-        //rlgl::close();
         rl::closeWindow();
     $endif
 
@@ -3876,9 +3899,8 @@ $endif
     clear_game_singletons();
 
 	// save cvars marked as archive to config data (settings file below)
-	/*foreach(cv : cvar::cvars) {
-		cv.archive();
-	}*/
+	log::tofile( "Saving cvars to user.ini");
+	cvar::archive_cvars(&local_game.settings_data);
 
     //
     if(try local_game.settings_data.save())
@@ -4055,31 +4077,47 @@ fn void createGameInputActions(ConfigFile* settings_data) @MyInline @local
 {
     defer input::listActions();
 
+$if input::NEW_CODE_EXTENSIONS == 1:
+	input::createActions();
+$endif
+
     String key_name;
 
-    $if $feature(_DEBUG):
-    input::makeKeyboardAction("screenshots", rl::KEY_F2, rl::KEY_NULL, (ActionCallBack)&camview::moveScreenShots);
+$if $feature(_DEBUG):
+	int[] keys = input::getkeyCodesFrom("move_screenshots", settings_data);
+	if(keys.len > 0 && keys[0] != rl::KEY_NULL)
+	{
+    	input::makeKeyboardAction("move_screenshots", keys[0], keys[1], (ActionCallBack)&camview::moveScreenShots);
+	}
+	else
+	{
+    	input::makeKeyboardAction("move_screenshots", rl::KEY_F2, rl::KEY_LEFT_SHIFT, (ActionCallBack)&camview::moveScreenShots);
+	}
 $endif
 
 $if !$feature(_DEBUG):
     //input::makeKeyboardAction("quit", input::getKeyCodeFromStr(settings_data.getString("quit")), rl::KEY_NULL, (ActionCallBack)&input::quitGame);
 	input::@makeAction({.name = "quit", .kind = KEYBOARD, 
-		.key1 = input::getKeyCodeFromStr(settings_data.getString("quit")), 
+		.key1 = input::getkeycode("quit", settings_data), 
 		.func = (ActionCallBack)&quitGame});
 $endif
 
-    input::makeKeyboardAction("quicksave", input::getKeyCodeFromStr(settings_data.getString("keys", "quicksave")), rl::KEY_NULL, (ActionCallBack)&saveGame);
-    input::makeKeyboardAction("quickload", input::getKeyCodeFromStr(settings_data.getString("keys", "quickload")), rl::KEY_NULL, (ActionCallBack)&loadGame);
+    input::makeKeyboardAction("quicksave", input::getkeycode("quicksave", settings_data), func: (ActionCallBack)&saveGame);
+    input::makeKeyboardAction("quickload", input::getkeycode("quickload", settings_data), func: (ActionCallBack)&loadGame);
     
-    input::makeKeyboardAction("particles", rl::KEY_INSERT);
+    input::makeKeyboardAction("particles", input::getkeycode("particles", settings_data));
 
     // game main editor
-    input::makeKeyboardAction("toggle_editor", rl::KEY_F1, rl::KEY_LEFT_SHIFT);
+	keys = input::getkeyCodesFrom("toggle_editor", settings_data);
+	assert(keys.len > 0);
+    input::makeKeyboardAction("toggle_editor", keys[0], keys[1]);
 
     // mouse actions
-    input::makeMouseAction("Single Press", RLMouseButton.LEFT);
-    input::makeMouseAction("Double Press", RLMouseButton.LEFT);
-    // for the WIP game editor
+	RLMouseButton btn = input::getMouseBtnCode("mouse_single_press", settings_data);
+    input::makeMouseAction("mouse_single_press", btn);
+    //input::makeMouseAction("mouse_double_press", input::getMouseBtnCode("mouse_double_press", settings_data));
+    
+	// for the WIP game editor
     input::makeMouseAction("editor_select", RLMouseButton.LEFT, rl::KEY_LEFT_SHIFT);
 }
 
@@ -4497,13 +4535,17 @@ fn void set_user_settings(ConfigFile* settings, int* window_flags)
                                             vidbkd::clearWindowFlag(w_flag, rl::FLAG_WINDOW_UNDECORATED);
                                         }
                                     }
-                                case "maxFPS":
-                                    if( try value = cmd_value.to_int()) {
-                                        if(value > 0) {
+                                case "r_max_fps":
+                                    if( try value = cmd_value.to_int())
+									{
+                                        if(value > 0)
+										{
                                             r_max_fps.set(cmd_value);
                                             log::warning(FILE, "CVar 'r_max_fps' value got changed to %s by cmd %s of section %s.", cmd_value, cmd_id, section.name);
                                         }
-                                    } else {
+                                    }
+									else
+									{
                                         log::warning(FILE, "Unnable to convert value of cmd %s of section %s to integer.", cmd_id, section.name);
                                     }
                                 case "r_mode":

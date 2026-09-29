@@ -42,9 +42,11 @@ module engine::sys::cvar;
 // #region import modules
 import std::io;
 import std::collections::list;
+import std::os::win32;
 import engine::misc;
 //import engine::sys::cmd; still not fully implemented
 import engine::logging::log;
+import engine::platform::win32;
 import thirdparty::raylib5::rl;
 import game::main;
 import game::files::ini;
@@ -59,12 +61,13 @@ alias CvarList = List{CVar*};
 // end_region
 
 // region cvars
-CVar cmd_listCVars @public = { "cmd_listCVars", CvFlag.BOOL | CvFlag.CHEAT, "0", "print all cvars to the console." };
+CVar cmd_listCVars @public = { "cmd_listCVars", CvFlag.BOOL | CvFlag.CHEAT | CvFlag.SYSTEM, "0", "print all cvars to the console." };
 
 fn void register_cvars() @public 
 {
     @register(&cmd_listCVars);
 }
+
 // end_region
 
 // cvar flags (some are unnused...)
@@ -80,15 +83,13 @@ constdef CvFlag : inline uint
 	GAME		= @bit(7),	// game variable
 	TOOL		= @bit(8),	// tool variable
 	SYSTEM		= @bit(9),	// system variable
-	SERVERINFO	= @bit(10),	// sent from servers, available to menu
-	NETWORKSYNC	= @bit(11),	// cvar is synced from the server to clients
-	STATIC		= @bit(12),	// statically declared, not user created
-	CHEAT		= @bit(13),	// variable is considered a cheat
-	NOCHEAT		= @bit(14),	// variable is not considered a cheat
-	INIT		= @bit(15),	// can only be set from the command-line
-	ROM			= @bit(16),	// display only, cannot be set by user at all
-	ARCHIVE		= @bit(17),	// set to cause it to be saved to a config file
-	MODIFIED	= @bit(18)	// set when the variable is modified
+	SERVERINFO	= @bit(10),	// sent from servers, available to menu @unused
+	NETWORKSYNC	= @bit(11),	// cvar is synced from the server to clients @unused
+	CHEAT		= @bit(12),	// variable is considered a cheat
+	INIT		= @bit(13),	// can only be set from the command-line
+	ROM			= @bit(13),	// display only, cannot be set by user at all
+	ARCHIVE		= @bit(14),	// set to cause it to be saved to a config file
+	MODIFIED	= @bit(15)	// set when the variable is modified
 }
 
 struct CVar
@@ -118,6 +119,7 @@ struct CVar
     //CVar* next;
 }
 
+// global cvar list where all cvars are saved
 CvarList cvars;
 
 macro @register(#cvar) 
@@ -126,6 +128,20 @@ macro @register(#cvar)
 $if $feature(_DEBUG):
     io::printfn("[INFO] Registered CVar %s (%s).", #cvar.name, #cvar.description);
 $endif
+}
+
+<*
+	@param [&inout] cfg : "config memory data to save the cvars into"
+*>
+fn void archive_cvars(ConfigFile* cfg)
+{
+	if(cvars.len() > 0)
+	{
+		foreach(cvar : cvars)
+		{
+			archive(cvar, cfg);
+		}
+	}
 }
 
 /*
@@ -185,9 +201,9 @@ fn bool? saveCvarsToIniFile(ConfigFile* cfg)
 }*/
 
 <*
-	@ensure return >= 0
+	@ensure return > 0 && return <= 4
 *>
-fn int CVar.getBasicType(&self) @MyInline
+fn int CVar.getBasicType(&self) @inline
 {
     switch
     {
@@ -195,25 +211,31 @@ fn int CVar.getBasicType(&self) @MyInline
         case (bool)(self.flags & CvFlag.INT):    return 2;	
         case (bool)(self.flags & CvFlag.FLOAT):  return 3;
         case (bool)(self.flags & CvFlag.STRING): return 4;
-        default: return 0;
+        default: 
+			unreachable("Cvar '%s' has no valid type!", self.name);
     }
 }
 
 fn void print_used_flags(uint flags) @inline @local
 {
     int count;
-    foreach(flag : CvFlag::values) {
-		if(flags & flag) {
+    foreach(flag : CvFlag::values)
+	{
+		if(flags & flag)
+		{
 			count++;
 		}
 	}
 
 	if(count) 
 	{
-		foreach(i, flag : CvFlag::values) {
-			if(flags & flag) {
+		foreach(i, flag : CvFlag::values)
+		{
+			if(flags & flag)
+			{
 				io::printf("%s", CvFlag::names[i]);
-				if(count) {
+				if(count)
+				{
 					io::printf(" %c ", '|');
 					count -= 1;
 				}
@@ -224,13 +246,15 @@ fn void print_used_flags(uint flags) @inline @local
 
 fn void printCvars() @inline
 {
-	if(cvars.len() == 0) {
+	if(cvars.len() == 0)
+	{
 		io::printfn("No cvars registered.");
 		return;
 	}
 
 	io::printfn("\n============== CONSOLE/FLAGS VARS =====================");
-	foreach(cv: cvars) {
+	foreach(cv: cvars)
+	{
 		io::printf("%s :", cv.name); print_used_flags(cv.flags);
 		io::printfn("\t - desc: %s", cv.description);
 		io::printfn("\t - default: %s", (!(cv.flags & CvFlag.BOOL)) ? cv.value : misc::bool2str(cv.value == "1"));
@@ -367,8 +391,25 @@ fn String CVar.getString(&self, String default_value = "") @inline @nodiscard
     return self.value;
 }
 
+<*
+	test if is a cvar the user cannot modify a "ROM" cvar, 
+	rom like in memory you can only read from and not write to.
+	@param [&in] cvar : "console var being looked at"
+*>
+fn bool isRomCvar(CVar* cvar, bool warn = false) @local
+{
+	if((bool)(cvar.flags & CvFlag.ROM) == true)
+	{
+        if(warn) log::warning(FILE, "Trying to modify CVar %s but is set to ROM (not modifiable).", cvar.name);
+		return true;
+    }
+	return false;
+}
+
 fn CVar* CVar.set(&self, String value) @inline 
 {
+	if(isRomCvar(self)) return self;
+
     self.value = value.tcopy();
 $if $feature(_DEBUG):
     if(self.flags & CvFlag.BOOL) {
@@ -380,8 +421,30 @@ $endif
     return self;
 }
 
+<*
+	@param [&inout] cv : "the cvar to update"
+*>
+fn void set(CVar* cv, Type1 value) <Type1>
+{
+	switch(Type1)
+	{
+		case int:
+		case bool:
+		case float:
+		case String:
+    		cv.set(string::tformat("%s", value));
+		default:
+		{
+			String error = string::tformat("cannot set cvar '%s' value because type '%s' is not supported.", cv.name, Type1::name);
+			unreachable(error);
+		}
+	}
+}
+
 fn CVar* CVar.setBool(&self, bool value) @inline
 {
+	if(isRomCvar(self)) return self;
+
 $if $feature(_DEBUG):
     if(!(self.flags & CvFlag.BOOL)) {
         log::fatal(FILE, "Trying to set non bool CVar %s to bool value %s.", self.name, (self.value) ? "true" : "false");
@@ -392,61 +455,139 @@ $endif
 }
 
 <*
-    Archive console variables into the config file
-    @require game::pContext.settings_data.isValid()
+	Archive console variables into the config file
+	@param [&in] cv : "cvar to archive"
+	@param [&inout] cfg : "config file to archive to"
 *>
-fn void CVar.archive(&self)
+fn void archive(CVar* cv, ConfigFile* cfg) @local
 {
+	// don't archive console variables that the user shouldn't modify.
+	if(isRomCvar(cv)) return;
+
 	// don't archive console variables that are not marked to be so.
-	bool not_archive = (bool)(self.flags & CvFlag.ARCHIVE) == false;
-	if(not_archive) return;
+	if((bool)(cv.flags & CvFlag.ARCHIVE))
+	{
+		IniSection* section @noinit;
+		ConfigFile* settings = cfg;
 
-	IniSection* section @noinit;
-	ConfigFile* settings = &game::pContext.settings_data;
+		String sec_name;
+		switch {
+			case (bool)(cv.flags & CvFlag.SYSTEM):   sec_name = "system";
+			case (bool)(cv.flags & CvFlag.RENDERER): sec_name = "video";
+			case (bool)(cv.flags & CvFlag.SOUND):    sec_name = "sound";
+			case (bool)(cv.flags & CvFlag.GUI):      sec_name = "gui";
+			case (bool)(cv.flags & CvFlag.GAME):     sec_name = "game";
+			case (bool)(cv.flags & CvFlag.TOOL):     sec_name = "tool";
+			default: {
+				log::warning(FILE, "CVar.archive: Failed to set ini section name, unkown type flag");
+				sec_name = "misc";
+			}
+		}
 
-    String sec_name;
-    switch {
-        case (bool)(self.flags & CvFlag.SYSTEM):   sec_name = "system";
-        case (bool)(self.flags & CvFlag.RENDERER): sec_name = "video";
-        case (bool)(self.flags & CvFlag.SOUND):    sec_name = "sound";
-        case (bool)(self.flags & CvFlag.GUI):      sec_name = "gui";
-        case (bool)(self.flags & CvFlag.GAME):     sec_name = "game";
-        case (bool)(self.flags & CvFlag.TOOL):     sec_name = "tool";
-        default: {
-			log::warning(FILE, "CVar.archive: Failed to set ini section name, unkown type flag");
+		section = settings.hasSection(sec_name);
+		if(section == null)
+		{
+			section = settings.createSection(sec_name);
+		} 
+
+		if(section == null)
+		{
+			log::warning(FILE, "CVar.archive: Failed to set ini section '%s'.", sec_name);
 			return;
 		}
-    }
 
-	if(try section_ = settings.hasSection(sec_name)) {
-		//section = settings.getSection(sec_name);
-		// got the section or null but still go on
-		section = section_;
-	} else {
-		section = settings.createSection(sec_name)!!;
+		if(section.hasCmd(cv.name))
+		{
+			// just update the existing cmd value;
+			ini::setSectionValue(section, cv.name, cv.value, settings);
+		} 
+		else // create a new cmd for the section
+		{
+			ini::addCmdToSection(section, mem::new(IniCMD, {
+				.type = cv.getBasicType(),
+				.cmd  = {cv.name, cv.value}
+			}), settings);
+		}
 	}
-
-	if(section == null) {
-		log::warning(FILE, "CVar.archive: Failed to set ini section '%s'.", sec_name);
-		return;
-	}
-
-    if(section.hasCmd(self.name)) {
-        // just update the existing cmd value;
-        ini::setSectionValue(section, self.name, self.value, settings);
-    } 
-	else // create a new cmd for the section
-	{
-		ini::addCmdToSection(section, mem::new(IniCMD, {
-            .type = self.getBasicType(),
-            .cmd  = {self.name, self.value}
-        }), settings);
-    }
 }
 
-fn CVar* findCvar( String name ) @local @inline 
+fn void CVar.put_in_registry(&self) @if(env::WIN32)
 {
-    foreach( cvar : cvars ) {
+	if(isRomCvar(self)) return;
+
+	// don't archive console variables that are not marked to be so.
+	if((bool)(self.flags & CvFlag.ARCHIVE) == true)
+	{
+		Win32_HKEY? currentUserKey = win32::regOpenCurrentUser(win32::KEY_WRITE | win32::KEY_WOW64_64KEY);
+		if(catch excuse = currentUserKey)
+		{
+			log::warning(FILE, "Unable to open current user key from registry, see if you have required elevated permissions. : excuse > %s", excuse);
+		}
+		else
+		{
+			defer win32::regCloseKey(currentUserKey);
+
+			String sub_key = "Software";
+			Win32_HKEY? root = win32::regOpenKey(currentUserKey, sub_key, win32::KEY_WRITE);
+			if( catch excuse2 = root)
+			{
+				log::warning(FILE, "Failed to open key \"%s\" inside registry 'HKEY_CURRENT_USER' with: excuse > %s", sub_key, excuse2);
+			} 
+			else
+			{
+				defer win32::regCloseKey(root);
+
+				String reg_key   = "HMartSoftware\\unnnamed\\settings\\";
+				Win32_DWORD sam  = win32::KEY_WRITE | win32::KEY_WOW64_64KEY;
+				Win32_HKEY folder_key;
+
+				bool? rs = win32::regCreateKey(root, reg_key, 0, sam, &folder_key);
+				if(catch excuse3 = rs)
+				{
+					log::warning(FILE, "Failed to create key \"%s\" inside registry 'HKEY_CURRENT_USER/Software' key with: excuse > %s", reg_key, excuse3);
+				} 
+				else
+				{
+					defer win32::regCloseKey(folder_key);
+
+					typeid type = Win32_DWORD;
+					bool sucess = true;
+					switch {
+						case (bool)(self.flags & CvFlag.BOOL):
+						case (bool)(self.flags & CvFlag.INT):
+							int value = self.value.to_int()!!;
+							if(win32::regSetValue(folder_key, self.name, any_make(&value, String)) != win32::ERROR_SUCCESS)
+							{
+								sucess = false;
+							}
+						case (bool)(self.flags & CvFlag.FLOAT):
+							float value = self.value.to_float()!!;
+							if(win32::regSetValue(folder_key, self.name, any_make(& value, String)) != win32::ERROR_SUCCESS)
+							{
+								sucess = false;
+							}
+						case (bool)(self.flags & CvFlag.STRING):
+							if(win32::regSetValue(folder_key, self.name, any_make(&self.value, String)) != win32::ERROR_SUCCESS)
+							{
+								sucess = false;
+							}
+						default: unreachable();
+					}
+
+					if(sucess == false)
+					{
+						log::warning(FILE, "failed to write %s to registry.", self.name);
+					}
+				}
+			}
+		}
+	}
+}
+
+fn CVar* findCvar( String name ) @local @inline
+{
+    foreach( cvar : cvars )
+	{
         if ( cvar.name == name ) {
             return cvar;
         }
@@ -455,7 +596,8 @@ fn CVar* findCvar( String name ) @local @inline
 }
 
 
-fn String getCVarString( String name ) @inline {
+fn String get_string( String name ) @inline
+{
     CVar* internal = findCvar( name );
     if ( internal ) {
         return internal.getString();
@@ -463,7 +605,8 @@ fn String getCVarString( String name ) @inline {
     return "";
 }
 
-fn bool getCVarBool( String name ) @inline {
+fn bool get_bool( String name ) @inline
+{
     CVar* internal = findCvar( name );
     if ( internal ) {
         return internal.getBool();
@@ -471,7 +614,8 @@ fn bool getCVarBool( String name ) @inline {
     return false;
 }
 
-fn int getCVarInteger( String name ) @inline {
+fn int get_int( String name ) @inline
+{
     CVar* internal = findCvar( name );
     if ( internal ) {
         return internal.getInt();
@@ -479,7 +623,8 @@ fn int getCVarInteger( String name ) @inline {
     return 0;
 }
 
-fn float getCVarFloat( String name ) @inline {
+fn float get_float( String name ) @inline
+{
     CVar* internal = findCvar( name );
     if ( internal ) {
         return internal.getfloat();
@@ -488,7 +633,8 @@ fn float getCVarFloat( String name ) @inline {
 }
 
 
-fn bool command( String[] args ) {
+fn bool command( String[] args )
+{
 	CVar *internal = findCvar( args[0]);
 
 	if ( internal == null ) {

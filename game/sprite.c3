@@ -509,7 +509,7 @@ fn bool HMSprite.notActive(&self) @inline
     return !self.flags.isActive;
 }
 
-fn void HMSprite.update(&self) @dynamic
+fn void HMSprite.onUpdate(&self) @dynamic
 {
     if(self.flags.isHidden) return;
     

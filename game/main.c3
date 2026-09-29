@@ -39,7 +39,7 @@ import game::intro;
 import engine::misc;
 import engine::sys::version;
 import engine::logging::log;
-import engine::filesystem::fs::win32;
+import engine::platform::win32;
 // third party libraries
 import thirdparty::raylib5::rl;
 import thirdparty::tracy;

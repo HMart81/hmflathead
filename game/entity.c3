@@ -41,6 +41,7 @@ import engine::misc;
 import game::assets::sprite;
 import game::material::mat; // material system
 import engine::serialize::svs; // save system
+import game::sys::update;
 import engine::sys::cvar;
 import game::lowlevel::bounds;
 import engine::physics::box2d;
@@ -171,9 +172,6 @@ fn void HMEntity.init(&self, String aname, Vec2f origin, RLColor color = rl::WHI
 	if(self.shouldSkip(aname)) return;
 	
 	self.type = HMEntity;
-
-	self.health     = self.spawnargs.getInt("health")!!;
-	self.max_health = self.spawnargs.getInt("maxhealth")!!;
 	
 	sz entity_count = game::pContext.entityList.len();
 	self.id = (int)entity_count + 1;
@@ -247,6 +245,7 @@ $endif
 	box2d::createPolygonShape(self.physics, &shapeDef, &dynamicBox);
 	$endif
     
+	self.onSpawn();
 	self.born(); // set the entity as alive, so it can be used
 	self.updateVisuals();
 }
@@ -783,7 +782,6 @@ fn void HMEntity.becomeActive(&self, int flags)
 	}
 }
 
-
 fn void HMEntity.move(&self)
 {
 	if(self.hidden()) return;
@@ -802,6 +800,14 @@ fn void HMEntity.move(&self)
 	$else
 	// todo movement not based on Box2D physics but inhouse one
 	$endif
+}
+
+fn void HMEntity.onSpawn(&self)
+{
+	// this is diferent from init()
+	// this should run when the entity is first spawn in a level
+	self.health     = self.spawnargs.getInt("health")!!;
+	self.max_health = self.spawnargs.getInt("maxhealth")!!;
 }
 
 fn void HMEntity.think(&self, float dt) // update in other engines
@@ -830,7 +836,7 @@ fn void HMEntity.updateVisuals(&self)
 	self.becomeActive(EntTh.UPDATEVISUALS);
 }
 
-fn void HMEntity.draw(&self) 
+fn void HMEntity.onDraw(&self) @dynamic 
 {
 	if(self.hidden()) return;
 	if(self.isDead()) 

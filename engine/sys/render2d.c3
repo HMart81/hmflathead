@@ -41,13 +41,13 @@ import game::assets::sprt;
 import game::main;
 import thirdparty::raylib5::rl;
 
-fn void drawPixel(int posX, int posY, RLColor color) @inline 
+fn void drawPixel(int posX, int posY, RLColor color = rl::RED) @inline 
 {
     rl::drawPixel(posX, posY, color);
 }
 
 // Draw a pixel (Vector version)
-fn void drawPixelV(RLVector2 position, RLColor color) @inline 
+fn void drawPixelV(RLVector2 position, RLColor color = rl::RED) @inline 
 {
     rl::drawPixelV(position, color);
 }

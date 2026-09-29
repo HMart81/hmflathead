@@ -34,15 +34,11 @@ import thirdparty::raylib5::rl;
 
 const TRACY_ENABLE_ZONE @if($feature(TRACY_ENABLE)) = 1;
 
-
-/////////////////////////////////////////////////////////////////////
-////////////////// region PROFILING /////////////////////////////////
-/////////////////////////////////////////////////////////////////////
-// todo make this into a internal module?
 <*
   @require rl::isWindowReady() == true : "right now window most be initialized for Profiling to work"
 *>
-macro @profile_zone(String name, $x = ON; @body()) @builtin {
+macro @profile_zone(String name, $x = ON; @body()) @builtin
+{
 $if $feature(_PROFILE):
     $if $x == ON:
         var start_time = rl::getTime(); // in seconds
@@ -64,39 +60,3 @@ $if $feature(_PROFILE):
 $endif
     @body();
 }
-
-// deprected functions
-<*
-  @require rl::isWindowReady() == true : "right now window most be initialized for Profiling to work"
-*>
-macro float @start_profile_zone() @builtin @deprecated("Use @profile_zone macro instead") {
-    return 0.0f;
-/*
-$if $feature(PROFILE):
-    var ms = (float)rl::getTime() * 1000.0f;
-    return ms;
-$else
-    return 0.0f;
-$endif
-*/
-}
-
-<*
- @require rl::isWindowReady() == true : "right now window most be initialized for Profiling to work"
-*>
-macro @end_profile_zone(#start_time) @builtin @deprecated("Use @profile_zone macro instead") {
-/*
-$if $feature(PROFILE):
-        var ms    = (float)rl::getTime() * 1000.0f;
-        var value = math::abs(math::ceil(#start_time /*in ms*/ - ms));
-        bool print_sec = false;
-        if(value >= 1000.0f) {
-            value = value / 1000.0f;
-            print_sec = true;
-        }
-        //game::pContext.gameView.pushDebugText("Performance zone:\n [%s] = %s %s", name, value, (print_sec) ? "sec" : "ms");
-        io::printfn("Performance zone:\n [%s] = %s %s", $$FUNC, value, (print_sec) ? "sec" : "ms");
-$endif
-*/
-}
-// end_region PROFILING //////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -49,7 +49,7 @@ import engine::input;
 import game::assets::sprite;
 import game::actors::ent::plyr; // player
 import engine::filesystem::fs;
-import thirdparty::raylib5::rl;
+import thirdparty::raylib5::rl, thirdparty::raylib5::rlgl;
 import thirdparty::raygui5::rgui;
 import engine::sys::render2d::r2d;
 import thirdparty::raylib5::rmath;
@@ -884,7 +884,7 @@ $endif
                     ent.hide();
                 }
 				
-                ent.draw();
+                ent.onDraw();
             }
         }
         
