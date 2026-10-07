@@ -178,35 +178,39 @@ constdef Token : inline String @local
 alias ListIniSectionPrts @local = List{IniSection*};
 alias ListIniCMDPrts     @local = List{IniCMD*};
 alias IniCmdData         @local = Pair{String, String};
-alias pgame               @local = game::pContext;
+alias pgame              @local = game::pContext;
 
-
-struct Config_Flags @local  // flags used to store config file state
-{
-    bool is_modified; // if the config file has been modified since it was loaded
-}
 
 <*
-* DOC Final parsed config data used by the engine
+    DOC: ConfigFile is a data structure,
+    created and populated at game start,
+    to save in RAM the data saved in the 
+    user.ini file. 
+    To later be used by the engine and game.
 *>
 struct ConfigFile
 {
+    struct flags // if the config data in RAM has been modified in any way.
+    {
+        bool is_modified;
+    }
     String path; // the path to the config file
     ListIniSectionPrts sections; // all the sections that makeup the ini file
-    Config_Flags flags; // if the config file has been modified since it was loaded
 }
 
 fn bool ConfigFile.isValid(&self) @inline
 {
-    return self.sections.is_empty() == false;
+    return (self.path.len > 0 && self.sections.len() > 0);
 }
 
 <*
-  @param [&in] section : "a new section adress to save into the section adresses list"
+  @param [&inout] section : "a new section adress to save into the section adresses list"
 *>
 fn void ConfigFile.register(&self, IniSection* section) @inline
 {
+	section.file = self;
     self.sections.push(section);
+	self.markModified(); // mark the config as modified
 }
 
 <*
@@ -222,7 +226,7 @@ fn IniSection* ConfigFile.createSection(&self, String name) @nodiscard
         return section;
     }
 
-    // create a new section and register it
+    // else create a new section and register it
     section = mem::new(IniSection, { .name = name });
     self.register(section);
     return section;
@@ -270,17 +274,21 @@ fn void ConfigFile.addSectionTofile(&self, IniSection* section) @inline
 */
 
 <*
-  @param [in] name : " name of the new section to get"
+  @param [in] name : "name of the section to retrieve"
 *>
 fn IniSection* ConfigFile.getSection(&self, String name)
 {
     foreach(section : self.sections)
 	{
-        if(section.name == name) {
+        if(section.name == name)
+		{
             return section;
-        } 
-		else if(section.isLinked()) { // first section name didn't match see if it's child is the one
-            if(section.next.name == name) {
+        }
+		// first section name didn't match see if it's child section instead.
+		else if(section.isLinked())
+		{
+            if(section.next.name == name)
+			{
                 return section.next;
             }
         }
@@ -290,38 +298,43 @@ fn IniSection* ConfigFile.getSection(&self, String name)
 }
 
 <*
-  @param [in] name : " name of the new section to look for"
+  @param [in] name : "name of the section to look for"
 *>
 fn IniSection* ConfigFile.hasSection(&self, String name) => self.getSection(name);
 
 <*
   @param [&in] section : "section to look for"
 *>
-fn bool? ConfigFile.hasSectionItem(&self, IniSection* section) => self.sections.contains(section);
+fn bool? ConfigFile.containsSection(&self, IniSection* section) => self.sections.contains(section);
 
 
 <*
-    @param [in] name : `The section name to add the cmd to`
+    @param [in] name : `The name of the section`
     @param [&in] _cmd : `The cmd to add to the section`
     @require name != ""
 *>
 fn void ConfigFile.addToSectionByName(&self, String name, IniCMD* _cmd)
 {
-    if(try self.hasSection(name))
+	IniSection* section = self.hasSection(name);
+    if(section != null)
     {
-        IniSection*? section = self.getSection(name);
-		if(catch excuse = section) {
-			log::error(FILE, "failed to get section to add cmd %s!", _cmd.cmd.first);
-			return;
-		}
-
-        if(section.isLinked()) {
-            section.next.register(_cmd); // register the cmd to the child section cmds
-        } else {
-            section.register(_cmd); // register the cmd to the current section cmds
+        if(section.isLinked())
+		{
+            section.next.add_cmd(_cmd); // register the cmd to the child section cmds
         }
-        self.markModified(); // mark the config as modified
+		else
+		{
+            section.add_cmd(_cmd); // register the cmd to the current section cmds
+        }
     }
+	else
+	{
+		section = self.createSection(name);
+		assert(section != null);
+		section.add_cmd(_cmd);
+		log::error(FILE, "failed to get section to add cmd %s!", _cmd.cmd.first);
+		return;
+	}
 }
 
 <*
@@ -330,12 +343,14 @@ fn void ConfigFile.addToSectionByName(&self, String name, IniCMD* _cmd)
 *>
 fn void ConfigFile.addToSection(&self, IniSection* section, IniCMD* cmd)
 {
-    if(section.isLinked()) {
-        section.next.register(cmd); // register the cmd to the child section cmds
-    } else {
-        section.register(cmd); // register the cmd to the current section cmds
+    if(section.isLinked())
+	{
+        section.next.add_cmd(cmd); // register the cmd to the child section cmds
     }
-    self.markModified(); // mark the config as modified
+	else
+	{
+        section.add_cmd(cmd); // register the cmd to the current section cmds
+    }
 }
 
 <*
@@ -346,16 +361,17 @@ fn void ConfigFile.addToSection(&self, IniSection* section, IniCMD* cmd)
 fn void addCmdToSection(IniSection* section, IniCMD* cmd, ConfigFile* cfg)
 {
     if(section.isLinked()) {
-        section.next.register(cmd); // register the cmd to the child section cmds
+        section.next.add_cmd(cmd); // register the cmd to the child section cmds
     } else {
-        section.register(cmd); // register the cmd to the current section cmds
+        section.add_cmd(cmd); // register the cmd to the current section cmds
     }
     cfg.markModified(); // mark the config as modified
 }
 
 fn void ConfigFile.freeChildSections(&self)
 {
-    foreach(section : self.sections) {
+    foreach(section : self.sections)
+	{
         if(section.isLinked()) {
             section.freeChild(); // free the child section cmds and data
         }
@@ -436,7 +452,10 @@ fn float? ConfigFile.getFloat(&self, String section_name, String key, float defa
 	IniSection* sect = self.hasSection(section_name);
 	if(sect != null)
 	{
-		return sect.getCmd(key)!.toFloat()!;
+		IniCMD* cmd = sect.getCmd(key);
+		if(cmd == null) return default_value;
+
+		return cmd.toFloat()!;
 	}
 	
 	ListIniCMDPrts* child_cmds;
@@ -484,12 +503,15 @@ fn int? ConfigFile.getInt(&self, String section_name, String key, int default_va
 	IniSection* sect = self.hasSection(section_name);
 	if(sect != null)
 	{
-		return sect.getCmd(key)!.toInt()!;
+		IniCMD* cmd = sect.getCmd(key);
+		if(cmd == null) return default_value;
+
+		return cmd.toInt()!;
 	}
 	
 	ListIniCMDPrts* child_cmds;
 
-    foreach(section : self.sections) 
+    foreach(section : self.sections)
     {
         // if the section is linked, we need to loop the child section cmds instead
         if(section.isLinked())
@@ -662,13 +684,16 @@ fn void ConfigFile.setValue(&self, String key, String value)
     foreach(section : self.sections)
     {
         // if the section is linked, we need to use the child section cmds
-        if(section.isLinked()) {
+        if(section.isLinked())
+		{
             cmds = &section.next.cmds; // use the child section cmds
-        } else {
+        }
+		else
+		{
             cmds = &section.cmds; // use the current section cmds
         }
 
-        foreach(inicmd : *cmds) 
+        foreach(inicmd : cmds)
         {
             if(inicmd.cmd.first == key) 
             {
@@ -839,28 +864,55 @@ fn void ConfigFile.setString(&self, String key, String value)
     self.setValue(key, value);
 }
 
-// DOC IniSection is a section in the ini file, 
-// [section_name.child_section_name] it can have child sections and
-// it can have commands (cmds) registered to it.
-// When a section has a child section, the cmds are not registered to the parent section,
-// but to the child section, the parent section only serves as a link/path to the real section
-// where the cmds will be saved.
+/* 
+    DOC: 
+    IniSection represents in RAM, a section in the ini file,
+    a section is comprised of a section name/s within '[' ']'
+    ex: [name] or [parent_name.child_name]
+    After a section name, comes the key value pair commands, 
+    registered to that section.
+    When a section, has a child section, seperated by a comma, 
+    commands/variables are not registered to the parent section, 
+    but the child section, in this case the parent section only 
+    serves as a link to the child section, where the cmds are 
+    really registered.
+    Child sections are supported, because sometimes you want sections
+    with diferent names, but under the umbrella of a single parent.
+*/
 struct IniSection
 { 
     String name;
     ListIniCMDPrts cmds;
     
+	ConfigFile* file; // pointer to the config file data in case is needed...
     bool linked;
     IniSection* next;
 }
 
 <*
-  @param [&in] cmd : "a new cmd adress to save into the cmd adresses list"
+  @param [&in] cmd : "a new cmd adress to save into the section cmd adresses list"
 *>
-fn void IniSection.register(&self, IniCMD* cmd) @inline
+fn void IniSection.register(&self, IniCMD* cmd)
 {
     self.cmds.push(cmd);
+    if(self.file)
+    {
+        self.file.markModified(); // mark the config as modified
+    }
+    else if(self.isLinked())
+    {
+        self.next.file.markModified(); // mark the config as modified
+    }
+    else
+    {
+        unreachable("IniSection with no link to the ConfigFile!");
+    }
 }
+
+<*
+  @param [&in] cmd : "a new cmd adress to save into the cmd adresses list"
+*>
+fn void IniSection.add_cmd(&self, IniCMD* cmd) @inline => self.register(cmd);
 
 <*
   @param [&inout] file : "the file to write to"
@@ -939,11 +991,12 @@ fn void? writeSectionCmds(IniSection* section, INIFile* file) @local @MyInline
 
 
 <*
-  	@param [&in] other : "pointer to another section to link to the first one"
+  	@param [&inout] other : "pointer to another section to link to the first one"
 *>
 fn void IniSection.link(&self, IniSection* other) @inline
 {
     self.next   = other;
+    if(other.file == null) other.file = self.file;
     self.linked = true;
 }
 
@@ -963,13 +1016,16 @@ fn void IniSection.freeChild(&self) @inline
     if(!self.isLinked()) return;
     
     // first free the child section cmds data if any
-    if(self.next.cmds.len()) {
-        foreach(cmd : self.next.cmds) {
+    if(self.next.cmds.len())
+	{
+        foreach(cmd : self.next.cmds)
+		{
             mem::free(cmd);
         }
     }
     // then free the child section data itself
     mem::free(self.next);
+	self.file.markModified();
 }
 
 <*
@@ -1000,23 +1056,28 @@ fn IniCMD* IniSection.hasCmd(&self, String key)
     Gets a cmd from a ini section
     @param [in] key : "cmd name"
 *>
-fn IniCMD*? IniSection.getCmd(&self, String key)
+fn IniCMD* IniSection.getCmd(&self, String key)
 {
+	if(self.cmds.len() == 0) return null;
+
     ListIniCMDPrts* cmds;
     if(self.isLinked()) 
     {
         cmds = &self.next.cmds; // use the child section cmds
-    } else {
+    } 
+	else
+	{
         cmds = &self.cmds; // use the current section cmds
     }
 
-    foreach(it : cmds) {
+    foreach(it : cmds)
+	{
         if(it.cmd.first == key) {
             return it;
         }
     }
     
-    return FAILED_SECTION_CMD_RETRIVAL~;
+    return null;
 }
 
 struct IniCMD 
@@ -1278,9 +1339,9 @@ fn void parse_section_cmd(String line, ConfigFile* file) @local
     // now register the cmd to the last section in the file
     IniSection* last_section_ptr = (*file).sections.last()!!;
     if(last_section_ptr.isLinked()) {
-        last_section_ptr.next.register(cd); // register the cmd to the child section cmds
+        last_section_ptr.next.add_cmd(cd); // register the cmd to the child section cmds
     } else {
-        last_section_ptr.register(cd);
+        last_section_ptr.add_cmd(cd);
     }
 }
 

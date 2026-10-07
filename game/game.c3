@@ -144,6 +144,7 @@ constdef PerfOption : inline int
 CVar developer        @public = { "developer"     , CvFlag.BOOL | CvFlag.TOOL | CvFlag.CHEAT | CvFlag.SYSTEM,   "0",     "enables developer mode"};
 CVar editor           @public = { "editor"        , CvFlag.BOOL | CvFlag.TOOL | CvFlag.TOOL,   "0",     "enables the game editor (requires developer mode)"};
 CVar r_mode           @public = { "r_mode"        , CvFlag.INT | CvFlag.ARCHIVE | CvFlag.RENDERER,    "-1",    "index of window resolution [0 to 32], -1 = ini file setting"};
+CVar r_msaa           @public = { "r_msaa"        , CvFlag.BOOL | CvFlag.ARCHIVE | CvFlag.RENDERER,    "1",    "tries to enable 4x msaa if possible to smooth geometry edges"};
 CVar r_showFPS        @public = { "r_showFPS"     , CvFlag.BOOL | CvFlag.ARCHIVE | CvFlag.RENDERER,   "1",     "draws framerate on screen"};
 CVar g_showSplashPic  @public = { "g_showSplashPic", CvFlag.BOOL | CvFlag.ARCHIVE | CvFlag.GAME,   "0",     "enables the splash image at game start"};
 CVar r_fullscreen     @public = { "r_fullscreen"  , CvFlag.INT | CvFlag.ARCHIVE | CvFlag.RENDERER,    "-1",    "screen mode 0 = window, 1 = borderless, 2 = dedicated, -1 = ini file setting"};
@@ -163,6 +164,7 @@ fn void register_cvars() @inline @local
     cvar::@register(&developer);
     cvar::@register(&editor);
     cvar::@register(&r_mode);
+    cvar::@register(&r_msaa);
     cvar::@register(&r_showFPS);
     cvar::@register(&g_showSplashPic);
     cvar::@register(&r_fullscreen);
@@ -447,11 +449,11 @@ struct Game (SaveSystemInterface) @local
             bool fullscreen;
             bool borderless;
             bool vsync_hint;
+            bool msaa_hint;
 			bool changed;
         }
 
         int  displayHz;
-        int  multiSamples; // MSAA
     }
 
     List{HMEntity*} entityList; // list of all entities in the game, used to iterate all entities every frame
@@ -861,56 +863,103 @@ fn RLFont* Game.getfont(&self, String font_name) @MyInline
 	}
 }
 
-fn void? Game.loadDefaultAssets(&self) 
+// TODO(HM) change this to use HMShader when possible please!!
+<*
+	Sets the custom uniforms texture samples necessary for all shaders
+	@param [&inout] shader : "the shader to update"
+*>
+fn void set_uniform_shader_Textures(RLShader* shader) @local
+{
+	int layout_loc;
+
+	// Give basic textures to the current shader
+	layout_loc = shader.getUniformLocation("default_tex");
+	shader.setValue(layout_loc, &local_game.default_texture, RLShdUniTyp.SAMPLER2D);
+	layout_loc = shader.getUniformLocation("white_tex");
+	shader.setValue(layout_loc, &local_game.tex_white, RLShdUniTyp.SAMPLER2D);
+	layout_loc = shader.getUniformLocation("black_tex");
+	shader.setValue(layout_loc, &local_game.tex_black, RLShdUniTyp.SAMPLER2D);
+	layout_loc = shader.getUniformLocation("gray_tex");
+	shader.setValue(layout_loc, &local_game.tex_gray, RLShdUniTyp.SAMPLER2D);
+}
+
+// TODO(HM) change this to use HMShader when possible please!!
+<*
+	Sets the custom uniforms time variables necessary for all shaders
+	@param [&inout] shader : "the shader to update"
+*>
+fn void set_uniform_shader_timing(RLShader* shader) @local
+{
+	int layout_loc;
+
+	// Give basic textures to the current shader
+	layout_loc = shader.getUniformLocation("time");
+	shader.setValue(layout_loc, &local_game.time_sec, RLShdUniTyp.FLOAT);
+	layout_loc = shader.getUniformLocation("dt");
+	shader.setValue(layout_loc, &local_game.dt, RLShdUniTyp.FLOAT);
+}
+
+// TODO(HM) change this to use HMShader when possible please!!
+<*
+	Sets the custom uniforms screen variables necessary for all shaders
+	@param [&inout] shader : "the shader to update"
+	@require local_game.screen.w > 0 && local_game.screen.h > 0
+*>
+fn void set_uniform_shader_screen(RLShader* shader) @local
+{
+	int layout_loc;
+
+	// Give basic textures to the current shader
+	layout_loc = shader.getUniformLocation("resolution");
+	shader.setValueV(layout_loc, (Vec2f*)&local_game.screen.size, RLShdUniTyp.VEC2, 1);
+}
+
+fn void? loadDefaultAssets() @local
 {
     // get required default game texture
-    self.default_texture = rl::loadTexture(self.app_base_folder.tconcat("images/default.png").zstr_tcopy());
-    if(self.default_texture.isInvalid()) {
+    local_game.default_texture = rl::loadTexture(local_game.app_base_folder.tconcat("images/default.png").zstr_tcopy());
+    if(local_game.default_texture.isInvalid()) {
         log::fatal(FILE, "Required asset: images//default.png failed to load!");
         return GAME_MISSING_REQUIRED_ASSET~;
     }
     
     RLImage white = rl::genImageColor(32, 32, rl::WHITE);
-    self.tex_white = rl::loadTextureFromImage(white);
+    local_game.tex_white = rl::loadTextureFromImage(white);
     rl::unloadImage(white);
     
     RLImage black = rl::genImageColor(32, 32, rl::BLACK);
-    self.tex_black = rl::loadTextureFromImage(black);
+    local_game.tex_black = rl::loadTextureFromImage(black);
     rl::unloadImage(black);
     
     RLImage gray = rl::genImageColor(32, 32, rl::GRAY);
-    self.tex_gray = rl::loadTextureFromImage(gray);
+    local_game.tex_gray = rl::loadTextureFromImage(gray);
     rl::unloadImage(gray);
     
-    // get required default game shader
-    /*self.default_shader = rl::loadShader(
-        self.app_base_folder.tconcat("shaders//default.vs").zstr_tcopy(),
-        self.app_base_folder.tconcat("shaders//default.fs").zstr_tcopy()
-    );*/
-    self.default_shader = glsl::loadShader(
-        self.app_base_folder.tconcat("shaders/default.vs"),
-        self.app_base_folder.tconcat("shaders/default.fs")
+    local_game.default_shader = glsl::loadShader(
+        local_game.app_base_folder.tconcat("shaders/default.vs"),
+        local_game.app_base_folder.tconcat("shaders/default.fs")
     );
-    if(rl::isShaderValid(self.default_shader) == false) {
-        log::fatal(FILE, "Required default shader not found in folder %s!", self.app_base_folder.tconcat("/shaders"));
+
+    if(rl::isShaderValid(local_game.default_shader))
+	{
+		local_game.current_global_shader = &local_game.default_shader;
+
+		// set shader gloabl uniforms
+		set_uniform_shader_Textures(local_game.current_global_shader);
+		set_uniform_shader_timing(local_game.current_global_shader);
+		set_uniform_shader_screen(local_game.current_global_shader);
+	}
+	else
+	{
+        log::fatal(FILE, "Required default shader not found in folder %s!", local_game.app_base_folder.tconcat("/shaders"));
         return GAME_MISSING_REQUIRED_ASSET~;
     }
-    
-    /*int test_tex_loc = rl::getShaderLocation(self.default_shader, "texture0");
-    rl::setShaderValue(
-        local_game.default_shader, 
-        test_tex_loc, 
-        &local_game.default_texture,
-        RLShdUniTyp.SAMPLER2D);*/
-    self.current_global_shader = &self.default_shader;
-    //self.current_global_shader.locs[RLShdLocInd.MAP_ALBEDO] = test_tex_loc;
-    //
-        
+
     // load required default sound
-    self.default_sound = rl::loadSound(self.app_base_folder.tconcat("sounds/default.wav").zstr_tcopy());
-    if(rl::isSoundValid(self.default_sound)) {
+    local_game.default_sound = rl::loadSound(local_game.app_base_folder.tconcat("sounds/default.wav").zstr_tcopy());
+    if(rl::isSoundValid(local_game.default_sound)) {
         //$if $feature(_DEBUG):
-            //if(rl::isAudioDeviceReady()) rl::playSound(self.default_sound);
+            //if(rl::isAudioDeviceReady()) rl::playSound(local_game.default_sound);
         //$endif
     } else {
         log::fatal(FILE, "Required default asset: \"sounds/default.wav\" failed to load!");
@@ -918,8 +967,8 @@ fn void? Game.loadDefaultAssets(&self)
     }
     
     // load required default music
-    self.default_music = rl::loadMusicStream(self.app_base_folder.tconcat("music//default.mp3").zstr_tcopy());
-    if(rl::isMusicValid(self.default_music) == false) {
+    local_game.default_music = rl::loadMusicStream(local_game.app_base_folder.tconcat("music//default.mp3").zstr_tcopy());
+    if(rl::isMusicValid(local_game.default_music) == false) {
         log::fatal(FILE, "Required default asset: \"music/default.mp3\" failed to load!");
         return GAME_MISSING_REQUIRED_ASSET~;
     }
@@ -1342,9 +1391,11 @@ fn void onUpdate() @local
         // make game run at lower rate in case window loses focus
 		int runningHz = (int)local_game.render.getFPS();
 		int max_fps   = local_game.max_fps;
-		if(max_fps <= 0) {
+		if(max_fps <= 0)
+        {
 			max_fps = math::clamp(local_game.max_fps, MIN_DISPLAY_HZ, local_game.screen.displayHz);
 		}
+
 		int targetHz = (local_game.fps_unlocked && max_fps > 0) ? max_fps : local_game.screen.displayHz;
 		if(rl::isWindowFocused())
 		{
@@ -1365,32 +1416,36 @@ fn void onUpdate() @local
         //////////
 
 
-		if(local_game.screen.state.changed) {
-			local_game.default_shader_resolution_loc = local_game.default_shader.getUniformLocation("resolution");
-			local_game.default_shader.setValue(local_game.default_shader_resolution_loc, &local_game.screen.size, RLShdUniTyp.VEC2);
+		if(local_game.screen.state.changed)
+        {
+            set_uniform_shader_screen(local_game.current_global_shader);
 		}
         
         input::manager.update();
         gameHandleGeneralControls();
 
-        if(rl::getMouseDelta().length_sq() > 0) {
+        if(rl::getMouseDelta().length_sq() > 0)
+        {
             local_game.mouse_window_pos = rl::getMousePosition(); // pixel coordinates, top left origin
         }
 
-		$if $feature(VIDEO_PLAYBACK_ENABLE):
-            if(local_game.mode != INTRO) {
-                // intro does its own video timing
-                vidCabinet.update();
-            }
-		$endif
+    $if $feature(VIDEO_PLAYBACK_ENABLE):
+        if(local_game.mode != INTRO)
+        {
+            // intro does its own video timing
+            vidCabinet.update();
+        }
+    $endif
 
-        if(editor.getBool()) {
+        if(editor.getBool())
+        {
             tools::update(&local_game.editor);
         }
         
         // physics engine
 		$if $feature(PHYSICS_BOX2D):
-        if(local_game.pause_phys_simulation == false && rl::isWindowFocused()) {
+        if(local_game.pause_phys_simulation == false && rl::isWindowFocused())
+        {
 			//float deltaTime = rl::getFrameTime();
 			local_game.physWorldId.step(local_game.phys_time_step, local_game.phys_substep_count);
         }
@@ -1401,7 +1456,8 @@ $if $defined(SCRIPT_ENGINE):
         local_game.script_eng.update();
 $endif
         
-		if(local_game.current_sound_world) {
+		if(local_game.current_sound_world)
+        {
             local_game.current_sound_world.update();
         }
         
@@ -1726,9 +1782,12 @@ fn void onDraw(int screenWidth, int screenHeight) @local
             //rl::clearBackground(*(RLColor*)&&((uint[1]){ 0x181818FF }));
 
             // 2) render the view FBO's rendered above into the back buffer
-			if(local_game.view.enable_grayscale) {
+			if(local_game.view.enable_grayscale)
+            {
 				local_game.current_global_shader = &local_game.view.grayscale.shader;
-			} else {
+			}
+            else
+            {
 				local_game.current_global_shader = &local_game.default_shader;
 			}
 
@@ -1763,11 +1822,12 @@ fn void onDraw(int screenWidth, int screenHeight) @local
         $endif
         
         // NOTE(HM) 1)
-        // drawing after the frame buffer are swapped/updated
-        // NOTE(HM) 2)
-        // Not sure this is usefull for, I saw this function when studing 
-        // the HPL1 engine from where I got some of the ideas, 
-        // so just here for the time I understand and have use for this.
+        // drawing after the frame buffers are swapped/updated
+        // Not really sure why do that, it will not display on screen,
+        // but I saw this function when reading the HPL1 engine source, 
+        // from where I got some ideas. This does nothing for now, 
+        // exactly like it didn't in HPL1...
+        // But is here for the time being, untill I learn what to use it for.
         onPostBufferSwap();
     }; // profile_zone
 }
@@ -2273,11 +2333,13 @@ fn void handle_cmdline_new(String[] args)
 			int i = (int)arg_index;
             String next = args[i + 1];
 
-            if(next.starts_with(COMMAND_CHAR)) {
+            if(next.starts_with(COMMAND_CHAR))
+            {
                 cmd_is_standalone = true;
                 // so go on parsing this command...
             }
-            else if( next == "=" ) {
+            else if( next == "=" )
+            {
                 arg_is_value = true;
                 // if we are equals, is expected the next arg to be a value 
                 // so just skip us.
@@ -2345,16 +2407,18 @@ fn void handle_cmdline_new(String[] args)
 			
 			if(arg_is_number) // what type of number is it?
 			{
-				if(single_char_value) {
+				if(single_char_value)
+                {
                     // is obviously a integer so nothing to do, go on.
                 } 
                 else // is a big number, see if is a float
                 { 
 					int dot_count = (int)arg.count(".");
-                    if(dot_count == 1) {
+                    if(dot_count == 1)
+                    {
 						arg_is_float = true;
 					} 
-                    else if(dot_count > 1) 
+                    else if(dot_count > 1)
                     {
                         log::warning(FILE, "cmd %s float value in cmdline has invalid number of '.' seperator, one was expected got '%d'.", cmd_arg, dot_count);
                         cmd_arg = "";
@@ -2382,9 +2446,12 @@ fn void handle_cmdline_new(String[] args)
 				// if(try value = (arg_is_float) ? arg.to_float() : arg.to_int())
 				if(arg_is_float)
 				{
-					if(try value = arg.to_float()) {
+					if(try value = arg.to_float())
+                    {
 						fvalue = value;
-					} else {
+					} 
+                    else
+                    {
 						log::warning(FILE, "Unnable to convert value \"%s\" of cmdline cmd \"%s\" to float value!", arg, cmd_arg);
 						cmd_arg = "";
 						continue; // skip bad cmd
@@ -2393,7 +2460,9 @@ fn void handle_cmdline_new(String[] args)
 				else if(try value = arg.to_int())
 				{
 					ivalue = value;
-				} else {
+				}
+                else
+                {
 					log::warning(FILE, "Unnable to convert value \"%s\" of cmdline cmd \"%s\" to int value!", arg, cmd_arg);
 					cmd_arg = "";
 					continue; // skip bad cmd
@@ -2598,7 +2667,7 @@ $endif
     if(fl_help.getBool() || cvar::cmd_listCVars.getBool()) 
     {
 		// TODO(HM) print this cvars also on the developer console when
-        // and if it is ever done...
+        // and if I ever create one...
         cvar::printCvars();
         // TODO(HM) print key actions and cmdline args as well
         // usage(); todo make this function a reality...
@@ -2607,13 +2676,14 @@ $endif
     ///////////////////////////
     // Set the game name
     local_game.app_name = lic::GAME_NAME;
-    if(local_game.app_name.len > 0) 
+    if(local_game.app_name.len > 0)
     {
-        if(lic::GAME_SUB_NAME.len > 0) {
+        if(lic::GAME_SUB_NAME.len > 0)
+        {
             local_game.app_name = lic::GAME_NAME+++"_"+++lic::GAME_SUB_NAME;
         }
     }
-    else 
+    else
     {
         // take the name from the exe path
         local_game.app_name = fs::getFileNameWithoutExt(fs::getApplicationDirectory()).tconcat("_app");
@@ -2635,27 +2705,34 @@ $endif
 	$endif
 
     local_game.app_exe_dir = app_exe_path;
-    if(fs::directoryExists(local_game.app_exe_dir)) {
+    if(fs::directoryExists(local_game.app_exe_dir))
+    {
         log::tofile("\tApplication located at: %s", local_game.app_exe_dir);
-    } else {
+    }
+    else
+    {
         local_game.errorBox.setMessage("Invalid application directory for the game!");
         local_game.errorBox.toggle();
         return GAME_INVALID_EXE_DIR~; // will this ever happen?
     }
 
-    if(fs::directoryExists(work_directory)) {
+    if(fs::directoryExists(work_directory))
+    {
         log::tofile("\tWorking from: %s", work_directory);
 
         $if $defined(fs::NEW_DIRECTORY_SYSTEM):
 		fs::registerDirectory(work_directory.to_tpath(), AppDir.WORK);
 	    $endif
-    } else {
+    }
+    else
+    {
         local_game.errorBox.setMessage("Invalid work directory for the game!");
         local_game.errorBox.toggle();
         return GAME_INVALID_WORK_DIR~; // will this ever happen?
     }
 
-    if(app_exe_path.extractFileBase() != work_directory.extractFileBase()) {
+    if(app_exe_path.extractFileBase() != work_directory.extractFileBase())
+    {
         log::tofile("Game was started from outside the executable folder:");
         log::tofile("\tab exe path: %s", app_exe_path);
         log::tofile("\tab work path: %s", work_directory);
@@ -2671,9 +2748,12 @@ $endif
 
     /////////////////////////////////////////
     // make sure required base folder exists, if not halt the game
-    if(fs::directoryExists(base_folder)) {
+    if(fs::directoryExists(base_folder))
+    {
         log::tofile("\tBase Dir set to: %s", base_folder);
-    } else {
+    }
+    else
+    {
         log::error(FILE,`Required base folder inside %s not found!\n
                    A non-empty folder called '%s' (case sensitive) most exist.\n
                    Please reinstall game.`, local_game.app_exe_dir, fs::cv_base.getString(), local_game.app_name);
@@ -2692,49 +2772,59 @@ $endif
     bool using_mod  = mod_name.len > 0;
     if(using_mod)
     {
+        const MODS_FOLDER @Hardcode = "mods";
         local_game.is_modded_game = true;
 
-		if(mod_name.len <= 2) {
+		if(mod_name.len <= 2)
+        {
 			log::warning(FILE, "mod name: \"%s\" seems to be very small are you sure that is correct?", mod_name);
 		}
 
-		bool mod_handling_failed;
-        // NOTE(HM) mods live in a folder always named mods next to the executable
-        // and it replace the original game base folder 
-        String mods_dir = local_game.app_exe_dir.tconcat("mods").tconcat(platf::PATHSEPERATOR_STR);
+		bool mod_handling_failed = true;
+        // NOTE(HM) mods live in a folder ALWAYS named mods, 
+        // put next to the game executable and when a mod is 
+        // used it's base folder overrides the original game base folder.
+        String mods_dir = local_game.app_exe_dir.tconcat(MODS_FOLDER).tconcat(platf::PATHSEPERATOR_STR);
 		if(fs::directoryExists(mods_dir))
         {
-            // look inside mods folder for the desired mod folder
-			String mod_base_folder = mods_dir.tconcat(fs::cv_mod_base.getString()).tconcat(platf::PATHSEPERATOR_STR);
-			if(fs::directoryExists(mod_base_folder)) 
+            // look inside mods folder for the desired mod
+            if(fs::directoryExists(mods_dir.tconcat(mod_name)))
             {
-				// set the game base dir for the new mod base dir
-				local_game.app_base_folder = mod_base_folder;
-			} 
-            else
-            { 
-				log::warning(FILE, "base directory for mod \"%s\" is missing cannot run mod!", mod_name);
-				mod_handling_failed = true;
+				String mod_base_folder = mods_dir.tconcat(fs::cv_mod_base.getString()).tconcat(platf::PATHSEPERATOR_STR);
+                if(fs::directoryExists(mod_base_folder))
+                {
+                    // set the game base dir for the new mod base dir
+                    local_game.app_base_folder = mod_base_folder;
+                    mod_handling_failed = false;
+                }
+                else
+                { 
+                    log::warning(FILE, "base directory for mod \"%s\" is missing cannot run mod!", mod_name);
+                }
 			}
-		} 
+            else
+            {
+                log::warning(FILE, "trying to run mod \"%s\" but no such mod was found inside mods folder!", mod_name);
+            }
+		}
         else
         {
-            log::warning(FILE, "Trying to run a mod %s but no \"mods\" folder exists inside: %s", mod_name, local_game.app_exe_dir);
-            mod_handling_failed = true;
+            log::warning(FILE, "Cannot run mod %s because required \"mods\" folder was not found inside: %s", mod_name, local_game.app_exe_dir);
         }
 
         if(mod_handling_failed) // make sure we return to valid original game folders
         {
-            log::warning(FILE, "Mod handling failed, using original game base directory: %s", local_game.app_base_folder);
+            local_game.is_modded_game  = false;
             local_game.app_base_folder = local_game.app_default_base_folder;
+            log::warning(FILE, "Mod handling failed, returning to original game base directory: %s", local_game.app_base_folder);
             /////////////////////////////////////////
             // again make sure required base folder exists, else halt the game
-            if(fs::directoryExists(local_game.app_base_folder)) {
+            if(fs::directoryExists(local_game.app_base_folder))
+            {
                 log::tofile("\tBase Dir set to: %s", local_game.app_base_folder);
             }
-            else 
+            else
             {
-                local_game.is_modded_game = false;
                 log::error(FILE, "failed to find original game base directory!");
                 return GAME_NO_DATA_FOLDER~;
             }
@@ -3036,18 +3126,19 @@ $endif
     log::tofile("---------------------------------------------\n");
     log::tofile("Window settings:");
     log::tofile("---------------------------------------------");
+
     // Vertical sync (this is a hint so may or may not apply...)
-    if(try settings_data.getBool("video", "vsync"))
+    if(settings_data.getBool("video", "vsync")!)
     {
         vidbkd::setWindowFlag(&window_flags, rl::FLAG_VSYNC_HINT);
         local_game.screen.state.vsync_hint = true;
-        log::tofile("VSync **hint** enabled. (may not apply)");
+        log::tofile("VSync enabled. (is a hint, may not apply in some cases)");
     }
     
     // NOTE(HM) cvar r_fullscreen has top priority
     int fullscreen_choice = r_fullscreen.getInt();
     // NOTE(HM) if cvar was not set, see if the config file is overriding the value
-    if(fullscreen_choice == -1) fullscreen_choice = settings_data.getInt("video", "r_fullscreen")!;
+    if(fullscreen_choice < 0) fullscreen_choice = settings_data.getInt("video", "r_fullscreen")!;
     // prevent under or overflow
     if(fullscreen_choice < -1 || fullscreen_choice > 2) 
     {
@@ -3083,17 +3174,14 @@ $endif
 	}
 
     // DOC(HM) 
-    // Multi-sampling AA (ONLY 0 or 4x is supported by Raylib, there's no inbetween)
-    if(local_game.screen.state.fullscreen) 
+    if(local_game.screen.state.fullscreen && (int)local_game.quality >= (int)PerfOption.MEDIUM) 
     {
-        if(try msaa_samples = settings_data.getInt("video", "msaa")) 
+    	// Multi-sampling AA, ONLY no msaa or 4x msaa is supported by Raylib, there's no support for other values. :( 
+        if(settings_data.getBool("video", "r_msaa")!)
         {
-            if(msaa_samples > 0) 
-            {
-                vidbkd::setWindowFlag(&window_flags, rl::FLAG_MSAA_4X_HINT);
-                local_game.screen.multiSamples = msaa_samples;
-                log::tofile("4x MSAA **hint** enabled (may not apply).");
-            }
+            vidbkd::setWindowFlag(&window_flags, rl::FLAG_MSAA_4X_HINT);
+			local_game.screen.state.msaa_hint = true;
+            log::tofile("4x MSAA enabled (is a hint, may not apply in some cases).");
         }
     }
     
@@ -3132,14 +3220,18 @@ $endif
 		log::tofile("---------------------------------------------\n");
     $else
         //============================== //
+        //*******************************//
         rl::initWindow(screenWidth, screenHeight, window_name.zstr_tcopy());
+        //*******************************//
         //============================== //
         
         if(rl::isWindowReady() == false) 
         {
-            log::fatal(FILE, "Failed to init rl window and OpenGL context!");
+            log::fatal(FILE, "Failed to init Window and OpenGL context!");
             return GAME_WINDOW_INIT_FAILED~;
-        } else {
+        } 
+		else
+		{
             log::tofile("Window initialized successfully.");
 			log::tofile("---------------------------------------------\n");
             log::tofile("OpenGL '%s' context set.", rlgl::getVersion());
@@ -3154,16 +3246,6 @@ $endif
 	// end timing initialization
 
     local_game.screen.center = {screenWidth/2,screenHeight/2};
-
-	local_game.default_shader_resolution_loc = local_game.default_shader.getUniformLocation("resolution");
-	local_game.default_shader.setValue(local_game.default_shader_resolution_loc, &local_game.screen.size, RLShdUniTyp.VEC2);
-	// shader timing
-	local_game.default_shader_time_loc = local_game.default_shader.getUniformLocation("time");
-	local_game.default_shader.setValue(local_game.default_shader_time_loc, &local_game.time_sec, RLShdUniTyp.FLOAT);
-
-	local_game.default_shader_dt_loc = local_game.default_shader.getUniformLocation("dt");
-	local_game.default_shader.setValue(local_game.default_shader_dt_loc, &local_game.dt, RLShdUniTyp.FLOAT);
-	//
 
 $if env::WIN32:
     /*
@@ -3407,7 +3489,7 @@ $endif
     log::tofile("Loading game assets:");
     log::tofile("---------------------------------------------");
     // first load default assets
-    @catch(local_game.loadDefaultAssets());
+    @catch(loadDefaultAssets());
     //
     // now load all other assets and catch a error if any
     @catch(astmng::loadAssets());

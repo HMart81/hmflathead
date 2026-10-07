@@ -302,7 +302,7 @@ fn void RenderView.init(&self, int screenWidth, int screenHeight) @inline
     //self.currentRender = &self.gameFrame.data;
     self.currentRender = &getLayer(ViewLayerID.GAME).data;
 
-    self.grayscale.loadPPShader("grayscale");
+    //self.grayscale.loadPPShader("grayscale");
     
     self.w = screenWidth;
 	self.h = screenHeight;
@@ -371,7 +371,7 @@ fn void RenderView.deinit(&self)
     foreach(&layer : layers) if(rl::isRenderTextureValid(layer.data))  rl::unloadRenderTexture(layer.data);
 
     self.currentRender = null;
-    self.grayscale.unload();
+    if(rl::isShaderValid(self.grayscale.shader)) self.grayscale.unload();
 }
 
 fn void RenderView.debug(&self) 
@@ -1003,7 +1003,7 @@ import engine::logging::log;
 import engine::misc; // for @todo
 import game::camview @public;
 
-const SHADERS_FOLDER = "/shaders/";
+const SHADERS_FOLDER = "shaders\\";
 alias PostProcessList = List{HMPostProcess*};
 
 PostProcessList pplist @local;
@@ -1026,13 +1026,15 @@ fn void HMPostProcess.loadPPShader(&self, String _name)
 {
 	String path_root   = game::pContext.app_base_folder.tconcat(SHADERS_FOLDER);
     String shader_path = path_root.tconcat(_name).tconcat(".fs");
-    shader_path = path::normalize(shader_path)!!;
 	self.shader = glsl::loadShader("", shader_path);
-    if(rl::isShaderValid(self.shader)) {
+    if(rl::isShaderValid(self.shader))
+	{
         self.name = _name.tcopy();
         self.id = (uint)pplist.len() + 1; // we use the past list lenght as the index. Because is 1 minus the current lenght like what indices are... 
         pplist.push(self);
-    } else {
+    } 
+	else
+	{
 		String error_msg = string::tformat("failed to load required post process shader %s!", _name);
 		$if $feature(_DEBUG):
         	unreachable(error_msg);

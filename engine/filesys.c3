@@ -57,9 +57,9 @@ const int MAX_PURE_PAKS = 128;
 //     for buffer lengths. So limit it to prevent stack overflow/out of memory issues
 const int MAX_OSPATH = (libc::FILENAME_MAX < 32000) ? libc::FILENAME_MAX : 32000;
 
-CVar cv_base      = { "fs_base", CvFlag.STRING | CvFlag.ARCHIVE | CvFlag.SYSTEM, "data",  "default game base folder"};
-CVar cv_mod_name  = { "fs_mod_name", CvFlag.STRING | CvFlag.ARCHIVE | CvFlag.SYSTEM, "",      "folder name of mod to run"};
-CVar cv_mod_base  = { "fs_mod_base", CvFlag.STRING | CvFlag.ARCHIVE | CvFlag.SYSTEM, "",      "folder name for custom database of running mod"};
+CVar cv_base      = { "fs_base", CvFlag.STRING | CvFlag.ARCHIVE | CvFlag.SYSTEM, "data", "default game base folder"};
+CVar cv_mod_name  = { "fs_mod_name", CvFlag.STRING | CvFlag.ARCHIVE | CvFlag.SYSTEM, "", "folder name of mod to run"};
+CVar cv_mod_base  = { "fs_mod_base", CvFlag.STRING | CvFlag.ARCHIVE | CvFlag.SYSTEM, "", "folder name for custom database of running mod"};
 CVar cv_save_path = { "fs_savepath", CvFlag.STRING | CvFlag.ARCHIVE | CvFlag.SYSTEM, "HMGames\\saves\\", "relative folder path to the game/s save data"};
 CVar cv_dev_path  = { "fs_devpath", CvFlag.STRING | CvFlag.ARCHIVE | CvFlag.SYSTEM, "", "special developer folder where source assets are put"};
 

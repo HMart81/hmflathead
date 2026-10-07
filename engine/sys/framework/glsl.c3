@@ -30,6 +30,7 @@
 
 module engine::sys::framework::glsl;
 
+import std::io::path;
 import game::main;
 import thirdparty::raylib5::rl;
 import engine::filesystem::fs;
@@ -64,47 +65,8 @@ They are defined inside raylib/src/config.h
 "texture2"          // texture2 (texture slot active 2)
 */
 
-const String GLOBAL_SHADER_INCLUDE = `
-#version 330
-#extension GL_ARB_shading_language_420pack: enable
-
-// default vertex layout locations
-#define VERTEX_POSITION   0    // RLShader location: vertex attribute: position
-#define VERTEX_TEXCOORD01 1    // RLShader location: vertex attribute: texcoord01
-#define VERTEX_NORMAL     2    // RLShader location: vertex attribute: normal
-#define VERTEX_COLOR      3    // RLShader location: vertex attribute: color
-#define VERTEX_TANGENT    4    // RLShader location: vertex attribute: tangent
-#define VERTEX_TEXCOORD02 5    // RLShader location: vertex attribute: texcoord02
-// matrix locations
-#define MATRIX_MVP        6    // RLShader location: matrix uniform: model-view-projection
-#define MATRIX_VIEW       7    // RLShader location: matrix uniform: view (camera transform)
-#define MATRIX_PROJECTION 8    // RLShader location: matrix uniform: projection
-#define MATRIX_MODEL      9    // RLShader location: matrix uniform: model (transform)
-#define MATRIX_NORMAL     10   // RLShader location: matrix uniform: normal
-#define VECTOR_VIEW       11   // RLShader location: vector uniform: view
-#define COLOR_DIFFUSE     12   // RLShader location: vector uniform: diffuse color
-#define COLOR_SPECULAR    13   // RLShader location: vector uniform: specular color
-#define COLOR_AMBIENT     14   // RLShader location: vector uniform: ambient color
-// texture samplers
-#define MAP_ALBEDO        15   // RLShader location: sampler2d texture: albedo (same as: SHADER_LOC_MAP_DIFFUSE)
-#define MAP_METALNESS     16   // RLShader location: sampler2d texture: metalness (same as: SHADER_LOC_MAP_SPECULAR)
-#define MAP_NORMAL        17   // RLShader location: sampler2d texture: normal
-#define MAP_ROUGHNESS     18   // RLShader location: sampler2d texture: roughness
-#define MAP_OCCLUSION     19   // RLShader location: sampler2d texture: occlusion
-#define MAP_EMISSION      20   // RLShader location: sampler2d texture: emission
-#define MAP_HEIGHT        21   // RLShader location: sampler2d texture: height
-#define MAP_CUBEMAP       22   // RLShader location: samplerCube texture: cubemap
-#define MAP_IRRADIANCE    23   // RLShader location: samplerCube texture: irradiance
-#define MAP_PREFILTER     24   // RLShader location: samplerCube texture: prefilter
-#define MAP_BRDF          25   // RLShader location: sampler2d texture: brdf
-#define DEPTH0            26   // RLShader location: sampler2d texture: depth map 0
-#define DEPTH1            27   // RLShader location: sampler2d texture: depth map 1
-#define DEPTH2            28   // RLShader location: sampler2d texture: depth map 2
-#define DEPTH3            29   // RLShader location: sampler2d texture: depth map 3
-`;
-
 const INCLUDE_DIRECTIVE @local = "#include";
-const SHADER_HOME_PATH  @local = "shaders/";
+const SHADER_HOME_PATH  @local = "shaders\\";
 
 faultdef SHD_LOAD_ERROR, 
          SHD_UNKNOWN_LOCATION;
@@ -300,6 +262,8 @@ fn void handleShaderIncludes(String* shdcode) @local
             
 				// final full include path
                 include_path = game::pContext.app_base_folder.tconcat(SHADER_HOME_PATH).tconcat(include_path);
+				include_path = path::normalize(include_path)!!;
+				assert(fs::fileExists(include_path));
 
                 // NOTE(HM) if the include path does not end with .inc, append it
                 if(include_path.ends_with(".inc") == false) {
@@ -350,14 +314,14 @@ fn RLShader loadShader(String vs_path, String fs_path) @nodiscard
 		// our default vertex shader
 		// todo use the virtual folder system now?
 		vs_path = game::pContext.app_base_folder.tconcat("shaders\\default.vs");
-		if(fs::directoryExists(vs_path) == false) vs_path = ""; // use the raylib default one instead
+		if(fs::fileExists(vs_path) == false) vs_path = ""; // use the raylib default one instead
     }
 
 	if(fs_path.is_empty()) {
 		// our default pixel shader
         // todo use the virtual folder system now!!
 		fs_path = game::pContext.app_base_folder.tconcat("shaders\\default.fs");
-		if(fs::directoryExists(fs_path) == false) fs_path = ""; // use the raylib default one instead
+		if(fs::fileExists(fs_path) == false) fs_path = ""; // use the raylib default one instead
     }
 
 	// load vertex shader

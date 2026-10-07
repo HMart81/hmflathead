@@ -683,7 +683,10 @@ enum RLShdLocInd : CInt (String str)
     TEXTURE2          {"texture2"}  // (texture slot active 2)
 }
 
+const MAX_SHADER_LOCATIONS = RLShdLocInd.TEXTURE2.ordinal;
+
 $assert(RLShdLocInd.VERTEX_POSITION.ordinal == 0);
+$assert(MAX_SHADER_LOCATIONS == 32);
 
 /*
 NOTE(HM) 

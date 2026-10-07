@@ -1,4 +1,4 @@
-// raddbg 0.9.28 project file
+// raddbg 0.9.29 project file
 
 target:
 {
@@ -15,4 +15,9 @@ target:
   enabled: 0
   label: Release
   arguments: "+r_fullscreen 0 +r_mode 15"
+}
+type_view:
+{
+  type: "String[]"
+  expr: "array(ptr, len)"
 }
