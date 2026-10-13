@@ -146,7 +146,7 @@ PDBS_TO_CLEAN := $(wildcard $(BUILD_PATH)/*.pdb)
 EXES_TO_CLEAN := $(wildcard $(BUILD_PATH)/*.exe)
 
 # arguments to set at game start
-DEBUG_GAME_ARGUMENTS := +developer +r_fullscreen 2 +editor +r_mode 15 +skip_intro 0
+DEBUG_GAME_ARGUMENTS := +developer +r_fullscreen 2 +editor +r_mode 9 +skip_intro 0
 RELEASE_GAME_ARGUMENTS := +r_fullscreen 1 +r_mode 23
 
 # in c3 you need to use $feature or $feat in newer compilers...) to check for this 

@@ -421,24 +421,24 @@ $endif
     return self;
 }
 
-<*
-	@param [&inout] cv : "the cvar to update"
-*>
-fn void set(CVar* cv, Type1 value) <Type1>
+fn void CVar.setInt(&self, int value) @inline
 {
-	switch(Type1)
-	{
-		case int:
-		case bool:
-		case float:
-		case String:
-    		cv.set(string::tformat("%s", value));
-		default:
-		{
-			String error = string::tformat("cannot set cvar '%s' value because type '%s' is not supported.", cv.name, Type1::name);
-			unreachable(error);
-		}
-	}
+$if $feature(_DEBUG):
+    if(!(self.flags & CvFlag.INT)) {
+        log::fatal(FILE, "Trying to set non int CVar %s to int value %s.", self.name, self.value);
+    }
+$endif
+	self.set(string::tformat("%s", value));
+}
+
+fn void CVar.setfloat(&self, float value) @inline
+{
+$if $feature(_DEBUG):
+    if(!(self.flags & CvFlag.FLOAT)) {
+        log::fatal(FILE, "Trying to set non float CVar %s to float value %s.", self.name, self.value);
+    }
+$endif
+	self.set(string::tformat("%s", value));
 }
 
 fn CVar* CVar.setBool(&self, bool value) @inline
@@ -453,6 +453,31 @@ $endif
     (value == true) ? self.set("true") : self.set("false");
     return self;
 }
+
+/*
+<*
+	@param [&inout] cv : "the cvar to update"
+*>
+fn void set(CVar* cv, Type1 value) <Type1>
+{
+	if(isRomCvar(cv)) return;
+
+	switch(Type1)
+	{
+		case int:
+		case float:
+		case String:
+    		cv.set(string::tformat("%s", value));
+		case bool:
+			cv.setBool(value);
+		default:
+		{
+			String error = string::tformat("cannot set cvar '%s' value because type '%s' is not supported.", cv.name, Type1::name);
+			unreachable(error);
+		}
+	}
+}
+*/
 
 <*
 	Archive console variables into the config file

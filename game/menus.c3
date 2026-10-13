@@ -127,7 +127,7 @@ fn void setGUI(UIWindow* menu)
 			pGameContext.mode = game::GameMode.MENU;
 		}
 
-        if(tools::isOpen(&pGameContext.editor)) {
+        if(editor::isOpen(&pGameContext.editor)) {
             if(game::game_cursor_visible()) game::hide_game_cursor();
         } else {
            if(game::game_cursor_hidden()) game::show_game_cursor();

@@ -26,7 +26,7 @@
 # 
 *********************************************************************************************************************************************/
 
-module engine::tools @private @if($feature(MICROUI_ENABLE) &&& !$feature(RGUI_ENABLE));
+module engine::tools::editor @private @if($feature(MICROUI_ENABLE) &&& !$feature(RGUI_ENABLE));
 /* TODO(HM): 
     - Implement the editor console.
     - Implement the editor file system.
@@ -119,25 +119,23 @@ const RLColor[*] EDITOR_BORDER_COLORS = {
 
 alias ConsoleHistory = List{String};
 
-struct EditorFlags @local
-{
-    bool is_opened;
-    bool is_initialized;
-    bool is_active;
-    bool is_visible;
-    bool is_focused;
-    bool is_resizable;
-    bool is_minimizable;
-    bool is_maximizable;
-    bool is_closable;
-    bool is_fullscreen;
-    bool is_docked;
-    bool is_dockable;
-}
-
 struct Editor @public
 {
-    EditorFlags flags;
+    struct
+	{
+		bool is_opened;
+		bool is_initialized;
+		bool is_active;
+		bool is_visible;
+		bool is_focused;
+		bool is_resizable;
+		bool is_minimizable;
+		bool is_maximizable;
+		bool is_closable;
+		bool is_fullscreen;
+		bool is_docked;
+		bool is_dockable;
+	}
 
     // gui context
     RLColor background_color;
@@ -172,10 +170,10 @@ struct Editor @public
 *>
 fn void initDefaults(Editor* editor) @public
 {
-    editor.flags.is_minimizable = true;
-    editor.flags.is_maximizable = true;
-    editor.flags.is_closable    = true;
-    editor.flags.is_initialized = true;
+    editor.is_minimizable = true;
+    editor.is_maximizable = true;
+    editor.is_closable    = true;
+    editor.is_initialized = true;
 
 	// final color
     //editor.background_color = {0x18, 0x18, 0x18, 0xFF};
@@ -221,7 +219,7 @@ fn void deinit(Editor* editor) @inline @public
     // clear the auto complete buffer
     editor.autoCompleteClear();
     if(editor.ctx) editor.ctx = null;
-    editor.flags.is_initialized = false;
+    editor.is_initialized = false;
 }
 
 <*
@@ -232,7 +230,7 @@ fn void open(Editor* editor) @public //@inline
 {
     if (isOpen(editor)) return;
     
-    editor.flags.is_opened = true;
+    editor.is_opened = true;
     editor.kind = EditorKind.MAIN_EDITOR;
     setVisible(editor); // also sets the editor to active
     game::pContext.mode = GameMode.EDITOR;
@@ -246,7 +244,7 @@ fn void close(Editor* editor) @public //@inline
 {
     if (!isOpen(editor)) return;
     
-    editor.flags.is_opened = false;
+    editor.is_opened = false;
     setInvisible(editor); // also sets the editor to inactive and unfocused
     game::pContext.mode = GameMode.NONE;
 }
@@ -256,7 +254,7 @@ fn void close(Editor* editor) @public //@inline
 *>
 fn bool isOpen(Editor* editor) @inline @public
 {
-	return (game::pContext.mode == GameMode.EDITOR && editor.flags.is_opened);
+	return (game::pContext.mode == GameMode.EDITOR && editor.is_opened);
 }
 
 <*
@@ -274,8 +272,8 @@ fn EditorKind getOpenEditorKind(Editor* editor) => editor.kind;
 fn void setfocus(Editor* editor, bool choice = true) @inline
 {
 	MU_Context* context = editor.ctx;
-    editor.flags.is_focused = choice;
-    if(editor.flags.is_focused) {
+    editor.is_focused = choice;
+    if(editor.is_focused) {
 		if(context.hover != context.focus) {
 			context.set_focus(context.hover);
 		}
@@ -287,7 +285,7 @@ fn void setfocus(Editor* editor, bool choice = true) @inline
 	aka the mouse is over the editor window
 	@param [&in] editor : "the editor context/data structure"
 *>
-fn bool isFocused(Editor* editor) @inline @public => editor.flags.is_focused;
+fn bool isFocused(Editor* editor) @inline @public => editor.is_focused;
 
 <*
 	Set the editor active
@@ -296,14 +294,14 @@ fn bool isFocused(Editor* editor) @inline @public => editor.flags.is_focused;
 fn void setActive(Editor* editor) @inline
 {
     if (isActive(editor)) return;
-    editor.flags.is_active = true;
+    editor.is_active = true;
 }
 
 <*
 	Ask if the editor is active
 	@param [&in] editor : "the editor context/data structure"
 *>
-fn bool isActive(Editor* editor) @inline => editor.flags.is_active;
+fn bool isActive(Editor* editor) @inline => editor.is_active;
 
 <*
 	Deactivate the editor
@@ -314,7 +312,7 @@ fn void deactivate(Editor* editor) @inline
     if (isActive(editor) == false) {
         return;
     }
-    editor.flags.is_active = false;
+    editor.is_active = false;
 }
 
 <*
@@ -326,7 +324,7 @@ fn void setVisible(Editor* editor, bool activate = true) @inline
 {
     if (isVisible(editor)) return;
     
-    editor.flags.is_visible = true;
+    editor.is_visible = true;
     if(activate) setActive(editor);
 }
 
@@ -338,7 +336,7 @@ fn void setInvisible(Editor* editor) @inline
 {
     if (isVisible(editor) == false)  return;
     
-    editor.flags.is_visible = false;
+    editor.is_visible = false;
     deactivate(editor);
     setfocus(editor, false);
 }
@@ -347,7 +345,7 @@ fn void setInvisible(Editor* editor) @inline
 	Ask if editor is visible
 	@param [&in] editor : "the editor context/data structure"
 *>
-fn bool isVisible(Editor* editor) @inline => editor.flags.is_visible;
+fn bool isVisible(Editor* editor) @inline => editor.is_visible;
 
 <*
 	Set editor to resizable
@@ -357,7 +355,7 @@ fn void setResizable(Editor* editor) @inline
 {
     if (isResizable(editor)) return;
     
-    editor.flags.is_resizable = true;
+    editor.is_resizable = true;
     //rgui::unlock();
 }
 
@@ -369,14 +367,14 @@ fn void lockSize(Editor* editor) @inline
 {
     if (isResizable(editor) == false) return;
     
-    editor.flags.is_resizable = false;
+    editor.is_resizable = false;
     //rgui::lock();
 }
 
 <*
 	@param [&in] editor : "the editor context/data structure"
 *>
-fn bool isResizable(Editor* editor) @inline => editor.flags.is_resizable;
+fn bool isResizable(Editor* editor) @inline => editor.is_resizable;
 
 
 <*
@@ -386,7 +384,7 @@ fn bool isResizable(Editor* editor) @inline => editor.flags.is_resizable;
 fn void setMinimizable(Editor* editor) @inline @if($defined(HAS_MINIMIZATION_ABILITY))
 {
     if (isMinimizable(editor)) return;
-    editor.flags.is_minimizable = true;
+    editor.is_minimizable = true;
 }
 
 <*
@@ -396,14 +394,14 @@ fn void setMinimizable(Editor* editor) @inline @if($defined(HAS_MINIMIZATION_ABI
 fn void setUnminimizable(Editor* editor) @inline @if($defined(HAS_MINIMIZATION_ABILITY))
 {
     if (isMinimizable(editor) == false) return;
-    editor.flags.is_minimizable = false;
+    editor.is_minimizable = false;
 }
 
 <*
 	Ask if editor is minimizable
 	@param [&in] editor : "the editor context/data structure"
 *>
-fn bool isMinimizable(Editor* editor) @inline @if($defined(HAS_MINIMIZATION_ABILITY)) => editor.flags.is_minimizable;
+fn bool isMinimizable(Editor* editor) @inline @if($defined(HAS_MINIMIZATION_ABILITY)) => editor.is_minimizable;
 
 <*
 	@param [&inout] editor : "the editor context/data structure"
@@ -412,13 +410,13 @@ fn bool isMinimizable(Editor* editor) @inline @if($defined(HAS_MINIMIZATION_ABIL
 fn void enableFullscreen(Editor* editor, bool choice = true) @inline
 {
     if (isFullscreen(editor)) return;
-    editor.flags.is_fullscreen = choice;
+    editor.is_fullscreen = choice;
 }
 
 <*
 	@param [&in] editor : "the editor context/data structure"
 *>
-fn bool isFullscreen(Editor* editor) @inline => editor.flags.is_fullscreen;
+fn bool isFullscreen(Editor* editor) @inline => editor.is_fullscreen;
 
 
 <*
@@ -429,14 +427,14 @@ fn bool isFullscreen(Editor* editor) @inline => editor.flags.is_fullscreen;
 fn void setDockable(Editor* editor, bool choice = true) @inline
 {
     if (isDockable(editor)) return;
-    editor.flags.is_dockable = choice;
+    editor.is_dockable = choice;
 }
 
 <*
 	Ask if editor is dockable
 	@param [&in] editor : "the editor context/data structure"
 *>
-fn bool isDockable(Editor* editor) @inline => editor.flags.is_dockable;
+fn bool isDockable(Editor* editor) @inline => editor.is_dockable;
 
 
 <*
@@ -480,22 +478,25 @@ macro @noDraw(#editor) @local => (!isVisible(#editor) || !isOpen(#editor));
 
 <*
 	@param [&inout] editor : "the editor context/data structure"
-    @require editor.flags.is_initialized == true
+    @require editor.is_initialized == true
 *>
 fn void draw(Editor* editor) @public
 {
     if (@noDraw(editor)) return;
 
-	switch(editor.kind)
-    {
-        case MAIN_EDITOR:      drawMainEditor(editor);
-        case MATERIAL_EDITOR:  drawMaterialEditor(editor);
-        case GUI_EDITOR:       drawGuiEditor(editor);
-        case SCENE_EDITOR:     drawSceneEditor(editor);
-        case ANIMATION_EDITOR: drawAnimationEditor(editor);
-        case SOUND_EDITOR:     drawSoundEditor(editor);
-        case SCRIPT_EDITOR:    drawScriptEditor(editor);
-    }
+	mu::@render(editor.ctx)
+  	{
+		switch(editor.kind)
+		{
+			case MAIN_EDITOR:      drawMainEditor(editor);
+			case MATERIAL_EDITOR:  drawMaterialEditor(editor);
+			case GUI_EDITOR:       drawGuiEditor(editor);
+			case SCENE_EDITOR:     drawSceneEditor(editor);
+			case ANIMATION_EDITOR: drawAnimationEditor(editor);
+			case SOUND_EDITOR:     drawSoundEditor(editor);
+			case SCRIPT_EDITOR:    drawScriptEditor(editor);
+		}
+	};
 }
 
 <* 
@@ -1218,7 +1219,8 @@ fn void printCvarMatches( String s )
 ///////////// ***************************************
 
 // UNFINISHED!!!!!!!!!!!!!!
-module engine::tools @private @if($feature(RGUI_ENABLE));
+/*
+module engine::tools::editor @private @if($feature(RGUI_ENABLE));
 /* TODO(HM): 
     - Implement the editor console.
     - Implement the editor file system.
@@ -1358,9 +1360,9 @@ struct Editor @public
 *>
 fn void initDefaults(Editor* editor) @inline @public
 {
-    editor.flags.is_minimizable = true;
-    editor.flags.is_maximizable = true;
-    editor.flags.is_closable = true;
+    editor.is_minimizable = true;
+    editor.is_maximizable = true;
+    editor.is_closable    = true;
 
     editor.background_color = {0x18, 0x18, 0x18, 0xFF};
 
@@ -1404,7 +1406,7 @@ fn void open(Editor* editor) @inline @public
 {
     if (isOpen(editor)) return;
     
-    editor.flags.is_opened = true;
+    editor.is_opened = true;
     editor.kind = EditorKind.MAIN_EDITOR;
     setVisible(editor); // also sets the editor to active
     game::pContext.mode = GameMode.EDITOR;
@@ -1418,7 +1420,7 @@ fn void close(Editor* editor) @inline @public
 {
     if (!isOpen(editor)) return;
     
-    editor.flags.is_opened = false;
+    editor.is_opened = false;
     setInvisible(editor); // also sets the editor to inactive and unfocused
     game::pContext.mode = GameMode.NONE;
 }
@@ -1428,7 +1430,7 @@ fn void close(Editor* editor) @inline @public
 *>
 fn bool isOpen(Editor* editor) @inline @public
 {
-	return (game::pContext.mode == GameMode.EDITOR && editor.flags.is_opened);
+	return (game::pContext.mode == GameMode.EDITOR && editor.is_opened);
 }
 
 <*
@@ -1445,7 +1447,7 @@ fn EditorKind getOpenEditorKind(Editor* editor) => editor.kind;
 *>
 fn bool setfocus(Editor* editor, bool choice = true) @inline
 {
-    editor.flags.is_focused = choice;
+    editor.is_focused = choice;
     (choice) ? rgui::setState(STATE_FOCUSED) : rgui::setState(STATE_NORMAL);
     return choice;
 }
@@ -1455,7 +1457,7 @@ fn bool setfocus(Editor* editor, bool choice = true) @inline
 	aka the mouse is over the editor window
 	@param [&in] editor : "the editor context/data structure"
 *>
-fn bool isFocused(Editor* editor) @inline @public => editor.flags.is_focused;
+fn bool isFocused(Editor* editor) @inline @public => editor.is_focused;
 
 <*
 	Set the editor active
@@ -1464,7 +1466,7 @@ fn bool isFocused(Editor* editor) @inline @public => editor.flags.is_focused;
 fn void setActive(Editor* editor) @inline
 {
     if (isActive(editor)) return;
-    editor.flags.is_active = true;
+    editor.is_active = true;
     rgui::enable();
 }
 
@@ -1472,7 +1474,7 @@ fn void setActive(Editor* editor) @inline
 	Ask if the editor is active
 	@param [&in] editor : "the editor context/data structure"
 *>
-fn bool isActive(Editor* editor) @inline => editor.flags.is_active;
+fn bool isActive(Editor* editor) @inline => editor.is_active;
 
 <*
 	Deactivate the editor
@@ -1483,7 +1485,7 @@ fn void deactivate(Editor* editor) @inline
     if (isActive(editor) == false) {
         return;
     }
-    editor.flags.is_active = false;
+    editor.is_active = false;
     rgui::disable();
 }
 
@@ -1496,7 +1498,7 @@ fn void setVisible(Editor* editor, bool activate = true) @inline
 {
     if (isVisible(editor)) return;
     
-    editor.flags.is_visible = true;
+    editor.is_visible = true;
     if(activate) setActive(editor);
 }
 
@@ -1508,7 +1510,7 @@ fn void setInvisible(Editor* editor) @inline
 {
     if (isVisible(editor) == false)  return;
     
-    editor.flags.is_visible = false;
+    editor.is_visible = false;
     deactivate(editor);
     setfocus(editor, false);
 }
@@ -1517,7 +1519,7 @@ fn void setInvisible(Editor* editor) @inline
 	Ask if editor is visible
 	@param [&in] editor : "the editor context/data structure"
 *>
-fn bool isVisible(Editor* editor) @inline => editor.flags.is_visible;
+fn bool isVisible(Editor* editor) @inline => editor.is_visible;
 
 <*
 	Set editor to resizable
@@ -1527,7 +1529,7 @@ fn void setResizable(Editor* editor) @inline
 {
     if (isResizable(editor)) return;
     
-    editor.flags.is_resizable = true;
+    editor.is_resizable = true;
     rgui::unlock();
 }
 
@@ -1539,14 +1541,14 @@ fn void lockSize(Editor* editor) @inline
 {
     if (isResizable(editor) == false) return;
     
-    editor.flags.is_resizable = false;
+    editor.is_resizable = false;
     rgui::lock();
 }
 
 <*
 	@param [&in] editor : "the editor context/data structure"
 *>
-fn bool isResizable(Editor* editor) @inline => editor.flags.is_resizable;
+fn bool isResizable(Editor* editor) @inline => editor.is_resizable;
 
 
 <*
@@ -1556,7 +1558,7 @@ fn bool isResizable(Editor* editor) @inline => editor.flags.is_resizable;
 fn void setMinimizable(Editor* editor) @inline @if($defined(HAS_MINIMIZATION_ABILITY))
 {
     if (isMinimizable(editor)) return;
-    editor.flags.is_minimizable = true;
+    editor.is_minimizable = true;
 }
 
 <*
@@ -1566,14 +1568,14 @@ fn void setMinimizable(Editor* editor) @inline @if($defined(HAS_MINIMIZATION_ABI
 fn void setUnminimizable(Editor* editor) @inline @if($defined(HAS_MINIMIZATION_ABILITY))
 {
     if (isMinimizable(editor) == false) return;
-    editor.flags.is_minimizable = false;
+    editor.is_minimizable = false;
 }
 
 <*
 	Ask if editor is minimizable
 	@param [&in] editor : "the editor context/data structure"
 *>
-fn bool isMinimizable(Editor* editor) @inline @if($defined(HAS_MINIMIZATION_ABILITY)) => editor.flags.is_minimizable;
+fn bool isMinimizable(Editor* editor) @inline @if($defined(HAS_MINIMIZATION_ABILITY)) => editor.is_minimizable;
 
 <*
 	@param [&inout] editor : "the editor context/data structure"
@@ -1582,13 +1584,13 @@ fn bool isMinimizable(Editor* editor) @inline @if($defined(HAS_MINIMIZATION_ABIL
 fn void enableFullscreen(Editor* editor, bool choice = true) @inline
 {
     if (isFullscreen(editor)) return;
-    editor.flags.is_fullscreen = choice;
+    editor.is_fullscreen = choice;
 }
 
 <*
 	@param [&in] editor : "the editor context/data structure"
 *>
-fn bool isFullscreen(Editor* editor) @inline => editor.flags.is_fullscreen;
+fn bool isFullscreen(Editor* editor) @inline => editor.is_fullscreen;
 
 
 <*
@@ -1599,14 +1601,14 @@ fn bool isFullscreen(Editor* editor) @inline => editor.flags.is_fullscreen;
 fn void setDockable(Editor* editor, bool choice = true) @inline
 {
     if (isDockable(editor)) return;
-    editor.flags.is_dockable = choice;
+    editor.is_dockable = choice;
 }
 
 <*
 	Ask if editor is dockable
 	@param [&in] editor : "the editor context/data structure"
 *>
-fn bool isDockable(Editor* editor) @inline => editor.flags.is_dockable;
+fn bool isDockable(Editor* editor) @inline => editor.is_dockable;
 
 
 <*

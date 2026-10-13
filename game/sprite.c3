@@ -66,26 +66,12 @@ const Vec2f MIN_SIZE @local = {MIN_SPRIT_SIZE, MIN_SPRIT_SIZE};
 // NOTE(HM) Uncoment this to show debug boxes for the sprites
 const int DEBUG_SPRITES = 1;
 
-// Used for very special sprites only
-constdef SpriteKind : inline int 
-{
-    GENERIC = 0,
-    CURSOR,
-}
-
-<*
-    @param value : "the inderlying ordinal value from the kind enum"
-    @require value >= 0 && value < SpriteKind::values.len
-*>
-fn SpriteKind kindFrom(int value) @inline @local
-{
-  return (SpriteKind)value;
-}
 // end_region defines
 
 struct SpriteFlags
 {
     bool isHidden;
+	bool is_game_cursor;
     //bool should_hide;
     bool isActive; // if the sprite is active or not
 	bool scaled; // if the sprite was scaled
@@ -94,7 +80,6 @@ struct SpriteFlags
 struct HMSprite (Updateable, SaveSystemInterface)
 {
     typeid type; // class type (runtime introspection for the win)
-    SpriteKind kind; // used to differentiate between different sprite types
 
     // flags for the sprite, used to hide it or show it
     // Todo(HM) should we use a bit field for this?
@@ -114,7 +99,6 @@ struct HMSprite (Updateable, SaveSystemInterface)
 fn void HMSprite.save(&self, SaveFile* file) @dynamic 
 {
     svs::writeTypeid(file, self.type);
-    svs::writeInt(file, (int)self.kind);
     svs::writeRect{RLRectangle}(file, self.rect);
     svs::writeColor(file, self.color);
     // cannot save pointers so just save the material name
@@ -124,9 +108,6 @@ fn void HMSprite.save(&self, SaveFile* file) @dynamic
 fn void HMSprite.reload(&self, SaveFile* file) @dynamic 
 {
     svs::readTypeid(file, &self.type);
-    int kind;
-    svs::readInt(file, &kind);
-    self.kind = (SpriteKind)kind;//SpriteKind.from_ordinal(kind);
     svs::readRect{RLRectangle}(file, &self.rect);
     svs::readColor(file, &self.color);
     String mat_name;
@@ -144,11 +125,10 @@ fn void HMSprite.onStart(&self) @dynamic @inline
 	self.type = HMSprite;
 }
 
-fn void HMSprite.init(&self, float x, float y, float w, float h, RLColor color = rl::WHITE, SpriteKind kind = GENERIC, String material_name = "")
+fn void HMSprite.init(&self, float x, float y, float w, float h, RLColor color = rl::WHITE, String material_name = "")
 {
 	self.onStart();
     //
-    self.kind  = kind;
     self.color = color;
     self.setPosition(x,y);
     self.setSize(w,h);
@@ -159,14 +139,14 @@ fn void HMSprite.init(&self, float x, float y, float w, float h, RLColor color =
     self.register();
 }
 
-fn void HMSprite.initRect(&self, RLRectangle rect, RLColor color = rl::WHITE, SpriteKind kind = GENERIC, String material_name = "") @inline 
+fn void HMSprite.initRect(&self, RLRectangle rect, RLColor color = rl::WHITE, String material_name = "") @inline 
 {
-    self.init(rect.x, rect.y, rect.width, rect.height, color, kind, material_name);
+    self.init(rect.x, rect.y, rect.width, rect.height, color, material_name);
 }
 
-fn void HMSprite.initV(&self, Vec2f pos, Vec2f size, RLColor color = rl::WHITE, SpriteKind kind = GENERIC, String material_name = "") @inline 
+fn void HMSprite.initV(&self, Vec2f pos, Vec2f size, RLColor color = rl::WHITE, String material_name = "") @inline 
 {
-    self.initRect({ pos.x, pos.y, size.x, size.y }, color, kind, material_name);
+    self.initRect({ pos.x, pos.y, size.x, size.y }, color, material_name);
 }
 
 fn void HMSprite.resetPosAndSize(&self) @inline 
@@ -182,14 +162,13 @@ fn void HMSprite.resetPosAndSize(&self) @inline
     @param w : "the width in world units (meters)"
     @param h : "the height in world units (meters)"
     @param color : "the color of the sprite"
-    @param kind : "the kind of sprite"
     @param [in] material_name : "the material name to use for the sprite"
     @ensure return != null
 *>
-fn HMSprite* create(float x, float y, float w, float h, RLColor color = rl::WHITE, SpriteKind kind = GENERIC, String material_name = "") @inline 
+fn HMSprite* create(float x, float y, float w, float h, RLColor color = rl::WHITE, String material_name = "") @inline 
 {
     HMSprite* sprite = mem::new(HMSprite);
-    sprite.init(x, y, w, h, color, kind, material_name);
+    sprite.init(x, y, w, h, color, material_name);
     return sprite;
 }
 
@@ -197,13 +176,12 @@ fn HMSprite* create(float x, float y, float w, float h, RLColor color = rl::WHIT
     Creates a new sprite instance
     @param rect : "position and size in pixel units (world units)"
     @param color : "the color of the sprite"
-    @param kind : "the kind of sprite"
     @param [in] material_name : "the material name to use for the sprite"
     @ensure return != null
 *>
-fn HMSprite* createRec(RLRectangle rect, RLColor color = rl::WHITE, SpriteKind kind = GENERIC, String material_name = "") @inline 
+fn HMSprite* createRec(RLRectangle rect, RLColor color = rl::WHITE, String material_name = "") @inline 
 {
-    return create(rect.x, rect.y, rect.w, rect.h, color, kind, material_name);
+    return create(rect.x, rect.y, rect.w, rect.h, color, material_name);
 }
 
 fn void remove(HMSprite* sprite) @inline 
@@ -213,7 +191,7 @@ fn void remove(HMSprite* sprite) @inline
 
 fn HMSprite* HMSprite.clone(&self) @inline 
 {
-   return create(self.rect.x, self.rect.y, self.rect.width, self.rect.height, self.color, self.kind, (self.mat != null) ? self.mat.name : "");
+   return create(self.rect.x, self.rect.y, self.rect.width, self.rect.height, self.color, (self.mat != null) ? self.mat.name : "");
 }
 
 fn void HMSprite.deinit(&self) @inline 
@@ -357,8 +335,6 @@ fn void HMSprite.updateBounds(&self, Vec2f translation) @inline
     int h = misc::metersToPixels(self.rect.height);
     return (Vec2i){ w, h };
 }*/
-
-fn void HMSprite.setKind(&self, int kind) @inline => self.kind = kindFrom(kind);
 
 // this is a world position
 // overrides the original position of the sprite
@@ -517,11 +493,6 @@ fn void HMSprite.onUpdate(&self) @dynamic
         // if the sprite is not active, we don't need to update it
         return;
     }
-
-    // update the in-game cursor
-    if(self.kind == SpriteKind.CURSOR) {
-        game::update_game_cursor(game::getScreenWidth(), game::getScreenHeight());
-    }
 }
 
 fn Coverage HMSprite.getCoverage(self) @inline @nodiscard => self.mat.coverage;
@@ -641,7 +612,6 @@ fn void drawImmediate(float posX, float posY, float width, float height, RLColor
     @pool() {
         HMSprite sptr;
         sptr.type  = HMSprite;
-        sptr.kind  = SpriteKind.GENERIC;
         sptr.color = color;
         sptr.setPosition( posX, posY );
         sptr.setSize( width, height );

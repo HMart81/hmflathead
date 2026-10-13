@@ -264,4 +264,53 @@ fn bool String.has_spaces(&self) @inline
 
 fn String String.strip_start(self, String prefix) @inline => self.strip_prefix(prefix);
 fn String String.strip_end(self, String suffix) @inline => self.strip_suffix(suffix);
+
+fn int find(String haystack, String needle)
+{
+	for(usz i = 0; needle.len <= haystack.len; ++i)
+	{
+		if(haystack.starts_with(needle)) return (int)i;
+		haystack = haystack.trim_left(haystack[:1]);
+	}
+	return -1;
+}
+
+fn int find2(String haystack, String needle)
+{
+	if(needle.len > haystack.len) return -1;
+	for(usz i = 0; i < haystack.len - needle.len + 1; ++i)
+	{
+		String suffix = haystack[i:haystack.len - i];
+		if(suffix.starts_with(needle)) return (int)i;
+	}
+	return -1;
+}
+
+<*
+	@param [in] s : "string to look at"
+	@param [in] extension : "extension to look for"
+	@require s.len > 0 && extension.len > 0 && extension.starts_with(".")
+*>
+fn String defaultFileExtension(String s, String extension )
+{
+	// do nothing if the string already has an extension
+	foreach_r(char c: s)
+	{
+		// HM: we're at a directory separator, there was no file extension
+		if ( isDirSeparator( c ) ) {
+			break;
+		} // HM end
+		if ( c == '.' ) {
+			return s;
+		}
+	}
+	if ( !extension.starts_with(".") ) {
+		extension = ".".tconcat(extension);
+	}
+	s.tconcat(extension);
+	return s;
+}
+
+
+
 // #endregion String custom extensions

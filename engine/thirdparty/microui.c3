@@ -30,10 +30,11 @@ module thirdparty::microui::mu @if($feature(MICROUI_ENABLE));
 import std::io;
 import std::core::string::conv;
 import std::collections::list;
-import engine::logging::log;
-import engine::tools;
-import game::main;
 import thirdparty::raylib5::rl;
+import engine::input;
+import engine::tools;
+import engine::logging::log;
+import game::main;
 
 const VERSION = "2.02";
 
@@ -298,10 +299,10 @@ struct MU_Layout
 }
 
 /*
-Windows are the primary container type in MicroUI. 
-They appear as independent, movable, and resizable 
-rectangles that can contain UI controls and other 
-containers.
+	Windows are the primary container type in MicroUI. 
+	They appear as independent, movable, and resizable 
+	rectangles that can contain UI controls and other 
+	containers.
 */
 struct MU_Container
 {
@@ -869,30 +870,69 @@ fn void statistics_window(MU_Context* ctx) @inline
 // in this function we run all microui "frames"
 fn void run_microui_frames(MU_Context* ctx) @inline
 {
-  if(game::pContext.show_microui_test_frames) 
-  {
-    ctx.run(&test_window);
-    ctx.run(&log_window);
-  	ctx.run(&debug_window);
-  }
+	if(ctx)
+	{
+		if(game::pContext.show_microui_test_frames) 
+		{
+			ctx.run(&test_window);
+			ctx.run(&log_window);
+			ctx.run(&debug_window);
+		}
 
-  if(game::pContext.show_statistics) 
-  {
-    ctx.run(&statistics_window);
-  }
-
-  if(game::developer.getBool() && game::editor.getBool()) {
-	    tools::draw(&game::pContext.editor);
+		if(game::pContext.show_statistics) 
+		{
+			ctx.run(&statistics_window);
+		}
 	}
 }
 
 /////////////////////////////////////////////////////////////////////////////////////
 //----------------------------------------------------------------------------------
 
-alias MU_Frame = fn void (MU_Context* ctx);
+alias MU_FrameCallback = fn void (MU_Context* ctx);
 
-fn void MU_Context.run(&self, MU_Frame frame) {
-  if(frame) /*run*/ frame(self);
+fn void MU_Context.run(&self, MU_FrameCallback guicallback) @inline
+{
+	if(guicallback) /*run*/ guicallback(self);
+}
+
+<*
+  Processes all frames with the current context.
+  @param [&inout] ctx : "The current MicroUI context."
+ *>
+fn void process_input(MU_Context* ctx)
+{
+	//float scroll_speed = -30.0f; // scroll speed for mouse wheel.
+	ctx.forward_mouse_input();
+	ctx.forward_text_input();
+	ctx.forward_keyboard_input();
+
+	if(input::getAction("toggle_editor").fnBecameTriggered())
+	{
+		if( game::pContext.mode != STARTING &&
+	   		game::pContext.mode != INTRO && 
+			game::editor.getBool() == true)
+		{
+			if(editor::isOpen(&game::pContext.editor))
+			{
+				editor::close(&game::pContext.editor);
+			}
+			else
+			{
+				editor::open(&game::pContext.editor);
+			}
+		}
+	}
+
+	if(rl::isKeyPressed(rl::KEY_F2))
+	{
+		game::pContext.show_microui_test_frames = !game::pContext.show_microui_test_frames;
+	}
+
+	if(rl::isKeyPressed(rl::KEY_F4))
+	{
+		game::pContext.show_statistics = !game::pContext.show_statistics;
+	}
 }
 
 <*
@@ -903,11 +943,39 @@ fn void MU_Context.run(&self, MU_Frame frame) {
  *>
 fn void process_frames(MU_Context* ctx, float delta_time) 
 {
-  @render(ctx)
-  {
-    // WARNING(HM) frames needs to be rendered within a @render() body, if not will cause a memory pool crash 
-    run_microui_frames(ctx);
-  };
+	@render(ctx)
+	{
+		// WARNING(HM) frames needs to be rendered within a @render() body, if not will cause a memory pool crash 
+		run_microui_frames(ctx);
+	};
+}
+
+<*
+  iterate all microui cmds
+  @param [&in] ctx : "The current MicroUI context."
+ *>
+fn void process_cmds(MU_Context* ctx) @inline
+{
+	MU_Command* cmd;
+	while (ctx.next_command(&cmd))
+	{
+		switch (cmd.type)
+		{
+			case COMMAND_JUMP: io::printfn("MU::COMMAND_JUMP Called.");
+			case COMMAND_TEXT: 
+			{
+				cmd.text.font = ctx.style.font;
+				callback_draw_text(cmd.text.font, (ZString)&cmd.text.str, cmd.text.pos, cmd.text.color);
+			}
+			case COMMAND_RECT: callback_draw_rect(cmd.rect.rect, cmd.rect.color);
+			case COMMAND_ICON: callback_draw_icon(cmd.icon.id, cmd.icon.rect, cmd.icon.color);
+			case COMMAND_CLIP: callback_set_clip_rect(cmd.clip.rect);
+		}
+	}
+	// Make sure we end any lingering scissor mode.
+	// Without this precaution it's possible for clipping to persist into the next frame 
+	// and obstruct stuff until the next clip command from microui is handled!
+	//rl::endScissorMode();
 }
 
 /////////////////////////////////////

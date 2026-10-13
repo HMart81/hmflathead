@@ -71,6 +71,28 @@ fn void register_cvars() @inline
     cvar::@register(&in_list_keys);
 }
 
+fn bool isAnyKeyPressed()
+{
+    bool keyPressed;
+    int key = game::pContext.last_key_pressed;
+
+    if ((key >= 32) && (key <= 126)) keyPressed = true;
+
+    return keyPressed;
+}
+
+fn bool checkForInput()
+{
+	if(isAnyKeyPressed()) return true;
+
+	foreach(btn : RLMouseButton::values)
+	{
+		if(rl::isMouseButtonPressed(btn)) return true;
+	}
+
+	return false;
+}
+
 enum ActionKind : char (String str)
 {
     UNKNOWN  {"UNKNOWN"},
@@ -500,12 +522,15 @@ fn void Action.update(&self, float timeStep)
 
     self.updateLogic(timeStep);
 
-    if(!self.fnIsTriggered()) {
+    if(!self.fnIsTriggered())
+	{
         self.isTriggered = false;
         self.triggerDown = false;
 
         if(self.timeCount >= 0) self.timeCount += timeStep;
-    } else {
+    }
+	else
+	{
         self.becameTriggered = true;
     }
 
@@ -559,20 +584,29 @@ fn String Action.getName(&self) => self.name;
 *>
 fn void makeKeyboardAction(String name, int key1, int key2 = rl::KEY_NULL, ActionCallBack func = null)  @inline
 {
-	if(key1 == rl::KEY_F12 || 
-       key1 != rl::KEY_F12 && key2 == rl::KEY_F12) {
-        log::error(FILE, "Cannot assing key function 'F12' to keyboard action '%s' because is a reserved key for screenshot functionality.", name);
+    if(name == "")
+	{
+        log::warning(FILE, "Trying to create a input action with a empty name!");
+		$if $feature(_DEBUG):
+			log::fatal(FILE, "Trying to create a input action with a empty name!");
+		$endif
         return;
     }
 
-    if(name == "") {
-        log::warning(FILE, "Cannot create a key input action with a empty name.");
+	if(key1 == rl::KEY_F12 || (key1 != rl::KEY_F12 && key2 == rl::KEY_F12))
+	{
+        log::error(FILE, "Input: '%s' cannot assing key 'F12' to a action '%s' is a Raylib reserved key for taking screenshots.", name);
         return;
     }
 
-    if(key1 == rl::KEY_NULL) {
-        log::warning(FILE, "Cannot create keyboard action with KEY_NULL as main key.");
-        return;
+
+    if(key1 == rl::KEY_NULL)
+	{
+        log::warning(FILE, "Input: '%s' cannot be created with KEY_NULL as main key.", name);
+        $if $feature(_DEBUG):
+			log::fatal(FILE, "Input: '%s' cannot be created with KEY_NULL as main key.", name);
+		$endif
+		return;
     }
 
     if(key2 && 
@@ -583,23 +617,26 @@ fn void makeKeyboardAction(String name, int key1, int key2 = rl::KEY_NULL, Actio
        key2 != rl::KEY_LEFT_ALT &&
        key2 != rl::KEY_RIGHT_ALT))
     {
-        log::warning(FILE, "Cannot assign any other keys to alternative key but, ctrl, shift and alt, be it left or right keys.");
+        log::warning(FILE, "Input: '%s' key2 '%s' cannot be assigned as alternative key, only left or right, ctrl, shift and alt, are supported for that.", name, getKeyboardKeyName(key2));
         return;
     }
 
-    if(local_manager.actions.len() >= MAX_ACTION_COUNT) {
-        log::warning(FILE, "Cannot create more actions, reached the max limit of %d actions.", MAX_ACTION_COUNT);
+    if(local_manager.actions.len() >= MAX_ACTION_COUNT)
+	{
+        log::warning(FILE, "Input: '%s' cannot be created, reached the max limit of %d actions.", name, MAX_ACTION_COUNT);
         return;
     }
 
-	if(actionExists(name)) {
-		log::warning(FILE, "Cannot define another action named \"%s\" that is not supported.", name);
+	if(actionExists(name))
+	{
+		log::warning(FILE, "Input: '%s' cannot de created, another action with that name already exists.", name);
        	return;
 	}
 
 	Action* other;
-	if(already_in_use(KEYBOARD, key1, other)) {
-		log::warning(FILE, "Cannot give key1 \"%s\" to action \"%s\", is already taken by action \"%s\".", getKeyboardKeyName(key1), name, other.name);
+	if(already_in_use(KEYBOARD, key1, other))
+	{
+		log::warning(FILE, "Input: '%s' cannot use key1 \"%s\" because is already used by action \"%s\".", getKeyboardKeyName(key1), name, other.name);
 		return;
 	}
 
@@ -1385,7 +1422,8 @@ fn void InputManager.update(&self)
 {
     if(self.actions.len())
     {
-        foreach(act: self.actions) {
+        foreach(act: self.actions)
+		{
             act.update(game::pContext.dt);
         }
     }
@@ -1459,9 +1497,10 @@ fn void save_actions_to_user_file(ConfigFile* userfile)
             {
                 //IniSection* sect = userfile.getSection("keys")!!;
                 IniCMD* cmd;
-                if(cmd = sect.hasCmd(action.name), cmd) {
+                if(cmd = sect.hasCmd(action.name), cmd)
+				{
                     if(has_ext_key) {
-                        cmd.setValue(string::tformat("%s,%s", key2, key1), userfile);
+                        cmd.setValue(string::tformat("%s,%s", key1, key2), userfile);
                     } else {
                         cmd.setValue(string::tformat("%s", key1), userfile);
                     }
@@ -1473,7 +1512,7 @@ fn void save_actions_to_user_file(ConfigFile* userfile)
                         userfile.addToSection(sect, mem::new( IniCMD,
                             {
                                 .type = ini::STRING,
-                                .cmd = {action.name, string::tformat("%s,%s", key2, key1)}
+                                .cmd = {action.name, string::tformat("%s,%s", key1, key2)}
                             }
                         ));
                     } 
@@ -1496,7 +1535,7 @@ fn void save_actions_to_user_file(ConfigFile* userfile)
                     userfile.addToSection(sect, mem::new( IniCMD,
                         {
                             .type = ini::STRING,
-                            .cmd = {action.name, string::tformat("%s,%s", key2, key1)}
+                            .cmd = {action.name, string::tformat("%s,%s", key1, key2)}
                         }
                     ));
                 } 

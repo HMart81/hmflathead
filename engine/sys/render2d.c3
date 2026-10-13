@@ -478,3 +478,43 @@ fn void scroolTexture_X(RLTexture2D texture)
 		image.data[i]
 	}*/
 }
+
+
+// Text drawing functions
+/*
+// Draw text (using default font)
+fn void drawText(ZString text, CInt posX, CInt posY, CInt fontSize, RLColor color) @cname("DrawText");
+// Draw text using font and additional parameters
+fn void drawTextEx(RLFont font, ZString text, RLVector2 position, float fontSize, float spacing, RLColor tint) @cname("DrawTextEx");
+// Draw text using RLFont and pro parameters (rotation)
+fn void drawTextPro(RLFont font, ZString text, RLVector2 position, RLVector2 origin, float rotation, float fontSize, float spacing, RLColor tint) @cname("DrawTextPro");
+// Draw one character (codepoint)
+fn void drawTextCodepoint(RLFont font, CInt codepoint, RLVector2 position, float fontSize, RLColor tint) @cname("DrawTextCodepoint");
+// Draw multiple character (codepoint)
+fn void drawTextCodepoints(RLFont font, CInt* codepoints, CInt count, RLVector2 position, float fontSize, float spacing, RLColor tint) @cname("DrawTextCodepoints");
+*/
+
+
+fn void draw_small_string(int x, int y, String s, RLColor c, RLFont* font = null) @inline
+{
+	if(font)
+	{
+		rl::drawTextEx(*font, s.zstr_tcopy(), {x,y}, game::SMALL_FONT_SIZE, 1.0f, c);
+	}
+	else
+	{
+		rl::drawText(s.zstr_tcopy(), x, y, game::SMALL_FONT_SIZE, c);
+	}
+}
+
+fn void draw_big_string(int x, int y, String s, RLColor c, RLFont* font = null) @inline
+{
+	if(font)
+	{
+		rl::drawTextEx(*font, s.zstr_tcopy(), {x,y}, game::BIG_FONT_SIZE, 1.0f, c);
+	}
+	else
+	{
+		rl::drawText(s.zstr_tcopy(), x, y, game::BIG_FONT_SIZE, c);
+	}
+}

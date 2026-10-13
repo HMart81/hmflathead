@@ -29,16 +29,19 @@
 module engine::gui;
 
 /*
-DOC:
+DOC(HM):
 
-	GUI System
+	Custom GUI System
 
-	A simplistic retained mode gui system made just to create simple menus.
+	A simplistic retained mode gui system,
+	I made it just to be able to create simple game menus with buttons.
 	Still lacks a ton of functionality...
 
 TODO:
-    A ingame gui edit mode for easy placement of widgets
-    Perhaps even create a simple gui editor using raygui buttons and such...
+    A ingame gui edit mode for easy placement of widgets,
+    Perhaps even create a simple gui editor, using one of the 
+	third party gui libraries, raygui or microui because this gui
+	system is just to simplistic for tools.
 */
 
 // region modules
@@ -105,14 +108,15 @@ constdef AnchorType : inline int
 
 <*
 	init anchor points
-	@param [&in] obj : "to init the anchors for"
+	@param [&in] obj : "the widget to init the anchors for"
 	@require obj.rect != rl::EMPTY_RECT
 *>
-fn void initAnchors(Type* obj) <Type>
+fn void initAnchors(Type1* obj) <Type1>
 {
     // init the anchors to attach stuff in guis
 	RLRectangle rect = obj.rect;
-	GuiAnchor[AnchorType::values.len] anchors;
+	const ANCHOR_COUNT = AnchorType::values.len;
+	GuiAnchor[ANCHOR_COUNT] anchors;
 	anchors[AnchorType.TOP_LEFT]      = {0, 0};
     anchors[AnchorType.TOP_CENTER]    = {rect.w / 2, 0};
     anchors[AnchorType.TOP_RIGHT]     = {rect.w, 0};
@@ -122,16 +126,17 @@ fn void initAnchors(Type* obj) <Type>
     anchors[AnchorType.BOTTOM_LEFT]   = {0, rect.h};
     anchors[AnchorType.BOTTOM_CENTER] = {rect.w / 2, rect.h};
     anchors[AnchorType.BOTTOM_RIGHT]  = {rect.w, rect.h};
-	obj.anchor.reserve(AnchorType::values.len);
+	obj.anchor.reserve(ANCHOR_COUNT);
 	obj.anchor.init_with_array(mem, anchors[..]);
 }
 
 <*
-	update anchor points for obj
-	@param [&in] obj : "to update the anchors for"
+	update anchor points when a widget object is resized
+	@param [&in] obj : "widget to update the anchors for"
+	@param new_size : "a vec2 with width and height values"
 	@require obj.rect != rl::EMPTY_RECT
 *>
-fn void updateAnchors(Type* obj, Vec2f new_size) <Type>
+fn void updateAnchors(Type1* obj, Vec2f new_size) <Type1>
 {
 	if(new_size == VEC2_ZERO) return;
 
@@ -146,10 +151,10 @@ fn void updateAnchors(Type* obj, Vec2f new_size) <Type>
 }
 
 <*
-	Display anchor points
-	@param [&in] obj : "to show the anchors for"
+	Display anchor points, mostly for debug purposes
+	@param [&in] obj : "widget to show the anchors for"
 *>
-fn void drawAnchors(Type* obj) <Type>
+fn void drawAnchors(Type1* obj) <Type1>
 {
     if(!ui_showAnchors.getBool()) return;
 
@@ -167,31 +172,34 @@ fn void drawAnchors(Type* obj) <Type>
 }
 
 <*
-	get anchor point for gui obj
+	get a anchor point for gui obj
 	@param [&in] obj : "to get the anchor for"
 	@param idx : "index of anchor to get"
 	@require idx >= 0 && idx < AnchorType::values.len
 *>
-fn Vec2f getAnchor(Type* obj, int idx) <Type>
+fn Vec2f getAnchor(Type1* obj, int idx) <Type1>
 {
 	return obj.anchor[idx];
 }
 
 /* #endregion Anchors */
 
-macro scale(Type1 ojb, Vec2f dim) <Type1, Type2>
+macro scale(Type2 ojb, Vec2f dim) <Type2, Type3>
 {
 	switch
 	{
-		case Type1 == Panel:
-		case Type1 == Widget:
-		case Type1 == WidgetContainer:
-			if(Type2 == float) {
+		case Type2 == Panel:
+		case Type2 == Widget:
+		case Type2 == WidgetContainer:
+			if(Type3 == float)
+			{
 				ojb.scale(dim.x, dim.y);
-			} else if(Type2 == Vec2f) {
+			} 
+			else if(Type3 == Vec2f)
+			{
 				ojb.scaleV(dim);
 			}
-			default: @todo();
+		default: @todo();
 	}
 }
 
@@ -965,10 +973,14 @@ fn void Widget.draw(&self) @dynamic
                     center.x -= this.text_len;
                 }
                 
-                if(this.font != null) {
+                if(this.font != null)
+				{
                     rl::drawTextEx(*this.font, text, {center.x, center.y}, (float)this.font_size, this.spacing, self.color);
                 }
-                else { rl::drawText(text, (int)center.x, (int)center.y, this.font_size, self.color); }
+                else
+				{
+					rl::drawText(text, (int)center.x, (int)center.y, this.font_size, self.color);
+				}
             }
             else
             {
@@ -2153,7 +2165,7 @@ fn void UIWindow.show(&self)
 
 fn void UIWindow.drawCursor(&self) @inline
 {
-    if(tools::isOpen(&game::pContext.editor)) return;
+    if(editor::isOpen(&game::pContext.editor)) return;
     
 	if ( self.isInteractive && self.active && self.visible ) {
 		if(game::game_cursor_hidden()) game::show_game_cursor();
@@ -2544,7 +2556,7 @@ fn void UIWindowManager.update(&self, int _time)
             if(uiwin.active) 
             {
                 uiwin.update(_time);
-                if(self.mode == EDITOR && !tools::isFocused(&game::pContext.editor)) {
+                if(self.mode == EDITOR && !editor::isFocused(&game::pContext.editor)) {
                     // put something here
                 }
 
@@ -2565,7 +2577,7 @@ fn void UIWindowManager.draw(&self, int screenWidth, int screenHeight) @inline
         {
             uiwin.draw();
             
-            if(self.mode == EDITOR && !tools::isOpen(&game::pContext.editor)) {
+            if(self.mode == EDITOR && !editor::isOpen(&game::pContext.editor)) {
                 //drawGuiEditor(uiwin); TODO(HM) draw this through the new editor
             }
 
@@ -2655,7 +2667,8 @@ const IMUI_Style[*] IMUI_STYLES = {
 };
 
 
-fn IMUI_Style* getStyle(IMUI_KINDs kind) @inline @nodiscard {
+fn IMUI_Style* getStyle(IMUI_KINDs kind) @inline @nodiscard
+{
 	foreach(&style : IMUI_STYLES){
 		if(style.kind == kind) return style;
 	}
@@ -2894,7 +2907,7 @@ fn bool is_widget_debug_on()   @local @inline => gui::ui_debugDraw.getBool();
 
 fn bool enabled() @inline => uiwin::gpManager.mode == EDITOR;
 fn bool as_focus() @inline {
-    return (enabled() && tools::isFocused(&game.editor));
+    return (enabled() && editor::isFocused(&game.editor));
 }
 
 fn void move_selected(Widget* wgt)
@@ -2930,6 +2943,47 @@ fn void update(UIWindow* mng)
             }
         }
     }
+}
+
+fn void drawWorldSpaceCoords()
+{
+    @todo();
+    /*
+	RLRectangle rec = self.bounds.toRect();
+
+    // show MINIMUM_SIZE_IN_PIXELS
+	int sz_ = misc::MINIMUM_SIZE_IN_PIXELS;
+	r2d::@drawRect({500, 100, sz_, sz_}, rl::PURPLE);
+    rl::drawText("MINIMUM_SIZE_IN_PIXELS", 500, 110, 10, rl::DARKGRAY);
+    
+    // draw a box representing the entire view area
+    rl::drawRectangleLinesEx(rec, 2.5f, rl::RED);
+    // draw world coords
+    Vec2f scr_org, start, end, pox, poy;
+    scr_org = {0,0};
+    start   = scr_org;
+    start.x += (0.010 * rec.width);
+    start.y += (0.010 * rec.height);
+    // x coord arrow
+    end = start + misc::VEC_RIGHT * (0.10 * rec.width);
+    misc::draw_arrow(start, end, rl::RED);
+    // label x coords
+    pox = end;
+    pox.translateV(misc::VEC_RIGHT * (0.010f * rec.width) + 3);
+    // Y coord arrow
+    end = start + misc::VEC_DOWN * (0.10 * rec.height);
+    misc::draw_arrow(start, end, rl::GREEN);
+    // label y coords
+    poy = end;
+    poy.translateV(misc::VEC_DOWN  * (0.010f * rec.height) + 3);
+    //
+    String x_coord, y_coord;
+    x_coord = string::tformat("[%s]", rec.width);
+    y_coord = string::tformat("[%s]", rec.height);
+    // drawText(ZString text, int posX, int posY, int fontSize, RLColor color)
+    rl::drawText(x_coord.zstr_tcopy(), (int)pox.x, (int)pox.y, 10, rl::RED);
+    rl::drawText(y_coord.zstr_tcopy(), (int)poy.x, (int)poy.y, 10, rl::RED);
+    */
 }
 
 fn void draw(UIWindow* mng) 

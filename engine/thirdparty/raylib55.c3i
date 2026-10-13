@@ -1214,9 +1214,10 @@ fn bool isKeyDown(CInt key) @cname("IsKeyDown");
 fn bool isKeyReleased(CInt key) @cname("IsKeyReleased");
 // Check if a key is NOT being pressed
 fn bool isKeyUp(CInt key) @cname("IsKeyUp");
-// Get key pressed (keycode), call it multiple times for keys queued, returns 0 when the queue is empty
-// NOTE(HM) if called once retrieves the last key that was pressed during the last frame
-// and removes it from the queue, aparantly is NOT equivalent to isKeyPressed()
+// Get key pressed (keycode), call it multiple times for keys queued, 
+// returns 0 when the queue is empty
+// NOTE(HM) if called once, retrieves the last key that was pressed during the last frame
+// and removes it from the queue, this is NOT equivalent to isKeyPressed()
 fn CInt getKeyPressed() @cname("GetKeyPressed");
 // Get char pressed (unicode), call it multiple times for chars queued, returns 0 when the queue is empty
 fn CInt getCharPressed() @cname("GetCharPressed");

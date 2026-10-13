@@ -72,50 +72,9 @@ fn void pre_InitFunc() @init
     //uint value = misc::megaBytes2Bytes(1024);
     //memory_pool = (usz*)rl::memAlloc( value * uint::size);
     gameArena.init(mem, GAME_ARENA_PAGE_SIZE);
-    
-    // Controls raylib console logging
-    // NOTE(HM) Raylib library/context gets initialized here!!
-    // This is because is the first call from raylib we make.
-    // NOTE(HM) This means the MINIMUM level not the only level that will log
-    // anything bellow this level will not log
-    // WARNING(HM) MAY BE OVERRIDEN LATER BY THE INI FILE SETTING!!!
-    rl::setTraceLogLevel(RLTraceLogLevel.WARNING);
-    
-    // ************* My own logging system ****************
-    // RLTraceLogLevel means the MINIMUM log level, 
-    // not the only level to log, anything bellow this level will not log.
-    // WARNING(HM) MAY BE OVERRIDEN LATER BY THE INI FILE SETTING!!!
-    log::init(RLTraceLogLevel.INFO);
-    // *********************************************************
-
-    game::pContext.warningBox.init((int)MessageBoxType.WARN);
-    game::pContext.errorBox.init((int)MessageBoxType.ERROR);
-    game::pContext.infoBox.init((int)MessageBoxType.INFO);
-
-    game::showSettingsWindow();
-
-    log::info(FILE, "-------- THE %s ENGINE LOG ------------", version::ENGINE_NAME);
-    DateTime date = datetime::now();
-    log::info(FILE, "\t%s of %s of %s at %sh:%sm", date.day, date.month, date.year, date.hour, date.min);
-    log::info(FILE, "---------------------------------------------");
-	$if $feature(_DEBUG):
-    log::info(FILE, "--- (application compiled in debug mode) ---");
-	$endif
-    log::info(FILE, "---------------------------------------------\n"); 
-
-    // print machine info
-    misc::printMachineInfo();
 
     win32::setPhysicalWorkMemory(192 << 20, 1024 << 20); // set min 192mb and max 1gb physical memory usage for this process
 }
-
-fn void usage() @local @if($feature(TSODING_FLAG))
-{
-    log::info(CONSOLE, "Usage: %s [options]", flg::program_name());
-    log::info(CONSOLE, "Options:");
-    flg::print_options();
-}
-
 
 //********** ENTRY FUNCTION ******************************
 fn int main(String[] args) @public @if($feature(_DEBUG))
@@ -128,11 +87,59 @@ fn int main(String[] args) @public @winmain @if($feature(_RELEASE))
     return mainEntryFunc(args);
 }
 
+fn void usage() @local @if($feature(TSODING_FLAG))
+{
+    log::info(CONSOLE, "Usage: %s [options]", flg::program_name());
+    log::info(CONSOLE, "Options:");
+    flg::print_options();
+}
+
+fn void set_minimum_log_levels() @inline @local
+{
+    // Controls RAYLIB console logging
+    // NOTE(HM) Raylib library/context gets initialized here!!
+    // This is because is the first call from raylib we make.
+    // This also means the MINIMUM level to log, not the only level 
+    // that will log, anything bellow this level will not be logged.
+    // WARNING(HM) MAY BE OVERRIDEN LATER BY A INI FILE SETTING!!!
+    rl::setTraceLogLevel(RLTraceLogLevel.WARNING);
+    
+    // ************* My own logging system ****************
+    // Reuses raylib RLTraceLogLevel enum and also means 
+    // the MINIMUM log level, not the only level to log.
+    // WARNING(HM) MAY BE OVERRIDEN LATER BY A INI FILE SETTING!!!
+    log::init(RLTraceLogLevel.INFO);
+    // *********************************************************
+}
+
 fn int mainEntryFunc(String[] args)
 {
 $if $feature(TRACY_ENABLE):
     tracy::set_thread_name("main_thread");
 $endif
+
+    set_minimum_log_levels();
+
+    // init visual raygui messages box's
+    game::pContext.warningBox.init((int)MessageBoxType.WARN);
+    game::pContext.errorBox.init((int)MessageBoxType.ERROR);
+    game::pContext.infoBox.init((int)MessageBoxType.INFO);
+    //
+
+    game::showSettingsWindow();
+
+    log::info(FILE, "-------- THE %s ENGINE LOG ------------", version::ENGINE_NAME);
+    //log::info(FILE, "\t%s at %s", $$DATE, $$TIME);
+    DateTime date = datetime::now().to_local();
+    log::info(FILE, "\t%s of %s of %s at %sh:%sm", date.day, date.month, date.year, date.hour, date.min);
+    log::info(FILE, "---------------------------------------------");
+	$if $feature(_DEBUG):
+    log::info(FILE, "--- (application compiled in debug mode) ---");
+	$endif
+    log::info(FILE, "---------------------------------------------\n"); 
+
+    // print machine info
+    misc::printMachineInfo();
 
 $if $feature(TSODING_FLAG):
     ZString* version = flg::flag_bool("version", false, "Print engine version");

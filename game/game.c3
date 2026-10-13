@@ -142,7 +142,7 @@ constdef PerfOption : inline int
 
 // #region Cvars
 CVar developer        @public = { "developer"     , CvFlag.BOOL | CvFlag.TOOL | CvFlag.CHEAT | CvFlag.SYSTEM,   "0",     "enables developer mode"};
-CVar editor           @public = { "editor"        , CvFlag.BOOL | CvFlag.TOOL | CvFlag.TOOL,   "0",     "enables the game editor (requires developer mode)"};
+CVar editor           @public = { "editor"        , CvFlag.BOOL | CvFlag.TOOL,   "0",     "enables the game editor (requires developer mode)"};
 CVar r_mode           @public = { "r_mode"        , CvFlag.INT | CvFlag.ARCHIVE | CvFlag.RENDERER,    "-1",    "index of window resolution [0 to 32], -1 = ini file setting"};
 CVar r_msaa           @public = { "r_msaa"        , CvFlag.BOOL | CvFlag.ARCHIVE | CvFlag.RENDERER,    "1",    "tries to enable 4x msaa if possible to smooth geometry edges"};
 CVar r_showFPS        @public = { "r_showFPS"     , CvFlag.BOOL | CvFlag.ARCHIVE | CvFlag.RENDERER,   "1",     "draws framerate on screen"};
@@ -181,17 +181,18 @@ fn void register_cvars() @inline @local
 
 fn void register_modulo_cvars() @local 
 {
-    register_cvars(); // this module cvars (game module)
 	cvar::register_cvars();
+    log::register_cvars();
 	fs::register_cvars();
     input::register_cvars();
+	camview::register_cvars();
+    register_cvars(); // this module cvars (game module)
     gui::register_cvars();
+    editor::register_cvars();
 	vid::register_cvars();
     intro::register_cvars();
-    log::register_cvars();
     ent::register_cvars();
     bounds::register_cvars();
-    tools::register_cvars();
 }
 
 // #endregion Cvars
@@ -290,6 +291,10 @@ const int SMALL_FONT_SIZE   @Hardcode @public = 6;
 const int DEFAULT_FONT_SIZE @Hardcode @public = 10;
 const int BIG_FONT_SIZE     @Hardcode @public = 14;
 const int DEFAULT_FONT_TEXT_LINE_SPACING @Hardcode @public = 5;
+const int SMALLCHAR_WIDTH @Hardcode @public = 8;
+const int SMALLCHAR_HEIGHT @Hardcode @public = 16;
+const int BIGCHAR_WIDTH	 @Hardcode @public = 16;
+const int BIGCHAR_HEIGHT @Hardcode @public = 16;
 
 const PHYS_DEFAULT_SUBSTEPS @if($feature(PHYSICS_BOX2D)) = 4;
 const PHYS_DEFAULT_TIMESTEP @if($feature(PHYSICS_BOX2D)) = 1.0f / 60.0f; // 60fps @Hardcode
@@ -757,7 +762,8 @@ fn void MessageBox.init(&self, int type)
 
 fn void MessageBox.updateSize(&self) @MyInline 
 {
-    if(self.text_len > self.box.width) {
+    if(self.text_len > self.box.width)
+	{
         self.box.width = self.text_len + DEFAULT_MESSAGE_BOX_MARGIN * 2;
     }
 }
@@ -765,7 +771,8 @@ fn void MessageBox.updateSize(&self) @MyInline
 <*
     @require self.initted == true
 *>
-fn void MessageBox.setMessage(&self, String msg) {
+fn void MessageBox.setMessage(&self, String msg)
+{
     self.message  = msg;
     self.text_len = rl::measureText(self.message.zstr_tcopy(), DEFAULT_MESSAGE_BOX_TEXT_SIZE);
     self.updateSize();
@@ -799,7 +806,9 @@ fn void MessageBox.draw(&self)
             buttons: "close");
             if(result == rgui::BUTTON_EXIT || 
                result == rgui::BUTTON_IDX01 /*close*/) self.show = false;
-    } else {
+    }
+	else
+	{
         self.isVisible = false;
     }
 }
@@ -870,17 +879,20 @@ fn RLFont* Game.getfont(&self, String font_name) @MyInline
 *>
 fn void set_uniform_shader_Textures(RLShader* shader) @local
 {
-	int layout_loc;
+	if(rl::isShaderValid(*shader))
+	{
+		int layout_loc;
 
-	// Give basic textures to the current shader
-	layout_loc = shader.getUniformLocation("default_tex");
-	shader.setValue(layout_loc, &local_game.default_texture, RLShdUniTyp.SAMPLER2D);
-	layout_loc = shader.getUniformLocation("white_tex");
-	shader.setValue(layout_loc, &local_game.tex_white, RLShdUniTyp.SAMPLER2D);
-	layout_loc = shader.getUniformLocation("black_tex");
-	shader.setValue(layout_loc, &local_game.tex_black, RLShdUniTyp.SAMPLER2D);
-	layout_loc = shader.getUniformLocation("gray_tex");
-	shader.setValue(layout_loc, &local_game.tex_gray, RLShdUniTyp.SAMPLER2D);
+		// Give basic textures to the current shader
+		layout_loc = shader.getUniformLocation("default_tex");
+		shader.setValue(layout_loc, &local_game.default_texture, RLShdUniTyp.SAMPLER2D);
+		layout_loc = shader.getUniformLocation("white_tex");
+		shader.setValue(layout_loc, &local_game.tex_white, RLShdUniTyp.SAMPLER2D);
+		layout_loc = shader.getUniformLocation("black_tex");
+		shader.setValue(layout_loc, &local_game.tex_black, RLShdUniTyp.SAMPLER2D);
+		layout_loc = shader.getUniformLocation("gray_tex");
+		shader.setValue(layout_loc, &local_game.tex_gray, RLShdUniTyp.SAMPLER2D);
+	}
 }
 
 // TODO(HM) change this to use HMShader when possible please!!
@@ -890,13 +902,16 @@ fn void set_uniform_shader_Textures(RLShader* shader) @local
 *>
 fn void set_uniform_shader_timing(RLShader* shader) @local
 {
-	int layout_loc;
+	if(rl::isShaderValid(*shader))
+	{
+		int layout_loc;
 
-	// Give basic textures to the current shader
-	layout_loc = shader.getUniformLocation("time");
-	shader.setValue(layout_loc, &local_game.time_sec, RLShdUniTyp.FLOAT);
-	layout_loc = shader.getUniformLocation("dt");
-	shader.setValue(layout_loc, &local_game.dt, RLShdUniTyp.FLOAT);
+		// Give basic textures to the current shader
+		layout_loc = shader.getUniformLocation("time");
+		shader.setValue(layout_loc, &local_game.time_sec, RLShdUniTyp.FLOAT);
+		layout_loc = shader.getUniformLocation("dt");
+		shader.setValue(layout_loc, &local_game.dt, RLShdUniTyp.FLOAT);
+	}
 }
 
 // TODO(HM) change this to use HMShader when possible please!!
@@ -907,11 +922,14 @@ fn void set_uniform_shader_timing(RLShader* shader) @local
 *>
 fn void set_uniform_shader_screen(RLShader* shader) @local
 {
-	int layout_loc;
+	if(rl::isShaderValid(*shader))
+	{
+		int layout_loc;
 
-	// Give basic textures to the current shader
-	layout_loc = shader.getUniformLocation("resolution");
-	shader.setValueV(layout_loc, (Vec2f*)&local_game.screen.size, RLShdUniTyp.VEC2, 1);
+		// Give basic textures to the current shader
+		layout_loc = shader.getUniformLocation("resolution");
+		shader.setValueV(layout_loc, (Vec2f*)&local_game.screen.size, RLShdUniTyp.VEC2, 1);
+	}
 }
 
 fn void? loadDefaultAssets() @local
@@ -1064,7 +1082,7 @@ $endif
     self.boidManager1.release();
     $endif
 
-    tools::deinit(&self.editor);
+    editor::deinit(&self.editor);
 }
 
 // The type of menu gui set right now
@@ -1126,15 +1144,21 @@ fn bool system_cursor_visible() @public @MyInline {
     return !rl::isCursorHidden();
 }
 
+fn bool system_cursor_is_moving()
+{
+	return rl::getMouseDelta().length_sq() > 0;
+}
+
 // #endregion System OS Cursor
 
 ///////////////////////////////////////
-// #region Game Custom Cursor functions
-
+///////////////////////////////////////
+// #region GAME Custom CURSOR functions
+////////////////////////////////////////
 <*
 	@require rl::isWindowReady() == true
 *>
-fn void init_game_cursor() @MyInline
+fn void init_game_cursor()
 {
     local_game.mouse_cursor.initV(
         pos: misc::VEC2_ZERO, // position in pixel units
@@ -1143,17 +1167,21 @@ fn void init_game_cursor() @MyInline
             .y = 42  // height
         },
         color: rl::WHITE,
-        kind: SpriteKind.CURSOR,
         material_name: MOUSE_POINTER_MAT_NAME
     );
+	local_game.mouse_cursor.flags.is_game_cursor = true;
+	// but don't draw it for now
+	local_game.mouse_cursor.hide();
 }
 
 // is this really needed now that i have a asset manager? 
-fn void deinit_game_cursor() @MyInline {
+fn void deinit_game_cursor() @MyInline
+{
     hide_game_cursor();
 }
 
-fn void set_game_cursor_size(float w, float h) @MyInline {
+fn void set_game_cursor_size(float w, float h) @MyInline
+{
     local_game.mouse_cursor.setSize(w, h);
 }
 
@@ -1196,22 +1224,7 @@ fn void update_game_cursor(int screen_w, int screen_h) @public
 fn void show_game_cursor() @public @MyInline 
 {
     if(local_game.mouse_cursor.hidden()) local_game.mouse_cursor.show();
-}
-
-fn void draw_game_cursor() @local @MyInline
-{
-    if(game_cursor_visible()) 
-    {
-        hide_system_cursor(); // hide operating system cursor
-        /*foreach(sprite : local_game.sprites) 
-        {
-            if(sprite.kind == SpriteKind.CURSOR) 
-            {
-                sprite.draw();
-            }
-        }*/
-		local_game.mouse_cursor.onDraw();
-    }
+	if(system_cursor_visible()) hide_system_cursor(); // hide operating system cursor
 }
 
 // NOTE(HM) only hides the cursor doesn't disable it, will still move regardless of visibility.
@@ -1230,7 +1243,16 @@ fn bool game_cursor_hidden() @public @MyInline
     return !game_cursor_visible();
 }
 
+fn bool game_cursor_is_moving() @public @inline 
+{
+    return system_cursor_is_moving();
+}
+
 // #endregion Game Custom Cursor functions
+///////////////////////////////////////////
+///////////////////////////////////////////
+
+
 
 // todo change all direct raylib input handling to use the actions system
 fn void gameHandleGeneralControls() @local
@@ -1244,41 +1266,6 @@ fn void gameHandleGeneralControls() @local
         local_game.pause_phys_simulation = !local_game.pause_phys_simulation;
     }
 	$endif
-
-    $if $feature(MICROUI_ENABLE):
-    // #region MicroUI initialization
-    if(local_game.mu_ctx != null) 
-    {
-        //float scroll_speed = -30.0f; // scroll speed for mouse wheel.
-        local_game.mu_ctx.forward_mouse_input();
-        local_game.mu_ctx.forward_text_input();
-        local_game.mu_ctx.forward_keyboard_input();
-    }
-
-    if(input::getAction("toggle_editor").fnBecameTriggered() && 
-       local_game.mode != STARTING && local_game.mode != INTRO)
-	{
-        if(editor.getBool() == true)
-        {
-            if(tools::isOpen(&local_game.editor))
-            {
-                tools::close(&local_game.editor);
-            }
-            else
-            {
-                tools::open(&local_game.editor);
-            }
-        }
-    }
-
-    if(rl::isKeyPressed(rl::KEY_F2)) {
-        local_game.show_microui_test_frames = !local_game.show_microui_test_frames;
-    }
-
-    if(rl::isKeyPressed(rl::KEY_F4)) {
-        local_game.show_statistics = !local_game.show_statistics;
-    }
-$endif
     
     // handle ESC key press
     if (!local_game.guiActive && rl::isKeyPressed(rl::KEY_ESCAPE) &&
@@ -1286,11 +1273,16 @@ $endif
     {
 		UIWindow* gui;
         ESCReply op = local_game.handleESC( &gui );
-        if(op == ESCReply.GUI) {
+        if(op == ESCReply.GUI)
+		{
             menu::setGUI(gui);
-        } else if(op == ESCReply.MAIN) {
+        }
+		else if(op == ESCReply.MAIN)
+		{
             menu::start(local_game.main_menu);
-        } else {
+        }
+		else
+		{
             menu::setGUI(null); // disable any gui
         }
 	}
@@ -1305,7 +1297,8 @@ $endif
     */
 
     
-    if(rl::isKeyPressed(rl::KEY_G)) {
+    if(rl::isKeyPressed(rl::KEY_G))
+	{
         menu::exit();
     }
 
@@ -1369,34 +1362,32 @@ $endif
     }
 */
 
-    
-    
-    if(input::Action* action = input::getAction("particles")) {
-        if(action.fnBecameTriggered()) {
+    if(input::Action* action = input::getAction("particles"))
+	{
+        if(action.fnBecameTriggered())
+		{
              unreachable();
             //if(local_game.particleSpawner1.isActive() == false) local_game.particleSpawner1.activate();
             //log::info(Where.CONSOLE, "Action BECAME triggered!!!!!!");
         }
     }
-    
-    local_game.last_key_pressed = rl::getKeyPressed();
 }
 
 fn void onUpdate() @local 
 {
-    telem::@profile_zone("Game Update")
+    @profile_zone("Game Update")
     {
     tracy::@zoneN("gameUpdate", 0)
     {
         // make game run at lower rate in case window loses focus
-		int runningHz = (int)local_game.render.getFPS();
 		int max_fps   = local_game.max_fps;
 		if(max_fps <= 0)
         {
 			max_fps = math::clamp(local_game.max_fps, MIN_DISPLAY_HZ, local_game.screen.displayHz);
 		}
 
-		int targetHz = (local_game.fps_unlocked && max_fps > 0) ? max_fps : local_game.screen.displayHz;
+		int runningHz = (int)local_game.render.getFPS();
+		int targetHz  = (local_game.fps_unlocked && max_fps > 0) ? max_fps : local_game.screen.displayHz;
 		if(rl::isWindowFocused())
 		{
 			if(runningHz <= MIN_DISPLAY_HZ)
@@ -1408,26 +1399,37 @@ fn void onUpdate() @local
 		}
 		else if(runningHz > MIN_DISPLAY_HZ && local_game.mode != GameMode.INTRO) // lost focus
 		{
-			//$if !$feature(TRACY_ENABLE):
 			rl::setTargetFPS(MIN_DISPLAY_HZ);
+			// pause music because if will sound wrong by the gaming running slow
 			local_game.pause_all_music = 1;
-			//$endif
 		}
         //////////
 
+		$if $feature(LUA_ENABLE):
+            lua::updateGameLuaGlobals();
+        $endif
 
 		if(local_game.screen.state.changed)
         {
             set_uniform_shader_screen(local_game.current_global_shader);
 		}
         
-        input::manager.update();
-        gameHandleGeneralControls();
-
-        if(rl::getMouseDelta().length_sq() > 0)
+		// update user input
+        if(game_cursor_is_moving())
         {
             local_game.mouse_window_pos = rl::getMousePosition(); // pixel coordinates, top left origin
+			// update the in-game cursor
+			update_game_cursor(game::getScreenWidth(), game::getScreenHeight());
         }
+
+        input::manager.update();
+
+		$if $feature(MICROUI_ENABLE):
+			mu::process_input(local_game.mu_ctx);
+		$endif
+        gameHandleGeneralControls();
+		//
+
 
     $if $feature(VIDEO_PLAYBACK_ENABLE):
         if(local_game.mode != INTRO)
@@ -1439,7 +1441,7 @@ fn void onUpdate() @local
 
         if(editor.getBool())
         {
-            tools::update(&local_game.editor);
+            editor::update(&local_game.editor);
         }
         
         // physics engine
@@ -1480,12 +1482,15 @@ $endif
         
         // boids
         $if $defined(BOIDS_ENABLE):
-        local_game.boidManager1.update(rl::getScreenWidth(), rl::getScreenHeight(), local_game.dt);
+        	local_game.boidManager1.update(rl::getScreenWidth(), rl::getScreenHeight(), local_game.dt);
         $endif
 
-        if(local_game.testTimer.alive()) {
+        if(local_game.testTimer.alive())
+		{
             //io::printfn("Timer time = %s!!!", local_game.testTimer.lifetime);
-        } else { 
+        } 
+		else
+		{ 
             //io::printfn("Timer run out press F2 to start again!!!");
             if (rgui::button((RLRectangle) { 24, 24, 120, 30 }, "#191#Show Message")) local_game.showMessageBox = true;
 
@@ -1522,14 +1527,11 @@ $endif
         }
         
         // update game sprites
-        if(local_game.sprites.len()) {
-            foreach(sprite : local_game.sprites) {
-                //if(sprite.kind == SpriteKind.CURSOR && game_cursor_visible()) {
-                    //sprite.update();
-                //} else {
-                    // generic sprite
-                    sprite.onUpdate();
-                //}
+        if(local_game.sprites.len())
+		{
+            foreach(sprite : local_game.sprites)
+			{
+                sprite.onUpdate();
             }
         }
         
@@ -1589,13 +1591,16 @@ $endif
             //
         }
         
-        if(misc::g_debugLines.len()) {
-            foreach(line : misc::g_debugLines) {
+        if(misc::g_debugLines.len())
+		{
+            foreach(line : misc::g_debugLines)
+			{
                 line.update();
             }
         }
 
-		if(local_game.intro.should_play) {
+		if(local_game.intro.should_play)
+		{
             intro::update(&local_game.intro);
         }
 
@@ -1908,9 +1913,6 @@ fn void onPostGUIDraw(int screenWidth, int screenHeight) @public
             }
         }
 	}
-
-    // draw game cursor sprite
-    draw_game_cursor();
 }
 
 fn void onGuiDraw(int screenWidth, int screenHeight) @public @MyInline 
@@ -1926,37 +1928,24 @@ fn void onGuiDraw(int screenWidth, int screenHeight) @public @MyInline
     uiwin::gpManager.draw(screenWidth, screenHeight);
 
     $if $feature(MICROUI_ENABLE):
-        // process microui panels/frames
-		// NOTE(HM) If enabled, the game editor drawing is also called by process_frames
-        mu::process_frames(local_game.mu_ctx, rl::getFrameTime());
-
         if(local_game.show_microui_test_frames && mu::open_frames.len() == 0) {
             local_game.show_microui_test_frames = false; // disable microui focus if no frames are open
         }
+
+        // process microui panels/frames
+		// NOTE(HM) If enabled, the game editor drawing is also called by process_frames
+        mu::process_frames(local_game.mu_ctx, rl::getFrameTime());
+		// the game editor has its own microui context
+		if(game::developer.getBool() && game::editor.getBool())
+		{
+			editor::draw(&game::pContext.editor);
+		}
+
         // NOTE(HM) microui context end, should be called 
         // before calling the followiong microui commands
         // that is done inside mu::process_frames()::@render() function.
 
-        MU_Command* cmd;
-        while (local_game.mu_ctx.next_command(&cmd))
-        {
-            switch (cmd.type)
-            {
-                case mu::COMMAND_JUMP: io::printfn("MU::COMMAND_JUMP Called.");
-                case mu::COMMAND_TEXT: 
-				{
-					cmd.text.font = local_game.mu_ctx.style.font;
-					mu::callback_draw_text(cmd.text.font, (ZString)&cmd.text.str, cmd.text.pos, cmd.text.color);
-				}
-                case mu::COMMAND_RECT: mu::callback_draw_rect(cmd.rect.rect, cmd.rect.color);
-                case mu::COMMAND_ICON: mu::callback_draw_icon(cmd.icon.id, cmd.icon.rect, cmd.icon.color);
-                case mu::COMMAND_CLIP: mu::callback_set_clip_rect(cmd.clip.rect);
-            }
-        }
-        // Make sure we end any lingering scissor mode.
-        // Without this precaution it's possible for clipping to persist into the next frame 
-        // and obstruct stuff until the next clip command from microui is handled!
-        //rl::endScissorMode();
+		mu::process_cmds(local_game.mu_ctx);
     $endif
 
 	if(local_game.intro.should_play) {
@@ -1983,16 +1972,6 @@ fn void onGuiDraw(int screenWidth, int screenHeight) @public @MyInline
     } else {
         local_game.showSaveMessage = false;
     }
-    
-    // // update & draw cursor sprite
-    // if(game_cursor_visible()) {
-    //     hide_system_cursor();
-    //     foreach(sprite : local_game.sprites) {
-    //         if(sprite.kind == SpriteKind.CURSOR) {
-    //             sprite.draw();
-    //         }
-    //     }
-    // }
     
     if(local_game.msgbox_showing) {
         ZString message_box_title = rgui::iconText(Icon.INFO, "Message Box"); // "#191#Message Box"
@@ -2027,6 +2006,18 @@ fn void onGuiDraw(int screenWidth, int screenHeight) @public @MyInline
         }){} else {local_game.show_test_tool_frame = false;}
 	}
 	//
+
+	// update & draw cursor sprite
+    if(game_cursor_visible())
+	{
+        foreach(sprite : local_game.sprites)
+		{
+            if(sprite.flags.is_game_cursor)
+			{
+				sprite.onDraw();
+			}
+        }
+    }
 }
 
 fn void onPostBufferSwap() @local @MyInline {
@@ -2286,6 +2277,8 @@ fn void handle_cmdline(String[] args) @deprecated
     }
 }
 
+const COMMAND_CHAR @local = "+";
+
 fn void handle_cmdline_new(String[] args)
 {
 	@debug_break(OFF);
@@ -2295,32 +2288,53 @@ fn void handle_cmdline_new(String[] args)
     
     log::tofile("Handling cmd line args: %s\n", args[..]);
 
+	// The command name
     String cmd_arg;
-	// standalone cmds are thought as if they are booleans
-	// their existance is enough to enable stuff
+
 	bool cmd_is_standalone;
+	// standalone cmds, are those with no value after it,
+	// so are thought as boolean true, meaning their existance
+	// is enough to enable stuff.
+
+	// to mark a argument as being a value
 	bool arg_is_value;
-	const COMMAND_CHAR = "+";
 
     foreach(arg_index, arg : args)
     {
+		// NOTE(HM) in _DEBUG (-O0) mode the first argument 
+		// of the cmdline, is always the path to the executable.
+        // so skip the first argument.
 		$if $feature(_DEBUG):
-        	// skip first argument.
-			// NOTE(HM) in _DEBUG (-O0) mode is always the path/name of the executable.
-        	if(arg_index == 0 && !arg.starts_with("+")) continue;
+        	if(arg_index == 0)
+			{
+				assert(!arg.starts_with("+"));
+				continue;
+			}
 		$endif
         
-        // skip the equals sign and or spaces
-        if(arg == " ") continue; 
+        // skip any spaces
+        if(arg == " ") continue;
+		// skip the equals sign, if any is used, 
+		// and mark the next arg as being a value in that case
 		if(arg == "=")
 		{
-			if(arg_is_value == false) arg_is_value = true;
+			// next argument in the loop is a value
+			arg_is_value = true;
 			continue;
+		}
+
+		// if a argument was set as being a value in the 
+		// previous loop above then make sure is not a cmd 
+		// instead, because that would mean that there's a 
+		// serious error in this logic.
+		if(arg_is_value)
+		{
+			assert(!arg.starts_with("+"));
 		}
 
 		/////////////////////
         // Argument is a COMMAND
-        if(arg.starts_with(COMMAND_CHAR))
+        if(!arg_is_value && arg.starts_with(COMMAND_CHAR))
         {
 			if(arg_is_value) arg_is_value = false;
             if(arg.has_spaces()) arg.remove_spaces();
@@ -2331,38 +2345,53 @@ fn void handle_cmdline_new(String[] args)
 			// now look ahead to see what kind of arg comes next
             // so we know what command we are dealing with...
 			int i = (int)arg_index;
-            String next = args[i + 1];
-
-            if(next.starts_with(COMMAND_CHAR))
-            {
+            bool last_arg = (i == (args.len - 1));
+            if(last_arg) {
                 cmd_is_standalone = true;
                 // so go on parsing this command...
             }
-            else if( next == "=" )
+            else
             {
-                arg_is_value = true;
-                // if we are equals, is expected the next arg to be a value 
-                // so just skip us.
-                // WARMING(HM) makes no testing here 
-				// to see if there's something valid after the equals!!
-                continue; // to next arg to parse the value
-            }
-            else // we assume the next argument is a value, 
-            {
-                
-                // we will look later if is a valid one...
-                arg_is_value = true;
-                continue; // to next argument to parse the value
+                String next = args[i + 1];
+
+                if(next.starts_with(COMMAND_CHAR))
+                {
+                    cmd_is_standalone = true;
+                    // so go on parsing this command...
+                }
+                else if( next == "=" )
+                {
+                    arg_is_value = true;
+                    // if we are equals, is expected the next arg to be a value 
+                    // so just skip us.
+                    // WARMING(HM) makes no testing here 
+                    // to see if there's something valid after the equals!!
+                    continue; // to next arg to parse the value
+                }
+                else // we assume the next argument is a value, 
+                {
+                    
+                    // we will look later if is a valid one...
+                    arg_is_value = true;
+                    continue; // to next argument to parse the value
+                }
             }
         }
 
-		assert(cmd_arg.len > 0);
+		if(!arg_is_value)
+		{
+			// from here a cmd should be valid
+			assert(cmd_arg.len > 0);
 
-        // if is a command argument but not a standalone one
-		// do not go on right now and instead skip to the next argument 
-		// to handle the value
-		if(!arg_is_value && !cmd_is_standalone) continue;
-
+			if(cmd_is_standalone)
+			{
+				// just go on down normally to the next code
+			}
+			else
+			{
+				continue; // skip this loop to next one to handle the value
+			};
+		}
         
 		/////////////////////////////////////////////////
         // from here should be the VALUE assigned to a cmd
@@ -2526,20 +2555,29 @@ fn void handle_cmdline_new(String[] args)
 				log::warning(FILE, "cmdline arg '%s' did nothing by some error or is still not handled.", cmd_arg, arg);
 		}
 
-		// after dealing with a cmd clear it
-        cmd_arg = "";
-
-		if(cmd_is_standalone)
+		if(cmd_arg.len)
 		{
-			cmd_is_standalone = false;
-            // see if last cmd
-			bool last_cmd = (arg_index == (args.len - 1));
-			if(last_cmd) {
-				break; // get out
-			} else {
-				continue; // to the next argument
-			}
+			// after dealing with a cmd clear it
+			cmd_arg = "";
+			if(cmd_is_standalone) cmd_is_standalone = false;
         }
+		
+		if(arg_is_value)
+		{
+			// after dealing with a value clear this
+			arg_is_value = false;
+		}
+
+		// see if last arg of command line
+		bool last_arg = (arg_index == (args.len - 1));
+		if(last_arg)
+		{
+			break; // out of the loop
+		} 
+		else
+		{
+			continue; // to the next argument
+		}
     }
 }
 
@@ -3079,11 +3117,8 @@ $endif
     // then look into the ini file for its r_mode instead.
     else
     {
-        // DOC(HM) '!' at the expression end, is the same as doing:
-        // int? res_index  = settings_data.getInt("r_mode");
-        // if(catch excuse = res_index ) { return excuse; }
-
-        if(settings_data.getInt("video", "r_mode")! == -1)
+        res_index = settings_data.getInt("video", "r_mode", -1)!;
+        if(res_index == -1)
         {
             int w_value, h_value;
             // use ini defined custom resolutions
@@ -3115,6 +3150,9 @@ $endif
         log::error(FILE, "Invalid screen resolution %dx%d, cannot continue!", local_game.screen.w, local_game.screen.h);
         return GAME_INVALID_SCREEN_RESOLUTION~;
     }
+
+    // update the global cvar
+    r_mode.setInt(res_index);
     
     log::tofile( "Video mode set -> %s", SCREEN_RES[res_index].str);
 
@@ -3138,7 +3176,9 @@ $endif
     // NOTE(HM) cvar r_fullscreen has top priority
     int fullscreen_choice = r_fullscreen.getInt();
     // NOTE(HM) if cvar was not set, see if the config file is overriding the value
-    if(fullscreen_choice < 0) fullscreen_choice = settings_data.getInt("video", "r_fullscreen")!;
+    if(fullscreen_choice == -1) {
+        fullscreen_choice = settings_data.getInt("video", "r_fullscreen", -1)!;
+    }
     // prevent under or overflow
     if(fullscreen_choice < -1 || fullscreen_choice > 2) 
     {
@@ -3150,6 +3190,9 @@ $endif
             fullscreen_choice = 2;
         }
     }
+
+    // update the cvar as well
+    r_fullscreen.setInt(fullscreen_choice);
     
     switch(fullscreen_choice)
     {
@@ -3345,7 +3388,7 @@ $endif
 
 	// settings file has precedence
 	int max_fps = settings_data.getInt("video", "r_max_fps")!;
-	if(max_fps > 0) cvar::set{int}(&r_max_fps, max_fps);
+	if(max_fps > 0) r_max_fps.setInt(max_fps);
     local_game.max_fps = (max_fps < MIN_DISPLAY_HZ) ? local_game.screen.displayHz : max_fps;
 	if(local_game.max_fps > MAX_DISPLAY_HZ) {
         local_game.max_fps = MAX_DISPLAY_HZ; // to prevent extreme values
@@ -3700,7 +3743,7 @@ $endif
     log::tofile("Initializing game editor:");
     log::tofile("---------------------------------------------");
     // init the game editor defaults
-    tools::initDefaults(&local_game.editor);
+    editor::initDefaults(&local_game.editor);
 
     // // immediate UI @testing
     local_game.show_test_tool_frame = true;
@@ -4238,23 +4281,15 @@ fn void doOneFrame()
                         local_game.time_sec = (float)rl::getTime();
                         local_game.time_ms  = misc::@sec2ms(local_game.time_sec);
 
-						if(local_game.default_shader.isValid()) {
-							local_game.default_shader_time_loc = local_game.default_shader.getUniformLocation("time");
-							local_game.default_shader.setValue(local_game.default_shader_time_loc, &local_game.time_sec, RLShdUniTyp.FLOAT);
+						set_uniform_shader_timing(local_game.current_global_shader);
 
-							local_game.default_shader_dt_loc = local_game.default_shader.getUniformLocation("dt");
-							local_game.default_shader.setValue(local_game.default_shader_dt_loc, &local_game.dt, RLShdUniTyp.FLOAT);	
-						}
-
-                        $if $feature(LUA_ENABLE):
-                        lua::updateGameLuaGlobals();
-                        $endif
-
-                        int screen_w = rl::getScreenWidth();
-                        int screen_h = rl::getScreenHeight();
+						// NOTE(HM) for some reason this has to be here
+						// for getKeyPressed() to detect key presses! 
+						// Puting it inside of onUpdate didn't worked?!
+						local_game.last_key_pressed = rl::getKeyPressed();
                         
                         onUpdate();
-                        onDraw(screen_w, screen_h);
+                        onDraw(rl::getScreenWidth(), rl::getScreenHeight());
 
                         /*
                         if(r_fps_unlocked.getBool() && r_max_fps.getInt() > 0)
@@ -4272,7 +4307,7 @@ fn void doOneFrame()
            // };
         }
         $else
-            vidbkd::@renderLoop(local_game.render) 
+            /*vidbkd::@renderLoop(local_game.render) 
             {
                 tracy::@messageL( "Tick" );
                 tracy::@zoneN("Game loop", 1)
@@ -4297,10 +4332,9 @@ fn void doOneFrame()
                         onDraw(screen_w, screen_h);
                     }; // end @profile_zone
                 }; // tracy scope end
-            };
+            };*/
         $endif
     };
-    
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -4497,12 +4531,19 @@ $if $feature(MICROUI_ENABLE):
     mu_ctx.text_width  = &mu::callback_text_width;
     mu_ctx.text_height = &mu::callback_text_height;
 
-    int flags;
+	int flags;
     flags |= (int)rl::FLAG_WINDOW_UNDECORATED;
     // set/apply the final window flags
     rl::setConfigFlags((RLConfigFlag)flags);
     rl::initWindow(SETTINGS_WINDOW_WIDTH, SETTINGS_WINDOW_HEIGHT, "");
     RLTexture2D mu_font_atlas = rl::loadTexture(font_path);
+	if(rl::isTextureValid(mu_font_atlas) == false)
+	{
+		local_game.errorBox.setMessage("Failed to find font atlas for settings window");
+		local_game.errorBox.toggle();
+		return;
+	}
+
     rl::setWindowMonitor(0); // set to first monitor
     rl::setTargetFPS(24); // set to 24 fps
 
