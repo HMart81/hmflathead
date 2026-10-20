@@ -25,3 +25,8 @@ type_view:
   type: "int[]"
   expr: "array(ptr, len)"
 }
+type_view:
+{
+  expr: "array($.entries, $.size)"
+  type: "List{HMKeyValue*}"
+}

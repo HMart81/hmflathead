@@ -30,38 +30,39 @@ module game::actors::ent;
 
 // region modules
 import std::io;
-import std::core::mem; // for malloc
 import std::math;
+import std::core::mem; // for malloc
 import std::collections::map, std::collections::list;
-import game::main;
-import engine::logging::log;
-import thirdparty::raylib5::rl;
-import thirdparty::tracy;  // profiling
-import engine::misc;
-import game::assets::sprite;
-import game::material::mat; // material system
-import engine::serialize::svs; // save system
-import game::sys::update;
-import engine::sys::cvar;
-import game::lowlevel::bounds;
-import engine::physics::box2d;
-import engine::sys::script_engine::event; // still in testing phase (delete if not finished)
-import thirdparty::scripting::umka; // umka scripting
 import thirdparty::wren; // wren scripting engine
+import thirdparty::tracy;  // profiling
+import thirdparty::raylib5::rl;
+import thirdparty::scripting::umka; // umka scripting
+import engine::misc;
+import engine::logging::log;
+import engine::physics::box2d;
+import engine::serialize::svs; // save system
+import engine::sys::cvar;
+import engine::sys::render2d::r2d;
 import engine::sys::framework::hmdict;
+import engine::sys::script_engine::event; // still in testing phase (delete if not finished)
+import game::main;
+import game::sys::update;
+import game::material::mat; // material system
+import game::assets::sprite;
+import game::lowlevel::bounds;
 // end_region
 
 // region cvars
-CVar debugBounds = { "ent_debugBounds", CvFlag.BOOL | CvFlag.TOOL, "0", "show debug visualization for entity bounding box" };
+CVar cvShowInfo = { "ent_showInfo", CvFlag.INT | CvFlag.TOOL, "2", " 1 = show entity name and origin, 2 = show also bounding box" };
 
-// NOTE(HM) this is called in main.c3
-fn void register_cvars() @inline 
+// NOTE(HM) this is called by register_modulo_cvars() in game.c3
+fn void register_cvars() @inline
 {
-    cvar::@register(&debugBounds);
+    cvar::@register(&cvShowInfo);
 }
 // end_region
 
-constdef EntTh : inline int 
+constdef EntTh : inline int
 {
 	NONE = 0,
 	THINK,
@@ -73,15 +74,15 @@ const MIN_VISUAL_SIZE_VALUE @if(game::UNITS == Units.PIXEL) @Hardcode = 1;
 const MIN_VISUAL_SIZE_VALUE @if(game::UNITS == Units.METER) @Hardcode = 0.10f; // 10 cm
 
 const MIN_PHYSICS_SIZE_VALUE @if($feature(PHYSICS_BOX2D) && game::UNITS == Units.METER) @Hardcode = MIN_VISUAL_SIZE_VALUE;
-const Vec2f MIN_ENTITY_PHYSICS_SIZE @if($feature(PHYSICS_BOX2D)) = {MIN_PHYSICS_SIZE_VALUE, MIN_PHYSICS_SIZE_VALUE};
+//const Vec2f MIN_ENTITY_PHYSICS_SIZE @if($feature(PHYSICS_BOX2D)) = {MIN_PHYSICS_SIZE_VALUE, MIN_PHYSICS_SIZE_VALUE};
 
 const Vec2i MIN_ENTITY_VISUAL_SIZE  = {MIN_VISUAL_SIZE_VALUE, MIN_VISUAL_SIZE_VALUE};
 
-const float ENTITY_DEFAULT_SIZE_X @if(game::UNITS == Units.METER) = 0.45f; // 45 cm  (minimum size is 10 cm)
-const float ENTITY_DEFAULT_SIZE_Y @if(game::UNITS == Units.METER) = 1.0f;  // 1  m
+const float DEFAULT_SIZE_X @if(game::UNITS == Units.METER) = 0.45f; // 45 cm  (minimum size is 10 cm)
+const float DEFAULT_SIZE_Y @if(game::UNITS == Units.METER) = 1.0f;  // 1  m
 //
-const float ENTITY_DEFAULT_SIZE_X @if(game::UNITS == Units.PIXEL) = 45; // px  (minimum size is 10 px)
-const float ENTITY_DEFAULT_SIZE_Y @if(game::UNITS == Units.PIXEL) = 100;  // px
+const int DEFAULT_SIZE_X @if(game::UNITS == Units.PIXEL) = 45; // px  (minimum size is 10 px)
+const int DEFAULT_SIZE_Y @if(game::UNITS == Units.PIXEL) = 100;  // px
 
 // Target list is a list of other entities that are activated by this entity in certain situations.
 alias TargetList = List{HMEntity*}; // list of entities that are targets for this entity
@@ -143,7 +144,7 @@ fn void HMEntity.register(&self) @inline
 }
 
 <*
-	Testes if the entity has a slot to be created/spawn to
+	Tests if the entity has a slot to be created/spawn to
 	if not gets ignored.
 	@param [in] name : "name of the entity to test"
 	@require name != "" : "entities should all have a name!"
@@ -151,9 +152,18 @@ fn void HMEntity.register(&self) @inline
 fn bool HMEntity.shouldSkip(&self, String name) @inline 
 {
     if(game::pContext.entityList.len() == game::MAX_ENTITY_COUNT) {
-		log::warning(FILE, "Skipping entity: '%s' creation, max count of '%s' was reached!", 
+		log::warning(FILE, "Skipping entity: '%s' creation, max entity count of '%s' was reached!", 
 			name, game::MAX_ENTITY_COUNT);
 		return true;
+	}
+
+	foreach(ent : game::pContext.entityList)
+	{
+		if(ent.name == name) {
+			log::error(FILE, "Cannot create another entity named: '%s' name is already used by entity id: '%d'!", 
+			name, ent.id);
+			return true;
+		}
 	}
     
     return false;
@@ -164,10 +174,10 @@ fn bool HMEntity.shouldSkip(&self, String name) @inline
 	@param [in] aname : "name to give the entity"
 	@param origin : "where to put the entity in the world (world coords)"
 	@param color : "base color of the entity"
-	@require aname != "" : "entities should all be given a name!"
+	@require aname.len > 0 : "entities should all be given a valid name!"
 	@require rl::isWindowReady() == true : "Cannot create entity before the window is ready!"
 *>
-fn void HMEntity.init(&self, String aname, Vec2f origin, RLColor color = rl::WHITE)
+fn void HMEntity.init(&self, String aname, Vec2f origin, Vec2f size, RLColor color = rl::WHITE)
 {
 	if(self.shouldSkip(aname)) return;
 	
@@ -181,29 +191,25 @@ fn void HMEntity.init(&self, String aname, Vec2f origin, RLColor color = rl::WHI
 $if $feature(_DEBUG):
 	log::info(FILE, "Created entity-> id: %s with name: %s.", self.id, self.name);
 $endif
-    
-	//
-	//float x_meters = game::getScreenWidth()idth_in_meters;
-	//float y_meters = game::getScreenHeight()eight_in_meters;
+
 	// visuals
     self.vs.initV( origin, 
 	{ // entity visual size
-		ENTITY_DEFAULT_SIZE_X,
-		ENTITY_DEFAULT_SIZE_Y
+		size.x,
+		size.y
 	}, color);
     //
     
-    // set entity Bounds
+    // Create entity Bounding box
     Bounds bb;
     bb.maxc = origin;
-    bb.minc = bb.maxc + misc::VEC_RIGHT * self.vs.rect.width + misc::VEC_DOWN * self.vs.rect.height;
+    bb.minc = bb.maxc + misc::VEC_RIGHT * size.x + misc::VEC_DOWN * size.y;
     self.setBounds(bb);
     
-    // physics
 	$if $feature(PHYSICS_BOX2D):
     // define the body
     B2BodyDef bodyDef   = box2d::defaultBodyDef();
-    bodyDef.type        = box2d::STATIC;
+    bodyDef.type        = box2d::STATIC; // entities are static by default
     /*
         WARNING(HM) 
         Do not create a body at the world origin and then move it to the final place. 
@@ -214,7 +220,7 @@ $endif
     // already done by default
     //bodyDef.enableSleep = true;
     
-    // create the body from the definition data above
+    // create the body using the definition data above
     self.physics        = box2d::createBody(game::pContext.physWorldId, &bodyDef);
     //
     // create the physics shape
@@ -227,7 +233,7 @@ $endif
 	hx = misc::pixelsToMeters((int)hx);
 	hy = misc::pixelsToMeters((int)hy);
 	// Warning(HM) if the size is too small or the minimum, this will not return half the size, 
-	// but the minimum size of 0.1 meters. 
+	// but the minimum size of 0.1 meters or 10 centimeters. 
 	// And that means that the box bellow will be created with a size of 0.2 meters,
 	// because of the half width and height thing.
 	/*if(hx > (misc::MINIMUM_SIZE_IN_METERS + 0.05f))
@@ -243,19 +249,21 @@ $endif
     shapeDef.density          = 1.0f;
     shapeDef.friction         = 0.3f;
 	box2d::createPolygonShape(self.physics, &shapeDef, &dynamicBox);
-	$endif
+	$endif // PHYSICS_BOX2D
     
 	self.onSpawn();
 	self.born(); // set the entity as alive, so it can be used
 	self.updateVisuals();
 }
 
-fn void HMEntity.setSpawnArgs(&self, String def_name) @inline {
+fn void HMEntity.setSpawnArgs(&self, String def_name) @inline
+{
 	self.spawnargs.init();
 	@catch(self.spawnargs.parse(DefType.ENTITY, def_name));
 }
 
-fn void HMEntity.clearSpawnArgs(&self) @inline {
+fn void HMEntity.clearSpawnArgs(&self) @inline
+{
 	self.spawnargs.clear();
 }
 
@@ -804,6 +812,7 @@ fn void HMEntity.move(&self)
 
 fn void HMEntity.onSpawn(&self)
 {
+	self.setSpawnArgs("entityBase");
 	// this is diferent from init()
 	// this should run when the entity is first spawn in a level
 	self.health     = self.spawnargs.getInt("health")!!;
@@ -823,12 +832,11 @@ fn void HMEntity.think(&self, float dt) // update in other engines
 			self.move();
 		$endif
 
+		bool ent_out_of_view = !game::pContext.view.bounds.intersectsOther(&self.vs.bounds);
+		if(ent_out_of_view) {
+			self.hide();
+		}
     }
-	
-	if(bounds::db_showBounds.getBool())
-	{
-		self.vs.bounds.debugDraw();
-	}
 }
 
 fn void HMEntity.updateVisuals(&self) 
@@ -850,7 +858,7 @@ fn void HMEntity.onDraw(&self) @dynamic
 	}
 	self.becomeInactive(EntTh.UPDATEVISUALS);
 	
-	RLRectangle rect = self.vs.rect;
+	//RLRectangle rect = self.vs.rect;
 
 	self.vs.onDraw();
 	//
@@ -933,6 +941,37 @@ fn void HMEntity.onDraw(&self) @dynamic
 
 }
 
+fn void HMEntity.onPostGUIDraw(&self) @dynamic
+{
+	if(self.hidden()) return;
+	if(self.isDead()) 
+	{
+		self.hide();
+		return;
+	}
+
+	if(!(self.thinkflags & EntTh.UPDATEVISUALS)) {
+		return;
+	}
+	self.becomeInactive(EntTh.UPDATEVISUALS);
+
+	if(game::pContext.mode == PLAYING || 
+	   game::pContext.mode == EDITOR) {/*go on*/} else { return; }
+
+	// draw entities debug info
+	int info_value = cvShowInfo.getInt();
+	Vec2f org = self.getOrigin();
+    if(info_value)
+	{
+		r2d::draw_small_string((int)org.x, (int)org.y, self.name, rl::RAYWHITE);
+		r2d::drawSquare(org, 5, rl::RED);
+		if(info_value == 2)
+		{
+			self.vs.bounds.debugDraw();
+		}
+	}
+}
+
 /*
 fn void HMEntity.becomeActive(&self, int flags) {
 	
@@ -969,20 +1008,20 @@ fn bool HMEntity.isValid(&self)
 	return false;
 }
 
-fn void create_entity(String aname, Vec2f pos, int w, int h, RLColor color) @public 
+fn HMEntity* create_entity(String aname, Vec2f pos, int w, int h, RLColor color) @public 
 {
 	HMEntity* ent = mem::new(HMEntity);
-	ent.init(aname, pos, color);
-	ent.scale((float)w, (float)h);
+	ent.init(aname, pos, {w,h}, color);
+	return ent;
 }
 
 <*
  @ensure return != null
 *>
-fn HMEntity* create_ex(String aname, Vec2f origin, RLColor color) @public 
+fn HMEntity* create_ex(String aname, Vec2f origin, Vec2f size, RLColor color) @public 
 {
 	HMEntity* ent = mem::new(HMEntity);
-	ent.init(aname, origin, color);
+	ent.init(aname, origin, size, color);
 	return ent;
 }
 

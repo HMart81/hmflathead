@@ -125,6 +125,8 @@ fn void Player.init(&self, Vec2f origin, RLColor color, int id)
     self.name     = string::tformat("player%d", id).tcopy();
     self.move_dir = NONE;
 
+	self.setSpawnArgs(string::tformat("player%s", id));
+
 	self.health = self.spawnargs.getInt("health")!!;
 	self.max_health = self.spawnargs.getInt("maxhealth")!!;
     
@@ -264,7 +266,6 @@ fn Player* makePlayer(int id, Vec2f position = {0, 0}, RLColor color = rl::WHITE
 	if(pos == misc::VEC2_ZERO) pos = game::pContext.screen.center;
 	log::info(CONSOLE, "Player pos = %s", pos);
     Player* player = mem::new(Player);
-	player.setSpawnArgs(string::tformat("player%s", id));
     player.init(pos, color, id);
     return player;
 }

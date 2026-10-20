@@ -1567,7 +1567,7 @@ fn float getLengthUnitsPerMeter() @cname("b2GetLengthUnitsPerMeter") @Exported;
 
 /// These colors are used for debug draw.
 ///	See https://www.rapidtables.com/web/color/index.html
-typedef B2HexColor = inline int;
+alias B2HexColor = int;
 const B2HexColor ALICE_BLUE           = 0xf0f8ff;
 const B2HexColor ANTIQUE_WHITE        = 0xfaebd7;
 const B2HexColor AQUA                 = 0x00ffff;

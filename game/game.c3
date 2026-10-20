@@ -1898,20 +1898,13 @@ fn void onPostGUIDraw(int screenWidth, int screenHeight) @public
         //r2d::drawDebugPoint(local_game.mouse_window_pos, rl::RED);
     }
 
-
-    // draw entities bounds
-    if(ent::debugBounds.getBool() || local_game.mode == EDITOR)
+    // draw entities debug stuff on top of everything
+    if(local_game.entityList.len())
 	{
-        if(local_game.entityList.len())
-        {
-            foreach(ent : local_game.entityList)
-            {
-                bool ent_out_of_view = !local_game.view.bounds.intersectsOther(&ent.vs.bounds);
-                if(!ent_out_of_view && !ent.hidden()) {
-                    ent.vs.bounds.debugDraw();
-                }
-            }
-        }
+		foreach(ent : local_game.entityList)
+		{
+			ent.onPostGUIDraw();
+		}
 	}
 }
 
@@ -3841,17 +3834,21 @@ $endif
     
     // Create test entities @delete
     log::tofile( "** Creating test entities. **");
+	Vec2f origin;
     for(int i = 0; i < 4; i++)
     {
-        $if $defined(camview::ENABLE_CAMERA_VIEW):
-            Vec2f origin = local_game.player1.getOrigin() + misc::VEC_UP * local_game.player1.getHeight(); //local_game.view.origin;
-            @debug_break(OFF);
-        $else
-            Vec2f origin;
-        $endif
-        origin = origin + misc::VEC_UP * 100 * i;
+        if(i == 0)
+		{
+			origin = local_game.player1.getOrigin() + misc::VEC_UP * local_game.player1.getHeight(); //local_game.view.origin;
+		}
+		else
+		{
+			origin = origin + misc::VEC_UP * ent::DEFAULT_SIZE_Y + 10;
+		}
+        //origin = origin + misc::VEC_UP * 100 * i;
         
-        HMEntity* test_ent = ent::create_ex(string::tformat("HMEntity%s", i), origin, rl::WHITE);
+		String ent_name = string::tformat("HMEntity%s", i);
+        HMEntity* test_ent = ent::create_entity(ent_name, origin, ent::DEFAULT_SIZE_X, ent::DEFAULT_SIZE_Y, rl::WHITE);
         test_ent.setMaterial("figure");
     }
     

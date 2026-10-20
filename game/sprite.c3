@@ -587,14 +587,19 @@ fn void HMSprite.onDraw(&self) @dynamic
 			{
                 rl::@blendMode(blending)
                 {
-                    // NOTE(HM) center of the texture (rotation/scale point), 
-                    // it's relative to destination rectangle dimentions, not the screen dimentions.
-                    rl::drawTexturePro(*texture, source, *rect, {0, 0}, 0.0f, color);
+                    // NOTE(HM) 
+					// The sprite visual origin and the center of rotation and scale, 
+                    // it's relative to top left corner of the destination rectangle! 
+					// NOT the screen dimentions.
+				
+                    Vec2f origin = {0,0};
+					float rotation = 0.0f;
+					rl::drawTexturePro(*texture, source, *rect, origin, rotation, color);
                 };
             } 
 			else
 			{ // no blending/Opaque (or perfurated as well)
-                rl::drawTexturePro(*texture, source, *rect, {0, 0}, 0.0f, color);
+                rl::drawTexturePro(*texture, source, *rect, {0,0}, 0.0f, color);
             }
         }
         else // draw simple flat shape

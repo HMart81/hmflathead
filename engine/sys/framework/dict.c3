@@ -62,7 +62,8 @@ fn sz? HMKeyValue.to_format(&self, Formatter* f) @dynamic
 	return f.printf("%s = %s;", self.key, self.value);
 }
 
-fn bool HMKeyValue.equal(&self, HMKeyValue kv ) @operator(==) { 
+fn bool HMKeyValue.equal(&self, HMKeyValue kv ) @operator(==)
+{ 
 	return self.key == kv.key && self.value == kv.value; 
 }
 
@@ -70,7 +71,8 @@ fn bool HMKeyValue.equal(&self, HMKeyValue kv ) @operator(==) {
 	@param [in] str : "string to split into a kv"
 	@require str.len > 0
 *>
-fn HMKeyValue makeKeyVal(String[] str) { 
+fn HMKeyValue makeKeyVal(String[] str)
+{ 
 	return {.key = str[0].tcopy(), .value = str[1].tcopy()};
 }
 
@@ -94,7 +96,7 @@ fn sz HMDict.len(&self) @operator(len)
     return self.args.len();
 }
 
-const DEF_DATA_FILE_PATH = "defs.data";
+const DEF_DATA_FILE_PATH = "defs\\defs.data";
 
 constdef DefType : inline String
 {
@@ -424,16 +426,22 @@ fn void? HMDict.parse(&self, DefType def_type, String def_name )
 			{
 				if(key != "")
 				{
-					assert(value.is_string() && !value.is_empty());
-					if(key == "inherit") {
-						handle_inheritance(value.to_value(String)!, ent_def_root, self)!;
-					} else { // inherit key is not registered 
-						self.register(mem::new(HMKeyValue, {
-							.key   = key, 
-							.value = value.to_value(String)!
-						}));
+					// values should always be a string, data with quotes.
+					assert(value.is_string());
+					switch(key)
+					{
+						case "inherit":
+							handle_inheritance(value.to_value(String)!, ent_def_root, self)!;
+						default:
+							// inherit key is never registered 
+							self.register(mem::new(HMKeyValue, {
+								.key   = key.tcopy(), 
+								.value = value.to_value(String)!.tcopy()
+							}));
 					}
-				} else {
+				}
+				else
+				{
 					log::warning(FILE, "HMDict.parse: empty key found for dictionary object \"%s\" inside defs.data file!", def_name);
 				}
 			};
@@ -454,21 +462,32 @@ fn void? handle_inheritance(String other_def_name, JSCObject* in_def, HMDict* di
 	{
 		if(key != "")
 		{
-			assert(value.is_string() && !value.is_empty());
-			if(key == "inherit") {
-				// warning(HM) may have too deep recursion?
-				handle_inheritance(value.to_value(String)!, def, dic)!;
-			} else {
-				// variables with same name/key are ignored
-				bool key_not_registered = dic.findKey(key)! == null;
-				if(key_not_registered) { 
-					dic.register(mem::new(HMKeyValue, {
-						.key   = key, 
-						.value = value.to_value(String)!
-					}));
-				}
+			assert(value.is_string());
+			switch(key)
+			{
+				// multi-level inherantance
+				case "inherit":
+					// warning(HM) may have too deep recursion?
+					handle_inheritance(value.to_value(String)!, def, dic)!;
+				default:
+					// variables with same name/key will overrride previous values
+					HMKeyValue* ky = dic.findKey(key)!;
+					if(ky)
+					{
+						log::warning(FILE, "entityDef: '%s' has inherited duplicated spawnarg '%s' previous value will be ignored.", other_def_name, key);
+						dic.set(key, value.to_value(String)!);
+					}
+					else
+					{ 
+						dic.register(mem::new(HMKeyValue, {
+							.key   = key.tcopy(), 
+							.value = value.to_value(String)!.tcopy()
+						}));
+					}
 			}
-		} else {
+		} 
+		else
+		{
 			log::warning(FILE, "handle_inheritance: empty key found!");
 		}
 	};

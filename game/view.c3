@@ -259,7 +259,7 @@ fn RenderTexture initFrameBufferLayer(int width, int height, bool hdr = false) @
 }
 
 // region cvars
-CVar cv_debug       @public = { "view_debug",   CvFlag.BOOL | CvFlag.TOOL, "1", "show view debug visualization" };
+CVar cv_debug       @public = { "view_debug",   CvFlag.BOOL | CvFlag.TOOL, "0", "show view debug visualization" };
 CVar cv_edit        @public = { "view_edit",     CvFlag.BOOL | CvFlag.TOOL, "0", "turn on view editing functionality" };
 
 fn void register_cvars() @public 
@@ -406,7 +406,7 @@ fn void RenderView.deinit(&self)
 
 fn void RenderView.debug(&self) 
 {
-	if(!cv_debug.getBool() && gui::ui_debugDraw.getBool())
+	if(!cv_debug.getBool() && !gui::ui_debugDraw.getBool())
 	{
 		return;
 	}

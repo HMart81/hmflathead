@@ -69,8 +69,8 @@ const CInt CONSOLE_FONT_SIZE @local = 12;
 const CInt CONSOLE_MAX_LINES @local = 1000;
 const CInt CONSOLE_INPUT_MAX_LINE_LENGTH @local = 1024;
 
-const AUTO_SIZE @local = -1;
-const DEFAULT_SIZE @local = 0;
+const AUTO_SIZE @local = -1; // relative to the right/bottom edge of the row
+const DEFAULT_SIZE @local = 0; // uses default context style.size value
 
 CVar con_debug @public = { "con_debug", CvFlag.BOOL|CvFlag.TOOL, "0", "enables console debugging mode"};
 
@@ -545,14 +545,22 @@ fn void drawMainEditor(Editor* editor)
     }
 }
 
-const String[*] MENU_BTN_NAMES = {
-    "File",
-    "Edit",
-    "Selection",
-    "View",
-    "Help"
+struct EDLabel
+{
+	String str;
+	int len;
+}
+
+const EDLabel[*] MENU_BTN_NAMES = {
+    {"File", mu::MICROUI_FONT_SIZE * "File".len},
+    {"Edit", mu::MICROUI_FONT_SIZE * "Edit".len},
+    {"Selection", mu::MICROUI_FONT_SIZE * "Selection".len},
+    {"View", mu::MICROUI_FONT_SIZE * "View".len},
+    {"Help", mu::MICROUI_FONT_SIZE * "Help".len}
 };
 const MENU_BTN_NAMES_LEN = MENU_BTN_NAMES.len;
+
+macro get_btn_name_len(sz idx) @local => rl::measureText(MENU_BTN_NAMES[idx].zstr_tcopy(), mu::MICROUI_FONT_SIZE);
 
 <* 
     Draws the main editor tool bar.
@@ -596,11 +604,12 @@ fn void drawEditorMenuBar(Editor* editor, MU_Container* window)
         //ctx.layout_width(AUTO_SIZE/btn_count);
         for(int i = 0; i < BTN_COUNT; i++)
         {
-			int btn_len = rl::measureText(MENU_BTN_NAMES[i].zstr_tcopy(), mu::MICROUI_FONT_SIZE);
-        	ctx.layout_row(1, (int[]){btn_len + 10}, 0);
-            if (ctx.button(MENU_BTN_NAMES[i], MU_Icon.EXPANDED, MU_Opt.NOFRAME) == MU_Res.SUBMIT)
+			//int btn_len = rl::measureText(MENU_BTN_NAMES[i].zstr_tcopy(), mu::MICROUI_FONT_SIZE);
+        	//ctx.layout_row(1, (int[]){btn_len + 10}, 0);
+        	ctx.layout_row(1, (int[]){MENU_BTN_NAMES[i].len + 10}, 0);
+            if (ctx.button(MENU_BTN_NAMES[i].str, MU_Icon.EXPANDED, MU_Opt.ALIGNCENTER | MU_Opt.NOFRAME) == MU_Res.SUBMIT)
             {
-                if(MENU_BTN_NAMES[i] == "File") ctx.open_popup("File Options");
+                if(MENU_BTN_NAMES[i].str == "File") ctx.open_popup("File Options");
             }
         }
     };
