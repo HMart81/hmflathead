@@ -192,3 +192,11 @@ fn void dbgDrawPoint(B2Vec2 p, float size, B2HexColor color, void* context ) {
 fn void dbgDrawString(B2Vec2 p, ZString s, void* context ) {
    rl::drawTextEx(rl::getFontDefault(), s, p, 1.0f, 1.0f, rl::WHITE);
 }
+
+
+fn bool B2BodyId.eq(&self, B2BodyId other ) @operator(==)
+{
+	return (self.index1 == other.index1 &&
+    		self.revision == other.revision &&	
+    		self.world0 == other.world0);
+}  

@@ -72,9 +72,9 @@ struct SpriteFlags
 {
     bool isHidden;
 	bool is_game_cursor;
-    //bool should_hide;
-    bool isActive; // if the sprite is active or not
+	bool active; // if the sprite is active or not
 	bool scaled; // if the sprite was scaled
+	bool hot;  // mouse over this entity 
 }
 
 struct HMSprite (Updateable, SaveSystemInterface)
@@ -317,6 +317,14 @@ fn float HMSprite.getSizeY(&self) @inline @nodiscard
     return self.rect.getSize().y;
 }
 
+fn void HMSprite.setBounds(&self, Bounds bb) @inline
+{
+    self.bounds = {
+        .minc = bb.minc,
+        .maxc = bb.maxc
+    };
+}
+
 fn void HMSprite.updateBounds(&self, Vec2f translation) @inline
 {
     self.bounds.translate(translation);
@@ -326,6 +334,12 @@ fn void HMSprite.updateBounds(&self, Vec2f translation) @inline
     // bb.minc = bb.maxc + misc::VEC_RIGHT * self.vs.rect.width + misc::VEC_DOWN * self.vs.rect.height;
     // self.setBounds(bb);
 }
+
+fn Vec2f HMSprite.getMinc(&self, Bounds bb) => self.bounds.minc;
+
+fn Vec2f HMSprite.getMaxc(&self, Bounds bb) => self.bounds.maxc;
+
+
 // in screen pixel coordinates
 /*fn Vec2i HMSprite.getSizeInPixels(&self) @inline @nodiscard
 {
@@ -336,26 +350,25 @@ fn void HMSprite.updateBounds(&self, Vec2f translation) @inline
     return (Vec2i){ w, h };
 }*/
 
-// this is a world position
-// overrides the original position of the sprite
+
 fn HMSprite* HMSprite.setPosition(&self, float x, float y) @inline 
 {
-    self.rect.x = x;
-    self.rect.y = y;
+	// this is a world position
+	// overrides the original position of the sprite
+	Vec2f old_pos = self.getPosition();
+	Vec2f new_pos = {x,y};
+    self.rect.x = new_pos.x;
+    self.rect.y = new_pos.y;
+	// update bounding box
+	Vec2f translation = -(old_pos - new_pos);
+	self.updateBounds(translation);
     return self;
-/*
-$if $feature(_DEBUG):   
-    if(game::pContext.isPointInsideScreenView({x,y}) == false) {
-        unreachable("HMSprite origin is outside the view.");
-    }
-$endif
-*/
 }
 
-// this is a world position
-// overrides the original position of the sprite
 fn HMSprite* HMSprite.setPositionV(&self, Vec2f pos) @inline 
 {
+	// this is a world position
+	// overrides the original position of the sprite
     return self.setPosition(pos.x, pos.y);
 }
 
@@ -378,9 +391,7 @@ fn HMSprite* HMSprite.addToPositionV(&self, Vec2f pos) @inline
     return self.addToPosition(pos.x, pos.y);
 }
 
-// this is a world position
-fn Vec2f HMSprite.getPos(&self) @inline @nodiscard => self.rect.getPosition();
-
+// WARNING(HM) HMEntity overrides this function name
 fn bool HMSprite.isValid(&self) @inline
 {
     if(self.rect.x >= 0 &&
@@ -392,21 +403,14 @@ fn bool HMSprite.isValid(&self) @inline
 }
 
 <*
+	// WARNING(HM) HMEntity overrides this function name
+	// but this is still called...
 	@param [in] material_name : "name of material"
 	@require material_name.len > 0
 *>
 fn HMSprite* HMSprite.setMaterial(&self, String material_name) @inline
 {
 	self.mat = mtrmng::getMaterial(material_name);
-    /*if(material_name) 
-    {
-        self.mat = mtrmng::getMaterial(material_name);
-        if(self.mat == null || rl::isTextureValid(*self.mat.getTexture(MTexture.DIFFUSE)) == false) {
-            log::error(Where.FILE, "Unnable to set HMSprite material '%s'.\n", material_name);
-            unreachable("Unnable to set HMSprite material.");
-        }
-    }*/
-
     return self;
 }
 
@@ -415,11 +419,15 @@ fn bool HMSprite.hasMaterial(&self) @inline
    return self.mat != null && rl::isTextureValid(*self.mat.getTexture(MTexture.DIFFUSE));
 }
 
+<*
+	TODO(HM) handle more material/texture stages than diffuse
+	@ensure return != null
+*>
 fn RLTexture2D* HMSprite.getTexture(&self) @inline @nodiscard
 {
     if(self.hasMaterial()) { return self.mat.getTexture(MTexture.DIFFUSE); }
     
-    return null;
+    return &game::pContext.default_texture;
 }
 
 // in screen pixel coordinates
@@ -433,6 +441,8 @@ fn Vec2i HMSprite.getTextureSize(&self) @inline @nodiscard
     return {w,h};
 }
 
+// WARNING(HM) HMEntity overrides this function name
+// but this is still called...
 fn HMSprite* HMSprite.hide(&self) @inline 
 {
     if(self.flags.isHidden) return self;
@@ -440,6 +450,8 @@ fn HMSprite* HMSprite.hide(&self) @inline
     return self;
 }
 
+// WARNING(HM) HMEntity overrides this function name
+// but this is still called...
 fn HMSprite* HMSprite.show(&self) @inline 
 {
     if(!self.flags.isHidden) return self;
@@ -449,16 +461,18 @@ fn HMSprite* HMSprite.show(&self) @inline
 
 fn bool HMSprite.hidden(&self) @inline => self.flags.isHidden;
 
-fn Vec2f HMSprite.getPosition(&self) @inline @nodiscard
+// WARNING(HM) HMEntity overrides this function name
+// but this is still called...
+fn Vec2f HMSprite.getPosition(&self) @inline
 {
     return {self.rect.x, self.rect.y};
 }
 
 fn HMSprite* HMSprite.activate(&self) @inline 
 {
-    if(self.flags.isActive) return self; // already active
+    if(self.flags.active) return self; // already active
 
-    self.flags.isActive = true;
+    self.flags.active = true;
     if(self.flags.isHidden) {
         return self.show(); // if the sprite is hidden, we need to show it
     }
@@ -467,9 +481,9 @@ fn HMSprite* HMSprite.activate(&self) @inline
 
 fn HMSprite* HMSprite.deactivate(&self, bool should_hide = false) @inline 
 {
-    if(!self.flags.isActive) return self; // already inactive
+    if(!self.flags.active) return self; // already inactive
 
-    self.flags.isActive = false;
+    self.flags.active = false;
     if(should_hide) return self.hide();
     
     return self;
@@ -477,12 +491,12 @@ fn HMSprite* HMSprite.deactivate(&self, bool should_hide = false) @inline
 
 fn bool HMSprite.isActive(&self) @inline 
 {
-    return self.flags.isActive;
+    return self.flags.active;
 }
 
 fn bool HMSprite.notActive(&self) @inline 
 {
-    return !self.flags.isActive;
+    return !self.flags.active;
 }
 
 fn void HMSprite.onUpdate(&self) @dynamic
@@ -495,6 +509,10 @@ fn void HMSprite.onUpdate(&self) @dynamic
     }
 }
 
+<*
+	@require self.mat != null
+	@ensure return >= 1
+*>
 fn Coverage HMSprite.getCoverage(self) @inline @nodiscard => self.mat.coverage;
 fn bool HMSprite.hasCoverage(self, Coverage cv) @inline => self.mat.hasCoverage(cv);
 

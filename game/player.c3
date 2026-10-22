@@ -118,42 +118,29 @@ fn void Player.reload(&self, SaveFile* file) @dynamic {
 }
 
 // WARNING(HM) Player.init() will shadow (aka override) HMEntity.init()
-fn void Player.init(&self, Vec2f origin, RLColor color, int id)
+fn void Player.init(&self, Vec2f origin)
 {
+	self.super.init("", origin, {PLAYER_DEFAULT_SIZE_X, PLAYER_DEFAULT_SIZE_Y});
+	self.super_type = self.type;
     self.type     = Player;
-    self.id       = id;
-    self.name     = string::tformat("player%d", id).tcopy();
     self.move_dir = NONE;
-
-	self.setSpawnArgs(string::tformat("player%s", id));
-
-	self.health = self.spawnargs.getInt("health")!!;
-	self.max_health = self.spawnargs.getInt("maxhealth")!!;
-    
-    // TODO(HM) makes this position editable...
-  	self.setPositionV(origin);
-    
-    self.setSize(PLAYER_DEFAULT_SIZE_X, PLAYER_DEFAULT_SIZE_Y);
-    self.vs.color = color;
-
-    // set entity Bounds
-    Bounds bb;
-    bb.maxc = origin;
-    bb.minc = bb.maxc + misc::VEC_RIGHT * self.vs.rect.width + misc::VEC_DOWN * self.vs.rect.height;
-    self.setBounds(bb);
     
     // physics
 	$if $feature(PHYSICS_BOX2D):
-    // define the body
-    B2BodyDef bodyDef   @if($feature(PHYSICS_BOX2D)) = box2d::defaultBodyDef();
+	// destroy any previous physics body
+	if(self.physics.isValid()) {
+		game::b2d_mark_for_removal(self.physics);
+	}
+    // define a new physics body
+    B2BodyDef bodyDef   = box2d::defaultBodyDef();
     bodyDef.type        = box2d::KINEMATIC;
     bodyDef.position    = origin;
-    // create the body
+    // create the new body
     self.physics        = box2d::createBody(game::pContext.physWorldId, &bodyDef);
-    //
-    // create the polygon shape
-    // TODO(HM) Set the correct size at creation time!!!
-    B2Polygon playerBox = box2d::makeBox(PLAYER_DEFAULT_SIZE_X_METER, PLAYER_DEFAULT_SIZE_Y_METER); //@hardcode
+    assert(self.physics.isValid() == true);
+	//
+    // create the new polygon shape
+    B2Polygon playerBox = box2d::makeBox(PLAYER_DEFAULT_SIZE_X_METER/2, PLAYER_DEFAULT_SIZE_Y_METER/2); //@hardcode
     B2ShapeDef shapeDef = box2d::defaultShapeDef();
     shapeDef.density    = 1.0f;
     shapeDef.friction   = 0.3f;
@@ -161,6 +148,7 @@ fn void Player.init(&self, Vec2f origin, RLColor color, int id)
     //
 	$endif
     
+    self.onSpawn(string::tformat("player%s", self.id));
     self.born();
     self.updateVisuals();
     // NOTE(HM) for now the player as to be manually registered and 
@@ -260,14 +248,9 @@ fn void Player.think(&self, float dt /*delta_time*/)
         
 }
 
-fn Player* makePlayer(int id, Vec2f position = {0, 0}, RLColor color = rl::WHITE) @MyInline
+fn Player* makePlayer() @MyInline
 {
-	Vec2f pos = position;
-	if(pos == misc::VEC2_ZERO) pos = game::pContext.screen.center;
-	log::info(CONSOLE, "Player pos = %s", pos);
-    Player* player = mem::new(Player);
-    player.init(pos, color, id);
-    return player;
+    return mem::new(Player);
 }
 
 module game::actors::ent::plyr::action;

@@ -45,7 +45,7 @@ import engine::sys::cvar;
 import engine::sys::render2d::r2d;
 import engine::sys::framework::hmdict;
 import engine::sys::script_engine::event; // still in testing phase (delete if not finished)
-import game::main;
+import game;
 import game::sys::update;
 import game::material::mat; // material system
 import game::assets::sprite;
@@ -97,21 +97,14 @@ const EventFunc[*] ENTITY_EVENTS @if($defined(event::ENABLE_EVENTS)) = {
 };
 /////////////////////////
 
-
-struct EntityFlags
-{
-	bool alive; // is the entity alive?
-	bool active; // is the entity active?
-}
-
 struct HMEntity (SaveSystemInterface)
 {
+    //
+    inline HMSprite super;
+    //
+	typeid super_type;
 	int id;
-	typeid type;
 	String name;
-    //
-    HMSprite vs;
-    //
 	HMDict spawnargs;
 	String def_name; // entity definition name assigned to this entity
     HMEntity* parent;
@@ -125,14 +118,16 @@ struct HMEntity (SaveSystemInterface)
 	//
 	int thinkflags;
 	//LinkList{HMEntity} activeNode;	// for being linked into activeEntities list
-	EntityFlags flags; // Todo read about C3 bitstruct?
+	bool alive; // is the entity alive?
 }
 
 fn void HMEntity.save(&self, SaveFile* file) @dynamic {
+	self.super.save(file);
 // todo
 }
 
 fn void HMEntity.reload(&self, SaveFile* file) @dynamic {
+	self.super.reload(file);
 // todo
 }
 
@@ -170,43 +165,55 @@ fn bool HMEntity.shouldSkip(&self, String name) @inline
 }
 
 <*
-	Init basic entity data
+	Init basic entity data (overrides Sprite init function...)
 	@param [in] aname : "name to give the entity"
 	@param origin : "where to put the entity in the world (world coords)"
-	@param color : "base color of the entity"
-	@require aname.len > 0 : "entities should all be given a valid name!"
-	@require rl::isWindowReady() == true : "Cannot create entity before the window is ready!"
+	@require rl::isWindowReady() == true : "Cannot create a entity before the window is ready!"
 *>
-fn void HMEntity.init(&self, String aname, Vec2f origin, Vec2f size, RLColor color = rl::WHITE)
+fn void HMEntity.init(&self, String aname, Vec2f origin, Vec2f size)
 {
-	if(self.shouldSkip(aname)) return;
-	
-	self.type = HMEntity;
-	
 	sz entity_count = game::pContext.entityList.len();
 	self.id = (int)entity_count + 1;
 
-	self.name = aname.tcopy();
-    
-$if $feature(_DEBUG):
-	log::info(FILE, "Created entity-> id: %s with name: %s.", self.id, self.name);
-$endif
+	String name = "HMEntity";
+	if(self.id == 1) // player is always entity id 1
+	{
+		name = "Player";
+	}
+	// if we passed a name, overrride any previous set name
+	if(aname.len > 0)
+	{
+		name = aname;
+	}
+	self.name = string::tformat("%s_%s", name, self.id);
+
+	if(self.shouldSkip(self.name))
+	{
+		self.name = "";
+		self.id = 0;
+		return;
+	}
 
 	// visuals
-    self.vs.initV( origin, 
+    self.initV( origin, 
 	{ // entity visual size
 		size.x,
 		size.y
-	}, color);
+	});
     //
+	
+	// NOTE(HM) Saving parent HMSprite typeid info
+	// because it will be overriden by HMEntity;
+	self.super_type = self.type;
+	self.type = HMEntity;
     
-    // Create entity Bounding box
-    Bounds bb;
-    bb.maxc = origin;
-    bb.minc = bb.maxc + misc::VEC_RIGHT * size.x + misc::VEC_DOWN * size.y;
-    self.setBounds(bb);
+$if $feature(_DEBUG):
+	log::info(FILE, "Created entity-> %s.", self.name);
+$endif
     
 	$if $feature(PHYSICS_BOX2D):
+	// make sure theres no previous physics body
+	assert(self.physics.isValid() == false);
     // define the body
     B2BodyDef bodyDef   = box2d::defaultBodyDef();
     bodyDef.type        = box2d::STATIC; // entities are static by default
@@ -222,36 +229,23 @@ $endif
     
     // create the body using the definition data above
     self.physics        = box2d::createBody(game::pContext.physWorldId, &bodyDef);
-    //
-    // create the physics shape
-    // ‍Caution: A dynamic body should have at least one shape with a non-zero density. 
-    // Otherwise you will get strange behavior.
-    // TODO(HM) Set the correct size at creation time!!!
-	float hx, hy;
-	hx = math::abs((bb.maxc - bb.minc).x);
-	hy = math::abs((bb.maxc - bb.minc).y);
-	hx = misc::pixelsToMeters((int)hx);
-	hy = misc::pixelsToMeters((int)hy);
+    assert(self.physics.isValid() == true);
+	//
+    // create the physics shape.
 	// Warning(HM) if the size is too small or the minimum, this will not return half the size, 
 	// but the minimum size of 0.1 meters or 10 centimeters. 
 	// And that means that the box bellow will be created with a size of 0.2 meters,
 	// because of the half width and height thing.
-	/*if(hx > (misc::MINIMUM_SIZE_IN_METERS + 0.05f))
-	{
-		hx = hx/2.0f; // divide by 2 because makeBox() expects half width and height
-	}
-	if(hy > (misc::MINIMUM_SIZE_IN_METERS + 0.05f)) 
-	{
-		hy = hy/2.0f; // divide by 2 because makeBox() expects half width and height
-	}*/
-    B2Polygon dynamicBox = box2d::makeBox(hx/2, hy/2);
+    B2Polygon dynamicBox = box2d::makeBox(self.rect.x/2, self.rect.y/2);
     B2ShapeDef shapeDef  = box2d::defaultShapeDef();
+    // ‍Caution: A dynamic body should have at least one shape with a non-zero density. 
+    // Otherwise you will get strange behavior.
     shapeDef.density          = 1.0f;
     shapeDef.friction         = 0.3f;
 	box2d::createPolygonShape(self.physics, &shapeDef, &dynamicBox);
 	$endif // PHYSICS_BOX2D
     
-	self.onSpawn();
+	self.onSpawn("entityBase");
 	self.born(); // set the entity as alive, so it can be used
 	self.updateVisuals();
 }
@@ -267,53 +261,22 @@ fn void HMEntity.clearSpawnArgs(&self) @inline
 	self.spawnargs.clear();
 }
 
-fn void HMEntity.setTexture(&self, String texture_name_with_ext) @inline {
-	unreachable();
-	//self.vs.tex = game::asstManager.getAssetExt(texture_name_with_ext, RLTexture2D.typeid);
-}
-
-fn void HMEntity.setMaterial(&self, String material_name) @inline {
-	self.vs.setMaterial(material_name);
+fn void HMEntity.setMaterial(&self, String material_name) 
+{
+	// NOTE(HM) I changed HMEntity to be a inlined HMSprite
+	// so this was causing a nasty loop, because I override 
+	// the sprite setMaterial function and so by accident 
+	// I was calling over and over again the entity own 
+	// setMaterial function!!!!!
+	//self.setMaterial(material_name);
+	
+	self.super.setMaterial(material_name);
 	self.updateVisuals();
 }
 
-<*
-	TODO(HM) handle more material/texture stages than diffuse
- @ensure return != null
-*>
-fn RLTexture2D* HMEntity.getTexture(&self) @inline {
-	return self.vs.mat.getTexture(MTexture.DIFFUSE);
-}
+fn float HMEntity.getWidth(&self) @inline => self.getSize().x;
 
-fn void HMEntity.setSize(&self, float w, float h) @inline {
-	self.vs.setSize(w, h);
-}
-
-fn void HMEntity.setSizeV(&self, Vec2f scale) @inline {
-	self.vs.setSizeV(scale);
-}
-
-fn void HMEntity.addToSize(&self, float w, float h) @inline {
-	self.vs.addToSize(w, h);
-}
-
-fn void HMEntity.addToSizeV(&self, Vec2i size) @inline {
-	self.vs.addToSizeV(size);
-}
-
-fn Vec2f HMEntity.getSize(&self) @inline => self.vs.getSize();
-
-fn float HMEntity.getWidth(&self) @inline => self.vs.getSize().x;
-
-fn float HMEntity.getHeight(&self) @inline => self.vs.getSize().y;
-
-fn void HMEntity.scale(&self, float w, float h) @inline {
-	self.vs.scale(w, h);
-}
-
-fn void HMEntity.scaleV(&self, Vec2f scaler) @inline {
-	self.vs.scaleV(scaler);
-}
+fn float HMEntity.getHeight(&self) @inline => self.getSize().y;
 
 <*
     @param [in] other : "the other entity to bind this one too"
@@ -335,85 +298,28 @@ fn void HMEntity.unbind(&self)
     if(self.parent) self.parent = null;
 }
 
-fn void HMEntity.setPosition(&self, float x, float y) @inline
-{
-	Vec2f old_pos = self.getPosition();
-	Vec2f new_pos = {x,y};
-	Vec2f translation = -(old_pos - new_pos);
-	self.vs.setPositionV(new_pos);
-	self.vs.updateBounds(translation);
-}
-
-fn void HMEntity.setPositionV(&self, Vec2f newpos) @inline
-{
-	self.setPosition(newpos.x, newpos.y);
-}
-
 fn Vec2f HMEntity.getPosition(&self) @inline
 {
 	$if $feature(PHYSICS_BOX2D):
 	return self.physics.getPosition();
 	$else
-	return self.vs.getPosition();
+	return self.super.getPosition();
 	$endif
 }
 
 fn Vec2f HMEntity.getOrigin(&self) @inline => self.getPosition();
 
-fn void HMEntity.setBounds(&self, Bounds bb) @inline {
-    self.vs.bounds = {
-        .minc = bb.minc,
-        .maxc = bb.maxc
-    };
-}
-
-fn Vec2f HMEntity.getMinc(&self, Bounds bb) => self.vs.bounds.minc;
-
-fn Vec2f HMEntity.getMaxc(&self, Bounds bb) => self.vs.bounds.maxc;
-
-// fn void HMEntity.rotate2D(&self, float angle) @inline
-// {
-	// //float rad = (float)math::deg_to_rad(angle);
-	// float ct, st; // t = theta
-	// ct = math::cos(angle);
-	// st = math::sin(angle);
-	// self.axis.m10 = ct;
-	// self.axis.m01 = st;
-// }
-
-/*
-fn bool HMEntity.equalcoverage(&self, Coverage coverage) @operator(==)
-{
-    return self.vs == coverage;
-}
-
-fn bool HMEntity.nequalcoverage(&self, Coverage coverage) @operator(!=)
-{
-    return self.vs != coverage;
-}
-*/
-
-<*
-	@require self.vs.mat != null
-	@ensure return >= 1
-*>
-fn Coverage HMEntity.getCoverage(&self) @inline => self.vs.mat.coverage;
-
-fn bool HMEntity.hasCoverage(self, Coverage cv) @inline => self.vs.hasCoverage(cv);
-
 fn void HMEntity.hide(&self) @inline
 {
-	self.vs.hide();
+	self.super.hide();
 	self.stopThinking();
 }
 
 fn void HMEntity.show(&self) @inline
 {
-	self.vs.show();
+	self.super.show();
 	self.startThinking();
 }
-
-fn bool HMEntity.hidden(&self) @inline => self.vs.hidden();
 
 fn void HMEntity.setname(&self, String* aname) @inline
 {
@@ -573,8 +479,8 @@ fn void HMEntity.setAlive(&self, bool live = true, bool shouldRemove = false)
 {
 	if (live) 
 	{
-		if (!self.flags.alive) {
-			self.flags.alive = true;
+		if (!self.alive) {
+			self.alive = true;
 			self.register(); // register the entity in the game
 		}
 		if (!self.isActive()) {
@@ -586,8 +492,8 @@ fn void HMEntity.setAlive(&self, bool live = true, bool shouldRemove = false)
 	} 
 	else // die
 	{
-		if (self.flags.alive) {
-			self.flags.alive = false;
+		if (self.alive) {
+			self.alive = false;
 			if (self.isActive()) {
 				self.setActive(false); // deactivate the entity
 			}
@@ -652,12 +558,12 @@ fn void HMEntity.kill(&self)
 
 fn bool HMEntity.isAlive(&self) @inline
 {
-	return self.flags.alive;
+	return self.alive;
 }
 
 fn bool HMEntity.isDead(&self) @inline
 {
-	return (self.flags.alive) ? false : true;
+	return (self.alive) ? false : true;
 }
 
 fn bool HMEntity.onThinkingList(&self) @inline {
@@ -810,9 +716,9 @@ fn void HMEntity.move(&self)
 	$endif
 }
 
-fn void HMEntity.onSpawn(&self)
+fn void HMEntity.onSpawn(&self, String def_name)
 {
-	self.setSpawnArgs("entityBase");
+	self.setSpawnArgs(def_name);
 	// this is diferent from init()
 	// this should run when the entity is first spawn in a level
 	self.health     = self.spawnargs.getInt("health")!!;
@@ -832,7 +738,7 @@ fn void HMEntity.think(&self, float dt) // update in other engines
 			self.move();
 		$endif
 
-		bool ent_out_of_view = !game::pContext.view.bounds.intersectsOther(&self.vs.bounds);
+		bool ent_out_of_view = !game::pContext.view.bounds.intersectsOther(&self.bounds);
 		if(ent_out_of_view) {
 			self.hide();
 		}
@@ -857,88 +763,8 @@ fn void HMEntity.onDraw(&self) @dynamic
 		return;
 	}
 	self.becomeInactive(EntTh.UPDATEVISUALS);
-	
-	//RLRectangle rect = self.vs.rect;
 
-	self.vs.onDraw();
-	//
-	// TODO rethink this, I should maybe reuse the sprite draw code
-	// not override it here!!!
-	/*if(self.vs.hasMaterial())
-    {
-        // TODO(HM) find how to draw a image on a rounded rectangle!?
-        RLTexture2D* texture = self.vs.mat.getTexture(MTexture.DIFFUSE);
-        Vec2f texture_size = { texture.width, texture.height };
-        RLRectangle source = { 0, 0, texture_size.x, texture_size.y };
-
-		// todo selection
-        //RLColor color = (selected) ? self.selected_color : self.mat.getStage(MStageType.DIFFUSE).color;
-		RLColor color = self.vs.mat.getStage(MStageType.DIFFUSE).color;
-
-        RLBlendMode blending;
-		Coverage coverage = self.getCoverage();
-        switch //(coverage)
-        {
-            case self.hasCoverageCoverage.OPAQUE) && !self.hasCoverageCoverage.PERFORATED):
-            case self.hasCoverageCoverage.OPAQUE) && self.hasCoverageCoverage.PERFORATED):
-				break; // do nothing here
-            case self.hasCoverageCoverage.PERFORATED) && !self.hasCoverageCoverage.TRANSLUCENT):
-                blending = RLBlendMode.ALPHA;
-            case self.hasCoverageCoverage.TRANSLUCENT) && !self.hasCoverageCoverage.PERFORATED):
-                blending = RLBlendMode.ALPHA_PREMUL;
-                if(color.a == 255) unreachable("alpha should not be 255 at this point"); // if the color is not transparent
-				/*{
-					color.a = 128; // half transparent
-					float r = misc::@mapValueRangeToOther(color.r, 0, 255, 0.0f, 1.0f);
-					float g = misc::@mapValueRangeToOther(color.g, 0, 255, 0.0f, 1.0f);
-					float b = misc::@mapValueRangeToOther(color.b, 0, 255, 0.0f, 1.0f);
-					float a = misc::@mapValueRangeToOther(color.a, 0, 255, 0.0f, 1.0f);
-
-					color.r = (char)math::floor((r * a) * 255);
-					color.g = (char)math::floor((g * a) * 255);
-					color.b = (char)math::floor((b * a) * 255);
-				}*/
-			case self.hasCoverageCoverage.TRANSLUCENT) && self.hasCoverageCoverage.PERFORATED):
-				blending = RLBlendMode.CUSTOM_SEPARATE; // use the custom blending mode					
-            case self.hasCoverageCoverage.BAD):
-                log::error(FILE, "HMEntity %s has a bad material coverage type.", self.vs.mat.name);
-                unreachable();
-        }
-
-		bool blending_on = true;
-		switch (blending)
-        {
-            case RLBlendMode.ALPHA:
-            case RLBlendMode.ALPHA_PREMUL: 
-				break;
-			case RLBlendMode.CUSTOM:
-				rl::setBlendFactors(rl::RL_SRC_ALPHA, rl::RL_ONE_MINUS_SRC_ALPHA, rl::RL_FUNC_ADD);
-				rl::setBlendMode(rl::RLBlendMode.CUSTOM);
-			case RLBlendMode.CUSTOM_SEPARATE:
-				rl::setBlendFactorsSeparate(rl::RL_SRC_ALPHA, rl::RL_SRC_ALPHA, rl::RL_ONE_MINUS_SRC_ALPHA, rl::RL_ONE_MINUS_SRC_ALPHA, rl::RL_FUNC_ADD, rl::RL_MAX);
-				rl::setBlendMode(rl::RLBlendMode.CUSTOM_SEPARATE);
-            default: // draw opaque unless the image has invisible pixels already...
-				blending_on = false;
-        }
-
-		if(blending_on) {
-			rl::@blendMode(blending)
-			{
-				// NOTE(HM) center of the texture (rotation/scale point), 
-				// it's relative to destination rectangle dimentions, not the screen dimentions.
-				rl::drawTexturePro(*texture, source, rect, {0, 0}, 0.0f, color);
-			};
-		} else { // no blending/Opaque (or perfurated as well)
-			// NOTE(HM) center of the texture (rotation/scale point), 
-            // it's relative to destination rectangle dimentions, not the screen dimentions.
-            rl::drawTexturePro(*texture, source, rect, {0, 0}, 0.0f, color);
-		}
-    } 
-	else // draw simple flat shape
-	{
-		rl::drawRectangleRec(rect, self.vs.color);
-	}*/
-
+	self.super.onDraw();
 }
 
 fn void HMEntity.onPostGUIDraw(&self) @dynamic
@@ -963,11 +789,20 @@ fn void HMEntity.onPostGUIDraw(&self) @dynamic
 	Vec2f org = self.getOrigin();
     if(info_value)
 	{
-		r2d::draw_small_string((int)org.x, (int)org.y, self.name, rl::RAYWHITE);
+		if(game::isMouseOver{HMEntity}(self))
+		{
+			String s = self.name;
+			int s_len = rl::measureText(s.zstr_tcopy(), game::SMALL_FONT_SIZE);
+			Vec2f n_org = org;
+			n_org.x = org.x - (1.5f * s_len);
+			r2d::drawRectangleRec(misc::@recFromVecs(n_org,(Vec2f){s_len + 2.0f, (float)game::SMALL_FONT_SIZE + 5.0f}), rl::BLACK);
+			r2d::draw_small_string((int)n_org.x, (int)n_org.y, s, rl::WHITE);
+			r2d::draw_small_string((int)n_org.x + 1, (int)n_org.y + 1, s, rl::DARKGRAY);
+		}
 		r2d::drawSquare(org, 5, rl::RED);
 		if(info_value == 2)
 		{
-			self.vs.bounds.debugDraw();
+			self.bounds.debugDraw();
 		}
 	}
 }
@@ -1008,20 +843,20 @@ fn bool HMEntity.isValid(&self)
 	return false;
 }
 
-fn HMEntity* create_entity(String aname, Vec2f pos, int w, int h, RLColor color) @public 
+fn HMEntity* create_entity(String aname, Vec2f pos, int w, int h) @public 
 {
 	HMEntity* ent = mem::new(HMEntity);
-	ent.init(aname, pos, {w,h}, color);
+	ent.init(aname, pos, {w,h});
 	return ent;
 }
 
 <*
  @ensure return != null
 *>
-fn HMEntity* create_ex(String aname, Vec2f origin, Vec2f size, RLColor color) @public 
+fn HMEntity* create_ex(String aname, Vec2f origin, Vec2f size) @public 
 {
 	HMEntity* ent = mem::new(HMEntity);
-	ent.init(aname, origin, size, color);
+	ent.init(aname, origin, size);
 	return ent;
 }
 

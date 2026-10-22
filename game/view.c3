@@ -873,7 +873,7 @@ $endif
         {
             foreach(ent : game_context.entityList)
             {
-                bool ent_out_of_view = !view.bounds.intersectsOther(&ent.vs.bounds);
+                bool ent_out_of_view = !view.bounds.intersectsOther(&ent.bounds);
                 if(ent_out_of_view)
 				{
                     ent.hide();

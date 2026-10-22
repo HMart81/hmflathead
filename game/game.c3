@@ -308,6 +308,7 @@ import engine::sys::licensee;
 alias lic = module engine::sys::licensee;
 //
 
+alias B2dListBodiesToBeRemoved @if($feature(PHYSICS_BOX2D)) = List{B2BodyId};
 // #endregion Constants
 
 // #region Alias
@@ -479,6 +480,7 @@ struct Game (SaveSystemInterface) @local
     B2DebugDraw phys_debug @if($feature(PHYSICS_BOX2D));
     
     B2BodyId    phys_grd_bodyid @if($feature(PHYSICS_BOX2D));
+	B2dListBodiesToBeRemoved phys_BodiesScheduledForRemoval @if($feature(PHYSICS_BOX2D));
     B2Polygon   phys_grd_box @if($feature(PHYSICS_BOX2D));
     //
     
@@ -677,6 +679,27 @@ fn void freeEntities(Game* game) @MyInline
     }
 }
 
+fn void b2d_mark_for_removal(B2BodyId bid) @if($feature(PHYSICS_BOX2D))
+{
+	foreach(_bid : local_game.phys_BodiesScheduledForRemoval)
+	{
+		// if body alredy on the mist return nothing to mark
+		if(_bid == bid) return;
+	}
+
+	local_game.phys_BodiesScheduledForRemoval.push(bid);
+}
+
+fn void b2d_remove_marked_bodies() @if($feature(PHYSICS_BOX2D))
+{
+	foreach(bid : local_game.phys_BodiesScheduledForRemoval)
+	{
+		b2d::destroyBody(bid);
+	}
+	// clear list for next time;
+	local_game.phys_BodiesScheduledForRemoval.clear();
+}
+
 fn RLShader* getDefaultShader() @MyInline @public 
 {
     return &local_game.default_shader;
@@ -718,6 +741,30 @@ fn int getScreenWidth() @inline @public
 fn int getScreenHeight() @inline @public
 {
     return local_game.screen.h;
+}
+
+//    WARNING(HM)
+//    If the 2D camera view is changed in any way besides moving in x and y
+//    like if the camera is zoomed or the camera is rotated, this will break.
+//    If so it will require conversion from world space coordinates to camera space.
+fn bool isMouseOver(Type1* obj) <Type1> @public
+{
+    if (local_game.showMessageBox) return false;
+
+    // get mouse position...
+    Vec2f mouseWorldPos = get_system_cursor_pos();
+
+    Vec2f mouse_size = getGameCursorSize() * 0.5f; // half size of the cursor
+    RLRectangle mouseRect = misc::@recFromVecs(mouseWorldPos, mouse_size);
+    RLRectangle objRect;
+	switch(obj.type)
+	{
+		case HMSprite:
+		case HMEntity:
+    		if (rl::checkCollisionRecs(mouseRect, obj.rect)) return true;
+	}
+
+    return false;
 }
 
 //////////// Message box stuff based on raygui
@@ -1117,6 +1164,11 @@ fn void disable_system_cursor() @MyInline @public
     local_game.system_cursor_enabled = false;
 }
 
+fn Vec2f get_system_cursor_pos() @MyInline @public
+{
+    return rl::getMousePosition();
+}
+
 fn bool system_cursor_enabled() @public @MyInline 
 {
     return local_game.system_cursor_enabled;
@@ -1450,6 +1502,9 @@ fn void onUpdate() @local
         {
 			//float deltaTime = rl::getFrameTime();
 			local_game.physWorldId.step(local_game.phys_time_step, local_game.phys_substep_count);
+			// destroy any bodies marked to do so, this is done AFTER a physics step
+			// so you don't try to do a collision with a invalid body.
+			b2d_remove_marked_bodies(); 
         }
 		$endif
         //
@@ -3820,11 +3875,17 @@ $endif
     // but right now, I don't have a concept of a "level" or game World.
     // TODO(HM) when possible make a dedicated spawn point entity for the player.
     log::tofile( "** Creating test player. **");
-    local_game.player1 = plyr::makePlayer(id: 1);
+    local_game.player1 = plyr::makePlayer();
+	Vec2f pos = game::pContext.screen.center;
+	local_game.player1.init(pos);
+	log::info(CONSOLE, "Player pos = %s", pos);
     local_game.player1.setMaterial("figure");
-    // NOTE(HM) The first entities are always the players
+    // NOTE(HM) The first entities in the entity list
+	// is the player (or players in the future...)
     local_game.entityList.push((HMEntity*)local_game.player1);
-    //local_game.entityList.push((HMEntity*)local_game.player2);
+	// TODO(HM) In the future the player should be the last entity
+	// to init/spawn in the world no the first, right now I'm
+	// creating the player first to make things easy...
     log::tofile( "** Done **.");
     
     // local_game.particleSpawner1.init({
@@ -3847,8 +3908,7 @@ $endif
 		}
         //origin = origin + misc::VEC_UP * 100 * i;
         
-		String ent_name = string::tformat("HMEntity%s", i);
-        HMEntity* test_ent = ent::create_entity(ent_name, origin, ent::DEFAULT_SIZE_X, ent::DEFAULT_SIZE_Y, rl::WHITE);
+        HMEntity* test_ent = ent::create_entity("", origin, ent::DEFAULT_SIZE_X, ent::DEFAULT_SIZE_Y);
         test_ent.setMaterial("figure");
     }
     
