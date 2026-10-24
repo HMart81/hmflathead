@@ -179,9 +179,9 @@ extern fn void drawIcon(Icon iconId, CInt posX, CInt posY, CInt pixelSize, RLCol
 extern fn bool windowBox(RLRectangle bounds, ZString title) @cname("GuiWindowBox");                                       // Window Box control, shows a window that can be closed
 extern fn bool groupBox(RLRectangle bounds, ZString text) @cname("GuiGroupBox");                                         // Group Box control with text name
 extern fn bool line(RLRectangle bounds, ZString text) @cname("GuiLine");                                             // Line separator control, could contain text
-extern fn bool panel(RLRectangle bounds, ZString text) @cname("GuiPanel");                                            // Panel control, useful to group controls
+extern fn bool panel(RLRectangle bounds, ZString text) @cname("GuiPanel");                                            // GUIRect control, useful to group controls
 extern fn bool tabBar(RLRectangle bounds, char **text, CInt count, CInt *active) @cname("GuiTabBar");                  // Tab Bar control, returns TAB to be closed or -1
-extern fn bool scrollPanel(RLRectangle bounds, ZString text, RLRectangle content, RLVector2 *scroll, RLRectangle *view) @cname("GuiScrollPanel"); // Scroll Panel control
+extern fn bool scrollPanel(RLRectangle bounds, ZString text, RLRectangle content, RLVector2 *scroll, RLRectangle *view) @cname("GuiScrollPanel"); // Scroll GUIRect control
 
 // Basic controls set
 extern fn bool label(RLRectangle bounds, ZString text) @cname("GuiLabel");                                            // Label control, shows text
@@ -211,11 +211,11 @@ extern fn CInt listViewEx(RLRectangle bounds, char **text, CInt count, CInt *scr
 extern fn CInt messageBox(RLRectangle bounds, ZString title, ZString message, ZString buttons) @cname("GuiMessageBox"); // Message Box control, displays a message
 extern fn CInt textInputBox(RLRectangle bounds, ZString title, ZString message, ZString buttons, ZString text, CInt textMaxSize, bool *secretViewActive) @cname("GuiTextInputBox"); // Text Input Box control, ask for text, supports secret
 extern fn CInt colorPicker(RLRectangle bounds, ZString text, RLColor *color) @cname("GuiColorPicker");                        // RLColor Picker control (multiple color controls)
-extern fn CInt colorPanel(RLRectangle bounds, ZString text, RLColor *color) @cname("GuiColorPanel");                         // RLColor Panel control
+extern fn CInt colorPanel(RLRectangle bounds, ZString text, RLColor *color) @cname("GuiColorPanel");                         // RLColor GUIRect control
 extern fn CInt colorBarAlpha(RLRectangle bounds, ZString text, float *alpha) @cname("GuiColorBarAlpha");                      // RLColor Bar Alpha control
 extern fn CInt colorBarHue(RLRectangle bounds, ZString text, float *value) @cname("GuiColorBarHue");                        // RLColor Bar Hue control
 extern fn CInt colorPickerHSV(RLRectangle bounds, ZString text, RLVector3 *colorHsv) @cname("GuiColorPickerHSV");                // RLColor Picker control that avoids conversion to RGB on each call (multiple color controls)
-extern fn CInt colorPanelHSV(RLRectangle bounds, ZString text, RLVector3 *colorHsv) @cname("GuiColorPanelHSV");                 // RLColor Panel control that returns HSV color value, used by GuiColorPickerHSV()
+extern fn CInt colorPanelHSV(RLRectangle bounds, ZString text, RLVector3 *colorHsv) @cname("GuiColorPanelHSV");                 // RLColor GUIRect control that returns HSV color value, used by GuiColorPickerHSV()
 //----------------------------------------------------------------------------------------------------------
 
 //----------------------------------------------------------------------------------

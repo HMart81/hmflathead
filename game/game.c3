@@ -4252,10 +4252,9 @@ fn void loadGame()
 }
 
 <*
- @param [in] settings_data : "the ini file to read the game input actions from."
- @require settings_data != null
+	@param [&in] settings_data : "ini file to read the game input actions and keys from."
 *>
-fn void createGameInputActions(ConfigFile* settings_data) @MyInline @local
+fn void createGameInputActions(ConfigFile* settings_data) @local
 {
     defer input::listActions();
 
@@ -4266,10 +4265,10 @@ $endif
     String key_name;
 
 $if $feature(_DEBUG):
-	int[] keys = input::getkeyCodesFrom("move_screenshots", settings_data);
-	if(keys.len > 0 && keys[0] != rl::KEY_NULL)
+	KeysPair keys = input::getkeyCodesFrom("move_screenshots", settings_data);
+	if(input::isValidKeysPair(keys))
 	{
-    	input::makeKeyboardAction("move_screenshots", keys[0], keys[1], (ActionCallBack)&camview::moveScreenShots);
+    	input::makeKeyboardAction("move_screenshots", keys.first, keys.second, (ActionCallBack)&camview::moveScreenShots);
 	}
 	else
 	{
@@ -4291,8 +4290,8 @@ $endif
 
     // game main editor
 	keys = input::getkeyCodesFrom("toggle_editor", settings_data);
-	assert(keys.len > 0);
-    input::makeKeyboardAction("toggle_editor", keys[0], keys[1]);
+	assert(input::isValidKeysPair(keys) == true);
+    input::makeKeyboardAction("toggle_editor", keys.first, keys.second);
 
     // mouse actions
 	RLMouseButton btn = input::getMouseBtnCode("mouse_single_press", settings_data);

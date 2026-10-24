@@ -668,7 +668,7 @@ fn void destroyRectangle(UIRectangle* rect) @public @inline
 
 /*
 alias WidgetList = List{any};
-alias MouseOverCallback = fn bool(Widget*);
+alias MouseOverCallback = fn bool(GUIWidget*);
 // A frame is a top-level panel that contains widgets
 
 struct Frame (SaveSystemInterface)
@@ -720,7 +720,7 @@ fn void Frame.deinit(&self) @inline
                 case WidgetContainer:
                     ((WidgetContainer*)widget.ptr).deinit();
                 default:
-                   ((Widget*)widget.ptr).deinit(); 
+                   ((GUIWidget*)widget.ptr).deinit(); 
             }
         }
     }
@@ -745,7 +745,7 @@ macro void Frame.@create(&self, $name; @body(Frame* frame))
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////// Widgets ////////////////////////////////////////////////////
 
-// NOTE(HM) Widget is a general data structure representing anything inside a gui, like buttons and such.
+// NOTE(HM) GUIWidget is a general data structure representing anything inside a gui, like buttons and such.
 
 const KIND_NONE      = 0;
 const KIND_WIDGET    = 1;
@@ -768,11 +768,11 @@ interface WidgetInterface
     fn void addTo(UIWindow*);
     //fn void addToFrame(Frame*) @optional;
     fn UIWindow* getUIWindow();
-    fn void bindTo(Widget* other);
+    fn void bindTo(GUIWidget* other);
     fn bool bound();
     fn void unbind();
     fn String getName();
-    fn void link(Widget* other);
+    fn void link(GUIWidget* other);
     fn bool isLinked();
     fn void unlink();
     fn void setColor(rl::RLColor);
@@ -788,7 +788,7 @@ interface WidgetInterface
 	fn void onFocus(bool focus) @optional;
 }
 
-struct Widget (WidgetInterface) 
+struct GUIWidget (WidgetInterface) 
 {
     // extends UIRectangle (super/base class)
     inline UIRectangle super;
@@ -801,10 +801,10 @@ struct Widget (WidgetInterface)
     struct parent 
     {
         UIWindow* window;
-        Widget* other;
+        GUIWidget* other;
     }
     // for linking
-    Widget* next; // for linked list of widgets
+    GUIWidget* next; // for linked list of widgets
 
     // callbacks
     WidgetCallback onOver; // called when the mouse is over the widget
@@ -818,7 +818,7 @@ struct Widget (WidgetInterface)
     WidgetCallback onLoad;   // called when the widget is loaded
 }
 
-fn void Widget.init(&self, int kind = KIND_NONE) @dynamic {
+fn void GUIWidget.init(&self, int kind = KIND_NONE) @dynamic {
     self.super.init();
     self.kind = KIND_WIDGET;
     if(kind != KIND_NONE) {
@@ -826,14 +826,14 @@ fn void Widget.init(&self, int kind = KIND_NONE) @dynamic {
     }
 }
 
-fn void Widget.deinit(&self) @dynamic{
+fn void GUIWidget.deinit(&self) @dynamic{
     self.unlink();
     self.unbind();
     self.parent.window = null;
     self.super.deinit();
 }
 
-fn void Widget.editor_interactions(&self) @local
+fn void GUIWidget.editor_interactions(&self) @local
 {
     // when in gui edit mode, we can select widgets with the mouse
     // and they should all be set to not active, as that is part of
@@ -847,7 +847,7 @@ fn void Widget.editor_interactions(&self) @local
     }
 }
 
-fn void Widget.update(&self) @dynamic 
+fn void GUIWidget.update(&self) @dynamic 
 {
     // if we are bound to a parent widget, we need to update our position each frame
     // to be always relative to the parent origin.
@@ -875,7 +875,7 @@ fn void Widget.update(&self) @dynamic
 }
 
 // Function to calculate the color based on time
-fn RLColor selected_color_anim(Widget* wgt) @inline @local
+fn RLColor selected_color_anim(GUIWidget* wgt) @inline @local
 {
     if(!wgt) return {0, 0, 0, 1};
     
@@ -904,7 +904,7 @@ fn RLColor selected_color_anim(Widget* wgt) @inline @local
  @param [in] wgt : "widget to draw the origin coordinates for"
  @require wgt != null
 *>
-fn void Widget.draw_origin_coordinates(Widget* wgt) @local @inline 
+fn void GUIWidget.draw_origin_coordinates(GUIWidget* wgt) @local @inline 
 {
     if(!wgt.selected) return;
     
@@ -946,7 +946,7 @@ fn void Widget.draw_origin_coordinates(Widget* wgt) @local @inline
     );
 }
 
-fn void Widget.draw(&self) @dynamic 
+fn void GUIWidget.draw(&self) @dynamic 
 {
     if(self.hidden()) return;
     
@@ -1021,7 +1021,7 @@ fn void Widget.draw(&self) @dynamic
     }
 }
 
-fn bool Widget.isWithinScreenBounds(&self) @dynamic
+fn bool GUIWidget.isWithinScreenBounds(&self) @dynamic
 {
     //if (self.hidden()) return false;
 
@@ -1035,7 +1035,7 @@ fn bool Widget.isWithinScreenBounds(&self) @dynamic
     return rl::checkCollisionRecs(screen_bounds, self.quad) ? true : false;
 }
 
-fn bool Widget.isInWidget(&self, int x, int y) @dynamic
+fn bool GUIWidget.isInWidget(&self, int x, int y) @dynamic
 {
     if (self.hidden()) return false;
 
@@ -1047,7 +1047,7 @@ fn bool Widget.isInWidget(&self, int x, int y) @dynamic
  @param [in] window : "parent window"
  @require window != null
 *>
-fn void Widget.addTo(&self, UIWindow* window) @dynamic 
+fn void GUIWidget.addTo(&self, UIWindow* window) @dynamic 
 {
     self.parent.window = window;
     // todo change this to activate logic like the panel system...
@@ -1076,13 +1076,13 @@ fn void Widget.addTo(&self, UIWindow* window) @dynamic
 <*
  @ensure return != null
 *>
-fn UIWindow* Widget.getUIWindow(&self) @dynamic => self.parent.window;
+fn UIWindow* GUIWidget.getUIWindow(&self) @dynamic => self.parent.window;
 
 <*
  @param [in] other : "parent widget"
  @require other != null
 *>
-fn void Widget.bindTo(&self, Widget* other) @dynamic {
+fn void GUIWidget.bindTo(&self, GUIWidget* other) @dynamic {
     if(self.bound()) {
         log::warning(Where.CONSOLE, "Cannot Bind %s to %s because is already bound to %s.", self.super.id, other.super.id, self.parent.other.super.id);
         return;
@@ -1099,11 +1099,11 @@ fn void Widget.bindTo(&self, Widget* other) @dynamic {
     //
 }
 
-fn bool Widget.bound(&self) @dynamic {
+fn bool GUIWidget.bound(&self) @dynamic {
     return self.parent.other != null;
 }
 
-fn void Widget.unbind(&self) @dynamic {
+fn void GUIWidget.unbind(&self) @dynamic {
     if(!self.bound()) {
         return;
     }
@@ -1111,9 +1111,9 @@ fn void Widget.unbind(&self) @dynamic {
     self.parent.other = null;
 }
 
-fn String Widget.getName(&self) @inline @dynamic => self.super.name;
+fn String GUIWidget.getName(&self) @inline @dynamic => self.super.name;
 
-fn void Widget.link(&self, Widget* other) @dynamic {
+fn void GUIWidget.link(&self, GUIWidget* other) @dynamic {
     if (other == null) return;
 
     if (self.isLinked()) {
@@ -1124,28 +1124,28 @@ fn void Widget.link(&self, Widget* other) @dynamic {
     self.next = other;
 }
 
-fn bool Widget.isLinked(&self) @dynamic {
+fn bool GUIWidget.isLinked(&self) @dynamic {
     return (self.next != null) ? true : false;
 }
 
-fn void Widget.unlink(&self) @inline @dynamic {
+fn void GUIWidget.unlink(&self) @inline @dynamic {
     if (self.isLinked()) self.next = null;
 }
 
-fn void Widget.setColor(&self, RLColor color) @dynamic 
+fn void GUIWidget.setColor(&self, RLColor color) @dynamic 
 {
     self.super.color = color;
 }
 
-fn void Widget.setSelectedColor(&self, RLColor color) @dynamic 
+fn void GUIWidget.setSelectedColor(&self, RLColor color) @dynamic 
 {
     self.super.color_selected = color;
 }
 
 // editor functions
-fn void Widget.toggleSelection(&self) @inline => self.selected = !self.selected;
-fn void Widget.select(&self) @inline => self.selected = true;
-fn void Widget.deselect(&self) @inline => self.selected = false;
+fn void GUIWidget.toggleSelection(&self) @inline => self.selected = !self.selected;
+fn void GUIWidget.select(&self) @inline => self.selected = true;
+fn void GUIWidget.deselect(&self) @inline => self.selected = false;
 
 
 /////////////////////////////////////// extra widgets //////////////////////////////////////////////////////
@@ -1159,7 +1159,7 @@ enum WidgetTextAlign
 
 struct WidgetText 
 {
-    // extends Widget (super/base class)
+    // extends GUIWidget (super/base class)
     inline WidgetButton super;
 
     String text;
@@ -1309,8 +1309,8 @@ fn WidgetText* createLabel(String name, String text, RLFont* font, int font_size
 
 struct WidgetButton 
 {
-    // extends Widget (super/base class)
-    inline Widget super;
+    // extends GUIWidget (super/base class)
+    inline GUIWidget super;
     
     // panel already has a color variable
     // but this is the default color, used when the button color changes and we want to reset it
@@ -1441,12 +1441,12 @@ fn WidgetButton* createButton() @inline
     return button;
 }
 
-////////////////////////////////////////////////// Widget check box //////////////////////////////////////////////////////
+////////////////////////////////////////////////// GUIWidget check box //////////////////////////////////////////////////////
 
 alias CheckBoxListenerCallback = fn void(WidgetCheckBox*);
 struct WidgetCheckBox 
 {
-    // extends Widget (super/base class)
+    // extends GUIWidget (super/base class)
     inline WidgetButton super;
 
     bool checked; // is the checkbox checked or not
@@ -1552,7 +1552,7 @@ struct ContainerParams @packed
 
 struct WidgetContainer 
 {
-    inline Widget super;
+    inline GUIWidget super;
 
     ContainerParams params;
     ContainerQueue children;
@@ -1604,14 +1604,14 @@ fn void WidgetContainer.update(&self) {
     pad_top    = self.params.padding[2];
     pad_bottom = self.params.padding[3];
     
-    Widget* previous;
+    GUIWidget* previous;
     Vec2f offset;
     Vec2f anchor = self.getPosition() + misc::VEC_LEFT * pad_left;
     anchor += misc::VEC_DOWN * pad_top;
 
     foreach(i, child : self.children)
     {
-        Widget* wdg = anycast(child, Widget)!!;
+        GUIWidget* wdg = anycast(child, GUIWidget)!!;
         defer previous = wdg;
 
         // todo
@@ -1676,7 +1676,7 @@ fn void WidgetContainer.draw(&self) {
 
 fn void WidgetContainer.register(&self, any child) @inline {
     self.children.push(child);
-    @catch(anycast(child, Widget).bindTo((Widget*)self));
+    @catch(anycast(child, GUIWidget).bindTo((GUIWidget*)self));
 }
 
 //////////////////////////////////// DESKTOP //////////////////////////////////////
@@ -1708,7 +1708,7 @@ import engine::gui::guieditor;
         main_menu.ini(...);
     - create any widgets
         WidgetButton main_menu_button;
-    - init the Widget and add it to UIWindow
+    - init the GUIWidget and add it to UIWindow
         main_menu_button.init();
         main_menu_button.addTo(&main_menu);
 */
@@ -1717,7 +1717,7 @@ import engine::gui::guieditor;
 // really knowing that was a option and now changing this is a big refactor 
 // and i'm to lazy to change this, at lest for now...
 // todo change this to use the any list bellow...
-alias ChildrenQueue = List{Widget*};
+alias ChildrenQueue = List{GUIWidget*};
 //alias ChildrenQueue = List{any};
 
 struct UIWindow (SaveSystemInterface) 
@@ -2021,7 +2021,7 @@ fn void UIWindow.hide(&self)
                 case gui::KIND_TEXT:
                     ((WidgetText*)child).hide(); 
                 default:
-                   ((Widget*)child).hide(); 
+                   ((GUIWidget*)child).hide(); 
             }
         }
     }
@@ -2046,7 +2046,7 @@ fn void UIWindow.show(&self) {
                 case gui::KIND_TEXT:
                     ((WidgetText*)child).show(); 
                 default:
-                   ((Widget*)child).show(); 
+                   ((GUIWidget*)child).show(); 
             }
         }
     }
@@ -2168,11 +2168,11 @@ fn void UIWindow.draw(&self, int time) {
 	}
 }
 
-fn void UIWindow.addChild(&self, Widget* child) @inline @local {
+fn void UIWindow.addChild(&self, GUIWidget* child) @inline @local {
     self.children.push(child);
 }
 
-macro UIWindow.@addChild(&self, Widget* child; @body(self)) 
+macro UIWindow.@addChild(&self, GUIWidget* child; @body(self)) 
 {
     self.addChild(child);
     @body(self);
@@ -2184,7 +2184,7 @@ macro UIWindow.@addChildren(&self; @body(self))
 }
 
 macro UIWindow.getChild(&self, int id) {
-    Widget* child = self.children[id];
+    GUIWidget* child = self.children[id];
     if (child == null) {
         log::warning(CONSOLE, "Cannot get child %d from %s because is null.", id, self.super.name);
         return null;
@@ -2417,7 +2417,7 @@ fn bool as_focus() @inline {
     return (enabled() && game.editor.focused());
 }
 
-fn void move_selected(Widget* wgt)
+fn void move_selected(GUIWidget* wgt)
 {
     if(!wgt) return;
     

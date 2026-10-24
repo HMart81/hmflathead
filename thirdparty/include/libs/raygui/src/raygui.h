@@ -32,10 +32,10 @@
 *
 *   CONTROLS PROVIDED:
 *     # Container/separators Controls
-*       - WindowBox     --> StatusBar, Panel
+*       - WindowBox     --> StatusBar, GUIRect
 *       - GroupBox      --> Line
 *       - Line
-*       - Panel         --> StatusBar
+*       - GUIRect         --> StatusBar
 *       - ScrollPanel   --> StatusBar
 *       - TabBar        --> Button
 *
@@ -705,9 +705,9 @@ RAYGUIAPI void GuiDrawIcon(int iconId, int posX, int posY, int pixelSize, RLColo
 RAYGUIAPI int GuiWindowBox(RLRectangle bounds, const char *title);                                       // Window Box control, shows a window that can be closed
 RAYGUIAPI int GuiGroupBox(RLRectangle bounds, const char *text);                                         // Group Box control with text name
 RAYGUIAPI int GuiLine(RLRectangle bounds, const char *text);                                             // Line separator control, could contain text
-RAYGUIAPI int GuiPanel(RLRectangle bounds, const char *text);                                            // Panel control, useful to group controls
+RAYGUIAPI int GuiPanel(RLRectangle bounds, const char *text);                                            // GUIRect control, useful to group controls
 RAYGUIAPI int GuiTabBar(RLRectangle bounds, const char **text, int count, int *active);                  // Tab Bar control, returns TAB to be closed or -1
-RAYGUIAPI int GuiScrollPanel(RLRectangle bounds, const char *text, RLRectangle content, RLVector2 *scroll, RLRectangle *view); // Scroll Panel control
+RAYGUIAPI int GuiScrollPanel(RLRectangle bounds, const char *text, RLRectangle content, RLVector2 *scroll, RLRectangle *view); // Scroll GUIRect control
 
 // Basic controls set
 RAYGUIAPI int GuiLabel(RLRectangle bounds, const char *text);                                            // Label control, shows text
@@ -737,11 +737,11 @@ RAYGUIAPI int GuiListViewEx(RLRectangle bounds, const char **text, int count, in
 RAYGUIAPI int GuiMessageBox(RLRectangle bounds, const char *title, const char *message, const char *buttons); // Message Box control, displays a message
 RAYGUIAPI int GuiTextInputBox(RLRectangle bounds, const char *title, const char *message, const char *buttons, char *text, int textMaxSize, bool *secretViewActive); // Text Input Box control, ask for text, supports secret
 RAYGUIAPI int GuiColorPicker(RLRectangle bounds, const char *text, RLColor *color);                        // RLColor Picker control (multiple color controls)
-RAYGUIAPI int GuiColorPanel(RLRectangle bounds, const char *text, RLColor *color);                         // RLColor Panel control
+RAYGUIAPI int GuiColorPanel(RLRectangle bounds, const char *text, RLColor *color);                         // RLColor GUIRect control
 RAYGUIAPI int GuiColorBarAlpha(RLRectangle bounds, const char *text, float *alpha);                      // RLColor Bar Alpha control
 RAYGUIAPI int GuiColorBarHue(RLRectangle bounds, const char *text, float *value);                        // RLColor Bar Hue control
 RAYGUIAPI int GuiColorPickerHSV(RLRectangle bounds, const char *text, RLVector3 *colorHsv);                // RLColor Picker control that avoids conversion to RGB on each call (multiple color controls)
-RAYGUIAPI int GuiColorPanelHSV(RLRectangle bounds, const char *text, RLVector3 *colorHsv);                 // RLColor Panel control that returns HSV color value, used by GuiColorPickerHSV()
+RAYGUIAPI int GuiColorPanelHSV(RLRectangle bounds, const char *text, RLVector3 *colorHsv);                 // RLColor GUIRect control that returns HSV color value, used by GuiColorPickerHSV()
 //----------------------------------------------------------------------------------------------------------
 
 
@@ -1666,7 +1666,7 @@ int GuiLine(RLRectangle bounds, const char *text)
     return result;
 }
 
-// Panel control
+// GUIRect control
 int GuiPanel(RLRectangle bounds, const char *text)
 {
     #if !defined(RAYGUI_PANEL_BORDER_WIDTH)
@@ -1770,7 +1770,7 @@ int GuiTabBar(RLRectangle bounds, const char **text, int count, int *active)
     return result;     // Return as result the current TAB closing requested
 }
 
-// Scroll Panel control
+// Scroll GUIRect control
 int GuiScrollPanel(RLRectangle bounds, const char *text, RLRectangle content, RLVector2 *scroll, RLRectangle *view)
 {
     #define RAYGUI_MIN_SCROLLBAR_WIDTH     40
@@ -3346,7 +3346,7 @@ int GuiListViewEx(RLRectangle bounds, const char **text, int count, int *scrollI
     return result;
 }
 
-// RLColor Panel control
+// RLColor GUIRect control
 int GuiColorPanel(RLRectangle bounds, const char *text, RLColor *color)
 {
     int result = 0;
@@ -3662,7 +3662,7 @@ int GuiColorPickerHSV(RLRectangle bounds, const char *text, RLVector3 *colorHsv)
     return result;
 }
 
-// RLColor Panel control, returns HSV color value in *colorHsv.
+// RLColor GUIRect control, returns HSV color value in *colorHsv.
 // Used by GuiColorPickerHSV()
 int GuiColorPanelHSV(RLRectangle bounds, const char *text, RLVector3 *colorHsv)
 {

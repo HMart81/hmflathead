@@ -40,6 +40,7 @@ import std::io;
 //import std::core::mem; // for malloc
 //import std::math;
 import std::collections::list;
+import std::collections::pair;
 import game::main;
 import game::files::ini;
 //import game::actors::ent;
@@ -53,7 +54,7 @@ import engine::logging::log;
 
 // region defines
 //alias pAssetsLib = astmng::pAssetsLib @private;
-//alias WidgetQueue  = List{Widget*};
+//alias WidgetQueue  = List{GUIWidget*};
 //alias UIWindowList  = List{Action*};
 alias ActionQueue    = List{Action*};
 alias ActionCallBack = fn void(args...);
@@ -1026,13 +1027,17 @@ fn String getMainBtnNameFrom(Action* action) @inline @local
     }
 }
 
+alias KeysPair = Pair{int, int};
+const KeysPair NULL_KEYCODES = { .first = rl::KEY_NULL, .second = rl::KEY_NULL };
+macro bool isValidKeysPair(KeysPair pair) {
+	return (bool)(pair != NULL_KEYCODES && pair.first != rl::KEY_NULL);
+}
 
-const int[] NULL_KEY_CODES @local = { [0] = rl::KEY_NULL, [1] = rl::KEY_NULL };
 <*
-    @param [in] key : "the key action to retrieve from user settings"
+    @param [in] key : "the key action name to retrieve from user settings"
     @param [&in] settings_data : "the user settings data in RAM"
 *>
-fn int[] getkeyCodesFrom(String key, ConfigFile* settings_data) 
+fn KeysPair getkeyCodesFrom(String key, ConfigFile* settings_data) 
 {
     String result = settings_data.getString("keys", key);
     if(result.len > 0)
@@ -1045,16 +1050,18 @@ fn int[] getkeyCodesFrom(String key, ConfigFile* settings_data)
             int key1, key2;
             key1 = input::getKeyCodeFromStr(keys[0]);
             key2 = input::getKeyCodeFromStr(keys[1]);
-            return (int[]) { [0] = key1, [1] = key2 };
+            //return (int[]) { [0] = key1, [1] = key2 };
+            return { .first = key1, .second = key2 };
         } 
         else
         {
             int key1 = input::getKeyCodeFromStr(result);
-            return (int[]) { [0] = key1, [1] = rl::KEY_NULL };
+            //return (int[]) { [0] = key1, [1] = rl::KEY_NULL };
+            return { .first = key1, .second = rl::KEY_NULL };
         }
     }
 
-    return NULL_KEY_CODES;
+    return NULL_KEYCODES;
 }
 
 <*

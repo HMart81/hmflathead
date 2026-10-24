@@ -184,7 +184,7 @@ macro scale(Type1 ojb, Vec2f dim) <Type1, Type2>
 	switch
 	{
 		case Type1 == GUIRect:
-		case Type1 == Widget:
+		case Type1 == GUIWidget:
 		case Type1 == WidgetContainer:
 			if(Type2 == float) {
 				ojb.scale(dim.x, dim.y);
@@ -532,7 +532,7 @@ fn void GUIRect.draw(&self)
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////// Widgets ////////////////////////////////////////////////////
 
-// NOTE(HM) Widget is a general data structure representing anything inside a gui, like buttons and such.
+// NOTE(HM) GUIWidget is a general data structure representing anything inside a gui, like buttons and such.
 
 constdef GUIColorsID : inline int
 {
@@ -576,12 +576,12 @@ interface WidgetInterface
     fn void addTo(UIWindow*);
     //fn void addToFrame(Frame*) @optional;
     fn UIWindow* getParentWindow();
-    fn void bindTo(Widget* other);
+    fn void bindTo(GUIWidget* other);
     fn bool bound();
     fn void unbind();
     fn String getName();
     fn void setName(String name);
-    fn void link(Widget* other);
+    fn void link(GUIWidget* other);
     fn bool isLinked();
     fn void unlink();
     fn bool hasParentUIWindow() @optional;
@@ -616,7 +616,7 @@ struct GUIWidgetFlags
     bool selected;  // for the gui editor
 }
 
-struct Widget (WidgetInterface, SaveSystemInterface) 
+struct GUIWidget (WidgetInterface, SaveSystemInterface) 
 {
     // extends GUIRect (super/base class)
     inline GUIRect super;
@@ -632,9 +632,9 @@ struct Widget (WidgetInterface, SaveSystemInterface)
     // For binding. One single binding for now, 
 	// in the future we may have multiple bindings, 
 	// if I come up with a good system for that...
-    Widget* other;
+    GUIWidget* other;
     // for linking
-    Widget* next; // for linked list of widgets
+    GUIWidget* next; // for linked list of widgets
 
     // callbacks (function pointers...)
     WidgetCallback onOver; // called when the mouse is over the widget
@@ -648,7 +648,7 @@ struct Widget (WidgetInterface, SaveSystemInterface)
     WidgetCallback onLoad;   // called when the widget is loaded
 }
 
-fn void Widget.save(&self, SaveFile* file) @dynamic 
+fn void GUIWidget.save(&self, SaveFile* file) @dynamic 
 {
 	self.super.save();
     svs::writeInt(file, self.id);
@@ -665,7 +665,7 @@ fn void Widget.save(&self, SaveFile* file) @dynamic
 	// they are instead redefined at game start at gui recreation time
 }
 
-fn void Widget.reload(&self, SaveFile* file) @dynamic 
+fn void GUIWidget.reload(&self, SaveFile* file) @dynamic 
 {
 	self.super.reload();
    	svs::readInt(file, &self.id);
@@ -682,7 +682,7 @@ fn void Widget.reload(&self, SaveFile* file) @dynamic
 	} else {
 		log::warning(FILE, "unable to find parent window '%s' for widget '%s", name, self.name);
 	}
-	Widget* other;
+	GUIWidget* other;
 	svs::readString(file, &name);
 	if(name.len)
 	{
@@ -709,13 +709,13 @@ fn void Widget.reload(&self, SaveFile* file) @dynamic
 	// they are redefined at game start at gui recreation time 
 }
 
-fn void Widget.init(&self, int kind = KIND_WIDGET) @dynamic 
+fn void GUIWidget.init(&self, int kind = KIND_WIDGET) @dynamic 
 {
     self.super.initDefault();
     self.kind = kind;
 }
 
-fn void Widget.deinit(&self) @dynamic
+fn void GUIWidget.deinit(&self) @dynamic
 {
     self.unlink();
     self.unbind();
@@ -723,7 +723,7 @@ fn void Widget.deinit(&self) @dynamic
     self.super.deinit();
 }
 
-fn void Widget.editor_interactions(&self)
+fn void GUIWidget.editor_interactions(&self)
 {
     // when in gui edit mode, we can select widgets with the mouse
     // and they should all be set to not active, as that is part of
@@ -737,42 +737,42 @@ fn void Widget.editor_interactions(&self)
     }
 }
 
-fn void Widget.hide(&self) @inline 
+fn void GUIWidget.hide(&self) @inline 
 {
     if(self.hidden()) return;
     self.flags.isHidden = true;
     self.deactivate();
 }
 
-fn void Widget.show(&self) @inline {
+fn void GUIWidget.show(&self) @inline {
     if(!self.hidden()) return;
     self.flags.isHidden = false;
     self.activate();
 }
 
-fn void Widget.debugBounds(&self, bool choice) @inline {
+fn void GUIWidget.debugBounds(&self, bool choice) @inline {
     self.flags.showBounds = choice;
 }
 
-fn bool Widget.displayBounds(&self) @inline {
+fn bool GUIWidget.displayBounds(&self) @inline {
     return self.flags.showBounds;
 }
 
-fn bool Widget.hidden(&self)  @inline => self.flags.isHidden;
+fn bool GUIWidget.hidden(&self)  @inline => self.flags.isHidden;
 
-fn void Widget.activate(&self) @inline {
+fn void GUIWidget.activate(&self) @inline {
     if(self.flags.isActive) return;
     self.flags.isActive = true;
 }
 
-fn void Widget.deactivate(&self) @inline {
+fn void GUIWidget.deactivate(&self) @inline {
     if(!self.flags.isActive) return;
     self.flags.isActive = false;
 }
 
-fn bool Widget.active(&self)  @inline => self.flags.isActive;
+fn bool GUIWidget.active(&self)  @inline => self.flags.isActive;
 
-fn bool Widget.active_visible_infocus(&self) @inline => (self.active() && !self.hidden() && self.hasFocus());
+fn bool GUIWidget.active_visible_infocus(&self) @inline => (self.active() && !self.hidden() && self.hasFocus());
 
 //    WARNING(HM)
 //    If the 2D camera view is changed in any way besides moving in x and y
@@ -781,7 +781,7 @@ fn bool Widget.active_visible_infocus(&self) @inline => (self.active() && !self.
 <*
 	@param [&in] widget : "is mouse of this widget"
 *>
-fn bool isMouseOver(Widget* widget) @local
+fn bool isMouseOver(GUIWidget* widget) @local
 {
     if (!widget.active() || widget.hidden() || guieditor::as_focus() || game::pContext.showMessageBox) return false;
 
@@ -796,9 +796,9 @@ fn bool isMouseOver(Widget* widget) @local
     return false;
 }
 
-fn bool Widget.hasFocus(&self)  @inline => self.flags.inFocus;
+fn bool GUIWidget.hasFocus(&self)  @inline => self.flags.inFocus;
 
-fn void Widget.update(&self) @dynamic 
+fn void GUIWidget.update(&self) @dynamic 
 {
     // if we are bound to a parent widget, we need to update our position each frame
     // to be always relative to the parent origin.
@@ -838,7 +838,7 @@ fn void Widget.update(&self) @dynamic
 }
 
 // Function to calculate the color based on time
-fn RLColor selected_color_anim(Widget* wgt) @inline @local
+fn RLColor selected_color_anim(GUIWidget* wgt) @inline @local
 {
     if(!wgt) return {0, 0, 0, 1};
     
@@ -867,7 +867,7 @@ fn RLColor selected_color_anim(Widget* wgt) @inline @local
  @param [in] wgt : "widget to draw the origin coordinates for"
  @require wgt != null
 *>
-fn void Widget.draw_origin_coordinates(Widget* wgt) @inline 
+fn void GUIWidget.draw_origin_coordinates(GUIWidget* wgt) @inline 
 {
     if(!wgt.selected()) return;
     
@@ -909,7 +909,7 @@ fn void Widget.draw_origin_coordinates(Widget* wgt) @inline
     );
 }
 
-fn void Widget.draw(&self) @dynamic 
+fn void GUIWidget.draw(&self) @dynamic 
 {
     if(self.hidden()) return;
     
@@ -984,7 +984,7 @@ fn void Widget.draw(&self) @dynamic
     }
 }
 
-fn bool Widget.isWithinScreenBounds(&self) @dynamic
+fn bool GUIWidget.isWithinScreenBounds(&self) @dynamic
 {
     //if (self.hidden()) return false;
 
@@ -998,7 +998,7 @@ fn bool Widget.isWithinScreenBounds(&self) @dynamic
     return rl::checkCollisionRecs(screen_bounds, self.super) ? true : false;
 }
 
-fn bool Widget.isWithinCoords(&self, int x, int y) @dynamic
+fn bool GUIWidget.isWithinCoords(&self, int x, int y) @dynamic
 {
     if (self.hidden()) return false;
 
@@ -1006,7 +1006,7 @@ fn bool Widget.isWithinCoords(&self, int x, int y) @dynamic
     return rl::checkCollisionPointRec(point, self.super.super) ? true : false;
 }
 
-fn Vec2f Widget.getAnchor(&self, int idx) @inline 
+fn Vec2f GUIWidget.getAnchor(&self, int idx) @inline 
 {
     return getAnchor{GUIRect}(&self.super, idx);
 }
@@ -1015,7 +1015,7 @@ fn Vec2f Widget.getAnchor(&self, int idx) @inline
  @param [in] window : "parent window"
  @require window != null
 *>
-fn void Widget.addTo(&self, UIWindow* window) @dynamic 
+fn void GUIWidget.addTo(&self, UIWindow* window) @dynamic 
 {
     self.setParentUIWindow(window);
 	defer self.parent_window.addChildWidget(self);
@@ -1044,13 +1044,13 @@ fn void Widget.addTo(&self, UIWindow* window) @dynamic
 <*
  @ensure return != null
 *>
-fn UIWindow* Widget.getParentWindow(&self) @dynamic => self.parent_window;
+fn UIWindow* GUIWidget.getParentWindow(&self) @dynamic => self.parent_window;
 
 <*
  @param [in] other : "other widget to bind to"
  @require other != null
 *>
-fn void Widget.bindTo(&self, Widget* other) @dynamic 
+fn void GUIWidget.bindTo(&self, GUIWidget* other) @dynamic 
 {
     if(self.bound()) {
         log::warning(FILE, "Cannot Bind %s to %s because is already bound to %s.", self.id, other.id, self.other.id);
@@ -1060,12 +1060,12 @@ fn void Widget.bindTo(&self, Widget* other) @dynamic
     self.other = other;
 }
 
-fn bool Widget.bound(&self) @dynamic 
+fn bool GUIWidget.bound(&self) @dynamic 
 {
     return self.other != null;
 }
 
-fn void Widget.unbind(&self) @dynamic 
+fn void GUIWidget.unbind(&self) @dynamic 
 {
     if(!self.bound()) {
         return;
@@ -1073,10 +1073,10 @@ fn void Widget.unbind(&self) @dynamic
     self.other = null;
 }
 
-fn String Widget.getName(&self) @inline @dynamic => self.name;
-fn void Widget.setName(&self, String name) @inline @dynamic => self.name = name.tcopy();
+fn String GUIWidget.getName(&self) @inline @dynamic => self.name;
+fn void GUIWidget.setName(&self, String name) @inline @dynamic => self.name = name.tcopy();
 
-fn void Widget.link(&self, Widget* target) @dynamic 
+fn void GUIWidget.link(&self, GUIWidget* target) @dynamic 
 {
     if (target == null) return;
 
@@ -1087,41 +1087,41 @@ fn void Widget.link(&self, Widget* target) @dynamic
     self.next = target;
 }
 
-fn bool Widget.isLinked(&self) @dynamic 
+fn bool GUIWidget.isLinked(&self) @dynamic 
 {
     return (self.next != null) ? true : false;
 }
 
-fn void Widget.unlink(&self) @inline @dynamic 
+fn void GUIWidget.unlink(&self) @inline @dynamic 
 {
     if (self.isLinked()) self.next = null;
 }
 
-fn bool Widget.hasParentUIWindow(&self) @inline @dynamic
+fn bool GUIWidget.hasParentUIWindow(&self) @inline @dynamic
 {
     return (self.parent_window != null) ? true : false;
 }
 
-fn void Widget.setParentUIWindow(&self, UIWindow* window) @inline @dynamic
+fn void GUIWidget.setParentUIWindow(&self, UIWindow* window) @inline @dynamic
 {
     self.parent_window = window;
 }
 
-fn void Widget.releaseParentUIWindow(&self) @inline @dynamic
+fn void GUIWidget.releaseParentUIWindow(&self) @inline @dynamic
 {
     self.parent_window = null;
 }
 
-fn void Widget.setColor(&self, GUIColorsID id) @dynamic 
+fn void GUIWidget.setColor(&self, GUIColorsID id) @dynamic 
 {
     self.color = COLORS[id];
 }
 
 // editor functions
-fn void Widget.toggleSelection(&self) @inline => self.flags.selected = !self.flags.selected;
-fn void Widget.select(&self) @inline => self.flags.selected = true;
-fn void Widget.deselect(&self) @inline => self.flags.selected = false;
-fn bool Widget.selected(&self) @inline => self.flags.selected;
+fn void GUIWidget.toggleSelection(&self) @inline => self.flags.selected = !self.flags.selected;
+fn void GUIWidget.select(&self) @inline => self.flags.selected = true;
+fn void GUIWidget.deselect(&self) @inline => self.flags.selected = false;
+fn bool GUIWidget.selected(&self) @inline => self.flags.selected;
 
 
 /////////////////////////////////////// extra widgets //////////////////////////////////////////////////////
@@ -1135,7 +1135,7 @@ enum WidgetTextAlign
 
 struct WidgetText 
 {
-    // extends Widget (super/base class)
+    // extends GUIWidget (super/base class)
     inline WidgetButton super;
 
     String text;
@@ -1317,8 +1317,8 @@ fn void init_label(WidgetText* label, String text, RLFont* font, int font_size, 
 
 struct WidgetButton 
 {
-    // extends Widget (super/base class)
-    inline Widget super;
+    // extends GUIWidget (super/base class)
+    inline GUIWidget super;
     
     int press_count;
     bool pressed;
@@ -1491,12 +1491,12 @@ fn WidgetButton* createButton() @inline
     return button;
 }
 
-////////////////////////////////////////////////// Widget check box //////////////////////////////////////////////////////
+////////////////////////////////////////////////// GUIWidget check box //////////////////////////////////////////////////////
 
 alias CheckBoxListenerCallback = fn void(WidgetCheckBox*);
 struct WidgetCheckBox 
 {
-    // extends Widget (super/base class)
+    // extends GUIWidget (super/base class)
     inline WidgetButton super;
 
     bool checked; // is the checkbox checked or not
@@ -1611,7 +1611,7 @@ struct ContainerParams @packed
 
 struct WidgetContainer 
 {
-    inline Widget super;
+    inline GUIWidget super;
 
     ContainerParams params;
     ContainerQueue children;
@@ -1675,14 +1675,14 @@ fn void WidgetContainer.update(&self)
     pad_right  = self.params.pad.right;
     pad_bottom = self.params.pad.bottom;
     
-    Widget* previous;
+    GUIWidget* previous;
     Vec2f offset;
     Vec2f anchor = self.getPosition() + misc::VEC_LEFT * pad_left;
     anchor += misc::VEC_DOWN * pad_top;
 
     foreach(i, child : self.children)
     {
-        Widget* wdg = anycast(child, Widget)!!;
+        GUIWidget* wdg = anycast(child, GUIWidget)!!;
         defer previous = wdg;
 
         // todo
@@ -1749,7 +1749,7 @@ fn void WidgetContainer.draw(&self)
 fn void WidgetContainer.register(&self, any child) @inline 
 {
     self.children.push(child);
-    @catch(anycast(child, Widget).bindTo((Widget*)self));
+    @catch(anycast(child, GUIWidget).bindTo((GUIWidget*)self));
 }
 
 //////////////////////////////////// DESKTOP //////////////////////////////////////
@@ -1783,12 +1783,12 @@ import engine::sys::framework::soundbkd;
         main_menu.ini(... isDesktop: yes);
     - create any widgets
         WidgetButton main_menu_button;
-    - init the Widget and add it to UIWindow
+    - init the GUIWidget and add it to UIWindow
         main_menu_button.init();
         main_menu_button.addTo(&main_menu);
 */
 
-alias ChildrenWidgetQueue = List{Widget*};
+alias ChildrenWidgetQueue = List{GUIWidget*};
 alias ChildrenUIWindowQueue = List{UIWindow*};
 
 struct UIWindow (SaveSystemInterface) 
@@ -2059,7 +2059,7 @@ fn void UIWindow.hide(&self)
                 case gui::KIND_TEXT:
                     ((WidgetText*)child).hide(); 
                 default:
-                   ((Widget*)child).hide(); 
+                   ((GUIWidget*)child).hide(); 
             }
         }
     }
@@ -2085,7 +2085,7 @@ fn void UIWindow.show(&self)
                 case gui::KIND_TEXT:
                     ((WidgetText*)child).show(); 
                 default:
-                   ((Widget*)child).show(); 
+                   ((GUIWidget*)child).show(); 
             }
         }
     }
@@ -2255,7 +2255,7 @@ fn void UIWindow.setPageCount(&self, int count) => self.childWindows.reserve(cou
     @param [&in] child : "child to register/add to the window"
     @param  idx : "index where to put the child, if -1 this is ignored"
 *>
-fn void UIWindow.addChildWidget(&self, Widget* child, int idx = -1 )
+fn void UIWindow.addChildWidget(&self, GUIWidget* child, int idx = -1 )
 {
     if(idx >= 0) {
         self.childWidgets.insert_at(idx, child);
@@ -2282,7 +2282,7 @@ fn UIWindow* UIWindow.addChildWindow(&self, UIWindow* child, int idx = -1 )
     @param idx : "index of the child widget to get"
     @ensure return != null
 *>
-fn Widget* UIWindow.getChildWidget(&self, int idx) @nodiscard
+fn GUIWidget* UIWindow.getChildWidget(&self, int idx) @nodiscard
 {
     return self.childWidgets.get(idx);
 }
@@ -2291,7 +2291,7 @@ fn Widget* UIWindow.getChildWidget(&self, int idx) @nodiscard
 	@param [in] name : "name of widget to fetch/get"
 	@require name.len > 0
 *>
-fn Widget* UIWindow.getChildWidgetByName(&self, String name)
+fn GUIWidget* UIWindow.getChildWidgetByName(&self, String name)
 {
     foreach(wid : self.childWidgets) {
         if(wid.name == name) {
@@ -2301,7 +2301,7 @@ fn Widget* UIWindow.getChildWidgetByName(&self, String name)
 	return null;
 }
 
-fn Widget* UIWindow.hasChildWidget(&self, String name) => self.getChildWidgetByName(name);
+fn GUIWidget* UIWindow.hasChildWidget(&self, String name) => self.getChildWidgetByName(name);
 
 <*
     @param idx : "index of the child window to get"
@@ -2386,7 +2386,7 @@ fn void UIWindow.debug(&self, bool showHidden = true)
             foreach(child: self.childWidgets)
             {
                if(child.selected()) continue;
-               Vec2f dbg_text_pos = getAnchor{Widget}(child, AnchorType.TOP_LEFT);
+               Vec2f dbg_text_pos = getAnchor{GUIWidget}(child, AnchorType.TOP_LEFT);
                dbg_text_pos = {child.rect.x, child.rect.y};
                dbg_text_pos += misc::VEC_UP * (0.30f * child.rect.height); 
                rl::drawText(
@@ -2399,7 +2399,7 @@ fn void UIWindow.debug(&self, bool showHidden = true)
                     r2d::drawCircle((int)child.rect.x, (int)child.rect.y, 2.0f, rl::SKYBLUE);
                }
                r2d::drawRectangleLinesEx(child.rect, 1.5f, rl::RED);
-               gui::drawAnchors{Widget}(child);
+               gui::drawAnchors{GUIWidget}(child);
             }
         }
 
@@ -2473,9 +2473,9 @@ fn UIWindow* UIWindowManager.get(&self, String name) @inline
 	@param [in] name : "name of widget to fetch/get"
 	@require name.len > 0
 *>
-fn Widget* UIWindowManager.findWidget(&self, String name) @inline 
+fn GUIWidget* UIWindowManager.findWidget(&self, String name) @inline 
 {
-	Widget* result;
+	GUIWidget* result;
     foreach(uiwin : self.windows) {
         if(result = uiwin.hasChildWidget(name), result) {
             return result;
@@ -2869,7 +2869,7 @@ fn bool as_focus() @inline {
     return (enabled() && game.editor.focused());
 }
 
-fn void move_selected(Widget* wgt)
+fn void move_selected(GUIWidget* wgt)
 {
     if(!wgt) return;
     

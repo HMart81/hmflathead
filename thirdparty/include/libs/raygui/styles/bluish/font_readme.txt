@@ -44,7 +44,7 @@ you unzipped it) on your Computer.
 2] Next, click on the START button, then select SETTINGS then
 CONTROL PANEL.
 
-3] When the Control Panel Window pops up, Double Click on FONTS.
+3] When the Control GUIRect Window pops up, Double Click on FONTS.
 
 4] When the FONTS window pops up, select File then Install New RLFont...
 

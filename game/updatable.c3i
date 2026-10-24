@@ -42,3 +42,149 @@ interface Updateable
 	fn void onReset() @optional;
 	fn void onExit();
 }
+
+/*
+struct HMUpdateable (Updateable)
+{
+	String name;
+}
+
+fn void HMUpdateable.setName(&self, String name)
+{
+	self.name = name;
+}
+
+
+
+alias UpdateableList = List{HMUpdateable*};
+
+alias UpdateContainerMap = Map{String, UpdateableList};
+
+struct HMUpdater
+{
+	String currentUpdates;
+	UpdateContainerMap mapUpdateContainer;
+	UpdateableList *currentUpdatesList;
+	UpdateableList globalUpdateableList;
+}
+
+fn void HMUpdater.reset(&self)
+{
+
+}
+
+fn void HMUpdater.onDraw(&self)
+{
+
+}
+
+fn void HMUpdater.onPostSceneDraw(&self)
+{
+
+}
+
+fn void HMUpdater.onPostGUIDraw(&self)
+{
+
+}
+
+fn void HMUpdater.onPostBufferSwap(&self)
+{
+
+}
+
+fn void HMUpdater.onStart(&self)
+{
+
+}
+
+fn void HMUpdater.update(&self, float timeStep)
+{
+	foreach(it : self.globalUpdateableList)
+	{
+		//START_TIMING_EX((*it)->GetName().c_str(),game)
+		(*it).update(timeStep);
+		//STOP_TIMING(game)
+	}
+
+	if(self.currentUpdatesList)
+	{
+		UpdateableList *pList = self.currentUpdatesList;
+		foreach(it : pList)
+		{
+			//START_TIMING_EX((*it)->GetName().c_str(),game)
+			(*it).update(timeStep);
+			//STOP_TIMING(game)
+		}
+	}
+}
+
+fn void HMUpdater.onExit(&self)
+{
+
+}
+
+/**
+	* Sets the active update container to be used.
+	* \param asContainer Name of the contianer
+	* \return
+	*/
+fn bool HMUpdater.setContainer(&self, String asContainer)
+{
+	UpdateableList it = self.mapUpdateContainer.find(asContainer);
+	if(it == self.mapUpdateContainer.end()) return false;
+
+	self.currentUpdates = asContainer;
+	if(self.currentUpdates == "Default"){
+		SetUpdateLogActive(true);
+	}
+	else
+	{
+		SetUpdateLogActive(false);
+	}
+
+	self.currentUpdatesList = &it.second;
+
+	return true;
+}
+
+/**
+	* Gets the name of the current container in use.
+	* \return name of current container.
+	*/
+fn String HMUpdater.getCurrentContainerName(&self)
+{
+
+}
+
+/**
+	* Adds a new container
+	* \todo change name to state instead of container?
+	* \param asName Name for the new container.
+	* \return
+	*/
+fn bool HMUpdater.addContainer(&self, String asName)
+{
+
+}
+
+/**
+	* Adds a new update in a container.
+	* \param asContainer Container name
+	* \param apUpdate pointer to the class that will be updated
+	* \return
+	*/
+fn bool HMUpdater.addUpdate(&self, String asContainer, HMUpdateable* apUpdate)
+{
+
+}
+
+/**
+	* Adds a global update that runs no matter what container is set
+	* \param apUpdate
+	* \return
+	*/
+fn bool HMUpdater.addGlobalUpdate(&self, HMUpdateable* apUpdate)
+{
+
+}

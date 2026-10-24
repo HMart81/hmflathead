@@ -39,7 +39,7 @@ module game::gui::menu;
     	main_menu.ini(...);
     - create any children panels/widgets
     	WidgetButton main_menu_button;
-    - init the Widget and add it to UIWindow
+    - init the GUIWidget and add it to UIWindow
     	main_menu_button.init();
     	main_menu_button.addTo(&main_menu);
 
@@ -55,7 +55,7 @@ module game::gui::menu;
 			// create any children panels/widgets
 			{
 				WidgetButton button0;
-				// init the Widget
+				// init the GUIWidget
 				button0.init();
 				button0.addTo(self);
 			}
@@ -572,7 +572,7 @@ fn void button_onLoad(any widget)
 <*
     @param [&in] widget : "the widget we are dealing with"
 *>
-fn void button_onOver(any widget/*Widget* widget*/) 
+fn void button_onOver(any widget/*GUIWidget* widget*/) 
 {
     switch (widget.type)
     {
@@ -629,7 +629,7 @@ fn void button_onOver(any widget/*Widget* widget*/)
 <*
     @param [&in] widget : "the widget we are dealing with"
 *>
-fn void button_onStopOver(/*Widget* widget*/ any widget) 
+fn void button_onStopOver(/*GUIWidget* widget*/ any widget) 
 {
     if(widget.type == WidgetButton) {
         WidgetButton* self = (WidgetButton*)widget.ptr;
@@ -646,7 +646,7 @@ fn void button_onStopOver(/*Widget* widget*/ any widget)
 <*
     @param [&in] widget : "the widget we are dealing with"
 *>
-fn void button_onRelease(/*Widget* widget*/ any widget) 
+fn void button_onRelease(/*GUIWidget* widget*/ any widget) 
 {
     if(widget.type == WidgetButton) {
         WidgetButton* self = (WidgetButton*)widget.ptr;
@@ -672,7 +672,7 @@ fn void button_onRelease(/*Widget* widget*/ any widget)
     
     @param [&in] widget : "widget calling this function"
 *>
-fn void button_onPress(/*Widget* widget*/ any widget) 
+fn void button_onPress(/*GUIWidget* widget*/ any widget) 
 {
     assert(widget.ptr != null);
     if(widget.type == WidgetButton) {
@@ -722,7 +722,7 @@ fn void button_onSinglePress(any widget)
         self.setColor(rl::GREEN);
         //return;
     } else {
-        unreachable("widget %s is not a valid button!", ((Widget*)widget.ptr).name);
+        unreachable("widget %s is not a valid button!", ((GUIWidget*)widget.ptr).name);
     }
 }
 
@@ -730,7 +730,7 @@ fn void button_onSinglePress(any widget)
 <*
     @param [&in] widget : "the widget we are dealing with"
 *>
-fn void start_button_onPress(/*Widget* widget*/ any widget) 
+fn void start_button_onPress(/*GUIWidget* widget*/ any widget) 
 {
     button_onPress(widget);
 }
@@ -892,7 +892,7 @@ fn void checkbox1_onSinglePress(any widget)
     } 
     else 
     {
-        unreachable("widget %s is not a valid button!", ((Widget*)widget.ptr).name);
+        unreachable("widget %s is not a valid button!", ((GUIWidget*)widget.ptr).name);
     }
 }
 
