@@ -89,7 +89,7 @@ const uint VERTICAL_DIR   = 2;
 /* #region Anchors */
 typedef GuiAnchor = inline Vec2f;
 
-constdef AnchorType : inline int
+constdef AnchorID : inline int
 {
     TOP_LEFT = 0,
     TOP_CENTER,
@@ -112,17 +112,17 @@ fn void initAnchors(Type* obj) <Type>
 {
     // init the anchors to attach stuff in guis
 	RLRectangle rect = obj.rect;
-	GuiAnchor[AnchorType::values.len] anchors;
-	anchors[AnchorType.TOP_LEFT]      = {0, 0};
-    anchors[AnchorType.TOP_CENTER]    = {rect.w / 2, 0};
-    anchors[AnchorType.TOP_RIGHT]     = {rect.w, 0};
-    anchors[AnchorType.CENTER_LEFT]   = {0, rect.h / 2};
-    anchors[AnchorType.CENTER]        = {rect.w / 2, rect.h / 2};
-    anchors[AnchorType.CENTER_RIGHT]  = {rect.w, rect.h / 2};
-    anchors[AnchorType.BOTTOM_LEFT]   = {0, rect.h};
-    anchors[AnchorType.BOTTOM_CENTER] = {rect.w / 2, rect.h};
-    anchors[AnchorType.BOTTOM_RIGHT]  = {rect.w, rect.h};
-	obj.anchor.reserve(AnchorType::values.len);
+	GuiAnchor[AnchorID::values.len] anchors;
+	anchors[AnchorID.TOP_LEFT]      = {0, 0};
+    anchors[AnchorID.TOP_CENTER]    = {rect.w / 2, 0};
+    anchors[AnchorID.TOP_RIGHT]     = {rect.w, 0};
+    anchors[AnchorID.CENTER_LEFT]   = {0, rect.h / 2};
+    anchors[AnchorID.CENTER]        = {rect.w / 2, rect.h / 2};
+    anchors[AnchorID.CENTER_RIGHT]  = {rect.w, rect.h / 2};
+    anchors[AnchorID.BOTTOM_LEFT]   = {0, rect.h};
+    anchors[AnchorID.BOTTOM_CENTER] = {rect.w / 2, rect.h};
+    anchors[AnchorID.BOTTOM_RIGHT]  = {rect.w, rect.h};
+	obj.anchor.reserve(AnchorID::values.len);
 	obj.anchor.init_with_array(mem, anchors[..]);
 }
 
@@ -135,14 +135,14 @@ fn void updateAnchors(Type* obj, Vec2f new_size) <Type>
 {
 	if(new_size == VEC2_ZERO) return;
 
-    obj.anchor[AnchorType.TOP_CENTER]    = {new_size.x / 2, 0};
-    obj.anchor[AnchorType.TOP_RIGHT]     = {new_size.x, 0};
-    obj.anchor[AnchorType.CENTER_LEFT]   = {0, new_size.y / 2};
-    obj.anchor[AnchorType.CENTER]        = {new_size.x / 2,new_size.y / 2};
-    obj.anchor[AnchorType.CENTER_RIGHT]  = {new_size.x, new_size.y / 2};
-    obj.anchor[AnchorType.BOTTOM_LEFT]   = {0, new_size.y};
-    obj.anchor[AnchorType.BOTTOM_CENTER] = {new_size.x / 2, new_size.y};
-    obj.anchor[AnchorType.BOTTOM_RIGHT]  = {new_size.x, new_size.y};
+    obj.anchor[AnchorID.TOP_CENTER]    = {new_size.x / 2, 0};
+    obj.anchor[AnchorID.TOP_RIGHT]     = {new_size.x, 0};
+    obj.anchor[AnchorID.CENTER_LEFT]   = {0, new_size.y / 2};
+    obj.anchor[AnchorID.CENTER]        = {new_size.x / 2,new_size.y / 2};
+    obj.anchor[AnchorID.CENTER_RIGHT]  = {new_size.x, new_size.y / 2};
+    obj.anchor[AnchorID.BOTTOM_LEFT]   = {0, new_size.y};
+    obj.anchor[AnchorID.BOTTOM_CENTER] = {new_size.x / 2, new_size.y};
+    obj.anchor[AnchorID.BOTTOM_RIGHT]  = {new_size.x, new_size.y};
 }
 
 <*
@@ -155,22 +155,22 @@ fn void drawAnchors(Type* obj) <Type>
 
 	Vec2f origin = obj.rect.pos;
 	//r2d::drawSquare(origin ,8, rl::BLACK);
-	r2d::drawSquare(origin + obj.anchor[AnchorType.TOP_LEFT],     4, rl::RED);
-    r2d::drawSquare(origin + obj.anchor[AnchorType.TOP_CENTER],   4, rl::GREEN);
-    r2d::drawSquare(origin + obj.anchor[AnchorType.TOP_RIGHT],    4, rl::BLUE);
-    r2d::drawSquare(origin + obj.anchor[AnchorType.CENTER_LEFT],  4, rl::MAROON);
-    r2d::drawSquare(origin + obj.anchor[AnchorType.CENTER],       4, rl::LIME); 
-    r2d::drawSquare(origin + obj.anchor[AnchorType.CENTER_RIGHT], 4, rl::SKYBLUE);
-    r2d::drawSquare(origin + obj.anchor[AnchorType.BOTTOM_LEFT],  4, rl::VIOLET); 
-    r2d::drawSquare(origin + obj.anchor[AnchorType.BOTTOM_CENTER],4, rl::ORANGE);
-    r2d::drawSquare(origin + obj.anchor[AnchorType.BOTTOM_RIGHT], 4, rl::MAGENTA);
+	r2d::drawSquare(origin + obj.anchor[AnchorID.TOP_LEFT],     4, rl::RED);
+    r2d::drawSquare(origin + obj.anchor[AnchorID.TOP_CENTER],   4, rl::GREEN);
+    r2d::drawSquare(origin + obj.anchor[AnchorID.TOP_RIGHT],    4, rl::BLUE);
+    r2d::drawSquare(origin + obj.anchor[AnchorID.CENTER_LEFT],  4, rl::MAROON);
+    r2d::drawSquare(origin + obj.anchor[AnchorID.CENTER],       4, rl::LIME); 
+    r2d::drawSquare(origin + obj.anchor[AnchorID.CENTER_RIGHT], 4, rl::SKYBLUE);
+    r2d::drawSquare(origin + obj.anchor[AnchorID.BOTTOM_LEFT],  4, rl::VIOLET); 
+    r2d::drawSquare(origin + obj.anchor[AnchorID.BOTTOM_CENTER],4, rl::ORANGE);
+    r2d::drawSquare(origin + obj.anchor[AnchorID.BOTTOM_RIGHT], 4, rl::MAGENTA);
 }
 
 <*
 	get anchor point for gui obj
 	@param [&in] obj : "to get the anchor for"
 	@param idx : "index of anchor to get"
-	@require idx >= 0 && idx < AnchorType::values.len
+	@require idx >= 0 && idx < AnchorID::values.len
 *>
 fn Vec2f getAnchor(Type* obj, int idx) <Type>
 {
@@ -957,7 +957,7 @@ fn void GUIWidget.draw(&self) @dynamic
 
         case KIND_CHECKBOX:
             // draw the checkbox
-            WidgetCheckBox* this = (WidgetCheckBox*)self;
+            GUIWidgetCheckBox* this = (GUIWidgetCheckBox*)self;
             Vec2f center = this.getPosition(); //+ misc::VEC_LEFT * (this.getWidth() / 2.0f);
             //center += misc::VEC_DOWN * (this.getHeight() / 2.0f);
             r2d::drawRectangle((int)center.x, (int)center.y, 20, 20, this.color);
@@ -1136,7 +1136,7 @@ enum WidgetTextAlign
 struct WidgetText 
 {
     // extends GUIWidget (super/base class)
-    inline WidgetButton super;
+    inline GUIWidgetButton super;
 
     String text;
     int text_len;
@@ -1315,7 +1315,7 @@ fn void init_label(WidgetText* label, String text, RLFont* font, int font_size, 
 // NOTE(HM) Button is a widget that can be pressed, 
 // it has a default color and a sound that plays when pressed.
 
-struct WidgetButton 
+struct GUIWidgetButton 
 {
     // extends GUIWidget (super/base class)
     inline GUIWidget super;
@@ -1328,20 +1328,20 @@ struct WidgetButton
     RLSound* interaction_sound;
 }
 
-fn void WidgetButton.init(&self, int kind = KIND_BUTTON) @inline
+fn void GUIWidgetButton.init(&self, int kind = KIND_BUTTON) @inline
 {
     self.super.init(kind);
     self.name = "Button";
     self.setSound(&game::pContext.default_sound); //@hardcode, todo give this a better sound
 }
 
-fn void WidgetButton.deinit(&self) @inline 
+fn void GUIWidgetButton.deinit(&self) @inline 
 {
     self.super.deinit();
     if (self.interaction_sound) self.interaction_sound = null;
 }
 
-fn void WidgetButton.setColor(&self, GUIColorsID id) @dynamic 
+fn void GUIWidgetButton.setColor(&self, GUIColorsID id) @dynamic 
 {
     self.color = COLORS[id];
 }
@@ -1350,23 +1350,23 @@ fn void WidgetButton.setColor(&self, GUIColorsID id) @dynamic
 	Set the interaction sound for a button
 	@param [&in] sound : "sound to point to"
 *>
-fn void WidgetButton.setSound(&self, RLSound* sound) @inline 
+fn void GUIWidgetButton.setSound(&self, RLSound* sound) @inline 
 {
     self.interaction_sound = sound;
 }
 
 /*
-fn void WidgetButton.onEnterKey(&self) @inline {
+fn void GUIWidgetButton.onEnterKey(&self) @inline {
     if (self.isInteractive() == false || self.hasFocus() == false) return;
     self.onSinglePress();
 }
 */
 
-fn void WidgetButton.manage_interactions(&self)
+fn void GUIWidgetButton.manage_interactions(&self)
 {
     if (self.active() == false) return;
 	
-	typeid type = WidgetButton;
+	typeid type = GUIWidgetButton;
 	any widget  = any_make(self, type);
 
 	if(self.hasFocus() == false) {
@@ -1462,7 +1462,7 @@ fn void WidgetButton.manage_interactions(&self)
 	}
 }
 
-fn void WidgetButton.update(&self)
+fn void GUIWidgetButton.update(&self)
 {
     // NOTE(HM) still so much to learn about OOP...
     // I need to manully call the root widget update,
@@ -1473,7 +1473,7 @@ fn void WidgetButton.update(&self)
     self.manage_interactions();
 }
 
-fn void WidgetButton.draw(&self) 
+fn void GUIWidgetButton.draw(&self) 
 {
     rl::@scissorMode((int)self.super.x, (int)self.super.y, (int)self.super.width, (int)self.super.height)
     {
@@ -1484,20 +1484,20 @@ fn void WidgetButton.draw(&self)
 <*
  @ensure return != null
 *>
-fn WidgetButton* createButton() @inline 
+fn GUIWidgetButton* createButton() @inline 
 {
-    WidgetButton* button = mem::new(WidgetButton);
+    GUIWidgetButton* button = mem::new(GUIWidgetButton);
     button.init();
     return button;
 }
 
 ////////////////////////////////////////////////// GUIWidget check box //////////////////////////////////////////////////////
 
-alias CheckBoxListenerCallback = fn void(WidgetCheckBox*);
-struct WidgetCheckBox 
+alias CheckBoxListenerCallback = fn void(GUIWidgetCheckBox*);
+struct GUIWidgetCheckBox 
 {
     // extends GUIWidget (super/base class)
-    inline WidgetButton super;
+    inline GUIWidgetButton super;
 
     bool checked; // is the checkbox checked or not
     String label; // label for the checkbox
@@ -1505,14 +1505,14 @@ struct WidgetCheckBox
     CheckBoxListenerCallback onCheckBoxClicked;
 }
 
-fn void WidgetCheckBox.init(&self, int kind = KIND_CHECKBOX) @inline 
+fn void GUIWidgetCheckBox.init(&self, int kind = KIND_CHECKBOX) @inline 
 {
     self.super.init(kind);
     self.name = "CheckBox";
-    self.onCheckBoxClicked = (CheckBoxListenerCallback)&WidgetCheckBox.onMouseButton;
+    self.onCheckBoxClicked = (CheckBoxListenerCallback)&GUIWidgetCheckBox.onMouseButton;
 }
 
-fn void WidgetCheckBox.deinit(&self) @inline 
+fn void GUIWidgetCheckBox.deinit(&self) @inline 
 {
     self.super.deinit();
     if(self.label.len > 0) {
@@ -1520,17 +1520,17 @@ fn void WidgetCheckBox.deinit(&self) @inline
     }
 }
 
-fn void WidgetCheckBox.update(&self) @inline 
+fn void GUIWidgetCheckBox.update(&self) @inline 
 {
     self.super.update();
 }
 
-fn void WidgetCheckBox.draw(&self) @inline 
+fn void GUIWidgetCheckBox.draw(&self) @inline 
 {
     self.super.draw();
 }
 
-fn bool WidgetCheckBox.onMouseButton(&self, int x, int y, RLMouseButton button, bool pressed) @dynamic
+fn bool GUIWidgetCheckBox.onMouseButton(&self, int x, int y, RLMouseButton button, bool pressed) @dynamic
 {
 	if (button == RLMouseButton.LEFT && pressed)
 	{
@@ -1542,7 +1542,7 @@ fn bool WidgetCheckBox.onMouseButton(&self, int x, int y, RLMouseButton button, 
     return false;
 }
 
-fn void WidgetCheckBox.setChecked(&self, bool checked) @inline 
+fn void GUIWidgetCheckBox.setChecked(&self, bool checked) @inline 
 {
     self.checked = checked;
     if(checked) {
@@ -1552,19 +1552,19 @@ fn void WidgetCheckBox.setChecked(&self, bool checked) @inline
     }
 }
 
-fn bool WidgetCheckBox.isChecked(&self) @inline 
+fn bool GUIWidgetCheckBox.isChecked(&self) @inline 
 {
     return self.checked;
 }
 
-fn void WidgetCheckBox.setLabel(&self, String label) @inline 
+fn void GUIWidgetCheckBox.setLabel(&self, String label) @inline 
 {
     self.label = label;
 }
 
-fn WidgetCheckBox* createCheckBox(String label) @inline 
+fn GUIWidgetCheckBox* createCheckBox(String label) @inline 
 {
-    WidgetCheckBox* checkbox = mem::new(WidgetCheckBox);
+    GUIWidgetCheckBox* checkbox = mem::new(GUIWidgetCheckBox);
     checkbox.init();
     checkbox.setLabel(label);
     return checkbox;
@@ -1715,8 +1715,8 @@ fn void WidgetContainer.update(&self)
 
         switch (child.type)
         {
-            case WidgetButton:
-                anycast(child, WidgetButton)!!.update();
+            case GUIWidgetButton:
+                anycast(child, GUIWidgetButton)!!.update();
             case WidgetText:
                 anycast(child, WidgetText)!!.update();
             case WidgetContainer: // container inside another
@@ -1734,8 +1734,8 @@ fn void WidgetContainer.draw(&self)
     foreach(child : self.children) {
         switch (child.type)
         {
-            case WidgetButton:
-                anycast(child, WidgetButton)!!.draw();
+            case GUIWidgetButton:
+                anycast(child, GUIWidgetButton)!!.draw();
             case WidgetText:
                 anycast(child, WidgetText)!!.draw();
             case WidgetContainer: // container inside another
@@ -1782,7 +1782,7 @@ import engine::sys::framework::soundbkd;
     - if it should be the main window mark it as so
         main_menu.ini(... isDesktop: yes);
     - create any widgets
-        WidgetButton main_menu_button;
+        GUIWidgetButton main_menu_button;
     - init the GUIWidget and add it to UIWindow
         main_menu_button.init();
         main_menu_button.addTo(&main_menu);
@@ -1900,7 +1900,7 @@ fn void UIWindow.clear(&self) @inline
             switch (child.kind) 
             {
                 case gui::KIND_BUTTON:
-                    ((WidgetButton*)child).deinit(); 
+                    ((GUIWidgetButton*)child).deinit(); 
                 case gui::KIND_TEXT:
                     ((WidgetText*)child).deinit(); 
                 default:
@@ -2055,7 +2055,7 @@ fn void UIWindow.hide(&self)
            switch (child.kind) 
            {
                 case gui::KIND_BUTTON:
-                    ((WidgetButton*)child).hide(); 
+                    ((GUIWidgetButton*)child).hide(); 
                 case gui::KIND_TEXT:
                     ((WidgetText*)child).hide(); 
                 default:
@@ -2081,7 +2081,7 @@ fn void UIWindow.show(&self)
         foreach(child: self.childWidgets) {
             switch (child.kind) {
                 case gui::KIND_BUTTON:
-                    ((WidgetButton*)child).show(); 
+                    ((GUIWidgetButton*)child).show(); 
                 case gui::KIND_TEXT:
                     ((WidgetText*)child).show(); 
                 default:
@@ -2132,11 +2132,11 @@ fn void UIWindow.update(&self, int _time)
                         //}
                     }
 
-                    ((WidgetButton*)child).update();
+                    ((GUIWidgetButton*)child).update();
                 case gui::KIND_TEXT:
                     ((WidgetText*)child).update();
                 case gui::KIND_CHECKBOX:
-                    ((WidgetCheckBox*)child).update();
+                    ((GUIWidgetCheckBox*)child).update();
                 case gui::KIND_CONTAINER:
                     ((WidgetContainer*)child).update();
                 default:
@@ -2197,7 +2197,7 @@ fn void UIWindow.redraw(&self, int _time)
            switch (child.kind) 
            {
                 case gui::KIND_BUTTON:
-                    ((WidgetButton*)child).draw();
+                    ((GUIWidgetButton*)child).draw();
                 case gui::KIND_TEXT:
                     ((WidgetText*)child).draw();
                 case gui::KIND_CONTAINER:
@@ -2326,7 +2326,7 @@ macro UIWindow.debugDrawBorder(&self)
 
 macro UIWindow.debugDrawName(&self)
 {
-	Vec2f pos = getAnchor{UIWindow}(self, AnchorType.TOP_LEFT);
+	Vec2f pos = getAnchor{UIWindow}(self, AnchorID.TOP_LEFT);
 	pos += misc::VEC_RIGHT * 50;
     pos += misc::VEC_DOWN * 50;
 	ZString wind_name = string::tformat("GUI: \"%s\"", self.name).zstr_tcopy();
@@ -2340,7 +2340,7 @@ macro UIWindow.debugDrawName(&self)
 macro UIWindow.debugDrawWindTime(&self)
 {
 	ZString time = string::tformat("GUI TIME: \"%s\"", self.time).zstr_tcopy();
-	Vec2f pos = getAnchor{UIWindow}(self, AnchorType.TOP_LEFT);
+	Vec2f pos = getAnchor{UIWindow}(self, AnchorID.TOP_LEFT);
 	pos += misc::VEC_RIGHT * 50;
     pos += misc::VEC_DOWN * 100;
 	if(self.isDesktop) {
@@ -2356,7 +2356,7 @@ macro UIWindow.debugDrawCoords(&self)
 	float rect_y = self.rect.y;
 	float rect_w = self.rect.w;
 	float rect_h = self.rect.h;
-	Vec2f pos = getAnchor{UIWindow}(self, AnchorType.TOP_LEFT);
+	Vec2f pos = getAnchor{UIWindow}(self, AnchorID.TOP_LEFT);
 	pos += misc::VEC_RIGHT * 50;
     pos += misc::VEC_DOWN * 150;
 	rl::drawText(
@@ -2386,7 +2386,7 @@ fn void UIWindow.debug(&self, bool showHidden = true)
             foreach(child: self.childWidgets)
             {
                if(child.selected()) continue;
-               Vec2f dbg_text_pos = getAnchor{GUIWidget}(child, AnchorType.TOP_LEFT);
+               Vec2f dbg_text_pos = getAnchor{GUIWidget}(child, AnchorID.TOP_LEFT);
                dbg_text_pos = {child.rect.x, child.rect.y};
                dbg_text_pos += misc::VEC_UP * (0.30f * child.rect.height); 
                rl::drawText(

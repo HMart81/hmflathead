@@ -713,8 +713,8 @@ fn void Frame.deinit(&self) @inline
         {
             switch (widget.type) 
             {
-                case WidgetButton:
-                    ((WidgetButton*)widget.ptr).deinit();
+                case GUIWidgetButton:
+                    ((GUIWidgetButton*)widget.ptr).deinit();
                 case WidgetText:
                     ((WidgetText*)widget.ptr).deinit();
                 case WidgetContainer:
@@ -998,7 +998,7 @@ fn void GUIWidget.draw(&self) @dynamic
             }
         case KIND_CHECKBOX:
             // draw the checkbox
-            WidgetCheckBox* this = (WidgetCheckBox*)self;
+            GUIWidgetCheckBox* this = (GUIWidgetCheckBox*)self;
             Vec2f center = this.getPosition(); //+ misc::VEC_LEFT * (this.getWidth() / 2.0f);
             //center += misc::VEC_DOWN * (this.getHeight() / 2.0f);
             r2d::drawRectangle((int)center.x, (int)center.y, 20, 20, this.color);
@@ -1160,7 +1160,7 @@ enum WidgetTextAlign
 struct WidgetText 
 {
     // extends GUIWidget (super/base class)
-    inline WidgetButton super;
+    inline GUIWidgetButton super;
 
     String text;
     int text_len;
@@ -1307,7 +1307,7 @@ fn WidgetText* createLabel(String name, String text, RLFont* font, int font_size
 // NOTE(HM) Button is a widget that can be pressed, 
 // it has a default color and a sound that plays when pressed.
 
-struct WidgetButton 
+struct GUIWidgetButton 
 {
     // extends GUIWidget (super/base class)
     inline GUIWidget super;
@@ -1324,7 +1324,7 @@ struct WidgetButton
     int press_count;
 }
 
-fn void WidgetButton.init(&self, int kind = KIND_BUTTON) //@inline 
+fn void GUIWidgetButton.init(&self, int kind = KIND_BUTTON) //@inline 
 {
     self.super.init(kind);
     self.super.name = "Button";
@@ -1332,39 +1332,39 @@ fn void WidgetButton.init(&self, int kind = KIND_BUTTON) //@inline
     self.setSound(&game::pContext.default_sound); //@hardcode, todo give this a better sound
 }
 
-fn void WidgetButton.deinit(&self) @inline {
+fn void GUIWidgetButton.deinit(&self) @inline {
     self.super.deinit();
     if (self.interaction_sound) self.interaction_sound = null;
 }
 
-fn void WidgetButton.setColor(&self, RLColor color) @dynamic {
+fn void GUIWidgetButton.setColor(&self, RLColor color) @dynamic {
     self.super.setColor(color);
 }
 
-fn void WidgetButton.setDefaultColor(&self, RLColor color) @inline {
+fn void GUIWidgetButton.setDefaultColor(&self, RLColor color) @inline {
     self.default_color = color;
     self.setColor(color);
 }
 
-fn void WidgetButton.setSound(&self, RLSound* sound) @inline {
+fn void GUIWidgetButton.setSound(&self, RLSound* sound) @inline {
     self.interaction_sound = sound;
 }
 
 /*
-fn void WidgetButton.onEnterKey(&self) @inline {
+fn void GUIWidgetButton.onEnterKey(&self) @inline {
     if (self.isInteractive() == false || self.asFocus() == false) return;
     self.onSinglePress();
 }
 */
 
-fn void WidgetButton.manage_interactions(&self) @local 
+fn void GUIWidgetButton.manage_interactions(&self) @local 
 {
     if (self.active() == false) return;
 
     //game::log::info(Where.CONSOLE, "Gui: I'm over button: %s", self.super.name);
     if (self.asFocus() && self.selected == false)
     {
-        if(self.onOver) self.onOver(any_make(self, WidgetButton.typeid));
+        if(self.onOver) self.onOver(any_make(self, GUIWidgetButton.typeid));
 
         // Todo(HM) support keyboard/gamepad navigation to buttons
         // like using tab or arrow keys to navigate between buttons and enter to press them
@@ -1373,19 +1373,19 @@ fn void WidgetButton.manage_interactions(&self) @local
             if (rl::isMouseButtonDown(RLMouseButton.LEFT) && self.press_count >= 1) {
                 //game::log::info(Where.CONSOLE, "Gui: I'm pressing button: %s", self.super.name);
                 if (self.onPress) { 
-                    self.onPress(any_make(self, WidgetButton.typeid));
+                    self.onPress(any_make(self, GUIWidgetButton.typeid));
                 }
             }
             
             if (Action* action = input::getAction("Double Press")) {
                 if (action.fnDoubleTriggered(0.250f) && self.onDoublePress) { 
-                    self.onDoublePress(any_make(self, WidgetButton.typeid));
+                    self.onDoublePress(any_make(self, GUIWidgetButton.typeid));
                 }
             }
             
             if (Action* action = input::getAction("Single Press")) {
                 if (action.fnBecameTriggered() && self.onSinglePress) { 
-                    self.onSinglePress(any_make(self, WidgetButton.typeid)); 
+                    self.onSinglePress(any_make(self, GUIWidgetButton.typeid)); 
                 }
                 // if(action.fnBecameTriggered()) {
                     // String[] array = {"apple", "banana", "apple", "orange", "banana"};
@@ -1396,24 +1396,24 @@ fn void WidgetButton.manage_interactions(&self) @local
 
             if (rl::isMouseButtonReleased(RLMouseButton.LEFT)) {
                 if (self.onRelease) { 
-                    self.onRelease(any_make(self, WidgetButton.typeid)); 
+                    self.onRelease(any_make(self, GUIWidgetButton.typeid)); 
                 }
             }
 
             if (rl::isKeyPressed(rl::KEY_ENTER) && !rl::isKeyPressedRepeat(rl::KEY_ENTER)) {
                 if (self.onEnterKey) { 
-                    self.onEnterKey(any_make(self, WidgetButton.typeid)); 
+                    self.onEnterKey(any_make(self, GUIWidgetButton.typeid)); 
                 }
             }
         }
     } else {
         if (self.onStopOver) { 
-            self.onStopOver(any_make(self, WidgetButton.typeid));
+            self.onStopOver(any_make(self, GUIWidgetButton.typeid));
         }
     }
 }
 
-fn void WidgetButton.update(&self)
+fn void GUIWidgetButton.update(&self)
 {
     // NOTE(HM) still so much to learn about OOP...
     // I need to manully call the root widget update,
@@ -1424,7 +1424,7 @@ fn void WidgetButton.update(&self)
     self.manage_interactions();
 }
 
-fn void WidgetButton.draw(&self) {
+fn void GUIWidgetButton.draw(&self) {
     rl::@scissorMode((int)self.quad.x, (int)self.quad.y, (int)self.quad.width, (int)self.quad.height)
     {
         self.super.draw();
@@ -1434,20 +1434,20 @@ fn void WidgetButton.draw(&self) {
 <*
  @ensure return != null
 *>
-fn WidgetButton* createButton() @inline 
+fn GUIWidgetButton* createButton() @inline 
 {
-    WidgetButton* button = mem::new(WidgetButton);
+    GUIWidgetButton* button = mem::new(GUIWidgetButton);
     button.init();
     return button;
 }
 
 ////////////////////////////////////////////////// GUIWidget check box //////////////////////////////////////////////////////
 
-alias CheckBoxListenerCallback = fn void(WidgetCheckBox*);
-struct WidgetCheckBox 
+alias CheckBoxListenerCallback = fn void(GUIWidgetCheckBox*);
+struct GUIWidgetCheckBox 
 {
     // extends GUIWidget (super/base class)
-    inline WidgetButton super;
+    inline GUIWidgetButton super;
 
     bool checked; // is the checkbox checked or not
     String label; // label for the checkbox
@@ -1455,15 +1455,15 @@ struct WidgetCheckBox
     CheckBoxListenerCallback onCheckBoxClicked;
 }
 
-fn void WidgetCheckBox.init(&self, int kind = KIND_CHECKBOX) @inline 
+fn void GUIWidgetCheckBox.init(&self, int kind = KIND_CHECKBOX) @inline 
 {
     self.super.init(kind);
     self.super.name = "CheckBox";
     self.super.setColor(rl::WHITE);
-    self.onCheckBoxClicked = (CheckBoxListenerCallback)&WidgetCheckBox.onMouseButton;
+    self.onCheckBoxClicked = (CheckBoxListenerCallback)&GUIWidgetCheckBox.onMouseButton;
 }
 
-fn void WidgetCheckBox.deinit(&self) @inline 
+fn void GUIWidgetCheckBox.deinit(&self) @inline 
 {
     self.super.deinit();
     if(self.label.len > 0) {
@@ -1471,17 +1471,17 @@ fn void WidgetCheckBox.deinit(&self) @inline
     }
 }
 
-fn void WidgetCheckBox.update(&self) @inline 
+fn void GUIWidgetCheckBox.update(&self) @inline 
 {
     self.super.update();
 }
 
-fn void WidgetCheckBox.draw(&self) @inline 
+fn void GUIWidgetCheckBox.draw(&self) @inline 
 {
     self.super.draw();
 }
 
-fn bool WidgetCheckBox.onMouseButton(&self, int x, int y, RLMouseButton button, bool pressed) @dynamic
+fn bool GUIWidgetCheckBox.onMouseButton(&self, int x, int y, RLMouseButton button, bool pressed) @dynamic
 {
 	if (button == RLMouseButton.LEFT && pressed)
 	{
@@ -1493,25 +1493,25 @@ fn bool WidgetCheckBox.onMouseButton(&self, int x, int y, RLMouseButton button, 
     return false;
 }
 
-fn void WidgetCheckBox.setChecked(&self, bool checked) @inline 
+fn void GUIWidgetCheckBox.setChecked(&self, bool checked) @inline 
 {
     self.checked = checked;
     self.setColor((checked) ? rl::GREEN : rl::WHITE);
 }
 
-fn bool WidgetCheckBox.isChecked(&self) @inline 
+fn bool GUIWidgetCheckBox.isChecked(&self) @inline 
 {
     return self.checked;
 }
 
-fn void WidgetCheckBox.setLabel(&self, String label) @inline 
+fn void GUIWidgetCheckBox.setLabel(&self, String label) @inline 
 {
     self.label = label;
 }
 
-fn WidgetCheckBox* createCheckBox(String label) @inline 
+fn GUIWidgetCheckBox* createCheckBox(String label) @inline 
 {
-    WidgetCheckBox* checkbox = mem::new(WidgetCheckBox);
+    GUIWidgetCheckBox* checkbox = mem::new(GUIWidgetCheckBox);
     checkbox.init();
     checkbox.setLabel(label);
     return checkbox;
@@ -1644,8 +1644,8 @@ fn void WidgetContainer.update(&self) {
 
         switch (child.type)
         {
-            case WidgetButton.typeid:
-                anycast(child, WidgetButton)!!.update();
+            case GUIWidgetButton.typeid:
+                anycast(child, GUIWidgetButton)!!.update();
             case WidgetText.typeid:
                 anycast(child, WidgetText)!!.update();
             case WidgetContainer.typeid: // container inside another
@@ -1662,8 +1662,8 @@ fn void WidgetContainer.draw(&self) {
     foreach(child : self.children) {
         switch (child.type)
         {
-            case WidgetButton.typeid:
-                anycast(child, WidgetButton)!!.draw();
+            case GUIWidgetButton.typeid:
+                anycast(child, GUIWidgetButton)!!.draw();
             case WidgetText.typeid:
                 anycast(child, WidgetText)!!.draw();
             case WidgetContainer.typeid: // container inside another
@@ -1707,7 +1707,7 @@ import engine::gui::guieditor;
     - init the UIWindow
         main_menu.ini(...);
     - create any widgets
-        WidgetButton main_menu_button;
+        GUIWidgetButton main_menu_button;
     - init the GUIWidget and add it to UIWindow
         main_menu_button.init();
         main_menu_button.addTo(&main_menu);
@@ -1964,7 +1964,7 @@ fn void UIWindow.clear(&self) @inline
             switch (child.kind) 
             {
                 case gui::KIND_BUTTON:
-                    ((WidgetButton*)child).deinit(); 
+                    ((GUIWidgetButton*)child).deinit(); 
                 case gui::KIND_TEXT:
                     ((WidgetText*)child).deinit(); 
                 default:
@@ -2017,7 +2017,7 @@ fn void UIWindow.hide(&self)
            switch (child.kind) 
            {
                 case gui::KIND_BUTTON:
-                    ((WidgetButton*)child).hide(); 
+                    ((GUIWidgetButton*)child).hide(); 
                 case gui::KIND_TEXT:
                     ((WidgetText*)child).hide(); 
                 default:
@@ -2042,7 +2042,7 @@ fn void UIWindow.show(&self) {
         foreach(child: self.children) {
             switch (child.kind) {
                 case gui::KIND_BUTTON:
-                    ((WidgetButton*)child).show(); 
+                    ((GUIWidgetButton*)child).show(); 
                 case gui::KIND_TEXT:
                     ((WidgetText*)child).show(); 
                 default:
@@ -2078,11 +2078,11 @@ fn void UIWindow.update(&self)
             switch (child.kind)
             {
                 case gui::KIND_BUTTON:
-                    ((WidgetButton*)child).update(); 
+                    ((GUIWidgetButton*)child).update(); 
                 case gui::KIND_TEXT:
                     ((WidgetText*)child).update();
                 case gui::KIND_CHECKBOX:
-                    ((WidgetCheckBox*)child).update();
+                    ((GUIWidgetCheckBox*)child).update();
                 case gui::KIND_CONTAINER:
                     ((WidgetContainer*)child).update();
                 default:
@@ -2138,7 +2138,7 @@ fn void UIWindow.redraw(&self, int _time)
            switch (child.kind) 
            {
                 case gui::KIND_BUTTON:
-                    ((WidgetButton*)child).draw();
+                    ((GUIWidgetButton*)child).draw();
                 case gui::KIND_TEXT:
                     ((WidgetText*)child).draw();
                 case gui::KIND_CONTAINER:

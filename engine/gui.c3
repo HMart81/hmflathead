@@ -67,9 +67,9 @@ import engine::sys::render2d::r2d; // 2D rendering
 // end_region
 
 // region cvars
-CVar ui_debugDraw   @public = { "ui_debugDraw",   CvFlag.BOOL | CvFlag.TOOL, "0", "show debug visualization for gui development, 0, 1, true, false" };
+CVar ui_debugDraw   @public = { "ui_debugDraw",   CvFlag.BOOL | CvFlag.TOOL, "1", "show debug visualization for gui development, 0, 1, true, false" };
 CVar ui_editGui     @public = { "ui_editGui",     CvFlag.BOOL | CvFlag.TOOL, "0", "turn on gui editing functionality for gui development, 0, 1, true, false" };
-CVar ui_showAnchors @public = { "ui_showAnchors", CvFlag.BOOL | CvFlag.TOOL, "0", "toggles the view of the anchor points on each gui widget, requires ui_debugDraw to be on as well." };
+CVar ui_showAnchors @public = { "ui_showAnchors", CvFlag.BOOL | CvFlag.TOOL, "1", "toggles the view of the anchor points on each gui widget, requires ui_debugDraw to be on as well." };
 
 fn void register_cvars() @public 
 {
@@ -92,7 +92,7 @@ const uint VERTICAL_DIR   = 2;
 /* #region Anchors */
 typedef GuiAnchor = inline Vec2f;
 
-constdef AnchorType : inline int
+constdef AnchorID : inline int
 {
     TOP_LEFT = 0,
     TOP_CENTER,
@@ -104,82 +104,71 @@ constdef AnchorType : inline int
     BOTTOM_CENTER,
     BOTTOM_RIGHT
 }
+const ANCHOR_COUNT = AnchorID::values.len;
 
+alias AnchorList = List{GuiAnchor};
+alias AnchorArray = GuiAnchor[ANCHOR_COUNT];
 
 <*
 	init anchor points
-	@param [&in] obj : "the widget to init the anchors for"
-	@require obj.rect != rl::EMPTY_RECT
+	@param rect : "the rect to tell the anchors spreed distance"
+	@param  origin : "initial origion for the first anchor"
+	@require rect != rl::EMPTY_RECT
 *>
-fn void initAnchors(Type1* obj) <Type1>
+fn AnchorArray initAnchors(RLRectangle rect, Vec2f origin)
 {
     // init the anchors to attach stuff in guis
-	RLRectangle rect = obj.rect;
-	const ANCHOR_COUNT = AnchorType::values.len;
-	GuiAnchor[ANCHOR_COUNT] anchors;
-	anchors[AnchorType.TOP_LEFT]      = {0, 0};
-    anchors[AnchorType.TOP_CENTER]    = {rect.w / 2, 0};
-    anchors[AnchorType.TOP_RIGHT]     = {rect.w, 0};
-    anchors[AnchorType.CENTER_LEFT]   = {0, rect.h / 2};
-    anchors[AnchorType.CENTER]        = {rect.w / 2, rect.h / 2};
-    anchors[AnchorType.CENTER_RIGHT]  = {rect.w, rect.h / 2};
-    anchors[AnchorType.BOTTOM_LEFT]   = {0, rect.h};
-    anchors[AnchorType.BOTTOM_CENTER] = {rect.w / 2, rect.h};
-    anchors[AnchorType.BOTTOM_RIGHT]  = {rect.w, rect.h};
-	obj.anchor.reserve(ANCHOR_COUNT);
-	obj.anchor.init_with_array(mem, anchors[..]);
+	AnchorArray anchors;
+	anchors[AnchorID.TOP_LEFT]      = (GuiAnchor)origin + {0, 0};
+    anchors[AnchorID.TOP_CENTER]    = (GuiAnchor)origin + {rect.w / 2, 0};
+    anchors[AnchorID.TOP_RIGHT]     = (GuiAnchor)origin + {rect.w, 0};
+    anchors[AnchorID.CENTER_LEFT]   = (GuiAnchor)origin + {0, rect.h / 2};
+    anchors[AnchorID.CENTER]        = (GuiAnchor)origin + {rect.w / 2, rect.h / 2};
+    anchors[AnchorID.CENTER_RIGHT]  = (GuiAnchor)origin + {rect.w, rect.h / 2};
+    anchors[AnchorID.BOTTOM_LEFT]   = (GuiAnchor)origin + {0, rect.h};
+    anchors[AnchorID.BOTTOM_CENTER] = (GuiAnchor)origin + {rect.w / 2, rect.h};
+    anchors[AnchorID.BOTTOM_RIGHT]  = (GuiAnchor)origin + {rect.w, rect.h};
+	return anchors;
 }
 
 <*
-	update anchor points when a widget object is resized
-	@param [&in] obj : "widget to update the anchors for"
-	@param new_size : "a vec2 with width and height values"
-	@require obj.rect != rl::EMPTY_RECT
+	update anchor points when a widget object is resized or moved
+	@param [&inout] anchors : "list of anchors to update the position for"
+	@param pos : "a vec2 with origin position value"
+	@param size : "a vec2 with new width and height values"
+	@require anchors != null && anchors.len() > 0
 *>
-fn void updateAnchors(Type1* obj, Vec2f new_size) <Type1>
+fn void updateAnchors(AnchorList* anchors, Vec2f pos, Vec2f size)
 {
-	if(new_size == VEC2_ZERO) return;
-
-    obj.anchor[AnchorType.TOP_CENTER]    = {new_size.x / 2, 0};
-    obj.anchor[AnchorType.TOP_RIGHT]     = {new_size.x, 0};
-    obj.anchor[AnchorType.CENTER_LEFT]   = {0, new_size.y / 2};
-    obj.anchor[AnchorType.CENTER]        = {new_size.x / 2,new_size.y / 2};
-    obj.anchor[AnchorType.CENTER_RIGHT]  = {new_size.x, new_size.y / 2};
-    obj.anchor[AnchorType.BOTTOM_LEFT]   = {0, new_size.y};
-    obj.anchor[AnchorType.BOTTOM_CENTER] = {new_size.x / 2, new_size.y};
-    obj.anchor[AnchorType.BOTTOM_RIGHT]  = {new_size.x, new_size.y};
+    (*anchors)[AnchorID.TOP_CENTER]    = (GuiAnchor)pos + {size.x / 2, 0};
+    (*anchors)[AnchorID.TOP_RIGHT]     = (GuiAnchor)pos + {size.x, 0};
+    (*anchors)[AnchorID.CENTER_LEFT]   = (GuiAnchor)pos + {0, size.y / 2};
+    (*anchors)[AnchorID.CENTER]        = (GuiAnchor)pos + {size.x / 2,size.y / 2};
+    (*anchors)[AnchorID.CENTER_RIGHT]  = (GuiAnchor)pos + {size.x, size.y / 2};
+    (*anchors)[AnchorID.BOTTOM_LEFT]   = (GuiAnchor)pos + {0, size.y};
+    (*anchors)[AnchorID.BOTTOM_CENTER] = (GuiAnchor)pos + {size.x / 2, size.y};
+    (*anchors)[AnchorID.BOTTOM_RIGHT]  = (GuiAnchor)pos + {size.x, size.y};
 }
 
 <*
 	Display anchor points, mostly for debug purposes
-	@param [&in] obj : "widget to show the anchors for"
+	@param [&in] anchors : "list of anchors to draw"
+	@require anchors != null && anchors.len() > 0
 *>
-fn void drawAnchors(Type1* obj) <Type1>
+fn void drawAnchors(AnchorList* anchors)
 {
     if(!ui_showAnchors.getBool()) return;
 
-	Vec2f origin = obj.rect.pos;
 	//r2d::drawSquare(origin ,8, rl::BLACK);
-	r2d::drawSquare(origin + obj.anchor[AnchorType.TOP_LEFT],     4, rl::RED);
-    r2d::drawSquare(origin + obj.anchor[AnchorType.TOP_CENTER],   4, rl::GREEN);
-    r2d::drawSquare(origin + obj.anchor[AnchorType.TOP_RIGHT],    4, rl::BLUE);
-    r2d::drawSquare(origin + obj.anchor[AnchorType.CENTER_LEFT],  4, rl::MAROON);
-    r2d::drawSquare(origin + obj.anchor[AnchorType.CENTER],       4, rl::LIME); 
-    r2d::drawSquare(origin + obj.anchor[AnchorType.CENTER_RIGHT], 4, rl::SKYBLUE);
-    r2d::drawSquare(origin + obj.anchor[AnchorType.BOTTOM_LEFT],  4, rl::VIOLET); 
-    r2d::drawSquare(origin + obj.anchor[AnchorType.BOTTOM_CENTER],4, rl::ORANGE);
-    r2d::drawSquare(origin + obj.anchor[AnchorType.BOTTOM_RIGHT], 4, rl::MAGENTA);
-}
-
-<*
-	get a anchor point for gui obj
-	@param [&in] obj : "to get the anchor for"
-	@param idx : "index of anchor to get"
-	@require idx >= 0 && idx < AnchorType::values.len
-*>
-fn Vec2f getAnchor(Type1* obj, int idx) <Type1>
-{
-	return obj.anchor[idx];
+	r2d::drawSquare((*anchors)[AnchorID.TOP_LEFT],     4, rl::RED);
+    r2d::drawSquare((*anchors)[AnchorID.TOP_CENTER],   4, rl::GREEN);
+    r2d::drawSquare((*anchors)[AnchorID.TOP_RIGHT],    4, rl::BLUE);
+    r2d::drawSquare((*anchors)[AnchorID.CENTER_LEFT],  4, rl::MAROON);
+    r2d::drawSquare((*anchors)[AnchorID.CENTER],       4, rl::LIME); 
+    r2d::drawSquare((*anchors)[AnchorID.CENTER_RIGHT], 4, rl::SKYBLUE);
+    r2d::drawSquare((*anchors)[AnchorID.BOTTOM_LEFT],  4, rl::VIOLET); 
+    r2d::drawSquare((*anchors)[AnchorID.BOTTOM_CENTER],4, rl::ORANGE);
+    r2d::drawSquare((*anchors)[AnchorID.BOTTOM_RIGHT], 4, rl::MAGENTA);
 }
 
 /* #endregion Anchors */
@@ -203,61 +192,69 @@ macro scale(Type2 ojb, Vec2f dim) <Type2, Type3>
 	}
 }
 
+///////////////////////////////////////////////////////////////////////////
+/*                                GUIRect
+
+    NOTE(HM) simple data structure representing a square or image, 
+    used for background images or single color rectangles.
+*/
+///////////////////////////////////////////////////////////////////////////
+import game::lowlevel::bounds;
+
 struct GUIRectFlags
 {
     bool isHidden;
     bool isActive;
-    // right now in focus and mouse over, mean the same thing 
-    // but in the future we could have a system where they are seperate, 
-    // you have a widget marked in focus but the mouse pointer not ontop of it.  
-    bool inFocus;
+    // Todo(HM) 
+	// Right now inFocus means mouse over, 
+    // but in the future we could have a system where is a seperate thing, 
+    // like you have a widget marked in focus but the mouse pointer is not ontop of it.
+	bool inFocus; // GUIRect is the main one in focus
+	bool isHot; // mouse is over the rect
     bool isCaptured; // used to know if the panel is capturing mouse input
     bool isDestroyed; // used to mark panels that are being destroyed
     bool showBounds; // used to debug the panel bounds
+	bool selected;  // for the gui editor
 }
-
-///////////////////////////////////////////////////////////////////////////
-/*                                PANEL
-
-    NOTE(HM) simple data structure representing a square or image, 
-    used for background images or single color rectangles.
-	I wanted to use Rectangle as name but it was already taken by raylib...
-*/
-///////////////////////////////////////////////////////////////////////////
-import game::lowlevel::bounds;
 
 struct GUIRect (SaveSystemInterface)
 {
     inline RLRectangle rect; // x, y, width, height
 
-    GUIRectFlags      flags;
+    GUIRectFlags flags;
     //Bounds          bounds; todo change to this bounds
-	List{GuiAnchor} anchor;
-    RLColor 		color; // current color, material color overrides this color
-    RLColor         color_selected; // for gui editor functionality
-    HMaterial*      mat;
+	AnchorList anchor;
+	RLColor original_color; // to return to in case the bellow one is changed
+    RLColor 		color; // used if a simple colored rect
+    HMaterial*      mat;   // also encodes a color within it
 }
 
 fn void GUIRect.save(&self, SaveFile* file) @dynamic 
 {
-	svs::write(file, (void*)&self.flags, GUIRectFlags::size);
     svs::writeRect{RLRectangle}(file, misc::makeRect(self.pos, self.size));
-    //svs::writeBounds(file, self.bounds);
+	svs::write(file, (void*)&self.flags, GUIRectFlags::size);
+	/*if(anchor.len)
+	{
+		foreach(p : anchor)
+		{
+			svs::writeVec2f(file, (Vec2f)p);
+		}
+	}*/
+    svs::writeColor(file, self.original_color);
     svs::writeColor(file, self.color);
-    svs::writeColor(file, self.color_selected);
     // cannot save pointers so just save the material name
     svs::writeString(file, (self.mat != null) ? self.mat.name : "");
 }
 
 fn void GUIRect.reload(&self, SaveFile* file) @dynamic 
 {
-	svs::read(file, (void*)&self.flags, GUIRectFlags::size);
     RLRectangle rect;
     svs::readRect{RLRectangle}(file, &rect);
     self.pos = rect.pos;
     self.size = rect.size;
+	svs::read(file, (void*)&self.flags, GUIRectFlags::size);
+    svs::readColor(file, &self.original_color);
     svs::readColor(file, &self.color);
-    svs::readColor(file, &self.color_selected);
     String mat_name;
     svs::readString(file, &mat_name);
     if(mat_name != "") self.mat = mtrmng::getMaterial(mat_name);
@@ -267,8 +264,10 @@ fn void GUIRect.initRec(&self, RLRectangle rect, RLColor color) @inline
 {
     self.pos = rect.pos;
     self.size = rect.size;
-    self.color = color;
-	initAnchors{GUIRect}(self);
+	self.original_color = color;
+    self.color = self.original_color;
+	self.anchor.reserve(ANCHOR_COUNT);
+	self.anchor.init_with_array(mem, initAnchors(self.rect, self.pos)[..]);
 }
 
 fn void GUIRect.initV(&self, Vec2f pos, Vec2f size, RLColor color) @inline
@@ -288,6 +287,16 @@ fn void GUIRect.deinit(&self) @inline
 }
 
 <*
+	get a anchor point for GUIRect
+	@param idx : "index of anchor to get"
+	@require idx >= 0 && idx < ANCHOR_COUNT
+*>
+fn Vec2f GUIRect.getAnchor(&self, int idx)
+{
+	return self.anchor[idx];
+}
+
+<*
     Todo(HM) Make a way to select or view GUIRects with very low or huge sizes
 
     @param w_scaler : "value to scale the panel horizontally, from 0.05f to INF"
@@ -304,6 +313,7 @@ fn void GUIRect.scale(&self, float w_scaler, float h_scaler) @inline
 
     self.width  *= w_scaler;
     self.height *= h_scaler;
+	updateAnchors(&self.anchor, self.pos, self.size);
 }
 
 <*
@@ -339,6 +349,7 @@ fn void GUIRect.scaleNormalized(&self, float w_scaler, float h_scaler) @inline
 
     self.width  *= x;
     self.height *= y;
+	updateAnchors(&self.anchor, self.pos, self.size);
 }
 
 <*
@@ -352,7 +363,7 @@ fn void GUIRect.setSize(&self, float w, float h) @inline
 {
     self.width  = w;
     self.height = h;
-	updateAnchors{GUIRect}(self, {w, h});
+	updateAnchors(&self.anchor, self.pos, {w, h});
 }
 
 <*
@@ -381,6 +392,7 @@ fn float GUIRect.getHeight(&self) @inline => self.height;
 fn void GUIRect.setPosition(&self, float x, float y) @inline {
     self.x = x;
     self.y = y;
+	updateAnchors(&self.anchor, self.pos, self.size);
 }
 
 <*
@@ -394,6 +406,7 @@ fn void GUIRect.setPositionV(&self, Vec2f pos) @inline => self.setPosition(pos.x
 fn void GUIRect.addToPosition(&self, float x, float y) @inline {
     self.x += x;
     self.y += y;
+	updateAnchors(&self.anchor, self.pos, self.size);
 }
 
 <*
@@ -412,6 +425,49 @@ fn void GUIRect.setMaterial(&self, String material_name) @inline
 }
 
 fn bool GUIRect.hasMaterial(&self) @inline => self.mat != null;
+
+fn HMaterial* GUIRect.getMaterial(&self)
+{
+    if(self.hasMaterial()) {
+        return self.mat;
+    }
+    return mtrmng::getMaterial("default");
+}
+
+fn RLTexture2D* GUIRect.getTexture(self)
+{
+    if(self.hasMaterial()) {
+        return self.mat.getTexture(MTexture.DIFFUSE);
+    }
+    return &game::pContext.default_texture;
+}
+
+constdef GUIActionColor : inline int
+{
+	DEFAULT = 0,
+	OVER,
+	MDOWN,
+	SELECTED,
+	GRABED
+}
+
+fn void GUIRect.setColor(&self, GUIActionColor color) 
+{
+	switch (color)
+	{
+	case OVER:
+    	self.color = rl::RED;
+	case MDOWN:
+    	self.color = rl::BLUE;
+	case SELECTED:
+    	self.color = rl::YELLOW;
+	case GRABED:	
+    	self.color = rl::GREEN;
+	case DEFAULT:
+		self.color = self.original_color;
+	default: unreachable();
+	}
+}
 
 fn void GUIRect.fadeIn(&self, float factor) 
 {
@@ -474,7 +530,10 @@ fn void GUIRect.deactivate(&self) @inline {
 
 fn bool GUIRect.active(&self)  @inline => self.flags.isActive;
 
-fn bool GUIRect.active_visible_infocus(&self) @inline => (self.active() && !self.hidden() && self.asFocus());
+fn bool GUIRect.active_visible_infocus(&self) @inline 
+{
+	return (self.active() && !self.hidden() && self.asFocus());
+}
 
 //    WARNING(HM)
 //    If the 2D camera view is changed in any way besides moving in x and y
@@ -482,7 +541,9 @@ fn bool GUIRect.active_visible_infocus(&self) @inline => (self.active() && !self
 //    If so it will require conversion from world space coordinates to camera space.
 fn bool GUIRect.isMouseOver(&self)
 {
-    if (!self.active() || self.hidden() || guieditor::as_focus() || game::pContext.showMessageBox) return false;
+    if (!self.active() || self.hidden() || guieditor::as_focus() || game::pContext.showMessageBox) {
+		return false;
+	}
 
     // gets windows mouse position...
     Vec2f mouseWorldPos = rl::getMousePosition();
@@ -490,23 +551,24 @@ fn bool GUIRect.isMouseOver(&self)
     Vec2f mouse_size = game::getGameCursorSize() * 0.5f; // half size of the cursor
     RLRectangle mouseRect = misc::@recFromVecs(mouseWorldPos, mouse_size);
 
-    if (rl::checkCollisionRecs(mouseRect, self.rect)) return true;
-
-    return false;
+    if(rl::checkCollisionRecs(mouseRect, self.rect)) return true; 
+	
+	return false;
 }
 
 fn bool GUIRect.asFocus(&self)  @inline => self.flags.inFocus;
+fn bool GUIRect.isHot(&self)  @inline => self.flags.isHot;
 
 fn void GUIRect.update(&self) 
 {
     if((guieditor::enabled() && guieditor::as_focus()) || game::pContext.show_microui_test_frames)
     {
-       return; // do not update panels when in editor mode
+       return; // do not update GUIRects when in editor mode
     }
 
     if(!self.active() || self.hidden()) return;
 
-    self.flags.inFocus = self.isMouseOver();
+    self.flags.isHot = self.isMouseOver();
 }
 
 fn void GUIRect.draw(&self, bool selected = false)
@@ -517,15 +579,17 @@ fn void GUIRect.draw(&self, bool selected = false)
     {
         // TODO(HM) find how to draw a image on a rounded rectangle!?
 
-        RLTexture2D* texture = self.mat.getTexture(MTexture.DIFFUSE);
+        RLTexture2D* texture = self.getTexture();
         Vec2f texture_size = { texture.width, texture.height };
         RLRectangle source = { 0, 0, texture_size.x, texture_size.y };
         RLRectangle* dist = &self.rect;
 
-        RLColor color = (selected) ? self.color_selected : self.color;
+        RLColor diffuse_color = self.getMaterial().getStage(MStageType.DIFFUSE).color;
+        if(selected) self.setColor(GUIActionColor.SELECTED);
+		RLColor color = (selected) ? self.color : diffuse_color;
 
         RLBlendMode blending = (RLBlendMode)-1;
-        Coverage coverage = self.mat.coverage;
+        Coverage coverage = self.getMaterial().coverage;
         switch //
         {
             case (bool)(coverage & Coverage.OPAQUE): 
@@ -592,9 +656,11 @@ fn void GUIRect.draw(&self, bool selected = false)
     } 
     else
     {
-        r2d::@drawRect(self.rect, (selected) ? self.color_selected : self.color);
+		if(selected) self.setColor(GUIActionColor.SELECTED);
+        r2d::@drawRect(self.rect, self.color);
 
-		/*Vec2f v1,v2,v3,v4;
+		/*
+		Vec2f v1,v2,v3,v4;
 		float x, y, w, h;
 		x = self.rect.x;
 		y = self.rect.y;
@@ -613,10 +679,12 @@ fn void GUIRect.draw(&self, bool selected = false)
 			rlgl::vec2f(v2);
 			rlgl::vec2f(v3);
 			rlgl::vec2f(v4);
-		};*/
+		};
+		*/
     }
 
-    if(self.displayBounds()) {
+    if(self.displayBounds())
+	{
         r2d::drawRectangleLinesEx(self.rect, 1.0f, rl::RED);
     }
 }
@@ -635,6 +703,7 @@ const KIND_CONTAINER = 4;
 const KIND_CHECKBOX  = 5;
 
 alias WidgetCallback = fn void(any);
+alias GUIWidgetList  = List{GUIWidget*};
 
 interface WidgetInterface
 {
@@ -660,8 +729,6 @@ interface WidgetInterface
     fn void setParentUIWindow(UIWindow*) @optional;
     fn void releaseParentUIWindow() @optional;
     fn void connect(WidgetCallback) @optional;
-
-    fn void setColor(rl::RLColor);
 //
     /*fn bool onMouseOver(int x, int y) @optional;
     fn bool onMouseStopOver() @optional;
@@ -682,9 +749,7 @@ struct GUIWidget (WidgetInterface, SaveSystemInterface, Printable)
     int     id;  // used to uniquily identify each widget
     String  name;
     
-    //int layer;
     int kind;
-    bool selected;  // for the gui editor
 
     UIWindow* parent_window;
     // For binding. One single binding for now, 
@@ -752,11 +817,14 @@ fn void GUIWidget.editor_interactions(&self)
     // and they should all be set to not active, as that is part of
     // the gui logic and the editor doesn't care what widget is active
     // or not, no matter their state all will be selectable.
-    if (self.asFocus() && self.isMouseOver())
+    if (self.asFocus())
     {
-        if (input::Action* action = input::getAction("editor_select")) {
-            if(action.fnIsTriggered()) self.toggleSelection();
-        }
+		if(self.isHot())
+		{
+			if (input::Action* action = input::getAction("editor_select")) {
+				if(action.fnIsTriggered()) self.toggleSelection();
+			}
+		}
     }
 }
 
@@ -819,7 +887,7 @@ fn RLColor selected_color_anim(GUIWidget* wgt) @inline @local
 *>
 fn void GUIWidget.draw_origin_coordinates(GUIWidget* wgt) @inline 
 {
-    if(!wgt.selected) return;
+    if(!wgt.isSelected()) return;
     
     int scr_w, scr_h;
     float lineThick  = 1.0f;
@@ -863,9 +931,10 @@ fn void GUIWidget.draw(&self) @dynamic
 {
     if(self.hidden()) return;
     
-    if(self.selected)
+    if(self.isSelected())
     {
-        self.setSelectedColor(selected_color_anim(self));
+        //self.setSelectedColor(selected_color_anim(self));
+        self.setColor(GUIActionColor.SELECTED);
         self.draw_origin_coordinates();
     }
     
@@ -920,7 +989,7 @@ fn void GUIWidget.draw(&self) @dynamic
             }
         case KIND_CHECKBOX:
             // draw the checkbox
-            WidgetCheckBox* this = (WidgetCheckBox*)self;
+            GUIWidgetCheckBox* this = (GUIWidgetCheckBox*)self;
             center = this.getPosition(); //+ misc::VEC_LEFT * (this.getWidth() / 2.0f);
             //center += misc::VEC_DOWN * (this.getHeight() / 2.0f);
             int w, h;
@@ -941,7 +1010,7 @@ fn void GUIWidget.draw(&self) @dynamic
             }
         case KIND_CONTAINER:
         case KIND_BUTTON:
-            self.super.draw(self.selected);
+            self.super.draw(self.isSelected());
         default: break; // do nothing
     }
 }
@@ -966,11 +1035,6 @@ fn bool GUIWidget.isWithinCoords(&self, int x, int y) @dynamic
 
     RLVector2 point = { (float)x, (float)y };
     return rl::checkCollisionPointRec(point, self.rect) ? true : false;
-}
-
-fn Vec2f GUIWidget.getAnchor(&self, int idx) @inline 
-{
-    return getAnchor{GUIRect}(&self.super, idx);
 }
 
 <*
@@ -1082,21 +1146,16 @@ fn void GUIWidget.releaseParentUIWindow(&self) @inline @dynamic
     self.parent_window = null;
 }
 
-fn void GUIWidget.setColor(&self, RLColor color) @dynamic 
-{
-    self.super.color = color;
-}
-
-fn void GUIWidget.setSelectedColor(&self, RLColor color) @dynamic 
-{
-    self.super.color_selected = color;
-}
-
 // editor functions
-fn void GUIWidget.toggleSelection(&self) @inline => self.selected = !self.selected;
-fn void GUIWidget.select(&self) @inline => self.selected = true;
-fn void GUIWidget.deselect(&self) @inline => self.selected = false;
+fn void GUIWidget.toggleSelection(&self) @inline => self.flags.selected = !self.flags.selected;
+fn void GUIWidget.select(&self) @inline => self.flags.selected = true;
+fn void GUIWidget.deselect(&self) @inline => self.flags.selected = false;
+fn bool GUIWidget.isSelected(&self) @inline => self.flags.selected;
 
+fn void GUIWidget.setFocus(&self, bool choice)
+{
+	self.flags.inFocus = choice;
+}
 
 /////////////////////////////////////// extra widgets //////////////////////////////////////////////////////
 
@@ -1110,7 +1169,7 @@ enum TextAlign
 struct WidgetText 
 {
     // extends GUIWidget (super/base class)
-    inline WidgetButton super;
+    inline GUIWidgetButton super;
 
     String text;
     int text_len;
@@ -1126,7 +1185,7 @@ fn void WidgetText.init(&self) //@inline
     self.super.init(KIND_TEXT);
     self.super.hide(); // don't show the square shape
     self.name = "TextLabel"; // @hardcode
-    self.setColor(rl::CTRANSPARENT); // invisible color for the panel shape
+    self.color = rl::CTRANSPARENT; // invisible color for the panel shape
     self.spacing    = 2.0f; //@hardcode, todo make this int a cvar
     self.font_size  = 20; //@hardcode
     self.setDefaultColor(rl::WHITE); //@hardcode
@@ -1301,15 +1360,11 @@ fn void init_label(WidgetText* label, String text, RLFont* font, int font_size, 
 // NOTE(HM) Button is a widget that can be pressed, 
 // it has a default color and a sound that plays when pressed.
 
-struct WidgetButton 
+struct GUIWidgetButton 
 {
     // extends GUIWidget (super/base class)
     inline GUIWidget super;
     
-    // super (panel) already includes a color variable/member
-    // but this is the default color, used when the button color changes 
-	// and we want to reset it to the default color.
-    RLColor default_color;
     int press_count;
     bool pressed;
     bool activated;
@@ -1318,7 +1373,7 @@ struct WidgetButton
     RLSound* interaction_sound;
 }
 
-fn void WidgetButton.init(&self, int kind = KIND_BUTTON) @inline
+fn void GUIWidgetButton.init(&self, int kind = KIND_BUTTON) @inline
 {
     self.super.init(kind);
     self.name = "Button";
@@ -1326,50 +1381,43 @@ fn void WidgetButton.init(&self, int kind = KIND_BUTTON) @inline
     self.setSound(&game::pContext.default_sound); //@hardcode, todo give this a better sound
 }
 
-fn void WidgetButton.deinit(&self) @inline 
+fn void GUIWidgetButton.deinit(&self) @inline 
 {
     self.super.deinit();
     if (self.interaction_sound) self.interaction_sound = null;
 }
 
-fn void WidgetButton.setColor(&self, RLColor color) @dynamic 
+fn void GUIWidgetButton.setDefaultColor(&self, RLColor color) @inline 
 {
-    self.super.setColor(color);
-}
-
-fn void WidgetButton.setDefaultColor(&self, RLColor color) @inline 
-{
-    self.default_color = color;
-    self.setColor(color);
+	self.original_color = color;
+    self.setColor(GUIActionColor.DEFAULT);
 }
 
 <*
 	Set the interaction sound for a button
 	@param [&in] sound : "sound to point to"
 *>
-fn void WidgetButton.setSound(&self, RLSound* sound) @inline 
+fn void GUIWidgetButton.setSound(&self, RLSound* sound) @inline 
 {
     self.interaction_sound = sound;
 }
 
 /*
-fn void WidgetButton.onEnterKey(&self) @inline {
+fn void GUIWidgetButton.onEnterKey(&self) @inline {
     if (self.isInteractive() == false || self.asFocus() == false) return;
     self.onSinglePress();
 }
 */
 
-fn void WidgetButton.manage_interactions(&self)
+fn void GUIWidgetButton.manage_interactions(&self)
 {
-    if (self.active() == false) return;
+    if (!self.active() || !self.asFocus()) return;
 	
-	typeid type = WidgetButton;
-	any widget  = any_make(self, type);
+	any widget = any_make(self, GUIWidgetButton);
 
-	if(self.asFocus() == false) {
-        if (self.onStopOver) { 
-            self.onStopOver(widget);
-        }
+	if(self.isHot() == false)
+	{
+        if (self.onStopOver) self.onStopOver(widget);
 		return;
     }
 
@@ -1407,7 +1455,7 @@ fn void WidgetButton.manage_interactions(&self)
 	};
 
     //game::log::info(Where.CONSOLE, "Gui: I'm over button: %s", self.name);
-	bool btn_selected = (self.selected) ? true : false;
+	bool btn_selected = self.isSelected();
 	bool btn_not_selected = !btn_selected;
 
     if (btn_not_selected)
@@ -1417,39 +1465,41 @@ fn void WidgetButton.manage_interactions(&self)
 		// if mouse hovering function callback exists call it
         if(self.onOver) self.onOver(widget);
 
-        // Todo(HM) support keyboard/gamepad navigation to buttons
+        // Todo(HM) support keyboard/gamepad navigation for buttons
         // like using tab or arrow keys to navigate between buttons and enter to press them
-        if(!ui_editGui.getBool()) 
+        if(ui_editGui.getBool())
         {
-            if (rl::isMouseButtonDown(RLMouseButton.LEFT) && self.press_count >= 1) {
-                //game::log::info(Where.CONSOLE, "Gui: I'm pressing button: %s", self.name);
-                if (self.onPress) { 
-                    self.onPress(widget);
-                }
+            // do other key presses when editing the gui
+        }
+        else
+        {
+            if (rl::isMouseButtonDown(RLMouseButton.LEFT) && self.press_count >= 1)
+            {
+                if (self.onPress) self.onPress(widget);
             }
             
-            if (Action* action = input::getAction("mouse_double_press")) {
+            if (Action* action = input::getAction("mouse_double_press"))
+            {
                 if (action.fnDoubleTriggered(0.250f) && self.onDoublePress) { 
                     self.onDoublePress(widget);
                 }
             }
             
-            if (Action* action = input::getAction("mouse_single_press")) {
+            if (Action* action = input::getAction("mouse_single_press"))
+            {
                 if (action.fnBecameTriggered() && self.onSinglePress) { 
                     self.onSinglePress(widget); 
                 }
             }
 
-            if (rl::isMouseButtonReleased(RLMouseButton.LEFT)) {
-                if (self.onRelease) { 
-                    self.onRelease(widget); 
-                }
+            if (rl::isMouseButtonReleased(RLMouseButton.LEFT))
+            {
+                if (self.onRelease) self.onRelease(widget); 
             }
 
-            if (rl::isKeyPressed(rl::KEY_ENTER) && !rl::isKeyPressedRepeat(rl::KEY_ENTER)) {
-                if (self.onEnterKey) { 
-                    self.onEnterKey(widget); 
-                }
+            if (self.isHot() && rl::isKeyPressed(rl::KEY_ENTER) && !rl::isKeyPressedRepeat(rl::KEY_ENTER))
+            {
+                if (self.onEnterKey) self.onEnterKey(widget);
             }
         }
     }
@@ -1459,7 +1509,7 @@ fn void WidgetButton.manage_interactions(&self)
 	}
 }
 
-fn void WidgetButton.update(&self)
+fn void GUIWidgetButton.update(&self)
 {
     // NOTE(HM) still so much to learn about OOP...
     // I need to manully call the root widget update,
@@ -1470,7 +1520,7 @@ fn void WidgetButton.update(&self)
     self.manage_interactions();
 }
 
-fn void WidgetButton.draw(&self) 
+fn void GUIWidgetButton.draw(&self) 
 {
     rl::@scissorMode((int)self.rect.x, (int)self.rect.y, (int)self.rect.width, (int)self.rect.height)
     {
@@ -1481,20 +1531,20 @@ fn void WidgetButton.draw(&self)
 <*
  @ensure return != null
 *>
-fn WidgetButton* createButton() @inline 
+fn GUIWidgetButton* createButton() @inline 
 {
-    WidgetButton* button = mem::new(WidgetButton);
+    GUIWidgetButton* button = mem::new(GUIWidgetButton);
     button.init();
     return button;
 }
 
 ////////////////////////////////////////////////// GUIWidget check box //////////////////////////////////////////////////////
 
-alias CheckBoxListenerCallback = fn void(WidgetCheckBox*);
-struct WidgetCheckBox 
+alias CheckBoxListenerCallback = fn void(GUIWidgetCheckBox*);
+struct GUIWidgetCheckBox 
 {
     // extends GUIWidget (super/base class)
-    inline WidgetButton super;
+    inline GUIWidgetButton super;
 
     bool checked; // is the checkbox checked or not
     String label; // label for the checkbox
@@ -1502,15 +1552,15 @@ struct WidgetCheckBox
     CheckBoxListenerCallback onCheckBoxClicked;
 }
 
-fn void WidgetCheckBox.init(&self, int kind = KIND_CHECKBOX) @inline 
+fn void GUIWidgetCheckBox.init(&self, int kind = KIND_CHECKBOX) @inline 
 {
     self.super.init(kind);
     self.name = "CheckBox";
-    self.super.setColor(rl::WHITE);
-    self.onCheckBoxClicked = (CheckBoxListenerCallback)&WidgetCheckBox.onMouseButton;
+    self.color = rl::WHITE;
+    self.onCheckBoxClicked = (CheckBoxListenerCallback)&GUIWidgetCheckBox.onMouseButton;
 }
 
-fn void WidgetCheckBox.deinit(&self) @inline 
+fn void GUIWidgetCheckBox.deinit(&self) @inline 
 {
     self.super.deinit();
     if(self.label.len > 0) {
@@ -1518,17 +1568,17 @@ fn void WidgetCheckBox.deinit(&self) @inline
     }
 }
 
-fn void WidgetCheckBox.update(&self) @inline 
+fn void GUIWidgetCheckBox.update(&self) @inline 
 {
     self.super.update();
 }
 
-fn void WidgetCheckBox.draw(&self) @inline 
+fn void GUIWidgetCheckBox.draw(&self) @inline 
 {
     self.super.draw();
 }
 
-fn bool WidgetCheckBox.onMouseButton(&self, int x, int y, RLMouseButton button, bool pressed) @dynamic
+fn bool GUIWidgetCheckBox.onMouseButton(&self, int x, int y, RLMouseButton button, bool pressed) @dynamic
 {
 	if (button == RLMouseButton.LEFT && pressed)
 	{
@@ -1540,25 +1590,25 @@ fn bool WidgetCheckBox.onMouseButton(&self, int x, int y, RLMouseButton button, 
     return false;
 }
 
-fn void WidgetCheckBox.setChecked(&self, bool checked) @inline 
+fn void GUIWidgetCheckBox.setChecked(&self, bool checked) @inline 
 {
     self.checked = checked;
-    self.setColor((checked) ? rl::GREEN : rl::WHITE);
+    self.color = (checked) ? rl::GREEN : rl::WHITE;
 }
 
-fn bool WidgetCheckBox.isChecked(&self) @inline 
+fn bool GUIWidgetCheckBox.isChecked(&self) @inline 
 {
     return self.checked;
 }
 
-fn void WidgetCheckBox.setLabel(&self, String label) @inline 
+fn void GUIWidgetCheckBox.setLabel(&self, String label) @inline 
 {
     self.label = label;
 }
 
-fn WidgetCheckBox* createCheckBox(String label) @inline 
+fn GUIWidgetCheckBox* createCheckBox(String label) @inline 
 {
-    WidgetCheckBox* checkbox = mem::new(WidgetCheckBox);
+    GUIWidgetCheckBox* checkbox = mem::new(GUIWidgetCheckBox);
     checkbox.init();
     checkbox.setLabel(label);
     return checkbox;
@@ -1709,8 +1759,8 @@ fn void WidgetContainer.update(&self)
 
         switch (child.type)
         {
-            case WidgetButton:
-                anycast(child, WidgetButton)!!.update();
+            case GUIWidgetButton:
+                anycast(child, GUIWidgetButton)!!.update();
             case WidgetText:
                 anycast(child, WidgetText)!!.update();
             case WidgetContainer: // container inside another
@@ -1728,8 +1778,8 @@ fn void WidgetContainer.draw(&self)
     foreach(child : self.children) {
         switch (child.type)
         {
-            case WidgetButton:
-                anycast(child, WidgetButton)!!.draw();
+            case GUIWidgetButton:
+                anycast(child, GUIWidgetButton)!!.draw();
             case WidgetText:
                 anycast(child, WidgetText)!!.draw();
             case WidgetContainer: // container inside another
@@ -1776,13 +1826,13 @@ import engine::sys::framework::soundbkd;
     - if it should be the main window mark it as so
         main_menu.ini(... isDesktop: yes);
     - create any widgets
-        WidgetButton main_menu_button;
+        GUIWidgetButton main_menu_button;
     - init the GUIWidget and add it to UIWindow
         main_menu_button.init();
         main_menu_button.addTo(&main_menu);
 */
 
-alias ChildrenWidgetQueue = List{GUIWidget*};
+alias ChildrenWidgetQueue = GUIWidgetList; //List{GUIWidget*};
 alias ChildrenUIWindowQueue = List{UIWindow*};
 
 struct UIWindow (SaveSystemInterface) 
@@ -1876,8 +1926,8 @@ bool shouldRegister = true
         rect.h = h;
     }
     self.rect = rect;
-
-	initAnchors{UIWindow}(self);
+	self.anchor.reserve(gui::ANCHOR_COUNT);
+	self.anchor.init_with_array(mem, gui::initAnchors(self.rect, self.rect.pos)[..]);
     
     self.color = rl::WHITE;
     //
@@ -1903,7 +1953,7 @@ fn void UIWindow.clear(&self) @inline
             switch (child.kind) 
             {
                 case gui::KIND_BUTTON:
-                    ((WidgetButton*)child).deinit(); 
+                    ((GUIWidgetButton*)child).deinit(); 
                 case gui::KIND_TEXT:
                     ((WidgetText*)child).deinit(); 
                 default:
@@ -1939,10 +1989,21 @@ fn void UIWindow.deinit(&this) @inline
 
 fn void UIWindow.setFocus(&self, bool focus) @inline 
 {
-    if (focus) {
+    if (focus)
+	{
         if(!self.active) self.activate();
-    } else {
+		foreach(widget: self.childWidgets)
+		{
+			widget.setFocus(true);
+		}
+    } 
+	else
+	{
         if(self.active) self.deactivate();
+		foreach(widget: self.childWidgets)
+		{
+			widget.setFocus(false);
+		}
     }
 }
 
@@ -1995,7 +2056,7 @@ fn void UIWindow.stateChanged(&self, int _time, bool redraw )
 	if (redraw) {
 		self.redraw(_time);
 	}
-	updateAnchors{UIWindow}(self, self.rect.size);
+	gui::updateAnchors(&self.anchor, self.rect.pos, self.rect.size);
 	/*if ( state.GetBool( "noninteractive" ) ) {
 		interactive = false;
 	}
@@ -2058,7 +2119,7 @@ fn void UIWindow.hide(&self)
            switch (child.kind) 
            {
                 case gui::KIND_BUTTON:
-                    ((WidgetButton*)child).hide(); 
+                    ((GUIWidgetButton*)child).hide(); 
                 case gui::KIND_TEXT:
                     ((WidgetText*)child).hide(); 
                 default:
@@ -2084,7 +2145,7 @@ fn void UIWindow.show(&self)
         foreach(child: self.childWidgets) {
             switch (child.kind) {
                 case gui::KIND_BUTTON:
-                    ((WidgetButton*)child).show(); 
+                    ((GUIWidgetButton*)child).show(); 
                 case gui::KIND_TEXT:
                     ((WidgetText*)child).show(); 
                 default:
@@ -2135,11 +2196,11 @@ fn void UIWindow.update(&self, int _time)
                         //}
                     }
 
-                    ((WidgetButton*)child).update();
+                    ((GUIWidgetButton*)child).update();
                 case gui::KIND_TEXT:
                     ((WidgetText*)child).update();
                 case gui::KIND_CHECKBOX:
-                    ((WidgetCheckBox*)child).update();
+                    ((GUIWidgetCheckBox*)child).update();
                 case gui::KIND_CONTAINER:
                     ((WidgetContainer*)child).update();
                 default:
@@ -2200,7 +2261,7 @@ fn void UIWindow.redraw(&self, int _time)
            switch (child.kind) 
            {
                 case gui::KIND_BUTTON:
-                    ((WidgetButton*)child).draw();
+                    ((GUIWidgetButton*)child).draw();
                 case gui::KIND_TEXT:
                     ((WidgetText*)child).draw();
                 case gui::KIND_CONTAINER:
@@ -2303,6 +2364,15 @@ fn UIWindow* UIWindow.getChildWindow(&self, int idx) @nodiscard
     return self.childWindows.get(idx);
 }
 
+<*
+	get a anchor point for UIWindow
+	@param idx : "index of anchor to get"
+	@require idx >= 0 && idx < gui::ANCHOR_COUNT
+*>
+fn Vec2f UIWindow.getAnchor(&self, int idx)
+{
+	return self.anchor[idx];
+}
 
 /////////////////////////////////////// DEBUG STUFF ///////////////////////
 /////
@@ -2317,7 +2387,7 @@ macro UIWindow.debugDrawBorder(&self)
 
 macro UIWindow.debugDrawName(&self)
 {
-	Vec2f pos = getAnchor{UIWindow}(self, AnchorType.TOP_LEFT);
+	Vec2f pos = self.getAnchor(AnchorID.TOP_LEFT);
 	pos += misc::VEC_RIGHT * 50;
     pos += misc::VEC_DOWN * 50;
 	ZString wind_name = string::tformat("GUI: \"%s\"", self.name).zstr_tcopy();
@@ -2331,7 +2401,7 @@ macro UIWindow.debugDrawName(&self)
 macro UIWindow.debugDrawWindTime(&self)
 {
 	ZString time = string::tformat("GUI TIME: \"%s\"", self.time).zstr_tcopy();
-	Vec2f pos = getAnchor{UIWindow}(self, AnchorType.TOP_LEFT);
+	Vec2f pos = self.getAnchor(AnchorID.TOP_LEFT);
 	pos += misc::VEC_RIGHT * 50;
     pos += misc::VEC_DOWN * 100;
 	if(self.isDesktop) {
@@ -2347,7 +2417,7 @@ macro UIWindow.debugDrawCoords(&self)
 	float rect_y = self.rect.y;
 	float rect_w = self.rect.w;
 	float rect_h = self.rect.h;
-	Vec2f pos = getAnchor{UIWindow}(self, AnchorType.TOP_LEFT);
+	Vec2f pos = self.getAnchor(AnchorID.TOP_LEFT);
 	pos += misc::VEC_RIGHT * 50;
     pos += misc::VEC_DOWN * 150;
 	rl::drawText(
@@ -2376,8 +2446,8 @@ fn void UIWindow.debug(&self, bool showHidden = true)
         {
             foreach(child: self.childWidgets)
             {
-               if(child.selected) continue;
-               Vec2f dbg_text_pos = getAnchor{GUIWidget}(child, AnchorType.TOP_LEFT);
+               if(child.isSelected()) continue;
+               Vec2f dbg_text_pos = child.getAnchor(AnchorID.TOP_LEFT);
                dbg_text_pos = {child.rect.x, child.rect.y};
                dbg_text_pos += misc::VEC_UP * (0.30f * child.rect.height); 
                rl::drawText(
@@ -2390,7 +2460,7 @@ fn void UIWindow.debug(&self, bool showHidden = true)
                     r2d::drawCircle((int)child.rect.x, (int)child.rect.y, 2.0f, rl::SKYBLUE);
                }
                r2d::drawRectangleLinesEx(child.rect, 1.5f, rl::RED);
-               gui::drawAnchors{GUIWidget}(child);
+               gui::drawAnchors(&child.anchor);
             }
         }
 
@@ -2403,7 +2473,7 @@ fn void UIWindow.debug(&self, bool showHidden = true)
 			   child.debugDrawBorder();
 			   self.debugDrawName();
 			   self.debugDrawWindTime();
-               gui::drawAnchors{UIWindow}(child);
+               gui::drawAnchors(&child.anchor);
             }
         }
     }
@@ -2871,7 +2941,7 @@ fn void update(UIWindow* mng)
     
     foreach(wgt : mng.childWidgets) 
     {
-        if(wgt.selected) {
+        if(wgt.isSelected()) {
             if(rl::isKeyPressed(rl::KEY_ESCAPE)) {
                 wgt.deselect();
             } else {

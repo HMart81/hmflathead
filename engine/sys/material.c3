@@ -168,7 +168,8 @@ TODO(HM) potencial new future material file and stage system in XML format:
 */
 
 alias MatStages = List{MatStage*};
-// NOTE(HM) raylib has the RLMaterialMap already that is almost equivalent, should we use that?
+// NOTE(HM) 
+// Raylib has the RLMaterialMap already that is almost equivalent, should we use that?
 // RLMaterial stage represents each texture type in a material
 struct MatStage @public
 {
@@ -670,10 +671,10 @@ fn RLTexture2D* HMaterial.getTexture(&self, MTexture type, bool isPBR = false)
 }
 
 
-fn String HMaterial.defaultDefinition(self) @inline
+fn String HMaterial.defaultDefinition(self) @unused
 {
     String matdef = `
-    <MATERIAL name="default_material">
+    <MATERIAL name="default">
         <comments>This is the required default material</comments>
         <maps>
             <albedo>
@@ -683,7 +684,7 @@ fn String HMaterial.defaultDefinition(self) @inline
     </MATERIAL>
     `;
     
-	return string::format(mem, "%s", matdef);
+	return string::tformat("%s", matdef);
 }
 
 /*
@@ -2280,14 +2281,14 @@ fn void? loadMaterialFiles() @inline @public
 	load_mtr_files(material_folder)!!;
 
     // see if we have a default material file, if not create one
-    if(mtrmng::getMaterial("default_material") == null)
+    if(mtrmng::getMaterial("default") == null)
     {
         // TODO(HM) Makes this use the default material definition
         // from the HMaterial.defaultDefinition() function
         log::error(FILE, "Default material not found in mtr database, creating one...");
         HMaterial* default_material = mem::new(HMaterial);
         default_material.init();
-        default_material.name = "default_material";
+        default_material.name = "default";
         default_material.getStage(MStageType.DIFFUSE).tex = game::pContext.default_texture;
         default_material.getStage(MStageType.DIFFUSE).color = rl::WHITE;
         local_material_db.data[0].register(default_material);
@@ -2307,9 +2308,9 @@ fn HMaterial* getMaterial(String material_name) @public
     if(local_material_db.hasMaterial(material_name, null, &mat)) {
         if(mat) return mat;
     } else {
-        mat = getMaterial("default_material");
+        mat = getMaterial("default");
         if(mat) return mat;
-        unreachable("Failed to get default_material!!!");
+        unreachable("Failed to get default material!!!");
     }
 
     /*uint count = (uint)local_material_db.data.len();

@@ -38,7 +38,7 @@ module game::gui::menu;
     - init the UIWindow
     	main_menu.ini(...);
     - create any children panels/widgets
-    	WidgetButton main_menu_button;
+    	GUIWidgetButton main_menu_button;
     - init the GUIWidget and add it to UIWindow
     	main_menu_button.init();
     	main_menu_button.addTo(&main_menu);
@@ -54,7 +54,7 @@ module game::gui::menu;
 		{
 			// create any children panels/widgets
 			{
-				WidgetButton button0;
+				GUIWidgetButton button0;
 				// init the GUIWidget
 				button0.init();
 				button0.addTo(self);
@@ -209,10 +209,10 @@ HMSoundWorld main_menu_sound_world;
     @param [&in] bdef : "button callbacks definition struct pointer"
     @ensure return != null : "pointer to the created checkbox"
 *>
-fn WidgetCheckBox* UIWindow.create_menu_checkbox(&self, String text, MenuButtonDef* bdef) @inline 
+fn GUIWidgetCheckBox* UIWindow.create_menu_checkbox(&self, String text, MenuButtonDef* bdef) @inline 
 {
-    WidgetCheckBox* checkbox = gui::createCheckBox("Checkbox 1");
-    checkbox.setColor(rl::DARKGRAY);
+    GUIWidgetCheckBox* checkbox = gui::createCheckBox("Checkbox 1");
+    checkbox.color = rl::DARKGRAY;
     checkbox.addTo(self);
     // set the checkbox properties
     checkbox.onOver        = bdef.cbs[CallBack.OVER]; // &button_onOver;
@@ -238,12 +238,12 @@ fn WidgetCheckBox* UIWindow.create_menu_checkbox(&self, String text, MenuButtonD
 	@param [&in] bdef : "button callbacks definition struct pointer"
 	@param [&inout] uiwin : "window to add the checkbox to"
 *>
-fn void init_checkbox(WidgetCheckBox* chk, String name, String label, MenuButtonDef* bdef, UIWindow* uiwin) 
+fn void init_checkbox(GUIWidgetCheckBox* chk, String name, String label, MenuButtonDef* bdef, UIWindow* uiwin) 
 {
 	chk.init();
 	chk.setName(name);
 	chk.setLabel(label);
-    chk.setColor(rl::DARKGRAY);
+    chk.color = rl::DARKGRAY;
     chk.addTo(uiwin);
     // set the checkbox properties
     chk.onOver        = bdef.cbs[CallBack.OVER]; // &button_onOver;
@@ -293,9 +293,9 @@ struct MenuButtonDef
     @param [&in] bdef : "button cbs definition struct pointer"
     @ensure return != null : "pointer to the created button"
 *>
-macro WidgetButton* UIWindow.create_menu_button(&self, Vec2f pos, String text, MenuButtonDef* bdef) 
+macro GUIWidgetButton* UIWindow.create_menu_button(&self, Vec2f pos, String text, MenuButtonDef* bdef) 
 {
-    WidgetButton* button = gui::createButton();
+    GUIWidgetButton* button = gui::createButton();
     button.addTo(self);
     // set the button properties
     button.name = button.name.tconcat(text);
@@ -509,8 +509,8 @@ fn UIWindow* mainMenuCreate(int screenWidth, int screenHeight)
     btn_def.cbs[CallBack.PRESS]        = null; //&checkbox1_onPress;
     btn_def.cbs[CallBack.SINGLE_PRESS] = &checkbox1_onSinglePress;
 
-    //WidgetCheckBox* checkbox1 = window_options.create_menu_checkbox("Checkbox 1", &btn_def);
-    WidgetCheckBox* checkbox1 = mem::new(WidgetCheckBox);
+    //GUIWidgetCheckBox* checkbox1 = window_options.create_menu_checkbox("Checkbox 1", &btn_def);
+    GUIWidgetCheckBox* checkbox1 = mem::new(GUIWidgetCheckBox);
 	init_checkbox(checkbox1, "checkbox1", "no Sound", &btn_def, window_options);
     offset = window_options.getPosition();
     offset += misc::VEC_RIGHT * (window_options.getSize().x / 2);
@@ -550,22 +550,22 @@ fn void button_onLoad(any widget)
 {
     switch (widget.type)
     {
-        case WidgetButton:
+        case GUIWidgetButton:
         {
-            WidgetButton* self = (WidgetButton*)widget.ptr;
-            log::info(CONSOLE, "WidgetButton '%s' loaded.", self.name);
+            GUIWidgetButton* self = (GUIWidgetButton*)widget.ptr;
+            log::info(CONSOLE, "GUIWidgetButton '%s' loaded.", self.name);
         }
-        case WidgetCheckBox:
+        case GUIWidgetCheckBox:
         {
-            WidgetCheckBox* self = (WidgetCheckBox*)widget.ptr;
-            log::info(CONSOLE, "WidgetCheckBox '%s' loaded.", self.name);
+            GUIWidgetCheckBox* self = (GUIWidgetCheckBox*)widget.ptr;
+            log::info(CONSOLE, "GUIWidgetCheckBox '%s' loaded.", self.name);
         }
         default:
         {
             unreachable("widget type not handled in button_onLoad: %s", widget.type);
         }
     }
-    //log::info(Where.CONSOLE, "WidgetButton '%s' loaded.", self.name);
+    //log::info(Where.CONSOLE, "GUIWidgetButton '%s' loaded.", self.name);
 }
 
 // generic button callbacks
@@ -574,36 +574,21 @@ fn void button_onLoad(any widget)
 *>
 fn void button_onOver(any widget/*GUIWidget* widget*/) 
 {
+	if(rl::isMouseButtonDown(RLMouseButton.LEFT))
+	{
+		return;
+	}
+
     switch (widget.type)
     {
-        case WidgetButton:
-        {
-            WidgetButton* self = (WidgetButton*)widget.ptr;
-            if(self.active_visible_infocus() && 
-            self.asFocus() &&
-            !rl::isMouseButtonDown(RLMouseButton.LEFT))
-            {
-                self.setColor(rl::RED);
-            }
-        }
-        case WidgetCheckBox:
-        {
-            WidgetCheckBox* self = (WidgetCheckBox*)widget.ptr;
-            if(self.active_visible_infocus() && 
-               self.asFocus() && 
-               !rl::isMouseButtonDown(RLMouseButton.LEFT)) 
-            {
-                self.setColor(rl::RED);
-            }
-        }
+        case GUIWidgetButton:
+        case GUIWidgetCheckBox:
         case WidgetText:
         {
-            WidgetText* self = (WidgetText*)widget.ptr;
-            if(self.active_visible_infocus() && 
-            self.asFocus() &&
-            !rl::isMouseButtonDown(RLMouseButton.LEFT))
+            GUIWidget* self = (GUIWidget*)widget.ptr;
+            if(self.active_visible_infocus() && self.isHot())
             {
-                self.setColor(rl::RED);
+            	self.setColor(GUIActionColor.OVER);
             }
         }
         default:
@@ -611,18 +596,6 @@ fn void button_onOver(any widget/*GUIWidget* widget*/)
             unreachable("widget type not handled in button_onOver: %s", widget.type);
         }
     }
-    /*WidgetButton* self = (WidgetButton*)widget;
-    if(self.active_visible_infocus() && self.asFocus()) {
-        switch (self.kind)
-        {
-            case gui::KIND_CHECKBOX:
-            case gui::KIND_TEXT:
-            case gui::KIND_CONTAINER:
-            case gui::KIND_BUTTON:
-            default:
-                self.setColor(rl::RED);
-        }
-    }*/
 }
 
 // generic button callbacks
@@ -631,15 +604,25 @@ fn void button_onOver(any widget/*GUIWidget* widget*/)
 *>
 fn void button_onStopOver(/*GUIWidget* widget*/ any widget) 
 {
-    if(widget.type == WidgetButton) {
-        WidgetButton* self = (WidgetButton*)widget.ptr;
-        if(self.color != self.default_color) self.setColor(self.default_color);
-        return;
-    } else {
-        unreachable("widget type %s is not a button!", widget.type);
+
+    switch (widget.type)
+    {
+        case GUIWidgetButton:
+        case GUIWidgetCheckBox:
+        case WidgetText:
+        {
+            GUIWidget* self = (GUIWidget*)widget.ptr;
+    		if(self.isHot()) return;
+            if(self.active_visible_infocus())
+            {
+            	self.color = self.original_color;
+            }
+        }
+        default:
+        {
+            unreachable("widget type not handled in button_onOver: %s", widget.type);
+        }
     }
-    //WidgetButton* self = (WidgetButton*)widget;
-    //if(self.color != self.default_color) self.setColor(self.default_color);
 }
 
 // generic button callbacks
@@ -648,10 +631,12 @@ fn void button_onStopOver(/*GUIWidget* widget*/ any widget)
 *>
 fn void button_onRelease(/*GUIWidget* widget*/ any widget) 
 {
-    if(widget.type == WidgetButton) {
-        WidgetButton* self = (WidgetButton*)widget.ptr;
-        if (self.active_visible_infocus() && self.asFocus()) {
-            self.setColor(self.default_color);
+    if(widget.type == GUIWidgetButton)
+	{
+        GUIWidgetButton* self = (GUIWidgetButton*)widget.ptr;
+        if (self.active_visible_infocus() && self.isHot())
+		{
+            self.color = self.original_color;
             self.pressed = false;
             self.press_count = 0;
         }
@@ -659,7 +644,7 @@ fn void button_onRelease(/*GUIWidget* widget*/ any widget)
     } else {
         unreachable("widget type %s is not a button!", widget.type);
     }
-    /*WidgetButton* self = (WidgetButton*)widget;
+    /*GUIWidgetButton* self = (GUIWidgetButton*)widget;
     if (self.active_visible_infocus() && self.asFocus()) {
         self.setColor(self.default_color);
         self.pressed = false;
@@ -675,23 +660,26 @@ fn void button_onRelease(/*GUIWidget* widget*/ any widget)
 fn void button_onPress(/*GUIWidget* widget*/ any widget) 
 {
     assert(widget.ptr != null);
-    if(widget.type == WidgetButton) {
-        WidgetButton* self = (WidgetButton*)widget.ptr;
-        if (self.active() == false || self.asFocus() == false) return;
-        if (self.pressed == false) {
-            self.setColor(rl::GREEN);
+    if(widget.type == GUIWidgetButton)
+	{
+        GUIWidgetButton* self = (GUIWidgetButton*)widget.ptr;
+        if (self.active() == false || self.asFocus() == false || !self.isHot()) return;
+        if (self.pressed == false) 
+		{
+            self.setColor(GUIActionColor.MDOWN);
 
             if (rl::isSoundValid(*self.interaction_sound)) {
                 if(!rl::isSoundPlaying(*self.interaction_sound)) rl::playSound(*self.interaction_sound);
             }
         }
         self.pressed = true;
+		self.setColor(GUIActionColor.GRABED);
         self.press_count++;
         return;
     } else {
         unreachable("widget type %s is not a button!", widget.type);
     }
-    /*WidgetButton* self = (WidgetButton*)widget;
+    /*GUIWidgetButton* self = (GUIWidgetButton*)widget;
     if (self.active() == false || self.asFocus() == false) return;
     if (self.pressed == false) {
         self.setColor(rl::GREEN);
@@ -711,15 +699,15 @@ fn void button_onPress(/*GUIWidget* widget*/ any widget)
 *>
 fn void button_onSinglePress(any widget) 
 {
-    if(widget.type == WidgetButton) 
+    if(widget.type == GUIWidgetButton) 
     {
-        WidgetButton* self = (WidgetButton*)widget.ptr;
-        if (self.active() == false || self.asFocus() == false) return;
+        GUIWidgetButton* self = (GUIWidgetButton*)widget.ptr;
+        if (self.active() == false || self.asFocus() == false || !self.isHot()) return;
 
         if (rl::isSoundValid(*self.interaction_sound)) {
            if(!rl::isSoundPlaying(*self.interaction_sound)) rl::playSound(*self.interaction_sound);
         }
-        self.setColor(rl::GREEN);
+        self.setColor(GUIActionColor.MDOWN);
         //return;
     } else {
         unreachable("widget %s is not a valid button!", ((GUIWidget*)widget.ptr).name);
@@ -795,7 +783,7 @@ fn void options_button_onSinglePress(any widget)
         }
     }*/
     //log::info(Where.CONSOLE, "Options Menu is still not done.");
-    //log::info(Where.CONSOLE, "Pressed Count = %s.", ((WidgetButton*)widget).press_count);
+    //log::info(Where.CONSOLE, "Pressed Count = %s.", ((GUIWidgetButton*)widget).press_count);
     // TODO(HM) 
     //  Need to create a options menu
     //  I have two options, one create a new UIWindow
@@ -855,9 +843,9 @@ fn void checkbox1_onPress(any widget)
 *>
 fn void checkbox1_onSinglePress(any widget) 
 {
-    if(widget.type == WidgetButton)
+    if(widget.type == GUIWidgetButton)
     {
-        WidgetCheckBox* this = (WidgetCheckBox*)widget.ptr;
+        GUIWidgetCheckBox* this = (GUIWidgetCheckBox*)widget.ptr;
         this.setChecked(!this.checked);
         //log::info(CONSOLE, "Checkbox 1 is now %s.", this.isChecked() ? "checked" : "unchecked");
 		if(this.isChecked())
