@@ -33,6 +33,7 @@ import std::core::mem; // for malloc
 import std::math;
 import std::collections::list;
 import engine::misc;
+import engine::sys::ctype;
 import engine::input;
 import game::material::mat;
 import game::material::manager::mtrmng;

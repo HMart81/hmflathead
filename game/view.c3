@@ -46,6 +46,7 @@ import std::collections::list;
 import game::main;
 import engine::gui;
 import engine::misc;
+import engine::sys::ctype;
 import engine::input;
 import engine::sys::cvar;
 import game::assets::sprite;

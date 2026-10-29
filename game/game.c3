@@ -72,6 +72,7 @@ import engine::tools;
 import engine::logging::log;
 import game::actors::ent::plyr;  // player module
 import engine::misc; // misc code
+import engine::sys::ctype;
 import game::camview;
 import engine::sys::cvar;
 // config file types

@@ -32,6 +32,7 @@ import std::io;
 import std::math;
 import engine::misc;
 import engine::sys::cvar;
+import engine::sys::ctype;
 import thirdparty::raylib5::rl;
 
 CVar db_showBounds = { "db_showBounds", CvFlag.BOOL, "1", "displays used bounding box's on screen for debug"};

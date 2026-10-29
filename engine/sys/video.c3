@@ -56,6 +56,7 @@ import thirdparty::plmpeg::plm;
 import engine::sys::framework::platform::platf;
 import game::camview;
 import engine::sys::cvar;
+import engine::sys::ctype;
 
 // region cvars
 CVar numSpeakers @public = { "numSpeakers", CvFlag.INT, "2", "number of speakers for sound playing" };

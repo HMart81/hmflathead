@@ -32,6 +32,7 @@ module game::material::mat @private;
 // region imports
 import game::main; // for file logging or console logging
 import engine::misc;
+import engine::sys::ctype;
 import engine::sys::framework::glsl;
 import std::io, std::math;
 import game::material::mtr;
@@ -129,7 +130,7 @@ const int BLEND_MODULATE @public = rl::RL_DST_COLOR | rl::RL_ZERO;              
 /* 
 TODO(HM) potencial new future material file and stage system in XML format:
 
-<MTR version="1.0" generator="hmflathead mtrgen v0.1">
+<MTR version="1.0.0" generator="hmflathead mtrgen v0.1">
     <library_materials>
         <material name="images/textures/figure">
             <comment>This is a figure texture material</comment>

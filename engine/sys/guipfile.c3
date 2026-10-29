@@ -36,6 +36,7 @@ import engine::filesystem::fs;
 import engine::logging::log;
 import engine::misc;
 import game::main;
+import engine::sys::ctype;
 import std::core::ascii;
 
 // ******************************************************************************

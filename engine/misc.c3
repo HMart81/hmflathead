@@ -41,14 +41,9 @@ import game::camview;
 import thirdparty::raylib5::rl;
 import std::os::win32;
 import engine::platform::win32;
+import engine::sys::ctype;
 // end
 
-alias Vec2f  = float[<2>];
-alias Vec3f  = float[<3>];
-alias Vec4f  = float[<4>];
-alias Vec2i  = int[<2>];
-alias Vec3i  = int[<3>];
-alias Vec4i  = int[<4>];
 
 macro String bool2str(bool b) => b ? "true" : "false";
 

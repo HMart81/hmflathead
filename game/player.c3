@@ -40,6 +40,7 @@ import game::main;
 //import game::actors::ent;
 import engine::physics::box2d;
 import engine::misc;
+import engine::sys::ctype;
 import thirdparty::raylib5::rl;
 import thirdparty::tracy;
 import engine::logging::log;

@@ -2,6 +2,7 @@ module thirdparty::raylib5::rl;
 
 import std::math::vector;
 import engine::misc;
+import engine::sys::ctype;
 
 const float PI = 3.14159265358979323846f;
 const float DEG2RAD = PI / 180.0f;
@@ -2484,6 +2485,7 @@ module thirdparty::raylib5::rlgl; // rlgl.h
 
 import thirdparty::raylib5::rl;
 import engine::misc;
+import engine::sys::ctype;
 
 typedef FBOId = inline uint;
 

@@ -57,6 +57,7 @@ import std::math;
 import engine::gui;
 import engine::misc;
 import engine::sys::cvar;
+import engine::sys::ctype;
 import thirdparty::raylib5::rl;
 import thirdparty::microui::mu;  // micro ui
 import engine::platform::win32;

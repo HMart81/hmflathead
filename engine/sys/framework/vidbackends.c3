@@ -31,6 +31,7 @@ module engine::sys::framework::vidbackends::vidbkd @if($feature(BACKEND_RAYLIB))
 
 import std::io, std::os::win32;
 import engine::misc;
+import engine::sys::ctype;
 import engine::filesystem::fs;
 import engine::logging::log;
 import game::assets::sprite;

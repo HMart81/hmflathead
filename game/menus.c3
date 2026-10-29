@@ -71,6 +71,7 @@ import game::main;
 import engine::gui;
 import engine::sys::ui;
 import engine::misc;
+import engine::sys::ctype;
 import engine::tools;
 import engine::logging::log;
 import engine::filesystem::fs;
@@ -241,7 +242,7 @@ fn GUIWidgetCheckBox* UIWindow.create_menu_checkbox(&self, String text, MenuButt
 fn void init_checkbox(GUIWidgetCheckBox* chk, String name, String label, MenuButtonDef* bdef, UIWindow* uiwin) 
 {
 	chk.init();
-	chk.setName(name);
+	chk.name = name;
 	chk.setLabel(label);
     chk.color = rl::DARKGRAY;
     chk.addTo(uiwin);
@@ -258,12 +259,11 @@ fn void init_checkbox(GUIWidgetCheckBox* chk, String name, String label, MenuBut
     if(chk.onLoad) chk.onLoad(chk);
 }
 
-fn WidgetText* UIWindow.create_menu_label(&self, String text, RLFont* font, int font_size, RLColor color) @inline 
+fn WidgetText* create_label(String text, RLColor color, UIWindow* uiwin) @inline
 {
-    WidgetText* label = gui::createLabel(text, font, font_size, color);
-    UIWindow* window = self;
-    label.addTo(window);
-    return label;
+    WidgetText* label = mem::new(WidgetText);
+    gui::init_label(label, text, pGameContext.font_candara, 0, color, uiwin);
+	return label;
 }
 
 constdef CallBack : inline int @local
@@ -305,8 +305,8 @@ macro GUIWidgetButton* UIWindow.create_menu_button(&self, Vec2f pos, String text
     //
     float button_width  = bdef.size.x;
     float button_height = bdef.size.y;
-    WidgetText* label   = mem::new(WidgetText);
-    gui::init_label(label, text, pGameContext.font_candara, 0, bdef.label_color, self);
+
+	WidgetText* label = create_label(text, bdef.label_color, self);
     // set the label properties
     Vec2f label_offset  = pos;
     /*Vec2f label_offset  = pos + misc::VEC_RIGHT * (button_width / 2);

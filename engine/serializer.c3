@@ -41,6 +41,7 @@ import game::main;
 import game;
 import thirdparty::raylib5::rl;
 import engine::misc;
+import engine::sys::ctype;
 import engine::assets_api::astmng; // asset manager
 import engine::logging::log;
 import engine::sys::render2d::r2d;

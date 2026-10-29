@@ -30,6 +30,7 @@ module engine::sys::framework::hmdict;
 import std::io;
 import std::collections::list;
 import engine::misc;
+import engine::sys::ctype;
 import engine::logging::log;
 import game;
 

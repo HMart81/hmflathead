@@ -42,6 +42,7 @@ import engine::logging::log;
 import engine::physics::box2d;
 import engine::serialize::svs; // save system
 import engine::sys::cvar;
+import engine::sys::ctype;
 import engine::sys::render2d::r2d;
 import engine::sys::framework::hmdict;
 import engine::sys::script_engine::event; // still in testing phase (delete if not finished)

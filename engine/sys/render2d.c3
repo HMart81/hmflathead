@@ -34,6 +34,7 @@ module engine::sys::render2d::r2d;
 
 import std::io;
 import engine::misc;
+import engine::sys::ctype;
 import engine::filesystem::fs;
 import engine::logging::log;
 import game;

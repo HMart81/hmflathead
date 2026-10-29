@@ -34,6 +34,7 @@ import std::core::mem; // for malloc
 import std::math;
 import std::collections::map;
 import engine::misc;
+import engine::sys::ctype;
 import engine::logging::log;
 import engine::serialize::svs; // save system
 import engine::telemetry::telem;

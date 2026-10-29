@@ -9,6 +9,7 @@ import game::main;
 import engine::gui;
 import game::gui::menu;
 import engine::misc;
+import engine::sys::ctype;
 import engine::input;
 import thirdparty::raylib5::rl;
 import engine::logging::log;

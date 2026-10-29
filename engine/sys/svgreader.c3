@@ -33,6 +33,7 @@ import thirdparty::library::xml;
 import engine::filesystem::fs;
 import engine::logging::log;
 import engine::misc;
+import engine::sys::ctype;
 import game::main;
 import std::core::ascii;
 

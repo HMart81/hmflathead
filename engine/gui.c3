@@ -50,6 +50,7 @@ import std::core::mem; // for malloc
 import std::math;
 import std::collections::list;
 import engine::misc;
+import engine::sys::ctype;
 import engine::input;
 //import engine::assets::astmng; // asset manager
 import game::material::mat;
@@ -78,16 +79,6 @@ fn void register_cvars() @public
     cvar::@register(&ui_showAnchors);
 }
 // end_region
-
-// #region constants
-//const bool PANEL_PROFILE = true;
-const bool DEBUG_PANELS   = true;
-const int  MIN_PANEL_SIZE = 32;
-
-// mostly for the panel texture inversion ability
-const uint HORIZONTAL_DIR = 1;
-const uint VERTICAL_DIR   = 2;
-// #endregion
 
 /* #region Anchors */
 typedef GuiAnchor = inline Vec2f;
@@ -173,6 +164,19 @@ fn void drawAnchors(AnchorList* anchors)
 
 /* #endregion Anchors */
 
+///////////////////////////////////////////////////////////////////////////
+/*                                GUIRect
+
+    NOTE(HM) simple data structure representing a square or image, 
+    used for background images or single color rectangles.
+*/
+///////////////////////////////////////////////////////////////////////////
+import game::lowlevel::bounds;
+
+// #region constants
+const int MIN_RECT_SIZE = 32;
+// #endregion
+
 macro scale(Type2 ojb, Vec2f dim) <Type2, Type3>
 {
 	switch
@@ -191,15 +195,6 @@ macro scale(Type2 ojb, Vec2f dim) <Type2, Type3>
 		default: @todo();
 	}
 }
-
-///////////////////////////////////////////////////////////////////////////
-/*                                GUIRect
-
-    NOTE(HM) simple data structure representing a square or image, 
-    used for background images or single color rectangles.
-*/
-///////////////////////////////////////////////////////////////////////////
-import game::lowlevel::bounds;
 
 struct GUIRectFlags
 {
@@ -222,11 +217,12 @@ struct GUIRect (SaveSystemInterface)
     inline RLRectangle rect; // x, y, width, height
 
     GUIRectFlags flags;
-    //Bounds          bounds; todo change to this bounds
+	// todo use to this bounds?
+    //Bounds bounds;
 	AnchorList anchor;
 	RLColor original_color; // to return to in case the bellow one is changed
-    RLColor 		color; // used if a simple colored rect
-    HMaterial*      mat;   // also encodes a color within it
+    RLColor    color; // used if a simple colored rect
+    HMaterial* mat;   // also encodes a color within it
 }
 
 fn void GUIRect.save(&self, SaveFile* file) @dynamic 
@@ -277,7 +273,7 @@ fn void GUIRect.initV(&self, Vec2f pos, Vec2f size, RLColor color) @inline
 
 fn void GUIRect.init(&self) @inline
 {
-    self.initRec({0, 0, MIN_PANEL_SIZE, MIN_PANEL_SIZE}, rl::WHITE);
+    self.initRec({0, 0, MIN_RECT_SIZE, MIN_RECT_SIZE}, rl::WHITE);
 }
 
 fn void GUIRect.deinit(&self) @inline 
@@ -489,8 +485,8 @@ fn void GUIRect.fadeOut(&self, float factor)
 
 fn bool GUIRect.isValid(&self) @inline 
 {
-    if(self.width  >= MIN_PANEL_SIZE && 
-       self.height >= MIN_PANEL_SIZE ) return true;
+    if(self.width  >= MIN_RECT_SIZE && 
+       self.height >= MIN_RECT_SIZE ) return true;
        
     return false;
 }
@@ -707,7 +703,7 @@ alias GUIWidgetList  = List{GUIWidget*};
 
 interface WidgetInterface
 {
-    fn void init(int kind);
+    fn void init();
     fn void initExt() @optional;
     fn void deinit();
     fn void update();
@@ -720,8 +716,6 @@ interface WidgetInterface
     fn void bindTo(GUIWidget* other);
     fn bool bound();
     fn void unbind();
-    fn String getName();
-    fn void setName(String name);
     fn void link(GUIWidget* other);
     fn bool isLinked();
     fn void unlink();
@@ -797,10 +791,10 @@ fn sz? GUIWidget.to_format(&self, Formatter* f) @dynamic
     }`, self.id, self.name, self.rect.x, self.rect.y, self.rect.width, self.rect.height, self.color.r, self.color.g, self.color.b, self.color.a, (self.mat != null) ? self.mat.name : "null");
 }
 
-fn void GUIWidget.init(&self, int kind = KIND_WIDGET) @dynamic 
+fn void GUIWidget.init(&self) @dynamic 
 {
     self.super.init();
-    self.kind = kind;
+    self.kind = KIND_WIDGET;
 }
 
 fn void GUIWidget.deinit(&self) @dynamic
@@ -1101,14 +1095,11 @@ fn void GUIWidget.unbind(&self) @dynamic
 
 fn void GUIWidget.setSize(&self, float w, float h)
 {
-    if(w < MIN_PANEL_SIZE || h < MIN_PANEL_SIZE) {
+    if(w < MIN_RECT_SIZE || h < MIN_RECT_SIZE) {
 		log::warning(FILE, "One or both size values of widget '%s::%d', were set to bellow the minimum.", self.name, self.id);
 	}
     self.super.setSize(w, h);
 }
-
-fn String GUIWidget.getName(&self) @inline @dynamic => self.name;
-fn void GUIWidget.setName(&self, String name) @inline @dynamic => self.name = name.tcopy();
 
 fn void GUIWidget.link(&self, GUIWidget* target) @dynamic 
 {
@@ -1168,23 +1159,23 @@ enum TextAlign
 
 struct WidgetText 
 {
-    // extends GUIWidget (super/base class)
     inline GUIWidgetButton super;
 
+    RLFont* font;
+    int font_size;
     String text;
     int text_len;
-    RLFont* font;
-    float spacing; // spacing between characters, used for text rendering
-    int font_size;
     TextAlign align;
+    float spacing; // spacing between characters, used for text rendering
 }
 
 
-fn void WidgetText.init(&self) //@inline 
+fn void WidgetText.init(&self) 
 {
-    self.super.init(KIND_TEXT);
+    self.super.init();
     self.super.hide(); // don't show the square shape
-    self.name = "TextLabel"; // @hardcode
+    self.kind = KIND_TEXT;
+	self.name = "TextLabel"; // @hardcode
     self.color = rl::CTRANSPARENT; // invisible color for the panel shape
     self.spacing    = 2.0f; //@hardcode, todo make this int a cvar
     self.font_size  = 20; //@hardcode
@@ -1292,38 +1283,6 @@ fn void WidgetText.draw(&self) //@inline
 }
 
 <*
-    Creates a new label widget with the given name and text.
-    The label will use the given font and font size, if provided.
-    The label will be deactivated by default, so it won't be interactive.
-    The label will also be shown by default.
-    Don't forget to free the label memory when you are done with it.
-
-    @param [in] text : "text to display on the label"
-    @param [in] font : "font to use for the label, can be null"
-    @param font_size : "font size to use for the label, must be greater than 0 to be applied"
-    @param text_color : "color of the text"
-	@ensure return != null
-*>
-fn WidgetText* createLabel(String text, RLFont* font, int font_size = 12, RLColor text_color = rl::DARK_GRAY) @nodiscard
-{
-    WidgetText* label = mem::new(WidgetText);
-    label.init();
-    label.name = label.name.tconcat(text);
-    label.setText(text);
-    label.setTextColor(text_color);
-    if (font != null) {
-        label.setFont(font);
-    }
-    if (font_size > 0) {
-        label.setFontSize((uint)font_size);
-    }
-    // labels shouldn't be interactive (to save perf...)
-    label.deactivate();
-    label.show();
-    return label;
-}
-
-<*
 	Initializes a label widget with the given name and text.
 	The label will use the given font and font size, if provided.
 	The label will be deactivated by default, so it won't be interactive.
@@ -1339,7 +1298,8 @@ fn WidgetText* createLabel(String text, RLFont* font, int font_size = 12, RLColo
 fn void init_label(WidgetText* label, String text, RLFont* font, int font_size, RLColor text_color, UIWindow* uiwin) @inline 
 {
 	label.init();
-	label.name = label.name.tconcat(text);
+	int labels_count = uiwin.getChildWidgetCount(KIND_TEXT);
+	label.name = label.name.tconcat(text).tconcat(string::tformat("%s", labels_count + 1));
 	label.setText(text);
 	label.setTextColor(text_color);
 	if (font != null) {
@@ -1373,9 +1333,10 @@ struct GUIWidgetButton
     RLSound* interaction_sound;
 }
 
-fn void GUIWidgetButton.init(&self, int kind = KIND_BUTTON) @inline
+fn void GUIWidgetButton.init(&self) @inline
 {
-    self.super.init(kind);
+    self.super.init();
+	self.kind = KIND_BUTTON;
     self.name = "Button";
     self.setDefaultColor(rl::WHITE); //@hardcode
     self.setSound(&game::pContext.default_sound); //@hardcode, todo give this a better sound
@@ -1552,9 +1513,10 @@ struct GUIWidgetCheckBox
     CheckBoxListenerCallback onCheckBoxClicked;
 }
 
-fn void GUIWidgetCheckBox.init(&self, int kind = KIND_CHECKBOX) @inline 
+fn void GUIWidgetCheckBox.init(&self) @inline 
 {
-    self.super.init(kind);
+    self.super.init();
+	self.kind = KIND_CHECKBOX;
     self.name = "CheckBox";
     self.color = rl::WHITE;
     self.onCheckBoxClicked = (CheckBoxListenerCallback)&GUIWidgetCheckBox.onMouseButton;
@@ -1620,6 +1582,7 @@ module engine::gui::container::cont; //@UNFINISHED !!!
 import thirdparty::raylib5::rl;
 import engine::gui::window::uiwin;
 import engine::misc;
+import engine::sys::ctype;
 import std::collections::list;
 
 alias ContainerQueue = List{any};
@@ -1801,6 +1764,7 @@ module engine::gui::window::uiwin;
 
 import thirdparty::raylib5::rl;
 import engine::misc;
+import engine::sys::ctype;
 import game::main;
 import engine::serialize::svs;
 import std::collections::list;
@@ -2356,6 +2320,20 @@ fn GUIWidget* UIWindow.getChildWidget(&self, int idx) @nodiscard
 }
 
 <*
+    @param kind : "what kind of child widget to get the count for"
+    @ensure return >= 0
+*>
+fn int UIWindow.getChildWidgetCount(&self, int kind) @nodiscard
+{
+	int count;
+    foreach(child : self.childWidgets)
+	{
+		if(child.kind == kind) count++;
+	}
+	return count;
+}
+
+<*
     @param idx : "index of the child window to get"
     @ensure return != null
 *>
@@ -2451,7 +2429,7 @@ fn void UIWindow.debug(&self, bool showHidden = true)
                dbg_text_pos = {child.rect.x, child.rect.y};
                dbg_text_pos += misc::VEC_UP * (0.30f * child.rect.height); 
                rl::drawText(
-                    string::tformat("[%s] = (w:%dpx, h:%dpx) : (w:%d%%, h:%d%%)", child.getName(), child.rect.x, child.rect.y, 
+                    string::tformat("[%s] = (w:%dpx, h:%dpx) : (w:%d%%, h:%d%%)", child.name, child.rect.x, child.rect.y, 
                     ((child.rect.x * 100) / self.rect.w), ((child.rect.y * 100) / self.rect.h)).zstr_tcopy(),
                     (int)dbg_text_pos.x, (int)dbg_text_pos.y, 9, rl::RED
                );
@@ -2618,6 +2596,7 @@ import engine::assets_api::astmng; // asset manager
 import game::main;
 import std::math;
 import engine::misc;
+import engine::sys::ctype;
 
 alias asstManager @local = astmng::pAssetsLib;
 
@@ -2875,6 +2854,7 @@ import thirdparty::raygui5::rgui;
 import engine::logging::log;
 import game::main;
 import engine::misc;
+import engine::sys::ctype;
 import engine::tools;
 //import engine::serialize::svs;
 //import std::collections::list;

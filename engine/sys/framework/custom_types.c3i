@@ -32,3 +32,10 @@ module engine::sys::ctype;
 // Type aliases and conditional type alias
 typedef Byte = inline char;
 alias PlatformWord = $defined(long) ? long : int;
+
+alias Vec2f  = float[<2>];
+alias Vec3f  = float[<3>];
+alias Vec4f  = float[<4>];
+alias Vec2i  = int[<2>];
+alias Vec3i  = int[<3>];
+alias Vec4i  = int[<4>];
