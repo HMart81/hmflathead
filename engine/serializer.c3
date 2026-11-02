@@ -608,7 +608,6 @@ fn void readBuildNumber(SaveFile* savefile) {
 // Used to retrieve the saved game buildNumber from within class Restore methods
 fn int getBuildNumber(SaveFile* savefile) @inline => savefile.buildNumber;
 
-
 /*
 
 fn bool Action.fnIsTriggerd(&self) @dynamic
@@ -2428,8 +2427,6 @@ idRestoreGame::GetBuildNumber
 int idRestoreGame::GetBuildNumber() {
 	return buildNumber;
 }
-
-
 
 
 

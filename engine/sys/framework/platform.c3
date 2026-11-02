@@ -295,16 +295,26 @@ fn Win32_LSTATUS regSetValue(Win32_HKEY key, String valueName, any value)
     var value_name @safeinfer = (Win32_LPCSTR)valueName.zstr_tcopy();
     switch(value.type)
     {
-        case Win32_DWORD:
+        case Win32_INT:
+            return regSetValueExA(key, value_name, 0, REG_DWORD, (Win32_BYTE*)value.ptr, Win32_INT::size);
+        case Win32_DWORD: // uint
             return regSetValueExA(key, value_name, 0, REG_DWORD, (Win32_BYTE*)value.ptr, Win32_DWORD::size);
-        case Win32_QWORD:
+        case Win32_QWORD: // ulong
             return regSetValueExA(key, value_name, 0, REG_QWORD, (Win32_BYTE*)value.ptr, Win32_QWORD::size);
+        case bool: // saved as a string
+			var val @safeinfer = (bool*)value.ptr;
+			ZString str = string::tformat_zstr("%s", (*val == true) ? "true" : "false");
+            return regSetValueExA(key, value_name, 0, REG_SZ, (Win32_BYTE*)&str[0], (Win32_DWORD)str.len() + 1);
+        case float: // saved as a string
+			var val @safeinfer = (float*)value.ptr;
+			ZString str = string::tformat_zstr("%s", val);
+            return regSetValueExA(key, value_name, 0, REG_SZ, (Win32_BYTE*)&str[0], (Win32_DWORD)str.len() + 1);
         case String:
             var str @safeinfer = (String*)value.ptr;
             return regSetValueExA(key, value_name, 0, REG_SZ, (Win32_BYTE*)(*str), (Win32_DWORD)str.len);
         default:
         {
-            win32::regCloseKey(key);
+            regCloseKey(key);
             unreachable();
         }
     }
@@ -335,19 +345,23 @@ fn Win32_LSTATUS regSetValue(Win32_HKEY key, String valueName, any value)
 */
 fn bool? Win32_HKEY.setValue(self, String valueName, void* data, typeid type, bool close_key = false)
 {
-    if(win32::regSetValue(self, valueName, any_make(data, type)) == win32::ERROR_SUCCESS ) {
+    if(regSetValue(self, valueName, any_make(data, type)) == win32::ERROR_SUCCESS ) {
         if(close_key) regCloseKey(self);
         return true;
     }
     return ERROR_REGISTRY_KEY_SET_VALUE_FAILED~;
 }
 
+const SUB_KEY = "Software";
+const REG_KEY = "HMartSoftware\\unnnamed\\settings\\";
+const FULL_KEY_PATH = SUB_KEY +++ "\\" +++ REG_KEY;
+
 macro Win32_HKEY? getGameRegSettingsPath(Reg_SAM choice = KEY_WRITE)
 {
-    Win32_HKEY currentUserKey = win32::regOpenCurrentUser(choice | KEY_WOW64_64KEY)!;
-    defer win32::regCloseKey(currentUserKey);
-    String sub_key = "Software\\HMartSoftware\\unnnamed\\settings";
-	return win32::regOpenKey(currentUserKey, sub_key, choice);
+    Win32_HKEY currentUserKey = regOpenCurrentUser(choice | KEY_WOW64_64KEY)!;
+    defer regCloseKey(currentUserKey);
+    //String sub_key = "Software\\HMartSoftware\\unnnamed\\settings";
+	return regOpenKey(currentUserKey, FULL_KEY_PATH, choice);
 }
 
 /*
@@ -622,4 +636,81 @@ extern fn Win32_BOOL getDiskFreeSpaceExA(
   Win32_PULARGE_INTEGER lpTotalNumberOfBytes = null,
   Win32_PULARGE_INTEGER lpTotalNumberOfFreeBytes = null
 ) @cname("GetDiskFreeSpaceExA");
+
+
+/*
+fn void write_string_to_Register(String str, String var_name)
+{
+	Win32_HKEY? currentUserKey = regOpenCurrentUser(KEY_WRITE | KEY_WOW64_64KEY);
+	if(catch err = currentUserKey)
+	{
+		log::warning(FILE, "Unable to open current user key from registry, see if you have required elevated permissions. : err > %s", err);
+	}
+	else
+	{
+		defer regCloseKey(currentUserKey);
+
+		Win32_HKEY? root = regOpenKey(currentUserKey, SUB_KEY, KEY_WRITE);
+		if(catch err2 = root)
+		{
+			log::warning(FILE, "Failed to open key \"%s\" inside registry 'HKEY_CURRENT_USER' with: err > %s", SUB_KEY, err2);
+		}
+		else
+		{
+			defer regCloseKey(root);
+
+			Win32_DWORD sam  = KEY_WRITE | KEY_WOW64_64KEY;
+			Win32_HKEY folder_key;
+
+			bool? rs = regCreateKey(root, REG_KEY, 0, sam, &folder_key);
+			if(catch err3 = rs)
+			{
+				log::warning(FILE, "Failed to create key \"%s\" inside registry 'HKEY_CURRENT_USER/Software' key with: excuse > %s", REG_KEY, err3);
+			}
+			else
+			{
+				defer regCloseKey(folder_key);
+
+				log::tofile(string::tformat("\tRegistry path: %s\\%s\\%s\\", "HKEY_CURRENT_USER",  SUB_KEY, REG_KEY));
+				
+				// now save string into the registry path
+				if(regSetValue(folder_key, var_name, any_make(&str, String)) != ERROR_SUCCESS)
+				{
+					log::warning(FILE, "failed to write '%s' to registry.", str);
+				}
+			}
+		}
+	}
+}
+*/
+
+fn void? write_string_to_Register(String d, String val_name)
+{
+	Win32_HKEY k = getGameRegSettingsPath()!;
+    k.setValue(val_name, &d, String, close_key: true)!;
+}
+
+fn void? write_int_to_Register(int d, String val_name)
+{
+	Win32_HKEY k = getGameRegSettingsPath()!;
+    k.setValue(val_name, &d, int, close_key: true)!;
+}
+
+fn void? write_uint_to_Register(uint d, String val_name)
+{
+	Win32_HKEY k = getGameRegSettingsPath()!;
+    k.setValue(val_name, &d, uint, close_key: true)!;
+}
+
+fn void? write_bool_to_Register(bool d, String val_name)
+{
+	Win32_HKEY k = getGameRegSettingsPath()!;
+    k.setValue(val_name, &d, bool, close_key: true)!;
+}
+
+fn void? write_float_to_Register(float d, String val_name)
+{
+	Win32_HKEY k = getGameRegSettingsPath()!;
+    k.setValue(val_name, &d, float, close_key: true)!;
+}
 

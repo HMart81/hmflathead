@@ -33,21 +33,21 @@ module game::gui::menu;
 /*
     GUI creation process:
 
-    - Create a UIWindow
-    	UIWindow main_menu;
-    - init the UIWindow
+    - Create a GUIWindow
+    	GUIWindow main_menu;
+    - init the GUIWindow
     	main_menu.ini(...);
     - create any children panels/widgets
     	GUIWidgetButton main_menu_button;
-    - init the GUIWidget and add it to UIWindow
+    - init the GUIWidget and add it to GUIWindow
     	main_menu_button.init();
     	main_menu_button.addTo(&main_menu);
 
     or
 
-    - Create a UIWindow
-    	UIWindow menu;
-    - init the UIWindow
+    - Create a GUIWindow
+    	GUIWindow menu;
+    - init the GUIWindow
     	menu.ini(...);
 	- add children using the addChildren block
 		menu.@addChildren() 
@@ -94,14 +94,14 @@ alias pGameContext @local  = game::pContext;
 const SCREEN_TOP_CORNER = (Vec2f) {0.0f, 0.0f}; 
 // end_region
 
-fn UIWindow* getActiveMenu() @local @inline 
+fn GUIWindow* getActiveMenu() @local @inline 
 {
 	return pGameContext.guiActive;
 }
 
-fn void setGUI(UIWindow* menu) 
+fn void setGUI(GUIWindow* menu) 
 {
-    UIWindow* guiActive;
+    GUIWindow* guiActive;
 
     // if the incoming menu is set to null, deactivate the current menu
 	if (menu == null)
@@ -138,7 +138,7 @@ fn void setGUI(UIWindow* menu)
     guiActive.setFocus(true);
 }
 
-fn void start(UIWindow* gui) 
+fn void start(GUIWindow* gui) 
 {
     // if already started
 	if ( getActiveMenu() == gui ) {
@@ -161,7 +161,7 @@ fn void start(UIWindow* gui)
 	//console->Close();
 }
 
-fn void stop(UIWindow* guiActive = getActiveMenu()) 
+fn void stop(GUIWindow* guiActive = getActiveMenu()) 
 {
 	// clear mapSpawned
 	//UnloadMap();
@@ -210,7 +210,7 @@ HMSoundWorld main_menu_sound_world;
     @param [&in] bdef : "button callbacks definition struct pointer"
     @ensure return != null : "pointer to the created checkbox"
 *>
-fn GUIWidgetCheckBox* UIWindow.create_menu_checkbox(&self, String text, MenuButtonDef* bdef) @inline 
+fn GUIWidgetCheckBox* GUIWindow.create_menu_checkbox(&self, String text, MenuButtonDef* bdef) @inline 
 {
     GUIWidgetCheckBox* checkbox = gui::createCheckBox("Checkbox 1");
     checkbox.color = rl::DARKGRAY;
@@ -239,7 +239,7 @@ fn GUIWidgetCheckBox* UIWindow.create_menu_checkbox(&self, String text, MenuButt
 	@param [&in] bdef : "button callbacks definition struct pointer"
 	@param [&inout] uiwin : "window to add the checkbox to"
 *>
-fn void init_checkbox(GUIWidgetCheckBox* chk, String name, String label, MenuButtonDef* bdef, UIWindow* uiwin) 
+fn void init_checkbox(GUIWidgetCheckBox* chk, String name, String label, MenuButtonDef* bdef, GUIWindow* uiwin) 
 {
 	chk.init();
 	chk.name = name;
@@ -259,9 +259,9 @@ fn void init_checkbox(GUIWidgetCheckBox* chk, String name, String label, MenuBut
     if(chk.onLoad) chk.onLoad(chk);
 }
 
-fn WidgetText* create_label(String text, RLColor color, UIWindow* uiwin) @inline
+fn GUIWidgetLabel* create_label(String text, RLColor color, GUIWindow* uiwin) @inline
 {
-    WidgetText* label = mem::new(WidgetText);
+    GUIWidgetLabel* label = mem::new(GUIWidgetLabel);
     gui::init_label(label, text, pGameContext.font_candara, 0, color, uiwin);
 	return label;
 }
@@ -272,53 +272,87 @@ constdef CallBack : inline int @local
     STOP_OVER,
     PRESS,  // press down
     SINGLE_PRESS, // press down then release
-	RELEASE
+	RELEASE,
+    CREATE // on button creation
 }
 
 struct MenuButtonDef
 {
+    Vec2f pos;
     Vec2f size;
     RLColor default_color;
     RLColor over_color;
     RLColor label_color;
     TextAlign label_align;
-    WidgetCallback[CallBack::len] cbs;
+    GUIWidgetCallback[CallBack::len] cbs;
 }
 
 <*
-    Create a button for the menu
+    Create a button with a text label for the menu
 
-    @param pos : "button position"
+    @param [&inout] uiwin : "the window to create the button for"
     @param [in] text : "button label text"
     @param [&in] bdef : "button cbs definition struct pointer"
     @ensure return != null : "pointer to the created button"
 *>
-macro GUIWidgetButton* UIWindow.create_menu_button(&self, Vec2f pos, String text, MenuButtonDef* bdef) 
+fn GUIWidgetButton* create_text_button(GUIWindow* uiwin, String text, MenuButtonDef* bdef) 
 {
     GUIWidgetButton* button = gui::createButton();
-    button.addTo(self);
+    defer {
+        button.addTo(uiwin);
+    };
     // set the button properties
     button.name = button.name.tconcat(text);
     button.setSizeV(bdef.size);
-    button.setPositionV(pos);
+    button.setPositionV(bdef.pos);
     button.setDefaultColor(bdef.default_color);
     //
     float button_width  = bdef.size.x;
     float button_height = bdef.size.y;
 
-	WidgetText* label = create_label(text, bdef.label_color, self);
+	GUIWidgetLabel* label = create_label(text, bdef.label_color, uiwin);
     // set the label properties
-    Vec2f label_offset  = pos;
-    /*Vec2f label_offset  = pos + misc::VEC_RIGHT * (button_width / 2);
-    label_offset       += misc::VEC_DOWN * (button_height / 2) * 0.5f;
-    label_offset.x     -= (float)label.textlen() / 2;*/
-    //label.setFontSize(60);
-    label.setPositionV(label_offset);
-    label.addToPosition(
-       x: 0.5f * button_width - (float)label.textlen() / 2,
-       y: 0.5f * button_height - ((button_height / 2) * 0.5f)
-    );
+    label.setPositionV(bdef.pos);
+    Vec2f label_offset  = {
+        .x = 0.5f * button_width - (float)label.textlen() / 2,
+        .y = 0.5f * button_height - ((button_height / 2) * 0.5f)
+    };
+    label.addToPositionV(label_offset);
     label.bindTo(button);
+
+    // button interaction callbacks
+    button.onOver        = bdef.cbs[CallBack.OVER];
+    button.onStopOver    = bdef.cbs[CallBack.STOP_OVER];
+    button.onPress       = bdef.cbs[CallBack.PRESS];
+    button.onSinglePress = bdef.cbs[CallBack.SINGLE_PRESS];
+    button.onRelease     = bdef.cbs[CallBack.RELEASE];
+    button.onLoad        = bdef.cbs[CallBack.CREATE];
+
+    // button on load callback runs right now when the button is created
+    // perhaps rename this to onCreate?
+    if(button.onLoad) button.onLoad(button);
+
+    return button;
+}
+
+<*
+    Create a button for the menu
+
+    @param [&in] bdef : "button cbs definition struct pointer"
+    @ensure return != null : "pointer to the created button"
+*>
+fn GUIWidgetButton* create_menu_button(GUIWindow* uiwin, MenuButtonDef* bdef) 
+{
+    GUIWidgetButton* button = gui::createButton();
+    defer {
+        button.addTo(uiwin);
+    };
+    // set the button properties
+    button.name = "Menu_Button";
+    button.setSizeV(bdef.size);
+    button.setPositionV(bdef.pos);
+    button.setDefaultColor(bdef.default_color);
+    //
 
     // button interaction callbacks
     button.onOver        = bdef.cbs[CallBack.OVER]; // &button_onOver;
@@ -326,7 +360,7 @@ macro GUIWidgetButton* UIWindow.create_menu_button(&self, Vec2f pos, String text
     button.onPress       = bdef.cbs[CallBack.PRESS]; // &start_button_onPress;
     button.onSinglePress = bdef.cbs[CallBack.SINGLE_PRESS]; // &start_button_onSinglePress;
     button.onRelease     = bdef.cbs[CallBack.RELEASE]; // &button_onRelease;
-    button.onLoad        = &button_onLoad;
+    button.onLoad        = bdef.cbs[CallBack.CREATE];
 
     // button on load callback runs right now when the button is created
     // perhaps rename this to onCreate?
@@ -341,7 +375,7 @@ const MAINMENU_OPTIONS = 0;
 const MAINMENU_EXTRA   = 1;
 const MAINMENU_PAGE_COUNT = 2; // update this is more consts are define above this
 
-fn UIWindow* mainMenuCreate(int screenWidth, int screenHeight)
+fn GUIWindow* mainMenuCreate(int screenWidth, int screenHeight)
 {
     // Menu creation
     Vec2f screen_center       = game::getScreenCenterPos();
@@ -349,14 +383,14 @@ fn UIWindow* mainMenuCreate(int screenWidth, int screenHeight)
     float screen_half_height  = screen_center.y;
     Vec2f screen_top_center   = {screen_half_width, 0.0f};
 
-    UIWindow* desk_main = mem::new(UIWindow);
+    GUIWindow* desk_main = mem::new(GUIWindow);
     desk_main.init("MainMenu", isDesktop: true);
     desk_main.setColor(rl::DARKGRAY);
 	desk_main.setPageCount(MAINMENU_PAGE_COUNT);
 
 	// create window options
-    UIWindow* window_options = desk_main.addChildWindow(mem::new(UIWindow), MAINMENU_OPTIONS);
-    //UIWindow* window_options = desk_main.getChildWindow(MAINMENU_OPTIONS);
+    GUIWindow* window_options = desk_main.addChildWindow(mem::new(GUIWindow), MAINMENU_OPTIONS);
+    //GUIWindow* window_options = desk_main.getChildWindow(MAINMENU_OPTIONS);
     window_options.init("OptionsMenu");
     window_options.setColor(rl::GRAY);
     Vec2f desk_options_center = screen_center - window_options.getSize() / 2.0f;
@@ -368,13 +402,13 @@ fn UIWindow* mainMenuCreate(int screenWidth, int screenHeight)
 	// TODO change this to a virtual machine of states
 	// or a particular menu current state
 	// like case OPTIONS_OPEN: we are seeing the options page
-	// or even UIWindow* current_page = &desk_main;
+	// or even GUIWindow* current_page = &desk_main;
     desk_main.next = window_options;
     window_options.previous = desk_main;
     window_options.hide();
 
 	// create window extra
-    UIWindow* window_extra = desk_main.addChildWindow(mem::new(UIWindow), MAINMENU_EXTRA);
+    GUIWindow* window_extra = desk_main.addChildWindow(mem::new(GUIWindow), MAINMENU_EXTRA);
     window_extra.init("ExtraMenu");
     window_extra.setColor(rl::GRAY);
     window_extra.setPositionV({
@@ -420,8 +454,8 @@ fn UIWindow* mainMenuCreate(int screenWidth, int screenHeight)
         .border_between = {2, rl::GREEN }
     }; WidgetContainer* pct )
     {
-        //pct.register(any_make(create_menu_label({200, 200}, "test", 12, rl::GRAY, desk_main), WidgetText));
-        //pct.register(any_make(create_menu_label({200, 200}, "test2", 12, rl::GRAY, desk_main), WidgetText));
+        //pct.register(any_make(create_menu_label({200, 200}, "test", 12, rl::GRAY, desk_main), GUIWidgetLabel));
+        //pct.register(any_make(create_menu_label({200, 200}, "test2", 12, rl::GRAY, desk_main), GUIWidgetLabel));
     };
     */
 
@@ -432,7 +466,7 @@ fn UIWindow* mainMenuCreate(int screenWidth, int screenHeight)
     const TITLE           = "FlatHead";
     const TITLE_FONT_SIZE = 50;
     RLFont* title_font = pGameContext.font_trojan_pro;
-    WidgetText* title_label = mem::new(WidgetText);
+    GUIWidgetLabel* title_label = mem::new(GUIWidgetLabel);
 	gui::init_label(title_label, TITLE, title_font, TITLE_FONT_SIZE, rl::GRAY, desk_main);
     Vec2f title_offset = misc::VEC_RIGHT * screen_top_center.x;
     title_offset -= {title_label.text_len / 2.0f, 0.0f};
@@ -445,7 +479,7 @@ fn UIWindow* mainMenuCreate(int screenWidth, int screenHeight)
     const SUBTITLE           = "engine";
     const SUBTITLE_FONT_SIZE = 16;
     RLFont* subtitle_font = pGameContext.font_lucida;
-    WidgetText* subtitle_label = mem::new(WidgetText);
+    GUIWidgetLabel* subtitle_label = mem::new(GUIWidgetLabel);
 	gui::init_label(subtitle_label, SUBTITLE, subtitle_font, SUBTITLE_FONT_SIZE, rl::RAYWHITE, desk_main);
     Vec2f subtitle_offset = misc::VEC_RIGHT * screen_top_center.x;
     subtitle_offset -= {subtitle_label.text_len / 2.0f, 0.0f};
@@ -472,12 +506,14 @@ fn UIWindow* mainMenuCreate(int screenWidth, int screenHeight)
     btn_def.cbs[CallBack.PRESS]        = &start_button_onPress;
     btn_def.cbs[CallBack.SINGLE_PRESS] = &start_button_onSinglePress;
     btn_def.cbs[CallBack.RELEASE]      = &button_onRelease;
+    btn_def.cbs[CallBack.CREATE]       = &button_onLoad;
     
     offset += misc::VEC_RIGHT * screen_half_width;
     offset -= {button_width / 2.0f, 0.0f};
     offset += misc::VEC_DOWN * (screenHeight / button_height) * 10;
     String btn_string = lang::dict.getString(0);
-    desk_main.create_menu_button(offset, btn_string/*"START"*/, &btn_def);
+    btn_def.pos = offset;
+    create_text_button(desk_main, btn_string/*"START"*/, &btn_def);
 
     //************
     // QUIT
@@ -488,7 +524,8 @@ fn UIWindow* mainMenuCreate(int screenWidth, int screenHeight)
     offset += misc::VEC_DOWN * button_height;
     offset.y += 0.5f * button_height;
     btn_string = lang::dict.getString(1);
-    desk_main.create_menu_button(offset, btn_string/*"QUIT"*/, &btn_def);
+    btn_def.pos = offset;
+    create_text_button(desk_main, btn_string/*"QUIT"*/, &btn_def);
     
     //************
     // OPTIONS
@@ -499,7 +536,8 @@ fn UIWindow* mainMenuCreate(int screenWidth, int screenHeight)
     offset += misc::VEC_DOWN * button_height;
     offset.y += 0.5f * button_height;
     btn_string = lang::dict.getString(3);
-    desk_main.create_menu_button(offset, btn_string/*"OPTIONS"*/, &btn_def);
+    btn_def.pos = offset;
+    create_text_button(desk_main, btn_string/*"OPTIONS"*/, &btn_def);
     // end_region BUTTONS
 
     // region widgets options
@@ -527,8 +565,9 @@ fn UIWindow* mainMenuCreate(int screenWidth, int screenHeight)
     offset += misc::VEC_RIGHT * (0.10f * (window_options.getSize().x / 2));
     offset += misc::VEC_DOWN * window_options.getSize().y;
     offset.y -= button_height + (0.5f * button_height);
+    btn_def.pos = offset;
     btn_string = lang::dict.getString(4);
-    window_options.create_menu_button(offset, btn_string/*"BACK"*/, &btn_def);
+    create_text_button(window_options, btn_string/*"BACK"*/, &btn_def);
 // end_region widgets
     
     return desk_main;
@@ -583,7 +622,7 @@ fn void button_onOver(any widget/*GUIWidget* widget*/)
     {
         case GUIWidgetButton:
         case GUIWidgetCheckBox:
-        case WidgetText:
+        case GUIWidgetLabel:
         {
             GUIWidget* self = (GUIWidget*)widget.ptr;
             if(self.active_visible_infocus() && self.isHot())
@@ -609,7 +648,7 @@ fn void button_onStopOver(/*GUIWidget* widget*/ any widget)
     {
         case GUIWidgetButton:
         case GUIWidgetCheckBox:
-        case WidgetText:
+        case GUIWidgetLabel:
         {
             GUIWidget* self = (GUIWidget*)widget.ptr;
     		if(self.isHot()) return;
@@ -654,16 +693,14 @@ fn void button_onRelease(/*GUIWidget* widget*/ any widget)
 
 <*
     generic button callback
-    
     @param [&in] widget : "widget calling this function"
 *>
-fn void button_onPress(/*GUIWidget* widget*/ any widget) 
+fn void button_onPress(any widget)
 {
-    assert(widget.ptr != null);
     if(widget.type == GUIWidgetButton)
 	{
         GUIWidgetButton* self = (GUIWidgetButton*)widget.ptr;
-        if (self.active() == false || self.asFocus() == false || !self.isHot()) return;
+        if (self.active() == false || self.asFocus() == false || self.isHot() == false) return;
         if (self.pressed == false) 
 		{
             self.setColor(GUIActionColor.MDOWN);
@@ -763,10 +800,10 @@ fn void options_button_onPress(any widget)
 fn void options_button_onSinglePress(any widget) 
 {
     button_onSinglePress(widget);
-    UIWindow* active_menu = getActiveMenu();
+    GUIWindow* active_menu = getActiveMenu();
 	if(active_menu.getName() == "MainMenu")
     {
-        UIWindow* next_menu = active_menu.getChildWindow(MAINMENU_OPTIONS);
+        GUIWindow* next_menu = active_menu.getChildWindow(MAINMENU_OPTIONS);
         if(next_menu != null)
         {
             stop(active_menu); // clear the current menu
@@ -775,7 +812,7 @@ fn void options_button_onSinglePress(any widget)
     }
     /*if(active_menu) 
     {
-        UIWindow* next_menu = active_menu.next;
+        GUIWindow* next_menu = active_menu.next;
         if(next_menu != null)
         {
             stop(active_menu); // clear the current menu
@@ -786,7 +823,7 @@ fn void options_button_onSinglePress(any widget)
     //log::info(Where.CONSOLE, "Pressed Count = %s.", ((GUIWidgetButton*)widget).press_count);
     // TODO(HM) 
     //  Need to create a options menu
-    //  I have two options, one create a new UIWindow
+    //  I have two options, one create a new GUIWindow
     //  or two reuse the main menu window and create a overlay "window"
     //  thou for the overlay I will have to handle overlaping widgets...
     //gui::setGui();
@@ -798,15 +835,15 @@ fn void options_button_onSinglePress(any widget)
 fn void back_button_options_onPress(any widget) 
 {
     button_onPress(widget);
-    UIWindow* active_menu = getActiveMenu();
+    GUIWindow* active_menu = getActiveMenu();
 	if(active_menu) {
-        UIWindow* next_menu;
+        GUIWindow* next_menu;
 		switch(active_menu.getName())
 		{
 			case "MainMenu": break; 
 			case "OptionsMenu":
 			case "ExtraMenu":
-				next_menu = uiwin::gpManager.get("MainMenu");
+				next_menu = gui::gpWindowManager.get("MainMenu");
 			default: unreachable();
 		}
         if(next_menu != null)
@@ -816,7 +853,7 @@ fn void back_button_options_onPress(any widget)
         }
     }
     /*if(active_menu && active_menu.previous != null) {
-        UIWindow* next_menu = active_menu.previous;
+        GUIWindow* next_menu = active_menu.previous;
         if(next_menu != null)
         {
             stop(active_menu); // clear the current menu

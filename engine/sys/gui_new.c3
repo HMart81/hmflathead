@@ -676,7 +676,7 @@ fn void GUIWidget.reload(&self, SaveFile* file) @dynamic
 	// set parenting
     String name;
     svs::readString(file, &name);
-	UIWindow* parent = uiwin::gpManager.get(name);
+	UIWindow* parent = gui::gpWindowManager.get(name);
 	if(parent) {
 		self.setParentUIWindow(parent);
 	} else {
@@ -686,7 +686,7 @@ fn void GUIWidget.reload(&self, SaveFile* file) @dynamic
 	svs::readString(file, &name);
 	if(name.len)
 	{
-		other = uiwin::gpManager.findWidget(name);
+		other = gui::gpWindowManager.findWidget(name);
 		if(other) {
 			self.bindTo(other);
 		} else {
@@ -697,7 +697,7 @@ fn void GUIWidget.reload(&self, SaveFile* file) @dynamic
 	svs::readString(file, &name);
 	if(name.len)
 	{
-		other = uiwin::gpManager.findWidget(name);
+		other = gui::gpWindowManager.findWidget(name);
 		if(other) {
 			self.link(other);
 		} else {
@@ -922,7 +922,7 @@ fn void GUIWidget.draw(&self) @dynamic
     {
         case KIND_TEXT:
             // draw text label
-            WidgetText* this = (WidgetText*)self;
+            GUIWidgetLabel* this = (GUIWidgetLabel*)self;
             Vec2f center;
             ZString text = this.text.zstr_tcopy();
             if(text.len() > 0) 
@@ -1133,7 +1133,7 @@ enum WidgetTextAlign
     RIGHT,
 }
 
-struct WidgetText 
+struct GUIWidgetLabel 
 {
     // extends GUIWidget (super/base class)
     inline GUIWidgetButton super;
@@ -1147,7 +1147,7 @@ struct WidgetText
 }
 
 
-fn void WidgetText.init(&self) //@inline 
+fn void GUIWidgetLabel.init(&self) //@inline 
 {
     self.super.init(KIND_TEXT);
     self.super.hide(); // don't show the square shape
@@ -1158,7 +1158,7 @@ fn void WidgetText.init(&self) //@inline
     self.align      = WidgetTextAlign.CENTER;
 }
 
-fn void WidgetText.deinit(&self) @inline 
+fn void GUIWidgetLabel.deinit(&self) @inline 
 {
     self.super.deinit();
     if(self.font) {
@@ -1174,7 +1174,7 @@ fn void WidgetText.deinit(&self) @inline
 	Updates the bounds of the text widget based on the current text and font.
 	@require self.text != ""
 *>
-fn void WidgetText.updateBounds(&self)
+fn void GUIWidgetLabel.updateBounds(&self)
 {
 	// if custom font is set use it to measure text bounds
     if(self.font != null) {
@@ -1191,7 +1191,7 @@ fn void WidgetText.updateBounds(&self)
     }
 }
 
-fn Vec2f WidgetText.getBounds(&self) @inline 
+fn Vec2f GUIWidgetLabel.getBounds(&self) @inline 
 {
     // returns the bounds of the text, not the widget itself
     return { (float)self.text_len, (float)self.font_size };
@@ -1201,45 +1201,45 @@ fn Vec2f WidgetText.getBounds(&self) @inline
 	@param [in] font : "font to set"
 	@require font != null
 *>
-fn void WidgetText.setFont(&self, RLFont* font) @inline 
+fn void GUIWidgetLabel.setFont(&self, RLFont* font) @inline 
 {
     self.font = font;
     self.updateBounds();
 }
 
-fn void WidgetText.setText(&self, String text) @inline
+fn void GUIWidgetLabel.setText(&self, String text) @inline
 {
     self.text = text;
     self.updateBounds();
 }
 
-fn float WidgetText.textlen(&self) @inline 
+fn float GUIWidgetLabel.textlen(&self) @inline 
 {
     return (float)rl::measureText(self.text.zstr_tcopy(), self.font_size);
 }
 
-fn void WidgetText.setTextColor(&self, RLColor color) @inline 
+fn void GUIWidgetLabel.setTextColor(&self, RLColor color) @inline 
 {
     self.color = color;
 }
 
-fn void WidgetText.setAlign(&self, WidgetTextAlign align) @inline 
+fn void GUIWidgetLabel.setAlign(&self, WidgetTextAlign align) @inline 
 {
     self.align = align;
 }
 
-fn void WidgetText.setFontSize(&self, int size) @inline 
+fn void GUIWidgetLabel.setFontSize(&self, int size) @inline 
 {
     self.font_size = size;
     self.updateBounds();
 }
 
-fn void WidgetText.update(&self) 
+fn void GUIWidgetLabel.update(&self) 
 {
     self.super.update();
 }
 
-fn void WidgetText.draw(&self) //@inline 
+fn void GUIWidgetLabel.draw(&self) //@inline 
 {
     self.super.draw();
 }
@@ -1257,9 +1257,9 @@ fn void WidgetText.draw(&self) //@inline
     @param text_color : "color of the text"
 	@ensure return != null
 *>
-fn WidgetText* createLabel(String text, RLFont* font, int font_size, RLColor text_color) @nodiscard
+fn GUIWidgetLabel* createLabel(String text, RLFont* font, int font_size, RLColor text_color) @nodiscard
 {
-    WidgetText* label = mem::new(WidgetText);
+    GUIWidgetLabel* label = mem::new(GUIWidgetLabel);
     label.init();
     label.name = label.name.tconcat(text);
     label.setText(text);
@@ -1291,7 +1291,7 @@ fn WidgetText* createLabel(String text, RLFont* font, int font_size, RLColor tex
 	@require uiwin != null
 	@require label != null
 *>
-fn void init_label(WidgetText* label, String text, RLFont* font, int font_size, RLColor text_color, UIWindow* uiwin) @inline 
+fn void init_label(GUIWidgetLabel* label, String text, RLFont* font, int font_size, RLColor text_color, UIWindow* uiwin) @inline 
 {
 	label.init();
 	label.name = label.name.tconcat(text);
@@ -1717,8 +1717,8 @@ fn void WidgetContainer.update(&self)
         {
             case GUIWidgetButton:
                 anycast(child, GUIWidgetButton)!!.update();
-            case WidgetText:
-                anycast(child, WidgetText)!!.update();
+            case GUIWidgetLabel:
+                anycast(child, GUIWidgetLabel)!!.update();
             case WidgetContainer: // container inside another
                 anycast(child, WidgetContainer)!!.update();
             default:
@@ -1736,8 +1736,8 @@ fn void WidgetContainer.draw(&self)
         {
             case GUIWidgetButton:
                 anycast(child, GUIWidgetButton)!!.draw();
-            case WidgetText:
-                anycast(child, WidgetText)!!.draw();
+            case GUIWidgetLabel:
+                anycast(child, GUIWidgetLabel)!!.draw();
             case WidgetContainer: // container inside another
                 anycast(child, WidgetContainer)!!.draw();
             default:
@@ -1902,7 +1902,7 @@ fn void UIWindow.clear(&self) @inline
                 case gui::KIND_BUTTON:
                     ((GUIWidgetButton*)child).deinit(); 
                 case gui::KIND_TEXT:
-                    ((WidgetText*)child).deinit(); 
+                    ((GUIWidgetLabel*)child).deinit(); 
                 default:
                     child.deinit();
             }
@@ -2057,7 +2057,7 @@ fn void UIWindow.hide(&self)
                 case gui::KIND_BUTTON:
                     ((GUIWidgetButton*)child).hide(); 
                 case gui::KIND_TEXT:
-                    ((WidgetText*)child).hide(); 
+                    ((GUIWidgetLabel*)child).hide(); 
                 default:
                    ((GUIWidget*)child).hide(); 
             }
@@ -2083,7 +2083,7 @@ fn void UIWindow.show(&self)
                 case gui::KIND_BUTTON:
                     ((GUIWidgetButton*)child).show(); 
                 case gui::KIND_TEXT:
-                    ((WidgetText*)child).show(); 
+                    ((GUIWidgetLabel*)child).show(); 
                 default:
                    ((GUIWidget*)child).show(); 
             }
@@ -2134,7 +2134,7 @@ fn void UIWindow.update(&self, int _time)
 
                     ((GUIWidgetButton*)child).update();
                 case gui::KIND_TEXT:
-                    ((WidgetText*)child).update();
+                    ((GUIWidgetLabel*)child).update();
                 case gui::KIND_CHECKBOX:
                     ((GUIWidgetCheckBox*)child).update();
                 case gui::KIND_CONTAINER:
@@ -2199,7 +2199,7 @@ fn void UIWindow.redraw(&self, int _time)
                 case gui::KIND_BUTTON:
                     ((GUIWidgetButton*)child).draw();
                 case gui::KIND_TEXT:
-                    ((WidgetText*)child).draw();
+                    ((GUIWidgetLabel*)child).draw();
                 case gui::KIND_CONTAINER:
                     ((WidgetContainer*)child).draw();
                 default:
@@ -2864,7 +2864,7 @@ fn void enable_widget_debug()  @local @inline => gui::ui_debugDraw.set("1");
 fn void disable_widget_debug() @local @inline => gui::ui_debugDraw.set("0");
 fn bool is_widget_debug_on()   @local @inline => gui::ui_debugDraw.getBool();
 
-fn bool enabled() @inline => uiwin::gpManager.mode == EDITOR;
+fn bool enabled() @inline => gui::gpWindowManager.mode == EDITOR;
 fn bool as_focus() @inline {
     return (enabled() && game.editor.focused());
 }

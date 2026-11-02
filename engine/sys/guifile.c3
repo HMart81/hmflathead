@@ -44,7 +44,7 @@ import engine::sys::render2d::r2d;
 import thirdparty::raylib5::rl;
 import thirdparty::library::xml;
 import std::collections::list, std::collections::pair;
-import engine::gui::window::uiwin;
+import engine::gui;
 // end_region
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -113,7 +113,7 @@ constdef GUIPWinParm : inline String @public
     FONT        = "font",
 }
 
-fn UIWindow*? read(String file_path)
+fn GUIWindow*? read(String file_path)
 {
 	File? file = fs::openFile(game::pContext.app_base_folder.tconcat(file_path));
 	if(catch excuse = file)
@@ -138,7 +138,7 @@ fn UIWindow*? read(String file_path)
     @param [&in] doc : "xml doc file to parse"
 	@param [in] file_path : "virtual path to the guip file"
 *>
-fn UIWindow*? parse(XmlDoc* doc, String file_path)
+fn GUIWindow*? parse(XmlDoc* doc, String file_path)
 {
     bool invalid_guip = doc.rootNode.name != GUIPNode.ROOT;
     if(invalid_guip)
@@ -198,7 +198,7 @@ fn UIWindow*? parse(XmlDoc* doc, String file_path)
 <*
     @param [&in] in_node : "material node we are currently parsing"
 *>
-fn UIWindow*? parse_window(XmlNode* in_node, String file_path)
+fn GUIWindow*? parse_window(XmlNode* in_node, String file_path)
 {
 	// first get material name
     String? win_name = (String)in_node.getAttribute(GUIPNodeAttrib.NAME).value;
@@ -220,7 +220,7 @@ fn UIWindow*? parse_window(XmlNode* in_node, String file_path)
 	bool is_desktop = (win_name == GUIPWinParm.DESKTOP);
 
     // else init the window structure in RAM to save the parsed data into
-    UIWindow* uiwin = mem::new(UIWindow);
+    GUIWindow* uiwin = mem::new(GUIWindow);
 
 	bool early_out;
     defer {
@@ -279,16 +279,16 @@ fn UIWindow*? parse_window(XmlNode* in_node, String file_path)
     @param [&in] node : "xml node we are currently parsing"
     @param [in] win_name : "uiwin window we are currently parsing"
     @param [in] file_path : "guip file we are currently parsing"
-    @param [&inout] uiwin : "pointer to UIWindow we are currently parsing"
+    @param [&inout] uiwin : "pointer to GUIWindow we are currently parsing"
 *>
-fn void parse_pair(XmlNode* node, String win_name, String file_path, UIWindow** uiwin) 
+fn void parse_pair(XmlNode* node, String win_name, String file_path, GUIWindow** uiwin) 
 {
 	WindowArgument arg;
 
 	arg.first  = (String)(*node).getAttribute(GUIPNodeAttrib.KEY).value;
 	arg.second = (String)(*node).getAttribute(GUIPNodeAttrib.VAL).value;
 
-    WidgetText* label @noinit;
+    GUIWidgetLabel* label @noinit;
 
 	bool arg_read_warn;
 
@@ -314,7 +314,7 @@ fn void parse_pair(XmlNode* node, String win_name, String file_path, UIWindow** 
             foreach(it : (*uiwin).childWidgets) {
                 if(it.kind == gui::KIND_TEXT) label_count++;
             }
-            label = mem::new(WidgetText);
+            label = mem::new(GUIWidgetLabel);
             label.name = string::tformat("label%d", label_count);
 	        label.setText(arg.second);
             label.addTo(*uiwin);

@@ -62,14 +62,15 @@ alias ActionCallBack = fn void(args...);
 
 // region constants
 const MAX_ACTION_COUNT @local = 1024;
-
-const NEW_CODE_EXTENSIONS = 1;
+//const NEW_CODE_EXTENSIONS = 1;
 
 CVar in_list_keys  @public = { "in_list_keys", CvFlag.BOOL | CvFlag.SYSTEM, "0", "prints all used keys in the console"};
+CVar in_dbg_actions  @public = { "in_dbg_actions", CvFlag.BOOL | CvFlag.SYSTEM, "1", "prints on screen any action being asked at the moment"};
 
 fn void register_cvars() @inline
 {
     cvar::@register(&in_list_keys);
+    cvar::@register(&in_dbg_actions);
 }
 
 fn bool isAnyKeyPressed()
@@ -139,115 +140,6 @@ enum ActionKind : char (String str)
 // LEFT_TRIGGER --> pressure level: [1..-1]
 // RIGHT_TRIGGER --> pressure level: [1..-1]
 
-constdef InputKind : inline int @if(NEW_CODE_EXTENSIONS == 1)
-{
-    KEYBOARD = 1,
-    MOUSE,
-    // btn
-    GAMEPAD_LEFT_FACE_UP,        // Gamepad left DPAD up button
-    GAMEPAD_LEFT_FACE_RIGHT,     // Gamepad left DPAD right button
-    GAMEPAD_LEFT_FACE_DOWN,      // Gamepad left DPAD down button
-    GAMEPAD_LEFT_FACE_LEFT,      // Gamepad left DPAD left button
-    GAMEPAD_RIGHT_FACE_UP,       // Gamepad right button up (i.e. PS3: Triangle, Xbox: Y)
-    GAMEPAD_RIGHT_FACE_RIGHT,    // Gamepad right button right (i.e. PS3: Square, Xbox: X)
-    GAMEPAD_RIGHT_FACE_DOWN,     // Gamepad right button down (i.e. PS3: Cross, Xbox: A)
-    GAMEPAD_RIGHT_FACE_LEFT,     // Gamepad right button left (i.e. PS3: Circle, Xbox: B)
-    GAMEPAD_LEFT_TRIGGER_1,      // Gamepad top/back trigger left (first), it could be a trailing button
-    GAMEPAD_LEFT_TRIGGER_2,      // Gamepad top/back trigger left (second), it could be a trailing button
-    GAMEPAD_RIGHT_TRIGGER_1,     // Gamepad top/back trigger right (one), it could be a trailing button
-    GAMEPAD_RIGHT_TRIGGER_2,     // Gamepad top/back trigger right (second), it could be a trailing button
-    GAMEPAD_MIDDLE_LEFT,         // Gamepad center buttons, left one (i.e. PS3: Select)
-    GAMEPAD_MIDDLE,              // Gamepad center buttons, middle one (i.e. PS3: PS, Xbox: XBOX)
-    GAMEPAD_MIDDLE_RIGHT,        // Gamepad center buttons, right one (i.e. PS3: Start)
-    GAMEPAD_LEFT_THUMB,          // Gamepad joystick pressed button left
-    GAMEPAD_RIGHT_THUMB,         // Gamepad joystick pressed button right
-    // axis
-    GAMEPAD_LEFT_X,              // Gamepad left stick X axis
-    GAMEPAD_LEFT_Y,              // Gamepad left stick Y axis
-    GAMEPAD_RIGHT_X,             // Gamepad right stick X axis
-    GAMEPAD_RIGHT_Y,             // Gamepad right stick Y axis
-    GAMEPAD_LEFT_TRIGGER,        // Gamepad back trigger left, pressure level: [1..-1]
-    GAMEPAD_RIGHT_TRIGGER,       // Gamepad back trigger right, pressure level: [1..-1]
-    MOBILE
-}
-
-constdef InputCat : inline int @if(NEW_CODE_EXTENSIONS == 1)
-{
-    UNKNOWN = 0,
-    SYSTEM,
-    MISC,
-    MOVEMENT,
-    ACTION
-}
-
-constdef InputId : inline int @if(NEW_CODE_EXTENSIONS == 1)
-{
-	EXIT = 1,
-	EXIT_DIRECT,
-	SCREENSHOT,
-	PRINT_INFO,
-
-	LEFT_CLICK,
-	RIGHT_CLICK,
-	MIDDLE_CLICK,
-	MOUSE_BUTTON4_CLICK,
-	MOUSE_BUTTON5_CLICK,
-	MOUSE_BUTTON6_CLICK,
-	MOUSE_BUTTON7_CLICK,
-	SCROLLUP,
-	SCROLLDOWN,
-
-	UI_ARROWUP,
-	UI_ARROWDOWN,
-	UI_ARROWLEFT,
-	UI_ARROWRIGHT,
-
-	UI_PRIMARY,
-	UI_SECONDARY,
-	UI_PREVPAGE,
-	UI_NEXTPAGE,
-	UI_DELETE,
-	UI_CLEAR,
-
-	OPEN_DEBUG,
-	RELOAD_MAP,
-	QUICKSAVE,
-	QUICKLOAD,
-
-	RECENT_TEXT,
-	CROSSHAIR_TOGGLE,
-
-	FORWARD,
-	BACKWARD,
-	RIGHT,
-	LEFT,
-
-	ATTACK,
-	INTERACT,
-	ROTATE,
-	LANTERN,
-
-	RUN,
-	JUMP,
-	CROUCH
-}
-
-macro isValidModifier(CInt key) @if(NEW_CODE_EXTENSIONS == 1)
-{
-    switch (key)
-    {
-    case rl::KEY_LEFT_SHIFT:
-    case rl::KEY_RIGHT_SHIFT:
-    case rl::KEY_LEFT_CONTROL:
-    case rl::KEY_RIGHT_CONTROL:
-    case rl::KEY_LEFT_ALT:
-    case rl::KEY_RIGHT_ALT:
-        return true;
-    default: 
-        return false;
-    }
-}
-
 // end_region
 
 <*
@@ -268,11 +160,6 @@ fn CInt stringToKey(String key_name)
 {
     return getKeyCodeFromStr(key_name);
 }
-
-alias KeysList @if(NEW_CODE_EXTENSIONS == 1) = List{CInt};
-alias MbtnList @if(NEW_CODE_EXTENSIONS == 1) = List{CInt};
-alias PADbtnList @if(NEW_CODE_EXTENSIONS == 1) = List{CInt};
-alias PADaxisList @if(NEW_CODE_EXTENSIONS == 1) = List{CInt};
 
 interface ActionInterface 
 {
@@ -295,21 +182,21 @@ struct Action (ActionInterface)
     String name;
 
     ActionKind kind;
-    InputCat cat @if(NEW_CODE_EXTENSIONS == 1);
-    InputId id @if(NEW_CODE_EXTENSIONS == 1);
+    InputCat cat @if($defined(NEW_CODE_EXTENSIONS) &&& NEW_CODE_EXTENSIONS == 1);
+    InputId id @if($defined(NEW_CODE_EXTENSIONS) &&& NEW_CODE_EXTENSIONS == 1);
     
     struct keyboard @packed {
         int key1;
         int key2;  // for alternative keys like alt, shift, ctrl, etc...
-        KeysList keys @if(NEW_CODE_EXTENSIONS == 1);
+        KeysList keys @if($defined(NEW_CODE_EXTENSIONS) &&& NEW_CODE_EXTENSIONS == 1);
     }
     struct mouse {
         RLMouseButton btn;
-        MbtnList btns @if(NEW_CODE_EXTENSIONS == 1);
+        MbtnList btns @if($defined(NEW_CODE_EXTENSIONS) &&& NEW_CODE_EXTENSIONS == 1);
     }
     struct gamepad {
         RLGamepadButton btn;
-        PADbtnList btns @if(NEW_CODE_EXTENSIONS == 1);
+        PADbtnList btns @if($defined(NEW_CODE_EXTENSIONS) &&& NEW_CODE_EXTENSIONS == 1);
         /*
         LEFT_X,           // Gamepad left stick X axis
         LEFT_Y,           // Gamepad left stick Y axis
@@ -319,7 +206,7 @@ struct Action (ActionInterface)
         RIGHT_TRIGGER     // Gamepad back trigger right, pressure level: [1..-1]
         */
         RLGamepadAxis   axis;
-        PADaxisList   _axis @if(NEW_CODE_EXTENSIONS == 1);
+        PADaxisList   _axis @if($defined(NEW_CODE_EXTENSIONS) &&& NEW_CODE_EXTENSIONS == 1);
     }
     //
     int gesture;  // for mobile phones (todo)
@@ -331,7 +218,7 @@ struct Action (ActionInterface)
 	bool isTriggered;
     //
 	bool triggerDown;
-    bool modifiable @if(NEW_CODE_EXTENSIONS == 1); // can be modified/binded a new by the player
+    bool modifiable @if($defined(NEW_CODE_EXTENSIONS) &&& NEW_CODE_EXTENSIONS == 1); // can be modified/binded a new by the player
 	double timeCount;
 }
 
@@ -356,7 +243,7 @@ fn bool Action.fnIsTriggered(&self) @dynamic @nodiscard
                 return true;
             }
 
-$if NEW_CODE_EXTENSIONS == 1:
+$if $defined(NEW_CODE_EXTENSIONS) &&& NEW_CODE_EXTENSIONS == 1:
             int key_count = (int)self.keyboard.keys.len();
             if(key_count > 1) {
                 bool sucess;
@@ -408,35 +295,6 @@ $endif
     return false;
 }
 
-fn void Action.addkey(&self, CInt key) @inline  @if(NEW_CODE_EXTENSIONS == 1)
-{
-    self.keyboard.keys.push(key);
-}
-
-fn void Action.addMouseBtn(&self, RLMouseButton btn) @inline  @if(NEW_CODE_EXTENSIONS == 1)
-{
-    self.mouse.btns.push(btn);
-}
-
-fn void Action.addPadBtn(&self, RLGamepadButton btn) @inline  @if(NEW_CODE_EXTENSIONS == 1)
-{
-    self.gamepad.btns.push(btn);
-}
-
-fn void Action.addPadAxis(&self, RLGamepadAxis axis) @inline  @if(NEW_CODE_EXTENSIONS == 1)
-{
-    self.gamepad._axis.push(axis);
-}
-
-fn bool isTriggerd(InputId id) @if(NEW_CODE_EXTENSIONS == 1)
-{
-    Action* action = getActionId(id);
-    if(action == null) { 
-        return false;
-    }
-    return action.fnIsTriggered();
-}
-
 /*
  * returns true if the action was just triggered, else false
  */
@@ -452,15 +310,6 @@ fn bool Action.wasTriggered(&self)
     return false;
 }
 
-fn bool wasTriggered(InputId id) @if(NEW_CODE_EXTENSIONS == 1)
-{
-    Action* action = getActionById(id);
-    if(action == null) { 
-        return false;
-    }
-    return action.wasTriggered();
-}
-
 /*
  * return true if the action just became triggered, else false
  */
@@ -472,15 +321,6 @@ fn bool Action.fnBecameTriggered(&self)
     }
 
     return false;
-}
-
-fn bool becameTriggered(InputId id) @if(NEW_CODE_EXTENSIONS == 1)
-{
-    Action* action = getActionById(id);
-    if(action == null) { 
-        return false;
-    }
-    return action.fnBecameTriggered();
 }
 
 /*
@@ -503,15 +343,6 @@ fn bool Action.fnDoubleTriggered(&self, float limit)
     }
 
     return false;
-}
-
-fn bool doubleTriggered(InputId id, float limit) @if(NEW_CODE_EXTENSIONS == 1)
-{
-    Action* action = getActionById(id);
-    if(action == null) { 
-        return false;
-    }
-    return action.fnDoubleTriggered(limit);
 }
 
 /*
@@ -1108,171 +939,6 @@ InputManager* manager = &local_manager;
 ////////////////////////////////////////////////////
 ///////////////////////////////////////////////////
 //////////////////////////////////////////////////
-fn void createAction(String name, InputId id) @if(NEW_CODE_EXTENSIONS == 1)
-{
-    InputDef* inp;
-    foreach(it : INPUT_LIST)
-    {
-        if(it.id == id) {
-            inp = &it;
-            break;
-        }
-    }
-
-    Action* action       = mem::new(Action);
-    action.type          = Action;
-    action.name          = name;
-    action.id            = id;
-    switch(inp.type)
-    {
-    case InputKind.KEYBOARD:
-        action.kind = ActionKind.KEYBOARD;
-    case InputKind.MOUSE:
-        action.kind = ActionKind.MOUSE;
-    case InputKind.GAMEPAD_LEFT_FACE_UP:
-    case InputKind.GAMEPAD_LEFT_FACE_RIGHT:
-    case InputKind.GAMEPAD_LEFT_FACE_DOWN:
-    case InputKind.GAMEPAD_LEFT_FACE_LEFT:
-    case InputKind.GAMEPAD_RIGHT_FACE_UP:
-    case InputKind.GAMEPAD_RIGHT_FACE_RIGHT:
-    case InputKind.GAMEPAD_RIGHT_FACE_DOWN:
-    case InputKind.GAMEPAD_RIGHT_FACE_LEFT:
-    case InputKind.GAMEPAD_LEFT_TRIGGER_1:
-    case InputKind.GAMEPAD_LEFT_TRIGGER_2:
-    case InputKind.GAMEPAD_RIGHT_TRIGGER_1:
-    case InputKind.GAMEPAD_RIGHT_TRIGGER_2:
-    case InputKind.GAMEPAD_MIDDLE_LEFT:
-    case InputKind.GAMEPAD_MIDDLE:
-    case InputKind.GAMEPAD_MIDDLE_RIGHT:
-    case InputKind.GAMEPAD_LEFT_THUMB:
-    case InputKind.GAMEPAD_RIGHT_THUMB:
-    case InputKind.GAMEPAD_LEFT_X:
-    case InputKind.GAMEPAD_LEFT_Y:
-    case InputKind.GAMEPAD_RIGHT_X:
-    case InputKind.GAMEPAD_RIGHT_Y:
-    case InputKind.GAMEPAD_LEFT_TRIGGER:
-    case InputKind.GAMEPAD_RIGHT_TRIGGER:
-        action.kind = ActionKind.GAMEPAD;
-    case InputKind.MOBILE:
-        action.kind = ActionKind.MOBILE;
-    }
-    action.timeCount     = -1.0;
-    local_manager.actions.push(action);
-}
-
-struct ActionDef @local @if(NEW_CODE_EXTENSIONS == 1)
-{	
-	String name;
-	int id;
-	bool configurable; // if can be rebinded
-	InputCat cat; // category of input ex: movement input
-}
-
-const ActionDef[*] ACTIONS_LIST @if(NEW_CODE_EXTENSIONS == 1)
-= {
-    {"Exit", InputId.EXIT, false, InputCat.SYSTEM},
-    {"ExitDirect", InputId.EXIT_DIRECT, false, InputCat.SYSTEM},
-    {"MoveScreenshots", InputId.SCREENSHOT, false, InputCat.SYSTEM},
-    {"PrintInfo", InputId.PRINT_INFO, false, InputCat.SYSTEM},
-    {"LeftClick", InputId.LEFT_CLICK, false, InputCat.SYSTEM},
-    {"RightClick", InputId.RIGHT_CLICK, false, InputCat.SYSTEM},
-    {"MiddleClick", InputId.MIDDLE_CLICK, false, InputCat.SYSTEM},
-    {"MouseButton4", InputId.MOUSE_BUTTON4_CLICK, false, InputCat.SYSTEM},
-    {"MouseButton5", InputId.MOUSE_BUTTON5_CLICK, false, InputCat.SYSTEM}
-};
-
-struct InputDef @packed @if(NEW_CODE_EXTENSIONS == 1)
-{
-    InputKind type;
-    CInt key;
-    InputId id;
-}
-
-const InputDef[*] INPUT_LIST @if(NEW_CODE_EXTENSIONS == 1)
-= {
-    {InputKind.KEYBOARD, rl::KEY_ESCAPE, InputId.EXIT},
-    {InputKind.KEYBOARD, rl::KEY_F10, InputId.EXIT_DIRECT},
-    {InputKind.KEYBOARD, rl::KEY_F12, InputId.SCREENSHOT},
-    {InputKind.KEYBOARD, rl::KEY_LEFT_SHIFT, InputId.SCREENSHOT},
-    {InputKind.KEYBOARD, rl::KEY_F8, InputId.PRINT_INFO},
-    {InputKind.MOUSE, RLMouseButton.LEFT, InputId.LEFT_CLICK},
-    {InputKind.MOUSE, RLMouseButton.RIGHT, InputId.RIGHT_CLICK},
-    {InputKind.MOUSE, RLMouseButton.MIDDLE, InputId.MIDDLE_CLICK},
-    {InputKind.MOUSE, RLMouseButton.SIDE, InputId.MOUSE_BUTTON4_CLICK},
-    {InputKind.MOUSE, RLMouseButton.EXTRA, InputId.MOUSE_BUTTON5_CLICK}
-};
-
-<*
-    adds input to a action depending on type of input
-    @param [&inout] action : "action to modify"
-    @param type : "what type of action/input done"
-    @param key : "the key/btn/axis pressed to give to the action"
-*>
-fn void bindInputToAction(Action *action, InputKind type, CInt key) @if(NEW_CODE_EXTENSIONS == 1)
-{
-    switch (type)
-    {
-    case InputKind.KEYBOARD:
-        action.addkey(key);
-    case InputKind.MOUSE:
-        action.addMouseBtn((RLMouseButton)key);
-	case GAMEPAD_LEFT_FACE_UP:
-    case GAMEPAD_LEFT_FACE_RIGHT:
-    case GAMEPAD_LEFT_FACE_DOWN:
-    case GAMEPAD_LEFT_FACE_LEFT:
-    case GAMEPAD_RIGHT_FACE_UP:
-    case GAMEPAD_RIGHT_FACE_RIGHT:
-    case GAMEPAD_RIGHT_FACE_DOWN:
-    case GAMEPAD_RIGHT_FACE_LEFT:
-    case GAMEPAD_LEFT_TRIGGER_1:
-    case GAMEPAD_LEFT_TRIGGER_2:
-    case GAMEPAD_RIGHT_TRIGGER_1:
-    case GAMEPAD_RIGHT_TRIGGER_2:
-    case GAMEPAD_MIDDLE_LEFT:
-    case GAMEPAD_MIDDLE:
-    case GAMEPAD_MIDDLE_RIGHT:
-    case GAMEPAD_LEFT_THUMB:  
-    case GAMEPAD_RIGHT_THUMB:      
-	{
-$if $feature(USE_GAMEPAD):
-		action.addPadBtn(key);
-$else
-    nextcase default;
-$endif
-	}
-    case GAMEPAD_LEFT_X:
-    case GAMEPAD_LEFT_Y:
-    case GAMEPAD_RIGHT_X:
-    case GAMEPAD_RIGHT_Y:
-    case GAMEPAD_LEFT_TRIGGER:
-    case GAMEPAD_RIGHT_TRIGGER:
-    {
-$if $feature(USE_GAMEPAD):
-        action.addPadAxis(key);
-$else
-    nextcase default;
-$endif
-    }
-    default:
-        unreachable();
-    }
-}
-
-fn void createActions() @if(NEW_CODE_EXTENSIONS == 1)
-{
-	//////////////////////////////////
-	// Loop through all defined actions and create them
-	foreach(action : ACTIONS_LIST) createAction(action.name, (InputId)action.id);
-
-	//////////////////////////////////
-	// Now loop through all defined inputs and bind them to the actions
-	foreach(input : INPUT_LIST)
-	{
-        Action *action = getActionById(input.id);
-		bindInputToAction(action, input.type, input.key);
-	}
-}
-
 <*
  @param [&in] action : "the action to register"
 *>
@@ -1302,11 +968,6 @@ fn Action* getAction(String name) @inline
     return getActionByName(name);
 }
 
-fn Action* getActionId(InputId id) @inline
-{
-    return getActionById(id);
-}
-
 <*
 	@param [in] name : "the name of the action to retrieve"
 	@require name != ""
@@ -1318,16 +979,6 @@ fn Action* getActionByName(String name) @inline @local @nodiscard
             return action;
         }
     }
-    return &NULL_ACTION;
-}
-
-fn Action* getActionById(InputId id) @nodiscard @if(NEW_CODE_EXTENSIONS == 1)
-{
-    foreach(action : local_manager.actions) 
-    {
-        if(action && action.id == id) return action;
-    }
-
     return &NULL_ACTION;
 }
 
@@ -1423,6 +1074,38 @@ fn void _unregister_action(InputManager* actdb, Action* action) @inline @local
 fn void InputManager.remove(&self, Action* action) @inline
 {
     _unregister_action(self, action);
+}
+
+fn void drawActiveActionsOnScreen(int screen_w, int screen_h)
+{
+    /*if(guieditor::enabled() || !in_dbg_actions.getBool()) return;
+   
+    const rl::RLColor* COLOR = &rl::YELLOW;
+    int x = (int)math::floor(0.01f*view.w);
+    int y = view.h;
+    
+	rl::@blendMode(RLBlendMode.ALPHA_PREMUL)
+	{
+		 if(self.actions.len())
+		{
+			foreach(act: self.actions)
+			{
+				rl::drawText(act., x, (int)math::floor(0.01f*y), SMALL_FONT_SIZE, *COLOR);
+			}
+		}
+    	rl::drawText(slot1, x, (int)math::floor(0.01f*y), SMALL_FONT_SIZE, *COLOR);
+    	rl::drawText(slot2, x, (int)math::floor(0.03f*y), SMALL_FONT_SIZE, *COLOR);
+    	rl::drawText(slot3, x, (int)math::floor(0.05f*y), SMALL_FONT_SIZE, *COLOR);
+    	rl::drawText(slot4, x, (int)math::floor(0.07f*y), SMALL_FONT_SIZE, *COLOR);
+    	rl::drawText(slot5, x, (int)math::floor(0.09f*y), SMALL_FONT_SIZE, *COLOR);
+    	rl::drawText(slot6, x, (int)math::floor(0.11f*y), SMALL_FONT_SIZE, *COLOR);
+    	rl::drawText(slot7, x, (int)math::floor(0.13f*y), SMALL_FONT_SIZE, *COLOR);
+    	rl::drawText(slot8, x, (int)math::floor(0.15f*y), SMALL_FONT_SIZE, *COLOR);
+    	rl::drawText(slot9, x, (int)math::floor(0.17f*y), SMALL_FONT_SIZE, *COLOR);
+    	rl::drawText(slot10, x, (int)math::floor(0.19f*y), SMALL_FONT_SIZE, *COLOR);
+    	rl::drawText(slot11, x, (int)math::floor(0.21f*y), SMALL_FONT_SIZE, *COLOR);
+    	rl::drawText(slot12, x, (int)math::floor(0.23f*y), SMALL_FONT_SIZE, *COLOR);
+	};*/
 }
 
 fn void InputManager.update(&self) 
@@ -1568,4 +1251,354 @@ fn void quitGame() {
 }
 // endregion
 
+module engine::input @if($defined(NEW_CODE_EXTENSIONS));
 
+alias KeysList    = List{CInt};
+alias MbtnList    = List{CInt};
+alias PADbtnList  = List{CInt};
+alias PADaxisList = List{CInt};
+
+constdef InputKind : inline int
+{
+    KEYBOARD = 1,
+    MOUSE,
+    // btn
+    GAMEPAD_LEFT_FACE_UP,        // Gamepad left DPAD up button
+    GAMEPAD_LEFT_FACE_RIGHT,     // Gamepad left DPAD right button
+    GAMEPAD_LEFT_FACE_DOWN,      // Gamepad left DPAD down button
+    GAMEPAD_LEFT_FACE_LEFT,      // Gamepad left DPAD left button
+    GAMEPAD_RIGHT_FACE_UP,       // Gamepad right button up (i.e. PS3: Triangle, Xbox: Y)
+    GAMEPAD_RIGHT_FACE_RIGHT,    // Gamepad right button right (i.e. PS3: Square, Xbox: X)
+    GAMEPAD_RIGHT_FACE_DOWN,     // Gamepad right button down (i.e. PS3: Cross, Xbox: A)
+    GAMEPAD_RIGHT_FACE_LEFT,     // Gamepad right button left (i.e. PS3: Circle, Xbox: B)
+    GAMEPAD_LEFT_TRIGGER_1,      // Gamepad top/back trigger left (first), it could be a trailing button
+    GAMEPAD_LEFT_TRIGGER_2,      // Gamepad top/back trigger left (second), it could be a trailing button
+    GAMEPAD_RIGHT_TRIGGER_1,     // Gamepad top/back trigger right (one), it could be a trailing button
+    GAMEPAD_RIGHT_TRIGGER_2,     // Gamepad top/back trigger right (second), it could be a trailing button
+    GAMEPAD_MIDDLE_LEFT,         // Gamepad center buttons, left one (i.e. PS3: Select)
+    GAMEPAD_MIDDLE,              // Gamepad center buttons, middle one (i.e. PS3: PS, Xbox: XBOX)
+    GAMEPAD_MIDDLE_RIGHT,        // Gamepad center buttons, right one (i.e. PS3: Start)
+    GAMEPAD_LEFT_THUMB,          // Gamepad joystick pressed button left
+    GAMEPAD_RIGHT_THUMB,         // Gamepad joystick pressed button right
+    // axis
+    GAMEPAD_LEFT_X,              // Gamepad left stick X axis
+    GAMEPAD_LEFT_Y,              // Gamepad left stick Y axis
+    GAMEPAD_RIGHT_X,             // Gamepad right stick X axis
+    GAMEPAD_RIGHT_Y,             // Gamepad right stick Y axis
+    GAMEPAD_LEFT_TRIGGER,        // Gamepad back trigger left, pressure level: [1..-1]
+    GAMEPAD_RIGHT_TRIGGER,       // Gamepad back trigger right, pressure level: [1..-1]
+    MOBILE
+}
+
+constdef InputCat : inline int
+{
+    UNKNOWN = 0,
+    SYSTEM,
+    MISC,
+    MOVEMENT,
+    ACTION
+}
+
+constdef InputId : inline int
+{
+	EXIT = 1,
+	EXIT_DIRECT,
+	SCREENSHOT,
+	PRINT_INFO,
+
+	LEFT_CLICK,
+	RIGHT_CLICK,
+	MIDDLE_CLICK,
+	MOUSE_BUTTON4_CLICK,
+	MOUSE_BUTTON5_CLICK,
+	MOUSE_BUTTON6_CLICK,
+	MOUSE_BUTTON7_CLICK,
+	SCROLLUP,
+	SCROLLDOWN,
+
+	UI_ARROWUP,
+	UI_ARROWDOWN,
+	UI_ARROWLEFT,
+	UI_ARROWRIGHT,
+
+	UI_PRIMARY,
+	UI_SECONDARY,
+	UI_PREVPAGE,
+	UI_NEXTPAGE,
+	UI_DELETE,
+	UI_CLEAR,
+
+	OPEN_DEBUG,
+	RELOAD_MAP,
+	QUICKSAVE,
+	QUICKLOAD,
+
+	RECENT_TEXT,
+	CROSSHAIR_TOGGLE,
+
+	FORWARD,
+	BACKWARD,
+	RIGHT,
+	LEFT,
+
+	ATTACK,
+	INTERACT,
+	ROTATE,
+	LANTERN,
+
+	RUN,
+	JUMP,
+	CROUCH
+}
+
+macro isValidModifier(CInt key)
+{
+    switch (key)
+    {
+    case rl::KEY_LEFT_SHIFT:
+    case rl::KEY_RIGHT_SHIFT:
+    case rl::KEY_LEFT_CONTROL:
+    case rl::KEY_RIGHT_CONTROL:
+    case rl::KEY_LEFT_ALT:
+    case rl::KEY_RIGHT_ALT:
+        return true;
+    default: 
+        return false;
+    }
+}
+
+fn void Action.addkey(&self, CInt key) @inline
+{
+    self.keyboard.keys.push(key);
+}
+
+fn void Action.addMouseBtn(&self, RLMouseButton btn) @inline
+{
+    self.mouse.btns.push(btn);
+}
+
+fn void Action.addPadBtn(&self, RLGamepadButton btn) @inline
+{
+    self.gamepad.btns.push(btn);
+}
+
+fn void Action.addPadAxis(&self, RLGamepadAxis axis) @inline
+{
+    self.gamepad._axis.push(axis);
+}
+
+fn bool isTriggerd(InputId id)
+{
+    Action* action = getActionId(id);
+    if(action == null) { 
+        return false;
+    }
+    return action.fnIsTriggered();
+}
+
+fn bool wasTriggered(InputId id)
+{
+    Action* action = getActionById(id);
+    if(action == null) { 
+        return false;
+    }
+    return action.wasTriggered();
+}
+
+fn bool becameTriggered(InputId id)
+{
+    Action* action = getActionById(id);
+    if(action == null) { 
+        return false;
+    }
+    return action.fnBecameTriggered();
+}
+
+fn bool doubleTriggered(InputId id, float limit)
+{
+    Action* action = getActionById(id);
+    if(action == null) { 
+        return false;
+    }
+    return action.fnDoubleTriggered(limit);
+}
+
+fn Action* getActionById(InputId id) @nodiscard
+{
+    foreach(action : local_manager.actions) 
+    {
+        if(action && action.id == id) return action;
+    }
+
+    return &NULL_ACTION;
+}
+
+fn Action* getActionId(InputId id) @inline
+{
+    return getActionById(id);
+}
+
+fn void createActions()
+{
+	//////////////////////////////////
+	// Loop through all defined actions and create them
+	foreach(action : ACTIONS_LIST) createAction(action.name, (InputId)action.id);
+
+	//////////////////////////////////
+	// Now loop through all defined inputs and bind them to the actions
+	foreach(input : INPUT_LIST)
+	{
+        Action *action = getActionById(input.id);
+		bindInputToAction(action, input.type, input.key);
+	}
+}
+
+<*
+    adds input to a action depending on type of input
+    @param [&inout] action : "action to modify"
+    @param type : "what type of action/input done"
+    @param key : "the key/btn/axis pressed to give to the action"
+*>
+fn void bindInputToAction(Action *action, InputKind type, CInt key)
+{
+    switch (type)
+    {
+    case InputKind.KEYBOARD:
+        action.addkey(key);
+    case InputKind.MOUSE:
+        action.addMouseBtn((RLMouseButton)key);
+	case GAMEPAD_LEFT_FACE_UP:
+    case GAMEPAD_LEFT_FACE_RIGHT:
+    case GAMEPAD_LEFT_FACE_DOWN:
+    case GAMEPAD_LEFT_FACE_LEFT:
+    case GAMEPAD_RIGHT_FACE_UP:
+    case GAMEPAD_RIGHT_FACE_RIGHT:
+    case GAMEPAD_RIGHT_FACE_DOWN:
+    case GAMEPAD_RIGHT_FACE_LEFT:
+    case GAMEPAD_LEFT_TRIGGER_1:
+    case GAMEPAD_LEFT_TRIGGER_2:
+    case GAMEPAD_RIGHT_TRIGGER_1:
+    case GAMEPAD_RIGHT_TRIGGER_2:
+    case GAMEPAD_MIDDLE_LEFT:
+    case GAMEPAD_MIDDLE:
+    case GAMEPAD_MIDDLE_RIGHT:
+    case GAMEPAD_LEFT_THUMB:  
+    case GAMEPAD_RIGHT_THUMB:      
+	{
+$if $feature(USE_GAMEPAD):
+		action.addPadBtn(key);
+$else
+    nextcase default;
+$endif
+	}
+    case GAMEPAD_LEFT_X:
+    case GAMEPAD_LEFT_Y:
+    case GAMEPAD_RIGHT_X:
+    case GAMEPAD_RIGHT_Y:
+    case GAMEPAD_LEFT_TRIGGER:
+    case GAMEPAD_RIGHT_TRIGGER:
+    {
+$if $feature(USE_GAMEPAD):
+        action.addPadAxis(key);
+$else
+    nextcase default;
+$endif
+    }
+    default:
+        unreachable();
+    }
+}
+
+fn void createAction(String name, InputId id)
+{
+    InputDef* inp;
+    foreach(it : INPUT_LIST)
+    {
+        if(it.id == id) {
+            inp = &it;
+            break;
+        }
+    }
+
+    Action* action       = mem::new(Action);
+    action.type          = Action;
+    action.name          = name;
+    action.id            = id;
+    switch(inp.type)
+    {
+    case InputKind.KEYBOARD:
+        action.kind = ActionKind.KEYBOARD;
+    case InputKind.MOUSE:
+        action.kind = ActionKind.MOUSE;
+    case InputKind.GAMEPAD_LEFT_FACE_UP:
+    case InputKind.GAMEPAD_LEFT_FACE_RIGHT:
+    case InputKind.GAMEPAD_LEFT_FACE_DOWN:
+    case InputKind.GAMEPAD_LEFT_FACE_LEFT:
+    case InputKind.GAMEPAD_RIGHT_FACE_UP:
+    case InputKind.GAMEPAD_RIGHT_FACE_RIGHT:
+    case InputKind.GAMEPAD_RIGHT_FACE_DOWN:
+    case InputKind.GAMEPAD_RIGHT_FACE_LEFT:
+    case InputKind.GAMEPAD_LEFT_TRIGGER_1:
+    case InputKind.GAMEPAD_LEFT_TRIGGER_2:
+    case InputKind.GAMEPAD_RIGHT_TRIGGER_1:
+    case InputKind.GAMEPAD_RIGHT_TRIGGER_2:
+    case InputKind.GAMEPAD_MIDDLE_LEFT:
+    case InputKind.GAMEPAD_MIDDLE:
+    case InputKind.GAMEPAD_MIDDLE_RIGHT:
+    case InputKind.GAMEPAD_LEFT_THUMB:
+    case InputKind.GAMEPAD_RIGHT_THUMB:
+    case InputKind.GAMEPAD_LEFT_X:
+    case InputKind.GAMEPAD_LEFT_Y:
+    case InputKind.GAMEPAD_RIGHT_X:
+    case InputKind.GAMEPAD_RIGHT_Y:
+    case InputKind.GAMEPAD_LEFT_TRIGGER:
+    case InputKind.GAMEPAD_RIGHT_TRIGGER:
+        action.kind = ActionKind.GAMEPAD;
+    case InputKind.MOBILE:
+        action.kind = ActionKind.MOBILE;
+    }
+    action.timeCount     = -1.0;
+    local_manager.actions.push(action);
+}
+
+struct ActionDef @local
+{	
+	String name;
+	int id;
+	bool configurable; // if can be rebinded
+	InputCat cat; // category of input ex: movement input
+}
+
+const ActionDef[*] ACTIONS_LIST
+= {
+    {"Exit", InputId.EXIT, false, InputCat.SYSTEM},
+    {"ExitDirect", InputId.EXIT_DIRECT, false, InputCat.SYSTEM},
+    {"MoveScreenshots", InputId.SCREENSHOT, false, InputCat.SYSTEM},
+    {"PrintInfo", InputId.PRINT_INFO, false, InputCat.SYSTEM},
+    {"LeftClick", InputId.LEFT_CLICK, false, InputCat.SYSTEM},
+    {"RightClick", InputId.RIGHT_CLICK, false, InputCat.SYSTEM},
+    {"MiddleClick", InputId.MIDDLE_CLICK, false, InputCat.SYSTEM},
+    {"MouseButton4", InputId.MOUSE_BUTTON4_CLICK, false, InputCat.SYSTEM},
+    {"MouseButton5", InputId.MOUSE_BUTTON5_CLICK, false, InputCat.SYSTEM}
+};
+
+struct InputDef @packed
+{
+    InputKind type;
+    CInt key;
+    InputId id;
+}
+
+const InputDef[*] INPUT_LIST
+= {
+    {InputKind.KEYBOARD, rl::KEY_ESCAPE, InputId.EXIT},
+    {InputKind.KEYBOARD, rl::KEY_F10, InputId.EXIT_DIRECT},
+    {InputKind.KEYBOARD, rl::KEY_F12, InputId.SCREENSHOT},
+    {InputKind.KEYBOARD, rl::KEY_LEFT_SHIFT, InputId.SCREENSHOT},
+    {InputKind.KEYBOARD, rl::KEY_F8, InputId.PRINT_INFO},
+    {InputKind.MOUSE, RLMouseButton.LEFT, InputId.LEFT_CLICK},
+    {InputKind.MOUSE, RLMouseButton.RIGHT, InputId.RIGHT_CLICK},
+    {InputKind.MOUSE, RLMouseButton.MIDDLE, InputId.MIDDLE_CLICK},
+    {InputKind.MOUSE, RLMouseButton.SIDE, InputId.MOUSE_BUTTON4_CLICK},
+    {InputKind.MOUSE, RLMouseButton.EXTRA, InputId.MOUSE_BUTTON5_CLICK}
+};

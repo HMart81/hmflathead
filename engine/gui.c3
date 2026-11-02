@@ -65,12 +65,14 @@ import thirdparty::raylib5::rl;
 import thirdparty::raygui5::rgui;
 import thirdparty::raylib5::rlgl;
 import engine::sys::render2d::r2d; // 2D rendering
+import engine::sys::framework::soundbkd;
+import engine::tools::editor;
 // end_region
 
 // region cvars
 CVar ui_debugDraw   @public = { "ui_debugDraw",   CvFlag.BOOL | CvFlag.TOOL, "1", "show debug visualization for gui development, 0, 1, true, false" };
 CVar ui_editGui     @public = { "ui_editGui",     CvFlag.BOOL | CvFlag.TOOL, "0", "turn on gui editing functionality for gui development, 0, 1, true, false" };
-CVar ui_showAnchors @public = { "ui_showAnchors", CvFlag.BOOL | CvFlag.TOOL, "1", "toggles the view of the anchor points on each gui widget, requires ui_debugDraw to be on as well." };
+CVar ui_showAnchors @public = { "ui_showAnchors", CvFlag.BOOL | CvFlag.TOOL, "0", "toggles the view of the anchor points on each gui widget, requires ui_debugDraw to be on as well." };
 
 fn void register_cvars() @public 
 {
@@ -103,12 +105,12 @@ alias AnchorArray = GuiAnchor[ANCHOR_COUNT];
 <*
 	init anchor points
 	@param rect : "the rect to tell the anchors spreed distance"
-	@param  origin : "initial origion for the first anchor"
 	@require rect != rl::EMPTY_RECT
 *>
-fn AnchorArray initAnchors(RLRectangle rect, Vec2f origin)
+fn AnchorArray initAnchors(RLRectangle rect)
 {
     // init the anchors to attach stuff in guis
+	Vec2f origin = rect.pos;
 	AnchorArray anchors;
 	anchors[AnchorID.TOP_LEFT]      = (GuiAnchor)origin + {0, 0};
     anchors[AnchorID.TOP_CENTER]    = (GuiAnchor)origin + {rect.w / 2, 0};
@@ -217,7 +219,7 @@ struct GUIRect (SaveSystemInterface)
     inline RLRectangle rect; // x, y, width, height
 
     GUIRectFlags flags;
-	// todo use to this bounds?
+	// TODO(HM) use this bounds?
     //Bounds bounds;
 	AnchorList anchor;
 	RLColor original_color; // to return to in case the bellow one is changed
@@ -256,14 +258,14 @@ fn void GUIRect.reload(&self, SaveFile* file) @dynamic
     if(mat_name != "") self.mat = mtrmng::getMaterial(mat_name);
 }
 
-fn void GUIRect.initRec(&self, RLRectangle rect, RLColor color) @inline
+fn void GUIRect.initRec(&self, RLRectangle rect, RLColor color)
 {
-    self.pos = rect.pos;
-    self.size = rect.size;
+    self.pos   = rect.pos;
+    self.size  = rect.size;
+    self.color = color;
 	self.original_color = color;
-    self.color = self.original_color;
 	self.anchor.reserve(ANCHOR_COUNT);
-	self.anchor.init_with_array(mem, initAnchors(self.rect, self.pos)[..]);
+	self.anchor.init_with_array(mem, initAnchors(self.rect)[..]);
 }
 
 fn void GUIRect.initV(&self, Vec2f pos, Vec2f size, RLColor color) @inline
@@ -537,7 +539,8 @@ fn bool GUIRect.active_visible_infocus(&self) @inline
 //    If so it will require conversion from world space coordinates to camera space.
 fn bool GUIRect.isMouseOver(&self)
 {
-    if (!self.active() || self.hidden() || guieditor::as_focus() || game::pContext.showMessageBox) {
+    if (!self.active() || self.hidden() || guieditor::as_focus() || game::pContext.showMessageBox)
+	{
 		return false;
 	}
 
@@ -552,19 +555,45 @@ fn bool GUIRect.isMouseOver(&self)
 	return false;
 }
 
+fn void GUIRect.setFocus(&self, bool choice)
+{
+	self.flags.inFocus = choice;
+}
+
 fn bool GUIRect.asFocus(&self)  @inline => self.flags.inFocus;
 fn bool GUIRect.isHot(&self)  @inline => self.flags.isHot;
 
+fn bool GUIRect.can_be_interacted(self)
+{
+	return (self.isHot() && self.active() && self.asFocus());
+}
+
+fn bool GUIRect.cannot_be_interacted(self)
+{
+	return !self.can_be_interacted();
+}
+
 fn void GUIRect.update(&self) 
 {
-    if((guieditor::enabled() && guieditor::as_focus()) || game::pContext.show_microui_test_frames)
+    if((guieditor::enabled() && guieditor::as_focus()) ||
+ 	   // if we enabled the microui test windows set focus to them 
+	    game::pContext.show_microui_test_frames)
     {
        return; // do not update GUIRects when in editor mode
     }
 
-    if(!self.active() || self.hidden()) return;
+    if(self.hidden()) return;
 
     self.flags.isHot = self.isMouseOver();
+
+	if(self.isHot() && self.active())
+	{
+		self.setFocus(true);
+	}
+	else if(self.isHot() && !self.active())
+	{
+		self.setFocus(false);
+	}
 }
 
 fn void GUIRect.draw(&self, bool selected = false)
@@ -685,6 +714,13 @@ fn void GUIRect.draw(&self, bool selected = false)
     }
 }
 
+//////////////////// Name prefixes ///////////////////
+const GUIWIDGET_NAME_PREFIX   = "GUIWidget_";
+const GUILABEL_NAME_PREFIX    = "GUILabel_";
+const GUIBUTTON_NAME_PREFIX   = "GUIButton_";
+const GUICHECKBOX_NAME_PREFIX = "GUICheckBox_";
+const GUIWIN_NAME_PREFIX      = "GUIWindow_";
+
 //////////////// ******** WIDGET'S STRUCTS ******** ////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////// Widgets ////////////////////////////////////////////////////
@@ -698,7 +734,7 @@ const KIND_BUTTON    = 3;
 const KIND_CONTAINER = 4;
 const KIND_CHECKBOX  = 5;
 
-alias WidgetCallback = fn void(any);
+alias GUIWidgetCallback = fn void(any);
 alias GUIWidgetList  = List{GUIWidget*};
 
 interface WidgetInterface
@@ -710,9 +746,9 @@ interface WidgetInterface
     fn void draw();
     fn bool isWithinScreenBounds() @optional;
     fn bool isInWidget(int x, int y) @optional;
-    fn void addTo(UIWindow*);
+    fn void addTo(GUIWindow*);
     //fn void addToFrame(Frame*) @optional;
-    fn UIWindow* getParentWindow();
+    fn GUIWindow* getParentWindow();
     fn void bindTo(GUIWidget* other);
     fn bool bound();
     fn void unbind();
@@ -720,9 +756,9 @@ interface WidgetInterface
     fn bool isLinked();
     fn void unlink();
     fn bool hasParentUIWindow() @optional;
-    fn void setParentUIWindow(UIWindow*) @optional;
+    fn void setParentUIWindow(GUIWindow*) @optional;
     fn void releaseParentUIWindow() @optional;
-    fn void connect(WidgetCallback) @optional;
+    fn void connect(GUIWidgetCallback) @optional;
 //
     /*fn bool onMouseOver(int x, int y) @optional;
     fn bool onMouseStopOver() @optional;
@@ -745,7 +781,7 @@ struct GUIWidget (WidgetInterface, SaveSystemInterface, Printable)
     
     int kind;
 
-    UIWindow* parent_window;
+    GUIWindow* parent_window;
     // For binding. One single binding for now, 
 	// in the future we may have multiple bindings, 
 	// if I come up with a good system for that...
@@ -754,15 +790,15 @@ struct GUIWidget (WidgetInterface, SaveSystemInterface, Printable)
     GUIWidget* next; // for linked list of widgets
 
     // callbacks (function pointers...)
-    WidgetCallback onOver; // called when the mouse is over the widget
-    WidgetCallback onStopOver;
-    WidgetCallback onPress;
-    WidgetCallback onPressed;
-    WidgetCallback onSinglePress;
-    WidgetCallback onDoublePress;
-    WidgetCallback onRelease;
-    WidgetCallback onEnterKey; // called when the enter key is pressed while the widget is focused
-    WidgetCallback onLoad;   // called when the widget is loaded
+    GUIWidgetCallback onOver; // called when the mouse is over the widget
+    GUIWidgetCallback onStopOver;
+    GUIWidgetCallback onPress;
+    GUIWidgetCallback onPressed;
+    GUIWidgetCallback onSinglePress;
+    GUIWidgetCallback onDoublePress;
+    GUIWidgetCallback onRelease;
+    GUIWidgetCallback onEnterKey; // called when the enter key is pressed while the widget is focused
+    GUIWidgetCallback onLoad;   // called when the widget is loaded
 }
 
 fn void GUIWidget.save(&self, SaveFile* file) @dynamic 
@@ -795,6 +831,7 @@ fn void GUIWidget.init(&self) @dynamic
 {
     self.super.init();
     self.kind = KIND_WIDGET;
+	self.name = GUIWIDGET_NAME_PREFIX;
 }
 
 fn void GUIWidget.deinit(&self) @dynamic
@@ -824,23 +861,30 @@ fn void GUIWidget.editor_interactions(&self)
 
 fn void GUIWidget.update(&self) @dynamic 
 {
-    // if we are bound to a parent widget, we need to update our position each frame
-    // to be always relative to the parent origin.
-    // NOTE(HM) This is done even if we are hidden or deactivated.
+    // NOTE(HM) if we are bound to another widget, 
+	// we need to update our position even if hidden or 
+	// interaction deactivated, this is so we are always 
+	// kept relative to the parent origin each frame.
     if(self.bound())
     {
         Vec2f parent_origin = self.other.getPosition();
-        // WTF? Why do we need to add the parent pos and then 
-        // remove it again for this to work?!
-        Vec2f new_offset    = (self.getPosition() + parent_origin) - parent_origin;
+        // first calculate the walking distance from our current position 
+		// to the current parent position
+		Vec2f new_offset = self.getPosition() + parent_origin;
+		// and after that remove from the previous calculation the parent
+		// position so we keep the offset from it that we want. 
+        new_offset -= parent_origin;
         //
         self.setPositionV(new_offset);
     }
 
-    self.super.update(); // mouse over is done in super update
+    self.super.update(); // mouse over is done GUIRect update
 
-    if((guieditor::enabled() && guieditor::as_focus()) || game::pContext.show_microui_test_frames) { return; }
-    else if (!self.active() || self.hidden()) { return; }
+    if(self.hidden() || (guieditor::enabled() && guieditor::as_focus()) || 
+	   game::pContext.show_microui_test_frames || self.cannot_be_interacted())
+	{ 
+		return;
+	}
 
     if(guieditor::enabled())
     {
@@ -938,7 +982,7 @@ fn void GUIWidget.draw(&self) @dynamic
     {
         case KIND_TEXT:
             // draw text label
-            WidgetText* this = (WidgetText*)self;
+            GUIWidgetLabel* this = (GUIWidgetLabel*)self;
             ZString text = this.text.zstr_tcopy();
             if(text.len() > 0) 
             {
@@ -1035,7 +1079,7 @@ fn bool GUIWidget.isWithinCoords(&self, int x, int y) @dynamic
  @param [in] window : "parent window"
  @require window != null
 *>
-fn void GUIWidget.addTo(&self, UIWindow* window) @dynamic 
+fn void GUIWidget.addTo(&self, GUIWindow* window) @dynamic 
 {
     self.setParentUIWindow(window);
 	defer self.parent_window.addChildWidget(self);
@@ -1064,7 +1108,7 @@ fn void GUIWidget.addTo(&self, UIWindow* window) @dynamic
 <*
  @ensure return != null
 *>
-fn UIWindow* GUIWidget.getParentWindow(&self) @dynamic => self.parent_window;
+fn GUIWindow* GUIWidget.getParentWindow(&self) @dynamic => self.parent_window;
 
 <*
  @param [in] other : "other widget to bind to"
@@ -1127,7 +1171,7 @@ fn bool GUIWidget.hasParentUIWindow(&self) @inline @dynamic
     return (self.parent_window != null) ? true : false;
 }
 
-fn void GUIWidget.setParentUIWindow(&self, UIWindow* window) @inline @dynamic
+fn void GUIWidget.setParentUIWindow(&self, GUIWindow* window) @inline @dynamic
 {
     self.parent_window = window;
 }
@@ -1143,12 +1187,10 @@ fn void GUIWidget.select(&self) @inline => self.flags.selected = true;
 fn void GUIWidget.deselect(&self) @inline => self.flags.selected = false;
 fn bool GUIWidget.isSelected(&self) @inline => self.flags.selected;
 
-fn void GUIWidget.setFocus(&self, bool choice)
-{
-	self.flags.inFocus = choice;
-}
-
 /////////////////////////////////////// extra widgets //////////////////////////////////////////////////////
+
+const WIDGET_TEXT_SPACING = 2.0f; // @hardcode
+const WIDGET_TEXT_DEFAULT_SIZE = 20; // @hardcode
 
 enum TextAlign
 {
@@ -1157,40 +1199,39 @@ enum TextAlign
     RIGHT,
 }
 
-struct WidgetText 
+struct GUIWidgetLabel 
 {
     inline GUIWidgetButton super;
 
     RLFont* font;
     int font_size;
     String text;
-    int text_len;
     TextAlign align;
+    int text_len;
     float spacing; // spacing between characters, used for text rendering
 }
 
 
-fn void WidgetText.init(&self) 
+fn void GUIWidgetLabel.init(&self) 
 {
     self.super.init();
-    self.super.hide(); // don't show the square shape
+    self.super.hide(); // don't draw our square shape
     self.kind = KIND_TEXT;
-	self.name = "TextLabel"; // @hardcode
-    self.color = rl::CTRANSPARENT; // invisible color for the panel shape
-    self.spacing    = 2.0f; //@hardcode, todo make this int a cvar
-    self.font_size  = 20; //@hardcode
-    self.setDefaultColor(rl::WHITE); //@hardcode
+	self.name = GUILABEL_NAME_PREFIX; // Initial default name @hardcode
+    self.setDefaultColor(rl::BLACK); //@hardcode
+	self.deactivate(); // lables aren't clicable by default unlike buttons
+    self.spacing    = WIDGET_TEXT_SPACING;
+    self.font_size  = WIDGET_TEXT_DEFAULT_SIZE; 
     self.align      = TextAlign.CENTER;
 }
 
-fn void WidgetText.deinit(&self) @inline 
+fn void GUIWidgetLabel.deinit(&self) @inline 
 {
     self.super.deinit();
     if(self.font) {
-        // NOTE(HM) we don't deinit the font here, as it is done through the game singleton 
-        // at game shutdown and they can also be shared between widgets.
-        // rl::unloadFont(*self.font); // this will crash the game if the font is used by other widgets
-        // so we just set it to null, and again the font will be deinitialized when the game closes.
+        // NOTE(HM) we don't deinit the font here, 
+		// it is done by the main game singleton at game shutdown,
+		// fonts can and are also shared between widgets, so it would cause issues removed.
         self.font = null;
     }
 }
@@ -1199,16 +1240,13 @@ fn void WidgetText.deinit(&self) @inline
 	Updates the bounds of the text widget based on the current text and font.
 	@require self.text != ""
 *>
-fn void WidgetText.updateBounds(&self)
+fn void GUIWidgetLabel.updateBounds(&self)
 {
-	// if custom font is set use it to measure text bounds
-    if(self.font != null) {
-        RLVector2 bounds = rl::measureTextEx(*self.font, self.text.zstr_tcopy(), (float)self.font_size, self.spacing);
-        /*int txt_len = rl::measureText(self.text.zstr_tcopy(), self.font_size);
-        if(txt_len > bounds.x) {
-            bounds.x = (float)txt_len; // make sure the bounds are at least as wide as the text
-        }*/
-        self.text_len = (int)bounds.x;
+	// if using custom font, use it to measure text bounds
+    if(self.font != null)
+	{
+        Vec2f bounds = rl::measureTextEx(*self.font, self.text.zstr_tcopy(), (float)self.font_size, self.spacing);
+        self.text_len = (int)bounds.x; // saved to be used later if needed.
         self.setSize(bounds.x, bounds.y);
     } else { // use default font
         self.text_len = rl::measureText(self.text.zstr_tcopy(), self.font_size);
@@ -1219,7 +1257,7 @@ fn void WidgetText.updateBounds(&self)
 <*
     @ensure return != VEC2_ZERO
 *>
-fn Vec2f WidgetText.getBounds(&self) @inline 
+fn Vec2f GUIWidgetLabel.getBounds(&self) @inline 
 {
     // returns the bounds of the text, not the widget itself
     return { (float)self.text_len, (float)self.font_size };
@@ -1228,7 +1266,7 @@ fn Vec2f WidgetText.getBounds(&self) @inline
 <*
 	@param [&in] font : "font to set"
 *>
-fn void WidgetText.setFont(&self, RLFont* font) @inline 
+fn void GUIWidgetLabel.setFont(&self, RLFont* font) @inline 
 {
     self.font = font;
     self.updateBounds();
@@ -1238,7 +1276,7 @@ fn void WidgetText.setFont(&self, RLFont* font) @inline
     @param [in] text : "the text being set"
     @require text.len > 0
 *>
-fn void WidgetText.setText(&self, String text) @inline
+fn void GUIWidgetLabel.setText(&self, String text) @inline
 {
     self.text = text;
     self.updateBounds();
@@ -1247,17 +1285,17 @@ fn void WidgetText.setText(&self, String text) @inline
 <*
     @ensure return > 0
 *>
-fn float WidgetText.textlen(&self) @inline 
+fn float GUIWidgetLabel.textlen(&self) @inline 
 {
     return self.text_len;
 }
 
-fn void WidgetText.setTextColor(&self, RLColor color) @inline 
+fn void GUIWidgetLabel.setTextColor(&self, RLColor color) @inline 
 {
-    self.color = color;
+    self.setDefaultColor(color);
 }
 
-fn void WidgetText.setAlign(&self, TextAlign align) @inline 
+fn void GUIWidgetLabel.setAlign(&self, TextAlign align) @inline 
 {
     self.align = align;
 }
@@ -1266,18 +1304,18 @@ fn void WidgetText.setAlign(&self, TextAlign align) @inline
     @param size : "how big is the text"
     @require size > 0
 *>
-fn void WidgetText.setFontSize(&self, uint size) @inline 
+fn void GUIWidgetLabel.setFontSize(&self, uint size) @inline 
 {
     self.font_size = (int)size;
     self.updateBounds();
 }
 
-fn void WidgetText.update(&self) 
+fn void GUIWidgetLabel.update(&self) 
 {
     self.super.update();
 }
 
-fn void WidgetText.draw(&self) //@inline 
+fn void GUIWidgetLabel.draw(&self)
 {
     self.super.draw();
 }
@@ -1295,7 +1333,7 @@ fn void WidgetText.draw(&self) //@inline
 	@param text_color : "color of the text"
 	@param [&inout] uiwin : "window to add the label to"
 *>
-fn void init_label(WidgetText* label, String text, RLFont* font, int font_size, RLColor text_color, UIWindow* uiwin) @inline 
+fn void init_label(GUIWidgetLabel* label, String text, RLFont* font, int font_size, RLColor text_color, GUIWindow* uiwin) 
 {
 	label.init();
 	int labels_count = uiwin.getChildWidgetCount(KIND_TEXT);
@@ -1320,7 +1358,7 @@ fn void init_label(WidgetText* label, String text, RLFont* font, int font_size, 
 // NOTE(HM) Button is a widget that can be pressed, 
 // it has a default color and a sound that plays when pressed.
 
-struct GUIWidgetButton 
+struct GUIWidgetButton
 {
     // extends GUIWidget (super/base class)
     inline GUIWidget super;
@@ -1333,13 +1371,14 @@ struct GUIWidgetButton
     RLSound* interaction_sound;
 }
 
-fn void GUIWidgetButton.init(&self) @inline
+fn void GUIWidgetButton.init(&self)
 {
     self.super.init();
 	self.kind = KIND_BUTTON;
-    self.name = "Button";
+    self.name = GUIBUTTON_NAME_PREFIX;
     self.setDefaultColor(rl::WHITE); //@hardcode
     self.setSound(&game::pContext.default_sound); //@hardcode, todo give this a better sound
+	self.activate(); // make the button clicable
 }
 
 fn void GUIWidgetButton.deinit(&self) @inline 
@@ -1351,6 +1390,7 @@ fn void GUIWidgetButton.deinit(&self) @inline
 fn void GUIWidgetButton.setDefaultColor(&self, RLColor color) @inline 
 {
 	self.original_color = color;
+	// default uses the color set above
     self.setColor(GUIActionColor.DEFAULT);
 }
 
@@ -1446,11 +1486,11 @@ fn void GUIWidgetButton.manage_interactions(&self)
                 }
             }
             
-            if (Action* action = input::getAction("mouse_single_press"))
+            if (input::getAction("mouse_single_press").fnBecameTriggered())
             {
-                if (action.fnBecameTriggered() && self.onSinglePress) { 
-                    self.onSinglePress(widget); 
-                }
+                if(self.onSinglePress) {
+					self.onSinglePress(widget);
+				}
             }
 
             if (rl::isMouseButtonReleased(RLMouseButton.LEFT))
@@ -1517,7 +1557,7 @@ fn void GUIWidgetCheckBox.init(&self) @inline
 {
     self.super.init();
 	self.kind = KIND_CHECKBOX;
-    self.name = "CheckBox";
+    self.name = GUICHECKBOX_NAME_PREFIX;
     self.color = rl::WHITE;
     self.onCheckBoxClicked = (CheckBoxListenerCallback)&GUIWidgetCheckBox.onMouseButton;
 }
@@ -1576,11 +1616,824 @@ fn GUIWidgetCheckBox* createCheckBox(String label) @inline
     return checkbox;
 }
 
+//////////////////////////////////// GUIWINDOW //////////////////////////////////////
+
+/*
+    NOTE(HM) 
+    
+    A GUIWindow marked as window can be thought like a OS window, a place 
+    where you put all icons, buttons and windows.
+    Is where the entire GUI construct lives.
+    
+    BASIC GUI creation process:
+    
+    - Create a GUIWindow
+        GUIWindow main_menu;
+    - init the GUIWindow
+    - if it should be the main window mark it as so
+        main_menu.ini(... isDesktop: yes);
+    - create any widgets
+        GUIWidgetButton main_menu_button;
+    - init the GUIWidget and add it to GUIWindow
+        main_menu_button.init();
+        main_menu_button.addTo(&main_menu);
+*/
+
+alias ChildrenWidgetQueue = GUIWidgetList; //List{GUIWidget*};
+alias ChildrenUIWindowQueue = List{GUIWindow*};
+
+struct GUIWindow (SaveSystemInterface) 
+{
+    // id
+    String name;
+    int number; // used to uniquily identify each window
+    
+    // visuals
+    RLRectangle rect;
+    RLColor color;
+    // todo support more complex backgrounds
+    RLTexture2D* tex;
+    //
+    
+    // flags
+    struct {
+        bool isInteractive;
+        bool isDesktop;
+        bool visible;
+        bool active;
+	    bool selected; // for editor stuff
+        bool loading; // when eventually we load guis from a file
+        bool keyboardInput_enabled; // if true, the window will receive keyboard input, otherwise it will ignore it
+        bool mouse_is_moving; // to detect mouse movement and implement hover effects
+    }
+    //
+    // to handle timing while the window is open/active
+    int time; // milliseconds
+
+    // mouse position relative to the window
+    Vec2f mouse_pos;
+	List{GuiAnchor} anchor;
+
+	HMSoundWorld* sound_world;
+    
+    // Lists
+    //ChildrenWidgetQueue selected; // List of selected widgets, used for multi-selection in the editor, and also to keep track of what widgets are currently selected for other purposes like changing their color or properties.
+    ChildrenWidgetQueue childWidgets;
+    // todo make a queue for hidden childWidgets to better control what to hide and show.
+    ChildrenUIWindowQueue childWindows;
+    GUIWindow* desktop; // the home window, where we can return to
+    GUIWindow* previous; // for window linkage, so we can go back to the previous window
+    GUIWindow* next;     // for window linkage, so we can go to the next
+}
+
+fn void GUIWindow.save(&self, SaveFile* file) @dynamic {
+// todo
+}
+
+fn void GUIWindow.reload(&self, SaveFile* file) @dynamic {
+// todo
+}
+
+<*
+    Initializes the window with the given name.
+    if is marked as desktop, the window will cover the entire screen.
+    else the window will be initialized with the given width and height.
+    Then it will be registered with the local window manager.
+    
+    @param name : "name of the window"
+    @param isDesktop : "if true, the window will cover the entire screen"
+    @param w : "width of the window, used only if isDesktop is false"
+    @param h : "height of the window, used only if isDesktop is false"
+    @require rl::isWindowReady() == true
+*>
+fn void GUIWindow.init(&self, 
+String name, 
+bool isDesktop = false, 
+int w = 800, 
+int h = 600, 
+bool shouldRegister = true
+) {
+    self.name = string::tformat("%s%s", GUIWIN_NAME_PREFIX, name);
+    self.number = (int)local_manager.windows.len() + 1;
+    //
+    //
+    RLRectangle rect;
+    if(isDesktop) {
+        self.isDesktop = isDesktop;
+        self.desktop   = self;
+		assert(game::getScreenWidth() > 0 && game::getScreenHeight() > 0, 
+			"GUIWindow.init: Cannot set window desktop to fullscreen because screen width or height is zero!!"
+		);
+        rect.w = game::getScreenWidth();
+        rect.h = game::getScreenHeight();
+    } else {
+        rect.w = w;
+        rect.h = h;
+    }
+    self.rect = rect;
+	self.anchor.reserve(gui::ANCHOR_COUNT);
+	self.anchor.init_with_array(mem, gui::initAnchors(self.rect)[..]);
+    
+    self.color = rl::WHITE;
+    //
+	//NOTE(HM) by default the window is not active when created
+	//self.active = false; // in this language bools are false by default
+	//
+    self.isInteractive = true; // by default the window is interactive
+    self.show(); 			   // by default the window is visible
+    
+	if(shouldRegister) {
+        GUIWindow* this = self;
+        local_manager.register(this);
+	}
+}
+
+// delete all down to the basic window
+fn void GUIWindow.clear(&self) @inline
+{
+    if (self.childWidgets.len()) 
+    {
+        foreach(child: self.childWidgets) 
+        {
+            switch (child.kind) 
+            {
+                case gui::KIND_BUTTON:
+                    ((GUIWidgetButton*)child).deinit(); 
+                case gui::KIND_TEXT:
+                    ((GUIWidgetLabel*)child).deinit(); 
+                default:
+                    child.deinit();
+            }
+        }
+    }
+
+	self.anchor.clear();
+
+	if(self.sound_world) self.sound_world.shutdown();
+
+	if(self.tex) self.tex = null;
+	if(self.childWindows.len()) {
+		foreach(it : self.childWindows) {
+			it.deinit();
+			it = null;
+		}
+		self.childWindows.clear();
+	}
+    if(self.desktop  != null) self.desktop  = null;
+    if(self.previous != null) self.previous = null;
+    if(self.next     != null) self.next     = null;
+}
+
+
+fn void GUIWindow.deinit(&this) @inline 
+{
+    this.clear();
+    // last clear ourself
+    local_manager.unregister(this);
+}
+
+fn void GUIWindow.setFocus(&self, bool focus) @inline 
+{
+    if (focus)
+	{
+        if(!self.active) self.activate();
+		foreach(widget: self.childWidgets)
+		{
+			widget.setFocus(true);
+		}
+    } 
+	else
+	{
+        if(self.active) self.deactivate();
+		foreach(widget: self.childWidgets)
+		{
+			widget.setFocus(false);
+		}
+    }
+}
+
+fn void GUIWindow.setPosition(&self, float x, float y) @inline 
+{
+    self.rect.x = x;
+    self.rect.y = y;
+    self.stateChanged(game::pContext.time_ms, true);
+}
+
+fn void GUIWindow.setPositionV(&self, Vec2f pos) @inline 
+{
+    self.rect.x = pos.x;
+    self.rect.y = pos.y;
+    self.stateChanged(game::pContext.time_ms, true);
+}
+
+fn Vec2f GUIWindow.getPosition(&self) @inline 
+{
+    return {self.rect.x, self.rect.y};
+}
+
+fn void GUIWindow.setSize(&self, float w, float h) @inline 
+{
+    self.rect.width  = w;
+    self.rect.height = h;
+    self.stateChanged(game::pContext.time_ms, true);
+}
+
+fn Vec2f GUIWindow.getSize(&self) @inline 
+{
+    return {self.rect.width, self.rect.height};
+}
+
+fn void GUIWindow.activate(&self, bool activate = true, int _time = game::pContext.time_ms) @inline 
+{
+	self.time   = _time;
+	self.active = activate;
+}
+
+fn void GUIWindow.deactivate(&self, int _time = game::pContext.time_ms) @inline 
+{
+    self.activate(false, _time);
+}
+
+// used when the window state changes like some widget is added/removed or modified in some ways.
+fn void GUIWindow.stateChanged(&self, int _time, bool redraw ) 
+{
+	self.time = _time;
+	if (redraw) {
+		self.redraw(_time);
+	}
+	gui::updateAnchors(&self.anchor, self.rect.pos, self.rect.size);
+	/*if ( state.GetBool( "noninteractive" ) ) {
+		interactive = false;
+	}
+	else {
+		if (window) {
+			interactive = window->Interactive();
+		} else {
+			interactive = false;
+		}
+	}*/
+}
+
+fn String GUIWindow.getName(&self, bool fullname = false) @inline
+{
+	if(fullname) return self.name;
+	return self.name.strip_start(GUIWIN_NAME_PREFIX);
+}
+
+fn void GUIWindow.setColor(&self, RLColor color) @inline 
+{ 
+	self.color = color;
+	self.stateChanged(game::pContext.time_ms, true);
+}
+
+fn void GUIWindow.setBackgroundTexture(&self, String image_path) @inline 
+{
+	// TODO(HM) instead of loading textures one by one at material parsing
+	// just load all textures before into RAM and create a data base
+	// then just find the texture in the data base by pointing to it, 
+	// perhaps using a special getter/manager similar to how materials are handled..
+	//self.tex = texMang::findTexture(image_path);
+
+	// or better, something like this,
+	// load all images/textures on disk, but as RLImage's in normal RAM and create a data base
+	// then just use the image to create a RLTexture on GPU VRAM, at usage time,
+	// not 100% sure but this sounds more efficient...
+
+	// Note, because of how materials are handled now, 
+	// this texture may be loaded/exist in VRAM already by a previous material... :(
+	// but in that case, I would need to go through all materials data base to try get it
+	// imo is faster to just load it again, 
+	// but I do need to rethink all this material system now... TODO
+	self.tex = &&r2d::loadTexture(image_path);
+}
+
+fn bool GUIWindow.hidden(&self) @inline => !self.visible;
+
+fn void GUIWindow.hide(&self) 
+{
+    if(self.hidden()) return;
+    
+    self.visible = false;
+
+    // hide childWidgets
+    
+    if (self.childWidgets.len()) 
+    {
+        foreach(child: self.childWidgets) 
+        {
+           switch (child.kind) 
+           {
+                case gui::KIND_BUTTON:
+                    ((GUIWidgetButton*)child).hide(); 
+                case gui::KIND_TEXT:
+                    ((GUIWidgetLabel*)child).hide(); 
+                default:
+                   ((GUIWidget*)child).hide(); 
+            }
+        }
+    }
+
+    if(self.sound_world) {
+        self.sound_world.pause();
+    }
+}
+
+fn void GUIWindow.show(&self) 
+{
+    if(!self.hidden()) return;
+    
+    self.visible = true;
+    
+    // todo find a way to only show certain children not all
+    
+    if (self.childWidgets.len()) {
+        foreach(child: self.childWidgets) {
+            switch (child.kind) {
+                case gui::KIND_BUTTON:
+                    ((GUIWidgetButton*)child).show(); 
+                case gui::KIND_TEXT:
+                    ((GUIWidgetLabel*)child).show(); 
+                default:
+                   ((GUIWidget*)child).show(); 
+            }
+        }
+    }
+
+    if(self.sound_world) {
+		self.sound_world.activate();
+		self.sound_world.playSound("Swallow", is_music: true);
+    }
+}
+
+fn void GUIWindow.drawCursor(&self) @inline
+{
+    if(editor::isOpen(&game::pContext.editor)) return;
+    
+	if ( self.isInteractive && self.active && self.visible ) {
+		if(game::game_cursor_hidden()) game::show_game_cursor();
+	} else {
+		if(game::game_cursor_visible()) game::hide_game_cursor();
+	}
+}
+
+fn void GUIWindow.update(&self, int _time) 
+{
+    if(self.hidden() && self.active == false) return;
+
+    self.time = _time; // update gui time
+
+    self.mouse_pos = rl::getMousePosition(); //- self.getPosition();
+    self.mouse_is_moving = rl::getMouseDelta().length_sq() >= 1; // this will be zero if the mouse is not moving, and greater than zero if it is moving
+
+    self.keyboardInput_enabled = !self.mouse_is_moving && rl::getCharPressed() != 0;
+
+    if (self.childWidgets.len())
+    {
+        foreach(child: self.childWidgets)
+        {
+            switch (child.kind)
+            {
+                case gui::KIND_BUTTON:
+                    if (self.keyboardInput_enabled) {
+                        // do something here...
+                        //if(!self.selected.contains(child)) {
+                            //child.select();
+                        //}
+                    }
+
+                    ((GUIWidgetButton*)child).update();
+                case gui::KIND_TEXT:
+                    ((GUIWidgetLabel*)child).update();
+                case gui::KIND_CHECKBOX:
+                    ((GUIWidgetCheckBox*)child).update();
+                case gui::KIND_CONTAINER:
+                    ((WidgetContainer*)child).update();
+                default:
+                    child.update(); 
+            }
+        }
+    }
+
+	if(self.sound_world)
+	{
+		foreach(music : self.sound_world.musics)
+		{
+			if(music.audio.isPlaying())
+			{
+				if(game::pContext.pause_all_music || game::s_noaudio.getBool()) {
+					music.audio.pause();
+				} else {
+					music.audio.update();
+				}
+			} 
+			else if (!game::pContext.pause_all_music && !game::s_noaudio.getBool())
+			{
+				music.audio.resume();
+			}
+		}
+    }
+}
+
+fn void GUIWindow.redraw(&self, int _time)  
+{
+    if(self.hidden()) return;
+    
+    /*if ( r_skipGuiShaders.GetInteger() > 5 ) {
+		return;
+	}*/
+    
+	if (!self.loading) {
+		self.time = _time;
+	}
+    
+    // draw GUIWindow background
+    if(self.tex) {
+        assert(rl::isTextureValid(*self.tex));
+        rl::drawTexture(*self.tex, (int)self.rect.x, (int)self.rect.y, self.color);
+    } else {
+        r2d::@drawRect(self.rect, self.color);
+    }
+
+    self.drawCursor();
+
+    //r2d::drawCircleV(self.mouse_pos, 5, rl::RED); // debug mouse position
+    
+    // draw GUIWindow widgets childWidgets
+    if (self.childWidgets.len())
+    {
+        foreach(child: self.childWidgets) 
+        {
+           switch (child.kind) 
+           {
+                case gui::KIND_BUTTON:
+                    ((GUIWidgetButton*)child).draw();
+                case gui::KIND_TEXT:
+                    ((GUIWidgetLabel*)child).draw();
+                case gui::KIND_CONTAINER:
+                    ((WidgetContainer*)child).draw();
+                default:
+                   child.draw();
+            }
+        }
+    }
+
+	// TODO(HM) drawing of child windows if they exist
+	// Warning: right now this crashs the game
+	/*if(self.childWindows.len()) {
+		foreach(child: self.childWindows) 
+        {
+            child.draw(_time);
+        }
+    }*/
+    
+    self.debug();
+}
+
+/*
+    Draws this window, but only if is the currently active GUI in the game,
+    if not draws the other active window instead.
+    This is a function that should be called from the main game loop.   
+*/
+fn void GUIWindow.draw(&this)
+{
+    GUIWindow* guiActive = game::pContext.guiActive;
+
+    if ( guiActive == this ) {
+		guiActive.redraw(this.time);
+	}
+}
+
+macro GUIWindow.getDesktop(&self)
+{
+    if(self.isDesktop) return self;
+
+    return self.desktop;
+    /*foreach(uiwin : local_manager.windows) {
+        if(uiwin.isDesktop && uiwin.childWindows.len()) 
+        { // see if this window is a child of the found desktop
+            foreach(child : uiwin.childWindows) {
+                if(child.name == self.name) {
+                    return uiwin; // this is our parent desktop so return it
+                }
+            }
+        }
+    }*/
+}
+
+// set how many child windows are inside this other window (imagined as "pages")
+fn void GUIWindow.setPageCount(&self, int count) => self.childWindows.reserve(count);
+
+<*
+    @param [&in] child : "child to register/add to the window"
+    @param  idx : "index where to put the child, if -1 this is ignored"
+*>
+fn void GUIWindow.addChildWidget(&self, GUIWidget* child, int idx = -1 )
+{
+    if(idx >= 0) {
+        self.childWidgets.insert_at(idx, child);
+    } else {
+        self.childWidgets.push(child);
+    }
+}
+
+<*
+    @param [&inout] child : "child to register/add to the window"
+    @param  idx : "index where to put the child, if -1 this is ignored"
+*>
+fn GUIWindow* GUIWindow.addChildWindow(&self, GUIWindow* child, int idx = -1 )
+{
+    if(self.isDesktop) child.desktop = self;
+    if(idx >= 0) {
+        self.childWindows.insert_at(idx, child);
+    } else {
+        self.childWindows.push(child);
+    }
+    return child;
+}
+
+<*
+    @param idx : "index of the child widget to get"
+    @ensure return != null
+*>
+fn GUIWidget* GUIWindow.getChildWidget(&self, int idx) @nodiscard
+{
+    return self.childWidgets.get(idx);
+}
+
+<*
+    @param kind : "what kind of child widget to get the count for"
+    @ensure return >= 0
+*>
+fn int GUIWindow.getChildWidgetCount(&self, int kind) @nodiscard
+{
+	int count;
+    foreach(child : self.childWidgets)
+	{
+		if(child.kind == kind) count++;
+	}
+	return count;
+}
+
+<*
+    @param idx : "index of the child window to get"
+    @ensure return != null
+*>
+fn GUIWindow* GUIWindow.getChildWindow(&self, int idx) @nodiscard
+{
+    return self.childWindows.get(idx);
+}
+
+<*
+	get a anchor point for GUIWindow
+	@param idx : "index of anchor to get"
+	@require idx >= 0 && idx < gui::ANCHOR_COUNT
+*>
+fn Vec2f GUIWindow.getAnchor(&self, int idx)
+{
+	return self.anchor[idx];
+}
+
+/////////////////////////////////////// DEBUG STUFF ///////////////////////
+/////
+macro GUIWindow.debugDrawBorder(&self)
+{
+	if(self.isDesktop) {
+		r2d::drawRectangleLinesEx(self.rect, 2.0f, rl::RED);
+	} else{
+		r2d::drawRectangleLinesEx(self.rect, 1.5f, rl::YELLOW);
+	}
+}
+
+macro GUIWindow.debugDrawName(&self)
+{
+	Vec2f pos = self.getAnchor(AnchorID.TOP_LEFT);
+	pos += misc::VEC_RIGHT * 50;
+    pos += misc::VEC_DOWN * 50;
+	ZString wind_name = string::tformat("GUI: \"%s\"", self.name).zstr_tcopy();
+	if(self.isDesktop) {
+        rl::drawText(wind_name, (int)pos.x, (int)pos.y, 9, rl::RED);
+	} else{
+        rl::drawText(wind_name, (int)pos.x, (int)pos.y, 9, rl::BLACK);
+	}
+}
+
+macro GUIWindow.debugDrawWindTime(&self)
+{
+	ZString time = string::tformat("GUI TIME: \"%s\"", self.time).zstr_tcopy();
+	Vec2f pos = self.getAnchor(AnchorID.TOP_LEFT);
+	pos += misc::VEC_RIGHT * 50;
+    pos += misc::VEC_DOWN * 100;
+	if(self.isDesktop) {
+    	rl::drawText(time, (int)pos.x, (int)pos.y, 9, rl::RED);
+	} else{
+    	rl::drawText(time, (int)pos.x, (int)pos.y, 9, rl::BLACK);
+	}
+}
+
+macro GUIWindow.debugDrawCoords(&self)
+{
+	float rect_x = self.rect.x;
+	float rect_y = self.rect.y;
+	float rect_w = self.rect.w;
+	float rect_h = self.rect.h;
+	Vec2f pos = self.getAnchor(AnchorID.TOP_LEFT);
+	pos += misc::VEC_RIGHT * 50;
+    pos += misc::VEC_DOWN * 150;
+	rl::drawText(
+		string::tformat("(w:%dpx, h:%dpx) : (w:%d%%, h:%d%%)", rect_x, rect_y, 
+		((rect_x * 100) / rect_w), ((rect_y * 100) / rect_h)).zstr_tcopy(),
+		(int)pos.x, (int)pos.y, 9, rl::RED
+	);
+}
+
+fn void GUIWindow.debug(&self, bool showHidden = true) 
+{
+    if(gui::ui_debugDraw.getBool())
+    {
+        float lineThick    = 1.0f;
+        // show desktop window border in a diferent color
+		self.debugDrawBorder();
+        // show the Window name
+		self.debugDrawName();
+        // draw window time
+        self.debugDrawWindTime();
+        // window size
+		self.debugDrawCoords();
+
+        // draw the childWidgets BBox
+        if (self.childWidgets.len())
+        {
+            foreach(child: self.childWidgets)
+            {
+               if(child.isSelected()) continue;
+               Vec2f dbg_text_pos = child.getAnchor(AnchorID.TOP_LEFT);
+               dbg_text_pos = {child.rect.x, child.rect.y};
+               dbg_text_pos += misc::VEC_UP * (0.30f * child.rect.height); 
+               rl::drawText(
+                    string::tformat("[%s] = (w:%dpx, h:%dpx) : (w:%d%%, h:%d%%)", child.name, child.rect.x, child.rect.y, 
+                    ((child.rect.x * 100) / self.rect.w), ((child.rect.y * 100) / self.rect.h)).zstr_tcopy(),
+                    (int)dbg_text_pos.x, (int)dbg_text_pos.y, 9, rl::RED
+               );
+               if(!gui::ui_showAnchors.getBool()) {
+                    // draw widget center point
+                    r2d::drawCircle((int)child.rect.x, (int)child.rect.y, 2.0f, rl::SKYBLUE);
+               }
+               r2d::drawRectangleLinesEx(child.rect, 1.5f, rl::RED);
+               gui::drawAnchors(&child.anchor);
+            }
+        }
+
+		// draw the childWindows BBox (will show even hidden windows)
+        if (self.childWindows.len()) 
+        {
+            foreach(child: self.childWindows)
+            {
+               if(child.selected) continue;
+			   child.debugDrawBorder();
+			   self.debugDrawName();
+			   self.debugDrawWindTime();
+               gui::drawAnchors(&child.anchor);
+            }
+        }
+    }
+}
+
+//#region window_manager
+////////////////////////////////// WINDOW MANAGER //////////////////////////////////////
+
+constdef GUIMode : inline int
+{
+    NORMAL = 1,
+    EDITOR
+}
+
+alias UIWindowList = List{GUIWindow*};
+
+// NOTE(HM) TODO(HM) Rename to MenuOS?
+// Every user GUI should have at lest one GUIWindow,
+// is a data structure to put everything that makes up a user GUI inside.
+struct GUIWindowManager 
+{
+    UIWindowList windows;
+    GUIMode mode;
+}
+
+GUIWindowManager local_manager @local;
+GUIWindowManager* gpWindowManager = &local_manager;
+
+<*
+ @param [&in] _uiwin : "the window to register"
+*>
+fn void GUIWindowManager.register(&self, GUIWindow* _uiwin) @inline 
+{
+    foreach(uiwin : self.windows) {
+        if(uiwin.name == _uiwin.name) {
+            log::warning(FILE, "Cannot register \"%s\" because is already registered.", uiwin.name);
+            return;
+        }
+    }
+    self.windows.push(_uiwin);
+}
+
+<*
+ @param [in] name : "name of window to fetch/get"
+*>
+fn GUIWindow* GUIWindowManager.get(&self, String name) @inline 
+{
+    foreach(guiwin : self.windows)
+	{
+		String win_name = guiwin.name.strip_start(GUIWIN_NAME_PREFIX);
+        if(win_name == name) {
+            return guiwin;
+        }
+    }
+    return null;
+}
+
+<*
+ @param [&inout] _uiwin : "the window to remove"
+*>
+fn void GUIWindowManager.unregister(&self, GUIWindow* _uiwin) @inline 
+{
+    foreach(uiwin : self.windows) {
+        if(uiwin.name == _uiwin.name) {
+            self.windows.remove_item(uiwin);
+            uiwin = null;
+            return;
+        }
+    }
+}
+
+fn void GUIWindowManager.update(&self, int _time) 
+{
+    /*if(ui_editGui.getBool()) {
+        // enable edit mode
+        if(self.mode != EDITOR) self.editor(true);
+    } else {
+        // disable edit mode
+       if(self.mode == EDITOR) self.editor(false);
+    }*/
+    self.enable_editor_mode(gui::ui_editGui.getBool());
+
+    sz wind_count = self.windows.len();
+    if(wind_count >= 1) 
+    {
+        foreach(uiwin: self.windows) 
+        {
+            if(uiwin.active) 
+            {
+                uiwin.update(_time);
+                if(self.mode == EDITOR && !editor::isFocused(&game::pContext.editor)) {
+                    // put something here
+                }
+
+                if(gui::ui_editGui.getBool()) {
+                    guieditor::update(uiwin);
+                }
+            }
+        }
+    }
+}
+
+fn void GUIWindowManager.draw(&self, int screenWidth, int screenHeight) @inline 
+{
+    sz windows_count = self.windows.len();
+    if(windows_count >= 1) 
+    {
+        foreach(uiwin: self.windows) 
+        {
+            uiwin.draw();
+            
+            if(self.mode == EDITOR && !editor::isOpen(&game::pContext.editor)) {
+                //drawGuiEditor(uiwin); TODO(HM) draw this through the new editor
+            }
+
+            if(gui::ui_editGui.getBool()) {
+                // draw the gui editor
+                guieditor::draw(uiwin);
+            }
+        }
+    }
+}
+
+fn void GUIWindowManager.free(&self) 
+{
+    if(self.windows.len()) foreach(uiwin: self.windows) uiwin.deinit();
+    self.windows.free();
+}
+
+fn void GUIWindowManager.enable_editor_mode(&self, bool choice = false) 
+{
+    self.mode = (choice) ? EDITOR : NORMAL;
+}
+
+//#endregion window_manager
+
 //////////////////////////////////// CONTAINER //////////////////////////////////////
 module engine::gui::container::cont; //@UNFINISHED !!!
 
 import thirdparty::raylib5::rl;
-import engine::gui::window::uiwin;
+import engine::gui;
 import engine::misc;
 import engine::sys::ctype;
 import std::collections::list;
@@ -1624,7 +2477,7 @@ struct WidgetContainer
     ContainerQueue children;
 }
 
-macro WidgetContainer.@container(&self, UIWindow* uiwin, ContainerParams params; @body(self)) 
+macro WidgetContainer.@container(&self, GUIWindow* uiwin, ContainerParams params; @body(self)) 
 {
     self.init(params);
     uiwin.addChild(self);
@@ -1724,8 +2577,8 @@ fn void WidgetContainer.update(&self)
         {
             case GUIWidgetButton:
                 anycast(child, GUIWidgetButton)!!.update();
-            case WidgetText:
-                anycast(child, WidgetText)!!.update();
+            case GUIWidgetLabel:
+                anycast(child, GUIWidgetLabel)!!.update();
             case WidgetContainer: // container inside another
                 anycast(child, WidgetContainer)!!.update();
             default:
@@ -1743,8 +2596,8 @@ fn void WidgetContainer.draw(&self)
         {
             case GUIWidgetButton:
                 anycast(child, GUIWidgetButton)!!.draw();
-            case WidgetText:
-                anycast(child, WidgetText)!!.draw();
+            case GUIWidgetLabel:
+                anycast(child, GUIWidgetLabel)!!.draw();
             case WidgetContainer: // container inside another
                 anycast(child, WidgetContainer)!!.draw();
             default:
@@ -1759,832 +2612,7 @@ fn void WidgetContainer.register(&self, any child) @inline
     @catch(anycast(child, GUIWidget).bindTo((GUIWidget*)self));
 }
 
-//////////////////////////////////// DESKTOP //////////////////////////////////////
-module engine::gui::window::uiwin;
-
-import thirdparty::raylib5::rl;
-import engine::misc;
-import engine::sys::ctype;
-import game::main;
-import engine::serialize::svs;
-import std::collections::list;
-import engine::logging::log;
-import engine::sys::render2d::r2d;
-import engine::gui::container::cont;
-import engine::tools;
-import engine::gui::guieditor;
-import engine::sys::framework::soundbkd;
-
-/*
-    NOTE(HM) 
-    
-    A UIWindow marked as window can be thought like a OS window, a place 
-    where you put all icons, buttons and windows.
-    Is where the entire GUI construct lives.
-    
-    BASIC GUI creation process:
-    
-    - Create a UIWindow
-        UIWindow main_menu;
-    - init the UIWindow
-    - if it should be the main window mark it as so
-        main_menu.ini(... isDesktop: yes);
-    - create any widgets
-        GUIWidgetButton main_menu_button;
-    - init the GUIWidget and add it to UIWindow
-        main_menu_button.init();
-        main_menu_button.addTo(&main_menu);
-*/
-
-alias ChildrenWidgetQueue = GUIWidgetList; //List{GUIWidget*};
-alias ChildrenUIWindowQueue = List{UIWindow*};
-
-struct UIWindow (SaveSystemInterface) 
-{
-    // id
-    String name;
-    int number; // used to uniquily identify each window
-    
-    // visuals
-    RLRectangle rect;
-    RLColor color;
-    // todo support more complex backgrounds
-    RLTexture2D* tex;
-    //
-    
-    // flags
-    struct {
-        bool isInteractive;
-        bool isDesktop;
-        bool visible;
-        bool active;
-	    bool selected; // for editor stuff
-        bool loading; // when eventually we load guis from a file
-        bool keyboardInput_enabled; // if true, the window will receive keyboard input, otherwise it will ignore it
-        bool mouse_is_moving; // to detect mouse movement and implement hover effects
-    }
-    //
-    // to handle timing while the window is open/active
-    int time; // milliseconds
-
-    // mouse position relative to the window
-    Vec2f mouse_pos;
-	List{GuiAnchor} anchor;
-
-	HMSoundWorld* sound_world;
-    
-    // Lists
-    //ChildrenWidgetQueue selected; // List of selected widgets, used for multi-selection in the editor, and also to keep track of what widgets are currently selected for other purposes like changing their color or properties.
-    ChildrenWidgetQueue childWidgets;
-    // todo make a queue for hidden childWidgets to better control what to hide and show.
-    ChildrenUIWindowQueue childWindows;
-    UIWindow* desktop; // the home window, where we can return to
-    UIWindow* previous; // for window linkage, so we can go back to the previous window
-    UIWindow* next;     // for window linkage, so we can go to the next
-}
-
-fn void UIWindow.save(&self, SaveFile* file) @dynamic {
-// todo
-}
-
-fn void UIWindow.reload(&self, SaveFile* file) @dynamic {
-// todo
-}
-
-const UIWIN_NAME_PREFIX = "UIWindow_";
-<*
-    Initializes the window with the given name.
-    if is marked as desktop, the window will cover the entire screen.
-    else the window will be initialized with the given width and height.
-    Then it will be registered with the local window manager.
-    
-    @param name : "name of the window"
-    @param isDesktop : "if true, the window will cover the entire screen"
-    @param w : "width of the window, used only if isDesktop is false"
-    @param h : "height of the window, used only if isDesktop is false"
-    @require rl::isWindowReady() == true
-*>
-fn void UIWindow.init(&self, 
-String name, 
-bool isDesktop = false, 
-int w = 800, 
-int h = 600, 
-bool shouldRegister = true
-) @inline 
-{
-    self.name = string::tformat("%s%s", UIWIN_NAME_PREFIX, name);
-    self.number = (int)local_manager.windows.len() + 1;
-    //
-    //
-    RLRectangle rect;
-    if(isDesktop) {
-        self.isDesktop = isDesktop;
-        self.desktop   = self;
-		assert(game::getScreenWidth() > 0 && game::getScreenHeight() > 0, 
-			"UIWindow.init: Cannot set window desktop to fullscreen because screen width or height is zero!!"
-		);
-        rect.w = game::getScreenWidth();
-        rect.h = game::getScreenHeight();
-    } else {
-        rect.w = w;
-        rect.h = h;
-    }
-    self.rect = rect;
-	self.anchor.reserve(gui::ANCHOR_COUNT);
-	self.anchor.init_with_array(mem, gui::initAnchors(self.rect, self.rect.pos)[..]);
-    
-    self.color = rl::WHITE;
-    //
-	//NOTE(HM) by default the window is not active when created
-	//self.active = false; // in this language bools are false by default
-	//
-    self.isInteractive = true; // by default the window is interactive
-    self.show(); 			   // by default the window is visible
-    
-	if(shouldRegister) {
-        UIWindow* this = self;
-        local_manager.register(this);
-	}
-}
-
-// delete all down to the basic window
-fn void UIWindow.clear(&self) @inline
-{
-    if (self.childWidgets.len()) 
-    {
-        foreach(child: self.childWidgets) 
-        {
-            switch (child.kind) 
-            {
-                case gui::KIND_BUTTON:
-                    ((GUIWidgetButton*)child).deinit(); 
-                case gui::KIND_TEXT:
-                    ((WidgetText*)child).deinit(); 
-                default:
-                    child.deinit();
-            }
-        }
-    }
-
-	self.anchor.clear();
-
-	if(self.sound_world) self.sound_world.shutdown();
-
-	if(self.tex) self.tex = null;
-	if(self.childWindows.len()) {
-		foreach(it : self.childWindows) {
-			it.deinit();
-			it = null;
-		}
-		self.childWindows.clear();
-	}
-    if(self.desktop  != null) self.desktop  = null;
-    if(self.previous != null) self.previous = null;
-    if(self.next     != null) self.next     = null;
-}
-
-
-fn void UIWindow.deinit(&this) @inline 
-{
-    this.clear();
-    // last clear ourself
-    local_manager.unregister(this);
-}
-
-fn void UIWindow.setFocus(&self, bool focus) @inline 
-{
-    if (focus)
-	{
-        if(!self.active) self.activate();
-		foreach(widget: self.childWidgets)
-		{
-			widget.setFocus(true);
-		}
-    } 
-	else
-	{
-        if(self.active) self.deactivate();
-		foreach(widget: self.childWidgets)
-		{
-			widget.setFocus(false);
-		}
-    }
-}
-
-fn void UIWindow.setPosition(&self, float x, float y) @inline 
-{
-    self.rect.x = x;
-    self.rect.y = y;
-    self.stateChanged(game::pContext.time_ms, true);
-}
-
-fn void UIWindow.setPositionV(&self, Vec2f pos) @inline 
-{
-    self.rect.x = pos.x;
-    self.rect.y = pos.y;
-    self.stateChanged(game::pContext.time_ms, true);
-}
-
-fn Vec2f UIWindow.getPosition(&self) @inline 
-{
-    return {self.rect.x, self.rect.y};
-}
-
-fn void UIWindow.setSize(&self, float w, float h) @inline 
-{
-    self.rect.width  = w;
-    self.rect.height = h;
-    self.stateChanged(game::pContext.time_ms, true);
-}
-
-fn Vec2f UIWindow.getSize(&self) @inline 
-{
-    return {self.rect.width, self.rect.height};
-}
-
-fn void UIWindow.activate(&self, bool activate = true, int _time = game::pContext.time_ms) @inline 
-{
-	self.time   = _time;
-	self.active = activate;
-}
-
-fn void UIWindow.deactivate(&self, int _time = game::pContext.time_ms) @inline 
-{
-    self.activate(false, _time);
-}
-
-// used when the window state changes like some widget is added/removed or modified in some ways.
-fn void UIWindow.stateChanged(&self, int _time, bool redraw ) 
-{
-	self.time = _time;
-	if (redraw) {
-		self.redraw(_time);
-	}
-	gui::updateAnchors(&self.anchor, self.rect.pos, self.rect.size);
-	/*if ( state.GetBool( "noninteractive" ) ) {
-		interactive = false;
-	}
-	else {
-		if (window) {
-			interactive = window->Interactive();
-		} else {
-			interactive = false;
-		}
-	}*/
-}
-
-fn String UIWindow.getName(&self, bool fullname = false) @inline
-{
-	if(fullname) return self.name;
-	return self.name.strip_start(UIWIN_NAME_PREFIX);
-}
-
-fn void UIWindow.setColor(&self, RLColor color) @inline 
-{ 
-	self.color = color;
-	self.stateChanged(game::pContext.time_ms, true);
-}
-
-fn void UIWindow.setBackgroundTexture(&self, String image_path) @inline 
-{
-	// TODO(HM) instead of loading textures one by one at material parsing
-	// just load all textures before into RAM and create a data base
-	// then just find the texture in the data base by pointing to it, 
-	// perhaps using a special getter/manager similar to how materials are handled..
-	//self.tex = texMang::findTexture(image_path);
-
-	// or better, something like this,
-	// load all images/textures on disk, but as RLImage's in normal RAM and create a data base
-	// then just use the image to create a RLTexture on GPU VRAM, at usage time,
-	// not 100% sure but this sounds more efficient...
-
-	// Note, because of how materials are handled now, 
-	// this texture may be loaded/exist in VRAM already by a previous material... :(
-	// but in that case, I would need to go through all materials data base to try get it
-	// imo is faster to just load it again, 
-	// but I do need to rethink all this material system now... TODO
-	self.tex = &&r2d::loadTexture(image_path);
-}
-
-fn bool UIWindow.hidden(&self) @inline => !self.visible;
-
-fn void UIWindow.hide(&self) 
-{
-    if(self.hidden()) return;
-    
-    self.visible = false;
-
-    // hide childWidgets
-    
-    if (self.childWidgets.len()) 
-    {
-        foreach(child: self.childWidgets) 
-        {
-           switch (child.kind) 
-           {
-                case gui::KIND_BUTTON:
-                    ((GUIWidgetButton*)child).hide(); 
-                case gui::KIND_TEXT:
-                    ((WidgetText*)child).hide(); 
-                default:
-                   ((GUIWidget*)child).hide(); 
-            }
-        }
-    }
-
-    if(self.sound_world) {
-        self.sound_world.pause();
-    }
-}
-
-fn void UIWindow.show(&self) 
-{
-    if(!self.hidden()) return;
-    
-    self.visible = true;
-    
-    // todo find a way to only show certain children not all
-    
-    if (self.childWidgets.len()) {
-        foreach(child: self.childWidgets) {
-            switch (child.kind) {
-                case gui::KIND_BUTTON:
-                    ((GUIWidgetButton*)child).show(); 
-                case gui::KIND_TEXT:
-                    ((WidgetText*)child).show(); 
-                default:
-                   ((GUIWidget*)child).show(); 
-            }
-        }
-    }
-
-    if(self.sound_world) {
-		self.sound_world.activate();
-		self.sound_world.playSound("Swallow", is_music: true);
-    }
-}
-
-fn void UIWindow.drawCursor(&self) @inline
-{
-    if(editor::isOpen(&game::pContext.editor)) return;
-    
-	if ( self.isInteractive && self.active && self.visible ) {
-		if(game::game_cursor_hidden()) game::show_game_cursor();
-	} else {
-		if(game::game_cursor_visible()) game::hide_game_cursor();
-	}
-}
-
-fn void UIWindow.update(&self, int _time) 
-{
-    if(self.hidden() && self.active == false) return;
-
-    self.time = _time; // update gui time
-
-    self.mouse_pos = rl::getMousePosition(); //- self.getPosition();
-    self.mouse_is_moving = rl::getMouseDelta().length_sq() >= 1; // this will be zero if the mouse is not moving, and greater than zero if it is moving
-
-    self.keyboardInput_enabled = !self.mouse_is_moving && rl::getCharPressed() != 0;
-
-    if (self.childWidgets.len())
-    {
-        foreach(child: self.childWidgets)
-        {
-            switch (child.kind)
-            {
-                case gui::KIND_BUTTON:
-                    if (self.keyboardInput_enabled) {
-                        // do something here...
-                        //if(!self.selected.contains(child)) {
-                            //child.select();
-                        //}
-                    }
-
-                    ((GUIWidgetButton*)child).update();
-                case gui::KIND_TEXT:
-                    ((WidgetText*)child).update();
-                case gui::KIND_CHECKBOX:
-                    ((GUIWidgetCheckBox*)child).update();
-                case gui::KIND_CONTAINER:
-                    ((WidgetContainer*)child).update();
-                default:
-                    child.update(); 
-            }
-        }
-    }
-
-	if(self.sound_world)
-	{
-		foreach(music : self.sound_world.musics)
-		{
-			if(music.audio.isPlaying())
-			{
-				if(game::pContext.pause_all_music || game::s_noaudio.getBool()) {
-					music.audio.pause();
-				} else {
-					music.audio.update();
-				}
-			} 
-			else if (!game::pContext.pause_all_music && !game::s_noaudio.getBool())
-			{
-				music.audio.resume();
-			}
-		}
-    }
-}
-
-fn void UIWindow.redraw(&self, int _time)  
-{
-    if(self.hidden()) return;
-    
-    /*if ( r_skipGuiShaders.GetInteger() > 5 ) {
-		return;
-	}*/
-    
-	if (!self.loading) {
-		self.time = _time;
-	}
-    
-    // draw UIWindow background
-    if(self.tex) {
-        assert(rl::isTextureValid(*self.tex));
-        rl::drawTexture(*self.tex, (int)self.rect.x, (int)self.rect.y, self.color);
-    } else {
-        r2d::@drawRect(self.rect, self.color);
-    }
-
-    self.drawCursor();
-
-    //r2d::drawCircleV(self.mouse_pos, 5, rl::RED); // debug mouse position
-    
-    // draw UIWindow widgets childWidgets
-    if (self.childWidgets.len())
-    {
-        foreach(child: self.childWidgets) 
-        {
-           switch (child.kind) 
-           {
-                case gui::KIND_BUTTON:
-                    ((GUIWidgetButton*)child).draw();
-                case gui::KIND_TEXT:
-                    ((WidgetText*)child).draw();
-                case gui::KIND_CONTAINER:
-                    ((WidgetContainer*)child).draw();
-                default:
-                   child.draw();
-            }
-        }
-    }
-
-	// TODO(HM) drawing of child windows if they exist
-	// Warning: right now this crashs the game
-	/*if(self.childWindows.len()) {
-		foreach(child: self.childWindows) 
-        {
-            child.draw(_time);
-        }
-    }*/
-    
-    self.debug();
-}
-
-/*
-    Draws this window, but only if is the currently active GUI in the game,
-    if not draws the other active window instead.
-    This is a function that should be called from the main game loop.   
-*/
-fn void UIWindow.draw(&this)
-{
-    UIWindow* guiActive = game::pContext.guiActive;
-
-    if ( guiActive == this ) {
-		guiActive.redraw(this.time);
-	}
-}
-
-macro UIWindow.getDesktop(&self)
-{
-    if(self.isDesktop) return self;
-
-    return self.desktop;
-    /*foreach(uiwin : local_manager.windows) {
-        if(uiwin.isDesktop && uiwin.childWindows.len()) 
-        { // see if this window is a child of the found desktop
-            foreach(child : uiwin.childWindows) {
-                if(child.name == self.name) {
-                    return uiwin; // this is our parent desktop so return it
-                }
-            }
-        }
-    }*/
-}
-
-// set how many child windows are inside this other window (imagined as "pages")
-fn void UIWindow.setPageCount(&self, int count) => self.childWindows.reserve(count);
-
-<*
-    @param [&in] child : "child to register/add to the window"
-    @param  idx : "index where to put the child, if -1 this is ignored"
-*>
-fn void UIWindow.addChildWidget(&self, GUIWidget* child, int idx = -1 )
-{
-    if(idx >= 0) {
-        self.childWidgets.insert_at(idx, child);
-    } else {
-        self.childWidgets.push(child);
-    }
-}
-
-<*
-    @param [&inout] child : "child to register/add to the window"
-    @param  idx : "index where to put the child, if -1 this is ignored"
-*>
-fn UIWindow* UIWindow.addChildWindow(&self, UIWindow* child, int idx = -1 )
-{
-    if(self.isDesktop) child.desktop = self;
-    if(idx >= 0) {
-        self.childWindows.insert_at(idx, child);
-    } else {
-        self.childWindows.push(child);
-    }
-    return child;
-}
-
-<*
-    @param idx : "index of the child widget to get"
-    @ensure return != null
-*>
-fn GUIWidget* UIWindow.getChildWidget(&self, int idx) @nodiscard
-{
-    return self.childWidgets.get(idx);
-}
-
-<*
-    @param kind : "what kind of child widget to get the count for"
-    @ensure return >= 0
-*>
-fn int UIWindow.getChildWidgetCount(&self, int kind) @nodiscard
-{
-	int count;
-    foreach(child : self.childWidgets)
-	{
-		if(child.kind == kind) count++;
-	}
-	return count;
-}
-
-<*
-    @param idx : "index of the child window to get"
-    @ensure return != null
-*>
-fn UIWindow* UIWindow.getChildWindow(&self, int idx) @nodiscard
-{
-    return self.childWindows.get(idx);
-}
-
-<*
-	get a anchor point for UIWindow
-	@param idx : "index of anchor to get"
-	@require idx >= 0 && idx < gui::ANCHOR_COUNT
-*>
-fn Vec2f UIWindow.getAnchor(&self, int idx)
-{
-	return self.anchor[idx];
-}
-
-/////////////////////////////////////// DEBUG STUFF ///////////////////////
-/////
-macro UIWindow.debugDrawBorder(&self)
-{
-	if(self.isDesktop) {
-		r2d::drawRectangleLinesEx(self.rect, 2.0f, rl::RED);
-	} else{
-		r2d::drawRectangleLinesEx(self.rect, 1.5f, rl::YELLOW);
-	}
-}
-
-macro UIWindow.debugDrawName(&self)
-{
-	Vec2f pos = self.getAnchor(AnchorID.TOP_LEFT);
-	pos += misc::VEC_RIGHT * 50;
-    pos += misc::VEC_DOWN * 50;
-	ZString wind_name = string::tformat("GUI: \"%s\"", self.name).zstr_tcopy();
-	if(self.isDesktop) {
-        rl::drawText(wind_name, (int)pos.x, (int)pos.y, 9, rl::RED);
-	} else{
-        rl::drawText(wind_name, (int)pos.x, (int)pos.y, 9, rl::BLACK);
-	}
-}
-
-macro UIWindow.debugDrawWindTime(&self)
-{
-	ZString time = string::tformat("GUI TIME: \"%s\"", self.time).zstr_tcopy();
-	Vec2f pos = self.getAnchor(AnchorID.TOP_LEFT);
-	pos += misc::VEC_RIGHT * 50;
-    pos += misc::VEC_DOWN * 100;
-	if(self.isDesktop) {
-    	rl::drawText(time, (int)pos.x, (int)pos.y, 9, rl::RED);
-	} else{
-    	rl::drawText(time, (int)pos.x, (int)pos.y, 9, rl::BLACK);
-	}
-}
-
-macro UIWindow.debugDrawCoords(&self)
-{
-	float rect_x = self.rect.x;
-	float rect_y = self.rect.y;
-	float rect_w = self.rect.w;
-	float rect_h = self.rect.h;
-	Vec2f pos = self.getAnchor(AnchorID.TOP_LEFT);
-	pos += misc::VEC_RIGHT * 50;
-    pos += misc::VEC_DOWN * 150;
-	rl::drawText(
-		string::tformat("(w:%dpx, h:%dpx) : (w:%d%%, h:%d%%)", rect_x, rect_y, 
-		((rect_x * 100) / rect_w), ((rect_y * 100) / rect_h)).zstr_tcopy(),
-		(int)pos.x, (int)pos.y, 9, rl::RED
-	);
-}
-
-fn void UIWindow.debug(&self, bool showHidden = true) 
-{
-    if(gui::ui_debugDraw.getBool())
-    {
-        float lineThick    = 1.0f;
-        // show desktop window border in a diferent color
-		self.debugDrawBorder();
-        // show the Window name
-		self.debugDrawName();
-        // draw window time
-        self.debugDrawWindTime();
-        // window size
-		self.debugDrawCoords();
-
-        // draw the childWidgets BBox
-        if (self.childWidgets.len())
-        {
-            foreach(child: self.childWidgets)
-            {
-               if(child.isSelected()) continue;
-               Vec2f dbg_text_pos = child.getAnchor(AnchorID.TOP_LEFT);
-               dbg_text_pos = {child.rect.x, child.rect.y};
-               dbg_text_pos += misc::VEC_UP * (0.30f * child.rect.height); 
-               rl::drawText(
-                    string::tformat("[%s] = (w:%dpx, h:%dpx) : (w:%d%%, h:%d%%)", child.name, child.rect.x, child.rect.y, 
-                    ((child.rect.x * 100) / self.rect.w), ((child.rect.y * 100) / self.rect.h)).zstr_tcopy(),
-                    (int)dbg_text_pos.x, (int)dbg_text_pos.y, 9, rl::RED
-               );
-               if(!gui::ui_showAnchors.getBool()) {
-                    // draw widget center point
-                    r2d::drawCircle((int)child.rect.x, (int)child.rect.y, 2.0f, rl::SKYBLUE);
-               }
-               r2d::drawRectangleLinesEx(child.rect, 1.5f, rl::RED);
-               gui::drawAnchors(&child.anchor);
-            }
-        }
-
-		// draw the childWindows BBox (will show even hidden windows)
-        if (self.childWindows.len()) 
-        {
-            foreach(child: self.childWindows)
-            {
-               if(child.selected) continue;
-			   child.debugDrawBorder();
-			   self.debugDrawName();
-			   self.debugDrawWindTime();
-               gui::drawAnchors(&child.anchor);
-            }
-        }
-    }
-}
-
-//#region window_manager
-////////////////////////////////// WINDOW MANAGER //////////////////////////////////////
-
-constdef GUIMode : inline int
-{
-    NORMAL = 1,
-    EDITOR
-}
-
-alias UIWindowList = List{UIWindow*};
-
-// NOTE(HM) TODO(HM) Rename to MenuOS?
-// Every user GUI should have at lest one UIWindow,
-// is a data structure to put everything that makes up a user GUI inside.
-struct UIWindowManager 
-{
-    UIWindowList windows;
-    GUIMode mode;
-}
-
-UIWindowManager local_manager @local;
-UIWindowManager* gpManager = &local_manager;
-
-<*
- @param [&in] _uiwin : "the window to register"
-*>
-fn void UIWindowManager.register(&self, UIWindow* _uiwin) @inline 
-{
-    foreach(uiwin : self.windows) {
-        if(uiwin.name == _uiwin.name) {
-            log::warning(FILE, "Cannot register \"%s\" because is already registered.", uiwin.name);
-            return;
-        }
-    }
-    self.windows.push(_uiwin);
-}
-
-<*
- @param [in] name : "name of window to fetch/get"
-*>
-fn UIWindow* UIWindowManager.get(&self, String name) @inline 
-{
-    foreach(uiwin : self.windows) {
-        if(uiwin.name.strip_start(UIWIN_NAME_PREFIX) == name) {
-            return uiwin;
-        }
-    }
-    return null;
-}
-
-<*
- @param [&inout] _uiwin : "the window to remove"
-*>
-fn void UIWindowManager.unregister(&self, UIWindow* _uiwin) @inline 
-{
-    foreach(uiwin : self.windows) {
-        if(uiwin.name == _uiwin.name) {
-            self.windows.remove_item(uiwin);
-            uiwin = null;
-            return;
-        }
-    }
-}
-
-fn void UIWindowManager.update(&self, int _time) 
-{
-    /*if(ui_editGui.getBool()) {
-        // enable edit mode
-        if(self.mode != EDITOR) self.editor(true);
-    } else {
-        // disable edit mode
-       if(self.mode == EDITOR) self.editor(false);
-    }*/
-    self.enable_editor_mode(gui::ui_editGui.getBool());
-
-    sz wind_count = self.windows.len();
-    if(wind_count >= 1) 
-    {
-        foreach(uiwin: self.windows) 
-        {
-            if(uiwin.active) 
-            {
-                uiwin.update(_time);
-                if(self.mode == EDITOR && !editor::isFocused(&game::pContext.editor)) {
-                    // put something here
-                }
-
-                if(gui::ui_editGui.getBool()) {
-                    guieditor::update(uiwin);
-                }
-            }
-        }
-    }
-}
-
-fn void UIWindowManager.draw(&self, int screenWidth, int screenHeight) @inline 
-{
-    sz windows_count = self.windows.len();
-    if(windows_count >= 1) 
-    {
-        foreach(uiwin: self.windows) 
-        {
-            uiwin.draw();
-            
-            if(self.mode == EDITOR && !editor::isOpen(&game::pContext.editor)) {
-                //drawGuiEditor(uiwin); TODO(HM) draw this through the new editor
-            }
-
-            if(gui::ui_editGui.getBool()) {
-                // draw the gui editor
-                guieditor::draw(uiwin);
-            }
-        }
-    }
-}
-
-fn void UIWindowManager.free(&self) 
-{
-    if(self.windows.len()) foreach(uiwin: self.windows) uiwin.deinit();
-    self.windows.free();
-}
-
-fn void UIWindowManager.enable_editor_mode(&self, bool choice = false) 
-{
-    self.mode = (choice) ? EDITOR : NORMAL;
-}
-
-//#endregion window_manager
+/////////// end of module WidgetContainer
 
 module engine::gui::immediate::imui;
 
@@ -2849,7 +2877,7 @@ fn bool doButton(IMUI_Context* ctx, String name, String label, Vec2f pos)
 module engine::gui::guieditor;
 
 import thirdparty::raylib5::rl;
-import engine::gui::window::uiwin;
+import engine::gui;
 import thirdparty::raygui5::rgui;
 import engine::logging::log;
 import game::main;
@@ -2891,7 +2919,7 @@ fn void enable_widget_debug()  @local @inline => gui::ui_debugDraw.set("1");
 fn void disable_widget_debug() @local @inline => gui::ui_debugDraw.set("0");
 fn bool is_widget_debug_on()   @local @inline => gui::ui_debugDraw.getBool();
 
-fn bool enabled() @inline => uiwin::gpManager.mode == EDITOR;
+fn bool enabled() @inline => gui::gpWindowManager.mode == EDITOR;
 fn bool as_focus() @inline {
     return (enabled() && editor::isFocused(&game.editor));
 }
@@ -2915,7 +2943,7 @@ fn void move_selected(GUIWidget* wgt)
     }
 }
 
-fn void update(UIWindow* mng) 
+fn void update(GUIWindow* mng) 
 {
     if(!mng || enabled() == false) return;
     
@@ -2972,7 +3000,7 @@ fn void drawWorldSpaceCoords()
     */
 }
 
-fn void draw(UIWindow* mng) 
+fn void draw(GUIWindow* mng) 
 {
     if(!mng || enabled() == false) return;
     

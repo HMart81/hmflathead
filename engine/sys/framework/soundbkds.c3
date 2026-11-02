@@ -46,7 +46,8 @@ alias HMAudioCallback = rl::AudioCallback;
 // Just a way to handle the sound device as a "thing"
 // instead of lose functions... 
 // **************************************************
-fn void initAudioDevice() @inline {
+fn void initAudioDevice() @inline
+{
 	rl::initAudioDevice();
 	rl::setAudioStreamBufferSizeDefault(4096);
 }
@@ -74,35 +75,46 @@ const SOUND_MAX_VOLUME @local = 6.0f;
     @require volume <= SOUND_MAX_VOLUME : "a limit to prevent damaging hears and the sound hardware"
     @require self.isReady()
 *>
-fn void AudioDevice.setVolume(self, float volume = 1.0f) @inline {
+fn void AudioDevice.setVolume(self, float volume = 1.0f) @inline
+{
     if(volume < 0.0f) volume = 0.0f;
     setMasterVolume(volume);
 }
 
 <*
-    Mutes or unmutes the entire sound system
+    Mutes the entire sound system
     @require self.isReady()
 *>
-fn void AudioDevice.setMute(self, bool choice) @inline {
-	self.setVolume(choice ? 0.0f : 1.0f);
+fn void AudioDevice.mute(self) @inline
+{
+	self.setVolume(0.0f);
+}
+
+<*
+    unmutes the entire sound system
+    @require self.isReady()
+*>
+fn void AudioDevice.unmute(self) @inline
+{
+	self.setVolume(1.0f);
 }
 
 <*
     Gets the mute state from the sound system
     @require self.isReady()
 *>
-fn bool AudioDevice.isMute(self) @inline {
-	return self.getVolume() <= 0.0f;
+fn bool AudioDevice.isSilent(self) @inline
+{
+	return (self.getVolume() == 0.0f);
 }
 
 <*
     @require self.isReady()
-    @ensure return >= 0.0f
 *>
 fn float AudioDevice.getVolume(self) @inline => getMasterVolume();
 
 <*
-    Gets the total overall sounds playing that the sound device can ear
+    Gets the count of current sounds playing by the audio device,
     this is seperate from the total sounds playing, per soundworld.
     @require self.isReady()
 *>
@@ -113,43 +125,89 @@ fn float AudioDevice.getSoundsPlaying(self) @inline => rl::getSoundsPlaying();
 // a wrapper around RLSound just a way to give raylib 
 // sounds some more data and controls
 // **************************************************
+
+const SOUNDS_FOLDER = "sounds\\";
+
+constdef SoundChannels
+{
+	MONO = 1,
+	STEREO,
+	FIVE_DOT_1  @if($defined(MULTI_CHANNEL_AUDIO)),
+	SIX_DOT_1   @if($defined(MULTI_CHANNEL_AUDIO)),
+	SEVEN_DOT_1  @if($defined(MULTI_CHANNEL_AUDIO))
+}
+
+constdef SoundType
+{
+	WAVE = 0,
+	OGG,
+	MP3,
+	FLAC
+}
+
 struct HMSound @public 
 {
 	inline RLSound super; // less than 10 seconds sounds
     Path path;
-	String name;
     int id;
 	float volume;
+	// flags
     bool paused;
 }
 
 fn bool HMSound.isValid(self) @inline
 {
-	return rl::isSoundValid(self.super) && ((self.name.len & self.path.len & self.id) != 0);
+	return rl::isSoundValid(self.super) && ((self.path.len & self.id) != 0);
+}
+
+fn String HMSound.name(&self) @inline
+{
+	String base_name = self.path.basename();
+    assert(base_name.contains("."));
+    sz idx = base_name.index_of_char('.')!!;
+    String strip = base_name[idx..];
+    return base_name.strip_suffix(strip);
+}
+
+fn SoundType HMSound.type(&self) @inline
+{
+	switch
+	{
+		case self.path.has_extension(".wav"):
+			return WAVE;
+		case self.path.has_extension(".ogg"):
+			return OGG;
+		case self.path.has_extension(".mp3"):
+			return MP3;
+		case self.path.has_extension(".flac"):
+			return FLAC;
+		default: unreachable();
+	}
 }
 
 <*
-    @param relative_path : "a relative path from the sounds folder to the sound"
-    @param reuse : "if the sound should reuse a free speaker and not create a new one"
+    @param relative_path : "a relative path from within Sounds folder to the wanted sound"
     @require relative_path.len > 0
     @require game::pContext.audio_device.isReady()
     @ensure rl::isSoundValid(self.super)
 *>
-fn HMSound*? HMSound.load(&self, Path relative_path, bool reuse = false)
+fn HMSound*? HMSound.load(&self, Path relative_path)
 {
-    String sounds_folder = "sounds\\";
-    String _path = game::pContext.app_base_folder.tconcat(sounds_folder);
-    if(reuse) { // unload previous sound if necessary
+    { // unload previous sound
         if(rl::isSoundValid(self.super)) rl::unloadSound(self.super);
     }
+    String _path = game::pContext.app_base_folder.tconcat(SOUNDS_FOLDER);
     self.path  = path::tnew(_path)!.tappend(relative_path).tcopy()!;
     self.super = rl::loadSound(self.path.zstr_tcopy());
-    String base_name = self.path.basename();
-    assert(base_name.contains("."));
-    sz idx = base_name.index_of_char('.')!;
-    String strip = base_name[idx..];
-    self.name = base_name.strip_suffix(strip);
-    self.setVolume(1.0f);
+	if(rl::isSoundValid(self.super))
+	{
+    	self.setVolume(1.0f);
+	} 
+	else
+	{
+		log::error(FILE, "Failed to load sound '%s'!", self.name());
+		self.super = game::pContext.default_sound;
+	}
     return self;
 }
 
@@ -163,7 +221,7 @@ fn void HMSound.setVolume(&self, float volume) @inline
 	if(volume < 0) volume = 0.0f;
 	self.volume = volume;
 	if(volume > 1.5f) {
-		log::warning(FILE, "Volume of Sound '%s' was set to '%d' past default '1.0f' this may be harmfull.", self.name, volume);
+		log::warning(FILE, "Volume of Sound '%s' was set to '%d' past default '1.0f' this may be harmfull.", self.name(), volume);
 	}
 	rl::setSoundVolume(self.super, volume);  // Set volume for a sound (0.0 to 1.0)
 }
@@ -174,6 +232,7 @@ fn void HMSound.setPan(&self, float pan) @inline => rl::setSoundPan(self.super, 
 fn bool HMSound.isPlaying(&self) @inline => rl::isSoundPlaying(self.super);
 fn void HMSound.play(&self) @inline => rl::playSound(self.super);
 fn void HMSound.stop(&self) @inline => rl::stopSound(self.super);
+
 fn void HMSound.pause(&self) @inline 
 {
     rl::pauseSound(self.super);
@@ -195,24 +254,56 @@ struct HMMusic @public
 {
 	inline RLMusic super; // sounds larger than 10 seconds
     Path path;
-	String name;
     int id;
 	float volume;
     bool paused;
+}
+
+fn String HMMusic.name(&self) @inline
+{
+	String base_name = self.path.basename();
+    assert(base_name.contains("."));
+    sz idx = base_name.index_of_char('.')!!;
+    String strip = base_name[idx..];
+    return base_name.strip_suffix(strip);
+}
+
+fn SoundType HMMusic.type(&self) @inline
+{
+	switch
+	{
+		case self.super.ctxType == RLMusicCtxType.OGG.ordinal:
+			return OGG;
+		case self.super.ctxType == RLMusicCtxType.MP3.ordinal:
+			return MP3;
+		case self.super.ctxType == RLMusicCtxType.FLAC.ordinal:
+			return FLAC;
+		case self.super.ctxType == RLMusicCtxType.NONE.ordinal:
+		case self.super.ctxType == RLMusicCtxType.WAV.ordinal:
+		case self.super.ctxType == RLMusicCtxType.QOA.ordinal:
+		case self.super.ctxType == RLMusicCtxType.XM.ordinal:
+		case self.super.ctxType == RLMusicCtxType.MOD.ordinal:
+		default: unreachable();
+	}
 }
 
 fn void HMMusic.play(&self) => rl::playMusicStream(self.super);
 fn bool HMMusic.isPlaying(&self) => rl::isMusicStreamPlaying(self.super);
 fn void HMMusic.update(&self) => rl::updateMusicStream(self.super);
 fn void HMMusic.stop(&self) => rl::stopMusicStream(self.super);
-fn void HMMusic.pause(&self) {
+
+fn void HMMusic.pause(&self)
+{
     rl::pauseMusicStream(self.super);
     self.paused = true;
 }
-fn void HMMusic.resume(&self) {
+
+fn void HMMusic.resume(&self)
+{
     rl::resumeMusicStream(self.super);
     self.paused = false;
 }
+
 fn void HMMusic.seek(&self, float position) => rl::seekMusicStream(self.super, position);
 
 fn void HMMusic.setVolume(&self, float volume) @inline
@@ -220,7 +311,7 @@ fn void HMMusic.setVolume(&self, float volume) @inline
 	if(volume < 0) volume = 0.0f;
 	self.volume = volume;
 	if(volume > 1.5f) {
-		log::warning(FILE, "Volume of Music '%s' was set to '%d' past default '1.0f' this may be harmfull.", self.name, volume);
+		log::warning(FILE, "Volume of Music '%s' was set to '%d' past default '1.0f' this may be harmfull.", self.name(), volume);
 	}
 	rl::setMusicVolume(self.super, volume);  // Set volume for a sound (0.0 to 1.0)
 }
@@ -234,24 +325,27 @@ fn float HMMusic.getTimePlayed(&self) => rl::getMusicTimePlayed(self.super);
 
 <*
     @param relative_path : "a relative path from the sounds folder to the music"
-    @param reuse : "if the music should reuse a free speaker and not create a new one"
     @require relative_path.len > 0
     @ensure rl::isMusicValid(self.super)
 *>
-fn HMMusic*? HMMusic.load(&self, Path relative_path, bool reuse = false)
+fn HMMusic*? HMMusic.load(&self, Path relative_path)
 {
     String root  = game::pContext.app_base_folder.tconcat("music\\");
     Path _path = root.to_tpath().tappend(relative_path)!;
-    if(reuse) { // unload previous music if necessary
+    { // when loading a new music, unload previous music if it exists
         if(rl::isMusicValid(self.super)) rl::unloadMusicStream(self.super);
     }
     self.path  = _path.tcopy();
     self.super = rl::loadMusicStream(self.path.zstr_tcopy());
-    assert(self.path.basename().contains("."));
-    sz idx = self.path.basename().index_of_char('.')!;
-    String strip = self.path.basename()[idx..];
-    self.name = self.path.basename().strip_suffix(strip);
-    self.setVolume(1.0f);
+	if(rl::isMusicValid(self.super))
+	{
+    	self.setVolume(1.0f);
+	} 
+	else
+	{
+		log::error(FILE, "Failed to load music '%s'!", self.name());
+		self.super = game::pContext.default_music;
+	}
     return self;
 }
 
@@ -260,13 +354,13 @@ fn void HMMusic.unload(&self)
 	rl::unloadMusicStream(self.super);
 }
 
-// object from where sound emenates (sound source/emitter)
+// Object from where sound emenates (sound source/emitter)
 // TODO(HM) make this into a real game entity
-struct HMSpeaker <Type> @public
+struct HMSpeaker <HMSpeaker_T> @public
 {
     // inline HMEntity super;
 
-	Type audio;
+	HMSpeaker_T audio;
 
     bool free;
 	//int fadeTime;
@@ -280,29 +374,32 @@ fn void HMSpeaker.clearAudio(&self)
     self.sndwld = null;
 }
 
-// a non-immediate free, will let all currently playing sounds complete
-// soundEmitters are not actually deleted, they are just marked as
+// A non-immediate free, will let all currently playing sounds complete,
+// soundSpeakers are not actually deleted, they are just marked as
 // reusable by the soundWorld
 fn void HMSpeaker.unload(&self, bool immediate = false)
 {
     if(self.sndwld) self.sndwld = null;
 
-	if(immediate) {
+	if(immediate)
+	{
         self.clearAudio();
 		return;
 	}
 
 	// else
-	if(self.audio.isPlaying()) {
+	if(self.audio.isPlaying())
+	{
         $if $defined(FADE_SOUND_AT_EXIT):
             // fade sound
             float start_volume = self.audio.getVolume();
             float currentVolume = start_volume;
-            if(!self.fadeDuration) self.fadeDuration = 1.0f/2; // seconds
+            if(!self.fadeDuration) self.fadeDuration = 0.5f; // seconds
             float fadeStep = start_volume / (self.fadeDuration * 100.0f); // Adjust volume in 100 steps
-            int sleepTime = (int)(self.fadeDuration * 10); // Sleep time in milliseconds
+            int sleepTime = 250; // Sleep time in milliseconds
 
-            while (currentVolume > 0.0f) {
+            while (currentVolume > 0.0f)
+			{
                 currentVolume -= fadeStep;
                 if (currentVolume < 0.0f) currentVolume = 0.0f;
                 
@@ -360,22 +457,22 @@ interface SoundWorldBackend
     fn int?	addMusic(Path);
     fn void update();
     fn void pause();
-	fn HMSoundSpeaker* getSoundEmitter(int);
-	fn HMSoundSpeaker* getSoundEmitterByName(String);
-	fn HMMusicSpeaker* getMusicEmitter(int);
-	fn HMMusicSpeaker* getMusicEmitterByName(String);
+	fn HMSoundSpeaker* getSoundSpeaker(int);
+	fn HMSoundSpeaker* getSoundSpeakerByName(String);
+	fn HMMusicSpeaker* getMusicSpeaker(int);
+	fn HMMusicSpeaker* getMusicSpeakerByName(String);
     fn void	shutdown();
 }
 
-alias SoundEmitterList = List{HMSoundSpeaker*};
-alias MusicEmitterList = List{HMMusicSpeaker*};
+alias SoundSpeakerList = List{HMSoundSpeaker*};
+alias MusicSpeakerList = List{HMMusicSpeaker*};
 alias AudioPlayingList = List{any};
 
 struct HMSoundWorld (SoundWorldBackend) @public
 {
 	String name;
-    SoundEmitterList sounds;
-    MusicEmitterList musics;
+    SoundSpeakerList sounds;
+    MusicSpeakerList musics;
     AudioPlayingList sounds_playing;
     DynamicArenaAllocator mem_arena;
 	bool active;
@@ -411,6 +508,7 @@ fn void removeSoundItemFromPlayingList(any sound, AudioPlayingList* list) @inlin
 
 fn void HMSoundWorld.init(&self, String name) @dynamic
 {
+	// init sound world memory pool/arena
     self.mem_arena.init(mem, SOUND_ARENA_PAGE_SIZE);
     self.name = name.tcopy();
 }
@@ -429,7 +527,8 @@ fn bool HMSoundWorld.isActive(&self) @dynamic => self.active;
 
 fn void setPlayingSoundWorld(HMSoundWorld* snd_world) @public
 {
-    if(!snd_world) {
+    if(!snd_world)
+	{
         HMSoundWorld* current_sound_world = game::pContext.current_sound_world;
         if(current_sound_world) current_sound_world.deactivate();
         return;
@@ -445,8 +544,10 @@ fn void HMSoundWorld.update(&self) @dynamic
 {
     if(self.isActive()) 
     {
-        foreach(music_speaker : self.musics) {
-		    if(music_speaker.audio.isPlaying()) {
+        foreach(music_speaker : self.musics)
+		{
+		    if(music_speaker.audio.isPlaying())
+			{
                 music_speaker.audio.update();
             }
 	    }
@@ -457,13 +558,17 @@ fn void HMSoundWorld.pause(&self) @dynamic
 {
     if(self.isActive())
     {
-        foreach(music_speaker : self.musics) {
-		    if(music_speaker.audio.isPlaying()) {
+        foreach(music_speaker : self.musics)
+		{
+		    if(music_speaker.audio.isPlaying())
+			{
                 music_speaker.audio.pause();
             }
 	    }
-        foreach(sound_speaker : self.sounds) {
-		    if(sound_speaker.audio.isPlaying()) {
+        foreach(sound_speaker : self.sounds)
+		{
+		    if(sound_speaker.audio.isPlaying())
+			{
                 sound_speaker.audio.pause();
             }
 	    }
@@ -478,16 +583,20 @@ fn void HMSoundWorld.unpause(&self) @dynamic
     if(!self.isActive())
     {
         self.activate();
-        foreach(music_speaker : self.musics) {
+        foreach(music_speaker : self.musics)
+		{
             bool paused = music_speaker.audio.paused;
-		    if(!music_speaker.audio.isPlaying() && paused) {
+		    if(!music_speaker.audio.isPlaying() && paused)
+			{
                 music_speaker.audio.resume();
                 addSoundToPlayingList(any_make(music_speaker, HMMusicSpeaker), &self.sounds_playing);
             }
 	    }
-        foreach(sound_speaker : self.sounds) {
+        foreach(sound_speaker : self.sounds)
+		{
             bool paused = sound_speaker.audio.paused;
-		    if(sound_speaker.audio.isPlaying() && paused) {
+		    if(sound_speaker.audio.isPlaying() && paused)
+			{
                 sound_speaker.audio.resume();
                 addSoundToPlayingList(any_make(sound_speaker, HMSoundSpeaker), &self.sounds_playing);
             }
@@ -500,13 +609,17 @@ fn void HMSoundWorld.stop(&self) @dynamic
     if(self.isActive())
     {
         self.deactivate();
-        foreach(music_speaker : self.musics) {
-		    if(music_speaker.audio.isPlaying()) {
+        foreach(music_speaker : self.musics)
+		{
+		    if(music_speaker.audio.isPlaying())
+			{
                 music_speaker.audio.stop();
             }
 	    }
-        foreach(sound_speaker : self.sounds) {
-		    if(sound_speaker.audio.isPlaying()) {
+        foreach(sound_speaker : self.sounds)
+		{
+		    if(sound_speaker.audio.isPlaying())
+			{
                 sound_speaker.audio.stop();
             }
 	    }
@@ -523,20 +636,22 @@ fn void HMSoundWorld.stop(&self) @dynamic
 fn int? HMSoundWorld.addSound(&self, Path relative_path) @dynamic
 {
     // reuse speakers
-    foreach(sound : self.sounds) {
-        if(sound.free) {
-            sound.audio.load(relative_path, reuse: true)!;
+    foreach(sound : self.sounds)
+	{
+        if(sound.free)
+		{
+            sound.audio.load(relative_path)!;
             return sound.audio.id;
         }
     }
 
     // create a new speaker
     HMSoundSpeaker* new_speaker = create_sound_speaker(self)!;
-    self.sounds.push(new_speaker);
     new_speaker.audio.load(relative_path)!;
     new_speaker.audio.id = (int)self.sounds.len() + 1;
     new_speaker.sndwld = self;
     new_speaker.fadeDuration = 0.5f;
+    self.sounds.push(new_speaker);
     return new_speaker.audio.id;
 }
 
@@ -548,22 +663,7 @@ fn int? HMSoundWorld.addSound(&self, Path relative_path) @dynamic
 *>
 fn int? addSoundTo(HMSoundWorld* sndwld, Path relative_path) @public
 {
-    // reuse speakers
-    foreach(sound : sndwld.sounds) {
-        if(sound.free) {
-            sound.audio.load(relative_path, reuse: true)!;
-            return sound.audio.id;
-        }
-    }
-
-    // create a new speaker
-    HMSoundSpeaker* new_speaker = create_sound_speaker(sndwld)!;
-    sndwld.sounds.push(new_speaker);
-    new_speaker.audio.load(relative_path)!;
-    new_speaker.audio.id = (int)sndwld.sounds.len() + 1;
-    new_speaker.sndwld = sndwld;
-    new_speaker.fadeDuration = 0.5f;
-    return new_speaker.audio.id;
+    return sndwld.addSound(relative_path);
 }
 
 <*
@@ -574,19 +674,22 @@ fn int? addSoundTo(HMSoundWorld* sndwld, Path relative_path) @public
 fn int? HMSoundWorld.addMusic(&self, Path relative_path) @dynamic
 {
      // reuse speakers
-    foreach(music : self.musics) {
-        if(music.free) {
-            music.audio.load(relative_path, reuse: true)!;
+    foreach(music : self.musics)
+	{
+        if(music.free)
+		{
+            music.audio.load(relative_path)!;
             return music.audio.id;
         }
     }
 
+	// else create a new one
     HMMusicSpeaker* new_speaker = create_music_speaker(self);
-    self.musics.push(new_speaker);
     new_speaker.audio.load(relative_path)!;
     new_speaker.audio.id = (int)self.musics.len() + 1;
     new_speaker.sndwld = self;
     new_speaker.fadeDuration = 0.5f;
+    self.musics.push(new_speaker);
     return new_speaker.audio.id;
 }
 
@@ -598,28 +701,15 @@ fn int? HMSoundWorld.addMusic(&self, Path relative_path) @dynamic
 *>
 fn int? addMusicTo(HMSoundWorld* sndwld, Path relative_path) @public
 {
-     // reuse speakers
-    foreach(music : sndwld.musics) {
-        if(music.free) {
-            music.audio.load(relative_path, reuse: true)!;
-            return music.audio.id;
-        }
-    }
-
-    HMMusicSpeaker* new_speaker = create_music_speaker(sndwld);
-    sndwld.musics.push(new_speaker);
-    new_speaker.audio.load(relative_path)!;
-    new_speaker.audio.id = (int)sndwld.musics.len() + 1;
-    new_speaker.sndwld = sndwld;
-    new_speaker.fadeDuration = 0.5f;
-    return new_speaker.audio.id;
+    return sndwld.addMusic(relative_path);
 }
 
 <*
     @param id : "id of sound emitter"
+	@require id >= 1
     @ensure return != null
 *>
-fn HMSoundSpeaker* HMSoundWorld.getSoundEmitter(&self, int id) @dynamic
+fn HMSoundSpeaker* HMSoundWorld.getSoundSpeaker(&self, int id) @dynamic
 {
     return self.sounds[--id];
 }
@@ -629,26 +719,26 @@ fn HMSoundSpeaker* HMSoundWorld.getSoundEmitter(&self, int id) @dynamic
     @require id >= 1
     @ensure return != null
 *>
-fn HMMusicSpeaker* HMSoundWorld.getMusicEmitter(&self, int id) @dynamic
+fn HMMusicSpeaker* HMSoundWorld.getMusicSpeaker(&self, int id) @dynamic
 {
-   return self.musics[(sz)(id - 1)];
+   return self.musics[--id];
 }
 
-fn HMSoundSpeaker* HMSoundWorld.getSoundEmitterByName(&self, String name) @dynamic
+fn HMSoundSpeaker* HMSoundWorld.getSoundSpeakerByName(&self, String name) @dynamic
 {
-    foreach(speaker : self.sounds) {
-		if(speaker.audio.name == name) return speaker;
+    foreach(speaker : self.sounds)
+	{
+		if(speaker.audio.name() == name) return speaker;
 	}
-
     return null;
 }
 
-fn HMMusicSpeaker* HMSoundWorld.getMusicEmitterByName(&self, String name) @dynamic
+fn HMMusicSpeaker* HMSoundWorld.getMusicSpeakerByName(&self, String name) @dynamic
 {
-    foreach(speaker : self.musics) {
-		if(speaker.audio.name == name) return speaker;
+    foreach(speaker : self.musics)
+	{
+		if(speaker.audio.name() == name) return speaker;
 	}
-
     return null;
 }
 
@@ -656,18 +746,24 @@ fn void HMSoundWorld.playSound(&self, String name, bool is_music = false) @dynam
 {
 	if(self.sounds_playing.len() >= 64) return;
 
-    if(is_music) {
-        foreach(speaker : self.musics) {
-            if(speaker.audio.name == name) {
-                if(!speaker.audio.isPlaying()) {
+    if(is_music)
+	{
+        foreach(speaker : self.musics)
+		{
+            if(speaker.audio.name() == name)
+			{
+                if(!speaker.audio.isPlaying())
+				{
                     speaker.audio.play();
                     addSoundToPlayingList(any_make(speaker, HMMusicSpeaker), &self.sounds_playing);
                 }
             }
         }
     } else {
-        foreach(speaker : self.sounds) {
-            if(speaker.audio.name == name) {
+        foreach(speaker : self.sounds)
+		{
+            if(speaker.audio.name() == name)
+			{
                 speaker.audio.play();
                 addSoundToPlayingList(any_make(speaker, HMSoundSpeaker), &self.sounds_playing);
             }
@@ -681,14 +777,14 @@ fn void HMSoundWorld.stopSound(&self, String name, bool is_music = false) @dynam
 
     if(is_music) {
         foreach(i, speaker : self.musics) {
-            if(speaker.audio.name == name) {
+            if(speaker.audio.name() == name) {
                 speaker.audio.stop();
                 removeSoundItemFromPlayingList(any_make(speaker, HMMusicSpeaker), &self.sounds_playing);
             }
         }
     } else {
         foreach(i, speaker : self.sounds) {
-            if(speaker.audio.name == name) {
+            if(speaker.audio.name() == name) {
                 speaker.audio.stop();
                 removeSoundItemFromPlayingList(any_make(speaker, HMSoundSpeaker), &self.sounds_playing);
             }
@@ -702,7 +798,7 @@ fn void HMSoundWorld.pauseSound(&self, String name, bool is_music = false) @dyna
 
     if(is_music) {
         foreach(speaker : self.musics) {
-            if(speaker.audio.name == name) {
+            if(speaker.audio.name() == name) {
                 if(!speaker.audio.isPlaying()) {
                     return;
                 }
@@ -713,7 +809,7 @@ fn void HMSoundWorld.pauseSound(&self, String name, bool is_music = false) @dyna
         }
     } else {
         foreach(speaker : self.sounds) {
-            if(speaker.audio.name == name) {
+            if(speaker.audio.name() == name) {
                 if(!speaker.audio.isPlaying()) {
                     return;
                 }
@@ -729,7 +825,7 @@ fn void HMSoundWorld.resumeSound(&self, String name, bool is_music = false) @dyn
 {
     if(is_music) {
         foreach(speaker : self.musics) {
-            if(speaker.audio.name == name) {
+            if(speaker.audio.name() == name) {
                 if(speaker.audio.isPlaying()) {
                     return;
                 }
@@ -739,7 +835,7 @@ fn void HMSoundWorld.resumeSound(&self, String name, bool is_music = false) @dyn
         }
     } else {
         foreach(speaker : self.sounds) {
-            if(speaker.audio.name == name) {
+            if(speaker.audio.name() == name) {
                 if(speaker.audio.isPlaying()) {
                     return;
                 }
@@ -752,7 +848,7 @@ fn void HMSoundWorld.resumeSound(&self, String name, bool is_music = false) @dyn
 
 fn void HMSoundWorld.removeSound(&self, String name) @dynamic
 {
-	HMSoundSpeaker* speaker = self.getSoundEmitterByName(name);
+	HMSoundSpeaker* speaker = self.getSoundSpeakerByName(name);
     if(speaker) self.sounds.remove_item(speaker);
 }
 
