@@ -85,7 +85,7 @@ fn void register_cvars() @public
 /* #region Anchors */
 typedef GuiAnchor = inline Vec2f;
 
-constdef AnchorID : inline int
+constdef GUIAnchorID : inline int
 {
     TOP_LEFT = 0,
     TOP_CENTER,
@@ -97,7 +97,7 @@ constdef AnchorID : inline int
     BOTTOM_CENTER,
     BOTTOM_RIGHT
 }
-const ANCHOR_COUNT = AnchorID::values.len;
+const ANCHOR_COUNT = GUIAnchorID::values.len;
 
 alias AnchorList = List{GuiAnchor};
 alias AnchorArray = GuiAnchor[ANCHOR_COUNT];
@@ -112,15 +112,15 @@ fn AnchorArray initAnchors(RLRectangle rect)
     // init the anchors to attach stuff in guis
 	Vec2f origin = rect.pos;
 	AnchorArray anchors;
-	anchors[AnchorID.TOP_LEFT]      = (GuiAnchor)origin + {0, 0};
-    anchors[AnchorID.TOP_CENTER]    = (GuiAnchor)origin + {rect.w / 2, 0};
-    anchors[AnchorID.TOP_RIGHT]     = (GuiAnchor)origin + {rect.w, 0};
-    anchors[AnchorID.CENTER_LEFT]   = (GuiAnchor)origin + {0, rect.h / 2};
-    anchors[AnchorID.CENTER]        = (GuiAnchor)origin + {rect.w / 2, rect.h / 2};
-    anchors[AnchorID.CENTER_RIGHT]  = (GuiAnchor)origin + {rect.w, rect.h / 2};
-    anchors[AnchorID.BOTTOM_LEFT]   = (GuiAnchor)origin + {0, rect.h};
-    anchors[AnchorID.BOTTOM_CENTER] = (GuiAnchor)origin + {rect.w / 2, rect.h};
-    anchors[AnchorID.BOTTOM_RIGHT]  = (GuiAnchor)origin + {rect.w, rect.h};
+	anchors[GUIAnchorID.TOP_LEFT]      = (GuiAnchor)origin + {0, 0};
+    anchors[GUIAnchorID.TOP_CENTER]    = (GuiAnchor)origin + {rect.w / 2, 0};
+    anchors[GUIAnchorID.TOP_RIGHT]     = (GuiAnchor)origin + {rect.w, 0};
+    anchors[GUIAnchorID.CENTER_LEFT]   = (GuiAnchor)origin + {0, rect.h / 2};
+    anchors[GUIAnchorID.CENTER]        = (GuiAnchor)origin + {rect.w / 2, rect.h / 2};
+    anchors[GUIAnchorID.CENTER_RIGHT]  = (GuiAnchor)origin + {rect.w, rect.h / 2};
+    anchors[GUIAnchorID.BOTTOM_LEFT]   = (GuiAnchor)origin + {0, rect.h};
+    anchors[GUIAnchorID.BOTTOM_CENTER] = (GuiAnchor)origin + {rect.w / 2, rect.h};
+    anchors[GUIAnchorID.BOTTOM_RIGHT]  = (GuiAnchor)origin + {rect.w, rect.h};
 	return anchors;
 }
 
@@ -133,14 +133,14 @@ fn AnchorArray initAnchors(RLRectangle rect)
 *>
 fn void updateAnchors(AnchorList* anchors, Vec2f pos, Vec2f size)
 {
-    (*anchors)[AnchorID.TOP_CENTER]    = (GuiAnchor)pos + {size.x / 2, 0};
-    (*anchors)[AnchorID.TOP_RIGHT]     = (GuiAnchor)pos + {size.x, 0};
-    (*anchors)[AnchorID.CENTER_LEFT]   = (GuiAnchor)pos + {0, size.y / 2};
-    (*anchors)[AnchorID.CENTER]        = (GuiAnchor)pos + {size.x / 2,size.y / 2};
-    (*anchors)[AnchorID.CENTER_RIGHT]  = (GuiAnchor)pos + {size.x, size.y / 2};
-    (*anchors)[AnchorID.BOTTOM_LEFT]   = (GuiAnchor)pos + {0, size.y};
-    (*anchors)[AnchorID.BOTTOM_CENTER] = (GuiAnchor)pos + {size.x / 2, size.y};
-    (*anchors)[AnchorID.BOTTOM_RIGHT]  = (GuiAnchor)pos + {size.x, size.y};
+    (*anchors)[GUIAnchorID.TOP_CENTER]    = (GuiAnchor)pos + {size.x / 2, 0};
+    (*anchors)[GUIAnchorID.TOP_RIGHT]     = (GuiAnchor)pos + {size.x, 0};
+    (*anchors)[GUIAnchorID.CENTER_LEFT]   = (GuiAnchor)pos + {0, size.y / 2};
+    (*anchors)[GUIAnchorID.CENTER]        = (GuiAnchor)pos + {size.x / 2,size.y / 2};
+    (*anchors)[GUIAnchorID.CENTER_RIGHT]  = (GuiAnchor)pos + {size.x, size.y / 2};
+    (*anchors)[GUIAnchorID.BOTTOM_LEFT]   = (GuiAnchor)pos + {0, size.y};
+    (*anchors)[GUIAnchorID.BOTTOM_CENTER] = (GuiAnchor)pos + {size.x / 2, size.y};
+    (*anchors)[GUIAnchorID.BOTTOM_RIGHT]  = (GuiAnchor)pos + {size.x, size.y};
 }
 
 <*
@@ -153,15 +153,15 @@ fn void drawAnchors(AnchorList* anchors)
     if(!ui_showAnchors.getBool()) return;
 
 	//r2d::drawSquare(origin ,8, rl::BLACK);
-	r2d::drawSquare((*anchors)[AnchorID.TOP_LEFT],     4, rl::RED);
-    r2d::drawSquare((*anchors)[AnchorID.TOP_CENTER],   4, rl::GREEN);
-    r2d::drawSquare((*anchors)[AnchorID.TOP_RIGHT],    4, rl::BLUE);
-    r2d::drawSquare((*anchors)[AnchorID.CENTER_LEFT],  4, rl::MAROON);
-    r2d::drawSquare((*anchors)[AnchorID.CENTER],       4, rl::LIME); 
-    r2d::drawSquare((*anchors)[AnchorID.CENTER_RIGHT], 4, rl::SKYBLUE);
-    r2d::drawSquare((*anchors)[AnchorID.BOTTOM_LEFT],  4, rl::VIOLET); 
-    r2d::drawSquare((*anchors)[AnchorID.BOTTOM_CENTER],4, rl::ORANGE);
-    r2d::drawSquare((*anchors)[AnchorID.BOTTOM_RIGHT], 4, rl::MAGENTA);
+	r2d::drawSquare((*anchors)[GUIAnchorID.TOP_LEFT],     4, rl::RED);
+    r2d::drawSquare((*anchors)[GUIAnchorID.TOP_CENTER],   4, rl::GREEN);
+    r2d::drawSquare((*anchors)[GUIAnchorID.TOP_RIGHT],    4, rl::BLUE);
+    r2d::drawSquare((*anchors)[GUIAnchorID.CENTER_LEFT],  4, rl::MAROON);
+    r2d::drawSquare((*anchors)[GUIAnchorID.CENTER],       4, rl::LIME); 
+    r2d::drawSquare((*anchors)[GUIAnchorID.CENTER_RIGHT], 4, rl::SKYBLUE);
+    r2d::drawSquare((*anchors)[GUIAnchorID.BOTTOM_LEFT],  4, rl::VIOLET); 
+    r2d::drawSquare((*anchors)[GUIAnchorID.BOTTOM_CENTER],4, rl::ORANGE);
+    r2d::drawSquare((*anchors)[GUIAnchorID.BOTTOM_RIGHT], 4, rl::MAGENTA);
 }
 
 /* #endregion Anchors */
@@ -449,22 +449,25 @@ constdef GUIActionColor : inline int
 	GRABED
 }
 
+const RLColor[*] GUIACTION_COLOR = {
+	rl::WHITE,
+	rl::RED,
+	rl::BLUE,
+	rl::YELLOW,
+	rl::GREEN
+};
+
+<*
+    @require color >= GUIActionColor.DEFAULT
+*>
 fn void GUIRect.setColor(&self, GUIActionColor color) 
 {
-	switch (color)
-	{
-	case OVER:
-    	self.color = rl::RED;
-	case MDOWN:
-    	self.color = rl::BLUE;
-	case SELECTED:
-    	self.color = rl::YELLOW;
-	case GRABED:	
-    	self.color = rl::GREEN;
-	case DEFAULT:
-		self.color = self.original_color;
-	default: unreachable();
-	}
+    if(color >= (int)GUIACTION_COLOR.len)
+    {
+	    self.color = self.original_color;
+        return;
+    }
+	self.color = GUIACTION_COLOR[color];
 }
 
 fn void GUIRect.fadeIn(&self, float factor) 
@@ -500,10 +503,11 @@ fn void GUIRect.hide(&self) @inline
     self.deactivate();
 }
 
-fn void GUIRect.show(&self) @inline {
+fn void GUIRect.show(&self, bool activate = false) @inline
+{
     if(!self.hidden()) return;
     self.flags.isHidden = false;
-    self.activate();
+    if(activate) self.activate();
 }
 
 fn void GUIRect.debugBounds(&self, bool choice) @inline {
@@ -565,7 +569,7 @@ fn bool GUIRect.isHot(&self)  @inline => self.flags.isHot;
 
 fn bool GUIRect.can_be_interacted(self)
 {
-	return (self.isHot() && self.active() && self.asFocus());
+	return (self.isHot() && self.asFocus());
 }
 
 fn bool GUIRect.cannot_be_interacted(self)
@@ -575,24 +579,18 @@ fn bool GUIRect.cannot_be_interacted(self)
 
 fn void GUIRect.update(&self) 
 {
-    if((guieditor::enabled() && guieditor::as_focus()) ||
+    if(self.hidden() || (guieditor::enabled() && guieditor::as_focus()) ||
  	   // if we enabled the microui test windows set focus to them 
 	    game::pContext.show_microui_test_frames)
     {
-       return; // do not update GUIRects when in editor mode
+       return; // do not update GUIRects when hidden or in editor mode
     }
-
-    if(self.hidden()) return;
 
     self.flags.isHot = self.isMouseOver();
 
-	if(self.isHot() && self.active())
+	if(self.isHot())
 	{
-		self.setFocus(true);
-	}
-	else if(self.isHot() && !self.active())
-	{
-		self.setFocus(false);
+		(self.active()) ? self.setFocus(true) : self.setFocus(false);
 	}
 }
 
@@ -1081,28 +1079,12 @@ fn bool GUIWidget.isWithinCoords(&self, int x, int y) @dynamic
 *>
 fn void GUIWidget.addTo(&self, GUIWindow* window) @dynamic 
 {
-    self.setParentUIWindow(window);
-	defer self.parent_window.addChildWidget(self);
+	window.addChildWidget(self);
+    self.parent_window = window;
 
-    // todo change this to activate logic like the panel system...
-    if (self.parent_window.isInteractive) {
+	/*if (self.parent_window.isInteractive) {
         self.activate();
-    }
-
-    self.id = (int)self.parent_window.childWidgets.len() + 1;
-    
-    // concatenate with window name
-    if (self.id < 10) {
-        self.name = string::tformat("%s_%s%d", self.parent_window.name, self.name.tconcat("0"), self.id);
-        if (self.bound()) {
-            self.name = string::tformat("%s_%s_%s%d", self.parent_window.name, self.other.name, self.name.tconcat("0"), self.id);
-        }
-    } else {
-      self.name = string::tformat("%s_%s%d", self.parent_window.name, self.name, self.id);
-      if (self.bound()) {
-          self.name = string::tformat("%s_%s_%s%d", self.parent_window.name, self.other.name, self.name, self.id);
-      }
-    }
+    }*/
 }
 
 <*
@@ -1211,18 +1193,17 @@ struct GUIWidgetLabel
     float spacing; // spacing between characters, used for text rendering
 }
 
-
 fn void GUIWidgetLabel.init(&self) 
 {
     self.super.init();
-    self.super.hide(); // don't draw our square shape
     self.kind = KIND_TEXT;
 	self.name = GUILABEL_NAME_PREFIX; // Initial default name @hardcode
     self.setDefaultColor(rl::BLACK); //@hardcode
-	self.deactivate(); // lables aren't clicable by default unlike buttons
     self.spacing    = WIDGET_TEXT_SPACING;
     self.font_size  = WIDGET_TEXT_DEFAULT_SIZE; 
     self.align      = TextAlign.CENTER;
+    self.super.hide(); // don't draw our square shape
+	self.deactivate(); // lables aren't clicable by default unlike buttons
 }
 
 fn void GUIWidgetLabel.deinit(&self) @inline 
@@ -1337,7 +1318,24 @@ fn void init_label(GUIWidgetLabel* label, String text, RLFont* font, int font_si
 {
 	label.init();
 	int labels_count = uiwin.getChildWidgetCount(KIND_TEXT);
-	label.name = label.name.tconcat(text).tconcat(string::tformat("%s", labels_count + 1));
+	label.id = labels_count + 1;
+    // concatenate with window name
+    if (label.id < 10)
+	{
+        label.name = string::tformat("%s_%s%d", uiwin.name, label.name.tconcat("0"), label.id);
+        if (label.bound()) {
+            label.name = string::tformat("%s_%s_%s%d", uiwin.name, label.other.name, label.name.tconcat("0"), label.id);
+        }
+    }
+	else
+	{
+		label.name = string::tformat("%s_%s%d", uiwin.name, label.name, label.id);
+		if (label.bound())
+		{
+			label.name = string::tformat("%s_%s_%s%d", uiwin.name, label.other.name, label.name, label.id);
+		}
+    }
+	
 	label.setText(text);
 	label.setTextColor(text_color);
 	if (font != null) {
@@ -1346,8 +1344,6 @@ fn void init_label(GUIWidgetLabel* label, String text, RLFont* font, int font_si
 	if (font_size > 0) {
 		label.setFontSize((uint)font_size);
 	}
-	// labels shouldn't be interactive (to save perf...)
-	label.deactivate();
 	label.show();
 	label.addTo(uiwin);
 }
@@ -1365,7 +1361,6 @@ struct GUIWidgetButton
     
     int press_count;
     bool pressed;
-    bool activated;
     bool reset;
     //bool sound_played;
     RLSound* interaction_sound;
@@ -1713,36 +1708,34 @@ int w = 800,
 int h = 600, 
 bool shouldRegister = true
 ) {
-    self.name = string::tformat("%s%s", GUIWIN_NAME_PREFIX, name);
-    self.number = (int)local_manager.windows.len() + 1;
-    //
-    //
-    RLRectangle rect;
-    if(isDesktop) {
-        self.isDesktop = isDesktop;
-        self.desktop   = self;
-		assert(game::getScreenWidth() > 0 && game::getScreenHeight() > 0, 
+    self.color = rl::WHITE;
+
+    if(isDesktop)
+    {
+        self.isDesktop = true;
+        if(self.desktop) self.desktop = null;
+		w = game::getScreenWidth();
+        h = game::getScreenHeight();
+        assert(w > 0 && h > 0, 
 			"GUIWindow.init: Cannot set window desktop to fullscreen because screen width or height is zero!!"
 		);
-        rect.w = game::getScreenWidth();
-        rect.h = game::getScreenHeight();
-    } else {
-        rect.w = w;
-        rect.h = h;
     }
-    self.rect = rect;
+
+    self.number = (int)local_manager.windows.len() + 1;
+    self.name = string::tformat("%s%s", GUIWIN_NAME_PREFIX, name);
+
+    self.rect.w = w;
+    self.rect.h = h;
 	self.anchor.reserve(gui::ANCHOR_COUNT);
-	self.anchor.init_with_array(mem, gui::initAnchors(self.rect)[..]);
+	self.anchor.init_with_array(mem, initAnchors(self.rect)[..]);
     
-    self.color = rl::WHITE;
     //
-	//NOTE(HM) by default the window is not active when created
-	//self.active = false; // in this language bools are false by default
-	//
+	//NOTE(HM) by default the window is not active when created so set it as active.
     self.isInteractive = true; // by default the window is interactive
     self.show(); 			   // by default the window is visible
     
-	if(shouldRegister) {
+	if(shouldRegister)
+    {
         GUIWindow* this = self;
         local_manager.register(this);
 	}
@@ -2018,17 +2011,17 @@ fn void GUIWindow.update(&self, int _time)
 	{
 		foreach(music : self.sound_world.musics)
 		{
-			if(music.audio.isPlaying())
+			if(music.isPlaying())
 			{
 				if(game::pContext.pause_all_music || game::s_noaudio.getBool()) {
-					music.audio.pause();
+					music.pause();
 				} else {
-					music.audio.update();
+					music.update();
 				}
 			} 
 			else if (!game::pContext.pause_all_music && !game::s_noaudio.getBool())
 			{
-				music.audio.resume();
+				music.resume();
 			}
 		}
     }
@@ -2042,15 +2035,19 @@ fn void GUIWindow.redraw(&self, int _time)
 		return;
 	}*/
     
-	if (!self.loading) {
+	if (!self.loading)
+	{
 		self.time = _time;
 	}
     
     // draw GUIWindow background
-    if(self.tex) {
+    if(self.tex)
+	{
         assert(rl::isTextureValid(*self.tex));
         rl::drawTexture(*self.tex, (int)self.rect.x, (int)self.rect.y, self.color);
-    } else {
+    }
+	else
+	{
         r2d::@drawRect(self.rect, self.color);
     }
 
@@ -2152,6 +2149,20 @@ fn GUIWindow* GUIWindow.addChildWindow(&self, GUIWindow* child, int idx = -1 )
 }
 
 <*
+    @param [&in] child : "child to register/add to the window"
+    @param  idx : "index where to put the child, if -1 this is ignored"
+    @require idx >= 0
+*>
+fn void GUIWindow.addPage(&self, int idx, GUIWindow* child)
+{
+    if(idx >= 0) {
+        self.childWindows.insert_at(idx, child);
+    } else {
+        self.childWindows.push(child);
+    }
+}
+
+<*
     @param idx : "index of the child widget to get"
     @ensure return != null
 *>
@@ -2206,7 +2217,7 @@ macro GUIWindow.debugDrawBorder(&self)
 
 macro GUIWindow.debugDrawName(&self)
 {
-	Vec2f pos = self.getAnchor(AnchorID.TOP_LEFT);
+	Vec2f pos = self.getAnchor(GUIAnchorID.TOP_LEFT);
 	pos += misc::VEC_RIGHT * 50;
     pos += misc::VEC_DOWN * 50;
 	ZString wind_name = string::tformat("GUI: \"%s\"", self.name).zstr_tcopy();
@@ -2220,7 +2231,7 @@ macro GUIWindow.debugDrawName(&self)
 macro GUIWindow.debugDrawWindTime(&self)
 {
 	ZString time = string::tformat("GUI TIME: \"%s\"", self.time).zstr_tcopy();
-	Vec2f pos = self.getAnchor(AnchorID.TOP_LEFT);
+	Vec2f pos = self.getAnchor(GUIAnchorID.TOP_LEFT);
 	pos += misc::VEC_RIGHT * 50;
     pos += misc::VEC_DOWN * 100;
 	if(self.isDesktop) {
@@ -2236,7 +2247,7 @@ macro GUIWindow.debugDrawCoords(&self)
 	float rect_y = self.rect.y;
 	float rect_w = self.rect.w;
 	float rect_h = self.rect.h;
-	Vec2f pos = self.getAnchor(AnchorID.TOP_LEFT);
+	Vec2f pos = self.getAnchor(GUIAnchorID.TOP_LEFT);
 	pos += misc::VEC_RIGHT * 50;
     pos += misc::VEC_DOWN * 150;
 	rl::drawText(
@@ -2248,9 +2259,8 @@ macro GUIWindow.debugDrawCoords(&self)
 
 fn void GUIWindow.debug(&self, bool showHidden = true) 
 {
-    if(gui::ui_debugDraw.getBool())
+    if(ui_debugDraw.getBool())
     {
-        float lineThick    = 1.0f;
         // show desktop window border in a diferent color
 		self.debugDrawBorder();
         // show the Window name
@@ -2266,7 +2276,7 @@ fn void GUIWindow.debug(&self, bool showHidden = true)
             foreach(child: self.childWidgets)
             {
                if(child.isSelected()) continue;
-               Vec2f dbg_text_pos = child.getAnchor(AnchorID.TOP_LEFT);
+               Vec2f dbg_text_pos = child.getAnchor(GUIAnchorID.TOP_LEFT);
                dbg_text_pos = {child.rect.x, child.rect.y};
                dbg_text_pos += misc::VEC_UP * (0.30f * child.rect.height); 
                rl::drawText(
@@ -2280,19 +2290,35 @@ fn void GUIWindow.debug(&self, bool showHidden = true)
                }
                r2d::drawRectangleLinesEx(child.rect, 1.5f, rl::RED);
                gui::drawAnchors(&child.anchor);
+
+			   // draw in the corner of the window the name of the current hot child
+			   if(child.can_be_interacted())
+			   {
+					Vec2f top_corner = self.getAnchor(GUIAnchorID.TOP_LEFT);
+					rl::drawText(
+						string::tformat("Hot Widget = %s", child.name).zstr_tcopy(),
+						(int)top_corner.x + 50, (int)top_corner.y + 50, 32, rl::SKYBLUE
+					);
+			   }
+
+			   if(child.asFocus())
+			   {
+				r2d::drawRectangleLinesEx(child.rect, 2.0f, rl::PINK);
+			   }
             }
         }
 
-		// draw the childWindows BBox (will show even hidden windows)
+		// also debug any child Windows (will show even hidden windows)
         if (self.childWindows.len()) 
         {
             foreach(child: self.childWindows)
             {
-               if(child.selected) continue;
+			   child.debug();
+               /*if(child.selected) continue;
 			   child.debugDrawBorder();
 			   self.debugDrawName();
 			   self.debugDrawWindTime();
-               gui::drawAnchors(&child.anchor);
+               gui::drawAnchors(&child.anchor);*/
             }
         }
     }

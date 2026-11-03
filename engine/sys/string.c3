@@ -145,20 +145,24 @@ fn String String.strip_known_extension(self)
 
 fn String String.strip_extension(self)
 {
-    if(!self.contains(".")) {
-		log::warning(FILE, "Trying to remove extension from '%s' but it has none", self);
+    if(!self.contains("."))
+	{
+		log::warning(FILE, "Trying to remove extension from '%s' but none was found.", self);
 		return self;
 	}
-    //assert(self.count(".") == 1);
-    if(self.count(".") > 1) {
-      log::warning(FILE, "String %s has malformed or more than one extension!.", self);
+
+    if(self.count(".") > 1)
+	{
+      log::warning(FILE, "While removing extension of string %s it had malformed or more than one extension!.", self);
     }
 
-    if(try idx = self.index_of_char('.')) {
-        if (idx == self.len) return self;
+    if(try idx = self.index_of_char('.'))
+	{
         return self.strip_end(self[idx..]);
-    } else {
-        log::warning(FILE, "Cannot strip extension of string %s failed to get '.' index position.", self);
+    }
+	else
+	{
+        log::warning(FILE, "Failed to strip extension of string %s, because no '.' index position was found.", self);
         return self; // do nothing
     }
 }

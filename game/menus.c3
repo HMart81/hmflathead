@@ -370,7 +370,7 @@ fn GUIWidgetButton* create_menu_button(GUIWindow* uiwin, MenuButtonDef* bdef)
 }
 
 
-// Main Meny extra windows
+// Main Meny extra windows indices
 const MAINMENU_OPTIONS = 0;
 const MAINMENU_EXTRA   = 1;
 const MAINMENU_PAGE_COUNT = 2; // update this is more consts are define above this
@@ -378,56 +378,66 @@ const MAINMENU_PAGE_COUNT = 2; // update this is more consts are define above th
 fn GUIWindow* mainMenuCreate(int screenWidth, int screenHeight)
 {
     // Menu creation
-    Vec2f screen_center       = game::getScreenCenterPos();
-    float screen_half_width   = screen_center.x;
-    float screen_half_height  = screen_center.y;
-    Vec2f screen_top_center   = {screen_half_width, 0.0f};
-
     GUIWindow* desk_main = mem::new(GUIWindow);
     desk_main.init("MainMenu", isDesktop: true);
     desk_main.setColor(rl::DARKGRAY);
 	desk_main.setPageCount(MAINMENU_PAGE_COUNT);
 
+    Vec2f screen_center       = desk_main.getAnchor(GUIAnchorID.CENTER); //game::getScreenCenterPos();
+    float screen_half_width   = screen_center.x;
+    float screen_half_height  = screen_center.y;
+    Vec2f screen_top_center   = desk_main.getAnchor(GUIAnchorID.TOP_CENTER); //{screen_half_width, 0.0f};
+
+
 	// create window options
-    GUIWindow* window_options = desk_main.addChildWindow(mem::new(GUIWindow), MAINMENU_OPTIONS);
-    //GUIWindow* window_options = desk_main.getChildWindow(MAINMENU_OPTIONS);
-    window_options.init("OptionsMenu");
+    GUIWindow* window_options = mem::new(GUIWindow);
+    window_options.init("OptionsMenu", w: (int)(0.75f*desk_main.rect.w), h: (int)(0.75f*desk_main.rect.h));
     window_options.setColor(rl::GRAY);
-    Vec2f desk_options_center = screen_center - window_options.getSize() / 2.0f;
+	desk_main.addPage(MAINMENU_OPTIONS, window_options);
+    window_options.desktop = desk_main;
+    Vec2f page_options_offset = screen_center - window_options.getSize() / 2.0f;
     window_options.setPositionV({
-        .x = desk_options_center.x,
-        .y = desk_options_center.y
+        .x = page_options_offset.x,
+        .y = page_options_offset.y
     });
+	Vec2f page_top_corner =  window_options.getAnchor(GUIAnchorID.TOP_CENTER);
     // link the menus
 	// TODO change this to a virtual machine of states
 	// or a particular menu current state
 	// like case OPTIONS_OPEN: we are seeing the options page
 	// or even GUIWindow* current_page = &desk_main;
-    desk_main.next = window_options;
+    //desk_main.next = window_options;
     window_options.previous = desk_main;
     window_options.hide();
 
 	// create window extra
-    GUIWindow* window_extra = desk_main.addChildWindow(mem::new(GUIWindow), MAINMENU_EXTRA);
-    window_extra.init("ExtraMenu");
+    GUIWindow* window_extra = mem::new(GUIWindow);
+    window_extra.init("ExtraMenu",  w: (int)(0.75f*desk_main.rect.w), h: (int)(0.75f*desk_main.rect.h));
     window_extra.setColor(rl::GRAY);
+    desk_main.addPage(MAINMENU_EXTRA, window_extra);
+    window_extra.desktop = desk_main;
     window_extra.setPositionV({
-        desk_options_center.x,
-        desk_options_center.y
+        .x = page_options_offset.x,
+        .y = page_options_offset.y
     });
     window_extra.hide();
     
 	// relative to the music folder inside data folder
+    String music_folder = pGameContext.app_base_folder.tconcat("music\\");
     String music_path = "main_menu\\Swallow.ogg";
-	String fullpath = pGameContext.app_base_folder.tconcat("music\\").tconcat(music_path);
-    if(fs::fileExists(fullpath)) {
+	String fullpath = music_folder.tconcat(music_path);
+    if(fs::fileExists(fullpath))
+    {
         log::info(FILE, "\tloading %s music: %s", desk_main.name, fullpath);
-    } else { 
+    }
+    else
+    { 
         unreachable("music path not found: %s", music_path);
     }
 
     main_menu_sound_world.init("SoundWorld_MainMenu");
-    @catch(soundbkd::addMusicTo(&main_menu_sound_world, music_path.to_tpath()));
+    main_menu_sound_world.addMusic(music_path.to_tpath())!!;
+    //@catch(soundbkd::addMusicTo(&main_menu_sound_world, music_path.to_tpath()));
     //@catch(main_menu_sound_world.addMusicAsset(astmng::get_asset{RLMusic}("Swallow.ogg")));
     desk_main.sound_world = &main_menu_sound_world;
     window_options.sound_world = desk_main.sound_world;
@@ -705,8 +715,14 @@ fn void button_onPress(any widget)
 		{
             self.setColor(GUIActionColor.MDOWN);
 
-            if (rl::isSoundValid(*self.interaction_sound)) {
-                if(!rl::isSoundPlaying(*self.interaction_sound)) rl::playSound(*self.interaction_sound);
+            // TODO(HM) change this to use the sound world
+            if(!game::s_noaudio.getBool())
+            {
+                if (rl::isSoundValid(*self.interaction_sound) && 
+                   !rl::isSoundPlaying(*self.interaction_sound))
+                {
+                    rl::playSound(*self.interaction_sound);
+                }
             }
         }
         self.pressed = true;
@@ -741,8 +757,12 @@ fn void button_onSinglePress(any widget)
         GUIWidgetButton* self = (GUIWidgetButton*)widget.ptr;
         if (self.active() == false || self.asFocus() == false || !self.isHot()) return;
 
-        if (rl::isSoundValid(*self.interaction_sound)) {
-           if(!rl::isSoundPlaying(*self.interaction_sound)) rl::playSound(*self.interaction_sound);
+        // TODO(HM) change this to use the sound world
+        if(!game::s_noaudio.getBool())
+        {
+            if (rl::isSoundValid(*self.interaction_sound)) {
+            if(!rl::isSoundPlaying(*self.interaction_sound)) rl::playSound(*self.interaction_sound);
+            }
         }
         self.setColor(GUIActionColor.MDOWN);
         //return;

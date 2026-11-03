@@ -89,7 +89,7 @@ const uint VERTICAL_DIR   = 2;
 /* #region Anchors */
 typedef GuiAnchor = inline Vec2f;
 
-constdef AnchorID : inline int
+constdef GUIAnchorID : inline int
 {
     TOP_LEFT = 0,
     TOP_CENTER,
@@ -112,17 +112,17 @@ fn void initAnchors(Type* obj) <Type>
 {
     // init the anchors to attach stuff in guis
 	RLRectangle rect = obj.rect;
-	GuiAnchor[AnchorID::values.len] anchors;
-	anchors[AnchorID.TOP_LEFT]      = {0, 0};
-    anchors[AnchorID.TOP_CENTER]    = {rect.w / 2, 0};
-    anchors[AnchorID.TOP_RIGHT]     = {rect.w, 0};
-    anchors[AnchorID.CENTER_LEFT]   = {0, rect.h / 2};
-    anchors[AnchorID.CENTER]        = {rect.w / 2, rect.h / 2};
-    anchors[AnchorID.CENTER_RIGHT]  = {rect.w, rect.h / 2};
-    anchors[AnchorID.BOTTOM_LEFT]   = {0, rect.h};
-    anchors[AnchorID.BOTTOM_CENTER] = {rect.w / 2, rect.h};
-    anchors[AnchorID.BOTTOM_RIGHT]  = {rect.w, rect.h};
-	obj.anchor.reserve(AnchorID::values.len);
+	GuiAnchor[GUIAnchorID::values.len] anchors;
+	anchors[GUIAnchorID.TOP_LEFT]      = {0, 0};
+    anchors[GUIAnchorID.TOP_CENTER]    = {rect.w / 2, 0};
+    anchors[GUIAnchorID.TOP_RIGHT]     = {rect.w, 0};
+    anchors[GUIAnchorID.CENTER_LEFT]   = {0, rect.h / 2};
+    anchors[GUIAnchorID.CENTER]        = {rect.w / 2, rect.h / 2};
+    anchors[GUIAnchorID.CENTER_RIGHT]  = {rect.w, rect.h / 2};
+    anchors[GUIAnchorID.BOTTOM_LEFT]   = {0, rect.h};
+    anchors[GUIAnchorID.BOTTOM_CENTER] = {rect.w / 2, rect.h};
+    anchors[GUIAnchorID.BOTTOM_RIGHT]  = {rect.w, rect.h};
+	obj.anchor.reserve(GUIAnchorID::values.len);
 	obj.anchor.init_with_array(mem, anchors[..]);
 }
 
@@ -135,14 +135,14 @@ fn void updateAnchors(Type* obj, Vec2f new_size) <Type>
 {
 	if(new_size == VEC2_ZERO) return;
 
-    obj.anchor[AnchorID.TOP_CENTER]    = {new_size.x / 2, 0};
-    obj.anchor[AnchorID.TOP_RIGHT]     = {new_size.x, 0};
-    obj.anchor[AnchorID.CENTER_LEFT]   = {0, new_size.y / 2};
-    obj.anchor[AnchorID.CENTER]        = {new_size.x / 2,new_size.y / 2};
-    obj.anchor[AnchorID.CENTER_RIGHT]  = {new_size.x, new_size.y / 2};
-    obj.anchor[AnchorID.BOTTOM_LEFT]   = {0, new_size.y};
-    obj.anchor[AnchorID.BOTTOM_CENTER] = {new_size.x / 2, new_size.y};
-    obj.anchor[AnchorID.BOTTOM_RIGHT]  = {new_size.x, new_size.y};
+    obj.anchor[GUIAnchorID.TOP_CENTER]    = {new_size.x / 2, 0};
+    obj.anchor[GUIAnchorID.TOP_RIGHT]     = {new_size.x, 0};
+    obj.anchor[GUIAnchorID.CENTER_LEFT]   = {0, new_size.y / 2};
+    obj.anchor[GUIAnchorID.CENTER]        = {new_size.x / 2,new_size.y / 2};
+    obj.anchor[GUIAnchorID.CENTER_RIGHT]  = {new_size.x, new_size.y / 2};
+    obj.anchor[GUIAnchorID.BOTTOM_LEFT]   = {0, new_size.y};
+    obj.anchor[GUIAnchorID.BOTTOM_CENTER] = {new_size.x / 2, new_size.y};
+    obj.anchor[GUIAnchorID.BOTTOM_RIGHT]  = {new_size.x, new_size.y};
 }
 
 <*
@@ -155,22 +155,22 @@ fn void drawAnchors(Type* obj) <Type>
 
 	Vec2f origin = obj.rect.pos;
 	//r2d::drawSquare(origin ,8, rl::BLACK);
-	r2d::drawSquare(origin + obj.anchor[AnchorID.TOP_LEFT],     4, rl::RED);
-    r2d::drawSquare(origin + obj.anchor[AnchorID.TOP_CENTER],   4, rl::GREEN);
-    r2d::drawSquare(origin + obj.anchor[AnchorID.TOP_RIGHT],    4, rl::BLUE);
-    r2d::drawSquare(origin + obj.anchor[AnchorID.CENTER_LEFT],  4, rl::MAROON);
-    r2d::drawSquare(origin + obj.anchor[AnchorID.CENTER],       4, rl::LIME); 
-    r2d::drawSquare(origin + obj.anchor[AnchorID.CENTER_RIGHT], 4, rl::SKYBLUE);
-    r2d::drawSquare(origin + obj.anchor[AnchorID.BOTTOM_LEFT],  4, rl::VIOLET); 
-    r2d::drawSquare(origin + obj.anchor[AnchorID.BOTTOM_CENTER],4, rl::ORANGE);
-    r2d::drawSquare(origin + obj.anchor[AnchorID.BOTTOM_RIGHT], 4, rl::MAGENTA);
+	r2d::drawSquare(origin + obj.anchor[GUIAnchorID.TOP_LEFT],     4, rl::RED);
+    r2d::drawSquare(origin + obj.anchor[GUIAnchorID.TOP_CENTER],   4, rl::GREEN);
+    r2d::drawSquare(origin + obj.anchor[GUIAnchorID.TOP_RIGHT],    4, rl::BLUE);
+    r2d::drawSquare(origin + obj.anchor[GUIAnchorID.CENTER_LEFT],  4, rl::MAROON);
+    r2d::drawSquare(origin + obj.anchor[GUIAnchorID.CENTER],       4, rl::LIME); 
+    r2d::drawSquare(origin + obj.anchor[GUIAnchorID.CENTER_RIGHT], 4, rl::SKYBLUE);
+    r2d::drawSquare(origin + obj.anchor[GUIAnchorID.BOTTOM_LEFT],  4, rl::VIOLET); 
+    r2d::drawSquare(origin + obj.anchor[GUIAnchorID.BOTTOM_CENTER],4, rl::ORANGE);
+    r2d::drawSquare(origin + obj.anchor[GUIAnchorID.BOTTOM_RIGHT], 4, rl::MAGENTA);
 }
 
 <*
 	get anchor point for gui obj
 	@param [&in] obj : "to get the anchor for"
 	@param idx : "index of anchor to get"
-	@require idx >= 0 && idx < AnchorID::values.len
+	@require idx >= 0 && idx < GUIAnchorID::values.len
 *>
 fn Vec2f getAnchor(Type* obj, int idx) <Type>
 {
@@ -2326,7 +2326,7 @@ macro UIWindow.debugDrawBorder(&self)
 
 macro UIWindow.debugDrawName(&self)
 {
-	Vec2f pos = getAnchor{UIWindow}(self, AnchorID.TOP_LEFT);
+	Vec2f pos = getAnchor{UIWindow}(self, GUIAnchorID.TOP_LEFT);
 	pos += misc::VEC_RIGHT * 50;
     pos += misc::VEC_DOWN * 50;
 	ZString wind_name = string::tformat("GUI: \"%s\"", self.name).zstr_tcopy();
@@ -2340,7 +2340,7 @@ macro UIWindow.debugDrawName(&self)
 macro UIWindow.debugDrawWindTime(&self)
 {
 	ZString time = string::tformat("GUI TIME: \"%s\"", self.time).zstr_tcopy();
-	Vec2f pos = getAnchor{UIWindow}(self, AnchorID.TOP_LEFT);
+	Vec2f pos = getAnchor{UIWindow}(self, GUIAnchorID.TOP_LEFT);
 	pos += misc::VEC_RIGHT * 50;
     pos += misc::VEC_DOWN * 100;
 	if(self.isDesktop) {
@@ -2356,7 +2356,7 @@ macro UIWindow.debugDrawCoords(&self)
 	float rect_y = self.rect.y;
 	float rect_w = self.rect.w;
 	float rect_h = self.rect.h;
-	Vec2f pos = getAnchor{UIWindow}(self, AnchorID.TOP_LEFT);
+	Vec2f pos = getAnchor{UIWindow}(self, GUIAnchorID.TOP_LEFT);
 	pos += misc::VEC_RIGHT * 50;
     pos += misc::VEC_DOWN * 150;
 	rl::drawText(
@@ -2386,7 +2386,7 @@ fn void UIWindow.debug(&self, bool showHidden = true)
             foreach(child: self.childWidgets)
             {
                if(child.selected()) continue;
-               Vec2f dbg_text_pos = getAnchor{GUIWidget}(child, AnchorID.TOP_LEFT);
+               Vec2f dbg_text_pos = getAnchor{GUIWidget}(child, GUIAnchorID.TOP_LEFT);
                dbg_text_pos = {child.rect.x, child.rect.y};
                dbg_text_pos += misc::VEC_UP * (0.30f * child.rect.height); 
                rl::drawText(
