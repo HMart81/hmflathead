@@ -90,7 +90,7 @@ alias pGameContext @local  = game::pContext;
 // is different from OpenGL where the bottom-left corner is (0,0)
 // this means that when rendering images sometimes they 
 // need to be inverted to display correctly.
-// UPDATE(HM) No need to invert that is done in the shader now.
+// UPDATE(HM) No need to invert anymore, that is done in the shader now.
 const SCREEN_TOP_CORNER = (Vec2f) {0.0f, 0.0f}; 
 // end_region
 
@@ -259,7 +259,7 @@ fn void init_checkbox(GUIWidgetCheckBox* chk, String name, String label, MenuBut
     if(chk.onLoad) chk.onLoad(chk);
 }
 
-fn GUIWidgetLabel* create_label(String text, RLColor color, GUIWindow* uiwin) @inline
+fn GUIWidgetLabel* create_label(String text, RLColor color, GUIWindow* uiwin)
 {
     GUIWidgetLabel* label = mem::new(GUIWidgetLabel);
     gui::init_label(label, text, pGameContext.font_candara, 0, color, uiwin);
@@ -306,6 +306,7 @@ fn GUIWidgetButton* create_text_button(GUIWindow* uiwin, String text, MenuButton
     button.setSizeV(bdef.size);
     button.setPositionV(bdef.pos);
     button.setDefaultColor(bdef.default_color);
+	//button.hide();
     //
     float button_width  = bdef.size.x;
     float button_height = bdef.size.y;
@@ -369,6 +370,31 @@ fn GUIWidgetButton* create_menu_button(GUIWindow* uiwin, MenuButtonDef* bdef)
     return button;
 }
 
+<*
+    Create a desktop
+*>
+macro GUIWindow* @desktop(String name, int page_count = 0; @body(GUIWindow*))
+{
+	GUIWindow* desktop = mem::new(GUIWindow);
+    desktop.init(name, isDesktop: true);
+	desktop.setPageCount(page_count);
+	@body(desktop);
+	return desktop;
+}
+
+/*
+<*
+    Create a window page
+*>
+macro GUIWindow* @page(String name, GUIWindow* desk; @body(GUIWindow*))
+{
+	GUIWindow* page = mem::new(GUIWindow);
+    page.init(name);
+	page.desktop = desk;
+	@body(page);
+	return page;
+}
+*/
 
 // Main Meny extra windows indices
 const MAINMENU_OPTIONS = 0;
@@ -378,209 +404,208 @@ const MAINMENU_PAGE_COUNT = 2; // update this is more consts are define above th
 fn GUIWindow* mainMenuCreate(int screenWidth, int screenHeight)
 {
     // Menu creation
-    GUIWindow* desk_main = mem::new(GUIWindow);
-    desk_main.init("MainMenu", isDesktop: true);
-    desk_main.setColor(rl::DARKGRAY);
-	desk_main.setPageCount(MAINMENU_PAGE_COUNT);
-
-    Vec2f screen_center       = desk_main.getAnchor(GUIAnchorID.CENTER); //game::getScreenCenterPos();
-    float screen_half_width   = screen_center.x;
-    float screen_half_height  = screen_center.y;
-    Vec2f screen_top_center   = desk_main.getAnchor(GUIAnchorID.TOP_CENTER); //{screen_half_width, 0.0f};
+	return @desktop("MainMenu", MAINMENU_PAGE_COUNT; GUIWindow* desk_main)
+	{
+		desk_main.setColor(rl::DARKGRAY);
+		Vec2f screen_center       = desk_main.getAnchor(GUIAnchorID.CENTER); //game::getScreenCenterPos();
+		float screen_half_width   = screen_center.x;
+		float screen_half_height  = screen_center.y;
+		Vec2f screen_top_center   = desk_main.getAnchor(GUIAnchorID.TOP_CENTER); //{screen_half_width, 0.0f};
 
 
-	// create window options
-    GUIWindow* window_options = mem::new(GUIWindow);
-    window_options.init("OptionsMenu", w: (int)(0.75f*desk_main.rect.w), h: (int)(0.75f*desk_main.rect.h));
-    window_options.setColor(rl::GRAY);
-	desk_main.addPage(MAINMENU_OPTIONS, window_options);
-    window_options.desktop = desk_main;
-    Vec2f page_options_offset = screen_center - window_options.getSize() / 2.0f;
-    window_options.setPositionV({
-        .x = page_options_offset.x,
-        .y = page_options_offset.y
-    });
-	Vec2f page_top_corner =  window_options.getAnchor(GUIAnchorID.TOP_CENTER);
-    // link the menus
-	// TODO change this to a virtual machine of states
-	// or a particular menu current state
-	// like case OPTIONS_OPEN: we are seeing the options page
-	// or even GUIWindow* current_page = &desk_main;
-    //desk_main.next = window_options;
-    window_options.previous = desk_main;
-    window_options.hide();
+		// create window options
+		GUIWindow* window_options = mem::new(GUIWindow);
+		window_options.init("OptionsMenu", w: (int)(0.75f*desk_main.rect.w), h: (int)(0.75f*desk_main.rect.h));
+		window_options.setColor(rl::GRAY);
+		desk_main.addPage(MAINMENU_OPTIONS, window_options);
+		window_options.desktop = desk_main;
+		Vec2f page_options_offset = screen_center - window_options.getSize() / 2.0f;
+		window_options.setPositionV({
+			.x = page_options_offset.x,
+			.y = page_options_offset.y
+		});
+		Vec2f page_top_corner =  window_options.getAnchor(GUIAnchorID.TOP_CENTER);
+		// link the menus
+		// TODO change this to a virtual machine of states
+		// or a particular menu current state
+		// like case OPTIONS_OPEN: we are seeing the options page
+		// or even GUIWindow* current_page = &desk_main;
+		//desk_main.next = window_options;
+		window_options.previous = desk_main;
+		window_options.hide();
 
-	// create window extra
-    GUIWindow* window_extra = mem::new(GUIWindow);
-    window_extra.init("ExtraMenu",  w: (int)(0.75f*desk_main.rect.w), h: (int)(0.75f*desk_main.rect.h));
-    window_extra.setColor(rl::GRAY);
-    desk_main.addPage(MAINMENU_EXTRA, window_extra);
-    window_extra.desktop = desk_main;
-    window_extra.setPositionV({
-        .x = page_options_offset.x,
-        .y = page_options_offset.y
-    });
-    window_extra.hide();
-    
-	// relative to the music folder inside data folder
-    String music_folder = pGameContext.app_base_folder.tconcat("music\\");
-    String music_path = "main_menu\\Swallow.ogg";
-	String fullpath = music_folder.tconcat(music_path);
-    if(fs::fileExists(fullpath))
-    {
-        log::info(FILE, "\tloading %s music: %s", desk_main.name, fullpath);
-    }
-    else
-    { 
-        unreachable("music path not found: %s", music_path);
-    }
+		// create window extra
+		GUIWindow* window_extra = mem::new(GUIWindow);
+		window_extra.init("ExtraMenu",  w: (int)(0.75f*desk_main.rect.w), h: (int)(0.75f*desk_main.rect.h));
+		window_extra.setColor(rl::GRAY);
+		desk_main.addPage(MAINMENU_EXTRA, window_extra);
+		window_extra.desktop = desk_main;
+		window_extra.setPositionV({
+			.x = page_options_offset.x,
+			.y = page_options_offset.y
+		});
+		window_extra.hide();
+		
+		// relative to the music folder inside data folder
+		String music_folder = pGameContext.app_base_folder.tconcat("music\\");
+		String music_path = "main_menu\\Swallow.ogg";
+		String fullpath = music_folder.tconcat(music_path);
+		if(fs::fileExists(fullpath))
+		{
+			log::info(FILE, "\tloading %s music: %s", desk_main.name, fullpath);
+		}
+		else
+		{ 
+			unreachable("music path not found: %s", music_path);
+		}
 
-    main_menu_sound_world.init("SoundWorld_MainMenu");
-    main_menu_sound_world.addMusic(music_path.to_tpath())!!;
-    //@catch(soundbkd::addMusicTo(&main_menu_sound_world, music_path.to_tpath()));
-    //@catch(main_menu_sound_world.addMusicAsset(astmng::get_asset{RLMusic}("Swallow.ogg")));
-    desk_main.sound_world = &main_menu_sound_world;
-    window_options.sound_world = desk_main.sound_world;
-    window_extra.sound_world = desk_main.sound_world;
-    //HMSpeaker{HMMusic}* music = main_menu_sound_world.getMusicEmitter(main_menu_music_id)!!;
-    //if(music) music.audio.setVolume(1.0f);
-    
-    Vec2f default_button_size = { 0.10f*screenWidth, 0.05f*screenHeight };
-    float button_width, button_height;
-    button_width  = default_button_size.x;
-    button_height = default_button_size.y;
-    
-// region widgets
+		main_menu_sound_world.init("SoundWorld_MainMenu");
+		main_menu_sound_world.addMusic(music_path.to_tpath())!!;
+		//@catch(soundbkd::addMusicTo(&main_menu_sound_world, music_path.to_tpath()));
+		//@catch(main_menu_sound_world.addMusicAsset(astmng::get_asset{RLMusic}("Swallow.ogg")));
+		desk_main.sound_world = &main_menu_sound_world;
+		window_options.sound_world = desk_main.sound_world;
+		window_extra.sound_world = desk_main.sound_world;
+		//HMSpeaker{HMMusic}* music = main_menu_sound_world.getMusicEmitter(main_menu_music_id)!!;
+		//if(music) music.audio.setVolume(1.0f);
+		
+		Vec2f default_button_size = { 0.10f*screenWidth, 0.05f*screenHeight };
+		float button_width, button_height;
+		button_width  = default_button_size.x;
+		button_height = default_button_size.y;
+		
+	// region widgets
 
-    /*
-    gui::WidgetContainer ct;
+		/*
+		gui::WidgetContainer ct;
 
-    ct.@container( desk_main, {
-        .direction = gui::TOP_TO_BOTTOM,
-        .background = rl::RED,
-        .padding = {8, 8, 8, 8},
-        .itemGap = 16,
-        .minSize = { .w = 200 },
-        .border_between = {2, rl::GREEN }
-    }; WidgetContainer* pct )
-    {
-        //pct.register(any_make(create_menu_label({200, 200}, "test", 12, rl::GRAY, desk_main), GUIWidgetLabel));
-        //pct.register(any_make(create_menu_label({200, 200}, "test2", 12, rl::GRAY, desk_main), GUIWidgetLabel));
-    };
-    */
+		ct.@container( desk_main, {
+			.direction = gui::TOP_TO_BOTTOM,
+			.background = rl::RED,
+			.padding = {8, 8, 8, 8},
+			.itemGap = 16,
+			.minSize = { .w = 200 },
+			.border_between = {2, rl::GREEN }
+		}; WidgetContainer* pct )
+		{
+			//pct.register(any_make(create_menu_label({200, 200}, "test", 12, rl::GRAY, desk_main), GUIWidgetLabel));
+			//pct.register(any_make(create_menu_label({200, 200}, "test2", 12, rl::GRAY, desk_main), GUIWidgetLabel));
+		};
+		*/
 
-    // region LABELS
-    //*************
-    // TITLE
-    //*************
-    const TITLE           = "FlatHead";
-    const TITLE_FONT_SIZE = 50;
-    RLFont* title_font = pGameContext.font_trojan_pro;
-    GUIWidgetLabel* title_label = mem::new(GUIWidgetLabel);
-	gui::init_label(title_label, TITLE, title_font, TITLE_FONT_SIZE, rl::GRAY, desk_main);
-    Vec2f title_offset = misc::VEC_RIGHT * screen_top_center.x;
-    title_offset -= {title_label.text_len / 2.0f, 0.0f};
-    title_offset += misc::VEC_DOWN * (0.10f * screenHeight);
-    title_label.setPositionV(title_offset);
-    title_label.setAlign(TextAlign.LEFT);
-    //*************
-    // SUBTITLE
-    //*************
-    const SUBTITLE           = "engine";
-    const SUBTITLE_FONT_SIZE = 16;
-    RLFont* subtitle_font = pGameContext.font_lucida;
-    GUIWidgetLabel* subtitle_label = mem::new(GUIWidgetLabel);
-	gui::init_label(subtitle_label, SUBTITLE, subtitle_font, SUBTITLE_FONT_SIZE, rl::RAYWHITE, desk_main);
-    Vec2f subtitle_offset = misc::VEC_RIGHT * screen_top_center.x;
-    subtitle_offset -= {subtitle_label.text_len / 2.0f, 0.0f};
-    subtitle_offset += misc::VEC_DOWN * (0.145f * screenHeight);
-    subtitle_label.setPositionV(subtitle_offset);
-    subtitle_label.setAlign(TextAlign.LEFT);
-    // end_region LABELS
-    
-    // region BUTTONS
-    Vec2f offset          = SCREEN_TOP_CORNER;
-    
-    MenuButtonDef btn_def;
-    btn_def.size          = default_button_size;
-    btn_def.default_color = rl::YELLOW;
-    btn_def.over_color    = rl::RED;
-    btn_def.label_color   = rl::SKYBLUE; //rl::DARKGRAY;
-    //btn_def.label_align;
-    
-    //*************
-    // START
-    //*************
-    btn_def.cbs[CallBack.OVER]         = &button_onOver;
-    btn_def.cbs[CallBack.STOP_OVER]    = &button_onStopOver;
-    btn_def.cbs[CallBack.PRESS]        = &start_button_onPress;
-    btn_def.cbs[CallBack.SINGLE_PRESS] = &start_button_onSinglePress;
-    btn_def.cbs[CallBack.RELEASE]      = &button_onRelease;
-    btn_def.cbs[CallBack.CREATE]       = &button_onLoad;
-    
-    offset += misc::VEC_RIGHT * screen_half_width;
-    offset -= {button_width / 2.0f, 0.0f};
-    offset += misc::VEC_DOWN * (screenHeight / button_height) * 10;
-    String btn_string = lang::dict.getString(0);
-    btn_def.pos = offset;
-    create_text_button(desk_main, btn_string/*"START"*/, &btn_def);
+		// region LABELS
+		//*************
+		// TITLE
+		//*************
+		const TITLE           = "FlatHead";
+		const TITLE_FONT_SIZE = 50;
+		RLFont* title_font = pGameContext.font_trojan_pro;
+		GUIWidgetLabel* title_label = mem::new(GUIWidgetLabel);
+		gui::init_label(title_label, TITLE, title_font, TITLE_FONT_SIZE, rl::GRAY, desk_main);
+		Vec2f title_offset = misc::VEC_RIGHT * screen_top_center.x;
+		title_offset -= {title_label.text_len / 2.0f, 0.0f};
+		title_offset += misc::VEC_DOWN * (0.10f * screenHeight);
+		title_label.setPositionV(title_offset);
+		title_label.setAlign(TextAlign.LEFT);
+		//*************
+		// SUBTITLE
+		//*************
+		const SUBTITLE           = "engine";
+		const SUBTITLE_FONT_SIZE = 16;
+		RLFont* subtitle_font = pGameContext.font_lucida;
+		GUIWidgetLabel* subtitle_label = mem::new(GUIWidgetLabel);
+		gui::init_label(subtitle_label, SUBTITLE, subtitle_font, SUBTITLE_FONT_SIZE, rl::RAYWHITE, desk_main);
+		Vec2f subtitle_offset = misc::VEC_RIGHT * screen_top_center.x;
+		subtitle_offset -= {subtitle_label.text_len / 2.0f, 0.0f};
+		subtitle_offset += misc::VEC_DOWN * (0.145f * screenHeight);
+		subtitle_label.setPositionV(subtitle_offset);
+		subtitle_label.setAlign(TextAlign.LEFT);
+		// end_region LABELS
+		
+		// region BUTTONS
+		Vec2f offset          = SCREEN_TOP_CORNER;
+		
+		MenuButtonDef btn_def;
+		btn_def.size          = default_button_size;
+		btn_def.default_color = rl::YELLOW;
+		btn_def.over_color    = rl::RED;
+		btn_def.label_color   = rl::SKYBLUE; //rl::DARKGRAY;
+		//btn_def.label_align;
+		
+		//*************
+		// START
+		//*************
+		btn_def.cbs[CallBack.OVER]         = &button_onOver;
+		btn_def.cbs[CallBack.STOP_OVER]    = &button_onStopOver;
+		btn_def.cbs[CallBack.PRESS]        = &start_button_onPress;
+		btn_def.cbs[CallBack.SINGLE_PRESS] = &start_button_onSinglePress;
+		btn_def.cbs[CallBack.RELEASE]      = &button_onRelease;
+		btn_def.cbs[CallBack.CREATE]       = &button_onLoad;
+		
+		offset += misc::VEC_RIGHT * screen_half_width;
+		offset -= {button_width / 2.0f, 0.0f};
+		offset += misc::VEC_DOWN * (screenHeight / button_height) * 10;
+		String btn_string = lang::dict.getString(0);
+		btn_def.pos = offset;
+		create_text_button(desk_main, btn_string/*"START"*/, &btn_def);
 
-    //************
-    // QUIT
-    //************
-    btn_def.cbs[CallBack.PRESS]        = &quit_button_onPress;
-    btn_def.cbs[CallBack.SINGLE_PRESS] = &quit_button_onSinglePress;
-    
-    offset += misc::VEC_DOWN * button_height;
-    offset.y += 0.5f * button_height;
-    btn_string = lang::dict.getString(1);
-    btn_def.pos = offset;
-    create_text_button(desk_main, btn_string/*"QUIT"*/, &btn_def);
-    
-    //************
-    // OPTIONS
-    //************
-    btn_def.cbs[CallBack.PRESS]        = &options_button_onPress;
-    btn_def.cbs[CallBack.SINGLE_PRESS] = &options_button_onSinglePress;
-    
-    offset += misc::VEC_DOWN * button_height;
-    offset.y += 0.5f * button_height;
-    btn_string = lang::dict.getString(3);
-    btn_def.pos = offset;
-    create_text_button(desk_main, btn_string/*"OPTIONS"*/, &btn_def);
-    // end_region BUTTONS
+		//************
+		// QUIT
+		//************
+		btn_def.cbs[CallBack.PRESS]        = &quit_button_onPress;
+		btn_def.cbs[CallBack.SINGLE_PRESS] = &quit_button_onSinglePress;
+		
+		offset += misc::VEC_DOWN * button_height;
+		offset.y += 0.5f * button_height;
+		btn_string = lang::dict.getString(1);
+		btn_def.pos = offset;
+		create_text_button(desk_main, btn_string/*"QUIT"*/, &btn_def);
+		
+		//************
+		// OPTIONS
+		//************
+		btn_def.cbs[CallBack.PRESS]        = &options_button_onPress;
+		btn_def.cbs[CallBack.SINGLE_PRESS] = &options_button_onSinglePress;
+		
+		offset += misc::VEC_DOWN * button_height;
+		offset.y += 0.5f * button_height;
+		btn_string = lang::dict.getString(3);
+		btn_def.pos = offset;
+		create_text_button(desk_main, btn_string/*"OPTIONS"*/, &btn_def);
+		// end_region BUTTONS
 
-    // region widgets options
-    //************
-    // Checkbox 1
-    //******
-    btn_def.cbs[CallBack.PRESS]        = null; //&checkbox1_onPress;
-    btn_def.cbs[CallBack.SINGLE_PRESS] = &checkbox1_onSinglePress;
+		// region widgets options
+		//************
+		// Checkbox 1
+		//******
+		btn_def.cbs[CallBack.PRESS]        = null; //&checkbox1_onPress;
+		btn_def.cbs[CallBack.SINGLE_PRESS] = &checkbox1_onSinglePress;
 
-    //GUIWidgetCheckBox* checkbox1 = window_options.create_menu_checkbox("Checkbox 1", &btn_def);
-    GUIWidgetCheckBox* checkbox1 = mem::new(GUIWidgetCheckBox);
-	init_checkbox(checkbox1, "checkbox1", "no Sound", &btn_def, window_options);
-    offset = window_options.getPosition();
-    offset += misc::VEC_RIGHT * (window_options.getSize().x / 2);
-    offset += misc::VEC_DOWN * (0.20f * window_options.getSize().y);
-    checkbox1.setPositionV(offset);
-    checkbox1.setSize(20, 20);
-    //************
-    // GO TO MAIN MENU
-    //************
-    btn_def.cbs[CallBack.PRESS]        = &back_button_options_onPress;
-    btn_def.cbs[CallBack.SINGLE_PRESS] = &back_button_options_onSinglePress;
+		//GUIWidgetCheckBox* checkbox1 = window_options.create_menu_checkbox("Checkbox 1", &btn_def);
+		GUIWidgetCheckBox* checkbox1 = mem::new(GUIWidgetCheckBox);
+		init_checkbox(checkbox1, "checkbox1", "no Sound", &btn_def, window_options);
+		offset = window_options.getPosition();
+		offset += misc::VEC_RIGHT * (window_options.getSize().x / 2);
+		offset += misc::VEC_DOWN * (0.20f * window_options.getSize().y);
+		checkbox1.setPositionV(offset);
+		checkbox1.setSize(20, 20);
+		//************
+		// GO TO MAIN MENU
+		//************
+		btn_def.cbs[CallBack.PRESS]        = &back_button_options_onPress;
+		btn_def.cbs[CallBack.SINGLE_PRESS] = &back_button_options_onSinglePress;
+		
+		offset = window_options.getPosition();
+		offset += misc::VEC_RIGHT * (0.10f * (window_options.getSize().x / 2));
+		offset += misc::VEC_DOWN * window_options.getSize().y;
+		offset.y -= button_height + (0.5f * button_height);
+		btn_def.pos = offset;
+		btn_string = lang::dict.getString(4);
+		create_text_button(window_options, btn_string/*"BACK"*/, &btn_def);
+	// end_region widgets
     
-    offset = window_options.getPosition();
-    offset += misc::VEC_RIGHT * (0.10f * (window_options.getSize().x / 2));
-    offset += misc::VEC_DOWN * window_options.getSize().y;
-    offset.y -= button_height + (0.5f * button_height);
-    btn_def.pos = offset;
-    btn_string = lang::dict.getString(4);
-    create_text_button(window_options, btn_string/*"BACK"*/, &btn_def);
-// end_region widgets
-    
-    return desk_main;
+    //return desk_main;
+	};
 }
 
  /* #endregion Main Menu */

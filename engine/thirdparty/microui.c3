@@ -55,7 +55,7 @@ const MU_Rect UNCLIPPED_RECT = {0, 0, 0x1000000, 0x1000000 };
 
 // The default font size for MicroUI is set to 9 pixels.
 const MICROUI_FONT_SIZE 	  = 10; 
-const MICROUI_FONT_SPACING    = 1; // This is the spacing between characters in the font, used for text rendering.
+const MICROUI_FONT_SPACING    = 2.5f; // This is the spacing between characters in the font, used for text rendering.
 const MAX_INPUT_TEXT          = 32; // Maximum length of input text in MicroUI text box's.
 
 // type of commands/interactions done on the gui
@@ -111,7 +111,8 @@ constdef MU_Clip : inline int
 
 constdef MU_Icon : inline int
 {
-	CLOSE = 1,
+	NONE = 0,
+	CLOSE,
 	CHECK,
 	COLLAPSED,
 	EXPANDED,
@@ -951,9 +952,9 @@ fn void process_frames(MU_Context* ctx, float delta_time)
 }
 
 <*
-  iterate all microui cmds
-  @param [&in] ctx : "The current MicroUI context."
- *>
+	iterate all microui cmds
+	@param [&in] ctx : "The current MicroUI context."
+*>
 fn void process_cmds(MU_Context* ctx) @inline
 {
 	MU_Command* cmd;
@@ -985,9 +986,12 @@ fn void process_cmds(MU_Context* ctx) @inline
 fn int callback_text_width(MU_Font font, ZString text, int len)
 {
     // mesure is in pixels
-	if(font) {
+	if(font)
+	{
 		return (int)rl::measureTextEx(*font, text, MICROUI_FONT_SIZE, MICROUI_FONT_SPACING).x;
-	} else {
+	}
+	else
+	{
     	return rl::measureText(rl::textFormat("%.*s", len, text), MICROUI_FONT_SIZE);
     	//int size = (int)rl::measureTextEx(rl::getFontDefault(), text, MICROUI_FONT_SIZE, MICROUI_FONT_SPACING).x;
     	//return size;
@@ -996,10 +1000,13 @@ fn int callback_text_width(MU_Font font, ZString text, int len)
 
 fn int callback_text_height(MU_Font font)
 {
-	if(font) {
+	if(font)
+	{
 		return (int)rl::measureTextEx(*font, "#", MICROUI_FONT_SIZE, MICROUI_FONT_SPACING).y;
 		//return (font.baseSize > MICROUI_FONT_SIZE) ? MICROUI_FONT_SIZE : font.baseSize;
-	} else {
+	}
+	else
+	{
 		return MICROUI_FONT_SIZE;
 	}
 }
@@ -1008,18 +1015,21 @@ fn int callback_text_height(MU_Font font)
 
 fn void callback_draw_text(MU_Font font, ZString str, MU_Vec2 pos, MU_Color color)
 {
-		if(font) {
-			rl::drawTextEx(*font, str, pos, MICROUI_FONT_SIZE, MICROUI_FONT_SPACING, color);
-		} else {
-			// Assuming cmd->text.font is a valid font pointer
-			rl::drawText(str, pos.x, pos.y, MICROUI_FONT_SIZE, color);
-		}
+	if(font)
+	{
+		rl::drawTextEx(*font, str, pos, MICROUI_FONT_SIZE, MICROUI_FONT_SPACING, color);
+	}
+	else
+	{
+		// Assuming cmd->text.font is a valid font pointer
+		rl::drawText(str, pos.x, pos.y, MICROUI_FONT_SIZE, color);
+	}
 }
 
 fn void callback_draw_rect(MU_Rect rect, MU_Color color) @inline
 {
-  // Draw a rectangle with the specified color
-  rl::drawRectangle(rect.x, rect.y, rect.w, rect.h, color);
+	// Draw a rectangle with the specified color
+	rl::drawRectangle(rect.x, rect.y, rect.w, rect.h, color);
 }
 
 // called by MU_COMMAND_ICON

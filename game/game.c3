@@ -299,7 +299,7 @@ macro ScreenRes* @getResolutionFromIndex(#index) => &ScreenRes[#index];
 
 // TODO make font sizes dependent on the screen size?
 const int SMALL_FONT_SIZE   @Hardcode @public = 6;
-const int DEFAULT_FONT_SIZE @Hardcode @public = 10;
+const int MEDIUM_FONT_SIZE @Hardcode @public = 10;
 const int BIG_FONT_SIZE     @Hardcode @public = 16;
 const int DEFAULT_FONT_TEXT_LINE_SPACING @Hardcode @public = 5;
 const int SMALLCHAR_WIDTH @Hardcode @public = 8;
@@ -1200,20 +1200,23 @@ fn bool system_cursor_disabled() @public @MyInline
     return !system_cursor_enabled();
 }
 
-fn void show_system_cursor() @public {
+fn void show_system_cursor() @public
+{
     if(system_cursor_disabled()) enable_system_cursor();
     if(rl::isCursorHidden()) rl::showCursor();
 }
 
 // NOTE(HM) only hides the OS cursor visuals, doesn't disable it,
 // it will still move in the background.
-fn void hide_system_cursor() @public {
+fn void hide_system_cursor() @public
+{
     if(rl::isCursorHidden()) return; 
     //else 
     rl::hideCursor();
 }
 
-fn bool system_cursor_visible() @public @MyInline {
+fn bool system_cursor_visible() @public @MyInline
+{
     return !rl::isCursorHidden();
 }
 
@@ -1988,7 +1991,8 @@ fn void onGuiDraw(int screenWidth, int screenHeight) @public @MyInline
 {
     // videos playback
     $if $feature(VIDEO_PLAYBACK_ENABLE):
-        if(local_game.mode != INTRO) {
+        if(local_game.mode != INTRO)
+		{
             vidCabinet.draw();
         }
 	$endif
@@ -1997,8 +2001,10 @@ fn void onGuiDraw(int screenWidth, int screenHeight) @public @MyInline
     gui::gpWindowManager.draw(screenWidth, screenHeight);
 
     $if $feature(MICROUI_ENABLE):
-        if(local_game.show_microui_test_frames && mu::open_frames.len() == 0) {
-            local_game.show_microui_test_frames = false; // disable microui focus if no frames are open
+        if(local_game.show_microui_test_frames && mu::open_frames.len() == 0)
+		{
+			// disable microui focus if no frames are open
+            local_game.show_microui_test_frames = false; 
         }
 
         // process microui panels/frames
@@ -2017,7 +2023,8 @@ fn void onGuiDraw(int screenWidth, int screenHeight) @public @MyInline
 		mu::process_cmds(local_game.mu_ctx);
     $endif
 
-	if(local_game.intro.should_play) {
+	if(local_game.intro.should_play)
+	{
         intro::drawAnimation(&local_game.intro);
     }
 
@@ -2042,7 +2049,8 @@ fn void onGuiDraw(int screenWidth, int screenHeight) @public @MyInline
         local_game.showSaveMessage = false;
     }
     
-    if(local_game.msgbox_showing) {
+    if(local_game.msgbox_showing)
+	{
         ZString message_box_title = rgui::iconText(Icon.INFO, "Message Box"); // "#191#Message Box"
         int sucess = rgui::messageBox({ (float)screenWidth/2, (float)screenHeight/2, 512, 128 }, message_box_title, "F1 key was pressed once", "OK");
         if(sucess >= 0) {
@@ -2076,7 +2084,7 @@ fn void onGuiDraw(int screenWidth, int screenHeight) @public @MyInline
 	}
 	//
 
-	// update & draw cursor sprite
+	// draw cursor sprite
     if(game_cursor_visible())
 	{
         foreach(sprite : local_game.sprites)
@@ -2142,213 +2150,21 @@ macro @isValidNumber(#x) @local
 	}
 	return true;
 }
+
+
+
+
 /*
 NOTE(HM) 
-The first argument in a cmdline, is just the path to the executable,
-So if there's only one argument, there's no need to run handle_cmdline().
-Also cmdline arguments require a full game restart, this may change, 
-if I ever create a developer console...
-NOTE(HM) This above seems to be only true in _DEBUG mode!!!
+If the code is compiled in _DEBUG mode, the first argument on the cmdline, 
+is the path to the executable, so if there's only one argument, there's 
+no need to run handle_cmdline().
+Also logically using cmdline arguments, requires a full game restart. 
+TODO(HM) create a developer console, to be able to change cvars during gameplay.
 */
-fn void handle_cmdline(String[] args) @deprecated
-{
-	@debug_break(OFF);
-    $if $feature(_DEBUG):
-        if(args.len <= 1) return;
-	$endif
-    
-    log::tofile("Handling cmd line args: %s\n", args[..]);
-
-    String cmd_arg;
-	bool cmd_is_standalone;
-	bool is_value;
-
-    foreach(arg_index, arg : args)
-    {
-		$if $feature(_DEBUG):
-        	// skip first argument.
-			// NOTE(HM) in _DEBUG (-O0) mode is always the path/name of the executable.
-        	if(arg_index == 0 && !arg.starts_with("+")) continue;
-		$endif
-        
-        // skip the equals sign and or spaces
-        if(arg == "=" || arg == " ") continue;
-        
-        bool arg_is_number, 
-             arg_is_string, 
-             invalid_value_arg,
-             single_char_value;
-        
-        single_char_value = (arg.len == 1);
-
-		/////////////////////
-        // start of a COMMAND
-        if(arg.starts_with("+"))
-        {
-            // previous cmd was not cleared, 
-            // then that means it didn't add no value defined,
-            // so it should be considered a standalone cmd;
-            if(cmd_arg != "") {
-                handle_standalone_cmd(cmd_arg);
-            }
-
-            // now update to the new/current cmd
-            cmd_arg = arg.trim("+");
-
-            bool last_cmd = arg_index == args.len - 1;
-            if(last_cmd) {
-                // if is last cmd then there's 
-				// no value after it
-                // so is a standalone cmd
-                handle_standalone_cmd(cmd_arg);
-                break;
-            } else {
-                continue; // skip to the next argument
-            };
-        }
-        
-		/////////////////////////////////////////////////
-        // from here should be the VALUE assigned to a cmd
-        switch
-        {
-            case ascii::is_digit(arg[0]):
-                arg_is_number = true;
-                if(single_char_value) break;
-                // else is a bigger integer number need to see if is a valid integer
-				arg_is_number = @isValidNumber(arg);
-                if(!arg_is_number) nextcase default;
-            case arg.starts_with("-"): // negative numbers
-                if(single_char_value) 
-                {
-                    log::warning(FILE, "rogue minus sign found in value of cmd \"%s\".", cmd_arg);
-					cmd_arg = ""; // clear cmd to ignore it in next pass
-                    continue; // skip to next argument
-                }
-                arg_is_number = @isValidNumber(arg);
-                if(!arg_is_number) nextcase default;
-            case arg.starts_with("\""):
-                if(!single_char_value && arg.ends_with("\"")) 
-                {
-                    arg_is_string = true;
-                } else {
-                    log::warning(FILE, "malformed string assigned to \"%s\", strings most be defined between two \"\".", arg, cmd_arg);
-					cmd_arg = ""; // clear cmd to ignore it in next pass
-                    continue; // skip to next argument
-                }
-            case ascii::is_alpha(arg[0]):
-                log::warning(FILE, "malformed string assigned to \"%s\", strings most be defined between two \"\".", arg, cmd_arg);
-				cmd_arg = ""; // clear cmd to ignore it in next pass
-                continue;
-            default:
-                log::warning(FILE, "invalid value '%s' assigned to cmd '%s'.", arg, cmd_arg);
-				cmd_arg = ""; // clear cmd to ignore it in next pass
-                continue;
-        }
-        
-        if(arg_is_number)
-        {
-            bool arg_is_float;
-            
-            if(!single_char_value) 
-            {
-                // detect floats
-				if(arg.contains(".") && arg.count(".") == 1) {
-					arg_is_float = true;
-				}
-				else if(arg.contains(",")) 
-				{
-					log::warning(CONSOLE, "value %s in cmdline has a comma seperator.\n   -That is not supported for numbers, please use dot instead.", arg);
-					invalid_value_arg = true;
-				} /*else {
-					unreachable("Invalid number argument \"%s\" for cmdline cmd: '%s'", arg, cmd_arg);
-				}*/
-            }
-            
-            bool valid_value = !invalid_value_arg;
-            if(valid_value) 
-			{
-                int ivalue;
-                float fvalue;
-                    
-                if(arg_is_float) 
-                {
-                    if(try value = arg.to_float()) 
-                    {
-                        fvalue = value;
-                    } else {
-                        log::warning(CONSOLE, "Unnable to convert value \"%s\" of cmdline arg \"%s\" to float value!", arg, cmd_arg);
-                    }
-                } else {
-                    if(try value = arg.to_int()) 
-                    {
-                        ivalue = value;
-                    } else {
-                        log::warning(CONSOLE, "Unnable to convert value \"%s\" of cmdline arg \"%s\" to integer value!", arg, cmd_arg);
-                    }
-                }
-                
-                // NOTE(HM) changing this cmds values will require a full game restart.
-                switch(cmd_arg)
-                {
-                    case "g_log":
-                        if(ivalue >= 1)
-                        {
-                            if(ivalue <= 4)
-                            {
-                                log::g_log.set(arg);
-                            } else { // clamp it
-                                log::g_log.set("4");
-                            }
-                        } else {
-                            log::g_log.set("0");
-                        } 
-                    case "r_mode":
-                        if(ivalue >= 0 && ivalue <= SCREEN_RES.len - 1) 
-                        {
-                            r_mode.set(arg);
-                        } else {
-                            log::warning(FILE, "Ignoring cmdline arg '%s' invalid resolution index, expected '0..%s' found \"%s\".", cmd_arg, SCREEN_RES.len - 1, arg);
-                        }
-                    case "r_fullscreen":
-                        if(ivalue == -1 || ivalue >= 0 && ivalue <= 2) 
-                        {
-                            r_fullscreen.set(arg);
-                        } else {
-                            log::warning(FILE, "Ignoring cmdline arg '%s' invalid value, should be from '0..2'.", cmd_arg); 
-                        }
-                    default:
-                        log::warning(CONSOLE, "cmdline arg '%s' with value = %s is still not handled.", cmd_arg, arg);
-                }
-            }
-        }
-        else if(arg_is_string)
-        {
-            switch(cmd_arg)
-            {
-                case "fs_base":
-					fs::cv_base.set(arg);
-				case "fs_mod_name":
-					fs::cv_mod_name.set(arg);
-				case "fs_mod_base":
-					fs::cv_mod_base.set(arg);
-				case "fs_savepath":
-					fs::cv_save_path.set(arg);
-				case "fs_devpath":
-					fs::cv_dev_path.set(arg);
-                default:
-                    log::warning(CONSOLE, "cmdline arg '%s' with string = %s is still not handled.", cmd_arg, arg);
-            }
-        }
-
-        // after dealing with a cmd clear it
-        // is necessary to hint what is and what is not a special "standalone" cmd
-        cmd_arg = "";
-    }
-}
-
 const COMMAND_CHAR @local = "+";
 
-fn void handle_cmdline_new(String[] args)
+fn void handle_cmdline(String[] args)
 {
 	@debug_break(OFF);
     $if $feature(_DEBUG):
@@ -2730,7 +2546,7 @@ $if $feature(TSODING_FLAG):
     }
 $else
 	// needs more testing
-    handle_cmdline_new(args);
+    handle_cmdline(args);
 $endif
 
     // NOTE(HM) 
@@ -4339,20 +4155,20 @@ $endif
     input::makeKeyboardAction("quicksave", input::getkeycode("quicksave", settings_data), func: (ActionCallBack)&saveGame);
     input::makeKeyboardAction("quickload", input::getkeycode("quickload", settings_data), func: (ActionCallBack)&loadGame);
     
-    input::makeKeyboardAction("particles", input::getkeycode("particles", settings_data));
+    input::makeKeyboardAction("particles", input::getkeycode("particles", settings_data), desc: "show a particle effect.");
 
     // game main editor
 	keys = input::getkeyCodesFrom("toggle_editor", settings_data);
 	assert(input::isValidKeysPair(keys) == true);
-    input::makeKeyboardAction("toggle_editor", keys.first, keys.second);
+    input::makeKeyboardAction("toggle_editor", keys.first, keys.second, desc: "toggle the game editor");
 
     // mouse actions
 	RLMouseButton btn = input::getMouseBtnCode("mouse_single_press", settings_data);
-    input::makeMouseAction("mouse_single_press", btn);
+    input::makeMouseAction("mouse_single_press", btn, desc: "Left mouse button single press, like a button.");
     //input::makeMouseAction("mouse_double_press", input::getMouseBtnCode("mouse_double_press", settings_data));
     
 	// for the WIP game editor
-    input::makeMouseAction("editor_select", RLMouseButton.LEFT, rl::KEY_LEFT_SHIFT);
+    input::makeMouseAction("editor_select", RLMouseButton.LEFT, rl::KEY_LEFT_SHIFT, desc: "Game editor selection input, used to select items");
 }
 
 ////////////////////////////////// GAME LOOP ////////////////////////////////////////////////////////////////

@@ -519,17 +519,9 @@ fn void drawMainEditor(Editor* editor)
         assert(window != null);
 
         drawEditorMenuBar(editor, window);
-        //drawEditorMainToolBar(editor, window);
-
-        /*ctx.@make_rows(2, (int[]){ AUTO_SIZE }, (int)(0.25f*window.rect.h))
-	    {
-            drawEditorMainToolBar(editor, window);
-        };
-        ctx.@make_rows(1, (int[]){ AUTO_SIZE }, -25)
-	    {
-            drawEditorMainWorkArea(editor, window);
-        };
-        ctx.@make_rows(1, (int[]){ AUTO_SIZE }, 0)
+        drawEditorMainToolBar(editor, window);
+        drawEditorMainWorkArea(editor, window);
+        /*ctx.@make_rows(1, (int[]){ AUTO_SIZE }, 0)
 	    {
             drawEditorMainInfoArea(editor, window);
         };*/
@@ -573,16 +565,11 @@ fn void drawEditorMenuBar(Editor* editor, MU_Container* window)
     MU_Context* ctx = editor.ctx;
 	MU_Container* menu_panel;
 
-	int panel_height = 30;
+	// background rect/panel for the menu bar
     ctx.layout_row(1, (int[]){ AUTO_SIZE }, 0);
     ctx.@make_panel("Menu", MU_Opt.NOSCROLL | MU_Opt.NOINTERACT)
     {
         menu_panel = ctx.get_current_container();
-        // draw a background
-        //mu::draw_rect(toolbar_panel.body, rl::RAYWHITE);
-        /*int btn_w, btn_h;
-        btn_w = (int)(0.03f * toolbar_panel.body.w);
-        btn_h = -1;*/
 
         ctx.@make_popup("File Options")
         {
@@ -601,14 +588,10 @@ fn void drawEditorMenuBar(Editor* editor, MU_Container* window)
         };
 
         const int BTN_COUNT = MENU_BTN_NAMES_LEN;
-        //ctx.layout_row(BTN_COUNT, (int[]){[0] = 55, [1..BTN_COUNT-1] = -1 }, 0);
-        //ctx.layout_width(AUTO_SIZE/btn_count);
+        ctx.layout_row(BTN_COUNT, (int[]){[0] = 20, [1..BTN_COUNT-1] = 60 }, -1);
         for(int i = 0; i < BTN_COUNT; i++)
         {
-			//int btn_len = rl::measureText(MENU_BTN_NAMES[i].zstr_tcopy(), mu::MICROUI_FONT_SIZE);
-        	//ctx.layout_row(1, (int[]){btn_len + 10}, 0);
-        	ctx.layout_row(1, (int[]){MENU_BTN_NAMES[i].len + 10}, 0);
-            if (ctx.button(MENU_BTN_NAMES[i].str, MU_Icon.EXPANDED, MU_Opt.ALIGNCENTER | MU_Opt.NOFRAME) == MU_Res.SUBMIT)
+            if (ctx.button(MENU_BTN_NAMES[i].str, MU_Icon.NONE, MU_Opt.ALIGNCENTER | MU_Opt.NOFRAME) == MU_Res.SUBMIT)
             {
                 if(MENU_BTN_NAMES[i].str == "File") ctx.open_popup("File Options");
             }
@@ -626,55 +609,28 @@ fn void drawEditorMainToolBar(Editor* editor, MU_Container* window)
     MU_Context* ctx = editor.ctx;
 
 	MU_Container* toolbar_panel;
-    //editor.ctx.layout_height(25);
     ctx.layout_row(1, (int[]) { -1 }, 25);
-    ctx.@make_panel("Toolbar")
+    ctx.@make_panel("Toolbar", MU_Opt.NOSCROLL | MU_Opt.NORESIZE)
     {
         toolbar_panel = ctx.get_current_container();
-        // draw a background
-        //mu::draw_rect(toolbar_panel.body, rl::RAYWHITE);
-        /*int btn_w, btn_h;
-        btn_w = (int)(0.03f * toolbar_panel.body.w);
-        btn_h = -1;*/
+		MU_Rect area = toolbar_panel.rect;
 
+		ctx.layout_row(5, (int[]) {[0] = 30, [1..4] = 60 }, 25);
+		for(int i = 0; i < 5; i++)
+        {
+			String btn_name = string::tformat("%s%d", "Button", i);
+            if (ctx.button(btn_name, MU_Icon.NONE, MU_Opt.ALIGNCENTER) == MU_Res.SUBMIT)
+            {
+				// todo something
+            }
+        }
     };
-/*
-    MU_Rect area = editor.main_window_rect;
-
-    Vec2i anchor = {area.x, area.y};
-    float tb_y_anchor = 0.0075f * area.h;
-    Vec2i btn_size = {20, 20};
-    // Open Folder Button
-    Vec2f btn0_pos = anchor + misc::VEC_RIGHT * 0.08f * area.width;
-    btn0_pos.y += tb_y_anchor;
-    @button(btn0_pos, btn_size, Icon.FOLDER_OPEN, &openFolderButtonCallback){};
-
-    // Save Button
-    Vec2f btn1_pos = btn0_pos + misc::VEC_RIGHT * btn_size.x * 1.5f;
-    @button(btn1_pos, btn_size, Icon.FILE_SAVE_CLASSIC, &saveButtonCallback){};
-
-    // Undo Button
-    Vec2f btn2_pos = btn1_pos + misc::VEC_RIGHT * btn_size.x * 1.5f;
-    @button(btn2_pos, btn_size, Icon.UNDO, &undoButtonCallback){};
-
-    // Redo Button
-    Vec2f btn3_pos = btn2_pos + misc::VEC_RIGHT * btn_size.x * 1.5f;
-    @button(btn3_pos, btn_size, Icon.REDO, &redoButtonCallback){};
-*/
-$if $defined(TextInputBox):
-    // open Console Button
-    // TODO(HM): this should open the console window only, 
-	// but for now it will open the console input box.
-    Vec2f btn4_pos = btn3_pos + misc::VEC_RIGHT * btn_size.x * 1.5f;
-    /*@button(btn4_pos, btn_size, Icon.WINDOW) {
-        // open console window
-        editor.con_input_showWindow = !editor.con_input_showWindow;
-    };*/
-$endif
 }
 
 <* 
     Draws the main editor tool bar.
+	The main editor area is divided in 3 areas a items list, 
+	the 2D grid editor area and in the right side selected item options 
     @param [&inout] editor: "the editor to draw the tool bar for."
     @param [&in] window: "the main window."
 *>
@@ -683,12 +639,17 @@ fn void drawEditorMainWorkArea(Editor* editor, MU_Container* window)
     MU_Context* ctx = editor.ctx;
 
 	MU_Container* work_panel;
-    ctx.@make_panel("WorkArea")
+	ctx.layout_row(1, (int[]) { -1 }, -100);
+    ctx.@make_panel("WorkArea", MU_Opt.NOSCROLL | MU_Opt.NORESIZE)
     {
         work_panel = ctx.get_current_container();
+        int w, h;
+		w = work_panel.body.w;
+		h = work_panel.body.h;
+
+		// all 3 rows
+        ctx.layout_row(3, (int[]) { (int)(0.15f*w), (int)(0.60f*w), -1 }, -10);
         // left side column
-        int w = work_panel.body.w;
-        ctx.layout_row(3, (int[]) { (int)(0.15f*w), (int)(0.60f*w), -1 }, -1);
         ctx.@layout_make_column()
 	    {
             MU_Container* left_panel;
@@ -696,7 +657,7 @@ fn void drawEditorMainWorkArea(Editor* editor, MU_Container* window)
             ctx.@make_panel("WorkArea_Left") // todo rename to a better name...
             {
                 left_panel = ctx.get_current_container();
-                int h = left_panel.body.h;
+                h = left_panel.body.h;
                 ctx.layout_row(1, (int[]) { -1 }, -h/2);
                 ctx.@make_panel("WorkArea_Left_top") // todo rename to a better name...
                 {
@@ -715,10 +676,20 @@ fn void drawEditorMainWorkArea(Editor* editor, MU_Container* window)
             ctx.@make_panel("WorkArea_Middle")
             {
                 col_m = ctx.get_current_container();
-                /*ctx.@make_rows(2, (int[]){ AUTO_SIZE }, (int)(0.25f*col_m.rect.h))
-                {
-                    
-                };*/
+				int rows, colums;
+				rows = 10;
+				colums = 10;
+				Vec2f start = {col_m.rect.x, col_m.rect.y};
+				float spacing = 5.0f;
+				float line_thickness = 3.0f;
+                for(sz i = 0; i < rows; i++)
+				{
+					rl::drawLineEx({start.x, start.y + (i * spacing)}, {start.x + col_m.rect.w, start.y + (i * spacing)}, line_thickness, rl::PURPLE);
+					for(sz j = 0; j < colums; j++)
+					{
+						rl::drawLineEx({start.x + (j * spacing), start.y}, {start.x + (j * spacing), start.y + col_m.rect.y}, line_thickness, rl::PURPLE);
+					}
+				}
             };
         };
         // right side column

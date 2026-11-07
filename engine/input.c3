@@ -180,21 +180,25 @@ struct Action (ActionInterface)
 {
     typeid type;
     String name;
+    String description;
 
     ActionKind kind;
     InputCat cat @if($defined(NEW_CODE_EXTENSIONS) &&& NEW_CODE_EXTENSIONS == 1);
     InputId id @if($defined(NEW_CODE_EXTENSIONS) &&& NEW_CODE_EXTENSIONS == 1);
     
-    struct keyboard @packed {
+    struct keyboard @packed
+    {
         int key1;
         int key2;  // for alternative keys like alt, shift, ctrl, etc...
         KeysList keys @if($defined(NEW_CODE_EXTENSIONS) &&& NEW_CODE_EXTENSIONS == 1);
     }
-    struct mouse {
+    struct mouse
+    {
         RLMouseButton btn;
         MbtnList btns @if($defined(NEW_CODE_EXTENSIONS) &&& NEW_CODE_EXTENSIONS == 1);
     }
-    struct gamepad {
+    struct gamepad
+    {
         RLGamepadButton btn;
         PADbtnList btns @if($defined(NEW_CODE_EXTENSIONS) &&& NEW_CODE_EXTENSIONS == 1);
         /*
@@ -412,31 +416,38 @@ fn String Action.getName(&self) => self.name;
  @param key1 : "the main key for the action"
  @param key2 : "an optional secondary key for the action, like alt, shift, ctrl, etc..."
  @param func : "an optional callback function to call when the action is triggered"
+ @param [in] desc : "a long description of what this action is for"
  @require name != "" && key1 != rl::KEY_NULL && key2 != key1
 *>
-fn void makeKeyboardAction(String name, int key1, int key2 = rl::KEY_NULL, ActionCallBack func = null)  @inline
+fn void makeKeyboardAction(String name, int key1, int key2 = rl::KEY_NULL, ActionCallBack func = null, String desc = "<<no description>>")
 {
     if(name == "")
 	{
-        log::warning(FILE, "Trying to create a input action with a empty name!");
+		String msg = "Trying to create a input action with a empty name!";
 		$if $feature(_DEBUG):
-			log::fatal(FILE, "Trying to create a input action with a empty name!");
+			log::fatal(FILE, msg);
+		$else
+        	log::warning(FILE, msg);
 		$endif
         return;
     }
 
 	if(key1 == rl::KEY_F12 || (key1 != rl::KEY_F12 && key2 == rl::KEY_F12))
+	/*if(key1 == rl::KEY_F12 || 
+	  (key1 != rl::KEY_F12 && !(key2 & rl::KEY_NULL) && key2 & rl::KEY_F12))*/
 	{
-        log::error(FILE, "Input: '%s' cannot assing key 'F12' to a action '%s' is a Raylib reserved key for taking screenshots.", name);
+        log::error(FILE, "Input Action: '%s' cannot use key 'F12', is a reserved key by Raylib for screenshot function.", name);
         return;
     }
 
 
     if(key1 == rl::KEY_NULL)
 	{
-        log::warning(FILE, "Input: '%s' cannot be created with KEY_NULL as main key.", name);
+		String msg = string::tformat("Input Action: '%s' cannot be created with KEY_NULL as main key.", name);
         $if $feature(_DEBUG):
-			log::fatal(FILE, "Input: '%s' cannot be created with KEY_NULL as main key.", name);
+			log::fatal(FILE, msg);
+		$else
+        	log::warning(FILE, msg);
 		$endif
 		return;
     }
@@ -449,40 +460,34 @@ fn void makeKeyboardAction(String name, int key1, int key2 = rl::KEY_NULL, Actio
        key2 != rl::KEY_LEFT_ALT &&
        key2 != rl::KEY_RIGHT_ALT))
     {
-        log::warning(FILE, "Input: '%s' key2 '%s' cannot be assigned as alternative key, only left or right, ctrl, shift and alt, are supported for that.", name, getKeyboardKeyName(key2));
+        log::warning(FILE, "Input Action: '%s' key '%s' cannot be assigned as modifier, only ctrl, shift and alt, are supported for that.", name, getKeyboardKeyName(key2));
         return;
     }
 
     if(local_manager.actions.len() >= MAX_ACTION_COUNT)
 	{
-        log::warning(FILE, "Input: '%s' cannot be created, reached the max limit of %d actions.", name, MAX_ACTION_COUNT);
+        log::warning(FILE, "Input Action: '%s' cannot be created, reached the max limit of %d actions.", name, MAX_ACTION_COUNT);
         return;
     }
 
 	if(actionExists(name))
 	{
-		log::warning(FILE, "Input: '%s' cannot de created, another action with that name already exists.", name);
+		log::warning(FILE, "Input Action: '%s' already defined, input actions require unique names.", name);
        	return;
 	}
 
 	Action* other;
 	if(already_in_use(KEYBOARD, key1, other))
 	{
-		log::warning(FILE, "Input: '%s' cannot use key1 \"%s\" because is already used by action \"%s\".", getKeyboardKeyName(key1), name, other.name);
+		log::warning(FILE, "Input Action: '%s' cannot use key '%s' is already used by action '%s'.", name, getKeyboardKeyName(key1), other.name);
 		return;
 	}
 
-    /*foreach(act : local_manager.actions)
-	{
-        if(act.kind == ActionKind.KEYBOARD && act.keyboard.key1 == key1 && act.keyboard.key2 == key2) {
-            log::warning(FILE, "Cannot give key1 \"%s\" and key2 \"%s\" to action \"%s\", they are already taken by action \"%s\".", getKeyboardKeyName(key1), getKeyboardKeyName(key2), name, act.name);
-            return;
-        }
-    }*/
-
+	// else everything fine create the action
     Action* action       = mem::new(Action);
     action.type          = Action;
     action.name          = name;
+    action.description   = desc;
     action.kind          = ActionKind.KEYBOARD;
     action.callback      = func;
     action.keyboard.key1 = key1;
@@ -491,11 +496,62 @@ fn void makeKeyboardAction(String name, int key1, int key2 = rl::KEY_NULL, Actio
     local_manager.actions.push(action);
 }
 
-fn void makeMouseAction(String name, RLMouseButton btn, int key = rl::KEY_NULL, ActionCallBack func = null)  @inline
+fn void makeMouseAction(String name, RLMouseButton btn, int key = rl::KEY_NULL, ActionCallBack func = null, String desc = "<<no description>>")
 {
+	if(name == "")
+	{
+		String msg = "Trying to create a Mouse input action with a empty name!";
+		$if $feature(_DEBUG):
+			log::fatal(FILE, msg);
+		$else
+        	log::warning(FILE, msg);
+		$endif
+        return;
+    }
+
+	if(key && key == rl::KEY_F12)
+	{
+        log::error(FILE, "Input Mouse Action: '%s' cannot use key 'F12' as modifier, is also a reserved key by Raylib for screenshot function.", name);
+        return;
+    }
+
+    if(key && 
+      (key != rl::KEY_LEFT_SHIFT &&
+       key != rl::KEY_RIGHT_SHIFT &&
+       key != rl::KEY_LEFT_CONTROL &&
+       key != rl::KEY_RIGHT_CONTROL &&
+       key != rl::KEY_LEFT_ALT &&
+       key != rl::KEY_RIGHT_ALT))
+    {
+        log::warning(FILE, "Input Mouse Action: '%s' key '%s' cannot be assigned as modifier, only ctrl, shift and alt, are supported for that.", name, getKeyboardKeyName(key));
+        return;
+    }
+
+    if(local_manager.actions.len() >= MAX_ACTION_COUNT)
+	{
+        log::warning(FILE, "Input Mouse Action: '%s' cannot be created, reached the max limit of %d actions.", name, MAX_ACTION_COUNT);
+        return;
+    }
+
+	if(actionExists(name))
+	{
+		log::warning(FILE, "Input Mouse Action: '%s' already defined, input actions require unique names.", name);
+       	return;
+	}
+
+	// mouse input actions are allowed to share keys... for now
+	/*Action* other;
+	if(already_in_use(MOUSE, btn, other))
+	{
+		log::warning(FILE, "Input Mouse Action: '%s' cannot use btn '%s' is already used by mouse action '%s'.", name, getMouseBtnName(btn), other.name);
+		return;
+	}*/
+
+	// all well create the action
     Action* action       = mem::new(Action);
     action.type          = Action;
     action.name          = name;
+    action.description   = desc;
     action.kind          = ActionKind.MOUSE;
     action.mouse.btn     = btn;
     action.keyboard.key2 = key;
@@ -504,11 +560,12 @@ fn void makeMouseAction(String name, RLMouseButton btn, int key = rl::KEY_NULL, 
     local_manager.actions.push(action);
 }
 
-fn void makeGamepadAction(String name, RLGamepadButton btn, RLGamepadAxis axis, ActionCallBack func = null)  @inline
+fn void makeGamepadAction(String name, RLGamepadButton btn, RLGamepadAxis axis, ActionCallBack func = null, String desc = "<<no description>>")  @inline
 {
     Action* action      = mem::new(Action);
     action.type         = Action;
     action.name         = name;
+    action.description   = desc;
     action.kind         = ActionKind.GAMEPAD;
     action.gamepad.btn  = btn;
     action.gamepad.axis = axis;
@@ -520,6 +577,7 @@ fn void makeGamepadAction(String name, RLGamepadButton btn, RLGamepadAxis axis, 
 struct Input_Action_Entry 
 {
 	String name;
+    String description;
 	ActionKind kind;
 	int key1;
 	int key2;
@@ -998,12 +1056,14 @@ fn ActionQueue getActionsByKind(ActionKind kind) @nodiscard
 
 <*
 	@param [in] name : "the name of the action to search for"
-	@require name != ""
+	@require name.len > 0
 *>
 fn bool actionExists(String name) @inline @local @nodiscard
 {
-    foreach(action : local_manager.actions) {
-        if(action.name == name) {
+    foreach(action : local_manager.actions)
+	{
+        if(action.name == name)
+		{
             return true;
         }
     }
@@ -1016,31 +1076,33 @@ fn bool actionExists(String name) @inline @local @nodiscard
 	@param [inout] out : "optional action found to return out"
 	@require kind != ActionKind.UNKNOWN
 *>
-fn bool already_in_use(ActionKind kind, int key, Action* out = null) @inline @local @nodiscard
+fn bool already_in_use(ActionKind kind, int key, Action* out = null) @local @nodiscard
 {
-	bool key_found;
-	Action* other @noinit;
     foreach(action : local_manager.actions) 
 	{
         if(action.kind == kind) 
 		{
-			if(action.keyboard.key2 == key) {
-				key_found = true;
-				other = action;
-			}
+			// now test the main key depending on the kind of action
 			switch(kind)
 			{
 				case ActionKind.KEYBOARD:
-					if(action.keyboard.key1 == key) 
+					// first test the modifier key
+					if(action.keyboard.key2 == key)
 					{
-						key_found = true;
-						other = action;
+						out = action;
+					}
+					else if(action.keyboard.key1 == key) 
+					{
+						out = action;
 					}
 				case ActionKind.MOUSE:
-					if(action.mouse.btn == key) 
+					if(key && action.keyboard.key2 == key)
 					{
-						key_found = true;
-						other = action;
+						out = action;
+					}
+					else if(action.mouse.btn == key) 
+					{
+						out = action;
 					}
     			case ActionKind.GAMEPAD:
     			case ActionKind.MOBILE:
@@ -1050,10 +1112,7 @@ fn bool already_in_use(ActionKind kind, int key, Action* out = null) @inline @lo
         }
     }
 
-	if(key_found && other) {
-		out = other;
-		return true;
-	}
+	if(out) return true;
 
     return false;
 }
@@ -1157,11 +1216,11 @@ fn void _listActions(InputManager* actdb) @local @inline
 			
 			if(k2 == rl::KEY_NULL)
 			{
-           		log::info(FILE, "\t-> \"%s\" : {%s},", action.name, (action.kind == ActionKind.MOUSE) ? getMouseBtnName((RLMouseButton)k1) : getKeyboardKeyName(k1));
+           		log::info(FILE, "\t-> \"%s\" : {%s} : desc: \"%s\",", action.name, (action.kind == ActionKind.MOUSE) ? getMouseBtnName((RLMouseButton)k1) : getKeyboardKeyName(k1), action.description);
 			}
 			else 
 			{
-           		log::info(FILE, "\t-> \"%s\" : {%s, %s},", action.name, getKeyboardKeyName(k1), getKeyboardKeyName(k2));
+           		log::info(FILE, "\t-> \"%s\" : {%s, %s} : desc: \"%s\",", action.name, getKeyboardKeyName(k1), getKeyboardKeyName(k2), action.description);
 			}
         }
         log::info(FILE, "[ END ACTIONS ]]");

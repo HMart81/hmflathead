@@ -70,7 +70,7 @@ import engine::tools::editor;
 // end_region
 
 // region cvars
-CVar ui_debugDraw   @public = { "ui_debugDraw",   CvFlag.BOOL | CvFlag.TOOL, "1", "show debug visualization for gui development, 0, 1, true, false" };
+CVar ui_debugDraw   @public = { "ui_debugDraw",   CvFlag.BOOL | CvFlag.TOOL, "0", "show debug visualization for gui development, 0, 1, true, false" };
 CVar ui_editGui     @public = { "ui_editGui",     CvFlag.BOOL | CvFlag.TOOL, "0", "turn on gui editing functionality for gui development, 0, 1, true, false" };
 CVar ui_showAnchors @public = { "ui_showAnchors", CvFlag.BOOL | CvFlag.TOOL, "0", "toggles the view of the anchor points on each gui widget, requires ui_debugDraw to be on as well." };
 
@@ -133,6 +133,7 @@ fn AnchorArray initAnchors(RLRectangle rect)
 *>
 fn void updateAnchors(AnchorList* anchors, Vec2f pos, Vec2f size)
 {
+	(*anchors)[GUIAnchorID.TOP_LEFT]      = (GuiAnchor)pos + {0, 0};
     (*anchors)[GUIAnchorID.TOP_CENTER]    = (GuiAnchor)pos + {size.x / 2, 0};
     (*anchors)[GUIAnchorID.TOP_RIGHT]     = (GuiAnchor)pos + {size.x, 0};
     (*anchors)[GUIAnchorID.CENTER_LEFT]   = (GuiAnchor)pos + {0, size.y / 2};
@@ -153,15 +154,17 @@ fn void drawAnchors(AnchorList* anchors)
     if(!ui_showAnchors.getBool()) return;
 
 	//r2d::drawSquare(origin ,8, rl::BLACK);
-	r2d::drawSquare((*anchors)[GUIAnchorID.TOP_LEFT],     4, rl::RED);
-    r2d::drawSquare((*anchors)[GUIAnchorID.TOP_CENTER],   4, rl::GREEN);
-    r2d::drawSquare((*anchors)[GUIAnchorID.TOP_RIGHT],    4, rl::BLUE);
-    r2d::drawSquare((*anchors)[GUIAnchorID.CENTER_LEFT],  4, rl::MAROON);
-    r2d::drawSquare((*anchors)[GUIAnchorID.CENTER],       4, rl::LIME); 
-    r2d::drawSquare((*anchors)[GUIAnchorID.CENTER_RIGHT], 4, rl::SKYBLUE);
-    r2d::drawSquare((*anchors)[GUIAnchorID.BOTTOM_LEFT],  4, rl::VIOLET); 
-    r2d::drawSquare((*anchors)[GUIAnchorID.BOTTOM_CENTER],4, rl::ORANGE);
-    r2d::drawSquare((*anchors)[GUIAnchorID.BOTTOM_RIGHT], 4, rl::MAGENTA);
+	RLColor color = rl::BLUE;
+	int anchors_size = 5;
+	r2d::drawSquare((*anchors)[GUIAnchorID.TOP_LEFT],     anchors_size, color);
+    r2d::drawSquare((*anchors)[GUIAnchorID.TOP_CENTER],   anchors_size, color);
+    r2d::drawSquare((*anchors)[GUIAnchorID.TOP_RIGHT],    anchors_size, color);
+    r2d::drawSquare((*anchors)[GUIAnchorID.CENTER_LEFT],  anchors_size, color);
+    r2d::drawSquare((*anchors)[GUIAnchorID.CENTER],       anchors_size, color); 
+    r2d::drawSquare((*anchors)[GUIAnchorID.CENTER_RIGHT], anchors_size, color);
+    r2d::drawSquare((*anchors)[GUIAnchorID.BOTTOM_LEFT],  anchors_size, color); 
+    r2d::drawSquare((*anchors)[GUIAnchorID.BOTTOM_CENTER],anchors_size, color);
+    r2d::drawSquare((*anchors)[GUIAnchorID.BOTTOM_RIGHT], anchors_size, color);
 }
 
 /* #endregion Anchors */
@@ -549,13 +552,16 @@ fn bool GUIRect.isMouseOver(&self)
 	}
 
     // gets windows mouse position...
-    Vec2f mouseWorldPos = rl::getMousePosition();
+    Vec2f mouseWorldPos = game::get_system_cursor_pos();
 
-    Vec2f mouse_size = game::getGameCursorSize() * 0.5f; // half size of the cursor
+    // scale the size of the cursor collision box to be small
+    // enough to not trigger a mouse over while the
+    // mouse pointer visualy, is still far away from the object.
+    Vec2f mouse_size = game::getGameCursorSize() * 0.15f;
     RLRectangle mouseRect = misc::@recFromVecs(mouseWorldPos, mouse_size);
 
     if(rl::checkCollisionRecs(mouseRect, self.rect)) return true; 
-	
+
 	return false;
 }
 
@@ -665,7 +671,7 @@ fn void GUIRect.draw(&self, bool selected = false)
                 //rl::drawTexturePro(*texture, source, *dist, {0, 0}, 0.0f, color);
         }
 
-        if(with_blending) 
+        if(with_blending)
         {
             rl::@blendMode(blending)
             {
@@ -673,7 +679,9 @@ fn void GUIRect.draw(&self, bool selected = false)
                 // it's relative to destination rectangle dimentions, not the screen dimentions.
                 rl::drawTexturePro(*texture, source, *dist, {0, 0}, 0.0f, color);
             };
-        } else {
+        }
+		else
+		{
             rl::drawTexturePro(*texture, source, *dist, {0, 0}, 0.0f, color);
         }
     } 
@@ -860,9 +868,10 @@ fn void GUIWidget.editor_interactions(&self)
 fn void GUIWidget.update(&self) @dynamic 
 {
     // NOTE(HM) if we are bound to another widget, 
-	// we need to update our position even if hidden or 
-	// interaction deactivated, this is so we are always 
-	// kept relative to the parent origin each frame.
+	// we need to update our position no matter what,
+    // even if hidden or interaction deactivated, 
+    // this is so we are always kept relative to the parent position
+    // each frame.
     if(self.bound())
     {
         Vec2f parent_origin = self.other.getPosition();
@@ -878,13 +887,13 @@ fn void GUIWidget.update(&self) @dynamic
 
     self.super.update(); // mouse over is done GUIRect update
 
-    if(self.hidden() || (guieditor::enabled() && guieditor::as_focus()) || 
-	   game::pContext.show_microui_test_frames || self.cannot_be_interacted())
+    if((self.hidden() || game::pContext.show_microui_test_frames || 
+       self.cannot_be_interacted()) && !guieditor::enabled())
 	{ 
 		return;
 	}
 
-    if(guieditor::enabled())
+    if(guieditor::enabled() && guieditor::as_focus())
     {
         // run editor keyboard interactions
         self.editor_interactions();
@@ -974,7 +983,7 @@ fn void GUIWidget.draw(&self) @dynamic
         self.draw_origin_coordinates();
     }
     
-    Vec2f center;
+    Vec2f center = self.getAnchor(GUIAnchorID.CENTER);
 
     switch (self.kind)
     {
@@ -987,22 +996,13 @@ fn void GUIWidget.draw(&self) @dynamic
                 switch (this.align)
                 {
                 case CENTER:
-                    center = {
-                        .x = self.rect.x + self.rect.width / 2,
-                        .y = self.rect.y + self.rect.height / 2
-                    };
                     center.x -= (float)(this.text_len / 2);
                     center.y -= (float)this.font_size / 2;
                 case LEFT:
-                    center = {
-                        self.rect.x,
-                        self.rect.y
-                    };
+                    center = self.getAnchor(GUIAnchorID.CENTER_LEFT);
+					center.y -= this.font_size / 2.0f;
                 case RIGHT:
-                    center = {
-                        self.rect.x + self.rect.width,
-                        self.rect.y
-                    };
+                    center = self.getAnchor(GUIAnchorID.CENTER_RIGHT);
                     center.x -= this.text_len;
                 }
                 
@@ -1020,9 +1020,13 @@ fn void GUIWidget.draw(&self) @dynamic
                 unreachable("cannot draw gui label '%s' because its size is zero!", self.name);
             }
 
-            if(self.displayBounds()) {
+            if(self.displayBounds())
+            {
                 r2d::drawRectangleLinesEx(self.rect, 1.0f, rl::RED);
             }
+        case KIND_CONTAINER:
+        case KIND_BUTTON:
+            self.super.draw(self.isSelected());
         case KIND_CHECKBOX:
             // draw the checkbox
             GUIWidgetCheckBox* this = (GUIWidgetCheckBox*)self;
@@ -1034,19 +1038,18 @@ fn void GUIWidget.draw(&self) @dynamic
             r2d::drawRectangle((int)center.x, (int)center.y, w, h, this.color);
 
             // draw the label
-            if(this.label.len > 0) {
+            if(this.label.len > 0)
+            {
                 Vec2f label_pos = center + misc::VEC_RIGHT * 25.0f;
                 rl::drawText(this.label.zstr_tcopy(), (int)label_pos.x, (int)label_pos.y, 16, rl::BLACK);
             }
             
-            if(this.isChecked()) {
+            if(this.isChecked())
+            {
                 r2d::drawRectangleLines((int)center.x, (int)center.y, w, h, rl::BLACK);
                 r2d::drawLineEx(center, (center + misc::VEC_RIGHT * w), 2.0f, rl::GREEN);
                 r2d::drawLineEx(center, (center + misc::VEC_DOWN * h), 2.0f, rl::GREEN);
             }
-        case KIND_CONTAINER:
-        case KIND_BUTTON:
-            self.super.draw(self.isSelected());
         default: break; // do nothing
     }
 }
@@ -1183,7 +1186,7 @@ enum TextAlign
 
 struct GUIWidgetLabel 
 {
-    inline GUIWidgetButton super;
+    inline GUIWidget super;
 
     RLFont* font;
     int font_size;
@@ -1198,11 +1201,13 @@ fn void GUIWidgetLabel.init(&self)
     self.super.init();
     self.kind = KIND_TEXT;
 	self.name = GUILABEL_NAME_PREFIX; // Initial default name @hardcode
-    self.setDefaultColor(rl::BLACK); //@hardcode
+    self.original_color = rl::BLACK;
+	// default uses the color set above
+	self.setTextColor(rl::BLACK); //@hardcode
     self.spacing    = WIDGET_TEXT_SPACING;
     self.font_size  = WIDGET_TEXT_DEFAULT_SIZE; 
     self.align      = TextAlign.CENTER;
-    self.super.hide(); // don't draw our square shape
+    //self.super.hide(); // don't draw our square shape
 	self.deactivate(); // lables aren't clicable by default unlike buttons
 }
 
@@ -1273,7 +1278,7 @@ fn float GUIWidgetLabel.textlen(&self) @inline
 
 fn void GUIWidgetLabel.setTextColor(&self, RLColor color) @inline 
 {
-    self.setDefaultColor(color);
+    self.color = color;
 }
 
 fn void GUIWidgetLabel.setAlign(&self, TextAlign align) @inline 
@@ -1362,7 +1367,6 @@ struct GUIWidgetButton
     int press_count;
     bool pressed;
     bool reset;
-    //bool sound_played;
     RLSound* interaction_sound;
 }
 
@@ -1958,13 +1962,19 @@ fn void GUIWindow.show(&self)
     }
 }
 
+// TODO(HM) Each window should create and manage its own cursor
+// and the game just routs the system mouse movements to the
+// window cursor.
 fn void GUIWindow.drawCursor(&self) @inline
 {
     if(editor::isOpen(&game::pContext.editor)) return;
     
-	if ( self.isInteractive && self.active && self.visible ) {
+	if ( self.isInteractive && self.active && self.visible )
+    {
 		if(game::game_cursor_hidden()) game::show_game_cursor();
-	} else {
+	}
+    else
+    {
 		if(game::game_cursor_visible()) game::hide_game_cursor();
 	}
 }
@@ -2058,20 +2068,32 @@ fn void GUIWindow.redraw(&self, int _time)
     // draw GUIWindow widgets childWidgets
     if (self.childWidgets.len())
     {
+		// first draw the buttons
+		foreach(child: self.childWidgets) 
+        {
+           if (child.kind == gui::KIND_BUTTON) ((GUIWidgetButton*)child).draw();
+        }
+		// now draw the labels
+		foreach(child: self.childWidgets) 
+        {
+           if (child.kind == gui::KIND_TEXT) ((GUIWidgetLabel*)child).draw();
+        }
+		/*
         foreach(child: self.childWidgets) 
         {
            switch (child.kind) 
            {
+                case gui::KIND_CONTAINER:
+                    ((WidgetContainer*)child).draw();
                 case gui::KIND_BUTTON:
                     ((GUIWidgetButton*)child).draw();
                 case gui::KIND_TEXT:
                     ((GUIWidgetLabel*)child).draw();
-                case gui::KIND_CONTAINER:
-                    ((WidgetContainer*)child).draw();
                 default:
                    child.draw();
             }
         }
+		*/
     }
 
 	// TODO(HM) drawing of child windows if they exist
@@ -2095,7 +2117,8 @@ fn void GUIWindow.draw(&this)
 {
     GUIWindow* guiActive = game::pContext.guiActive;
 
-    if ( guiActive == this ) {
+    if ( guiActive == this )
+	{
 		guiActive.redraw(this.time);
 	}
 }
@@ -2208,28 +2231,49 @@ fn Vec2f GUIWindow.getAnchor(&self, int idx)
 /////
 macro GUIWindow.debugDrawBorder(&self)
 {
-	if(self.isDesktop) {
+	if(!ui_debugDraw.getBool()) return;
+
+	if(self.isDesktop)
+	{
 		r2d::drawRectangleLinesEx(self.rect, 2.0f, rl::RED);
-	} else{
+	}
+	else
+	{
 		r2d::drawRectangleLinesEx(self.rect, 1.5f, rl::YELLOW);
 	}
 }
 
 macro GUIWindow.debugDrawName(&self)
 {
+	if(!ui_debugDraw.getBool()) return;
+
 	Vec2f pos = self.getAnchor(GUIAnchorID.TOP_LEFT);
 	pos += misc::VEC_RIGHT * 50;
     pos += misc::VEC_DOWN * 50;
 	ZString wind_name = string::tformat("GUI: \"%s\"", self.name).zstr_tcopy();
-	if(self.isDesktop) {
+	if(self.isDesktop)
+	{
         rl::drawText(wind_name, (int)pos.x, (int)pos.y, 9, rl::RED);
-	} else{
+		RLFont* font = &game::pContext.font_default;
+		Vec2f txt_size = rl::measureTextEx(*font, wind_name, game::MEDIUM_FONT_SIZE, 1.0f);
+		if(self.childWindows.len())
+		{
+			foreach(child : self.childWindows)
+			{
+				rl::drawText(wind_name, (int)pos.x, (int)(pos.y + txt_size.x + 5), 9, rl::RED);
+			}
+		}
+	}
+	else
+	{
         rl::drawText(wind_name, (int)pos.x, (int)pos.y, 9, rl::BLACK);
 	}
 }
 
 macro GUIWindow.debugDrawWindTime(&self)
 {
+	if(!ui_debugDraw.getBool()) return;
+
 	ZString time = string::tformat("GUI TIME: \"%s\"", self.time).zstr_tcopy();
 	Vec2f pos = self.getAnchor(GUIAnchorID.TOP_LEFT);
 	pos += misc::VEC_RIGHT * 50;
@@ -2243,6 +2287,8 @@ macro GUIWindow.debugDrawWindTime(&self)
 
 macro GUIWindow.debugDrawCoords(&self)
 {
+	if(!ui_debugDraw.getBool()) return;
+
 	float rect_x = self.rect.x;
 	float rect_y = self.rect.y;
 	float rect_w = self.rect.w;
@@ -2259,69 +2305,76 @@ macro GUIWindow.debugDrawCoords(&self)
 
 fn void GUIWindow.debug(&self, bool showHidden = true) 
 {
-    if(ui_debugDraw.getBool())
-    {
-        // show desktop window border in a diferent color
-		self.debugDrawBorder();
-        // show the Window name
-		self.debugDrawName();
-        // draw window time
-        self.debugDrawWindTime();
-        // window size
-		self.debugDrawCoords();
+	// show desktop window border in a diferent color
+	self.debugDrawBorder();
+	// show the Window name
+	self.debugDrawName();
+	// draw window time
+	self.debugDrawWindTime();
+	// window size
+	self.debugDrawCoords();
 
-        // draw the childWidgets BBox
-        if (self.childWidgets.len())
-        {
-            foreach(child: self.childWidgets)
-            {
-               if(child.isSelected()) continue;
-               Vec2f dbg_text_pos = child.getAnchor(GUIAnchorID.TOP_LEFT);
-               dbg_text_pos = {child.rect.x, child.rect.y};
-               dbg_text_pos += misc::VEC_UP * (0.30f * child.rect.height); 
-               rl::drawText(
-                    string::tformat("[%s] = (w:%dpx, h:%dpx) : (w:%d%%, h:%d%%)", child.name, child.rect.x, child.rect.y, 
-                    ((child.rect.x * 100) / self.rect.w), ((child.rect.y * 100) / self.rect.h)).zstr_tcopy(),
-                    (int)dbg_text_pos.x, (int)dbg_text_pos.y, 9, rl::RED
-               );
-               if(!gui::ui_showAnchors.getBool()) {
-                    // draw widget center point
-                    r2d::drawCircle((int)child.rect.x, (int)child.rect.y, 2.0f, rl::SKYBLUE);
-               }
-               r2d::drawRectangleLinesEx(child.rect, 1.5f, rl::RED);
-               gui::drawAnchors(&child.anchor);
+	// draw the childWidgets BBox
+	if (self.childWidgets.len())
+	{
+		foreach(child: self.childWidgets)
+		{
+			if(ui_debugDraw.getBool())
+			{
+				if(child.isSelected()) continue;
 
-			   // draw in the corner of the window the name of the current hot child
-			   if(child.can_be_interacted())
-			   {
+				Vec2f dbg_text_pos = child.getAnchor(GUIAnchorID.TOP_LEFT);
+				dbg_text_pos = {child.rect.x, child.rect.y};
+				dbg_text_pos += misc::VEC_UP * (0.30f * child.rect.height); 
+				rl::drawText(
+					string::tformat("[%s] = (w:%dpx, h:%dpx) : (w:%d%%, h:%d%%)", child.name, child.rect.x, child.rect.y, 
+					((child.rect.x * 100) / self.rect.w), ((child.rect.y * 100) / self.rect.h)).zstr_tcopy(),
+					(int)dbg_text_pos.x, (int)dbg_text_pos.y, 9, rl::RED
+				);
+
+				if(!gui::ui_showAnchors.getBool())
+				{
+					// draw widget center point
+					r2d::drawCircle((int)child.rect.x, (int)child.rect.y, 2.0f, rl::SKYBLUE);
+					r2d::drawRectangleLinesEx(child.rect, 1.5f, rl::RED);
+				}
+
+				// draw in the corner of the window the name of the current hot child
+				if(child.can_be_interacted())
+				{
 					Vec2f top_corner = self.getAnchor(GUIAnchorID.TOP_LEFT);
 					rl::drawText(
 						string::tformat("Hot Widget = %s", child.name).zstr_tcopy(),
 						(int)top_corner.x + 50, (int)top_corner.y + 50, 32, rl::SKYBLUE
 					);
-			   }
+				}
 
-			   if(child.asFocus())
-			   {
-				r2d::drawRectangleLinesEx(child.rect, 2.0f, rl::PINK);
-			   }
-            }
-        }
+				/*if(child.asFocus())
+				{
+					r2d::drawRectangleLinesEx(child.rect, 2.0f, rl::PINK);
+				}*/
+			}
+			if(ui_showAnchors.getBool())
+			{
+				r2d::drawRectangleLinesEx(child.rect, 1.5f, rl::RED);
+			}
+			gui::drawAnchors(&child.anchor);
+		}
+	}
 
-		// also debug any child Windows (will show even hidden windows)
-        if (self.childWindows.len()) 
-        {
-            foreach(child: self.childWindows)
-            {
-			   child.debug();
-               /*if(child.selected) continue;
-			   child.debugDrawBorder();
-			   self.debugDrawName();
-			   self.debugDrawWindTime();
-               gui::drawAnchors(&child.anchor);*/
-            }
-        }
-    }
+	// also debug any child Windows (will show even hidden windows)
+	if (self.childWindows.len()) 
+	{
+		foreach(child: self.childWindows)
+		{
+			child.debug();
+			/*if(child.selected) continue;
+			child.debugDrawBorder();
+			self.debugDrawName();
+			self.debugDrawWindTime();
+			gui::drawAnchors(&child.anchor);*/
+		}
+	}
 }
 
 //#region window_manager
@@ -2337,7 +2390,7 @@ alias UIWindowList = List{GUIWindow*};
 
 // NOTE(HM) TODO(HM) Rename to MenuOS?
 // Every user GUI should have at lest one GUIWindow,
-// is a data structure to put everything that makes up a user GUI inside.
+// a data structure to put everything that makes up a user GUI inside.
 struct GUIWindowManager 
 {
     UIWindowList windows;
@@ -2350,30 +2403,14 @@ GUIWindowManager* gpWindowManager = &local_manager;
 <*
  @param [&in] _uiwin : "the window to register"
 *>
-fn void GUIWindowManager.register(&self, GUIWindow* _uiwin) @inline 
+fn void GUIWindowManager.register(&self, GUIWindow* _uiwin) @inline
 {
-    foreach(uiwin : self.windows) {
-        if(uiwin.name == _uiwin.name) {
-            log::warning(FILE, "Cannot register \"%s\" because is already registered.", uiwin.name);
-            return;
-        }
+    if(self.hasWindow(_uiwin))
+    {
+        log::warning(FILE, "Cannot register \"%s\" because is already registered.", _uiwin.name);
+        return;
     }
     self.windows.push(_uiwin);
-}
-
-<*
- @param [in] name : "name of window to fetch/get"
-*>
-fn GUIWindow* GUIWindowManager.get(&self, String name) @inline 
-{
-    foreach(guiwin : self.windows)
-	{
-		String win_name = guiwin.name.strip_start(GUIWIN_NAME_PREFIX);
-        if(win_name == name) {
-            return guiwin;
-        }
-    }
-    return null;
 }
 
 <*
@@ -2388,6 +2425,37 @@ fn void GUIWindowManager.unregister(&self, GUIWindow* _uiwin) @inline
             return;
         }
     }
+}
+
+<*
+ @param [&in] _uiwin : "the window to look for"
+*>
+fn bool GUIWindowManager.hasWindow(&self, GUIWindow* _uiwin)
+{
+    foreach(uiwin : self.windows)
+    {
+        //if(uiwin.name == _uiwin.name)
+        if(uiwin == _uiwin) // compare window pointers instead is faster
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+<*
+ @param [in] name : "name of window to fetch/get"
+*>
+fn GUIWindow* GUIWindowManager.get(&self, String name)
+{
+    foreach(guiwin : self.windows)
+	{
+		String win_name = guiwin.name.strip_start(GUIWIN_NAME_PREFIX);
+        if(win_name == name) {
+            return guiwin;
+        }
+    }
+    return null;
 }
 
 fn void GUIWindowManager.update(&self, int _time) 
@@ -2410,10 +2478,12 @@ fn void GUIWindowManager.update(&self, int _time)
             {
                 uiwin.update(_time);
                 if(self.mode == EDITOR && !editor::isFocused(&game::pContext.editor)) {
-                    // put something here
+                    // put something here if in gui editor mode but not 
+                    // focused on the editor...
                 }
 
-                if(gui::ui_editGui.getBool()) {
+                if(self.mode == EDITOR)
+                {
                     guieditor::update(uiwin);
                 }
             }
@@ -2430,11 +2500,13 @@ fn void GUIWindowManager.draw(&self, int screenWidth, int screenHeight) @inline
         {
             uiwin.draw();
             
-            if(self.mode == EDITOR && !editor::isOpen(&game::pContext.editor)) {
+            if(self.mode == EDITOR && !editor::isOpen(&game::pContext.editor))
+            {
                 //drawGuiEditor(uiwin); TODO(HM) draw this through the new editor
             }
 
-            if(gui::ui_editGui.getBool()) {
+            if(self.mode == EDITOR)
+            {
                 // draw the gui editor
                 guieditor::draw(uiwin);
             }

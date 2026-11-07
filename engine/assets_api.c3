@@ -623,7 +623,7 @@ fn void loadAsset(String path) @local
                 .path = path, 
                 // NOTE(HM) This was always loading the default font data because of the 
                 // null and 0 in the call!! I forgot about the loadFontEx comment...
-                //.data = rl::loadFontEx(path.zstr_tcopy(), game::DEFAULT_FONT_SIZE, null, 0)
+                //.data = rl::loadFontEx(path.zstr_tcopy(), game::MEDIUM_FONT_SIZE, null, 0)
                 .data = rl::loadFont(path.zstr_tcopy())
             });
 

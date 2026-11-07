@@ -33,6 +33,7 @@ import std::io;
 import std::core::mem; // for malloc
 import std::math;
 import std::collections::map;
+import engine::gui;
 import engine::misc;
 import engine::sys::ctype;
 import engine::logging::log;
@@ -336,6 +337,11 @@ fn void HMSprite.updateBounds(&self, Vec2f translation) @inline
     // self.setBounds(bb);
 }
 
+fn void HMSprite.drawBounds(&self) @inline
+{
+    self.bounds.debugDraw();
+}
+
 fn Vec2f HMSprite.getMinc(&self, Bounds bb) => self.bounds.minc;
 
 fn Vec2f HMSprite.getMaxc(&self, Bounds bb) => self.bounds.maxc;
@@ -625,6 +631,11 @@ fn void HMSprite.onDraw(&self) @dynamic
         {
             r2d::drawRectangleRec(self.rect, self.color);
         }
+
+		if(self.flags.is_game_cursor && gui::ui_debugDraw.getBool())
+		{
+			self.drawBounds();
+		}
     };//tracy::@zoneN
     }; // misc::@profile_zone
 }

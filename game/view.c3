@@ -754,8 +754,6 @@ fn void RenderView.drawCameraSpaceCoords(&self) @if($defined(ENABLE_CAMERA_VIEW)
         self.bounds.debugDraw();
     }
 
-    rl::drawGrid(self.w / 10, 1.0f);
-
     RLColor g = {0, 255, 0, 100};
     RLColor r = {255, 0, 0, 100};
 	Vec2f start, end;

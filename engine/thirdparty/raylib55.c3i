@@ -1863,11 +1863,13 @@ fn ZString textToCamel(ZString text) @cname("TextToCamel");
 fn CInt textToInteger(ZString text) @cname("TextToInteger");
 // Get float value from text (negative values not supported)
 fn float textToFloat(ZString text) @cname("TextToFloat");
+
+
 //------------------------------------------------------------------------------------
 // Basic 3d Shapes Drawing Functions (Module: models)
+// Basic geometric 3D shapes drawing functions
 //------------------------------------------------------------------------------------
 
-// Basic geometric 3D shapes drawing functions
 // Draw a line in 3D world space
 fn void drawLine3D(RLVector3 startPos, RLVector3 endPos, RLColor color) @cname("DrawLine3D");
 // Draw a point in 3D space, actually a small line
@@ -1908,8 +1910,9 @@ fn void drawCapsuleWires(RLVector3 startPos, RLVector3 endPos, float radius, CIn
 fn void drawPlane(RLVector3 centerPos, RLVector2 size, RLColor color) @cname("DrawPlane");
 // Draw a ray line
 fn void drawRay(RLRay ray, RLColor color) @cname("DrawRay");
-// Draw a grid (centered at (0, 0, 0))
-fn void drawGrid(CInt slices, float spacing) @cname("DrawGrid");
+// Draw a 3D grid (centered at (0, 0, 0))
+fn void drawGrid3D(CInt slices, float spacing) @cname("DrawGrid");
+
 
 //------------------------------------------------------------------------------------
 // RLModel 3d Loading and Drawing Functions (Module: models)
