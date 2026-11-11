@@ -26,22 +26,26 @@
 # 
 *********************************************************************************************************************************************/
 
+// NOTE(HM) 
+// I know C3 library itself has a good logging system, 
+// but I did this custom one, before knowing that existed.
+// Also yes Raylib add a simple one that I could use, 
+// but I wanted something more complex able to print to file as well.
 module engine::logging::log;
 
 // region modules
-import std::io, std::time, std::math;
-import libc;
-import game::main;
+import std::io, std::time;
 import thirdparty::raylib5::rl;
 import engine::sys::cvar;
-import engine::misc;
-import engine::sys::framework::platform::platf;
+import engine::misc; // for @MyInline
+import engine::sys::framework::platform::platf; // for platf::PATHSEPERATOR_STR
 // end_region
 
 // region Cvars
 CVar g_log @public = { "g_log", CvFlag.BOOL, "1", "turns on loggin for debuggin."};
 
-fn void register_cvars() {
+fn void register_cvars()
+{
 	cvar::@register(&g_log);
 }
 // end_region Cvars
@@ -60,8 +64,6 @@ constdef Where : inline int
     FILE = 1,
     CONSOLE
 }
-const Where FILE @export    = Where.FILE;
-const Where CONSOLE @export = Where.CONSOLE;
 
 /*
 // Trace log level, taken from raylib55
@@ -83,12 +85,12 @@ NONE    = Disable logging
     File gfile    @local;    // the file handle itself
 // end_region
 
-fn void setLogLevel(RLTraceLogLevel level) @MyInline 
+fn void setLevel(RLTraceLogLevel level) @MyInline 
 {
 	glevel = level;
 }
 
-fn RLTraceLogLevel getLogLevel() @MyInline => (RLTraceLogLevel)glevel;
+fn RLTraceLogLevel getLevel() @MyInline => (RLTraceLogLevel)glevel;
 
 <*
 	Get the log level id as a String for easy printing
@@ -121,13 +123,13 @@ fn void initGlobalLoggingDir() @MyInline @local
 fn void init(RLTraceLogLevel level) @MyInline
 {
 	initGlobalLoggingDir();
-	setLogLevel(level);
+	setLevel(level);
 }
 
 fn void closeLogFile() 
 {
-    if(catch excuse = gfile.close()) {
-		warning(FILE, "failed to close log file!!!\n - %s", excuse);
+    if(catch err = gfile.close()) {
+		warning(FILE, "failed to close log file!!!\n - %s", err);
 		unreachable("failed to close log file!!!");
 	} else {
 		info(CONSOLE, "log file closed successfully.");
@@ -136,9 +138,57 @@ fn void closeLogFile()
 
 fn String getfilepath() @MyInline => gpath.str_view();
 
-fn void info(Where where, String fmt, args...) @public
+
+// NOTE(HM)
+// Yes I know crazy code, this is stupid but I did
+// and used the log functions before the macros, for a long time,
+// before realizing that...
+// would be nice to print the fk function name and line as well... *facepalm*
+macro info(Where where, String fmt, args...)
 {
-	switch (where) {
+	String func = $$FUNC;
+	int line = $$LINE;
+	DString str = dstring::temp_with_capacity(func.len + int::size + fmt.len + args.len * 8);
+	str.appendf(fmt, ...args);
+	str.appendf(" -> %s::%d", func, line);
+	_info(where, "%s", str);
+}
+
+macro warning(Where where, String fmt, args...)
+{
+	String func = $$FUNC;
+	int line = $$LINE;
+	DString str = dstring::temp_with_capacity(func.len + int::size + fmt.len + args.len * 8);
+	str.appendf(fmt, ...args);
+	str.appendf(" -> %s::%d", func, line);
+	_warning(where, "%s", str);
+}
+
+macro error(Where where, String fmt, args...)
+{
+	String func = $$FUNC;
+	int line = $$LINE;
+	DString str = dstring::temp_with_capacity(func.len + int::size + fmt.len + args.len * 8);
+	str.appendf(fmt, ...args);
+	str.appendf(" -> %s::%d", func, line);
+	_error(where, "%s", str);
+}
+
+macro fatal(Where where, String fmt, args...)
+{
+	String func = $$FUNC;
+	int line = $$LINE;
+	DString str = dstring::temp_with_capacity(func.len + int::size + fmt.len + args.len * 8);
+	str.appendf(fmt, ...args);
+	str.appendf(" -> %s::%d", func, line);
+	_info(where, "%s", str);
+}
+/////////////////////////////////////////////////////////
+
+fn void _info(Where where, String fmt, args...)
+{
+	switch (where)
+	{
         case FILE:
             logTofile(RLTraceLogLevel.INFO, fmt, ...args);
         case CONSOLE:
@@ -146,7 +196,7 @@ fn void info(Where where, String fmt, args...) @public
     }
 }
 
-fn void warning(Where where, String fmt, args...) @public
+fn void _warning(Where where, String fmt, args...)
 {
 	switch (where) {
         case FILE:
@@ -156,7 +206,7 @@ fn void warning(Where where, String fmt, args...) @public
     }
 }
 
-fn void error(Where where, String fmt, args...) @public
+fn void _error(Where where, String fmt, args...)
 {
 	switch (where) {
         case FILE:
@@ -166,7 +216,7 @@ fn void error(Where where, String fmt, args...) @public
     }
 }
 
-fn void fatal(Where where, String fmt, args...) @public
+fn void _fatal(Where where, String fmt, args...)
 {
 	switch (where) {
         case FILE:
@@ -215,8 +265,8 @@ fn void logTofile(RLTraceLogLevel level, String fmt, args...) @local @format(1)
 		if(glogcount >= 1) {
 			// close the old file handle
 			//libc::fclose(file);
-			if(catch excuse = gfile.reopen(gpath.str_view(), APPEND_TO_END.str_view())) {
-				warning(CONSOLE, "Failed to reopen file: %s to append:\n	- %s\n  excuse: %s", gpath, str, excuse);
+			if(catch err = gfile.reopen(gpath.str_view(), APPEND_TO_END.str_view())) {
+				warning(CONSOLE, "Failed to reopen file: %s to append:\n	- %s\n  err: %s", gpath, str, err);
 				return;
 			}
 			// get a new file handle

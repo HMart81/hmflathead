@@ -168,6 +168,7 @@ CVar dbg_stats        @public = { "dbg_stats"     , CvFlag.BOOL | CvFlag.TOOL,  
 CVar skip_config      @public = { "skip_config"   , CvFlag.BOOL | CvFlag.TOOL,   "1",     "skips the configuarator at game start" };
 CVar script_engine    @public = {"cmd_useScptEngine", CvFlag.BOOL | CvFlag.ARCHIVE | CvFlag.SYSTEM, "0", "enables the script engine"};
 CVar perf_option      @public = {"g_perfOption", CvFlag.INT | CvFlag.ARCHIVE | CvFlag.GAME, "3", "sets the game performance levels, <1 to 4> = 'low, medium, high, ultra', zero or bellow means use the cvar value."};
+CVar cmd_logCVars     @public = {"logCVars", CvFlag.BOOL | CvFlag.SYSTEM | CvFlag.CHEAT, "0", "saves all the game console commands or cvars to a file."};
 
 
 fn void register_cvars() @inline @local
@@ -188,6 +189,7 @@ fn void register_cvars() @inline @local
 	cvar::@register(&skip_config);
 	cvar::@register(&script_engine);
 	cvar::@register(&perf_option);
+	cvar::@register(&cmd_logCVars);
 }
 
 fn void register_modulo_cvars() @local 
@@ -204,6 +206,16 @@ fn void register_modulo_cvars() @local
     intro::register_cvars();
     ent::register_cvars();
     bounds::register_cvars();
+
+    // Todo save all cvars to a file?
+    if(cmd_logCVars.getBool())
+    {
+        //@catch(cvar::saveCvarstofile());
+        if(catch err = cvar::saveCvarstofile())
+        {
+            log::error(CONSOLE, "failed to log cvars with err: %s", err);
+        }
+    }
 }
 
 // #endregion Cvars
@@ -356,6 +368,33 @@ enum GameMode : char @public
 // ********************
 // #region game manager
 // ********************
+
+// json settings data
+/*
+struct STVideoOptions @packed
+{
+	int fullscreen_resolution_width;
+	int fullscreen_resolution_height;
+	int frame_rate_limit;
+	String screen_mode;
+	float resolution_scaling;
+	float brightness;
+	bool vsync;
+}
+struct STVidExtra_options @packed
+{
+    int texture_quality;
+    int texture_filtering;
+    int shadow_quality;
+    int ambient_occlusion;
+}
+struct STAudio_options @packed
+{
+    float channels;
+    float volume;
+}
+*/
+// 
 
 struct Game (SaveSystemInterface) @local 
 {
@@ -660,6 +699,24 @@ fn Player* getLocalPlayer(int id = 1) @MyInline @public
 {
     int idx = id - 1;
     return (Player*)local_game.entityList[idx];
+}
+
+<*
+    Get the game path to the base folder/directory where all game data is inside off.
+    @ensure return != ""
+*>
+fn Path? getBasePath() @MyInline @public
+{
+    return local_game.app_base_folder.to_tpath()!;
+}
+
+<*
+    Get the game path to the base folder/directory where all game data is inside off.
+    @ensure return != ""
+*>
+fn Path? getExecutablePath() @MyInline @public
+{
+    return local_game.app_exe_dir.to_tpath()!;
 }
 
 <*
@@ -1095,7 +1152,7 @@ fn void? Game.loadSettingsFile(&self)
         bool? sucess = ini::saveConfigFile(&local_game.settings_data);
 		if(catch err = sucess)
 		{ 
-            log::fatal(FILE, "Failed to save default settings file at: %s with excuse: %s", settings_path, err);
+            log::fatal(FILE, "Failed to save default settings file at: %s with err: %s", settings_path, err);
             return err~;
         }
     }
@@ -1104,7 +1161,7 @@ fn void? Game.loadSettingsFile(&self)
     bool? settings_load_sucess = local_game.settings_data.load(settings_path, false);
     if(catch err = settings_load_sucess)
 	{
-        log::warning(FILE, "Failed to load %s file with excuse: %s", settings_path, err);
+        log::warning(FILE, "Failed to load %s file with err: %s", settings_path, err);
         return err~;
     }
 }
@@ -2017,7 +2074,7 @@ fn void onGuiDraw(int screenWidth, int screenHeight) @public @MyInline
 		}
 
         // NOTE(HM) microui context end, should be called 
-        // before calling the followiong microui commands
+        // before calling the following microui commands
         // that is done inside mu::process_frames()::@render() function.
 
 		mu::process_cmds(local_game.mu_ctx);
@@ -2475,7 +2532,7 @@ fn void print_engine_version_to_log_file() @local
     	log::tofile("%s", version::ENGINE);
     $else
         File? f = file::open(local_game.app_exe_dir.tconcat("version.dta"), "r");
-        if(catch excuse = f) {
+        if(catch err = f) {
             log::tofile("%s", version::ENGINE);
         } else {
             char[100] buffer;
@@ -2548,11 +2605,6 @@ $else
 	// needs more testing
     handle_cmdline(args);
 $endif
-
-    // NOTE(HM) 
-    // This registers all global game cvars ("console" variables) and 
-	// saves them all in a global array, for later looping through if necessary...
-    register_modulo_cvars();
 
     //
     // ******* Real Game Start *******
@@ -2796,6 +2848,11 @@ $endif
     $endif // $if $defined(env::WIN32)
 // #endregion
 
+// NOTE(HM) 
+    // This registers all global game cvars ("console" variables) and 
+	// saves them all in a global array, for later looping through if necessary...
+    register_modulo_cvars();
+
 ////////////////////////////////////////////////////
     // If enabled (normally disabled by default), shows a simple splash screen at game start.
     if(g_showSplashPic.getBool()) showSplashScreenImage();
@@ -2830,29 +2887,65 @@ $endif
     bool? settings_load_sucess = local_game.settings_data.load(ini_file_path, isrelative: false);
     if( catch err = settings_load_sucess)
 	{
-        log::warning(FILE, "Failed to load %s file with excuse: %s", ini_file_path, err);
+        log::warning(FILE, "Failed to load %s file with err: %s", ini_file_path, err);
         return err~;
     }
 	ConfigFile* settings_data = &local_game.settings_data;
 
-    @off() 
+
+    //STVideoOptions opt;
+    //STVidExtra_options opt_extra;
+    //STAudio_options opt_audio;
+    @off()
     {
         // Test json file reading
-        File? file = fs::openFile(local_game.app_root_dir.tconcat("prefs.data"));
-        if( catch excuse = file) {
-            log::warning(FILE, "Failed to load prefs.data file with excuse: %s", excuse);
-            return excuse~;
+        File? file = fs::openFile(local_game.app_root_dir.tconcat("prefs2.data"));
+        if( catch err = file) {
+            log::warning(FILE, "Failed to load prefs.data file with err: %s", err);
+            return err~;
         }
-        //String jstext = fs::fileLoadEntireText(local_game.app_root_dir.tconcat("prefs.data"));
-        Object*? config = json::tparse(&file);
-        //Object*? config = json::tparse_string(jstext)!;
-        if(catch excuse = config) {
-            log::warning(FILE, "Failed to parse prefs.data file with excuse: %s", excuse);
-            return excuse~;
+        //String jsdata = fs::fileLoadEntireText(local_game.app_root_dir.tconcat("prefs.data"));
+        char[2048] jsdata;
+		sz chars_count = file.read(jsdata[..])!;
+		//Object*? config = json::tparse_string(jstext)!;
+        Object*? config = json::tparse((String)jsdata[..]);
+        if(catch err = config) {
+            log::warning(FILE, "Failed to parse prefs.data file with err: %s", err);
+            return err~;
         }
-        config.map.@each(; String key, value) {
+		if(config.has_key("GRAPHIC_OPTIONS"))
+		{
+			Object* graphics_options = config.get("GRAPHIC_OPTIONS")!;
+            if(graphics_options.has_key("VIDEO_OPTIONS"))
+            {
+                Object* video_options = graphics_options.get("VIDEO_OPTIONS")!;
+                opt.fullscreen_resolution_width = video_options.get_int("FULLSCREEN_RESOLUTION_WIDTH")!;
+                opt.fullscreen_resolution_height = video_options.get_int("FULLSCREEN_RESOLUTION_HEIGHT")!;
+                opt.resolution_scaling = (float)video_options.get_float("RESOLUTION_SCALING")!;
+                opt.frame_rate_limit = video_options.get_int("FRAME_RATE_LIMIT")!;
+                opt.vsync = video_options.get_bool("VSYNC")!;
+                opt.brightness = (float)video_options.get_float("BRIGHTNESS")!;
+                opt.screen_mode = video_options.get_string("SCREEN_MODE")!;
+            }
+            if(graphics_options.has_key("ADVANCED_OPTIONS"))
+            {
+                Object* extra_options = graphics_options.get("ADVANCED_OPTIONS")!;
+                opt_extra.texture_quality = extra_options.get_int("TEXTURE_QUALITY")!;
+                opt_extra.texture_filtering = extra_options.get_int("TEXTURE_FILTERING")!;
+                opt_extra.shadow_quality = extra_options.get_int("SHADOW_QUALITY")!;
+                opt_extra.ambient_occlusion = extra_options.get_int("AMBIENT_OCCLUSION")!;
+            }
+            if(graphics_options.has_key("AUDIO_OPTIONS"))
+            {
+                Object* audio_options = graphics_options.get("AUDIO_OPTIONS")!;
+                opt_audio.channels = (float)audio_options.get_float("CHANNELS")!;
+                opt_audio.volume = (float)audio_options.get_float("VOLUME")!;
+            }
+		}
+        /*config.map.@each(; String key, value)
+		{
             io::printfn("%s -> %s", key, value);
-        };
+        };*/
         // !json
     };
 
@@ -2873,20 +2966,20 @@ $endif
     if(settings_data.getBool("developer", "log")! == true)
     {
 		RLTraceLogLevel log_level = log::getLevelFromString(settings_data.getString("developer", "log_level"));
-		if(log::getLogLevel() != log_level)
+		if(log::getLevel() != log_level)
 		{
 			log::tofile("Ini file overriding prior Logging level!");
 			log::tofile("\t- prior level was '%s' new level will be: '%s'", 
-			log::levelToString(log::getLogLevel()), 
+			log::levelToString(log::getLevel()), 
 			log::levelToString(log_level));
 
-			log::setLogLevel(log_level);
+			log::setLevel(log_level);
 			log::tofile("Logging set to: %s\n", log::levelToString(log_level));
 		}
     }
     else if(settings_data.getBool("developer", "log")! == false)
     {
-        log::setLogLevel(RLTraceLogLevel.NONE);
+        log::setLevel(RLTraceLogLevel.NONE);
         log::tofile("Logging disabled.");
     }
 
@@ -3466,12 +3559,13 @@ $if $feature(MICROUI_ENABLE):
     local_game.mu_ctx = mem::new(MU_Context);
 	mu::init(local_game.mu_ctx, 
 	font: &local_game.font_default,
-	atlas: rl::loadTexture(local_game.app_base_folder.tconcat("images\\mu_atlas.png").zstr_tcopy())
+	//atlas: rl::loadTexture(local_game.app_base_folder.tconcat("images\\mu_atlas.png").zstr_tcopy())
+	atlas: *astmng::pAssetsLib.getTexture("mu_atlas.png")
 	);
     //local_game.mu_font_atlas = rl::loadTexture(local_game.app_base_folder.tconcat("images\\mu_atlas.png").zstr_tcopy());
     local_game.mu_ctx.text_width  = &mu::callback_text_width;
     local_game.mu_ctx.text_height = &mu::callback_text_height;
-	log::tofile("---------------------------------------------\n");
+	log::tofile("-- done -------------------------------------------\n");
 $endif
 
 	// Old code requires rework
@@ -3620,7 +3714,7 @@ $if $feature(UMKA_ENABLE):
     Umka* umkaContext = umka::alloc();
     String umScriptMain = local_game.app_base_folder.tconcat("scripts/main.um");
     String umfiledata = fs::fileLoadEntireText(umScriptMain);
-    //if(catch excuse = umkaContext.init("main.um", umfiledata.zstr_tcopy(), 1024*1024, null, 0, null, false, false)) {
+    //if(catch err = umkaContext.init("main.um", umfiledata.zstr_tcopy(), 1024*1024, null, 0, null, false, false)) {
      UmkaScriptInitData inidata =
     {
         .fileName = umScriptMain.zstr_tcopy(),
@@ -3632,7 +3726,7 @@ $if $feature(UMKA_ENABLE):
         .fileSystemEnabled = false, // todo find whats this...
         .implLibsEnabled = false // todo find whats this...
     };
-    if(catch excuse = umkaContext.init(&inidata)) {
+    if(catch err = umkaContext.init(&inidata)) {
         log::info(CONSOLE, "failed to initialize umka script engine!!");
     } else {
         log::info(CONSOLE, "umka script engine initialized successfully.");
@@ -4018,8 +4112,8 @@ fn void saveGame()
     // 
     SaveFile? save_file = svs::make_new(file_path);
     defer (void)svs::close(&save_file);
-    if(catch excuse = save_file) {
-        log::warning(FILE, "Unable to save to file: %s with excuse: %s", file_path, excuse);
+    if(catch err = save_file) {
+        log::warning(FILE, "Unable to save to file: %s with err: %s", file_path, err);
         return;
     }
     // save the game state to the file
@@ -4063,8 +4157,8 @@ fn void loadGame()
     if(files.count) {
         SaveFile? save_file = svs::open(((ZString)files.paths[file_index]).str_view());
         defer (void)svs::close(&save_file);
-        if(catch excuse = save_file) {
-            log::warning(FILE, "Unable to open save file: %s with excuse: %s", files.paths[file_index], excuse);
+        if(catch err = save_file) {
+            log::warning(FILE, "Unable to open save file: %s with err: %s", files.paths[file_index], err);
             return;
         }
         
@@ -4073,14 +4167,14 @@ fn void loadGame()
 
 /* 
     Path? path = path::temp_new(local_game.app_save_folder);
-    if(catch excuse = path) {
-        log::warning(CONSOLE, "Failed to get home dir where save files are at with excuse: %s.", excuse);
+    if(catch err = path) {
+        log::warning(CONSOLE, "Failed to get home dir where save files are at with err: %s.", err);
         return;
     }
     
     PathList! files  = path::new_ls(path)!!; // new_ls only returns the filenames
-    if(catch excuse = files) {
-       log::warning(CONSOLE, "Failed to get save files from home dir with excuse: %s.", excuse);
+    if(catch err = files) {
+       log::warning(CONSOLE, "Failed to get save files from home dir with err: %s.", err);
         return;
     }
     
@@ -4110,8 +4204,8 @@ fn void loadGame()
         String file_path = files[file_index].path_string;
         svs::SaveFile! save_file = svs::open(file_path);
         defer (void)svs::close(&save_file);
-        if(catch excuse = save_file) {
-            log::warning(FILE, "Unable to open save file: %s with excuse: %s", file_path, excuse);
+        if(catch err = save_file) {
+            log::warning(FILE, "Unable to open save file: %s with err: %s", file_path, err);
             return;
         }
         

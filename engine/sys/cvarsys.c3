@@ -154,9 +154,9 @@ fn bool? saveCvarsToIniFile(ConfigFile* cfg)
 	String filepath = cfg.path;
 
 	File? file_data = (File)file::open(filepath, "r+");
-	if(catch excuse = file_data) {
-		log::warning(FILE, "Failed to open file: %s to save cvars data with excuse: %s", filepath, excuse);
-		return excuse~;
+	if(catch err = file_data) {
+		log::warning(FILE, "Failed to open file: %s to save cvars data with err: %s", filepath, err);
+		return err~;
 	}
 	defer file_data.close()!!;
 
@@ -352,8 +352,8 @@ fn bool CVar.getBool(&self, bool default_value = false) @inline @nodiscard
     
     // from here we expect a valid char value
     char? value = self.value.to_char();
-    if(catch excuse = value) {
-        log::error(FILE, "CVar: %s fault '%s' :: %s->%d", self.name, excuse, $$FUNC, $$LINE);
+    if(catch err = value) {
+        log::error(FILE, "CVar: %s fault '%s' :: %s->%d", self.name, err, $$FUNC, $$LINE);
         return default_value;
     }
     
@@ -536,6 +536,35 @@ fn void archive(CVar* cv, ConfigFile* cfg) @local
 	}
 }
 
+import engine::filesystem::fs;
+
+<*
+	Saves all Cvars to a cvars.log file
+*>
+fn void? saveCvarstofile()
+{
+	Path file_path = game::getExecutablePath()!.tappend("cvars.log")!;
+	File file = fs::openFile_make_if_not_exist(file_path)!;
+	foreach(cv : cvars)
+	{
+		String data = string::tformat("%s = %s", cv.name, cv.value);
+		if((bool)(cv.flags & CvFlag.STRING))
+		{
+			data = string::tformat("%s = \"%s\"", cv.name, cv.value);
+		}
+		if(cv.value.len == 0)
+		{
+			data = string::tformat("%s = \"\"", cv.name);
+		}
+		if(isRomCvar(cv))
+		{
+			data = data.tconcat(" \\ Warning this is a 'ROM' cvar, so is a important one and shouln't be modified, unless you know what you are doing.");
+		}
+		data = data.tconcat("\n");
+		file.write(data)!;
+	}
+}
+
 fn void CVar.put_in_registry(&self) @if(env::WIN32)
 {
 	if(isRomCvar(self)) return;
@@ -544,9 +573,9 @@ fn void CVar.put_in_registry(&self) @if(env::WIN32)
 	if((bool)(self.flags & CvFlag.ARCHIVE) == true)
 	{
 		Win32_HKEY? currentUserKey = win32::regOpenCurrentUser(win32::KEY_WRITE | win32::KEY_WOW64_64KEY);
-		if(catch excuse = currentUserKey)
+		if(catch err = currentUserKey)
 		{
-			log::warning(FILE, "Unable to open current user key from registry, see if you have required elevated permissions. : excuse > %s", excuse);
+			log::warning(FILE, "Unable to open current user key from registry, see if you have required elevated permissions. : err > %s", err);
 		}
 		else
 		{
@@ -556,7 +585,7 @@ fn void CVar.put_in_registry(&self) @if(env::WIN32)
 			Win32_HKEY? root = win32::regOpenKey(currentUserKey, sub_key, win32::KEY_WRITE);
 			if( catch excuse2 = root)
 			{
-				log::warning(FILE, "Failed to open key \"%s\" inside registry 'HKEY_CURRENT_USER' with: excuse > %s", sub_key, excuse2);
+				log::warning(FILE, "Failed to open key \"%s\" inside registry 'HKEY_CURRENT_USER' with: err > %s", sub_key, excuse2);
 			} 
 			else
 			{
@@ -569,7 +598,7 @@ fn void CVar.put_in_registry(&self) @if(env::WIN32)
 				bool? rs = win32::regCreateKey(root, reg_key, 0, sam, &folder_key);
 				if(catch excuse3 = rs)
 				{
-					log::warning(FILE, "Failed to create key \"%s\" inside registry 'HKEY_CURRENT_USER/Software' key with: excuse > %s", reg_key, excuse3);
+					log::warning(FILE, "Failed to create key \"%s\" inside registry 'HKEY_CURRENT_USER/Software' key with: err > %s", reg_key, excuse3);
 				} 
 				else
 				{

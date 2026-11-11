@@ -53,10 +53,10 @@ const MAX_FMT              = 127;
 
 const MU_Rect UNCLIPPED_RECT = {0, 0, 0x1000000, 0x1000000 };
 
-// The default font size for MicroUI is set to 9 pixels.
-const MICROUI_FONT_SIZE 	  = 10; 
-const MICROUI_FONT_SPACING    = 2.5f; // This is the spacing between characters in the font, used for text rendering.
-const MAX_INPUT_TEXT          = 32; // Maximum length of input text in MicroUI text box's.
+// The default font size for MicroUI was 9 pixels.
+const MICROUI_FONT_SIZE 	  = 10;
+const MICROUI_FONT_SPACING  = 2.5f; // This is the spacing between characters in the font, used for text rendering.
+const MAX_INPUT_TEXT        = 32; // Maximum length of input text in MicroUI text box's.
 
 // type of commands/interactions done on the gui
 const COMMAND_JUMP = 1;
@@ -106,7 +106,7 @@ macro clamp(x, a, b) @private => min(b, max(a, x));
 constdef MU_Clip : inline int 
 {
 	PART = 1,
-	ALL  = 2,
+	ALL,
 }
 
 constdef MU_Icon : inline int
@@ -403,19 +403,80 @@ fn void init(MU_Context* ctx, MU_Font font = null, RLTexture2D atlas = {})
 // render a microui frame/window
 extern fn void MU_Context.begin(&self) @cname("mu_begin");
 extern fn void MU_Context.end(&self) @cname("mu_end");
+
+macro void @render(MU_Context* ctx; @body)
+{
+	// This macro is used to define a render function that processes the given body
+	// with the current context. It allows for easy rendering of UI elements.
+	ctx.begin();
+	defer ctx.end();
+	@body();
+}
 //
 
 extern fn void MU_Context.set_focus(&self, MU_Id id) @cname("mu_set_focus");
+
+/*
+	ID_Management: 
+		Provides a way to uniquely identify UI elements across frames, 
+		enabling MicroUI to track state for controls (like hover and focus) 
+		without storing persistent objects.
+		The library generates unique IDs for controls internally to keep track of 
+		which are focused, hovered, etc. 
+		These are typically generated from the name/label passed to the function, or, 
+		in the case of sliders and checkboxes the value pointer. 
+		An issue arises then if you have several buttons in a window or panel that use the same label. 
+		The mu_push_id() and mu_pop_id() functions are provided for such situations, allowing you 
+		to push additional data that will be mixed into the unique ID:
+
+		for (int i = 0; i < 10; i++)
+		{
+			ctx.@make_unique_id(any_make(&i, int::typeid));
+			{
+				if (ctx.mu_button("x"))
+				{
+					io.printfn("Pressed button %d", i);
+				}
+			};
+		}
+*/
 extern fn MU_Id MU_Context.get_id(&self, void* data, int size) @cname("mu_get_id");
 extern fn void MU_Context.push_id(&self, void* data, int size) @cname("mu_push_id");
 extern fn void MU_Context.pop_id(&self) @cname("mu_pop_id");
+
+<*
+	@param [&in] data : "an any pointer to the data"
+*>
+macro void MU_Context.@make_unique_id(&self, any data; @body)
+{
+	self.push_id(data.ptr, data.type::size);
+	body();
+	self.pop_id();
+}
+
+/*
+<*
+	@param #data : "void pointer to the data"
+	@param #size : "size in bytes of the data"
+	@require types::is_intlike($Typeof(#size)) : "size most be a integer value, size of data in bytes"
+*>
+macro MU_Context.@make_unique(&self, #data, #size = (int)$Typeof(#data)::size; @body)
+{
+	self.push_id(#data, #size);
+	body();
+	self.pop_id();
+}
+*/
+
 extern fn MU_Container* MU_Context.get_current_container(&self) @cname("mu_get_current_container");
 extern fn MU_Container* MU_Context.get_container(&self, ZString name) @cname("mu_get_container");
 extern fn void MU_Context.bring_to_front(&self, MU_Container *cnt) @cname("mu_bring_to_front");
 
+// Memory arena control
 extern fn int MU_Context.pool_init(&self, MU_PoolItem *items, int len, MU_Id id) @cname("mu_pool_init");
 extern fn int MU_Context.pool_get(&self, MU_PoolItem *items, int len, MU_Id id) @cname("mu_pool_get");
 extern fn void MU_Context.pool_update(&self, MU_PoolItem *items, int idx) @cname("mu_pool_update");
+//
 
 // INPUT functions ///////////////////////////////////////////////////////////////////////////
 extern fn void MU_Context.input_mousemove(&self, int x, int y) @cname("mu_input_mousemove");
@@ -427,9 +488,10 @@ extern fn void MU_Context.input_keyup(&self, int key) @cname("mu_input_keyup");
 extern fn void MU_Context.input_textfn(&self, ZString text) @cname("mu_input_text");
 //
 
-
+// MicroUI commands (ex: drawing rectangles, drawing text, detecting input, etc)
 extern fn MU_Command* MU_Context.push_command(&self, int type, int size) @cname("mu_push_command");
 extern fn int MU_Context.next_command(&self, MU_Command** cmd) @cname("mu_next_command");
+//
 
 // CLIP functions ///////////////////////////////////////////////////////////////
 // Generate a clip command
@@ -451,16 +513,29 @@ extern fn int MU_Context.check_clip(&self, MU_Rect r) @cname("mu_check_clip");
 
 // DRAWING functions ///////////////////////////////////////////////////////////////////////////
 extern fn void MU_Context.draw_rect(&self, MU_Rect rect, MU_Color color) @cname("mu_draw_rect");
+// custom macro for debugging porpuses
+macro draw_rect_bounds(MU_Rect rect) => rl::drawRectangleLinesEx(rect.toRLRect(), lineThick: 2.0f, color: rl::YELLOW);
 extern fn void MU_Context.draw_box(&self, MU_Rect rect, MU_Color color) @cname("mu_draw_box");
 extern fn void MU_Context.draw_text(&self, MU_Font font, ZString str, int len, MU_Vec2 pos, MU_Color color) @cname("mu_draw_text");
 extern fn void MU_Context.draw_icon(&self, int id, MU_Rect rect, MU_Color color) @cname("mu_draw_icon");
 extern fn void MU_Context.draw_control_frame(&self, MU_Id id, MU_Rect rect, int colorid, int opt) @cname("mu_draw_control_frame");
 extern fn void MU_Context.draw_control_text(&self, ZString str, MU_Rect rect, int colorid, int opt) @cname("mu_draw_control_text");
-macro draw_rect_bounds(MU_Rect rect) => rl::drawRectangleLinesEx(rect.toRLRect(), lineThick: 2.0f, color: rl::YELLOW);
 //
 
 // LAYOUT functions ///////////////////////////////////////////////////////////////////////////////////
 extern fn void MU_Context.layout_row(&self, int items, int* widths, int height) @cname("mu_layout_row");
+<*
+	Creates a row of items one after the other in a line.
+	@param num_items : "number of items in the row"
+	@param [&in] items_widths : "array of widths of each item in the row (the rectangle width of each)"
+	@param row_height : "the height of the row rectangle, 0 means default value, -1 means automatic depending on other containers around it, possitive valus mean size in relation to the top rect corner going down, negative values mean size in relation to the botton corner going up"
+*>
+macro void MU_Context.@make_items_row(&self, int num_items, int* items_widths, int row_height = 0; @body)
+{
+	self.layout_row(num_items, items_widths, row_height);
+  @body();
+}
+
 extern fn void MU_Context.layout_width(&self, int width) @cname("mu_layout_width");
 extern fn void MU_Context.layout_height(&self, int height) @cname("mu_layout_height");
 extern fn void MU_Context.layout_begin_column(&self) @cname("mu_layout_begin_column");
@@ -472,18 +547,37 @@ extern fn MU_Rect MU_Context.layout_next(&self) @cname("mu_layout_next");
 extern fn int MU_Context.mouse_over(&self, MU_Rect rect) @cname("mu_mouse_over");
 extern fn void MU_Context.update_control(&self, MU_Id id, MU_Rect rect, int opt) @cname("mu_update_control");
 
-macro MU_Context.button(&self, label, icon = 0, opt = MU_Opt.ALIGNCENTER)   => self.button_ex(label.zstr_tcopy(), icon, opt);
 macro MU_Context.textbox(&self, buf, bufsz)       => self.textbox_ex(buf, bufsz, 0);
 macro MU_Context.slider(&self, value, lo, hi)     => self.slider_ex(value, lo, hi, 0, SLIDER_FMT, MU_Opt.ALIGNCENTER);
 macro MU_Context.number(&self, value, step)       => self.number_ex(value, step, SLIDER_FMT, MU_Opt.ALIGNCENTER);
 macro MU_Context.header(&self, label)             => self.header_ex(label.zstr_tcopy(), 0);
 macro MU_Context.begin_treenode(&self, label)     => self.begin_treenode_ex(label.zstr_tcopy(), 0);
 macro MU_Context.begin_window(&self, title, rect, MU_Opt opt = (MU_Opt)0) => self.begin_window_ex(title.zstr_tcopy(), rect, (int)opt);
+
+extern fn void MU_Context.begin_panel_ex(&self, ZString name, int opt) @cname("mu_begin_panel_ex");
+extern fn void MU_Context.end_panel(&self) @cname("mu_end_panel");
+<*
+	Panels are containers that exist within other containers.
+	Unlike windows and popups, they don't have their own position in the window stack 
+	but instead are integrated into their parent's layout.
+	@param [in] name : "name of the panel, used to create a unique id, thou panels can have the same name, thou in this case see ID_Management in this file"
+	@require name.len > 0
+*>
 macro MU_Context.begin_panel(&self, name, opt = 0) => self.begin_panel_ex(name.zstr_tcopy(), opt);
+macro void MU_Context.@make_panel(&self, $name, $opt = 0; @body)
+{
+	self.begin_panel($name, $opt);
+	defer self.end_panel();
+	@body();
+}
 
 extern fn void MU_Context.text(&self, ZString text) @cname("mu_text");
 extern fn void MU_Context.label(&self, ZString text) @cname("mu_label");
-extern fn int MU_Context.button_ex(&self, ZString label, int icon, int opt) @cname("mu_button_ex");
+
+extern fn int _buttonEx(MU_Context* ctx, ZString label, int icon, int opt) @local @cname("mu_button_ex");
+macro MU_Context.button(&self, label) => _buttonEx(self, label.zstr_tcopy(), icon: 0, opt: MU_Opt.ALIGNCENTER);
+macro MU_Context.buttonEx(&self, label, icon, opt) => _buttonEx(self, label.zstr_tcopy(), icon, opt);
+
 extern fn int MU_Context.checkbox(&self, ZString label, int* state) @cname("mu_checkbox");
 extern fn int MU_Context.textbox_raw(&self, ZString buf, int bufsz, MU_Id id, MU_Rect r, int opt) @cname("mu_textbox_raw");
 extern fn int MU_Context.textbox_ex(&self, CChar* buf, int bufsz, int opt) @cname("mu_textbox_ex");
@@ -497,8 +591,6 @@ extern fn void MU_Context.end_window(&self) @cname("mu_end_window");
 extern fn void MU_Context.open_popup(&self, ZString name) @cname("mu_open_popup");
 extern fn int MU_Context.begin_popup(&self, ZString name) @cname("mu_begin_popup");
 extern fn void MU_Context.end_popup(&self) @cname("mu_end_popup");
-extern fn void MU_Context.begin_panel_ex(&self, ZString name, int opt) @cname("mu_begin_panel_ex");
-extern fn void MU_Context.end_panel(&self) @cname("mu_end_panel");
 
 struct MU_Open_ID @local
 {
@@ -584,21 +676,6 @@ macro bool @doWindow(
     return true; // The window is open.
 }
 
-macro void @render(MU_Context* ctx; @body)
-{
-	// This macro is used to define a render function that processes the given body
-	// with the current context. It allows for easy rendering of UI elements.
-	ctx.begin();
-	defer ctx.end();
-	@body();
-}
-
-macro void MU_Context.@make_rows(&self, int n_rows, int* widths, int height = 0; @body)
-{
-	self.layout_row(n_rows, widths, height);
-  @body();
-}
-
 macro bool MU_Context.@make_popup(&self, name; @body)
 {
 	if (self.begin_popup(name.zstr_tcopy())) {
@@ -625,13 +702,6 @@ macro void MU_Context.@layout_make_column(&self; @body)
 {
 	self.layout_begin_column();
 	defer self.layout_end_column();
-	@body();
-}
-
-macro void MU_Context.@make_panel(&self, $name, $opt = 0; @body)
-{
-	self.begin_panel($name, $opt);
-	defer self.end_panel();
 	@body();
 }
 
@@ -706,6 +776,8 @@ int[*] bg @local = { 90, 95, 100 };
 
 fn void test_window(MU_Context* ctx)
 {
+	//defer register(&test_window);
+
   /* do window */
   bool open = ctx.@make_window("Demo Window", mu::rect(40, 40, 300, 450))
   {
@@ -821,33 +893,36 @@ fn void debug_window(MU_Context* ctx) @inline
 {
 	// This function is called to render the test window in the MicroUI context.
 	// It is typically registered as a frame function to be processed in the main loop.
-	bool open = ctx.@make_window("debug_window", mu::rect(50, 50, 400, 300))
+	bool closed = !ctx.@make_window("debug_window", mu::rect(50, 50, 400, 300))
 	{
 		// Here you can add UI elements and logic for the test window
 		ctx.text("Put here any debug stuff you need.");
-    ctx.@make_rows(1, (int[]) { 100 }, -1) 
-    {
-      ctx.checkbox("Pause RLMusic:", &game::pContext.pause_all_music);
-    };
+		ctx.@make_items_row(1/*item*/, (int[]) { 100 }, -1)
+		{
+			if(ctx.checkbox("Pause RLMusic:", &game::pContext.pause_all_music) == MU_Res.CHANGE)
+			{
+				// do something when the checkbox state changes
+			}
+		};
 	};
 
-  if (!open) 
-  {
-    // If the window was closed, you can perform any necessary cleanup or state reset.
-  }
+	if (closed) 
+	{
+		// If the window was closed, you can perform any necessary cleanup or state reset it here.
+	}
 }
 
 fn void statistics_window(MU_Context* ctx) @inline
 {
 	bool open = ctx.@make_window("stats_window", mu::rect(100, 50, 400, 300))
 	{
-    ctx.@make_rows(1, (int[]) { -1 }, -25)
+    ctx.@make_items_row(1, (int[]) { -1 }, -25)
     {
       MU_Container *panel;
       ctx.@make_panel("Frame Statistics")
       {
         panel = ctx.get_current_container();
-        ctx.@make_rows(1, (int[]) { -1 }, -1)
+        ctx.@make_items_row(1, (int[]) { -1 }, -1)
         {
           int fps = rl::getFPS();
           float frame_time = rl::getFrameTime();
@@ -871,20 +946,20 @@ fn void statistics_window(MU_Context* ctx) @inline
 // in this function we run all microui "frames"
 fn void run_microui_frames(MU_Context* ctx) @inline
 {
-	if(ctx)
-	{
-		if(game::pContext.show_microui_test_frames) 
-		{
-			ctx.run(&test_window);
-			ctx.run(&log_window);
-			ctx.run(&debug_window);
-		}
+  if(ctx)
+  {
+    if(game::pContext.show_microui_test_frames) 
+    {
+      ctx.run(&test_window);
+      ctx.run(&log_window);
+      ctx.run(&debug_window);
+    }
 
-		if(game::pContext.show_statistics) 
-		{
-			ctx.run(&statistics_window);
-		}
-	}
+    if(game::pContext.show_statistics) 
+    {
+      ctx.run(&statistics_window);
+    }
+  }
 }
 
 /////////////////////////////////////////////////////////////////////////////////////

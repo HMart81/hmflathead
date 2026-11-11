@@ -123,38 +123,80 @@ fn ZString String.cpy_zpeace(self, int start, int len) @MyInline
     return result.zstr_tcopy();
 }
 
+fn bool String.has_extension(self) @inline
+{
+	if(!self.contains("."))
+	{
+		return false;
+	}
+
+    if(self.count(".") > 1)
+	{
+      log::warning(FILE, "'%s' seems to have a abnormal extension!", self);
+    }
+
+	return true;
+}
+
+fn bool String.is_known_extension(self, String* out) @inline
+{
+	if(!self.has_extension()) return false;
+
+	bool known_extension;
+    foreach(FileExtension* &ext : FileExtension::values)
+	{
+        if(self.ends_with(*ext))
+		{
+            known_extension = true;
+            out = ext;
+            break;
+        }
+    }
+
+	if(known_extension)
+	{
+		return true;
+	}
+	else
+	{
+		log::info(FILE, "'%s' has a extension not registered for use in the game.", self);
+	}
+	return false;
+}
+
 fn String String.strip_known_extension(self)
 {
-    bool known_extension = false;
+	if(!self.has_extension()) return self;
+
     String needle;
-    foreach(String ext : FileExtension::values) {
+    bool known_extension = self.is_known_extension(&needle);
+    /*foreach(String ext : FileExtension::values) {
         if(self.ends_with(ext)) {
             known_extension = true;
             needle = ext;
             break;
         }
-    }
+    }*/
     
-    if(known_extension) {
+    if(known_extension && needle)
+	{
         return self.strip_end(needle);
-    } else {
-        log::warning(FILE,  "Cannot strip extension %s of string %s is unkown!", needle, self);
-        return self; // do nothing
     }
+	else
+	{
+        log::warning(FILE,  "Cannot strip extension of string '%s', it is not registered in game extensions data base!", self);
+    }
+
+    return self; // do nothing
 }
 
 fn String String.strip_extension(self)
 {
-    if(!self.contains("."))
+    if(!self.has_extension())
 	{
 		log::warning(FILE, "Trying to remove extension from '%s' but none was found.", self);
 		return self;
 	}
-
-    if(self.count(".") > 1)
-	{
-      log::warning(FILE, "While removing extension of string %s it had malformed or more than one extension!.", self);
-    }
 
     if(try idx = self.index_of_char('.'))
 	{
@@ -162,7 +204,7 @@ fn String String.strip_extension(self)
     }
 	else
 	{
-        log::warning(FILE, "Failed to strip extension of string %s, because no '.' index position was found.", self);
+        log::error(FILE, "Failed to strip extension of string %s, because '.' index position was not found!", self);
         return self; // do nothing
     }
 }

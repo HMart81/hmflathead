@@ -546,7 +546,7 @@ fn String? readEntireFileX(String filepath)
 fn String? readEntireFile(String filepath) @inline
 {
     char[] buffer;
-    fault excuse = @catch(file::load_buffer(filepath, buffer));
+    fault err = @catch(file::load_buffer(filepath, buffer));
     
     return string::format(mem, "%s", buffer);
 }
@@ -601,11 +601,35 @@ fn bool? fileSaveEntireText(String fileName, String text) {
     }
 }
 
-
+<*
+	// opens a file giving its full path, close it with file.close() after
+	@param [in] path : "full file path to open"
+	@param mode : "in what mode to open the file, read, write, read and write..."
+	@require path.len > 0
+*>
 fn File? openFile(String path, String mode = FILE_READ) @inline
 {
     return io::file::open(path, mode)!;
 }
+
+<*
+	// opens a file giving its full path, close it with file.close() after
+	@param [in] path : "full file path to open"
+	@param mode : "in what mode to open the file, read, write, read and write..."
+	@require path.len > 0
+*>
+fn File? openFile_make_if_not_exist(String path, String mode = FILE_READ_WRITE) @inline
+{
+	if(fileExists(path)) return openFile(path, mode)!;
+
+	// make a new file
+	saveFile(path, "")!;
+	return openFile(path, mode)!;
+}
+
+/*
+
+*/
 
 fn void? saveFile(String path, char[] data) @inline
 {
@@ -891,9 +915,9 @@ fn void moveFiles(String from, String to, String fileExtensions = "")
         String files_to  = game::pContext.app_root_dir.tconcat(to);
 
         bool? sucess = fs::makeDirectory_IfNotExist(files_to);
-        if(catch excuse = sucess) { // will ignore if the directory already exists
-            log::warning(Where.FILE, "Failed to create directory at: %s!\n\t -> excuse: %s", 
-                        files_to, excuse);
+        if(catch err = sucess) { // will ignore if the directory already exists
+            log::warning(Where.FILE, "Failed to create directory at: %s!\n\t -> err: %s", 
+                        files_to, err);
             $if $feature(_DEBUG):
                 unreachable();
             $endif

@@ -1793,8 +1793,14 @@ macro @setTextLineSpacing($x; @body) {
 	@body();
 	rl::setTextLineSpacing(2); // 2 is default raylib vertical spacing at time of this comment (19/03/2026)
 }
+
 // Measure string width for default font
 fn CInt measureText(ZString text, CInt fontSize) @cname("MeasureText");
+<*
+	@param [in] text : "string text to measure"
+*>
+macro measureString(String text, int fontSize) => (int)measureText(text.zstr_tcopy(), fontSize);
+
 // Measure string size for RLFont
 fn RLVector2 measureTextEx(RLFont font, ZString text, float fontSize, float spacing) @cname("MeasureTextEx");
 // Get glyph index position in font for a codepoint (unicode character), fallback to '?' if not found

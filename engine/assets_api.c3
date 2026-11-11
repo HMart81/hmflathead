@@ -373,8 +373,8 @@ fn bool AssetLibrary.hasAsset(&self, String name, typeid type, int* index_out = 
 }
 
 <*
-	@param name : "name of asset"
-	@require name.len > 0
+	@param [in] name : "texture name with extension"
+	@require name.len > 0 && name.has_extension()
 	@ensure return != null
 *>
 fn RLTexture2D* AssetLibrary.getTexture(&self, String name) @inline @nodiscard

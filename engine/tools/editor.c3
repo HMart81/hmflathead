@@ -545,13 +545,13 @@ struct EDLabel
 }
 
 const EDLabel[*] MENU_BTN_NAMES = {
-    {"File", mu::MICROUI_FONT_SIZE * "File".len},
-    {"Edit", mu::MICROUI_FONT_SIZE * "Edit".len},
-    {"Selection", mu::MICROUI_FONT_SIZE * "Selection".len},
-    {"View", mu::MICROUI_FONT_SIZE * "View".len},
-    {"Help", mu::MICROUI_FONT_SIZE * "Help".len}
+    {"File", 4},
+    {"Edit", 4},
+    {"Selection", 9},
+    {"View", 4},
+    {"Help", 4}
 };
-const MENU_BTN_NAMES_LEN = MENU_BTN_NAMES.len;
+const MENU_BTN_NAMES_COUNT = MENU_BTN_NAMES.len;
 
 macro get_btn_name_len(sz idx) @local => rl::measureText(MENU_BTN_NAMES[idx].zstr_tcopy(), mu::MICROUI_FONT_SIZE);
 
@@ -565,37 +565,60 @@ fn void drawEditorMenuBar(Editor* editor, MU_Container* window)
     MU_Context* ctx = editor.ctx;
 	MU_Container* menu_panel;
 
+	ctx.@make_popup("File Options")
+	{
+		if(ctx.button("New:") == MU_Res.SUBMIT) {
+			io::printfn("Editor Pressed new");
+		}
+		if(ctx.button("Open:") == MU_Res.SUBMIT) {
+			io::printfn("Editor Pressed open");
+		}
+		if(ctx.button("Save:") == MU_Res.SUBMIT) {
+			io::printfn("Editor Pressed save");
+		}
+		if(ctx.button("Quit:") == MU_Res.SUBMIT) {
+			close(editor);
+		}
+	};
+
 	// background rect/panel for the menu bar
-    ctx.layout_row(1, (int[]){ AUTO_SIZE }, 0);
+    ctx.layout_row(1, (int[]){ AUTO_SIZE }, 30);
     ctx.@make_panel("Menu", MU_Opt.NOSCROLL | MU_Opt.NOINTERACT)
     {
         menu_panel = ctx.get_current_container();
+		MU_Vec2 top_corner = {menu_panel.rect.x, menu_panel.rect.y};
+        const int BTN_COUNT = MENU_BTN_NAMES_COUNT;
 
-        ctx.@make_popup("File Options")
-        {
-            if(ctx.button("New:") == MU_Res.SUBMIT) {
-                io::printfn("Editor Pressed new");
-            }
-            if(ctx.button("Open:") == MU_Res.SUBMIT) {
-                io::printfn("Editor Pressed open");
-            }
-            if(ctx.button("Save:") == MU_Res.SUBMIT) {
-                io::printfn("Editor Pressed save");
-            }
-            if(ctx.button("Quit:") == MU_Res.SUBMIT) {
-                close(editor);
-            }
-        };
-
-        const int BTN_COUNT = MENU_BTN_NAMES_LEN;
-        ctx.layout_row(BTN_COUNT, (int[]){[0] = 20, [1..BTN_COUNT-1] = 60 }, -1);
+        ctx.layout_row(BTN_COUNT, (int[]){[0] = 30, [1..BTN_COUNT-1] = 70 }, -1);
         for(int i = 0; i < BTN_COUNT; i++)
         {
-            if (ctx.button(MENU_BTN_NAMES[i].str, MU_Icon.NONE, MU_Opt.ALIGNCENTER | MU_Opt.NOFRAME) == MU_Res.SUBMIT)
+
+            /*if (ctx.buttonEx(MENU_BTN_NAMES[i].str, MU_Icon.NONE, MU_Opt.ALIGNCENTER | MU_Opt.NOFRAME) == MU_Res.SUBMIT)
             {
                 if(MENU_BTN_NAMES[i].str == "File") ctx.open_popup("File Options");
-            }
+            }*/
+
+			ctx.label(MENU_BTN_NAMES[i].str.zstr_tcopy());
+			//ctx.draw_rect(ctx.last_rect, (MU_Color)rl::RED);
+
+			/*MU_Id btn_id = ctx.get_id(&MENU_BTN_NAMES[i].str, MENU_BTN_NAMES[i].str.len);
+			if(ctx.mouse_over(ctx.get_clip_rect()))
+			{
+				mu::draw_rect_bounds(ctx.get_clip_rect());
+				if(ctx.mouse_pressed == MU_Res.SUBMIT)
+				{
+					ctx.open_popup("File Options");
+				}
+			}*/
         }
+
+		/// draw a dash line under each upercase letter
+		//ctx.layout_row(BTN_COUNT, (int[]){[0] = 30, [1..BTN_COUNT-1] = 70 }, -1);
+        /*for(int i = 0; i < BTN_COUNT; i++)
+        {
+            ctx.label("^");
+			//ctx.draw_rect(ctx.last_rect, (MU_Color)rl::RED);
+        }*/
     };
 }
 
@@ -619,7 +642,7 @@ fn void drawEditorMainToolBar(Editor* editor, MU_Container* window)
 		for(int i = 0; i < 5; i++)
         {
 			String btn_name = string::tformat("%s%d", "Button", i);
-            if (ctx.button(btn_name, MU_Icon.NONE, MU_Opt.ALIGNCENTER) == MU_Res.SUBMIT)
+            if (ctx.buttonEx(btn_name, MU_Icon.NONE, MU_Opt.ALIGNCENTER) == MU_Res.SUBMIT)
             {
 				// todo something
             }
