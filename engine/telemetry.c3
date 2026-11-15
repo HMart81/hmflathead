@@ -32,7 +32,9 @@ import std::io;
 import engine::misc;
 import thirdparty::raylib5::rl;
 
+// used only if tracy is enabled
 const TRACY_ENABLE_ZONE @if($feature(TRACY_ENABLE)) = 1;
+//
 
 <*
   @require rl::isWindowReady() == true : "right now window most be initialized for Profiling to work"

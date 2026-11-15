@@ -52,9 +52,12 @@ faultdef ASSETS_MALFORMED_PATH_STRING,
 
 
 // TODO(HM) 
-	// Should use file extension to support diferent types of assets 
-	// with the same name.
+	// Should use file extension to support diferent types of 
+    // assets with the same name.
 	// Support more asset types, like the new HMaterial, etc.
+
+
+
 /*
 	A Asset is any visual or auditory data to be used by the game.
 */
@@ -94,8 +97,7 @@ AssetLibrary local_library @local;
 AssetLibrary* pAssetsLib = &local_library;
 
 <*
-	@param [inout] asset : "the asset to register, must be a pointer to an Asset struct of a supported type, like AssetTexture* for example."
-	@require asset.ptr != null
+	@param [&inout] asset : "the asset to register, must be a pointer to an Asset struct of a supported type, like AssetTexture* for example."
 *>
 fn void AssetLibrary.register(&self, any asset)
 {
@@ -112,7 +114,7 @@ fn void AssetLibrary.register(&self, any asset)
         case RLShader:
             self.shaders.push((AssetShader*)asset.ptr);
         default:
-            log::fatal(FILE, "Trying to register an asset of unknown type!");
+            log::fatal(FILE, "Trying to register a unknown Asset!");
     }
 }
 
@@ -191,11 +193,10 @@ fn void AssetLibrary.listAssets(&self) @if($feature(_DEBUG))
 // To be used only at game exit, 
 // for now, ALL assets are loaded at game start and stay in RAM, 
 // for the duration of the game, aka they only get freed at game end.
-// I made it like this because, for now, 
-// I don't have many assets in this game,
-// nor do I have a way to make levels, 
-// when that is done, I will change this to only load assets at level load,
-// to use less RAM.
+// I made it like this because, for now, I don't have many assets in this game,
+// nor do I have a way to make levels to load only necessary assets, 
+// when that is done, I will change this to only load what's needed at level load,
+// this way I use use less RAM.
 // For now while I'm testing things, getting them hot from RAM, 
 // is faster than first reading the data from the HD/SSD/MD2 drive, 
 // when I want to use it.
@@ -224,22 +225,35 @@ fn void AssetLibrary.releaseAllAssets(&self)
 	}
 }
 
-fn Asset{Type}* get_asset(String name) <Type> @nodiscard
+<*
+	@param [in] name : "the name of the wanted asset"
+	@require name.has_extension() == true
+	@ensure return != null
+*>
+fn Asset{AssetType}* get_asset(String name) <AssetType> @nodiscard
 {
-	return (Asset{Type}*)local_library.getAsset(name, Type::typeid);
+	return (Asset{AssetType}*)local_library.getAsset(name, AssetType::typeid);
 }
 
+<*
+	@param [in] name : "the name of the wanted asset including extension"
+	@param type : "the typeid of a type"
+	@require name.has_extension() == true
+	@ensure return != null
+*>
 fn any AssetLibrary.getAsset(&self, String name, typeid type)
 {
     String needle = "/";
-    if(name.contains(needle)) {
+    if(name.contains(needle))
+	{
         name = name.extractFileBase();
     }
 
-    int i = -1; // asset index
+    sz i = -1; // asset index
 
-    if(self.hasAsset(name, type, &i) == false) {
-        log::error(FILE, "Asset with name \"%s\" and type \"%s\" not found in the asset manager.", name, type);
+    if(self.hasAsset(name, type, &i) == false)
+	{
+        log::error(FILE, "Asset with name \"%s\" and type \"%s\" not found in the asset manager.", name, $Typeof(type)::name);
         return null;
     }
 
@@ -254,7 +268,6 @@ fn any AssetLibrary.getAsset(&self, String name, typeid type)
         case RLMusic:
             return any_make(self.musics[i], type);
         case RLFont:
-			//AssetFont* font = self.fonts[i];
             return any_make(self.fonts[i], type);
         case RLShader:
             return any_make(self.shaders[i], type);
@@ -265,6 +278,7 @@ fn any AssetLibrary.getAsset(&self, String name, typeid type)
 
 <*
     @param [in] name : "name of the asset to get data from, needs file extension"
+	@require name.has_extension() == true
 *>
 fn Type* get_asset_data(String name) <Type>
 {
@@ -275,43 +289,53 @@ fn Type* get_asset_data(String name) <Type>
         name = name.extractFileBase();
     }
 
-    if(lib.hasAsset(name, Type) == false) {
-        log::error(FILE, "Asset with name \"%s\" and type \"%s\" not found in the asset manager.", name, Type);
+	sz asset_index;
+    if(lib.hasAsset(name, Type, &asset_index) == false)
+	{
+        log::error(FILE, "Asset with name \"%s\" and type \"%s\" not found in the asset manager.", name, Type::name);
         return null;
     }
+
+	assert(asset_index >= 0);
     
 	switch(Type)
     {
         case RLTexture2D:
-            foreach(texture: lib.textures) {
+			lib.textures.get_ref(asset_index);
+            /*foreach(texture: lib.textures) {
                 if(texture.name == name) {
                     return (Type*)&texture.data;
                 }
-            }
+            }*/
         case RLSound:
-            foreach(sound: lib.sounds) {
+			lib.sounds.get_ref(asset_index);
+            /*foreach(sound: lib.sounds) {
                 if(sound.name == name) {
                     return (Type*)&sound.data;
                 }
-            }
+            }*/
         case RLMusic:
-            foreach(music: lib.musics) {
+			lib.musics.get_ref(asset_index);
+            /*foreach(music: lib.musics) {
                 if(music.name == name) {
                     return (Type*)&music.data;
                 }
-            }
+            }*/
         case RLFont:
-            foreach(font: lib.fonts) {
+			lib.fonts.get_ref(asset_index);
+            /*foreach(font: lib.fonts) {
                 if(font.name == name) {
                     return (Type*)&font.data;
                 }
-            }
+            }*/
         case RLShader:
-            foreach(shader: lib.shaders) {
+			lib.shaders.get_ref(asset_index);
+            /*foreach(shader: lib.shaders) {
                 if(shader.name == name) {
                     return (Type*)&shader.data;
                 }
-            }
+            }*/
+		default: log::error(FILE, "Cannot get data of Asset %s because is still not handled!", name);
     }
 	
 	return null;
@@ -319,51 +343,52 @@ fn Type* get_asset_data(String name) <Type>
 
 <*
 	See if an asset exists within the asset manager
-	returns asset index. 
+	if it exists optionally returns asset index. 
 	Is a linear search so it will be 0-n in performance
 
 	@param [in] name : "name of the asset with extension"
 	@param type : "type identification of the asset being serched for"
-	@require name.len > 0 && name.contains(".") && name.count(".") == 1
+	@param [inout] index_out : "optinal index of the found asset"
+	@require name.len > 0 && name.has_extension() == true
 *>
-fn bool AssetLibrary.hasAsset(&self, String name, typeid type, int* index_out = null) /*@inline*/ @nodiscard
+fn bool AssetLibrary.hasAsset(&self, String name, typeid type, sz* index_out = null) /*@inline*/ @nodiscard
 {
-	if(index_out) (*index_out) = -1;
+	if(index_out && (*index_out) != -1) (*index_out) = -1;
 	
     switch(type)
     {
 	case RLTexture2D:
 		foreach(i, texture: self.textures) {
 			if(texture.name == name) {
-				if(index_out) (*index_out) = (int)i;
+				if(index_out) (*index_out) = i;
 				return true;
 			}
 		}
 	case RLSound:
 		foreach(i, sound: self.sounds) {
 			if(sound.name == name) {
-				if(index_out) (*index_out) = (int)i;
+				if(index_out) (*index_out) = i;
 				return true;
 			}
 		}
 	case RLMusic:
 		foreach(i, music: self.musics) {
 			if(music.name == name) {
-				if(index_out) (*index_out) = (int)i;
+				if(index_out) (*index_out) = i;
 				return true;
 			}
 		}
 	case RLFont:
 		foreach(i, font: self.fonts) {
 			if(font.name == name) {
-				if(index_out) (*index_out) = (int)i;
+				if(index_out) (*index_out) = i;
 				return true;
 			}
 		}
 	case RLShader:
 		foreach(i, shader: self.shaders) {
 			if(shader.name == name) {
-				if(index_out) (*index_out) = (int)i;
+				if(index_out) (*index_out) = i;
 				return true;
 			}
 		}
@@ -390,7 +415,7 @@ fn RLTexture2D* AssetLibrary.getTexture(&self, String name) @inline @nodiscard
 
 <*
     @param name : "the name of the shader asset to retrieve"
-    @require name != ""
+    @require name.len > 0 && name.has_extension()
     @ensure return != null
 *>
 fn RLShader* AssetLibrary.getShader(&self, String name) @nodiscard //@inline 
@@ -406,7 +431,7 @@ fn RLShader* AssetLibrary.getShader(&self, String name) @nodiscard //@inline
 
 <*
 	@param name : "the name of the sound asset to retrieve"
-    @require name != ""
+    @require name.len > 0 && name.has_extension()
     @ensure return != null
 *>
 fn RLSound* AssetLibrary.getSound(&self, String name) @nodiscard @inline 
@@ -422,7 +447,7 @@ fn RLSound* AssetLibrary.getSound(&self, String name) @nodiscard @inline
 
 <*
 	@param name : "the name of the music asset to retrieve"
-    @require name != ""
+    @require name.len > 0 && name.has_extension()
     @ensure return != null
 *>
 fn RLMusic* AssetLibrary.getMusic(&self, String name) @nodiscard @inline 
@@ -438,7 +463,7 @@ fn RLMusic* AssetLibrary.getMusic(&self, String name) @nodiscard @inline
 
 <*
     @param [in] name : "name of the font with extension included"
-    @require name.contains(".") && fs::getFileExtension(name) == FileExtension.FNT
+    @require name.len > 0 && name.has_extension() && fs::getFileExtension(name) == FileExtension.FNT
 	@ensure return != null
 *>
 fn RLFont* AssetLibrary.getFont(&self, String name) @nodiscard /*@inline*/ 
@@ -480,8 +505,8 @@ fn void loadAsset(String path) @local
         
         if (extension == ext && (
             extension != ".bkp" &&  // ignore files marked as backup
-            extension != ".ini" && // initialization files are ignored as well
-            extension != ".def" )) // as is definition files
+            extension != ".ini" && // initialization files are ignored
+            extension != ".def" )) // definition files are ignored
         {
             // no need for warnings in this cases just return
            break;
@@ -494,10 +519,11 @@ fn void loadAsset(String path) @local
         }
     }
 
-    // NOTE(HM) Extensions has to be added again because is required to
-    // support multiple assets with the same name but diferent extensions
-    // this means guetting a asset from the library through the name requires the extension.
-    asset_name = asset_name.tconcat(extension);
+    // NOTE(HM) Extension is required here to support 
+	// multiple assets with the same name but diferent extensions.
+    // This means getting a asset from the library using the name, 
+	// requires the extension as well, make sure of that.
+    asset_name = fs::getFileName(path); //asset_name.tconcat(extension);
   
     bool should_load;
 	switch(extension)
@@ -661,8 +687,8 @@ fn void? loadAssetsRecursively(String basepath, String parent_folder = "") /*@in
 	}
 	
 	PathList? paths = path::ls(tmem, path::tnew(search_path));
-	if(catch excuse = paths) {
-		log::error(FILE,  "Unable to get list of files from folder: %s with excuse: %s", search_path, excuse);
+	if(catch err = paths) {
+		log::error(FILE,  "Unable to get list of files from folder: %s with err: %s", search_path, err);
 		return ASSETS_FOLDER_SCAN_ERROR~;
 	}
 	
@@ -682,15 +708,16 @@ fn void? loadAssetsRecursively(String basepath, String parent_folder = "") /*@in
 }
 
 <*
-*@require game::pContext.app_base_folder.len > 0
+	@param path : "path to the assets folder"
+	@require path::@is_pathlike(path) : "Expected a Path or String to chdir"
+	@require path.len > 0
 *>
-fn void? loadAssets() 
+macro void? loadAssets(path)
 {
 	telem::@profile_zone("loadAssets", false)
     {
-        String path = game::pContext.app_base_folder;
         if (path.ends_with("\\") == false) {
-			path = path.tconcat("\\");
+			path = path.tappend("\\")!;
 		}
         loadAssetsRecursively(path)!;
         
@@ -867,8 +894,8 @@ fn void RLMaterial.parse(&self, String file_path) @dynamic
     File? xmlfile = io::file::open(xml_path, "r");
     defer xmlfile.close()!!;
     
-    if(catch excuse = xmlfile) {
-       log::raylibWarning("Failed to open test xml doc with excuse: %s", excuse);
+    if(catch err = xmlfile) {
+       log::raylibWarning("Failed to open test xml doc with err: %s", err);
     } else {
     
         XmlDoc* doc = xml::read_file(xmlfile)!!;
@@ -888,10 +915,10 @@ fn void RLMaterial.parse(&self, String file_path) @dynamic
     File? file = io::file::open(file_path, "r");
     defer file.close()!!;
     
-    if(catch excuse = file) {
-       log::warning(Where.FILE, " Failed to open material xml at [%s] with excuse: %s", file_path, excuse);
-       // DOC(HM) I need to return from a catch or the excuse will not unwrap,
-       // and causes variable shadow error, preventing me from using excuse again bellow.
+    if(catch err = file) {
+       log::warning(Where.FILE, " Failed to open material xml at [%s] with err: %s", file_path, err);
+       // DOC(HM) I need to return from a catch or the err will not unwrap,
+       // and causes variable shadow error, preventing me from using err again bellow.
        return; 
     }
     
@@ -909,8 +936,8 @@ fn void RLMaterial.parse(&self, String file_path) @dynamic
     assert(main_node != null);
     
     String! id = (String)main_node.get_attrib_value("name");
-    if (catch excuse = id) {
-        log::error(Where.FILE, "Failed getting RLMaterial name from %s with excuse: %s\n", file_path, excuse);
+    if (catch err = id) {
+        log::error(Where.FILE, "Failed getting RLMaterial name from %s with err: %s\n", file_path, err);
         main_node = null;
         return;
     } 
@@ -945,8 +972,8 @@ fn void RLMaterial.parse(&self, String file_path) @dynamic
        if(node.name == "sound") {
             String attribute_name = "impact";
             String! sound_shader_name = (String)node.get_attrib_value(attribute_name);
-            if (catch excuse = sound_shader_name) {
-                io::printf("RLMaterial %s attribute %s not found: %s\n", node.name, attribute_name, excuse);
+            if (catch err = sound_shader_name) {
+                io::printf("RLMaterial %s attribute %s not found: %s\n", node.name, attribute_name, err);
                 continue;
             }
             
@@ -1304,8 +1331,8 @@ fn void? loadSoundShaderRecursively(String basepath, String parent_folder = "") 
 	}
 	
 	PathList! paths = path::temp_ls(path::temp_new(search_path));
-	if(catch excuse = paths) {
-		log::warning(Where.FILE, "Unable to get files from folder: %s with excuse: %s", search_path, excuse);
+	if(catch err = paths) {
+		log::warning(Where.FILE, "Unable to get files from folder: %s with err: %s", search_path, err);
 		return ASSETS_FOLDER_SCAN_ERROR~;
 	}
 	
@@ -1415,18 +1442,18 @@ fn void SoundShader.load(&self)
     File? file = io::file::open(self.path, "r");
     defer file.close()!!;
     
-    if(catch excuse = file) {
-       log::warning(Where.FILE, " Failed to open [%s] with excuse: %s", self.path, excuse);
-       // DOC(HM) I need to return from a catch or the excuse will not unwrap,
-       // and causes variable shadow error, preventing me from using excuse again bellow.
+    if(catch err = file) {
+       log::warning(Where.FILE, " Failed to open [%s] with err: %s", self.path, err);
+       // DOC(HM) I need to return from a catch or the err will not unwrap,
+       // and causes variable shadow error, preventing me from using err again bellow.
        return; 
     }
     
     XmlDoc*! doc = xml::read_file(file);
     defer doc.free();
     
-    if(catch excuse = doc) {
-       log::warning(Where.FILE, " Failed to read xml from [%s] with excuse: %s", self.path, excuse);
+    if(catch err = doc) {
+       log::warning(Where.FILE, " Failed to read xml from [%s] with err: %s", self.path, err);
        return; 
     }
     
@@ -1439,7 +1466,7 @@ fn void SoundShader.load(&self)
     doc.find_nodes_by_tag_name("SOUND", &soundNodes);
     
     if (soundNodes.len() <= 0) {
-        log::warning(Where.FILE, "Failed getting sound nodes from %s with excuse: %s\n", self.path, excuse);
+        log::warning(Where.FILE, "Failed getting sound nodes from %s with err: %s\n", self.path, err);
         return;
     }
     
@@ -1451,8 +1478,8 @@ fn void SoundShader.load(&self)
     
     
     String! id = (String)main_node.get_attrib_value("name");
-    if (catch excuse = id) {
-        log::error(Where.FILE, "Failed getting RLMaterial name from %s with excuse: %s\n", self.path, excuse);
+    if (catch err = id) {
+        log::error(Where.FILE, "Failed getting RLMaterial name from %s with err: %s\n", self.path, err);
         main_node = null;
         return;
     } 
@@ -1487,8 +1514,8 @@ fn void SoundShader.load(&self)
        if(node.name == "sound") {
             String attribute_name = "impact";
             String! sound_shader_name = (String)node.get_attrib_value(attribute_name);
-            if (catch excuse = sound_shader_name) {
-                io::printf("RLMaterial %s attribute %s not found: %s\n", node.name, attribute_name, excuse);
+            if (catch err = sound_shader_name) {
+                io::printf("RLMaterial %s attribute %s not found: %s\n", node.name, attribute_name, err);
                 continue;
             }
             

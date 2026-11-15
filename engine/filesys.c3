@@ -121,11 +121,20 @@ struct HMFile
 	String name;
 }
 
+fn bool HMFile.equal(&self, HMFile other) @operator(==)
+{
+	if(self.len() == other.len() && 
+	   self.path == other.path && 
+	   self.name == other.name) return true;
+
+  	return false;
+}
+
 alias DirList @local = List { HMDirectory* };
 
 struct HMDirectory
 {
-    int id;
+    int id;  // just to get them by id for faster looping
     Path path;
     String name;
 }
@@ -714,7 +723,8 @@ fn String getFileNameWithoutExt(String filePath) @inline {
 }
 
 // Get full path for a given fileName with path (uses static string)
-fn String getDirectoryPath(String filePath) @inline {
+fn String getDirectoryPath(String filePath) @inline
+{
     String result = string::tformat("%s", rl::getDirectoryPath(filePath.zstr_tcopy()));
     if(!result.ends_with(platf::PATHSEPERATOR_STR)) {
         result = result.tconcat(platf::PATHSEPERATOR_STR);

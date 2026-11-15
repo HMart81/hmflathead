@@ -1501,14 +1501,13 @@ fn void createActions()
 {
 	//////////////////////////////////
 	// Loop through all defined actions and create them
-	foreach(action : ACTIONS_LIST) createAction(action.name, (InputId)action.id);
+	foreach(action : ACTIONS_LIST) createAction(action.name, action.id);
 
 	//////////////////////////////////
 	// Now loop through all defined inputs and bind them to the actions
 	foreach(input : INPUT_LIST)
 	{
-        Action *action = getActionById(input.id);
-		bindInputToAction(action, input.type, input.key);
+		bindInputToAction(getActionById(input.id), input.type, input.key);
 	}
 }
 
@@ -1526,23 +1525,23 @@ fn void bindInputToAction(Action *action, InputKind type, CInt key)
         action.addkey(key);
     case InputKind.MOUSE:
         action.addMouseBtn((RLMouseButton)key);
-	case GAMEPAD_LEFT_FACE_UP:
-    case GAMEPAD_LEFT_FACE_RIGHT:
-    case GAMEPAD_LEFT_FACE_DOWN:
-    case GAMEPAD_LEFT_FACE_LEFT:
-    case GAMEPAD_RIGHT_FACE_UP:
-    case GAMEPAD_RIGHT_FACE_RIGHT:
-    case GAMEPAD_RIGHT_FACE_DOWN:
-    case GAMEPAD_RIGHT_FACE_LEFT:
-    case GAMEPAD_LEFT_TRIGGER_1:
-    case GAMEPAD_LEFT_TRIGGER_2:
-    case GAMEPAD_RIGHT_TRIGGER_1:
-    case GAMEPAD_RIGHT_TRIGGER_2:
-    case GAMEPAD_MIDDLE_LEFT:
-    case GAMEPAD_MIDDLE:
-    case GAMEPAD_MIDDLE_RIGHT:
-    case GAMEPAD_LEFT_THUMB:  
-    case GAMEPAD_RIGHT_THUMB:      
+	case InputKind.GAMEPAD_LEFT_FACE_UP:
+    case InputKind.GAMEPAD_LEFT_FACE_RIGHT:
+    case InputKind.GAMEPAD_LEFT_FACE_DOWN:
+    case InputKind.GAMEPAD_LEFT_FACE_LEFT:
+    case InputKind.GAMEPAD_RIGHT_FACE_UP:
+    case InputKind.GAMEPAD_RIGHT_FACE_RIGHT:
+    case InputKind.GAMEPAD_RIGHT_FACE_DOWN:
+    case InputKind.GAMEPAD_RIGHT_FACE_LEFT:
+    case InputKind.GAMEPAD_LEFT_TRIGGER_1:
+    case InputKind.GAMEPAD_LEFT_TRIGGER_2:
+    case InputKind.GAMEPAD_RIGHT_TRIGGER_1:
+    case InputKind.GAMEPAD_RIGHT_TRIGGER_2:
+    case InputKind.GAMEPAD_MIDDLE_LEFT:
+    case InputKind.GAMEPAD_MIDDLE:
+    case InputKind.GAMEPAD_MIDDLE_RIGHT:
+    case InputKind.GAMEPAD_LEFT_THUMB:  
+    case InputKind.GAMEPAD_RIGHT_THUMB:      
 	{
 $if $feature(USE_GAMEPAD):
 		action.addPadBtn(key);
@@ -1550,12 +1549,12 @@ $else
     nextcase default;
 $endif
 	}
-    case GAMEPAD_LEFT_X:
-    case GAMEPAD_LEFT_Y:
-    case GAMEPAD_RIGHT_X:
-    case GAMEPAD_RIGHT_Y:
-    case GAMEPAD_LEFT_TRIGGER:
-    case GAMEPAD_RIGHT_TRIGGER:
+    case InputKind.GAMEPAD_LEFT_X:
+    case InputKind.GAMEPAD_LEFT_Y:
+    case InputKind.GAMEPAD_RIGHT_X:
+    case InputKind.GAMEPAD_RIGHT_Y:
+    case InputKind.GAMEPAD_LEFT_TRIGGER:
+    case InputKind.GAMEPAD_RIGHT_TRIGGER:
     {
 $if $feature(USE_GAMEPAD):
         action.addPadAxis(key);
@@ -1623,22 +1622,21 @@ fn void createAction(String name, InputId id)
 struct ActionDef @local
 {	
 	String name;
-	int id;
+	InputId id;
 	bool configurable; // if can be rebinded
 	InputCat cat; // category of input ex: movement input
 }
 
-const ActionDef[*] ACTIONS_LIST
-= {
-    {"Exit", InputId.EXIT, false, InputCat.SYSTEM},
-    {"ExitDirect", InputId.EXIT_DIRECT, false, InputCat.SYSTEM},
-    {"MoveScreenshots", InputId.SCREENSHOT, false, InputCat.SYSTEM},
-    {"PrintInfo", InputId.PRINT_INFO, false, InputCat.SYSTEM},
-    {"LeftClick", InputId.LEFT_CLICK, false, InputCat.SYSTEM},
-    {"RightClick", InputId.RIGHT_CLICK, false, InputCat.SYSTEM},
-    {"MiddleClick", InputId.MIDDLE_CLICK, false, InputCat.SYSTEM},
-    {"MouseButton4", InputId.MOUSE_BUTTON4_CLICK, false, InputCat.SYSTEM},
-    {"MouseButton5", InputId.MOUSE_BUTTON5_CLICK, false, InputCat.SYSTEM}
+const ActionDef[*] ACTIONS_LIST = {
+    {"Exit", EXIT, false, SYSTEM},
+    {"ExitDirect", EXIT_DIRECT, false, SYSTEM},
+    {"MoveScreenshots", SCREENSHOT, false, SYSTEM},
+    {"PrintInfo", PRINT_INFO, false, SYSTEM},
+    {"LeftClick", LEFT_CLICK, false, SYSTEM},
+    {"RightClick", RIGHT_CLICK, false, SYSTEM},
+    {"MiddleClick", MIDDLE_CLICK, false, SYSTEM},
+    {"MouseButton4", MOUSE_BUTTON4_CLICK, false, SYSTEM},
+    {"MouseButton5", MOUSE_BUTTON5_CLICK, false, SYSTEM}
 };
 
 struct InputDef @packed
@@ -1648,16 +1646,15 @@ struct InputDef @packed
     InputId id;
 }
 
-const InputDef[*] INPUT_LIST
-= {
-    {InputKind.KEYBOARD, rl::KEY_ESCAPE, InputId.EXIT},
-    {InputKind.KEYBOARD, rl::KEY_F10, InputId.EXIT_DIRECT},
-    {InputKind.KEYBOARD, rl::KEY_F12, InputId.SCREENSHOT},
-    {InputKind.KEYBOARD, rl::KEY_LEFT_SHIFT, InputId.SCREENSHOT},
-    {InputKind.KEYBOARD, rl::KEY_F8, InputId.PRINT_INFO},
-    {InputKind.MOUSE, RLMouseButton.LEFT, InputId.LEFT_CLICK},
-    {InputKind.MOUSE, RLMouseButton.RIGHT, InputId.RIGHT_CLICK},
-    {InputKind.MOUSE, RLMouseButton.MIDDLE, InputId.MIDDLE_CLICK},
-    {InputKind.MOUSE, RLMouseButton.SIDE, InputId.MOUSE_BUTTON4_CLICK},
-    {InputKind.MOUSE, RLMouseButton.EXTRA, InputId.MOUSE_BUTTON5_CLICK}
+const InputDef[*] INPUT_LIST = {
+    {InputKind.KEYBOARD, rl::KEY_ESCAPE, EXIT},
+    {InputKind.KEYBOARD, rl::KEY_F10, EXIT_DIRECT},
+    {InputKind.KEYBOARD, rl::KEY_F12, SCREENSHOT},
+    {InputKind.KEYBOARD, rl::KEY_LEFT_SHIFT, SCREENSHOT},
+    {InputKind.KEYBOARD, rl::KEY_F8, PRINT_INFO},
+    {InputKind.MOUSE, RLMouseButton.LEFT, LEFT_CLICK},
+    {InputKind.MOUSE, RLMouseButton.RIGHT, RIGHT_CLICK},
+    {InputKind.MOUSE, RLMouseButton.MIDDLE, MIDDLE_CLICK},
+    {InputKind.MOUSE, RLMouseButton.SIDE, MOUSE_BUTTON4_CLICK},
+    {InputKind.MOUSE, RLMouseButton.EXTRA, MOUSE_BUTTON5_CLICK}
 };

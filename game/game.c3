@@ -695,7 +695,7 @@ fn void Game.reload(&self, SaveFile* file) @dynamic
     @param id : "id of player, if none is passed, gets player1 by default"
     @require(local_game.entityList.len() >= 1)
 *>
-fn Player* getLocalPlayer(int id = 1) @MyInline @public
+fn Player* getLocalPlayer(int id = 1) @inline @public
 {
     int idx = id - 1;
     return (Player*)local_game.entityList[idx];
@@ -3536,7 +3536,7 @@ $endif
     //
     // now load all other assets if theres a error 
 	// it will halt the game start at this point
-    astmng::loadAssets()!;
+    astmng::loadAssets(local_game.app_base_folder.to_tpath()!)!;
     
     // new material testing
     // load all material files from the material folder

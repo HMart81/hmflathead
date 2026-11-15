@@ -103,7 +103,7 @@ macro min(a, b) @private => ((a) < (b) ? (a) : (b));
 macro clamp(x, a, b) @private => min(b, max(a, x));
 */
 
-constdef MU_Clip : inline int 
+constdef MU_Clip : inline int
 {
 	PART = 1,
 	ALL,

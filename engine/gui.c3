@@ -2469,8 +2469,7 @@ fn void GUIWindowManager.update(&self, int _time)
     }*/
     self.enable_editor_mode(gui::ui_editGui.getBool());
 
-    sz wind_count = self.windows.len();
-    if(wind_count >= 1) 
+    if(self.windows.len()) 
     {
         foreach(uiwin: self.windows) 
         {
@@ -2493,8 +2492,7 @@ fn void GUIWindowManager.update(&self, int _time)
 
 fn void GUIWindowManager.draw(&self, int screenWidth, int screenHeight) @inline 
 {
-    sz windows_count = self.windows.len();
-    if(windows_count >= 1) 
+    if(self.windows.len()) 
     {
         foreach(uiwin: self.windows) 
         {
