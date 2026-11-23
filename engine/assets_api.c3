@@ -52,14 +52,12 @@ faultdef ASSETS_MALFORMED_PATH_STRING,
 
 
 // TODO(HM) 
-	// Should use file extension to support diferent types of 
-    // assets with the same name.
 	// Support more asset types, like the new HMaterial, etc.
 
 
 
 /*
-	A Asset is any visual or auditory data to be used by the game.
+	A Asset is any script code, visual or sound data to be used by the game.
 */
 struct Asset <Type>
 {
@@ -79,6 +77,7 @@ alias AssetSoundListPtr   @local = List{AssetSound*};
 alias AssetMusicListPtr   @local = List{AssetMusic*};
 alias AssetFontListPtr    @local = List{AssetFont*};
 alias AssetShaderListPtr  @local = List{AssetShader*};
+alias AssetListPtr  @local = List{any};
 
 /*
 	The entire library of assets loaded at game start 
@@ -91,13 +90,14 @@ struct AssetLibrary
     AssetMusicListPtr   musics;   // list of music assets
     AssetFontListPtr    fonts;    // list of font assets
     AssetShaderListPtr  shaders;  // list of shader assets
+    AssetListPtr assets;
 }
 
 AssetLibrary local_library @local;
 AssetLibrary* pAssetsLib = &local_library;
 
 <*
-	@param [&inout] asset : "the asset to register, must be a pointer to an Asset struct of a supported type, like AssetTexture* for example."
+	@param [&in] asset : "the asset to register, must be a pointer to an Asset struct of a supported type, like AssetTexture* for example."
 *>
 fn void AssetLibrary.register(&self, any asset)
 {
@@ -193,11 +193,10 @@ fn void AssetLibrary.listAssets(&self) @if($feature(_DEBUG))
 // To be used only at game exit, 
 // for now, ALL assets are loaded at game start and stay in RAM, 
 // for the duration of the game, aka they only get freed at game end.
-// I made it like this because, for now, I don't have many assets in this game,
-// nor do I have a way to make levels to load only necessary assets, 
-// when that is done, I will change this to only load what's needed at level load,
-// this way I use use less RAM.
-// For now while I'm testing things, getting them hot from RAM, 
+// I made it like this because, for now, I don't have many assets,
+// nor do I have a way to make levels to load only the necessary ones, 
+// when that is done, I will change this to only load what's needed at level load.
+// For now while I'm testing things, getting them all hot from RAM, 
 // is faster than first reading the data from the HD/SSD/MD2 drive, 
 // when I want to use it.
 fn void AssetLibrary.releaseAllAssets(&self)
@@ -227,18 +226,19 @@ fn void AssetLibrary.releaseAllAssets(&self)
 
 <*
 	@param [in] name : "the name of the wanted asset"
-	@require name.has_extension() == true
+	@require name.len > 0 && name.has_extension()
 	@ensure return != null
 *>
-fn Asset{AssetType}* get_asset(String name) <AssetType> @nodiscard
+fn Asset{AssetType}* get_asset(String name) <AssetType> @nodiscard @inline
 {
-	return (Asset{AssetType}*)local_library.getAsset(name, AssetType::typeid);
+	//return (Asset{AssetType}*)local_library.getAsset(name, AssetType::typeid);
+	return local_library.getAsset(name, AssetType::typeid).as(Asset{AssetType}*);
 }
 
 <*
 	@param [in] name : "the name of the wanted asset including extension"
 	@param type : "the typeid of a type"
-	@require name.has_extension() == true
+	@require name.len > 0 && name.has_extension()
 	@ensure return != null
 *>
 fn any AssetLibrary.getAsset(&self, String name, typeid type)
@@ -280,7 +280,7 @@ fn any AssetLibrary.getAsset(&self, String name, typeid type)
     @param [in] name : "name of the asset to get data from, needs file extension"
 	@require name.has_extension() == true
 *>
-fn Type* get_asset_data(String name) <Type>
+fn Type* get_asset_data(String name) <Type> @local
 {
 	AssetLibrary* lib = pAssetsLib;
 
@@ -414,7 +414,7 @@ fn RLTexture2D* AssetLibrary.getTexture(&self, String name) @inline @nodiscard
 }
 
 <*
-    @param name : "the name of the shader asset to retrieve"
+    @param [in] name : "the name of the shader asset to retrieve"
     @require name.len > 0 && name.has_extension()
     @ensure return != null
 *>
@@ -430,7 +430,7 @@ fn RLShader* AssetLibrary.getShader(&self, String name) @nodiscard //@inline
 }
 
 <*
-	@param name : "the name of the sound asset to retrieve"
+	@param [in] name : "the name of the sound asset to retrieve"
     @require name.len > 0 && name.has_extension()
     @ensure return != null
 *>
@@ -446,7 +446,7 @@ fn RLSound* AssetLibrary.getSound(&self, String name) @nodiscard @inline
 }
 
 <*
-	@param name : "the name of the music asset to retrieve"
+	@param [in] name : "the name of the music asset to retrieve"
     @require name.len > 0 && name.has_extension()
     @ensure return != null
 *>
@@ -481,6 +481,15 @@ fn RLFont* AssetLibrary.getFont(&self, String name) @nodiscard /*@inline*/
 ///////////////////////// ASSET LOADING FUNCTIONS /////////////////////
 ///////////////////////////////////////////////////////
 
+macro bool should_ignore_asset(FileExtension ext) @local
+{
+	if(ext != ".bkp" && 
+	   ext != ".ini" && 
+	   ext != ".def") return false;
+
+	return true; 
+}
+
 <*
 	Loads and creates a Asset struct in memory from a given path 
 	and registers it, in the asset manager.
@@ -502,13 +511,20 @@ fn void loadAsset(String path) @local
     int last_ext_index = (FileExtension::values.len - 1);
     foreach(i, ext : FileExtension::values)
     {
-        
-        if (extension == ext && (
+		if(should_ignore_asset(ext)) {
+			return;
+		}
+		else
+		{
+			break; // go on loading the asset
+		}
+
+        /*if (extension == ext && (
             extension != ".bkp" &&  // ignore files marked as backup
             extension != ".ini" && // initialization files are ignored
             extension != ".def" )) // definition files are ignored
         {
-            // no need for warnings in this cases just return
+            // no need for warnings in this cases just go on
            break;
         }
         else if (i == last_ext_index && extension != ext)
@@ -516,7 +532,7 @@ fn void loadAsset(String path) @local
             String p = path.strip_start(game::pContext.app_base_folder);
             log::warning(FILE, "Ignoring File \"%s\", because is not a valid asset type.", p);
             return;
-        }
+        }*/
     }
 
     // NOTE(HM) Extension is required here to support 

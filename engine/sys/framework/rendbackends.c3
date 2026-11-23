@@ -27,7 +27,7 @@
 *********************************************************************************************************************************************/
 /* UNFINISHED BACKEND INTERFACE */
 
-module engine::sys::framework::vidbackends::vidbkd @if($feature(BACKEND_RAYLIB));
+module engine::sys::framework::rendbackends::rndbkd @if($feature(BACKEND_RAYLIB));
 
 import std::io, std::os::win32;
 import engine::misc;
@@ -254,7 +254,7 @@ fn void BackendRender.shutdown(&self) @dynamic
     if(self.window != null) self.window = null;
 }
 
-module engine::sys::framework::vidbackends::vidbkd @if($feature(BACKEND_RGFW));
+module engine::sys::framework::vidbackends::rndbkd @if($feature(BACKEND_RGFW));
 
 import std::io;
 import game::main;

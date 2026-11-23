@@ -36,7 +36,7 @@ const FONT_SPACING     = 3.0f;
 // end_region
 
 // region cvars
-CVar skip @public = { "skip_intro", CvFlag.BOOL, "1", "skip displaying the intro" };
+CVar skip @public = { "skip_intro", CvFlag.BOOL, "0", "skip displaying the intro" };
 
 fn void register_cvars() @public 
 {
@@ -147,6 +147,7 @@ struct IntroAnimation
    FrameQueue frames;
    int current_frame_index;
    int full_duration;
+   int old_frame_rate;
    bool should_play;
    bool timing_initialized;
 }
@@ -295,21 +296,25 @@ fn void hide_cursors() @local @inline
     }
 }
 
+/*if(frame.kind != VIDEO) {
+    frame.duration = time_ms + FRAME_TIME;
+}*/
 <*
-     /*if(frame.kind != VIDEO) {
-            frame.duration = time_ms + FRAME_TIME;
-        }*/
-
     @param [&inout] anim : "animation to handle"
+    @require rl::isWindowReady() == true
 *>
 fn void init_anim_timing(IntroAnimation* anim, int time_ms) @local
 {
     int old_frame_duration;
-	foreach(frame : anim.frames) {
-        if(frame.kind != VIDEO) {
-            unreachable("non video frames for intro not supported anymore!!!");
+	foreach(frame : anim.frames)
+    {
+        if(frame.kind != VIDEO)
+        {
+            unreachable("non video frames for the intro not supported anymore!!!");
         }
-        if(frame.movie == null) {
+
+        if(frame.movie == null)
+        {
             $if $feature(_DEBUG):
                 unreachable();
             $else
@@ -337,7 +342,7 @@ fn void play(IntroAnimation* anim)
 <*
     @param [&inout] anim : "animation to handle"
 *>
-fn void setup(IntroAnimation* anim) @local 
+fn void setup(IntroAnimation* anim) //@local 
 {
     hide_cursors();
     initAnimation(anim);
@@ -349,6 +354,7 @@ fn void IntroAnimation.stop(&self)
     self.should_play = false;
     deinitAnimation(self);
     pGame.mode = GameMode.NONE;
+	rl::setTargetFPS(self.old_frame_rate);
      // goes to the main menu;
     game::disconnect();
 }
@@ -392,6 +398,7 @@ fn void update(IntroAnimation* anim)
     // trigger the first frame
     if(current_time < current_frame.duration && !current_frame.movie.is_playing) 
     {
+		anim.old_frame_rate = rl::getFPS();
         current_frame.movie.start();
     }
 

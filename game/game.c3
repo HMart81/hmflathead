@@ -54,7 +54,7 @@ import engine::sys::reader::svg;
 import engine::sys::render2d::r2d;
 import game::material::manager::mtrmng; // material database
 import engine::sys::framework::language::lang;
-import engine::sys::framework::vidbackends::vidbkd; // graphics backend interface
+import engine::sys::framework::rendbackends::rndbkd; // graphics backend interface
 import engine::sys::framework::platform::platf; // platform specific stuff
 import engine::sys::framework::soundbkd; // Sound system
 //
@@ -1047,50 +1047,50 @@ fn void set_uniform_shader_screen(RLShader* shader) @local
 	}
 }
 
-fn void? loadDefaultAssets() @local
+fn void? loadDefaultAssets(Game* game) @local
 {
     // get required default game texture
-    local_game.default_texture = rl::loadTexture(local_game.app_base_folder.tconcat("images/default.png").zstr_tcopy());
-    if(local_game.default_texture.isInvalid()) {
+    game.default_texture = rl::loadTexture(game.app_base_folder.tconcat("images/default.png").zstr_tcopy());
+    if(game.default_texture.isInvalid()) {
         log::fatal(FILE, "Required asset: images//default.png failed to load!");
         return GAME_MISSING_REQUIRED_ASSET~;
     }
     
     RLImage white = rl::genImageColor(32, 32, rl::WHITE);
-    local_game.tex_white = rl::loadTextureFromImage(white);
+    game.tex_white = rl::loadTextureFromImage(white);
     rl::unloadImage(white);
     
     RLImage black = rl::genImageColor(32, 32, rl::BLACK);
-    local_game.tex_black = rl::loadTextureFromImage(black);
+    game.tex_black = rl::loadTextureFromImage(black);
     rl::unloadImage(black);
     
     RLImage gray = rl::genImageColor(32, 32, rl::GRAY);
-    local_game.tex_gray = rl::loadTextureFromImage(gray);
+    game.tex_gray = rl::loadTextureFromImage(gray);
     rl::unloadImage(gray);
     
-    local_game.default_shader = glsl::loadShader(
-        local_game.app_base_folder.tconcat("shaders/default.vs"),
-        local_game.app_base_folder.tconcat("shaders/default.fs")
+    game.default_shader = glsl::loadShader(
+        game.app_base_folder.tconcat("shaders/default.vs"),
+        game.app_base_folder.tconcat("shaders/default.fs")
     );
 
-    if(rl::isShaderValid(local_game.default_shader))
+    if(rl::isShaderValid(game.default_shader))
 	{
-		local_game.current_global_shader = &local_game.default_shader;
+		game.current_global_shader = &game.default_shader;
 
 		// set shader gloabl uniforms
-		set_uniform_shader_Textures(local_game.current_global_shader);
-		set_uniform_shader_timing(local_game.current_global_shader);
-		set_uniform_shader_screen(local_game.current_global_shader);
+		set_uniform_shader_Textures(game.current_global_shader);
+		set_uniform_shader_timing(game.current_global_shader);
+		set_uniform_shader_screen(game.current_global_shader);
 	}
 	else
 	{
-        log::fatal(FILE, "Required default shader not found in folder %s!", local_game.app_base_folder.tconcat("/shaders"));
+        log::fatal(FILE, "Required default shader not found in folder %s!", game.app_base_folder.tconcat("/shaders"));
         return GAME_MISSING_REQUIRED_ASSET~;
     }
 
     // load required default sound
-    local_game.default_sound = rl::loadSound(local_game.app_base_folder.tconcat("sounds/default.wav").zstr_tcopy());
-    if(rl::isSoundValid(local_game.default_sound)) {
+    game.default_sound = rl::loadSound(game.app_base_folder.tconcat("sounds/default.wav").zstr_tcopy());
+    if(rl::isSoundValid(game.default_sound)) {
         //$if $feature(_DEBUG):
             //if(rl::isAudioDeviceReady()) rl::playSound(local_game.default_sound);
         //$endif
@@ -1100,22 +1100,22 @@ fn void? loadDefaultAssets() @local
     }
     
     // load required default music
-    local_game.default_music = rl::loadMusicStream(local_game.app_base_folder.tconcat("music//default.mp3").zstr_tcopy());
-    if(rl::isMusicValid(local_game.default_music) == false) {
+    game.default_music = rl::loadMusicStream(game.app_base_folder.tconcat("music//default.mp3").zstr_tcopy());
+    if(rl::isMusicValid(game.default_music) == false) {
         log::fatal(FILE, "Required default asset: \"music/default.mp3\" failed to load!");
         return GAME_MISSING_REQUIRED_ASSET~;
     }
     
     // get the default game font
-    local_game.font_default = vidbkd::getFontDefault();
+    game.font_default = rndbkd::getFontDefault();
 }
 
 fn void Game.unloadDefaultAssets(&self)
 {
-    vidbkd::unloadTexture(self.default_texture);
-    vidbkd::unloadTexture(self.tex_white);
-    vidbkd::unloadTexture(self.tex_black);
-    vidbkd::unloadTexture(self.tex_gray);
+    rndbkd::unloadTexture(self.default_texture);
+    rndbkd::unloadTexture(self.tex_white);
+    rndbkd::unloadTexture(self.tex_black);
+    rndbkd::unloadTexture(self.tex_gray);
     rl::unloadShader(self.default_shader);
     self.current_global_shader = null;
     rl::unloadSound(self.default_sound);
@@ -2208,40 +2208,41 @@ macro @isValidNumber(#x) @local
 	return true;
 }
 
-
-
-
 /*
-NOTE(HM) 
-If the code is compiled in _DEBUG mode, the first argument on the cmdline, 
-is the path to the executable, so if there's only one argument, there's 
-no need to run handle_cmdline().
-Also logically using cmdline arguments, requires a full game restart. 
+Cmdline arguments, requires a full game restart. 
 TODO(HM) create a developer console, to be able to change cvars during gameplay.
 */
 const COMMAND_CHAR @local = "+";
+const ASSIGN_CHAR @local = "=";
 
-fn void handle_cmdline(String[] args)
+fn void handle_cmdline(String[] args_list)
 {
 	@debug_break(OFF);
+
     $if $feature(_DEBUG):
-        if(args.len <= 1) return;
+	/*
+		If the code is compiled in _DEBUG mode, the first argument on the cmdline, 
+		is the path to the executable, so if there's only one argument, there's 
+		no need to run handle_cmdline() function.
+	*/
+        if(args_list.len <= 1) return;
 	$endif
     
-    log::tofile("Handling cmd line args: %s\n", args[..]);
+    log::tofile("Handling cmd line args_list: %s\n", args_list[..]);
 
 	// The command name
     String cmd_arg;
 
 	bool cmd_is_standalone;
 	// standalone cmds, are those with no value after it,
-	// so are thought as boolean true, meaning their existance
-	// is enough to enable stuff.
+	// so are automatically true, meaning they need 
+	// no value just their name is enough to enable stuff.
+	// for example +developer this turns on developer mode
 
 	// to mark a argument as being a value
 	bool arg_is_value;
 
-    foreach(arg_index, arg : args)
+    foreach(arg_index, arg : args_list)
     {
 		// NOTE(HM) in _DEBUG (-O0) mode the first argument 
 		// of the cmdline, is always the path to the executable.
@@ -2258,43 +2259,34 @@ fn void handle_cmdline(String[] args)
         if(arg == " ") continue;
 		// skip the equals sign, if any is used, 
 		// and mark the next arg as being a value in that case
-		if(arg == "=")
+		if(arg == ASSIGN_CHAR)
 		{
-			// next argument in the loop is a value
 			arg_is_value = true;
+			// next argument in the loop is expected to be a value
 			continue;
-		}
-
-		// if a argument was set as being a value in the 
-		// previous loop above then make sure is not a cmd 
-		// instead, because that would mean that there's a 
-		// serious error in this logic.
-		if(arg_is_value)
-		{
-			assert(!arg.starts_with("+"));
 		}
 
 		/////////////////////
         // Argument is a COMMAND
         if(!arg_is_value && arg.starts_with(COMMAND_CHAR))
         {
-			if(arg_is_value) arg_is_value = false;
+			// just in case
             if(arg.has_spaces()) arg.remove_spaces();
 
-            // set the next command strip the plus sign...
+            // get the next command to handle and strip the plus sign...
 			cmd_arg = arg.trim(COMMAND_CHAR);
 
 			// now look ahead to see what kind of arg comes next
             // so we know what command we are dealing with...
 			int i = (int)arg_index;
-            bool last_arg = (i == (args.len - 1));
+            bool last_arg = (i == (args_list.len - 1));
             if(last_arg) {
                 cmd_is_standalone = true;
                 // so go on parsing this command...
             }
             else
             {
-                String next = args[i + 1];
+                String next = args_list[i + 1];
 
                 if(next.starts_with(COMMAND_CHAR))
                 {
@@ -2320,7 +2312,7 @@ fn void handle_cmdline(String[] args)
             }
         }
 
-		if(!arg_is_value)
+		if(!arg_is_value) // arg is a cmd
 		{
 			// from here a cmd should be valid
 			assert(cmd_arg.len > 0);
@@ -2331,7 +2323,7 @@ fn void handle_cmdline(String[] args)
 			}
 			else
 			{
-				continue; // skip this loop to next one to handle the value
+				continue; // skip this loop to next one to get the value
 			};
 		}
         
@@ -2445,13 +2437,13 @@ fn void handle_cmdline(String[] args)
 		switch(cmd_arg)
 		{
 			case "developer":
-            	developer.setBool(true);
-			case "skip_intro":
-				intro::skip.setBool(true);
+				(cmd_is_standalone || ivalue) ? developer.setBool(true) : developer.setBool(false);
 			case "g_log":
-				log::g_log.setBool(true);
+				(cmd_is_standalone || ivalue) ? log::g_log.setBool(true) : log::g_log.setBool(false);
 			case "editor":
-				editor.setBool(true);
+				(cmd_is_standalone || ivalue) ? editor.setBool(true) : editor.setBool(false);
+			case "skip_intro":
+				(cmd_is_standalone || ivalue) ? intro::skip.setBool(true) : intro::skip.setBool(false);
 			case "window": nextcase;
 			case "w":      nextcase;
 			case "win":
@@ -2511,7 +2503,7 @@ fn void handle_cmdline(String[] args)
 		}
 
 		// see if last arg of command line
-		bool last_arg = (arg_index == (args.len - 1));
+		bool last_arg = (arg_index == (args_list.len - 1));
 		if(last_arg)
 		{
 			break; // out of the loop
@@ -3124,7 +3116,7 @@ $endif
     RLConfigFlag window_flags; // special flags to control behavior of raylib window
     
     // support for high dpi monitors (replaces the need for manual use of GetWindowScaleDPI() functionality)
-    vidbkd::setWindowFlag(&window_flags, rl::FLAG_WINDOW_HIGHDPI);
+    rndbkd::setWindowFlag(&window_flags, rl::FLAG_WINDOW_HIGHDPI);
     
     // TODO(HM)
     // Create a console here for error displaying?
@@ -3136,7 +3128,7 @@ $endif
     // Vertical sync (this is a hint so may or may not apply...)
     if(settings_data.getBool("video", "vsync")!)
     {
-        vidbkd::setWindowFlag(&window_flags, rl::FLAG_VSYNC_HINT);
+        rndbkd::setWindowFlag(&window_flags, rl::FLAG_VSYNC_HINT);
         local_game.screen.state.vsync_hint = true;
 		$if $defined(env::WIN32):
 		win32::write_bool_to_Register(local_game.screen.state.vsync_hint, "video_vsync")!;
@@ -3168,14 +3160,14 @@ $endif
     switch(fullscreen_choice)
     {
         case 1:
-            vidbkd::setWindowFlag(&window_flags, rl::FLAG_FULLSCREEN_MODE);
+            rndbkd::setWindowFlag(&window_flags, rl::FLAG_FULLSCREEN_MODE);
             local_game.screen.state.fullscreen = true;
 			$if $defined(env::WIN32):
 			win32::write_string_to_Register("fullscreen", "screen_mode")!;
 			$endif
 			log::tofile("Game window set to Real/Dedicated Fullscreen mode.");
         case 2:
-            vidbkd::setWindowFlag(&window_flags, rl::FLAG_BORDERLESS_WINDOWED_MODE /*| rl::FLAG_WINDOW_TOPMOST*/);
+            rndbkd::setWindowFlag(&window_flags, rl::FLAG_BORDERLESS_WINDOWED_MODE /*| rl::FLAG_WINDOW_TOPMOST*/);
             local_game.screen.state.borderless = true;
 			$if $defined(env::WIN32):
 			win32::write_string_to_Register("borderless", "screen_mode")!;
@@ -3202,7 +3194,7 @@ $endif
     	// Multi-sampling AA, ONLY no msaa or 4x msaa is supported by Raylib, there's no support for other values. :( 
         if(settings_data.getBool("video", "r_msaa")!)
         {
-            vidbkd::setWindowFlag(&window_flags, rl::FLAG_MSAA_4X_HINT);
+            rndbkd::setWindowFlag(&window_flags, rl::FLAG_MSAA_4X_HINT);
 			local_game.screen.state.msaa_hint = true;
 			$if $defined(env::WIN32):
 			win32::write_string_to_Register("4x", "video_msaa")!;
@@ -3531,11 +3523,12 @@ $endif
 // #region Asset manager
     log::tofile("Loading game assets:");
     log::tofile("---------------------------------------------");
-    // first load required default assets
-    loadDefaultAssets()!;
-    //
-    // now load all other assets if theres a error 
+    // first load required default assets if theres a error 
 	// it will halt the game start at this point
+    loadDefaultAssets(&local_game)!;
+    //
+    // now load all other assets if also theres a error 
+	// it will halt the game at this point
     astmng::loadAssets(local_game.app_base_folder.to_tpath()!)!;
     
     // new material testing
@@ -3568,7 +3561,7 @@ $if $feature(MICROUI_ENABLE):
 	log::tofile("-- done -------------------------------------------\n");
 $endif
 
-	// Old code requires rework
+	// Old code requires rework/refactor or delete it
     SVGData svgfile;
     svgfile.path = local_game.app_base_folder.tconcat("levels/test.svg").copy(mem);
     if(svgfile.load()!)
@@ -3818,20 +3811,28 @@ $endif
 	// init intro stuff here
     // Todo(HM) create real pre loading logo videos
 	//
-	// NOTE(HM) should I loop the intro right here?
-	// instead of just marking it to do later, like now.
-	// this is because I will create and render stuff behind the
-	// intro video/images and I don't know if I should really do that...   
+	// NOTE(HM) I think I should start the intro right here 
+	// and block the thread from going on...
+	// This is because, right now I will continue creating 
+	// and rendering stuff behind the intro video/images, 
+	// and that, doesn't sound like something I should really do...   
     //
-    // Set the current program mode to the intro mode
-    if(intro::skip.getBool())
+	log::info(CONSOLE, "Start Intro skip is: %s", intro::skip.getBool());
+    if(intro::skip.getBool() == true)
 	{
+		// if intro disabled show the main menu
         menu::start(local_game.main_menu);
     } 
     else
 	{
-        intro::play(&local_game.intro);
+    	// mark the intro to be played (it is not really played now...)
+        local_game.intro.should_play = true;
+		// just in case close any open menu
+		menu::stop();
+		// prepares intro data
+        intro::setup(&local_game.intro);
     }
+	log::info(CONSOLE, "End Intro skip is: %s", intro::skip.getBool());
 
     // Create the main Single Player
     // NOTE(HM) todo: the player and ingame entities should be created only at spawn of a level 
@@ -3846,9 +3847,9 @@ $endif
     // NOTE(HM) The first entities in the entity list
 	// is the player (or players in the future...)
     local_game.entityList.push((HMEntity*)local_game.player1);
-	// TODO(HM) In the future the player should be the last entity
-	// to init/spawn in the world no the first, right now I'm
-	// creating the player first to make things easy...
+	// TODO(HM) In the future the player, should be the last entity
+	// to init/spawn in the world, not the first one, but right now I'm
+	// creating the player first to make things easy for me while testing this...
     log::tofile( "** Done **.");
     
     // local_game.particleSpawner1.init({
@@ -3889,23 +3890,30 @@ $endif
 
     //  init test video
 	$if $feature(VIDEO_PLAYBACK_ENABLE) && $defined(TEST_VIDEO):
-        if(vidCabinet) {
-			String vid_name = "epiwarn";
-            if(vidCabinet.hasMovie(vid_name)) {
+        if(game::vidCabinet)
+		{
+			//String vid_name = "epiwarn";
+			vidCabinet.play("epiwarn", fullscreen: true);
+            /*if(vidCabinet.hasMovie(vid_name))
+			{
                 log::tofile("Setting up test video: '%s'", vid_name);
                 VidMovie* vid1 = vidCabinet.getMovie(vid_name);
-                if(vid1 == null) {
-                    log::warning(FILE, "\tFailed to get test video '%s' from video library!", vid_name);
-                } else {
-                    if(vid1.preparePlayer()) {
+                if(vid1)
+				{
+                    if(vid1.preparePlayer())
+					{
                         log::tofile("\tPrepared Video player for video '%s' playback, successfully.", vid_name);
                         vid1.fullscreen = true;
 						vid1.enable();
                     } else {
                         log::warning(FILE, "\tFailed to prepare Video player for video '%s' for playback!", vid_name);
                     }
+                } 
+				else
+				{
+                    log::warning(FILE, "\tFailed to get test video '%s' from video library!", vid_name);
                 }
-            }
+            }*/
         }
 	log::tofile("---------------------------------------------\n");
 	$endif
@@ -4326,7 +4334,7 @@ fn void doOneFrame()
            // };
         }
         $else
-            /*vidbkd::@renderLoop(local_game.render) 
+            /*rndbkd::@renderLoop(local_game.render) 
             {
                 tracy::@messageL( "Tick" );
                 tracy::@zoneN("Game loop", 1)
@@ -4670,11 +4678,11 @@ fn void set_user_settings(ConfigFile* settings, int* window_flags)
                                     {
                                         log::warning(FILE, "Unnable to convert value of cmd %s of section %s to integer.", cmd_id, section.name);
                                         var w_flag @safeinfer = (RLConfigFlag*)window_flags;
-                                        if(vidbkd::getWindowFlagState(w_flag, rl::FLAG_FULLSCREEN_MODE)) {
-                                            vidbkd::clearWindowFlag(w_flag, rl::FLAG_FULLSCREEN_MODE);
+                                        if(rndbkd::getWindowFlagState(w_flag, rl::FLAG_FULLSCREEN_MODE)) {
+                                            rndbkd::clearWindowFlag(w_flag, rl::FLAG_FULLSCREEN_MODE);
                                         }
-                                        if(vidbkd::getWindowFlagState(w_flag, rl::FLAG_WINDOW_UNDECORATED)) {
-                                            vidbkd::clearWindowFlag(w_flag, rl::FLAG_WINDOW_UNDECORATED);
+                                        if(rndbkd::getWindowFlagState(w_flag, rl::FLAG_WINDOW_UNDECORATED)) {
+                                            rndbkd::clearWindowFlag(w_flag, rl::FLAG_WINDOW_UNDECORATED);
                                         }
                                     }
                                 case "r_max_fps":

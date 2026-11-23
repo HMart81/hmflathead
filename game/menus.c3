@@ -183,9 +183,9 @@ fn void exit()
 {
 	stop(); // any menu
 
-    // TODO(HM) This should be set ONLY when we are sure we are ingame and not
-    // in some other state, right now is set when all menus exit what is not 
-	// total guarantie that we are returning to the game world.
+    // TODO(HM) This should be set ONLY when we are sure we are returning to
+	// ingame and not in some other state, right now, this is set when all menus exit,
+	// what is not always guarantied that we are returning to the game world.
     pGameContext.mode = GameMode.PLAYING;
 
 	// go back to the game sounds

@@ -4,7 +4,7 @@ target:
 {
   executable: "build/dmain.exe"
   working_directory: build
-  arguments: "+developer +r_fullscreen 2 +editor"
+  arguments: "+developer +r_fullscreen 2 +editor +r_mode 15 +skip_intro 0"
   label: debug
   enabled: 1
 }

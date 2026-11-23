@@ -524,8 +524,8 @@ fn bool VidMovie.audio_stopped(&self) @MyInline
 fn bool VidMovie.preparePlayer(&self, bool loop = false, bool audio = false)
 {
     VideoFile? video = fs::openFile(self.path, fs::FILE_READ_BINARY);
-	if(catch excuse = video ) {
-		log::warning(FILE, "failed to open video %s to play with error: %s", self.name, excuse);
+	if(catch err = video ) {
+		log::warning(FILE, "failed to open video %s to play with error: %s", self.name, err);
 		return false;
 	} 
 	else { // successfully opened video file
@@ -650,6 +650,7 @@ fn void VidMovie.update(&self)
 fn void VidMovie.start(&self) @MyInline
 {
 	self.started = !self.started;
+	rl::setTargetFPS((int)self.framerate);
     self.audio_play();
 }
 
@@ -744,8 +745,8 @@ fn void setCabinetMoviesDirectory(VideoCabinet* self, String movies_dir) @local 
 fn void initCabinetMoviesDirectory(VideoCabinet* self) @local @MyInline
 {
 	String videos_path = pContext.app_base_folder.tconcat(VIDEOS_FOLDER_PATH);
-	/*if(catch excuse = fs::makeDirectory_IfNotExist(videos_path)) {
-		log::error(FILE, "failed to create videos directory at path: %s with excuse %s", videos_path, excuse);
+	/*if(catch err = fs::makeDirectory_IfNotExist(videos_path)) {
+		log::error(FILE, "failed to create videos directory at path: %s with err %s", videos_path, err);
 	}*/
     setCabinetMoviesDirectory(self, videos_path);
 }
@@ -758,8 +759,8 @@ fn void? initVideoCabinet(VideoCabinet** vidc) @public
 {
 	(*vidc) = mem::new(VideoCabinet);
 	initCabinetMoviesDirectory((*vidc));
-	if(catch excuse = (*vidc).registerVideos()) {
-		log::error(FILE, "failed to register videos to video cabinet with excuse %s.",  excuse);
+	if(catch err = (*vidc).registerVideos()) {
+		log::error(FILE, "failed to register videos to video cabinet with err %s.",  err);
 		(*vidc).movies_folder = "";
 		mem::free((*vidc));
 		vidc = null;
@@ -814,6 +815,27 @@ fn void? VideoCabinet.registerVideos(&self)
             log::warning(FILE, "Found no videos to register inside videos folder.");
         }
     }
+}
+
+<*
+	@param [in] name : "video name"
+	@require name.len > 0
+	@require pContext.render.isWindowReady()!!
+*>
+fn void VideoCabinet.play(&self, String name, bool fullscreen = false)
+{
+	if(self.hasMovie(name))
+	{
+		VidMovie* vid = self.getMovie(name);
+		if(vid)
+		{
+			if(vid.preparePlayer())
+			{
+				vid.fullscreen = fullscreen;
+				vid.enable();
+			}
+		}
+	}
 }
 
 fn bool VideoCabinet.hasMovie(&self, String name) @MyInline

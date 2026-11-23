@@ -513,9 +513,8 @@ fn void readAsset(SaveFile* savefile, Asset{Type}** asset) <Type>
 {
     String name;
     readString(savefile, &name);
-    if(name == "") return;
     
-    (*asset) = (Asset{Type}*)game::asstManager.getAsset(name, Type::typeid);
+    (*asset) = (Asset{Type}*)astmng::get_asset{Type}(name);
 }
 
 
