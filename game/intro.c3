@@ -346,7 +346,6 @@ fn void setup(IntroAnimation* anim) //@local
 {
     hide_cursors();
     initAnimation(anim);
-    //log::info(CONSOLE, "intro-setup: %s", pGame.time_ms);
 }
 
 fn void IntroAnimation.stop(&self)
