@@ -35,7 +35,7 @@ import engine::filesystem::fs;
 import engine::logging::log;
 import engine::misc;
 import std::collections::list;
-import game::main;
+import main;
 import game::actors::ent;
 import thirdparty::raylib5::rl;
 import engine::sys::framework::hmdict;
@@ -686,10 +686,10 @@ fn void HMSoundWorld.shutdown(&self) @dynamic
     if(self.window != null) self.window = null;
 }
 
-module engine::sys::framework::backends::bkend @if($feature(BACKEND_RGFW));
+module engine::sys::framework::backends::bkend @feat($feat(BACKEND_RGFW));
 
 import std::io;
-import game::main;
+import main;
 import engine::misc;
 import engine::logging::log;
 import engine::filesystem::fs;

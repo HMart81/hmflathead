@@ -40,18 +40,19 @@
 *   The reality is, you don't need to know the full data-layout for most of them to use this... 
 *   (but don't try storing the structs by value after that...)
 ****************************************************************/
+/*
+module buffer @private @feat($feat(ANGEL_ENABLE));
 
-module buffer @private @if($feature(ANGEL_ENABLE));
-
-struct Buffer <Type> @if($feature(ANGEL_ENABLE))                                             
+struct Buffer <Type> @feat($feat(ANGEL_ENABLE))                                             
 {
   Type* data;
   int count;
   int capacity;
 }
+*/
 
-
-module thirdparty::angel @if($feature(ANGEL_ENABLE));
+module thirdparty::angel @feat(ANGEL_ENABLE);
+/*
 
 import buffer @public;
 
@@ -156,7 +157,7 @@ extern fn int                    ScriptEngine.refCastObject(ScriptEngine *e, voi
 extern fn LockableSharedBool *ScriptEngine.getWeakRefFlagOfScriptObject(ScriptEngine *e, void *obj, TypeInfo *type) @cname("asEngine_GetWeakRefFlagOfScriptObject");
 
 ///////////////////////////////////////////
-module thirdparty::angel::ctx @if($feature(ANGEL_ENABLE));
+module thirdparty::angel::ctx @feat($feat(ANGEL_ENABLE));
 
 // Memory management
 extern fn int  ScriptContext.addRef(ScriptContext *c) @cname("asContext_AddRef");

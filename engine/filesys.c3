@@ -34,7 +34,8 @@ import libc;
 import std::io, std::io::path;
 import std::collections::list;
 import std::os, std::core::mem;
-import game::main;
+import main;
+import game;
 import engine::misc;
 import engine::sys::cvar;
 import engine::logging::log;
@@ -87,12 +88,13 @@ const FileMode FILE_READ_WRITE_BINARY = "r+b";
 
 const MAX_SEARCH_DEPTH = 6; // how deep to search for directories
 
-module engine::filesystem::fs @if($defined(NEW_DIRECTORY_SYSTEM));
+module engine::filesystem::fs @feat(NEW_DIRECTORY_SYSTEM);
 
 // region modules
 import std::os;
 import libc;
-import game::main;
+import main;
+import game;
 import engine::misc;
 import std::io, std::io::path;
 import std::collections::list;
@@ -344,7 +346,8 @@ module engine::filesystem::fs;
 // region modules
 import std::os;
 import libc;
-import game::main;
+import main;
+import game;
 import engine::misc;
 import std::io, std::io::path;
 import std::collections::list;
@@ -928,7 +931,7 @@ fn void moveFiles(String from, String to, String fileExtensions = "")
         if(catch err = sucess) { // will ignore if the directory already exists
             log::warning(Where.FILE, "Failed to create directory at: %s!\n\t -> err: %s", 
                         files_to, err);
-            $if $feature(_DEBUG):
+            $if $feat(_DEBUG):
                 unreachable();
             $endif
         }

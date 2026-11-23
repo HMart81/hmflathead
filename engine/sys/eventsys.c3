@@ -38,7 +38,7 @@ example:
     EV_Bar("bar", "ff",'e'); == fn HMEntity* bar(float value, float value2) { return some_entity_adress; }
 */
 
-module engine::sys::script_engine::event @if($feature(WREN_ENABLE));
+module engine::sys::script_engine::event @feat(WREN_ENABLE);
 
 import std::collections::linkedlist, std::collections::list;
 
@@ -247,7 +247,7 @@ example:
     EV_Bar("bar", "ff",'e'); == fn HMEntity* bar(float value, float value2) { return some_entity_adress; }
 */
 
-module engine::sys::script_engine::event @if($feature(UMKA_ENABLE));
+module engine::sys::script_engine::event @feat(UMKA_ENABLE);
 
 import std::collections::linkedlist, std::collections::list;
 

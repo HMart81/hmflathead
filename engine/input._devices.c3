@@ -35,7 +35,7 @@
 //              fn float getMouseWheelMove()
 //              fn RLVector2 getMouseWheelMoveV()
 
-module engine::input_devices @if($feature(USE_INPUT_DEVICES));
+module engine::input_devices @feat(USE_INPUT_DEVICES);
 
 struct InputDevice
 {
@@ -43,11 +43,11 @@ struct InputDevice
     ActionKind kind;
 }
 
-module engine::input_devices::keyboard @if($feature(USE_INPUT_DEVICES));
+module engine::input_devices::keyboard @feat(USE_INPUT_DEVICES);
 
 import std::io;
 import std::collections::list;
-import game::main;
+import main;
 import game::files::ini;
 import thirdparty::raylib5::rl;
 import engine::misc;
@@ -249,7 +249,7 @@ fn CInt KeyboardDevice.stringToKey(&self, String key_name)
     return getKeyCodeFromStr(key_name);
 }
 
-module engine::input_devices::mouse @if($feature(USE_INPUT_DEVICES));
+module engine::input_devices::mouse @feat(USE_INPUT_DEVICES);
 
 struct MouseDevice 
 {

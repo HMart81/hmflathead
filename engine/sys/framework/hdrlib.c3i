@@ -31,7 +31,7 @@
 module engine::sys::framework::hdrlib;
 
 import std::io;
-import game::main;
+import main;
 import thirdparty::raylib5::rl;
 import engine::filesystem::fs;
 import std::collections;

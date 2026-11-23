@@ -42,7 +42,7 @@ import engine::telemetry::telem;
 import engine::assets_api::astmng; // asset manager
 import engine::sys::render2d::r2d; // 2D rendering
 //import engine::assets_api::asset; // for the asset system
-import game::main;
+import main;
 import game::camview;
 import game::actors::ent;
 import game::sys::update;
@@ -89,7 +89,7 @@ struct HMSprite (Updateable, SaveSystemInterface)
 
     //
     RLRectangle rect; // position and size of the sprite, pixels scale respectively.
-    Bounds bounds; // should be equivalent to the rectangle size
+    HMBounds bounds; // should be equivalent to the rectangle size
     RLColor color;  // only used when a material is not defined.
 
     // Todo(HM) rethink this, should the material be a pointer to a data base loaded in memory
@@ -134,7 +134,7 @@ fn void HMSprite.init(&self, float x, float y, float w, float h, RLColor color =
     self.color = color;
     self.setPosition(x,y);
     self.setSize(w,h);
-    // now set the Bounds
+    // now set the HMBounds
     self.bounds.fromRect(&self.rect);
     if(material_name) self.setMaterial(material_name);
     self.activate(); // activate the sprite by default
@@ -319,7 +319,7 @@ fn float HMSprite.getSizeY(&self) @inline @nodiscard
     return self.rect.getSize().y;
 }
 
-fn void HMSprite.setBounds(&self, Bounds bb) @inline
+fn void HMSprite.setBounds(&self, HMBounds bb) @inline
 {
     self.bounds = {
         .minc = bb.minc,
@@ -342,9 +342,9 @@ fn void HMSprite.drawBounds(&self) @inline
     self.bounds.debugDraw();
 }
 
-fn Vec2f HMSprite.getMinc(&self, Bounds bb) => self.bounds.minc;
+fn Vec2f HMSprite.getMinc(&self, HMBounds bb) => self.bounds.minc;
 
-fn Vec2f HMSprite.getMaxc(&self, Bounds bb) => self.bounds.maxc;
+fn Vec2f HMSprite.getMaxc(&self, HMBounds bb) => self.bounds.maxc;
 
 
 // in screen pixel coordinates
@@ -385,7 +385,7 @@ fn HMSprite* HMSprite.addToPosition(&self, float x, float y) @inline
     self.rect.x += x;
     self.rect.y += y;
     return self;
-// $if $feature(_DEBUG):   
+// $if $feat(_DEBUG):   
     // if(game::pContext.isPointInsideScreenView({self.rect.x, self.rect.y}) == false) {
         // unreachable("HMSprite origin is outside the view.");
     // }
@@ -543,100 +543,97 @@ fn void HMSprite.onDraw(&self) @dynamic
 {
     telem::@profile_zone("HMSprite Draw")
     {
-    tracy::@zoneN("sprite draw", 0)
-    {
-        if(self.flags.isHidden) return;
+		if(self.flags.isHidden) return;
 
-        RLRectangle* rect = &self.rect;
+		RLRectangle* rect = &self.rect;
 		RLRectangle* dist = rect;
-        
-        if(self.hasMaterial())
-        {
-            RLTexture2D* texture = self.mat.getTexture(MTexture.DIFFUSE);
-            assert(texture && *texture != rl::INVALID_TEXTURE, "HMSprite material '%s' has no diffuse texture.", self.mat.name);
-            
+		
+		if(self.hasMaterial())
+		{
+			RLTexture2D* texture = self.mat.getTexture(MTexture.DIFFUSE);
+			assert(texture && *texture != rl::INVALID_TEXTURE, "HMSprite material '%s' has no diffuse texture.", self.mat.name);
+			
 			Vec2f texture_size   = texture.getSize();
-            RLRectangle source   = { 0, 0, texture_size.x, texture_size.y };
-            
-            MatStage* diffuse_stage = self.mat.getStage(MStageType.DIFFUSE);
-            assert(diffuse_stage != null, "RLMaterial diffuse stage is null for material '%s'.", self.mat.name);
-            
+			RLRectangle source   = { 0, 0, texture_size.x, texture_size.y };
+			
+			MatStage* diffuse_stage = self.mat.getStage(MStageType.DIFFUSE);
+			assert(diffuse_stage != null, "RLMaterial diffuse stage is null for material '%s'.", self.mat.name);
+			
 			RLColor color = diffuse_stage.color;
 
-            // TODO(HM) Right now, we only do blending per material 
+			// TODO(HM) Right now, we only do blending per material 
 			// but we should do it per stage in the future...
-            // for example, we could have a material with multiple diffuse stages 
+			// for example, we could have a material with multiple diffuse stages 
 			// and each stage could have its own blending mode. 
 			// This would allow us to have more complex materials.
-            RLBlendMode blending;
-            Coverage coverage = self.mat.coverage;
+			RLBlendMode blending;
+			Coverage coverage = self.mat.coverage;
 			bool has_alpha_testing = self.hasCoverage(Coverage.PERFORATED);
 			bool not_has_alpha_testing = !has_alpha_testing;
 			bool is_opaque          = self.hasCoverage(Coverage.OPAQUE);
 			bool is_translucent     = self.hasCoverage(Coverage.TRANSLUCENT);
 			bool not_is_translucent = !is_translucent;
 			switch
-            {
-                case is_opaque && (not_has_alpha_testing || has_alpha_testing):
-                //case diffuse_stage.drawStateBits & mat::BLEND_NONE:
-                    break; // do nothing here
-                case has_alpha_testing && not_is_translucent:
-                    blending = RLBlendMode.ALPHA;
-                case is_translucent && not_has_alpha_testing:
-                //case diffuse_stage.drawStateBits & mat::BLEND_BLEND:
-                    blending = RLBlendMode.ALPHA_PREMUL;
-                case is_translucent && has_alpha_testing:
-                    blending = RLBlendMode.CUSTOM_SEPARATE; // use the custom blending mode
-                case self.hasCoverage(Coverage.BAD):
-                    log::error(FILE, "Sprite material %s has a bad material coverage type.", self.mat.name);
-                    unreachable();
-            }
-
-            bool blending_on = true;
-            switch (blending)
-            {
-                case RLBlendMode.ALPHA:
-                case RLBlendMode.ALPHA_PREMUL: 
-                    break;
-                case RLBlendMode.CUSTOM:
-                    rl::setBlendFactors(rl::RL_SRC_ALPHA, rl::RL_ONE_MINUS_SRC_ALPHA, rl::RL_FUNC_ADD);
-                    rl::setBlendMode(rl::RLBlendMode.CUSTOM);
-                case RLBlendMode.CUSTOM_SEPARATE:
-                    rl::setBlendFactorsSeparate(rl::RL_SRC_ALPHA, rl::RL_SRC_ALPHA, rl::RL_ONE_MINUS_SRC_ALPHA, rl::RL_ONE_MINUS_SRC_ALPHA, rl::RL_FUNC_ADD, rl::RL_MAX);
-                    rl::setBlendMode(rl::RLBlendMode.CUSTOM_SEPARATE);
-                default: // draw opaque unless the image has invisible pixels already...
-                    blending_on = false;
-            }
-
-            if(blending_on)
 			{
-                rl::@blendMode(blending)
-                {
-                    // NOTE(HM) 
+				case is_opaque && (not_has_alpha_testing || has_alpha_testing):
+				//case diffuse_stage.drawStateBits & mat::BLEND_NONE:
+					break; // do nothing here
+				case has_alpha_testing && not_is_translucent:
+					blending = RLBlendMode.ALPHA;
+				case is_translucent && not_has_alpha_testing:
+				//case diffuse_stage.drawStateBits & mat::BLEND_BLEND:
+					blending = RLBlendMode.ALPHA_PREMUL;
+				case is_translucent && has_alpha_testing:
+					blending = RLBlendMode.CUSTOM_SEPARATE; // use the custom blending mode
+				case self.hasCoverage(Coverage.BAD):
+					log::error(FILE, "Sprite material %s has a bad material coverage type.", self.mat.name);
+					unreachable();
+			}
+
+			bool blending_on = true;
+			switch (blending)
+			{
+				case RLBlendMode.ALPHA:
+				case RLBlendMode.ALPHA_PREMUL: 
+					break;
+				case RLBlendMode.CUSTOM:
+					rl::setBlendFactors(rl::RL_SRC_ALPHA, rl::RL_ONE_MINUS_SRC_ALPHA, rl::RL_FUNC_ADD);
+					rl::setBlendMode(rl::RLBlendMode.CUSTOM);
+				case RLBlendMode.CUSTOM_SEPARATE:
+					rl::setBlendFactorsSeparate(rl::RL_SRC_ALPHA, rl::RL_SRC_ALPHA, rl::RL_ONE_MINUS_SRC_ALPHA, rl::RL_ONE_MINUS_SRC_ALPHA, rl::RL_FUNC_ADD, rl::RL_MAX);
+					rl::setBlendMode(rl::RLBlendMode.CUSTOM_SEPARATE);
+				default: // draw opaque unless the image has invisible pixels already...
+					blending_on = false;
+			}
+
+			if(blending_on)
+			{
+				rl::@blendMode(blending)
+				{
+					// NOTE(HM) 
 					// The sprite visual origin and the center of rotation and scale, 
-                    // it's relative to top left corner of the destination rectangle! 
+					// it's relative to top left corner of the destination rectangle! 
 					// NOT the screen dimentions.
 				
-                    Vec2f origin = {0,0};
+					Vec2f origin = {0,0};
 					float rotation = 0.0f;
 					rl::drawTexturePro(*texture, source, *rect, origin, rotation, color);
-                };
-            } 
+				};
+			} 
 			else
 			{ // no blending/Opaque (or perfurated as well)
-                rl::drawTexturePro(*texture, source, *rect, {0,0}, 0.0f, color);
-            }
-        }
-        else // draw simple flat shape
-        {
-            r2d::drawRectangleRec(self.rect, self.color);
-        }
+				rl::drawTexturePro(*texture, source, *rect, {0,0}, 0.0f, color);
+			}
+		}
+		else // draw simple flat shape
+		{
+			r2d::drawRectangleRec(self.rect, self.color);
+		}
 
 		if(self.flags.is_game_cursor && gui::ui_debugDraw.getBool())
 		{
 			self.drawBounds();
 		}
-    };//tracy::@zoneN
     }; // misc::@profile_zone
 }
 
@@ -650,7 +647,7 @@ fn void drawImmediate(float posX, float posY, float width, float height, RLColor
         sptr.color = color;
         sptr.setPosition( posX, posY );
         sptr.setSize( width, height );
-        // now set the Bounds
+        // now set the HMBounds
         sptr.bounds.fromRect(&sptr.rect);
         if(material_name.len) sptr.setMaterial(material_name);
     };
@@ -663,7 +660,7 @@ module game::assets::part;
 
 // region user module
 import thirdparty::raylib5::rl;
-import game::main;
+import main;
 import game::assets::sprite;
 import std::math::vector;
 import game::actors::ent;
@@ -737,7 +734,7 @@ struct ParticleSpawner
 fn void ParticleSpawner.init(&self, Vec2f pos, int delay = 0) {
     String name = string::tformat("%s%s", "ParticleSpawner_", game::pContext.time_ms);
     RLColor color = misc::INVISIBLE_COLOR;
-$if $feature(_DEBUG):
+$if $feat(_DEBUG):
     color = rl::RED;
 $endif
     // init the inlined entity data

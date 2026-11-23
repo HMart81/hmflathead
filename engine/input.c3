@@ -41,7 +41,7 @@ import std::io;
 //import std::math;
 import std::collections::list;
 import std::collections::pair;
-import game::main;
+import main;
 import game::files::ini;
 //import game::actors::ent;
 import thirdparty::raylib5::rl;
@@ -424,7 +424,7 @@ fn void makeKeyboardAction(String name, int key1, int key2 = rl::KEY_NULL, Actio
     if(name == "")
 	{
 		String msg = "Trying to create a input action with a empty name!";
-		$if $feature(_DEBUG):
+		$if $feat(_DEBUG):
 			log::fatal(FILE, msg);
 		$else
         	log::warning(FILE, msg);
@@ -444,7 +444,7 @@ fn void makeKeyboardAction(String name, int key1, int key2 = rl::KEY_NULL, Actio
     if(key1 == rl::KEY_NULL)
 	{
 		String msg = string::tformat("Input Action: '%s' cannot be created with KEY_NULL as main key.", name);
-        $if $feature(_DEBUG):
+        $if $feat(_DEBUG):
 			log::fatal(FILE, msg);
 		$else
         	log::warning(FILE, msg);
@@ -501,7 +501,7 @@ fn void makeMouseAction(String name, RLMouseButton btn, int key = rl::KEY_NULL, 
 	if(name == "")
 	{
 		String msg = "Trying to create a Mouse input action with a empty name!";
-		$if $feature(_DEBUG):
+		$if $feat(_DEBUG):
 			log::fatal(FILE, msg);
 		$else
         	log::warning(FILE, msg);
@@ -986,7 +986,7 @@ fn void printKeyActions() @inline
 
 struct InputManager
 {
-    KeyboardDevice keyboard @if($feature(USE_INPUT_DEVICES));
+    KeyboardDevice keyboard @feat(USE_INPUT_DEVICES);
     ActionQueue actions;
 }
 
@@ -1006,7 +1006,7 @@ fn void InputManager.register(&self, Action* action) @inline
     {
         if(act.name == action.name) {
             log::warning(CONSOLE, "Cannot register \"%s\" because action with that name already exists.", action.name);
-			$if $feature(_DEBUG):
+			$if $feat(_DEBUG):
 				unreachable();
             $else
 				return;
@@ -1310,7 +1310,7 @@ fn void quitGame() {
 }
 // endregion
 
-module engine::input @if($defined(NEW_CODE_EXTENSIONS));
+module engine::input @feat(NEW_CODE_EXTENSIONS);
 
 alias KeysList    = List{CInt};
 alias MbtnList    = List{CInt};
@@ -1543,7 +1543,7 @@ fn void bindInputToAction(Action *action, InputKind type, CInt key)
     case InputKind.GAMEPAD_LEFT_THUMB:  
     case InputKind.GAMEPAD_RIGHT_THUMB:      
 	{
-$if $feature(USE_GAMEPAD):
+$if $feat(USE_GAMEPAD):
 		action.addPadBtn(key);
 $else
     nextcase default;
@@ -1556,7 +1556,7 @@ $endif
     case InputKind.GAMEPAD_LEFT_TRIGGER:
     case InputKind.GAMEPAD_RIGHT_TRIGGER:
     {
-$if $feature(USE_GAMEPAD):
+$if $feat(USE_GAMEPAD):
         action.addPadAxis(key);
 $else
     nextcase default;

@@ -25,7 +25,7 @@
 # Hilario Martins, Rua de Sanguinhedo 1010 4850-545 Vieira Do Minho Portugal.
 # 
 *********************************************************************************************************************************************/
-module thirdparty::microui::mu @if($feature(MICROUI_ENABLE));
+module thirdparty::microui::mu @feat(MICROUI_ENABLE);
 
 // Define the icon atlas
 // The atlas is a array representing a 128x128 pixels image/texture

@@ -37,7 +37,7 @@ import std::core::mem; // for malloc/new
 import std::math;
 import std::collections::list;
 import engine::misc;
-import game::main;
+import main;
 //import game::assets::sprt; // sprite
 import engine::filesystem::fs;
 import thirdparty::raylib5::rl;

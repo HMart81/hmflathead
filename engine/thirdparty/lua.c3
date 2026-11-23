@@ -27,7 +27,7 @@
 *********************************************************************************************************************************************/
 
 // LUA implementation file
-module thirdparty::scripting::lua @if($feature(LUA_ENABLE)) @export;
+module thirdparty::scripting::lua @feat(LUA_ENABLE) @export;
 
 
 // lua embedding tutorials:
@@ -37,7 +37,7 @@ module thirdparty::scripting::lua @if($feature(LUA_ENABLE)) @export;
 // lua manual: https://www.lua.org/manual/5.4/
 
 import std::io;
-import game::main;
+import main;
 import std::thread;
 import engine::misc; // misc code
 import engine::logging::log;
@@ -447,7 +447,7 @@ fn void registerGlobalType(String name, any obj, LUAState* state = game.lua_stat
         case ZString.typeid:
            (val == null) ? state.pushstring("") : state.pushstring(*(ZString*)val);
         default:
-            $if $feature(RELEASE):
+            $if $feat(RELEASE):
                 break; // in release mode just ignore unknown types
             $else
                 unreachable("lua script engine failed to register type: %s", obj);
@@ -493,7 +493,7 @@ fn void updateGlobalType(String name, any obj, LUAState* state = game.lua_state)
 // Convert lua types to C3 types
 fn float LUAState.toF32(&self, int stack_idx, bool pop = false) @inline
 {
-    $if $feature(RELEASE):
+    $if $feat(RELEASE):
         if(self.isnumber(stack_idx) == FALSE) {
             game.titleMsgBox = "LUA Error Box";
             game.msgBoxText = string::tformat("Lua stack index: '%s' is not a number!!", stackIDXToSTR(stack_idx));
@@ -513,7 +513,7 @@ fn float LUAState.toF32(&self, int stack_idx, bool pop = false) @inline
 
 fn double LUAState.toF64(&self, int stack_idx, bool pop = false) @inline
 {
-    $if $feature(RELEASE):
+    $if $feat(RELEASE):
         if(self.isnumber(stack_idx) == FALSE) {
             game.titleMsgBox = "LUA Error Box";
             game.msgBoxText = string::tformat("Lua stack index: '%s' is not a number!!", stackIDXToSTR(stack_idx));
@@ -533,7 +533,7 @@ fn double LUAState.toF64(&self, int stack_idx, bool pop = false) @inline
 
 fn int LUAState.toS32(&self, int stack_idx, bool pop = false) @inline
 {
-    $if $feature(RELEASE):
+    $if $feat(RELEASE):
         if(self.isinteger(stack_idx) == FALSE) {
             game.titleMsgBox = "LUA Error Box";
             game.msgBoxText = string::tformat("Lua stack index: '%s' is not a integer!!", stackIDXToSTR(stack_idx));
@@ -553,7 +553,7 @@ fn int LUAState.toS32(&self, int stack_idx, bool pop = false) @inline
 
 fn uint LUAState.toU32(&self, int stack_idx, bool pop = false) @inline
 {
-    $if $feature(RELEASE):
+    $if $feat(RELEASE):
         if(self.isinteger(stack_idx) == FALSE) {
             game.titleMsgBox = "LUA Error Box";
             game.msgBoxText = string::tformat("Lua stack index: '%s' is not a integer!!", stackIDXToSTR(stack_idx));
@@ -593,7 +593,7 @@ fn ichar LUAState.toS8(&self, int stack_idx, bool pop = false) @inline
 
 fn String LUAState.toStr(&self, int stack_idx, bool pop = false) @inline
 {
-    $if $feature(RELEASE):
+    $if $feat(RELEASE):
         if(self.isstring(stack_idx) == FALSE) {
             game.titleMsgBox = "LUA Error Box";
             game.msgBoxText = string::tformat("Lua stack index: '%s' is not a string!!", stackIDXToSTR(stack_idx));
@@ -613,7 +613,7 @@ fn String LUAState.toStr(&self, int stack_idx, bool pop = false) @inline
 
 fn ZString LUAState.toZStr(&self, int stack_idx, bool pop = false) @inline
 {
-    $if $feature(RELEASE):
+    $if $feat(RELEASE):
         if(self.isstring(stack_idx) == FALSE) {
             game.titleMsgBox = "LUA Error Box";
             game.msgBoxText = string::tformat("Lua stack index: '%s' is not a string!!", stackIDXToSTR(stack_idx));

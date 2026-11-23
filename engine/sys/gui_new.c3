@@ -52,7 +52,7 @@ import engine::input;
 import game::material::mat;
 import game::material::manager::mtrmng;
 import engine::logging::log;
-import game::main;
+import main;
 import game::camview;
 import game::actors::ent;
 import engine::serialize::svs; // save system
@@ -1757,7 +1757,7 @@ module engine::gui::window::uiwin;
 
 import thirdparty::raylib5::rl;
 import engine::misc;
-import game::main;
+import main;
 import engine::serialize::svs;
 import std::collections::list;
 import engine::logging::log;
@@ -2570,7 +2570,7 @@ import thirdparty::raylib5::rl;
 import engine::logging::log;
 import engine::sys::render2d::r2d;
 import engine::assets_api::astmng; // asset manager
-import game::main;
+import main;
 import std::math;
 import engine::misc;
 
@@ -2827,7 +2827,7 @@ import thirdparty::raylib5::rl;
 import engine::gui::window::uiwin;
 import thirdparty::raygui5::rgui;
 import engine::logging::log;
-import game::main;
+import main;
 import engine::misc;
 //import engine::serialize::svs;
 //import std::collections::list;

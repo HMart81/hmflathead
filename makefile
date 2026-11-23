@@ -149,9 +149,9 @@ EXES_TO_CLEAN := $(wildcard $(BUILD_PATH)/*.exe)
 DEBUG_GAME_ARGUMENTS := +developer +r_fullscreen 2 +editor +r_mode 15 +skip_intro 0
 RELEASE_GAME_ARGUMENTS := +r_fullscreen 1 +r_mode 23
 
-# in c3 you need to use $feature or $feat in newer compilers...) to check for this 
+# in c3 you need to use $feat or $feat in newer compilers...) to check for this 
 # C3 $defined() doesn't work for this...
-# example $feature(MICROUI_ENABLE)
+# example $feat(MICROUI_ENABLE)
 FEATURES :=\
 	-D VMEM_TEMP\
 	-D MICROUI_ENABLE\
@@ -188,7 +188,7 @@ RELEASE_DEFINES := -D _RELEASE $(FEATURES) -D UMKA_ENABLE
 CC := c3c.exe
 
 # common compiler flags/options
-CFLAGS := --target windows-x64 --threads 8 --wincrt=dynamic --output-dir $(BUILD_PATH)
+CFLAGS := --target windows-x64 --threads 8 --wincrt=dynamic --output-dir $(BUILD_PATH) --warn-deprecation=no
 
 # release
 comand_release_compile := $(CC) -O3 $(CFLAGS) $(RELEASE_DEFINES) $(LINKER_SEARCH_PATHS) $(LINKED_LIBRARIES) -o $(APPLICATION_RELEASE_NAME) compile $(GAME_ROOT_SOURCES) $(ENGINE_ROOT_SOURCES) $(ENGINE_CHILD_SOURCES)

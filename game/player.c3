@@ -36,7 +36,7 @@ import std::collections::list;
 import game::lowlevel::bounds;
 //import game::projectiles::ammo;
 import engine::serialize::svs; // save system
-import game::main;
+import main;
 //import game::actors::ent;
 import engine::physics::box2d;
 import engine::misc;
@@ -127,7 +127,7 @@ fn void Player.init(&self, Vec2f origin)
     self.move_dir = NONE;
     
     // physics
-	$if $feature(PHYSICS_BOX2D):
+	$if $feat(PHYSICS_BOX2D):
 	// destroy any previous physics body
 	if(self.physics.isValid()) {
 		game::b2d_mark_for_removal(self.physics);
@@ -228,19 +228,16 @@ fn void Player.think(&self, float dt /*delta_time*/)
         
         if(self.thinkflags & EntTh.THINK)
         {
-            tracy::@zoneN("Playerthink", 1)
-            {
-                // player Input should be done next possible to 
-                // updating the player state to diminish input lag.
-                self.updateInteraction(dt);
-                
-                // foreach(projectile : self.projectiles) {
-                    // if(projectile) {
-                        // ammo::update(projectile, dt);
-                        // ammo::draw(projectile);
-                    // }
-                // }
-            };
+			// player Input should be done next possible to 
+			// updating the player state to diminish input lag.
+			self.updateInteraction(dt);
+			
+			// foreach(projectile : self.projectiles) {
+				// if(projectile) {
+					// ammo::update(projectile, dt);
+					// ammo::draw(projectile);
+				// }
+			// }
         } 
         
         if(self.thinkflags & EntTh.PHYSICS) {
@@ -325,7 +322,7 @@ import std::math;
 import std::collections::list;
 import engine::misc;
 import engine::serialize::svs; // save system
-import game::main;
+import main;
 //import ent;
 import thirdparty::raylib5::rl;
 // end_region

@@ -63,7 +63,7 @@
 */
 
 // box2d include file
-module engine::physics::box2d @if($feature(PHYSICS_BOX2D));
+module engine::physics::box2d @feat(PHYSICS_BOX2D);
 
 import std::math::vector; // c3 math for Vec2f
 import engine::misc; // for Exported tag
@@ -92,10 +92,10 @@ fn B2Version getVersion() @cname("b2GetVersion");
 // Timer for profiling. This has platform specific code and may not work on every platform.
 struct B2Timer
 {
-    long start       @if(env::WIN32);
-    ulong start_sec  @if(env::LINUX || env::POSIX);
-    ulong start_usec @if(env::LINUX || env::POSIX);
-    int dummy        @if(!env::WIN32 && !env::LINUX && !env::POSIX);
+    long start       @feat(env::WIN32);
+    ulong start_sec  @feat(env::LINUX || env::POSIX);
+    ulong start_usec @feat(env::LINUX || env::POSIX);
+    int dummy        @feat(!env::WIN32 && !env::LINUX && !env::POSIX);
 }
  
 fn B2Timer createTimer() @cname("b2CreateTimer");
@@ -1768,7 +1768,7 @@ struct B2DebugDraw
 	//void ( *DrawString )( B2Vec2 p, const char* s, void* context );
     B2DrawStringCallback drawString;
     
-	/// Bounds to use if restricting drawing to a rectangular region
+	/// HMBounds to use if restricting drawing to a rectangular region
 	B2AABBox drawingBounds;
 
 	/// Option to restrict drawing to a rectangular region. May suffer from unstable depth sorting.

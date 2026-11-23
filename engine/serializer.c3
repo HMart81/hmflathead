@@ -37,7 +37,7 @@ import std::collections::list;
 // end_region
 
 // region custom modules
-import game::main;
+import main;
 import game;
 import thirdparty::raylib5::rl;
 import engine::misc;
@@ -323,7 +323,7 @@ fn void	writeRect(SaveFile* savefile, Rec rect) <Rec>
  @param [&inout] savefile : "the file to write the data to"
  @param [&in] bounds : "the data to save"
 *>
-fn void writeBounds(SaveFile* savefile, Bounds* bounds )
+fn void writeBounds(SaveFile* savefile, HMBounds* bounds )
 {
 	writeVector{Vec2f}(savefile, bounds.maxc);
 	writeVector{Vec2f}(savefile, bounds.minc);
@@ -536,7 +536,7 @@ fn void	readRect(SaveFile* savefile, Rec* rect) <Rec>
  @param [&inout] savefile : "the file to write the data to"
  @param [&in] bounds : "the data to save"
 *>
-fn void readBounds(SaveFile* savefile, Bounds* bounds )
+fn void readBounds(SaveFile* savefile, HMBounds* bounds )
 {
 	readVector{Vec2f}(savefile, &bounds.maxc);
 	readVector{Vec2f}(savefile, &bounds.minc);

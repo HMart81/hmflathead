@@ -305,7 +305,7 @@ module game::entitydefile::def @private;
 // region imports
 import game::entitydef::mat;
 import std::io, std::math;
-import game::main; // for file logging or console logging
+import main; // for file logging or console logging
 import engine::misc;
 import engine::serialize::svs;
 import game::entitydef::manager::mtrmng;
@@ -459,7 +459,7 @@ fn bool? DEFile.parse(&self, XmlDoc* doc)
     // now parse each def xml node
     foreach (node : doc.rootNode.children)
     {
-        $if $feature(_DEBUG):
+        $if $feat(_DEBUG):
             if(node == null) 
             {
                 log::error(FILE, "Null node found in def file '%s', skipping it.", self.path);
@@ -494,7 +494,7 @@ fn bool? DEFile.parse(&self, XmlDoc* doc)
                 }
             default:
                 log::warning(FILE, " Unexpected node in file '%s', expected <%s> found <%s>", self.path, Node.ENTITYDEF.str, node.name);
-                $if $feature(_DEBUG):
+                $if $feat(_DEBUG):
                     return DEF_PARSING_ERROR~;
                 $else
                     continue;
@@ -647,7 +647,7 @@ module game::definitions::manager::defsmng @private;
 
 // region imports
 import std::io;
-import game::main; // for file logging or console logging
+import main; // for file logging or console logging
 import engine::misc;
 import game::entitydef::mtr, game::entitydef::mat;
 import engine::logging::log;
@@ -813,7 +813,7 @@ fn void _register(DefsDataBase* db,  DEFile* _def) @local @inline {
 
 fn void DefsDataBase.listDEFs(&self)
 {
-    $if $feature(_DEBUG):
+    $if $feat(_DEBUG):
         if(self.data.len())
         {
             log::info(CONSOLE, "[Definition FILES]");

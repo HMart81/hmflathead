@@ -25,7 +25,7 @@
 # Hilario Martins, Rua de Sanguinhedo 1010 4850-545 Vieira Do Minho Portugal.
 # 
 *********************************************************************************************************************************************/
-module thirdparty::microui::mu @if($feature(MICROUI_ENABLE));
+module thirdparty::microui::mu @feat(MICROUI_ENABLE);
 
 import std::io;
 import std::core::string::conv;
@@ -34,7 +34,7 @@ import thirdparty::raylib5::rl;
 import engine::input;
 import engine::tools;
 import engine::logging::log;
-import game::main;
+import game;
 
 const VERSION = "2.02";
 

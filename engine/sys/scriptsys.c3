@@ -26,7 +26,7 @@
 # 
 *********************************************************************************************************************************************/
 
-module engine::sys::script_engine::scpt @if($feature(WREN_ENABLE));
+module engine::sys::script_engine::scpt @feat(WREN_ENABLE);
 
 import std::io;
 import std::collections::list;
@@ -35,7 +35,7 @@ import thirdparty::wren;
 import engine::logging::log;
 import thirdparty::raylib5::rl;
 import engine::misc; // misc code
-import game::main;
+import main;
 import engine::sys::script_engine::event; // import the event system
 import game::actors::ent;
 //
@@ -96,7 +96,7 @@ fn void Script.run(&this) @inline
     //assert(this.sengine != null);
     if(this.isValid() == false) {
         log::warning(FILE, "Cannot run invalid script! '%s' ", (this.name.len) ? this.name : "<unnamed>");
-        $if $feature(_DEBUG):
+        $if $feat(_DEBUG):
             @unreachable("Cannot run invalid script! '%s' ", (this.name.len) ? this.name : "<unnamed>");
         $else
             return;
@@ -331,16 +331,16 @@ fn Script* ScriptEngine.getScript(&self, String name) @dynamic
 }
 
 /////////////////////////////////////////// Virtual Machine ///////////////////////////////////
-module engine::sys::script_engine::scpt @if($feature(WREN_ENABLE));
+module engine::sys::script_engine::scpt @feat(WREN_ENABLE);
 
 struct ScriptVirtualMachine
 {
     uint id;
     // WREN
-    WrenVM* vm @if($feature(WREN_ENABLE));
+    WrenVM* vm @feat($feat(WREN_ENABLE));
     // LUA
-    LUAState* state @if($feature(LUA_ENABLE));
-    LUADebug* debug @if($feature(LUA_ENABLE)); // lua debug context
+    LUAState* state @feat($feat(LUA_ENABLE));
+    LUADebug* debug @feat($feat(LUA_ENABLE)); // lua debug context
 }
 
 fn void ScriptVirtualMachine.init(&self)
@@ -644,7 +644,7 @@ fn WrenForeignClassMethods bindForeignClass(WrenVM* vm, ZString script_name, ZSt
 //                          MUJS SCRIPT
 //
 //////////////////////////////////////////////////////////////////////////////
-module engine::sys::script_engine::scpt @if($feature(MUJS_ENABLE));
+module engine::sys::script_engine::scpt @feat(MUJS_ENABLE);
 import thirdparty::mujs;
 
 import std::io;
@@ -654,7 +654,7 @@ import thirdparty::wren;
 import engine::logging::log;
 import thirdparty::raylib5::rl;
 import engine::misc; // misc code
-import game::main;
+import main;
 import engine::sys::script_engine::event; // import the event system
 import game::actors::ent;
 //
@@ -721,7 +721,7 @@ fn void Script.run(&this) @inline
 {
     if(this.isValid() == false) {
         log::warning(FILE, "Cannot run invalid script! '%s' ", (this.name.len) ? this.name : "<unnamed>");
-        $if $feature(_DEBUG):
+        $if $feat(_DEBUG):
             @unreachable("Cannot run invalid script! '%s' ", (this.name.len) ? this.name : "<unnamed>");
         $else
             return;
@@ -950,7 +950,7 @@ fn Script* ScriptEngine.getScript(&self, String name) @dynamic
 //                          LUA SCRIPT
 //
 //////////////////////////////////////////////////////////////////////////////
-module engine::sys::script_engine::scpt @if($feature(LUA_ENABLE));
+module engine::sys::script_engine::scpt @feat(LUA_ENABLE);
 import thirdparty::scripting::lua;
 
 import std::io;
@@ -960,7 +960,7 @@ import thirdparty::wren;
 import engine::logging::log;
 import thirdparty::raylib5::rl;
 import engine::misc; // misc code
-import game::main;
+import main;
 import engine::sys::script_engine::event; // import the event system
 import game::actors::ent;
 //
@@ -1028,7 +1028,7 @@ fn void Script.run(&this) @inline
     //assert(this.sengine != null);
     if(this.isValid() == false) {
         log::warning(FILE, "Cannot run invalid script! '%s' ", (this.name.len) ? this.name : "<unnamed>");
-        $if $feature(_DEBUG):
+        $if $feat(_DEBUG):
             @unreachable("Cannot run invalid script! '%s' ", (this.name.len) ? this.name : "<unnamed>");
         $else
             return;
@@ -1253,18 +1253,17 @@ fn Script* ScriptEngine.getScript(&self, String name) @dynamic
 //
 //////////////////////////////////////////////////////////////////////////////
 
-module engine::sys::script_engine::scpt @if($feature(UMKA_ENABLE));
+module engine::sys::script_engine::scpt @feat(UMKA_ENABLE);
 
 import std::io;
 import std::collections::list;
-import engine::filesystem::fs;
-import engine::logging::log;
 import thirdparty::raylib5::rl; // for RLFilePathList
 import thirdparty::scripting::umka;
-import engine::misc; // misc code
-import game::main;
 import engine::sys::script_engine::event; // import the event system
-//import game::actors::ent;
+import engine::filesystem::fs;
+import engine::logging::log;
+import engine::misc; // misc code
+import game;
 //
 
 alias ScriptList = List{Script*};
@@ -1347,7 +1346,7 @@ fn void Script.compile(&this) @inline
     if(this.isValid() == false) 
     {
         log::warning(FILE, "Cannot compile invalid script! '%s' ", (this.name.len) ? this.name : "<unnamed>");
-        $if $feature(_DEBUG):
+        $if $feat(_DEBUG):
             unreachable("Cannot compile invalid script! '%s' ", (this.name.len) ? this.name : "<unnamed>");
         $else
             return;
@@ -1372,7 +1371,7 @@ fn void Script.run(&this) @inline
 {
     if(this.fl.compiled == false) {
         log::warning(FILE, "Trying to run a non compiled script! '%s' ", (this.name.len) ? this.name : "<unnamed>");
-        $if $feature(_DEBUG):
+        $if $feat(_DEBUG):
             unreachable("Trying to run a non compiled script! '%s' ", (this.name.len) ? this.name : "<unnamed>");
         $else
             return;

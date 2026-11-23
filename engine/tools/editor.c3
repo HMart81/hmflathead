@@ -26,7 +26,7 @@
 # 
 *********************************************************************************************************************************************/
 
-module engine::tools::editor @private @if($feature(MICROUI_ENABLE) &&& !$feature(RGUI_ENABLE));
+module engine::tools::editor @private @if($feat(MICROUI_ENABLE) &&& !$feat(RGUI_ENABLE));
 /* TODO(HM): 
     - Implement the editor console.
     - Implement the editor file system.
@@ -54,17 +54,18 @@ module engine::tools::editor @private @if($feature(MICROUI_ENABLE) &&& !$feature
 
 import std::io, std::core::ascii, std::collections::list;
 import std::math;
+import std::os::win32;
+import thirdparty::raylib5::rl;
+import thirdparty::microui::mu;  // micro ui
 import engine::gui;
 import engine::misc;
 import engine::sys::cvar;
 import engine::sys::ctype;
-import thirdparty::raylib5::rl;
-import thirdparty::microui::mu;  // micro ui
 import engine::platform::win32;
 import engine::sys::render2d::r2d;
-import std::os::win32;
 import engine::logging::log;
-import game::main;
+import main;
+import game;
 
 const CInt CONSOLE_FONT_SIZE @local = 12;
 const CInt CONSOLE_MAX_LINES @local = 1000;
@@ -1224,7 +1225,7 @@ fn void printCvarMatches( String s )
 
 // UNFINISHED!!!!!!!!!!!!!!
 /*
-module engine::tools::editor @private @if($feature(RGUI_ENABLE));
+module engine::tools::editor @private @feat($feat(RGUI_ENABLE));
 /* TODO(HM): 
     - Implement the editor console.
     - Implement the editor file system.
@@ -1260,7 +1261,7 @@ import thirdparty::microui::mu;  // micro ui
 import engine::filesystem::fs::win32;
 import std::os::win32;
 import engine::logging::log;
-import game::main;
+import main;
 
 const CInt CONSOLE_FONT_SIZE @local = 12;
 const CInt CONSOLE_MAX_LINES @local = 1000;
@@ -1347,7 +1348,7 @@ struct Editor @public
     usz listView_scrollIndex; // scroll index for the list view of the console history
     int listView_Active;
     int listView_Focus;
-    bool con_input_showWindow @if($defined(TextInputBox));
+    bool con_input_showWindow @if(TextInputBox));
 
 
     char[CONSOLE_INPUT_MAX_LINE_LENGTH] con_input_buffer; // maximum length of the input line

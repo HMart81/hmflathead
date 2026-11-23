@@ -56,7 +56,8 @@ import engine::input;
 import game::material::mat;
 import game::material::manager::mtrmng;
 import engine::logging::log;
-import game::main;
+import main;
+import game;
 import game::camview;
 import game::actors::ent;
 import engine::serialize::svs; // save system
@@ -223,7 +224,7 @@ struct GUIRect (SaveSystemInterface)
 
     GUIRectFlags flags;
 	// TODO(HM) use this bounds?
-    //Bounds bounds;
+    //HMBounds bounds;
 	AnchorList anchor;
 	RLColor original_color; // to return to in case the bellow one is changed
     RLColor    color; // used if a simple colored rect
@@ -2533,6 +2534,7 @@ import engine::gui;
 import engine::misc;
 import engine::sys::ctype;
 import std::collections::list;
+import game;
 
 alias ContainerQueue = List{any};
 
@@ -2717,7 +2719,8 @@ import thirdparty::raylib5::rl;
 import engine::logging::log;
 import engine::sys::render2d::r2d;
 import engine::assets_api::astmng; // asset manager
-import game::main;
+import main;
+import game;
 import std::math;
 import engine::misc;
 import engine::sys::ctype;
@@ -2973,13 +2976,14 @@ fn bool doButton(IMUI_Context* ctx, String name, String label, Vec2f pos)
 module engine::gui::guieditor;
 
 import thirdparty::raylib5::rl;
-import engine::gui;
 import thirdparty::raygui5::rgui;
 import engine::logging::log;
-import game::main;
-import engine::misc;
 import engine::sys::ctype;
+import engine::misc;
+import engine::gui;
 import engine::tools;
+import main;
+import game;
 //import engine::serialize::svs;
 //import std::collections::list;
 

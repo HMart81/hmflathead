@@ -33,7 +33,7 @@ module game::level::lvl;
 // #region imports
 import std::io;
 import std::collections::list;
-import game::main; // for file logging or console logging
+import main; // for file logging or console logging
 import engine::misc;
 import engine::serialize::svs;
 import engine::sys::cvar;

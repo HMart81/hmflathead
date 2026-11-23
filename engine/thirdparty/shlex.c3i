@@ -46,7 +46,7 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-module thirdparty::tsoding::shlex @if($feature(TSODING_SHLEX));
+module thirdparty::tsoding::shlex @feat(TSODING_SHLEX);
 
 import std::io;
 import libc;

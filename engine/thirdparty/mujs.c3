@@ -32,11 +32,11 @@
 * This is implementation code for the micro java script language (mujs) lib. 
 ****************************************************************/
 
-module thirdparty::mujs @if($feature(MUJS_ENABLE)) @export;
+module thirdparty::mujs @feat(MUJS_ENABLE) @export;
 
 import std::io;
 import engine::logging::log;
-import game::main;
+import main;
 
 fn int MUState.initStdLib(&self)
 {

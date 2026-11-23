@@ -77,17 +77,17 @@ fn void pre_InitFunc() @init
 }
 
 //********** ENTRY FUNCTION ******************************
-fn int main(String[] args) @public @if($feature(_DEBUG))
+fn int main(String[] args) @public @feat(_DEBUG)
 { // with console
     return mainEntryFunc(args);
 }
 
-fn int main(String[] args) @public @winmain @if($feature(_RELEASE)) 
+fn int main(String[] args) @public @winmain @feat(_RELEASE) 
 { // without console
     return mainEntryFunc(args);
 }
 
-fn void usage() @local @if($feature(TSODING_FLAG))
+fn void usage() @local @feat(TSODING_FLAG)
 {
     log::info(CONSOLE, "Usage: %s [options]", flg::program_name());
     log::info(CONSOLE, "Options:");
@@ -114,7 +114,7 @@ fn void set_minimum_log_levels() @inline @local
 
 fn int mainEntryFunc(String[] args)
 {
-$if $feature(TRACY_ENABLE):
+$if $feat(TRACY_ENABLE):
     tracy::set_thread_name("main_thread");
 $endif
 
@@ -133,7 +133,7 @@ $endif
     DateTime date = datetime::now().to_local();
     log::info(FILE, "\t%s of %s of %s at %sh:%sm", date.day, date.month, date.year, date.hour, date.min);
     log::info(FILE, "---------------------------------------------");
-	$if $feature(_DEBUG):
+	$if $feat(_DEBUG):
     log::info(FILE, "--- (application compiled in debug mode) ---");
 	$endif
     log::info(FILE, "---------------------------------------------\n"); 
@@ -141,7 +141,7 @@ $endif
     // print machine info
     misc::printMachineInfo();
 
-$if $feature(TSODING_FLAG):
+$if $feat(TSODING_FLAG):
     ZString* version = flg::flag_bool("version", false, "Print engine version");
     ZString* help    = flg::flag_bool("help", false, "Show this help message");
 $endif

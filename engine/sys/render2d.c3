@@ -38,8 +38,7 @@ import engine::sys::ctype;
 import engine::filesystem::fs;
 import engine::logging::log;
 import game;
-import game::assets::sprt;
-import game::main;
+import game::assets::sprite;
 import thirdparty::raylib5::rl;
 
 fn void drawPixel(int posX, int posY, RLColor color = rl::RED) @inline 
@@ -408,7 +407,7 @@ fn RLTexture2D loadTexture(String texture_path)
     assert(fs::fileExists(path), "RLTexture file does not exist: %s", path);
 
 
-$if $feature(_DEBUG):
+$if $feat(_DEBUG):
     RLTexture2D tex = rl::loadTexture(path.zstr_tcopy());
     if(rl::isTextureValid(tex)) {
         return tex;

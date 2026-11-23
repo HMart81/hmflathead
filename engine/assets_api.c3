@@ -34,7 +34,8 @@ module engine::assets_api::astmng;
 import std::io::path;
 import std::collections::list;
 import thirdparty::raylib5::rl;
-import game::main;
+import main;
+import game;
 import engine::logging::log;
 import engine::filesystem::fs;
 import engine::misc;
@@ -118,7 +119,7 @@ fn void AssetLibrary.register(&self, any asset)
     }
 }
 
-fn void AssetLibrary.listAssets(&self) @if($feature(_DEBUG)) 
+fn void AssetLibrary.listAssets(&self) @feat(_DEBUG) 
 {
     /*
 	AssetListPtr texture_assets;
@@ -737,7 +738,7 @@ macro void? loadAssets(path)
 		}
         loadAssetsRecursively(path)!;
         
-        $if $feature(_DEBUG):
+        $if $feat(_DEBUG):
             //pAssetsLib.listAssets();
         $endif
     }; // end @profile_zone
@@ -763,7 +764,7 @@ import std::io;
 import thirdparty::raylib5::rl;
 //import game::misc::hm;
 import tiny::xml;
-import game::main; // for file logging or console logging
+import main; // for file logging or console logging
 import game::assets::astmng;
 // end_region
 
@@ -1032,7 +1033,7 @@ import std::io;
 import thirdparty::raylib5::rl;
 //import game::misc::hm;
 import tiny::xml;
-import game::main; // for file logging or console logging
+import main; // for file logging or console logging
 import game::assets::astmng;
 import std::collections::list, std::collections::map;
 // end_region

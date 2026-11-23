@@ -43,9 +43,8 @@
 // Perhaps there's a issue with audio streams and lp_mpeg mp2 sound!?
 // Right now for my sanity, I will try play audio seperate from videos, because that seems to work,
 // the issue will be to syncronize those with the video...
-module engine::sys::videoplay::vid @private @if($feature(VIDEO_PLAYBACK_ENABLE));
+module engine::sys::videoplay::vid @private @feat(VIDEO_PLAYBACK_ENABLE);
 
-import game::main;
 import std::io;
 import engine::misc;
 import engine::logging::log;

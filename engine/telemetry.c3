@@ -33,7 +33,7 @@ import engine::misc;
 import thirdparty::raylib5::rl;
 
 // used only if tracy is enabled
-const TRACY_ENABLE_ZONE @if($feature(TRACY_ENABLE)) = 1;
+const TRACY_ENABLE_ZONE @feat(TRACY_ENABLE) = 1;
 //
 
 <*
@@ -41,7 +41,7 @@ const TRACY_ENABLE_ZONE @if($feature(TRACY_ENABLE)) = 1;
 *>
 macro @profile_zone(String name, $x = ON; @body()) @builtin
 {
-$if $feature(_PROFILE):
+$if $feat(_PROFILE):
     $if $x == ON:
         var start_time = rl::getTime(); // in seconds
         defer

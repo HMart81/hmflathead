@@ -36,7 +36,7 @@ import std::collections::list, std::collections::pair;
 // end_region
 
 // region custom imports
-import game::main;
+import main;
 import thirdparty::raylib5::rl;
 import engine::misc;
 import engine::filesystem::fs;
@@ -1112,7 +1112,7 @@ fn float? IniCMD.toFloat(&self, float default_value = 0.0f) @inline
 	if(self.cmd.second.len && self.type == FLOAT) {
 		return self.cmd.second.to_float()!;
 	}
-	$if $feature(_DEBUG):
+	$if $feat(_DEBUG):
 		log::warning(FILE, "Default value was return for ini variable '%s'", self.cmd.first);
 	$endif
     return default_value;
@@ -1124,7 +1124,7 @@ fn int? IniCMD.toInt(&self, int default_value = 0) @inline
 	{
 		return self.cmd.second.to_int()!;
 	}
-	$if $feature(_DEBUG):
+	$if $feat(_DEBUG):
 		log::warning(FILE, "Default value was return for ini variable '%s'", self.cmd.first);
 	$endif
     return default_value;
@@ -1149,7 +1149,7 @@ fn bool? IniCMD.toBool(&self, bool default_value = false) @inline
 		}
 	}
     
-	$if $feature(DEVELOPER):
+	$if $feat(DEVELOPER):
 		unreachable();
 	$else
     	return default_value;

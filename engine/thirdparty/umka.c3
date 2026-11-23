@@ -37,16 +37,16 @@
 *   The reality is, you don't need to know the full data-layout for most of them to use this... 
 *   (but don't try storing the structs by value after that...)
 ****************************************************************/
-module umkadyarr @private @if($feature(UMKA_ENABLE));
+module umkadyarr @private @feat(UMKA_ENABLE);
 
-struct DynArray <Type> @if($feature(UMKA_ENABLE))                                                      
+struct DynArray <Type> @feat(UMKA_ENABLE)                                                      
 {
   void* internal;
   long itemSize;
   Type* data;
 }
 
-module thirdparty::scripting::umka @if($feature(UMKA_ENABLE));
+module thirdparty::scripting::umka @feat(UMKA_ENABLE);
 
 import std::io;
 import engine::logging::log;

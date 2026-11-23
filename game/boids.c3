@@ -26,7 +26,7 @@
 # 
 *********************************************************************************************************************************************/
 
-module game::effects::boid @if($defined(BOIDS_ENABLE));
+module game::effects::boid @feat(BOIDS_ENABLE);
 
 // region modules
 import std::core::mem::allocator; // arena allocator
@@ -35,7 +35,7 @@ import std::io;
 import std::math;
 import std::sort;
 import std::time;
-import game::main;
+import main;
 import engine::misc;
 import game::assets::sprt;
 import engine::serialize::svs; // save system

@@ -43,7 +43,7 @@ import std::io;
 import std::core::mem; // for malloc/new
 import std::math;
 import std::collections::list;
-import game::main;
+import main;
 import engine::gui;
 import engine::misc;
 import engine::sys::ctype;
@@ -290,11 +290,11 @@ struct RenderView (SaveSystemInterface)
     // render view position/origin
     Vec2f origin; // changes xy position IN PIXELS
     Vec2f default_origin; // should be constant xy position IN PIXELS
-    Bounds bounds; // square area of the entire view
+    HMBounds bounds; // square area of the entire view
 
-    RLCamera2D camera  @if ($defined(ENABLE_CAMERA_VIEW));
+    RLCamera2D camera  @if($defined(ENABLE_CAMERA_VIEW));
 	// for the future, not used for now...
-    RLCamera3D camera3D @if ($defined(ENABLE_CAMERA3D_VIEW)); 
+    RLCamera3D camera3D @if($defined(ENABLE_CAMERA3D_VIEW)); 
 }
 
 fn void RenderView.save(&self, SaveFile* file) @dynamic {
@@ -450,7 +450,7 @@ fn void takeScreenShot() @deprecated
         if(catch excuse = sucess) {
             log::warning(Where.FILE, "Cannot create screenshots directory at: %s!\n\t -> excuse: %s", 
                         shots_dir, excuse);
-            $if $feature(_DEBUG):
+            $if $feat(_DEBUG):
                 unreachable();
             $endif
         } 
@@ -509,7 +509,7 @@ fn void moveScreenShots()
     if(catch excuse = sucess) { // will ignore if the directory already exists
         log::warning(FILE, "Cannot create screenshots directory at: %s!\n\t -> excuse: %s", 
                     shots_dir, excuse);
-        $if $feature(_DEBUG):
+        $if $feat(_DEBUG):
             unreachable("Cannot create screenshots directory at: %s!\n\t -> excuse: %s", 
                     shots_dir, excuse);
         $endif
@@ -565,12 +565,12 @@ fn void RenderView.showModelViewAxis(&self)
     rl::drawLineV(start, end, {10, 255, 15, 127});
 }
 
-fn void RenderView.updateTarget(&self) @inline @if ($defined(ENABLE_CAMERA_VIEW))
+fn void RenderView.updateTarget(&self) @inline @if($defined(ENABLE_CAMERA_VIEW))
 {
     self.camera.target = self.getOrigin();
 }
 
-fn Vec2f RenderView.getTarget(&self) @inline @if ($defined(ENABLE_CAMERA_VIEW))
+fn Vec2f RenderView.getTarget(&self) @inline @if($defined(ENABLE_CAMERA_VIEW))
 {
     return (Vec2f)self.camera.target;
 }
@@ -588,7 +588,7 @@ fn Vec2f RenderView.getOrigin(&self) @inline
     return self.origin;
 }
 
-fn void RenderView.resetCamera(&self) @if ($defined(ENABLE_CAMERA_VIEW))
+fn void RenderView.resetCamera(&self) @if($defined(ENABLE_CAMERA_VIEW))
 {
     // reset camera position
     self.setOrigin(self.default_origin);
@@ -600,7 +600,7 @@ fn void RenderView.resetCamera(&self) @if ($defined(ENABLE_CAMERA_VIEW))
     self.camera.zoom = 1.0f;
 }
 
-fn void RenderView.cameraControls(&self) @if ($defined(ENABLE_CAMERA_VIEW))
+fn void RenderView.cameraControls(&self) @if($defined(ENABLE_CAMERA_VIEW))
 {
     if(game::developer.getBool())
     {
@@ -686,7 +686,7 @@ fn void RenderView.updateBounds(&self)
     };
 }
 
-fn B2AABBox RenderView.fromBoundsToPhysicsAABB(&self) @if($feature(PHYSICS_BOX2D))
+fn B2AABBox RenderView.fromBoundsToPhysicsAABB(&self) @feat(PHYSICS_BOX2D)
 {
 	B2AABBox bb;
 	bb.lowerBound = self.bounds.minc; //rl::getScreenToWorld2D( { 0.0f, (float)self.h }, self.camera ).arr;
@@ -743,7 +743,7 @@ fn Vec2f RenderView.toCanonicalViewSpace(&self, Vec2i vec) @unused
     return {x, y};
 }
 
-fn void RenderView.drawCameraSpaceCoords(&self) @if($defined(ENABLE_CAMERA_VIEW) &&& $feature(_DEBUG))
+fn void RenderView.drawCameraSpaceCoords(&self) @if($defined(ENABLE_CAMERA_VIEW) &&& $feat(_DEBUG))
 {
 	if(editor::isOpen(&game::pContext.editor)) return;
 
@@ -890,7 +890,7 @@ $endif
         // physics debug drawing
         // NOTE(HM) this is done here because I want it to draw
         // before/behind the gui and other debug stuff at the same time as the game entities.
-        $if $feature(PHYSICS_BOX2D):
+        $if $feat(PHYSICS_BOX2D):
 			if(game::db_drawPhysics.getBool()) {
 				game_context.physWorldId.debugDraw(&game_context.phys_debug);
 			}
@@ -984,7 +984,7 @@ fn bool isPointInside(Vec2f point, RenderView* view)
 module game::camview::postprocess::pp;
 
 import std::io;
-import game::main;
+import main;
 import std::collections::list;
 import thirdparty::raylib5::rl;
 import engine::filesystem::fs;
@@ -1026,7 +1026,7 @@ fn void HMPostProcess.loadPPShader(&self, String _name)
 	else
 	{
 		String error_msg = string::tformat("failed to load required post process shader %s!", _name);
-		$if $feature(_DEBUG):
+		$if $feat(_DEBUG):
         	unreachable(error_msg);
 		$else
 			log::warning(FILE, error_msg);

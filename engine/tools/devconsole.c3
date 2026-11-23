@@ -26,7 +26,7 @@
 # 
 *********************************************************************************************************************************************/
 /* unfinished delete
-module engine::tools::console @private @if($feature(MICROUI_ENABLE) &&& !$feature(RGUI_ENABLE));
+module engine::tools::console @private @feat($feat(MICROUI_ENABLE) &&& !$feat(RGUI_ENABLE));
 
 import std::io, std::core::ascii, std::collections::list;
 import std::math;
@@ -39,7 +39,7 @@ import engine::platform::win32;
 import engine::sys::render2d::r2d;
 import std::os::win32;
 import engine::logging::log;
-import game::main;
+import main;
 import game::material::mat;
 
 const LINE_WIDTH = 78;

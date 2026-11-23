@@ -41,29 +41,29 @@ fn void register_cvars() {
     cvar::@register(&db_showBounds);
 }
 
-struct Bounds (Printable) @packed 
+struct HMBounds (Printable) @packed 
 {
     Vec2f maxc;
     Vec2f minc;
 }
 
-fn sz? Bounds.to_format(&self, Formatter* f) @dynamic 
+fn sz? HMBounds.to_format(&self, Formatter* f) @dynamic 
 {
-    return f.printf(`Bounds { .maxc = %s, .minc = %s, }`, self.maxc, self.minc);
+    return f.printf(`HMBounds { .maxc = %s, .minc = %s, }`, self.maxc, self.minc);
 }
 
 <*
  @param [in] rect : "rectangle to get data from"
  @require rect != null
 *>
-fn Bounds Bounds.fromRect(&self, RLRectangle* rect) @inline {
+fn HMBounds HMBounds.fromRect(&self, RLRectangle* rect) @inline {
     Vec2f size = rect.getSize();
     self.maxc  = rect.getPosition();
     self.minc  = self.maxc + misc::VEC_RIGHT * size.x + misc::VEC_DOWN * size.y;
     return *self;
 }
 
-fn RLRectangle Bounds.toRect(&self) @inline {
+fn RLRectangle HMBounds.toRect(&self) @inline {
 	Vec2f size = (self.minc - self.maxc);
 	return {
 		.x = 0,
@@ -73,7 +73,7 @@ fn RLRectangle Bounds.toRect(&self) @inline {
 	};
 }
 
-fn void Bounds.debugDraw(self) {
+fn void HMBounds.debugDraw(self) {
 	// Right now the bounds size are in pixels
 	rl::drawCircle((int)self.maxc.x, (int)self.maxc.y, 2.0f, rl::SKYBLUE);
 	rl::drawCircle((int)self.minc.x, (int)self.minc.y, 2.0f, rl::SKYBLUE);
@@ -84,14 +84,14 @@ fn void Bounds.debugDraw(self) {
     rl::drawRectangleLinesEx(misc::makeRect(self.maxc, {size.x, size.y}), 2.5f, rl::YELLOW);
 }
 
-fn void Bounds.set(&self, Vec2f minc, Vec2f maxc) @inline 
+fn void HMBounds.set(&self, Vec2f minc, Vec2f maxc) @inline 
 {
     self.maxc = maxc;
     self.minc = minc;
 }
 
 ////
-fn Vec2f Bounds.get(&self, usz index ) @operator([]) 
+fn Vec2f HMBounds.get(&self, usz index ) @operator([]) 
 {
 	switch(index) 
     {
@@ -104,7 +104,7 @@ fn Vec2f Bounds.get(&self, usz index ) @operator([])
     }
 }
 
-fn Vec2f* Bounds.get_ref(&self, usz index ) @operator(&[]) 
+fn Vec2f* HMBounds.get_ref(&self, usz index ) @operator(&[]) 
 {
 	switch(index) 
     {
@@ -117,64 +117,64 @@ fn Vec2f* Bounds.get_ref(&self, usz index ) @operator(&[])
     }
 }
 
-fn usz Bounds.len(&self) @operator(len)
+fn usz HMBounds.len(&self) @operator(len)
 {
     return self.maxc.len + self.minc.len;
 }
 
-fn void Bounds.set2(&self, usz i, Vec2f new_val) @operator([]=)
+fn void HMBounds.set2(&self, usz i, Vec2f new_val) @operator([]=)
 {
     return (*self)[i] = new_val;
 }
 
-fn Bounds Bounds.addV(self, Vec2f t) @operator(+)
+fn HMBounds HMBounds.addV(self, Vec2f t) @operator(+)
 {
-	return (Bounds) { self.maxc + t, self.minc + t };
+	return (HMBounds) { self.maxc + t, self.minc + t };
 }
 
-fn Bounds* Bounds.peqV(&self, Vec2f t ) @operator(+=)
+fn HMBounds* HMBounds.peqV(&self, Vec2f t ) @operator(+=)
 {
 	self.maxc += t;
 	self.minc += t;
 	return self;
 }
 
-fn Bounds Bounds.mul(&self, Matrix3f* r ) @operator(*)
+fn HMBounds HMBounds.mul(&self, Matrix3f* r ) @operator(*)
 {
-	Bounds bounds;
+	HMBounds bounds;
 	bounds.fromTransformedBounds(VEC2_ZERO, r );
 	return bounds;
 }
 
-fn Bounds* Bounds.muleq(&self, Matrix3f* r ) @operator(*=)
+fn HMBounds* HMBounds.muleq(&self, Matrix3f* r ) @operator(*=)
 {
 	self.fromTransformedBounds(VEC2_ZERO, r );
 	return self;
 }
 
-fn Bounds Bounds.addOther(&self, Bounds* a ) @operator(+)
+fn HMBounds HMBounds.addOther(&self, HMBounds* a ) @operator(+)
 {
-	Bounds newBounds;
+	HMBounds newBounds;
 	newBounds = *self;
 	newBounds.addBounds( a );
 	return newBounds;
 }
 
-// fn Bounds* Bounds.peqB(&self, Bounds* a) @operator(+=)
+// fn HMBounds* HMBounds.peqB(&self, HMBounds* a) @operator(+=)
 // {
-	// Bounds.addBounds( a );
+	// HMBounds.addBounds( a );
 	// return self;
 // }
 
-fn Bounds Bounds.minusB(&self, Bounds* a) @operator(-)
+fn HMBounds HMBounds.minusB(&self, HMBounds* a) @operator(-)
 {
 	assert( self.minc.x - self.maxc.x > a.minc.x - a.maxc.x &&
 				self.minc.y - self.maxc.y > a.minc.y - a.maxc.y);
-	return (Bounds) {(Vec2f){self.maxc.x + a.minc.x, self.maxc.y + a.minc.y},
+	return (HMBounds) {(Vec2f){self.maxc.x + a.minc.x, self.maxc.y + a.minc.y},
 					  (Vec2f){self.minc.x + a.maxc.x, self.minc.y + a.maxc.y}};
 }
 
-fn Bounds* Bounds.minusEq(&self, Bounds* a) @operator(-=)
+fn HMBounds* HMBounds.minusEq(&self, HMBounds* a) @operator(-=)
 {
 	assert(self.minc.x - self.maxc.x > a.minc.x - a.maxc.x &&
 		   self.minc.y - self.maxc.y > a.minc.y - a.maxc.y);
@@ -184,7 +184,7 @@ fn Bounds* Bounds.minusEq(&self, Bounds* a) @operator(-=)
 }
 ////
 
-fn Bounds Bounds.addBB(self, Bounds other) @operator_s(+)
+fn HMBounds HMBounds.addBB(self, HMBounds other) @operator_s(+)
 {
     return {
         self.maxc + other.maxc,
@@ -197,7 +197,7 @@ fn Bounds Bounds.addBB(self, Bounds other) @operator_s(+)
     // @require other != null
     // @ensure (return.maxc - return.minc).length() > 0
 // *>
-// fn Bounds Bounds.sub(self, Bounds* other) @operator_s(-)
+// fn HMBounds HMBounds.sub(self, HMBounds* other) @operator_s(-)
 // {
     // return {
         // self.maxc - other.maxc,
@@ -209,7 +209,7 @@ fn Bounds Bounds.addBB(self, Bounds other) @operator_s(+)
     @param [in] other : "other bounds to do somation with"
     @require other != null
 *>
-fn void Bounds.pequals(&self, Bounds* other) @operator(+=)
+fn void HMBounds.pequals(&self, HMBounds* other) @operator(+=)
 {
     self.maxc = self.maxc + other.maxc;
     self.minc = self.maxc + other.minc;
@@ -220,13 +220,13 @@ fn void Bounds.pequals(&self, Bounds* other) @operator(+=)
     // @require other != null
     // @ensure (self.maxc - self.minc).length() > 0
 // *>
-// fn void Bounds.mequals(&self, Bounds* other) @operator(-=)
+// fn void HMBounds.mequals(&self, HMBounds* other) @operator(-=)
 // {
     // self.maxc = self.maxc - other.maxc;
     // self.minc = self.maxc - other.minc;
 // }
 
-fn void Bounds.setRect(&self, RLRectangle rect) @inline 
+fn void HMBounds.setRect(&self, RLRectangle rect) @inline 
 {
     self.maxc = rect.pos;
     self.minc = self.maxc + misc::VEC_RIGHT * rect.w + misc::VEC_DOWN * rect.h;
@@ -236,7 +236,7 @@ fn void Bounds.setRect(&self, RLRectangle rect) @inline
     @param [in] a : "other bounds to compare too"
     @require a != null
 *>
-fn bool Bounds.compare(&self, Bounds* a ) @operator(==)
+fn bool HMBounds.compare(&self, HMBounds* a ) @operator(==)
 {
     return (self.minc == a.minc && self.maxc == a.maxc);
 }
@@ -245,7 +245,7 @@ fn bool Bounds.compare(&self, Bounds* a ) @operator(==)
     @param [in] a : "other bounds to compare too"
     @require a != null
 *>
-fn bool Bounds.less_than(&self, Bounds* a ) @operator(<)
+fn bool HMBounds.less_than(&self, HMBounds* a ) @operator(<)
 {
     return (self.minc.x < a.minc.x &&
 			self.minc.y < a.minc.y &&
@@ -254,30 +254,30 @@ fn bool Bounds.less_than(&self, Bounds* a ) @operator(<)
 			);
 }
 
-fn void Bounds.clear(&self) @inline 
+fn void HMBounds.clear(&self) @inline 
 {
 	self.maxc.x = self.maxc.y = misc::INFINITY;
 	self.minc.x = self.minc.y = -misc::INFINITY;
 }
 
-fn void Bounds.zero(&self) @inline 
+fn void HMBounds.zero(&self) @inline 
 {
 	self.maxc.x = self.maxc.y =
 	self.minc.x = self.minc.y = 0.0f;
 }
 
-fn Vec2f Bounds.getCenter(&self) @inline {
+fn Vec2f HMBounds.getCenter(&self) @inline {
     return (Vec2f) {( self.minc.x + self.maxc.x ) * 0.5f, ( self.minc.y + self.maxc.y ) * 0.5f };
     //return (self.maxc + self.minc) * 0.5f;
 }
 
-fn float Bounds.getVolume(&self) @inline {
+fn float HMBounds.getVolume(&self) @inline {
     if(self.maxc.x >= self.minc.x || self.maxc.y >= self.minc.y) return 0.0f;
     
 	return ( (self.minc.x - self.maxc.x ) * ( self.minc.y - self.maxc.y ) );
 }
 
-fn float Bounds.getRadius(&self) @inline {
+fn float HMBounds.getRadius(&self) @inline {
 	float total, b0, b1;
 	for (int i = 0; i < 2; i++ ) {
 		b0 = (float)math::abs( self.maxc[i] );
@@ -291,7 +291,7 @@ fn float Bounds.getRadius(&self) @inline {
 	return math::sqrt( total );
 }
 
-fn float Bounds.getRadiusUsingCenter(&self, Vec2f* center ) @inline {
+fn float HMBounds.getRadiusUsingCenter(&self, Vec2f* center ) @inline {
 	float total, b0, b1;
 	for (int i = 0; i < 2; i++ ) {
 		b0 = (float)math::abs( (*center)[i] - self.maxc[i] );
@@ -305,11 +305,11 @@ fn float Bounds.getRadiusUsingCenter(&self, Vec2f* center ) @inline {
 	return math::sqrt( total );
 }
 
-fn bool Bounds.isCleared(&self) @inline {
+fn bool HMBounds.isCleared(&self) @inline {
 	return self.maxc.x > self.minc.x;
 }
 
-fn bool Bounds.addPoint(&self, Vec2f* v ) @inline {
+fn bool HMBounds.addPoint(&self, Vec2f* v ) @inline {
 	bool expanded = false;
 	if ( v.x < self.maxc.x) {
 		self.maxc.x = v.x;
@@ -334,7 +334,7 @@ fn bool Bounds.addPoint(&self, Vec2f* v ) @inline {
     @param [in] a : "other bounds to add to us"
     @require a != null
 *>
-fn bool Bounds.addBounds(&self, Bounds* a ) @inline {
+fn bool HMBounds.addBounds(&self, HMBounds* a ) @inline {
 	bool expanded = false;
 	if ( a.maxc.x < self.maxc.x ) {
 		self.maxc.x = a.maxc.x;
@@ -355,8 +355,8 @@ fn bool Bounds.addBounds(&self, Bounds* a ) @inline {
 	return expanded;
 }
 
-fn Bounds Bounds.intersect(&self, Bounds* a ) @inline {
-	Bounds n;
+fn HMBounds HMBounds.intersect(&self, HMBounds* a ) @inline {
+	HMBounds n;
 	n.maxc.x = ( a.maxc.x > self.maxc.x ) ? a.maxc.x : self.maxc.x;
 	n.maxc.y = ( a.maxc.y > self.maxc.y ) ? a.maxc.y : self.maxc.y;
 	n.minc.x = ( a.minc.x < self.minc.x ) ? a.minc.x : self.minc.x;
@@ -364,7 +364,7 @@ fn Bounds Bounds.intersect(&self, Bounds* a ) @inline {
 	return n;
 }
 
-fn Bounds* Bounds.intersectSelf(&self, Bounds* a ) @inline {
+fn HMBounds* HMBounds.intersectSelf(&self, HMBounds* a ) @inline {
 	if ( a.maxc.x > self.maxc.x ) {
 		self.maxc.x = a.maxc.x;
 	}
@@ -380,14 +380,14 @@ fn Bounds* Bounds.intersectSelf(&self, Bounds* a ) @inline {
 	return self;
 }
 
-fn Bounds Bounds.expand(self, float d ) @inline {
-    Bounds bounds;
+fn HMBounds HMBounds.expand(self, float d ) @inline {
+    HMBounds bounds;
     bounds.maxc = (Vec2f){ self.maxc.x - d, self.maxc.y - d };
     bounds.minc = (Vec2f){ self.minc.x + d, self.minc.y + d };
 	return bounds;
 }
 
-fn Bounds* Bounds.expandSelf(&self, float d ) @inline {
+fn HMBounds* HMBounds.expandSelf(&self, float d ) @inline {
 	self.maxc.x -= d;
 	self.maxc.y -= d;
 	self.minc.x += d;
@@ -401,7 +401,7 @@ fn Bounds* Bounds.expandSelf(&self, float d ) @inline {
 |rx sy ty| = |m10 m11 m12|
 | 0  0  1|   |m20 m21 m22|
 */
-fn void Bounds.fromTransformedBounds(&self, Vec2f origin, Matrix3f* axis ) {
+fn void HMBounds.fromTransformedBounds(&self, Vec2f origin, Matrix3f* axis ) {
 	Vec2f center, extents, rotatedExtents;
 
 	center  = (self.maxc + self.minc) * 0.5f;
@@ -425,18 +425,18 @@ fn void Bounds.fromTransformedBounds(&self, Vec2f origin, Matrix3f* axis ) {
 |m20 m21 m22|   |m02 m12 m22|
 */
 
-fn Bounds Bounds.translate(&self, Vec2f translation ) @inline {
+fn HMBounds HMBounds.translate(&self, Vec2f translation ) @inline {
 	self.maxc += translation;
 	self.minc += translation;
 	return *self;
 }
 
-fn Bounds* Bounds.rotate(&self, Matrix3f* rotation ) @inline { 
+fn HMBounds* HMBounds.rotate(&self, Matrix3f* rotation ) @inline { 
 	self.fromTransformedBounds( (Vec2f){0,0}, rotation );
 	return self;
 }
 
-fn bool Bounds.containsPoint(&self, Vec2f p ) @inline {
+fn bool HMBounds.containsPoint(&self, Vec2f p ) @inline {
 	if ( p.x < self.maxc.x || p.y < self.maxc.y || p.x > self.minc.x || p.y > self.minc.y) {
 		return false;
 	}
@@ -447,7 +447,7 @@ fn bool Bounds.containsPoint(&self, Vec2f p ) @inline {
     @param [in] a : "other bounds to test with"
     @require a != null
 *>
-fn bool Bounds.intersectsOther(&self, Bounds* a) @inline {
+fn bool HMBounds.intersectsOther(&self, HMBounds* a) @inline {
 	if (a.minc.x < self.maxc.x || a.minc.y < self.maxc.y ||
 		a.maxc.x > self.minc.x || a.maxc.y > self.minc.y) {
 		return false;
@@ -455,7 +455,7 @@ fn bool Bounds.intersectsOther(&self, Bounds* a) @inline {
 	return true;
 }
 
-fn void Bounds.axisProjection(&self, Vec2f* dir, float* min, float* max ) {
+fn void HMBounds.axisProjection(&self, Vec2f* dir, float* min, float* max ) {
 	float d1, d2;
 	Vec2f center, extents;
 

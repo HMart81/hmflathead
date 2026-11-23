@@ -5,7 +5,6 @@ import std::io;
 import std::math;
 import std::core::mem; // for malloc
 import std::collections::list;
-import game::main;
 import engine::gui;
 import game::gui::menu;
 import engine::misc;
@@ -56,7 +55,7 @@ struct Frame @local
 {
     RLTexture2D texture; // @deprecated
 	FrameKind kind; 
-	VidMovie* movie @if($feature(VIDEO_PLAYBACK_ENABLE));
+	VidMovie* movie @feat(VIDEO_PLAYBACK_ENABLE);
     int duration;
 	struct text // @deprecated
 	{
@@ -91,7 +90,7 @@ fn void deinit_frame(Frame* frame) @local
 				rl::unloadTexture(frame.texture);
 			}
 		case frame.kind == VIDEO:
-			$if $feature(VIDEO_PLAYBACK_ENABLE):
+			$if $feat(VIDEO_PLAYBACK_ENABLE):
 				if(frame.movie != null) {
 					if(frame.movie.is_playing) frame.movie.stop();
 					frame.movie = null;
@@ -118,7 +117,7 @@ fn void draw(Frame* frame) @local
 				rl::drawTexturePro(frame.texture, frame.source_rect, frame.dest_rect, {0, 0}, 0.0f, frame.color);
 			}
 		case frame.kind == VIDEO:
-			$if $feature(VIDEO_PLAYBACK_ENABLE):
+			$if $feat(VIDEO_PLAYBACK_ENABLE):
 				if(frame.movie != null) {
 					frame.movie.draw();
 				}
@@ -216,7 +215,7 @@ fn void makeColorFrame(RLColor _color, IntroAnimation* anim) @local
     @param [&inout] anim : "animation to push the frame into"
 	@param _audio : "enable audio for video"
 *>
-fn void makeVideoFrame(String video_name, IntroAnimation* anim, bool _audio = false, String audio_name = "") @local @if($feature(VIDEO_PLAYBACK_ENABLE))
+fn void makeVideoFrame(String video_name, IntroAnimation* anim, bool _audio = false, String audio_name = "") @local @feat(VIDEO_PLAYBACK_ENABLE)
 {
     int w = pGame.screen.w;
     int h = pGame.screen.h;
@@ -315,7 +314,7 @@ fn void init_anim_timing(IntroAnimation* anim, int time_ms) @local
 
         if(frame.movie == null)
         {
-            $if $feature(_DEBUG):
+            $if $feat(_DEBUG):
                 unreachable();
             $else
                 continue; // skip frames with no video
@@ -438,7 +437,7 @@ fn void update(IntroAnimation* anim)
                     }
                 }
             case VIDEO:
-                $if $feature(VIDEO_PLAYBACK_ENABLE):
+                $if $feat(VIDEO_PLAYBACK_ENABLE):
                     if(current_time > current_frame.duration) {
                         anim.current_frame_index += 1; // go to next frame
                         if(anim.current_frame_index >= anim.frames.len()) {

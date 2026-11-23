@@ -28,7 +28,7 @@
 // Usage:: plmpeg library c3 bindings for MPEG1 video and MP2 audio playback.
 // @incomplete
 
-module thirdparty::plmpeg::plm; //@if($feature(LPMPEG_ENABLE));
+module thirdparty::plmpeg::plm; //@feat($feat(LPMPEG_ENABLE));
 
 import std::io;
 import thirdparty::plmpeg::plm::buffer @public;

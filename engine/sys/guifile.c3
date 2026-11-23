@@ -30,7 +30,7 @@
 module engine::sys::guip @private;
 
 // region imports
-import game::main; // for file logging or console logging
+import main; // for file logging or console logging
 import engine::misc;
 import engine::sys::framework::glsl;
 import std::io, std::math;
@@ -166,7 +166,7 @@ fn GUIWindow*? parse(XmlDoc* doc, String file_path)
     // now parse each xml node
     foreach (node : doc.rootNode.children)
     {
-        $if $feature(_DEBUG):
+        $if $feat(_DEBUG):
             if(node == null) 
             {
                 log::error(FILE, "A null xml node was found in file '%s'!!", file_path);
@@ -183,7 +183,7 @@ fn GUIWindow*? parse(XmlDoc* doc, String file_path)
                 return parse_window(node, file_path);
             default:
                 log::warning(FILE, "Unexpected node '%s' in guip file '%s'", node.name, file_path);
-                $if $feature(_DEBUG):
+                $if $feat(_DEBUG):
                     return GUIP_PARSING_ERROR~;
                 $else
                     continue;

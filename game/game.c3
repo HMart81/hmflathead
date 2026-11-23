@@ -319,11 +319,11 @@ const int SMALLCHAR_HEIGHT @Hardcode @public = 16;
 const int BIGCHAR_WIDTH	 @Hardcode @public = 16;
 const int BIGCHAR_HEIGHT @Hardcode @public = 16;
 
-const PHYS_DEFAULT_SUBSTEPS @if($feature(PHYSICS_BOX2D)) = 4;
-const PHYS_DEFAULT_TIMESTEP @if($feature(PHYSICS_BOX2D)) = 1.0f / 60.0f; // 60fps @Hardcode
+const PHYS_DEFAULT_SUBSTEPS @feat(PHYSICS_BOX2D) = 4;
+const PHYS_DEFAULT_TIMESTEP @feat(PHYSICS_BOX2D) = 1.0f / 60.0f; // 60fps @Hardcode
 // world/game gravity info (still not used for anything...)
-const B2Vec2 GRAVITY_VEC    @if($feature(PHYSICS_BOX2D)) = {0.0f, -10.0f};
-const float GRAVITY_VALUE   @if($feature(PHYSICS_BOX2D)) = 9.80665f; // meters/sec2
+const B2Vec2 GRAVITY_VEC    @feat(PHYSICS_BOX2D) = {0.0f, -10.0f};
+const float GRAVITY_VALUE   @feat(PHYSICS_BOX2D) = 9.80665f; // meters/sec2
 //
 
 // Game Info
@@ -331,7 +331,7 @@ import engine::sys::licensee;
 alias lic = module engine::sys::licensee;
 //
 
-alias B2dListBodiesToBeRemoved @if($feature(PHYSICS_BOX2D)) = List{B2BodyId};
+alias B2dListBodiesToBeRemoved @feat(PHYSICS_BOX2D) = List{B2BodyId};
 // #endregion Constants
 
 // #region Alias
@@ -419,10 +419,10 @@ struct Game (SaveSystemInterface) @local
     //
 
     // microui
-    MU_Context* mu_ctx @if($feature(MICROUI_ENABLE)); // microui context, used for the micro gui system
-    bool show_microui_test_frames @if($feature(MICROUI_ENABLE));
-    bool show_statistics @if($feature(MICROUI_ENABLE)); // show statistics window
-    RLTexture2D mu_font_atlas @if($feature(MICROUI_ENABLE)); // microui font texture
+    MU_Context* mu_ctx @feat(MICROUI_ENABLE); // microui context, used for the micro gui system
+    bool show_microui_test_frames @feat(MICROUI_ENABLE);
+    bool show_statistics @feat(MICROUI_ENABLE); // show statistics window
+    RLTexture2D mu_font_atlas @feat(MICROUI_ENABLE); // microui font texture
     //
 
     // script engine
@@ -430,20 +430,20 @@ struct Game (SaveSystemInterface) @local
     //
 
     // mujs script engine
-    MUState* mujs_state @if($feature(MUJS_ENABLE)); // mujs context
+    MUState* mujs_state @feat(MUJS_ENABLE); // mujs context
     //
 
     // LUA script engine
-    LUAState* lua_state @if($feature(LUA_ENABLE)); // lua context
-    LUADebug* lua_debug @if($feature(LUA_ENABLE)); // lua debug context
+    LUAState* lua_state @feat(LUA_ENABLE); // lua context
+    LUADebug* lua_debug @feat(LUA_ENABLE); // lua debug context
     //
 
     GameMode mode;
 	PerfOption quality;
 
     // Game editor
-    Editor editor @if($feature(MICROUI_ENABLE));
-    //bool show_editor @if($feature(MICROUI_ENABLE));
+    Editor editor @feat(MICROUI_ENABLE);
+    //bool show_editor @feat(MICROUI_ENABLE));
     //
 
     // defaults
@@ -523,15 +523,15 @@ struct Game (SaveSystemInterface) @local
     BoidManager boidManager1 @if($defined(BOIDS_ENABLE));
         
     // physics engine world
-    B2WorldId physWorldId @if($feature(PHYSICS_BOX2D));
-    bool pause_phys_simulation @if($feature(PHYSICS_BOX2D));
-    float phys_time_step @if($feature(PHYSICS_BOX2D));
-    int phys_substep_count @if($feature(PHYSICS_BOX2D)); // simulation quality;
-    B2DebugDraw phys_debug @if($feature(PHYSICS_BOX2D));
+    B2WorldId physWorldId @feat(PHYSICS_BOX2D);
+    bool pause_phys_simulation @feat(PHYSICS_BOX2D);
+    float phys_time_step @feat(PHYSICS_BOX2D);
+    int phys_substep_count @feat(PHYSICS_BOX2D); // simulation quality;
+    B2DebugDraw phys_debug @feat(PHYSICS_BOX2D);
     
-    B2BodyId    phys_grd_bodyid @if($feature(PHYSICS_BOX2D));
-	B2dListBodiesToBeRemoved phys_BodiesScheduledForRemoval @if($feature(PHYSICS_BOX2D));
-    B2Polygon   phys_grd_box @if($feature(PHYSICS_BOX2D));
+    B2BodyId    phys_grd_bodyid @feat(PHYSICS_BOX2D);
+	B2dListBodiesToBeRemoved phys_BodiesScheduledForRemoval @feat(PHYSICS_BOX2D);
+    B2Polygon   phys_grd_box @feat(PHYSICS_BOX2D);
     //
     
     String app_name;
@@ -580,7 +580,7 @@ Game* pContext @public = &local_game;
 
 // Video playback
 // Place where game videos data are stored
-VideoCabinet* vidCabinet @public @if($feature(VIDEO_PLAYBACK_ENABLE));
+VideoCabinet* vidCabinet @public @feat(VIDEO_PLAYBACK_ENABLE);
 // end
 
 fn void Game.save(&self, SaveFile* file) @dynamic
@@ -747,7 +747,7 @@ fn void freeEntities(Game* game) @MyInline
     }
 }
 
-fn void b2d_mark_for_removal(B2BodyId bid) @if($feature(PHYSICS_BOX2D))
+fn void b2d_mark_for_removal(B2BodyId bid) @feat(PHYSICS_BOX2D)
 {
 	foreach(_bid : local_game.phys_BodiesScheduledForRemoval)
 	{
@@ -758,7 +758,7 @@ fn void b2d_mark_for_removal(B2BodyId bid) @if($feature(PHYSICS_BOX2D))
 	local_game.phys_BodiesScheduledForRemoval.push(bid);
 }
 
-fn void b2d_remove_marked_bodies() @if($feature(PHYSICS_BOX2D))
+fn void b2d_remove_marked_bodies() @feat(PHYSICS_BOX2D)
 {
 	foreach(bid : local_game.phys_BodiesScheduledForRemoval)
 	{
@@ -1091,7 +1091,7 @@ fn void? loadDefaultAssets(Game* game) @local
     // load required default sound
     game.default_sound = rl::loadSound(game.app_base_folder.tconcat("sounds/default.wav").zstr_tcopy());
     if(rl::isSoundValid(game.default_sound)) {
-        //$if $feature(_DEBUG):
+        //$if $feat(_DEBUG):
             //if(rl::isAudioDeviceReady()) rl::playSound(local_game.default_sound);
         //$endif
     } else {
@@ -1137,7 +1137,7 @@ fn void? Game.loadSettingsFile(&self)
             return ini::FAILED_READ_FILE~;
         }
         // set default settings
-		$if $feature(_DEBUG):
+		$if $feat(_DEBUG):
         ini::setBool(&local_game.settings_data, "video", "fullscreen", false);
 		$else
         ini::setBool(&local_game.settings_data, "video", "fullscreen", true);
@@ -1175,7 +1175,7 @@ fn void Game.unload(&self)
     freeEntities(self);
     self.unloadDefaultAssets();
 
-$if $feature(MICROUI_ENABLE):
+$if $feat(MICROUI_ENABLE):
     if(self.mu_ctx) {
         mem::free(self.mu_ctx);
         self.mu_ctx = null;
@@ -1394,7 +1394,7 @@ fn void gameHandleGeneralControls() @local
         //local_game.msgbox_showing = true;
     //}
 
-	$if $feature(PHYSICS_BOX2D):
+	$if $feat(PHYSICS_BOX2D):
     if (rl::isKeyPressed(rl::KEY_P)) {
         local_game.pause_phys_simulation = !local_game.pause_phys_simulation;
     }
@@ -1435,7 +1435,7 @@ fn void gameHandleGeneralControls() @local
         menu::exit();
     }
 
-$if $feature(MUJS_ENABLE):
+$if $feat(MUJS_ENABLE):
      if(rl::isKeyPressed(rl::KEY_F6)) 
      {
         // TODO(HM) make a file watcher for scripts and automatically reload them
@@ -1510,8 +1510,6 @@ fn void onUpdate() @local
 {
     @profile_zone("Game Update")
     {
-    tracy::@zoneN("gameUpdate", 0)
-    {
         // make game run at lower rate in case window loses focus
 		int max_fps   = local_game.max_fps;
 		if(max_fps <= 0)
@@ -1538,7 +1536,7 @@ fn void onUpdate() @local
 		}
         //////////
 
-		$if $feature(LUA_ENABLE):
+		$if $feat(LUA_ENABLE):
             lua::updateGameLuaGlobals();
         $endif
 
@@ -1557,14 +1555,14 @@ fn void onUpdate() @local
 
         input::manager.update();
 
-		$if $feature(MICROUI_ENABLE):
+		$if $feat(MICROUI_ENABLE):
 			mu::process_input(local_game.mu_ctx);
 		$endif
         gameHandleGeneralControls();
 		//
 
 
-    $if $feature(VIDEO_PLAYBACK_ENABLE):
+    $if $feat(VIDEO_PLAYBACK_ENABLE):
         if(local_game.mode != INTRO)
         {
             // intro does its own video timing
@@ -1578,7 +1576,7 @@ fn void onUpdate() @local
         }
         
         // physics engine
-		$if $feature(PHYSICS_BOX2D):
+		$if $feat(PHYSICS_BOX2D):
         if(local_game.pause_phys_simulation == false && rl::isWindowFocused())
         {
 			//float deltaTime = rl::getFrameTime();
@@ -1739,8 +1737,6 @@ $endif
 		{
             intro::update(&local_game.intro);
         }
-
-    }; // tracy
     }; // profile_zone
 }
 
@@ -1958,7 +1954,7 @@ fn void onDraw(int screenWidth, int screenHeight) @local
             // this is where input pooling and swapping buffers happens
             //rl::endDrawing();
         };
-        $if $feature(TRACY_ENABLE):
+        $if $feat(TRACY_ENABLE):
         tracy::frameMark();
         $endif
         
@@ -2047,7 +2043,7 @@ fn void onPostGUIDraw(int screenWidth, int screenHeight) @public
 fn void onGuiDraw(int screenWidth, int screenHeight) @public @MyInline 
 {
     // videos playback
-    $if $feature(VIDEO_PLAYBACK_ENABLE):
+    $if $feat(VIDEO_PLAYBACK_ENABLE):
         if(local_game.mode != INTRO)
 		{
             vidCabinet.draw();
@@ -2057,7 +2053,7 @@ fn void onGuiDraw(int screenWidth, int screenHeight) @public @MyInline
     // draw custom gui code
     gui::gpWindowManager.draw(screenWidth, screenHeight);
 
-    $if $feature(MICROUI_ENABLE):
+    $if $feat(MICROUI_ENABLE):
         if(local_game.show_microui_test_frames && mu::open_frames.len() == 0)
 		{
 			// disable microui focus if no frames are open
@@ -2219,7 +2215,7 @@ fn void handle_cmdline(String[] args_list)
 {
 	@debug_break(OFF);
 
-    $if $feature(_DEBUG):
+    $if $feat(_DEBUG):
 	/*
 		If the code is compiled in _DEBUG mode, the first argument on the cmdline, 
 		is the path to the executable, so if there's only one argument, there's 
@@ -2247,7 +2243,7 @@ fn void handle_cmdline(String[] args_list)
 		// NOTE(HM) in _DEBUG (-O0) mode the first argument 
 		// of the cmdline, is always the path to the executable.
         // so skip the first argument.
-		$if $feature(_DEBUG):
+		$if $feat(_DEBUG):
         	if(arg_index == 0)
 			{
 				assert(!arg.starts_with("+"));
@@ -2453,7 +2449,7 @@ fn void handle_cmdline(String[] args_list)
 					log::warning(FILE, "cmdline arg '%s' is overriding r_fullscreen cvar value.", cmd_arg); 
 				}
 			case "g_log":
-				$if $feature(_DEBUG):
+				$if $feat(_DEBUG):
 					if(!(bool)(log::g_log.flags & CvFlag.INT)) unreachable();
 				$endif
 				if(ivalue >= 1) {
@@ -2578,7 +2574,7 @@ fn void? onStart(String[] args)
     print_game_version_to_log_file();
     
     // Handle cmdline arguments if any.
-$if $feature(TSODING_FLAG):
+$if $feat(TSODING_FLAG):
     List{ZString} argv;
     defer argv.clear();
 
@@ -3224,7 +3220,7 @@ $endif
     //===============================//
     //========= Init Window ======== //
     String window_name = string::tformat("%s %s %s", local_game.app_name, lic::GAME_VERSION, version::ENGINE);
-    $if $feature(BACKEND_RAYLIB) || $feature(BACKEND_RGFW):
+    $if $feat(BACKEND_RAYLIB) || $feat(BACKEND_RGFW):
        
         WindowHandle window = local_game.render.createWindow(
             title: window_name,
@@ -3315,7 +3311,7 @@ $endif
             {
                 int w,h;
                 Vec2f mpos;
-                $if $feature(BACKEND_RAYLIB) || $feature(BACKEND_RGFW):
+                $if $feat(BACKEND_RAYLIB) || $feat(BACKEND_RGFW):
                     w = local_game.render.getMonitorPhysicalWidth((uint)i);
                     h = local_game.render.getMonitorPhysicalHeight((uint)i);
                     mpos = local_game.render.getMonitorPosition((uint)i);
@@ -3341,7 +3337,7 @@ $endif
 
             local_game.screen.index = displayIndex;
             local_game.screen.id    = displayIndex + 1;
-            $if $feature(BACKEND_RAYLIB) || $feature(BACKEND_RGFW):
+            $if $feat(BACKEND_RAYLIB) || $feat(BACKEND_RGFW):
                 local_game.render.setMainMonitor((uint)local_game.screen.index);
             $else
                 rl::setWindowMonitor((uint)local_game.screen.index);
@@ -3353,7 +3349,7 @@ $endif
     
     // @Todo 
     // Support setting frame rate value on main menu?
-    $if $feature(BACKEND_RAYLIB) || $feature(BACKEND_RGFW):
+    $if $feat(BACKEND_RAYLIB) || $feat(BACKEND_RGFW):
         local_game.screen.displayHz = local_game.render.getMonitorRefreshRate((uint)local_game.screen.index);
     $else
         local_game.screen.displayHz = rl::getMonitorRefreshRate((uint)local_game.screen.index);
@@ -3418,7 +3414,7 @@ $endif
     local_game.view.init(screenWidth, screenHeight);
     log::tofile("---------------------------------------------\n");
 
-$if $feature(_DEBUG):
+$if $feat(_DEBUG):
     // TODO(HM) On release version quit should only be done from main menu (or alt+f4...).
     // it changes the default exit key (default was ESC key)
     String key_name = settings_data.getString("keys", "quit", default_value: "KEY_ESCAPE");
@@ -3432,7 +3428,7 @@ $endif
 // #endregion Window initialization
 
 // #region physics engine
-$if $feature(PHYSICS_BOX2D):
+$if $feat(PHYSICS_BOX2D):
     log::tofile("Starting Physics Engine:");
     log::tofile("---------------------------------------------");
     // TODO(HM) refactor this into a physics engine module that wraps box2d?
@@ -3544,7 +3540,7 @@ $endif
     initFonts();
     //
 
-$if $feature(MICROUI_ENABLE):
+$if $feat(MICROUI_ENABLE):
     // #region MicroUI initialization
     log::tofile("Initializing MicroUI:");
     log::tofile("---------------------------------------------");
@@ -3576,7 +3572,7 @@ $endif
     }
 
     //  init video library
-	$if $feature(VIDEO_PLAYBACK_ENABLE):
+	$if $feat(VIDEO_PLAYBACK_ENABLE):
 	log::tofile("Initializing Video Player:");
     vid::initVideoCabinet(&vidCabinet)!;
 	log::tofile("---------------------------------------------\n");
@@ -3598,7 +3594,7 @@ $if $defined(SCRIPT_ENGINE):
 $endif
 
     // test mujs initialization
-$if $feature(MUJS_ENABLE):
+$if $feat(MUJS_ENABLE):
     local_game.mujs_state = mujs::new_state();
     if(local_game.mujs_state) 
     {
@@ -3623,7 +3619,7 @@ $if $feature(MUJS_ENABLE):
 $endif
 
     // test LUA initialization
-$if $feature(LUA_ENABLE):
+$if $feat(LUA_ENABLE):
     lua::createVirtualMachine(&local_game.lua_state);
     if(local_game.lua_state) 
     {
@@ -3702,7 +3698,7 @@ $if $feature(LUA_ENABLE):
     }
 $endif
 
-$if $feature(UMKA_ENABLE):
+$if $feat(UMKA_ENABLE):
     /*
     Umka* umkaContext = umka::alloc();
     String umScriptMain = local_game.app_base_folder.tconcat("scripts/main.um");
@@ -3889,7 +3885,7 @@ $endif
     $endif
 
     //  init test video
-	$if $feature(VIDEO_PLAYBACK_ENABLE) && $defined(TEST_VIDEO):
+	$if $feat(VIDEO_PLAYBACK_ENABLE) && $defined(TEST_VIDEO):
         if(game::vidCabinet)
 		{
 			//String vid_name = "epiwarn";
@@ -3932,7 +3928,7 @@ fn void onExit()
     // make sure to release all assets last, so you don't try to release a asset that is already released.
     asstManager.releaseAllAssets();
 
-$if $feature(WREN_ENABLE):
+$if $feat(WREN_ENABLE):
     log::tofile("close wren Script Engine: %s", wren::VERSION_STRING);
     log::tofile("---------------------------------------------");
     local_game.script_eng.deinit();
@@ -3940,7 +3936,7 @@ $if $feature(WREN_ENABLE):
     log::tofile("---------------------------------------------\n");
 $endif
 
-$if $feature(ANGEL_ENABLE):
+$if $feat(ANGEL_ENABLE):
     log::tofile("close angel Script Engine: %s", angel::VERSION_STRING);
     log::tofile("---------------------------------------------");
     if(local_game.asEngine != null) {
@@ -3951,7 +3947,7 @@ $if $feature(ANGEL_ENABLE):
     log::tofile("---------------------------------------------\n");
 $endif
 
-$if $feature(MUJS_ENABLE):
+$if $feat(MUJS_ENABLE):
     log::tofile("close mujs Script Engine: %s", mujs::VERSION_STRING);
     log::tofile("---------------------------------------------");
     if(local_game.mujs_state) {
@@ -3963,7 +3959,7 @@ $if $feature(MUJS_ENABLE):
     log::tofile("---------------------------------------------\n");
 $endif
 
-$if $feature(LUA_ENABLE):
+$if $feat(LUA_ENABLE):
     /*
     lua_State * L = luaL_newstate(); 
       luaL_dostring(L, "a = 10 + 5"); 
@@ -3988,7 +3984,7 @@ $if $feature(LUA_ENABLE):
 $endif
 
     // close physics engine
-	$if $feature(PHYSICS_BOX2D):
+	$if $feat(PHYSICS_BOX2D):
     box2d::deinitDebugDraw(&local_game.phys_debug);
     if(local_game.physWorldId.isValid()) {
         log::tofile("Destroying physics engine.");
@@ -3997,7 +3993,7 @@ $endif
     }
     $endif
 
-	$if $feature(VIDEO_PLAYBACK_ENABLE):
+	$if $feat(VIDEO_PLAYBACK_ENABLE):
 	log::tofile("Deinitializing Video Player:");
         if(vidCabinet) {
             vid::deinitVideoCabinet(vidCabinet);
@@ -4020,7 +4016,7 @@ $endif
         misc::freeDebugLines();
     }
 
-    $if $feature(BACKEND_RAYLIB) || $feature(BACKEND_RGFW):
+    $if $feat(BACKEND_RAYLIB) || $feat(BACKEND_RGFW):
         local_game.render.shutdown();
     $else
         rl::closeWindow();
@@ -4235,7 +4231,7 @@ $endif
 
     String key_name;
 
-$if $feature(_DEBUG):
+$if $feat(_DEBUG):
 	KeysPair keys = input::getkeyCodesFrom("move_screenshots", settings_data);
 	if(input::isValidKeysPair(keys))
 	{
@@ -4247,7 +4243,7 @@ $if $feature(_DEBUG):
 	}
 $endif
 
-$if !$feature(_DEBUG):
+$if !$feat(_DEBUG):
     //input::makeKeyboardAction("quit", input::getKeyCodeFromStr(settings_data.getString("quit")), rl::KEY_NULL, (ActionCallBack)&input::quitGame);
 	input::@makeAction({.name = "quit", .kind = KEYBOARD, 
 		.key1 = input::getkeycode("quit", settings_data), 
@@ -4290,48 +4286,40 @@ fn void doOneFrame()
 {
     telem::@profile_zone("Game Loop")
     {
-        $if $feature(BACKEND_RAYLIB) || $feature(BACKEND_RGFW):
+        $if $feat(BACKEND_RAYLIB) || $feat(BACKEND_RGFW):
         while(rl::windowShouldClose() != true) 
         {
-            //@pool()
-            //{
-                tracy::@messageL( "Tick" );
-                tracy::@zoneN("Game loop", 0)
-                {
-                    @profile_zone("gameDoOneFrame", OFF)
-                    {
+			@profile_zone("gameDoOneFrame", OFF)
+			{
+				if(local_game.should_quit) break;
+				
+				// update game timing
+				local_game.dt       = rl::getFrameTime(); // last frame time (delta time)
+				local_game.time_sec = (float)rl::getTime();
+				local_game.time_ms  = misc::@sec2ms(local_game.time_sec);
 
-                        if(local_game.should_quit) break;
-                        
-                        // update game timing
-                        local_game.dt       = rl::getFrameTime(); // last frame time (delta time)
-                        local_game.time_sec = (float)rl::getTime();
-                        local_game.time_ms  = misc::@sec2ms(local_game.time_sec);
+				set_uniform_shader_timing(local_game.current_global_shader);
 
-						set_uniform_shader_timing(local_game.current_global_shader);
+				// NOTE(HM) for some reason this has to be here
+				// for getKeyPressed() to detect key presses! 
+				// Puting it inside of onUpdate didn't worked?!
+				local_game.last_key_pressed = rl::getKeyPressed();
+				
+				onUpdate();
+				onDraw(rl::getScreenWidth(), rl::getScreenHeight());
 
-						// NOTE(HM) for some reason this has to be here
-						// for getKeyPressed() to detect key presses! 
-						// Puting it inside of onUpdate didn't worked?!
-						local_game.last_key_pressed = rl::getKeyPressed();
-                        
-                        onUpdate();
-                        onDraw(rl::getScreenWidth(), rl::getScreenHeight());
-
-                        /*
-                        if(r_fps_unlocked.getBool() && r_max_fps.getInt() > 0)
-                        {
-                            int max_fps = r_max_fps.getInt();
-                            if(max_fps > 240) {
-                                max_fps = 240; // clamp to max 240 fps
-                            }
-                            // NOTE(HM) this will cap the framerate to the user defined value
-                            waitFrame(misc::sec2ms(1.0f / max_fps));
-                        }
-                        */
-                    }; // end @profile_zone
-                }; // tracy scope end
-           // };
+				/*
+				if(r_fps_unlocked.getBool() && r_max_fps.getInt() > 0)
+				{
+					int max_fps = r_max_fps.getInt();
+					if(max_fps > 240) {
+						max_fps = 240; // clamp to max 240 fps
+					}
+					// NOTE(HM) this will cap the framerate to the user defined value
+					waitFrame(misc::sec2ms(1.0f / max_fps));
+				}
+				*/
+			}; // end @profile_zone
         }
         $else
             /*rndbkd::@renderLoop(local_game.render) 
@@ -4348,7 +4336,7 @@ fn void doOneFrame()
                         local_game.time_sec = (float)rl::getTime();
                         local_game.time_ms  = misc::@sec2ms(local_game.time_sec);
 
-                        $if $feature(LUA_ENABLE):
+                        $if $feat(LUA_ENABLE):
                         lua::updateGameLuaGlobals();
                         $endif
 
@@ -4547,7 +4535,7 @@ fn void settings_window(MU_Context* ctx)
 
 fn void showSettingsWindow()
 {
-$if $feature(MICROUI_ENABLE):
+$if $feat(MICROUI_ENABLE):
 	if(skip_config.getBool()) return; // skip showing the settings window if the user has chosen to skip it in the settings file.
 	
     ZString font_path = rl::getApplicationDirectory().str_view().tconcat("data\\images\\mu_atlas.png").zstr_tcopy();

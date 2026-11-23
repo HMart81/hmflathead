@@ -236,7 +236,7 @@ fn void logTofile(RLTraceLogLevel level, String fmt, args...) @local @format(1)
 	// if nothing to write also do nothing
 	if(fmt.len == 0) return;
     
-//$if $feature(_DEBUG):
+//$if $feat(_DEBUG):
 	bool should_log = (level >= glevel);
 	if(should_log)
 	{

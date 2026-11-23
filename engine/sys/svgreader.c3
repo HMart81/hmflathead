@@ -29,13 +29,13 @@
 module engine::sys::reader::svg;
 
 import std::io, std::collections::list, std::io::path;
+import std::core::ascii;
 import thirdparty::library::xml;
 import engine::filesystem::fs;
 import engine::logging::log;
 import engine::misc;
 import engine::sys::ctype;
-import game::main;
-import std::core::ascii;
+import game;
 
 /* DOC(HM)
 

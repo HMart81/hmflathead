@@ -31,12 +31,13 @@
 module engine::sys::framework::language::lang @private;
 
 import std::io;
-import game::main;
-import thirdparty::raylib5::rl;
-import engine::filesystem::fs;
 import std::collections;
+import thirdparty::raylib5::rl;
 import thirdparty::library::xml;
 import engine::logging::log;
+import engine::filesystem::fs;
+import main;
+import game;
 
 faultdef MALFORMED_LANG_FILE,
          LANG_PARSING_ERROR,

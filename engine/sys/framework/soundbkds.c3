@@ -31,13 +31,14 @@ module engine::sys::framework::soundbkd @private;
 
 import std::io, std::os::win32;
 import std::collections::list;
-import game::main;
+import thirdparty::raylib5::rl;
+import thirdparty::plmpeg::plm; // for plm::PLM_AUDIO_SAMPLES_PER_FRAME
 import engine::misc;
 import engine::logging::log;
 import engine::filesystem::fs;
 import engine::assets_api::astmng;
-import thirdparty::raylib5::rl;
-import thirdparty::plmpeg::plm; // for plm::PLM_AUDIO_SAMPLES_PER_FRAME
+import main;
+import game;
 
 // signture = fn void(void* bufferdata, CUInt frames);
 alias HMAudioCallback = rl::AudioCallback;
@@ -955,10 +956,10 @@ fn void HMSoundWorld.shutdown(&self) @dynamic
     if(self.window != null) self.window = null;
 }
 
-module engine::sys::framework::backends::bkend @if($feature(BACKEND_RGFW));
+module engine::sys::framework::backends::bkend @feat($feat(BACKEND_RGFW));
 
 import std::io;
-import game::main;
+import main;
 import engine::misc;
 import engine::logging::log;
 import engine::filesystem::fs;

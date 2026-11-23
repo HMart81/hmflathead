@@ -80,10 +80,10 @@ struct XWatDirectory
 	XWatCallBackFunc callback_func;
 
 	// we need additional file descriptors (per directory basis)
-	int inotify_watch_fd @if(os::LINUX);
-	Win32_HANDLE handle @if(os::WIN32);
-	Win32_OVERLAPPED overlapped @if(os::WIN32);
-	CUInt8    *event_buffer @if(os::WIN32);
+	int inotify_watch_fd @feat(os::LINUX);
+	Win32_HANDLE handle @feat(os::WIN32);
+	Win32_OVERLAPPED overlapped @feat(os::WIN32);
+	CUInt8    *event_buffer @feat(os::WIN32);
 }
 
 struct XWatcher
@@ -93,17 +93,17 @@ struct XWatcher
 	int     thread_id;
 	bool    alive;
 
-	int inotify_fd @if(os::LINUX); // fd == file descriptor (a common UNIX thing)
+	int inotify_fd @feat(os::LINUX); // fd == file descriptor (a common UNIX thing)
 }
 
 // PRIVATE STUFF
 /*
-module engine::sys::filewatcher::fw @private @if(os::LINUX);
+module engine::sys::filewatcher::fw @private @feat(os::LINUX);
 
 import std::io, std::thread, std::atomic::types, std::os::win32, std::collections;
 import engine::filesystem::fs;
 
-const EVENT_SIZE @if(os::LINUX) = inotify_event::len;
+const EVENT_SIZE @feat(os::LINUX) = inotify_event::len;
 const BUF_LEN = (1024 * (EVENT_SIZE + 16));
 const char DIRBRK = '/';
 
@@ -236,7 +236,7 @@ const char DIRBRK = '/';
 	}
 */
 
-module engine::sys::filewatcher::fw @private @if(os::WIN32);
+module engine::sys::filewatcher::fw @private @feat(os::WIN32);
 
 import std::io, std::thread, std::atomic::types, std::os::win32, std::collections;
 import engine::filesystem::fs;

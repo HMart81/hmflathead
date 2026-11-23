@@ -39,9 +39,9 @@
 *   (but don't try storing the structs by value after that...)
 ****************************************************************/
 /*
-module buffer{Type} @private @if($feature(MUJS_ENABLE));
+module buffer{Type} @private @feat($feat(MUJS_ENABLE));
 
-struct Buffer @if($feature(MUJS_ENABLE))                                             
+struct Buffer @feat($feat(MUJS_ENABLE))                                             
 {
   Type* data;
   int count;
@@ -53,7 +53,7 @@ struct Buffer @if($feature(MUJS_ENABLE))
 // all needed fn's implementions need to be done in mujs.c3 
 // a '.c3i' is "similar" to a C '.h' and a '.c3' is akin to a '.c' file.
 // macros can be fully defined here thou
-module thirdparty::mujs @if($feature(MUJS_ENABLE));
+module thirdparty::mujs @feat(MUJS_ENABLE);
 
 import std::io;
 import engine::logging::log;
@@ -311,7 +311,7 @@ extern fn int                    ScriptEngine.refCastObject(ScriptEngine *e, voi
 extern fn LockableSharedBool *ScriptEngine.getWeakRefFlagOfScriptObject(ScriptEngine *e, void *obj, TypeInfo *type) @cname("asEngine_GetWeakRefFlagOfScriptObject");
 
 ///////////////////////////////////////////
-module thirdparty::angel::ctx @if($feature(ANGEL_ENABLE));
+module thirdparty::angel::ctx @feat($feat(ANGEL_ENABLE));
 
 // Memory management
 extern fn int  ScriptContext.addRef(ScriptContext *c) @cname("asContext_AddRef");

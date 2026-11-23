@@ -67,7 +67,7 @@ import std::io;
 import std::core::mem; // for malloc
 import std::math::vector;
 import std::collections::list;
-import game::main;
+import main;
 import engine::gui;
 import engine::sys::ui;
 import engine::misc;

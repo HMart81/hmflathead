@@ -30,7 +30,7 @@
 module game::material::mat @private;
 
 // region imports
-import game::main; // for file logging or console logging
+import main; // for file logging or console logging
 import engine::misc;
 import engine::sys::ctype;
 import engine::sys::framework::glsl;
@@ -813,7 +813,7 @@ fn void HMaterial.parse_stage(&self, XmlNode* stage_node)
                 }
 
                 stage.loadTexture(texture_path);
-                $if $feature(_DEBUG):
+                $if $feat(_DEBUG):
                     log::info(FILE, "Loaded '%s' texture '%s' for material '%s' in file '%s'", stage.kind, texture_path, self.name, self.mtrfile.path);
                 $endif
             case mtr::isMaterialNode(child, Node.PARAM):
@@ -963,7 +963,7 @@ fn void parse_stages(XmlNode* stages_node, HMaterial* mat) @public
                                 (*stage).tex = game::pContext.default_texture;
                             } else {
                                 (*stage).loadTexture(relative_texture_path);
-                                $if $feature(_DEBUG):
+                                $if $feat(_DEBUG):
                                     log::info(FILE, "Loaded texture '%s' for material '%s' in file '%s'", relative_texture_path, mat.name, mat.mtrfile.path);
                                 $endif
                             }
@@ -1428,7 +1428,7 @@ fn void HMaterial.parse_shader(&self, XmlNode* node)
 
 	self.shader = shader;
 
-	$if $feature(_DEBUG):
+	$if $feat(_DEBUG):
     	log::info(FILE, "Using shader '%s' for material '%s' in file '%s'", shader_name, self.name, self.mtrfile.path);
     $endif
 
@@ -1466,7 +1466,7 @@ fn void HMaterial.parse_shader(&self, XmlNode* node)
     if(RLShader* shader_found = astmng::pAssetsLib.getShader(shader_name))
     {
         shader = *shader_found; // use the shader from the asset manager
-        $if $feature(_DEBUG):
+        $if $feat(_DEBUG):
             log::info(FILE, "Using shader '%s' for material '%s' in file '%s'", shader_name, self.name, self.mtrfile.path);
         $endif
     }
@@ -1591,7 +1591,7 @@ module game::material::mtr @private;
 // region imports
 import game::material::mat;
 import std::io, std::math;
-import game::main; // for file logging or console logging
+import main; // for file logging or console logging
 import engine::misc;
 import engine::serialize::svs;
 import game::material::manager::mtrmng;
@@ -1853,7 +1853,7 @@ fn bool? MTRFile.parse(&self, XmlDoc* doc)
             {
                 log::warning(FILE, "Unexpected node in mtr file '%s', inside '%s' expected <%s> found <%s>", self.path, Node.ROOT, Node.MATERIAL, node.name);
             }
-            $if $feature(_DEBUG):
+            $if $feat(_DEBUG):
                 return MTR_MATERIAL_PARSING_ERROR~;
             $else
                 continue;
@@ -2018,7 +2018,7 @@ fn RLColor xmlStrColorToColor(String _value) @public
 			if(catch excuse = value)
             {
 				values[i] = 255;
-				$if $feature(_DEBUG):
+				$if $feat(_DEBUG):
 					unreachable(string::tformat("excuse = %s", excuse));
 				$endif
 			} 
@@ -2079,7 +2079,7 @@ fn RLColor xmlStrColorToColor(String _value) @public
 			if(catch excuse = value) 
             {
 				values[i] = 255;
-				$if $feature(_DEBUG):
+				$if $feat(_DEBUG):
 					unreachable(string::tformat("excuse = %s",excuse));
 				$endif
 			} 
@@ -2136,7 +2136,7 @@ module game::material::manager::mtrmng @private;
 
 // region imports
 import std::io;
-import game::main; // for file logging or console logging
+import main; // for file logging or console logging
 import engine::misc;
 import game::material::mtr, game::material::mat;
 import engine::logging::log;
@@ -2168,7 +2168,7 @@ MaterialDataBase* mtrDB @public = &local_material_db;
 
 fn void MaterialDataBase.listMTRs(&self)
 {
-    $if $feature(_DEBUG):
+    $if $feat(_DEBUG):
         if(self.data.len())
         {
             log::info(CONSOLE, "[MATERIAL FILES]");

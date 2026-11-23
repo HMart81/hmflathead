@@ -178,7 +178,7 @@ extern fn Win32_HDC getDeviceContext(Win32_HWND hWnd) @cname("GetDC");
 	@param [in] hWnd : "A handle to the window whose DC is to be released."
 	@param [in] hDC : "A handle to the DC to be released."
 *>
-extern fn int releaseDC(Win32_HWND hWnd, Win32_HDC hDC) @cname("ReleaseDC");
+macro int release_DC(Win32_HWND hWnd, Win32_HDC hDC) => releaseDC(hWnd, hDC);
 
 macro Win32_HDC @getDC(Win32_HWND hWnd; @body)
 {
@@ -217,19 +217,19 @@ Win32_BOOL bMenu) @cname("AdjustWindowRect");
 	@param wParam : ""
 	@param lParam : ""
 *>
-extern fn Win32_LRESULT sendMessageA(
+macro Win32_LRESULT send_messageA(
 Win32_HWND   hWnd,
 Win32_UINT   msg,
 Win32_WPARAM wParam,
 Win32_LPARAM lParam
-) @cname("SendMessageA");
+) => sendMessage(hWnd, msg, wParam, lParam);
 
 <*
 	https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setforegroundwindow
 	Brings the thread that created the specified window into the foreground and activates the window. 
 	@param [&in] hWnd : ""
 *>
-extern fn Win32_BOOL setForegroundWindow(Win32_HWND hWnd) @cname("SetForegroundWindow");
+macro Win32_BOOL set_foreground_window(Win32_HWND hWnd) => setForegroundWindow(hWnd);
 
 <*
 	https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setfocus
@@ -237,7 +237,7 @@ extern fn Win32_BOOL setForegroundWindow(Win32_HWND hWnd) @cname("SetForegroundW
 	The window must be attached to the calling thread's message queue.
 	@param [&in] hWnd : "optional window"
 *>
-extern fn Win32_HWND setFocus(Win32_HWND hWnd) @cname("SetFocus");
+macro Win32_HWND setfocus(Win32_HWND hWnd) => setFocus(hWnd);
 
 <*
 	@param [&inout] hWnd : "the window"
@@ -247,7 +247,7 @@ extern fn Win32_BOOL closeWindow(Win32_HWND hWnd) @cname("CloseWindow");
 <*
 	@param [&inout] hWnd : "the window"
 *>
-extern fn Win32_BOOL destroyWindow(Win32_HWND hWnd) @cname("DestroyWindow");
+macro Win32_BOOL destroy_window(Win32_HWND hWnd) => destroyWindow(hWnd);
 
 //////////
 // wingdi
@@ -257,7 +257,7 @@ extern fn Win32_BOOL destroyWindow(Win32_HWND hWnd) @cname("DestroyWindow");
 	@param [&in] hdc : "A handle to the DC."
 	@param index : "The item to be returned"
 *>
-extern fn int getDeviceCaps(Win32_HDC hdc, int index) @cname("GetDeviceCaps");
+macro int get_device_caps(Win32_HDC hdc, CInt index) => getDeviceCaps(hdc, index);
 
 <*
 	https://learn.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-createfonta

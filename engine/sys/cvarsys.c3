@@ -48,7 +48,7 @@ import engine::misc;
 import engine::logging::log;
 import engine::platform::win32;
 import thirdparty::raylib5::rl;
-import game::main;
+import main;
 import game::files::ini;
 // #endregion
 
@@ -125,7 +125,7 @@ CvarList cvars;
 macro @register(#cvar) 
 {
     cvars.push(#cvar);
-$if $feature(_DEBUG):
+$if $feat(_DEBUG):
     io::printfn("[INFO] Registered CVar %s (%s).", #cvar.name, #cvar.description);
 $endif
 }
@@ -411,7 +411,7 @@ fn CVar* CVar.set(&self, String value) @inline
 	if(isRomCvar(self)) return self;
 
     self.value = value.tcopy();
-$if $feature(_DEBUG):
+$if $feat(_DEBUG):
     if(self.flags & CvFlag.BOOL) {
         log::info(CONSOLE, "CVar %s was set to %s.", self.name, (self.value == "1" || self.value == "true") ? "true" : "false");
     } else {
@@ -423,7 +423,7 @@ $endif
 
 fn void CVar.setInt(&self, int value) @inline
 {
-$if $feature(_DEBUG):
+$if $feat(_DEBUG):
     if(!(self.flags & CvFlag.INT)) {
         log::fatal(FILE, "Trying to set non int CVar %s to int value %s.", self.name, self.value);
     }
@@ -433,7 +433,7 @@ $endif
 
 fn void CVar.setfloat(&self, float value) @inline
 {
-$if $feature(_DEBUG):
+$if $feat(_DEBUG):
     if(!(self.flags & CvFlag.FLOAT)) {
         log::fatal(FILE, "Trying to set non float CVar %s to float value %s.", self.name, self.value);
     }
@@ -445,7 +445,7 @@ fn CVar* CVar.setBool(&self, bool value) @inline
 {
 	if(isRomCvar(self)) return self;
 
-$if $feature(_DEBUG):
+$if $feat(_DEBUG):
     if(!(self.flags & CvFlag.BOOL)) {
         log::fatal(FILE, "Trying to set non bool CVar %s to bool value %s.", self.name, (self.value) ? "true" : "false");
     }

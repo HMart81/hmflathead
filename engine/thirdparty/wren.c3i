@@ -48,7 +48,7 @@
 *   delete them yourself and alias them to a void* to cut on code compilation time. 
 *   (but don't try storing the structs by value after that...)
 ****************************************************************/
-module thirdparty::wren @if($feature(WREN_ENABLE));
+module thirdparty::wren @feat(WREN_ENABLE);
 
 struct WrenBuffer <Type>                                                  
 {

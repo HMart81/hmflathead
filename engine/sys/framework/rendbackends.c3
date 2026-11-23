@@ -27,7 +27,7 @@
 *********************************************************************************************************************************************/
 /* UNFINISHED BACKEND INTERFACE */
 
-module engine::sys::framework::rendbackends::rndbkd @if($feature(BACKEND_RAYLIB));
+module engine::sys::framework::rendbackends::rndbkd @feat(BACKEND_RAYLIB);
 
 import std::io, std::os::win32;
 import engine::misc;
@@ -35,7 +35,7 @@ import engine::sys::ctype;
 import engine::filesystem::fs;
 import engine::logging::log;
 import game::assets::sprite;
-import game::main;
+import main;
 import thirdparty::raylib5::rl; 
 
 faultdef WINDOW_CREATION_FAILED, 
@@ -254,10 +254,10 @@ fn void BackendRender.shutdown(&self) @dynamic
     if(self.window != null) self.window = null;
 }
 
-module engine::sys::framework::vidbackends::rndbkd @if($feature(BACKEND_RGFW));
+module engine::sys::framework::vidbackends::rndbkd @feat(BACKEND_RGFW);
 
 import std::io;
-import game::main;
+import main;
 import engine::misc;
 import engine::logging::log;
 import engine::filesystem::fs;

@@ -5,7 +5,7 @@ module game::assets::mat;
 import std::io, std::string;
 import std::core::mem; // for malloc
 import std::collections::list;
-import game::main;
+import main;
 import engine::input;
 import raylib5::rl;
 import engine::serialize::svs; // save system

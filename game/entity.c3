@@ -74,8 +74,8 @@ constdef EntTh : inline int
 const MIN_VISUAL_SIZE_VALUE @if(game::UNITS == Units.PIXEL) @Hardcode = 1;
 const MIN_VISUAL_SIZE_VALUE @if(game::UNITS == Units.METER) @Hardcode = 0.10f; // 10 cm
 
-const MIN_PHYSICS_SIZE_VALUE @if($feature(PHYSICS_BOX2D) && game::UNITS == Units.METER) @Hardcode = MIN_VISUAL_SIZE_VALUE;
-//const Vec2f MIN_ENTITY_PHYSICS_SIZE @if($feature(PHYSICS_BOX2D)) = {MIN_PHYSICS_SIZE_VALUE, MIN_PHYSICS_SIZE_VALUE};
+const MIN_PHYSICS_SIZE_VALUE @if($defined(PHYSICS_BOX2D) &&& @if(game::UNITS == Units.METER)) @Hardcode = MIN_VISUAL_SIZE_VALUE;
+//const Vec2f MIN_ENTITY_PHYSICS_SIZE @feat(PHYSICS_BOX2D)) = {MIN_PHYSICS_SIZE_VALUE, MIN_PHYSICS_SIZE_VALUE};
 
 const Vec2i MIN_ENTITY_VISUAL_SIZE  = {MIN_VISUAL_SIZE_VALUE, MIN_VISUAL_SIZE_VALUE};
 
@@ -89,10 +89,10 @@ const int DEFAULT_SIZE_Y @if(game::UNITS == Units.PIXEL) = 100;  // px
 alias TargetList = List{HMEntity*}; // list of entities that are targets for this entity
 
 // WORK_IN_PROGRESS!!
-const EventDef EV_ENTITY_GET_NAME @if($defined(event::ENABLE_EVENTS)) @local = {"getName", "p", 's'}; 
-const EventDef EV_ENTITY_GET_ID @if($defined(event::ENABLE_EVENTS)) @local = {"getID", "p", 'i'};
+const EventDef EV_ENTITY_GET_NAME @if(event::ENABLE_EVENTS) @local = {"getName", "p", 's'}; 
+const EventDef EV_ENTITY_GET_ID @if(event::ENABLE_EVENTS) @local = {"getID", "p", 'i'};
 
-const EventFunc[*] ENTITY_EVENTS @if($defined(event::ENABLE_EVENTS)) = {
+const EventFunc[*] ENTITY_EVENTS @if(event::ENABLE_EVENTS) = {
 	{&EV_ENTITY_GET_NAME, &ent::event_getName},
 	{&EV_ENTITY_GET_ID, &ent::event_getID},
 };
@@ -111,7 +111,7 @@ struct HMEntity (SaveSystemInterface)
     HMEntity* parent;
 	TargetList targets; // list of other entities that are targets for this entity, activated in certain situations
     // physics
-    B2BodyId physics @if($feature(PHYSICS_BOX2D));
+    B2BodyId physics @feat(PHYSICS_BOX2D);
     //
 	Move_Dir move_dir; // mostly used for the player entity
 	int health; // should all entities have a health value?
@@ -208,11 +208,11 @@ fn void HMEntity.init(&self, String aname, Vec2f origin, Vec2f size)
 	self.super_type = self.type;
 	self.type = HMEntity;
     
-$if $feature(_DEBUG):
+$if $feat(_DEBUG):
 	log::info(FILE, "Created entity-> %s.", self.name);
 $endif
     
-	$if $feature(PHYSICS_BOX2D):
+	$if $feat(PHYSICS_BOX2D):
 	// make sure theres no previous physics body
 	assert(self.physics.isValid() == false);
     // define the body
@@ -301,7 +301,7 @@ fn void HMEntity.unbind(&self)
 
 fn Vec2f HMEntity.getPosition(&self) @inline
 {
-	$if $feature(PHYSICS_BOX2D):
+	$if $feat(PHYSICS_BOX2D):
 	return self.physics.getPosition();
 	$else
 	return self.super.getPosition();
@@ -702,7 +702,7 @@ fn void HMEntity.move(&self)
 	if(self.hidden()) return;
 	if(self.isDead()) return;
 
-	$if $feature(PHYSICS_BOX2D):
+	$if $feat(PHYSICS_BOX2D):
     // update visuals based on physics movement
     // && box2d::body_GetType(self.physics) == box2d::DYNAMIC
     if(((Vec2f)self.physics.getLinearVelocity()).length() > 0.0f ) {
@@ -730,7 +730,7 @@ fn void HMEntity.think(&self, float dt) // update in other engines
 {
     if(self.thinkflags & EntTh.THINK)
     {
-		$if $feature(TRACY_ENABLE):
+		$if $feat(TRACY_ENABLE):
 			tracy::@zoneN("HMEntity.think", 1)
 			{
 				self.move();
@@ -913,7 +913,7 @@ fn void cloneEntity( HMEntity* dest, HMEntity* src )
 ///////////////////////////////////
 /// HMEntity script events
 ///////////////////////////////////
-fn void event_getName(UmkaStackSlot *params, UmkaStackSlot *result) @if($feature(UMKA_ENABLE))
+fn void event_getName(UmkaStackSlot *params, UmkaStackSlot *result) @feat(UMKA_ENABLE)
 {
 	//HMEntity *ent = (HMEntity *)umkaGetParam(params, 0);
 	//@todo();
@@ -924,7 +924,7 @@ fn void event_getName(UmkaStackSlot *params, UmkaStackSlot *result) @if($feature
     api.umkaGetResult(params, result).ptrVal = api.umkaMakeStr(umk, ent.name.zstr_tcopy());
 }
 
-fn void event_getID(UmkaStackSlot *params, UmkaStackSlot *result) @if($feature(UMKA_ENABLE))
+fn void event_getID(UmkaStackSlot *params, UmkaStackSlot *result) @feat(UMKA_ENABLE)
 {
 	Umka *umk = umka::getInstance(result);
     UmkaAPI *api = umk.getAPI();
@@ -937,7 +937,7 @@ fn void event_getID(UmkaStackSlot *params, UmkaStackSlot *result) @if($feature(U
 /// HMEntity script callbacks
 ///////////////////////////////////
 
-fn void getMinc(WrenVM* vm) @if($feature(WREN_ENABLE))
+fn void getMinc(WrenVM* vm) @feat(WREN_ENABLE)
 {
 	vm.ensureSlots(1); // slot 0 is the caller (and return slot), slots after that are the fn arguments slots
 	HMEntity* ent = (HMEntity*)vm.getSlotForeign(0);
@@ -946,7 +946,7 @@ fn void getMinc(WrenVM* vm) @if($feature(WREN_ENABLE))
 	vm.setSlotHandle(0, &handle);
 }
 
-fn void getMaxc(WrenVM* vm) @if($feature(WREN_ENABLE))
+fn void getMaxc(WrenVM* vm) @feat(WREN_ENABLE)
 {
 	vm.ensureSlots(1); // slot 0 is the caller (and return slot), slots after that are the fn arguments slots
 	HMEntity* ent = (HMEntity*)vm.getSlotForeign(0);
@@ -1074,8 +1074,8 @@ fn void ECSEntityManager.add_component(String name, typeid type, ECSEntity* enti
 			component.data.ptr = mem::new(Vec2f, {0.0f, 0.0f}); // default value for Vec2f
 		case Vec2i.typeid:
 			component.data.ptr = mem::new(Vec2i, {0, 0}); // default value for Vec2i
-		case Bounds.typeid:
-			component.data.ptr = mem::new(Bounds, {Vec2f{0.0f, 0.0f}, Vec2f{0.0f, 0.0f}}); // default value for Bounds
+		case HMBounds.typeid:
+			component.data.ptr = mem::new(HMBounds, {Vec2f{0.0f, 0.0f}, Vec2f{0.0f, 0.0f}}); // default value for HMBounds
 		case B2BodyId.typeid:
 			component.data.ptr = mem::new(B2BodyId, {0}); // default value for B2BodyId
 		case HMSprite.typeid:	

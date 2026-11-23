@@ -35,7 +35,7 @@ import std::math;
 import std::collections, std::collections::list;
 import engine::logging::log;
 import engine::physics::box2d;
-import game::main;
+import main;
 import game::actors::ent::plyr; // player
 import game::camview;
 import thirdparty::raylib5::rl;
@@ -91,8 +91,8 @@ fn Type? selectRandomValid(Type[] items, Predicate{Type} is_valid) <Type>
 	return best_thing;
 }
 
-attrdef  @MyInline @if($feature(_RELEASE)) = @inline;
-attrdef  @MyInline @if($feature(_DEBUG));
+attrdef  @MyInline @feat(_RELEASE) = @inline;
+attrdef  @MyInline @feat(_DEBUG);
 
 // used to mark functions that are performance critical
 const WARN_PERFORMANCE = 1;
@@ -101,7 +101,7 @@ macro @performance($f) @builtin @if($defined(WARN_PERFORMANCE))
 	$echo @sprintf("Performance warning: heavy function: '%s'", $f);
 	return true;
 }
-attrdef @Performance(f) @if($defined(WARN_PERFORMANCE)) = @if(@performance(f)); 
+attrmacro @Performance(f) @if($defined(WARN_PERFORMANCE)) = @if(@performance(f)); 
 
 const ON  @builtin = 1;
 const OFF @builtin = 2;
@@ -157,7 +157,7 @@ macro fourcc(string) {
 
 macro @todo($a = "Not yet implemented!") @builtin
 {
-    $if $feature(_DEBUG):
+    $if $feat(_DEBUG):
         unreachable("TODO(HM) func \"%s:%s\" ==> %s", $$FUNC, $$LINE, $a);
     $endif
 }
@@ -562,25 +562,25 @@ macro Vec2f Matrix3f.multiply(&self, Vec2f v) {
 
 // region box2d non exported functions
 /// Make a rotation using an angle in radians
-fn B2Rot makeRot(float radians) @inline @if($feature(PHYSICS_BOX2D))
+fn B2Rot makeRot(float radians) @inline @feat(PHYSICS_BOX2D)
 {
 	B2CosSin cs = box2d::computeCosSin( radians );
 	return (B2Rot){ cs.cosine, cs.sine };
 }
 
-fn B2Vec2 mulAdd( B2Vec2 a, float s, B2Vec2 b ) @inline @if($feature(PHYSICS_BOX2D))
+fn B2Vec2 mulAdd( B2Vec2 a, float s, B2Vec2 b ) @inline @feat(PHYSICS_BOX2D)
 {
 	return (B2Vec2){ a[0] + s * b[0], a[1] + s * b[1] };
 }
 
 /// Get the angle in radians in the range [-pi, pi]
-fn float rot_GetAngle( B2Rot q ) @if($feature(PHYSICS_BOX2D)) => box2d::atan2( q.s, q.c );
+fn float rot_GetAngle( B2Rot q ) @feat(PHYSICS_BOX2D) => box2d::atan2( q.s, q.c );
 
 /// Get the x-axis
-fn B2Vec2 rot_GetXAxis( B2Rot q ) @if($feature(PHYSICS_BOX2D)) => (B2Vec2) { q.c, q.s };
+fn B2Vec2 rot_GetXAxis( B2Rot q ) @feat(PHYSICS_BOX2D) => (B2Vec2) { q.c, q.s };
 
 /// Get the y-axis
-fn B2Vec2 rot_GetYAxis( B2Rot q ) @if($feature(PHYSICS_BOX2D)) => (B2Vec2) { -q.s, q.c };
+fn B2Vec2 rot_GetYAxis( B2Rot q ) @feat(PHYSICS_BOX2D) => (B2Vec2) { -q.s, q.c };
 // end_region
 
 
@@ -593,7 +593,7 @@ macro Vec2f RLRectangle.getScreenPos(self) => worldToScreen(self.getPosition());
 // the camera is never moved around, as world coords and camera coords
 // are very similar only the center/origin changed.
 // UNTESTED!!!!!!!!!!!!!!!!!!!!!
-fn Vec2f RLRectangle.getPosCameraCoords(&self) @if ($defined(camview::ENABLE_CAMERA_VIEW))
+fn Vec2f RLRectangle.getPosCameraCoords(&self) @if($defined(camview::ENABLE_CAMERA_VIEW))
 {
     Vec2f world_origin   = {0, 0};
     Vec2f cam_org        = game::pContext.view.camera.target;

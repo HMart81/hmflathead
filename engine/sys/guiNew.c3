@@ -39,7 +39,7 @@ import game::material::mat;
 import game::material::manager::mtrmng;
 import engine::assets_api::astmng; // asset manager
 import engine::logging::log;
-import game::main;
+import main;
 import game::camview;
 import game::actors::ent;
 import engine::serialize::svs; // save system
@@ -247,7 +247,7 @@ fn void UIRectangle.reload(&self, SaveFile* file) @dynamic
 
 fn sz? UIRectangle.to_format(&self, Formatter* f) @dynamic 
 {
-    $if $feature(_DEBUG):
+    $if $feat(_DEBUG):
     	@todo();
 	$else
 		return 0;
@@ -1685,7 +1685,7 @@ module engine::gui::window::uiwin;
 
 import thirdparty::raylib5::rl;
 import engine::misc;
-import game::main;
+import main;
 import engine::serialize::svs;
 import std::collections::list;
 import engine::logging::log;
@@ -2376,7 +2376,7 @@ import thirdparty::raylib5::rl;
 import engine::gui::window::uiwin;
 import thirdparty::raygui5::rgui;
 import engine::logging::log;
-import game::main;
+import main;
 import engine::misc;
 //import engine::serialize::svs;
 //import std::collections::list;
